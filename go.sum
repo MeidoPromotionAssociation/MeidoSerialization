@@ -1,0 +1,6 @@
+github.com/emmansun/base64 v0.7.0 h1:fMZZM1oLD8gw7LvgWDNag1o/lOzCGZJLpC+41qNJo+o=
+github.com/emmansun/base64 v0.7.0/go.mod h1:Czh5fnzzJRyZdo/1kFcNa92BGYW/IZ1T5JGeJvl74kk=
+golang.org/x/sys v0.31.0 h1:ioabZlmFYtWhL+TRYpcnNlLwhyxaM9kWTDEmfnprqik=
+golang.org/x/sys v0.31.0/go.mod h1:BJP2sWEmIv4KK5OTEluFJCKSidICx8ciO85XgH3Ak8k=
+golang.org/x/sys v0.32.0 h1:s77OFDvIQeibCmezSnk/q6iAfkdiQaJi4VzroCFrN20=
+golang.org/x/sys v0.32.0/go.mod h1:BJP2sWEmIv4KK5OTEluFJCKSidICx8ciO85XgH3Ak8k=
