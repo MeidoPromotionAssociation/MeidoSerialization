@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/tools"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
 	"os"
 	"path/filepath"
 	"strings"
