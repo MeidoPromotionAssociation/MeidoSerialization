@@ -163,8 +163,6 @@ func PeekString(rs io.ReadSeeker) (string, error) {
 		return "", err
 	}
 
-	fmt.Printf("PeekString str: %s\n", str)
-
 	// 读完后回退到之前的位置
 	_, err = rs.Seek(startPos, io.SeekStart)
 	if err != nil {
