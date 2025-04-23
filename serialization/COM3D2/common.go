@@ -25,6 +25,10 @@ const (
 	AnmVersion             = 1001
 	ModelSignature         = "CM3D2_MESH"
 	ModelVersion           = 2001
+	PresetSignature        = "CM3D2_PRESET"
+	PresetVersion          = 24301
+	SaveSignature          = "COM3D2_SAVE"
+	SaveVersion            = 24301
 	SkinThicknessSignature = "SkinThickness"
 	SkinThicknessVersion   = 100
 	endByte                = 0x00
