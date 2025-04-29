@@ -2,34 +2,17 @@ package COM3D2
 
 import (
 	"bufio"
-	"encoding/base64"
 	"fmt"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
+	"github.com/emmansun/base64" // use faster base64 implementation
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 // TexService 专门处理 .tex 文件的读写
-type TexService struct {
-	// you can choose any encoder you like
-	// example:
-	// Base64Encoder: emmansun.NewBase64Encoder(), // github.com/emmansun/base64
-	// Base64Encoder: base64.StdEncoding, // golang.org/x/encoding/base64
-	Base64StdEncoder Base64StdEncoder
-}
-
-// Base64StdEncoder 定义一个接口，用于将字节切片编码为 Base64 字符串
-type Base64StdEncoder interface {
-	EncodeToString([]byte) string
-}
-
-func NewTexService() *TexService {
-	return &TexService{
-		Base64StdEncoder: base64.StdEncoding,
-	}
-}
+type TexService struct{}
 
 // ReadTexFile 读取 .tex 文件并返回对应结构体
 func (t *TexService) ReadTexFile(path string) (*COM3D2.Tex, error) {
@@ -90,7 +73,7 @@ func (t *TexService) CovertTexToImage(inputPath string, forcePng bool) (covertTe
 	}
 	fmt.Println("imageData", imageData)
 
-	covertTexToImageResult.Base64EncodedImageData = t.Base64StdEncoder.EncodeToString(imageData)
+	covertTexToImageResult.Base64EncodedImageData = base64.StdEncoding.EncodeToString(imageData)
 	covertTexToImageResult.Format = format
 	covertTexToImageResult.Rects = rects
 	return covertTexToImageResult, nil
@@ -162,7 +145,7 @@ func (t *TexService) ConvertAnyToPng(inputPath string) (Base64EncodedPngData str
 		if err != nil {
 			return "", err
 		}
-		return t.Base64StdEncoder.EncodeToString(imageData), nil
+		return base64.StdEncoding.EncodeToString(imageData), nil
 	}
 }
 
