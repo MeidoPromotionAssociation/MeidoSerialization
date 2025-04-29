@@ -147,6 +147,15 @@ func (m *ModelService) ReadModelMaterial(path string) ([]*COM3D2.Material, error
 	}
 	defer f.Close()
 
+	if strings.HasSuffix(path, ".json") {
+		decoder := json.NewDecoder(f)
+		modelData := &COM3D2.Model{}
+		if err := decoder.Decode(modelData); err != nil {
+			return nil, fmt.Errorf("failed to read.model.json file: %w", err)
+		}
+		return modelData.Materials, nil
+	}
+
 	var rs io.ReadSeeker = f
 	modelData, err := COM3D2.ReadModel(rs)
 	if err != nil {
@@ -165,63 +174,66 @@ func (m *ModelService) WriteModelMaterial(inputPath string, outputPath string, m
 		return fmt.Errorf("cannot open .model file: %w", err)
 	}
 	defer f.Close()
-	var rs io.ReadSeeker = f
-	modelData, err := COM3D2.ReadModel(rs)
-	if err != nil {
-		return fmt.Errorf("parsing the .model file failed: %w", err)
+
+	var modelData *COM3D2.Model
+
+	if strings.HasSuffix(inputPath, ".json") {
+		decoder := json.NewDecoder(f)
+		modelData = &COM3D2.Model{}
+		if err = decoder.Decode(modelData); err != nil {
+			return fmt.Errorf("failed to read.model.json file: %w", err)
+		}
+	} else {
+		var rs io.ReadSeeker = f
+		modelData, err = COM3D2.ReadModel(rs)
+		if err != nil {
+			return fmt.Errorf("parsing the .model file failed: %w", err)
+		}
 	}
 
 	modelData.Materials = materials
 
-	f, err = os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("unable to create .model file: %w", err)
-	}
-	defer f.Close()
-	bw := bufio.NewWriter(f)
-	if err := modelData.Dump(bw); err != nil {
-		return fmt.Errorf("failed to write to .model file: %w", err)
-	}
-	if err := bw.Flush(); err != nil {
-		return fmt.Errorf("an error occurred while flush bufio: %w", err)
-	}
-	return nil
+	return m.WriteModelFile(outputPath, modelData)
 }
 
 // ConvertModelToJson 接收输入文件路径和输出文件路径，将输入文件转换为 .json 文件
 func (m *ModelService) ConvertModelToJson(inputPath string, outputPath string) error {
+	// 处理输出路径
 	if strings.HasSuffix(outputPath, ".model") {
 		outputPath = strings.TrimSuffix(outputPath, ".model") + ".model.json"
 	}
 
-	f, err := os.Open(inputPath)
+	// 读取输入文件
+	modelData, err := m.ReadModelFile(inputPath)
 	if err != nil {
-		return fmt.Errorf("cannot open .model file: %w", err)
-	}
-	defer f.Close()
-	var rs io.ReadSeeker = f
-	modelData, err := COM3D2.ReadModel(rs)
-	if err != nil {
-		return fmt.Errorf("parsing the .model file failed: %w", err)
+		return fmt.Errorf("failed to read model file: %w", err)
 	}
 
-	marshal, err := json.Marshal(modelData)
+	// 转换为 JSON
+	jsonData, err := json.Marshal(modelData)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal model data: %w", err)
 	}
 
-	f, err = os.Create(outputPath)
+	// 写入输出文件
+	f, err := os.Create(outputPath)
 	if err != nil {
 		return fmt.Errorf("unable to create model.json file: %w", err)
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("error closing output file: %w", closeErr)
+		}
+	}()
+
 	bw := bufio.NewWriter(f)
-	if _, err := bw.Write(marshal); err != nil {
+	if _, err := bw.Write(jsonData); err != nil {
 		return fmt.Errorf("failed to write to model.json file: %w", err)
 	}
 	if err := bw.Flush(); err != nil {
 		return fmt.Errorf("an error occurred while flush bufio: %w", err)
 	}
+
 	return nil
 }
 
