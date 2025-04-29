@@ -21,10 +21,10 @@ func (m *ModelService) ReadModelFile(path string) (*COM3D2.Model, error) {
 	}
 	defer f.Close()
 
-	if strings.HasSuffix(path,".json") {
+	if strings.HasSuffix(path, ".json") {
 		decoder := json.NewDecoder(f)
 		modelData := &COM3D2.Model{}
-		if err := decoder.Decode(modelData); err!= nil {
+		if err := decoder.Decode(modelData); err != nil {
 			return nil, fmt.Errorf("failed to read .model.json file: %w", err)
 		}
 		return modelData, nil
@@ -47,13 +47,13 @@ func (m *ModelService) WriteModelFile(outputPath string, modelData *COM3D2.Model
 	}
 	defer f.Close()
 
-	if strings.HasSuffix(outputPath,".json") {
+	if strings.HasSuffix(outputPath, ".json") {
 		marshal, err := json.Marshal(modelData)
-		if err!= nil {
+		if err != nil {
 			return err
 		}
 		_, err = f.Write(marshal)
-		if err!= nil {
+		if err != nil {
 			return fmt.Errorf("failed to write to .model.json file: %w", err)
 		}
 		return nil
@@ -69,8 +69,75 @@ func (m *ModelService) WriteModelFile(outputPath string, modelData *COM3D2.Model
 	return nil
 }
 
+// ReadModelMetadata 读取.model 文件，但只返回其中的元数据
+func (m *ModelService) ReadModelMetadata(path string) (*COM3D2.ModelMetadata, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("cannot open .model file: %w", err)
+	}
+	defer f.Close()
 
+	var modelData *COM3D2.Model
 
+	if strings.HasSuffix(path, ".json") {
+		decoder := json.NewDecoder(f)
+		modelData = &COM3D2.Model{}
+		if err = decoder.Decode(modelData); err != nil {
+			return nil, fmt.Errorf("failed to read .model.json file: %w", err)
+		}
+	} else {
+		var rs io.ReadSeeker = f
+		modelData, err = COM3D2.ReadModel(rs)
+		if err != nil {
+			return nil, fmt.Errorf("parsing the .model file failed: %w", err)
+		}
+	}
+
+	return &COM3D2.ModelMetadata{
+		Signature:         modelData.Signature,
+		Version:           modelData.Version,
+		Name:              modelData.Name,
+		RootBoneName:      modelData.RootBoneName,
+		ShadowCastingMode: modelData.ShadowCastingMode,
+		Materials:         modelData.Materials,
+	}, nil
+}
+
+// WriteModelMetadata 将元数据写入现有的 .model 文件
+func (m *ModelService) WriteModelMetadata(inputPath string, outputPath string, metadata *COM3D2.ModelMetadata) error {
+	f, err := os.Open(inputPath)
+	if err != nil {
+		return fmt.Errorf("cannot open .model file: %w", err)
+	}
+	defer f.Close()
+
+	var modelData *COM3D2.Model
+
+	if strings.HasSuffix(inputPath, ".json") {
+		decoder := json.NewDecoder(f)
+		modelData = &COM3D2.Model{}
+		if err = decoder.Decode(modelData); err != nil {
+			return fmt.Errorf("failed to read .model.json file: %w", err)
+		}
+	} else {
+		var rs io.ReadSeeker = f
+		modelData, err = COM3D2.ReadModel(rs)
+		if err != nil {
+			return fmt.Errorf("parsing the .model file failed: %w", err)
+		}
+	}
+
+	// 合并元数据
+	modelData.Signature = metadata.Signature
+	modelData.Version = metadata.Version
+	modelData.Name = metadata.Name
+	modelData.RootBoneName = metadata.RootBoneName
+	modelData.ShadowCastingMode = metadata.ShadowCastingMode
+	modelData.Materials = metadata.Materials
+
+	// 写入文件
+	return m.WriteModelFile(outputPath, modelData)
+}
 
 // ReadModelMaterial 读取 .model 文件，但只返回其中的材质数据
 func (m *ModelService) ReadModelMaterial(path string) ([]*COM3D2.Material, error) {
@@ -123,8 +190,8 @@ func (m *ModelService) WriteModelMaterial(inputPath string, outputPath string, m
 
 // ConvertModelToJson 接收输入文件路径和输出文件路径，将输入文件转换为 .json 文件
 func (m *ModelService) ConvertModelToJson(inputPath string, outputPath string) error {
-	if strings.HasSuffix(outputPath,".model") {
-		outputPath = strings.TrimSuffix(outputPath,".model") + ".model.json"
+	if strings.HasSuffix(outputPath, ".model") {
+		outputPath = strings.TrimSuffix(outputPath, ".model") + ".model.json"
 	}
 
 	f, err := os.Open(inputPath)
@@ -160,8 +227,8 @@ func (m *ModelService) ConvertModelToJson(inputPath string, outputPath string) e
 
 // ConvertJsonToModel 接收输入文件路径和输出文件路径，将输入文件转换为 .model 文件
 func (m *ModelService) ConvertJsonToModel(inputPath string, outputPath string) error {
-	if strings.HasSuffix(outputPath,".json") {
-		outputPath = strings.TrimSuffix(outputPath,".json") + ".model"
+	if strings.HasSuffix(outputPath, ".json") {
+		outputPath = strings.TrimSuffix(outputPath, ".json") + ".model"
 	}
 
 	f, err := os.Open(inputPath)

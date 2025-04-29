@@ -41,7 +41,7 @@ import (
 // 未知
 
 // Model 对应 .model 文件
-// aka 皮肤网格文件结构 SkinMesh
+// 也称作 SkinMesh 皮肤网格
 type Model struct {
 	Signature         string         `json:"Signature"`                   // "CM3D2_MESH"
 	Version           int32          `json:"Version"`                     // 2001
@@ -130,6 +130,20 @@ type ThickPoint struct {
 	TargetBoneName         string              `json:"TargetBoneName"`         // 目标骨骼名称
 	RatioSegmentStartToEnd float32             `json:"RatioSegmentStartToEnd"` // 起始到结束的比例
 	DistanceParAngle       []*ThickDefPerAngle `json:"DistanceParAngle"`       // 距离和角度定义
+}
+
+// ModelMetadata 表示模型的元数据
+// 不包含模型的 3D 信息，只包含模型的文本信息
+// 例如模型名称、根骨骼名称、材质名称等
+// 用于编辑一些模型的文本属性
+// 修改后需要与原模型文件合并
+type ModelMetadata struct {
+	Signature         string      `json:"Signature"`                   // "CM3D2_MESH"
+	Version           int32       `json:"Version"`                     // 2001
+	Name              string      `json:"Name"`                        // 模型名称
+	RootBoneName      string      `json:"RootBoneName"`                // 根骨骼名称
+	ShadowCastingMode *string     `json:"ShadowCastingMode,omitempty"` // 定义如何投射阴影，Unity 的 ShadowCastingMode 的字符串表示（版本 2104 +且小于 2200）
+	Materials         []*Material `json:"Materials"`                   // 材质数据
 }
 
 // ThickDefPerAngle 表示每个角度的皮肤厚度定义
