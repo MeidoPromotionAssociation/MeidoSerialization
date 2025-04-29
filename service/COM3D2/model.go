@@ -127,7 +127,6 @@ func (m *ModelService) WriteModelMetadata(inputPath string, outputPath string, m
 		}
 	}
 
-	// 合并元数据
 	modelData.Signature = metadata.Signature
 	modelData.Version = metadata.Version
 	modelData.Name = metadata.Name
@@ -135,7 +134,6 @@ func (m *ModelService) WriteModelMetadata(inputPath string, outputPath string, m
 	modelData.ShadowCastingMode = metadata.ShadowCastingMode
 	modelData.Materials = metadata.Materials
 
-	// 写入文件
 	return m.WriteModelFile(outputPath, modelData)
 }
 
@@ -198,24 +196,20 @@ func (m *ModelService) WriteModelMaterial(inputPath string, outputPath string, m
 
 // ConvertModelToJson 接收输入文件路径和输出文件路径，将输入文件转换为 .json 文件
 func (m *ModelService) ConvertModelToJson(inputPath string, outputPath string) error {
-	// 处理输出路径
 	if strings.HasSuffix(outputPath, ".model") {
 		outputPath = strings.TrimSuffix(outputPath, ".model") + ".model.json"
 	}
 
-	// 读取输入文件
 	modelData, err := m.ReadModelFile(inputPath)
 	if err != nil {
 		return fmt.Errorf("failed to read model file: %w", err)
 	}
 
-	// 转换为 JSON
 	jsonData, err := json.Marshal(modelData)
 	if err != nil {
 		return fmt.Errorf("failed to marshal model data: %w", err)
 	}
 
-	// 写入输出文件
 	f, err := os.Create(outputPath)
 	if err != nil {
 		return fmt.Errorf("unable to create model.json file: %w", err)
