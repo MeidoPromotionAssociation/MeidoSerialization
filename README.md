@@ -30,6 +30,8 @@ currently supports CM3D2 and COM3D2 game file formats.
 | .anm      | Animation files       | All versions       | No structural changes so far                                               |
 | .model    | Model files           | Versions 1000-2200 |                                                                            |
 
+Each file corresponds to a .go file：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2)
+
 ### References
 
 - This library was originally developed for the [COM3D2_MOD_EDITOR](https://github.com/90135/COM3D2_MOD_EDITOR) project and was later made independent for easier use. You can also refer to that project for usage examples.
@@ -193,6 +195,8 @@ MeidoSerialization 是一个用 Golang 编写的序列化库，专为处理 KISS
 | .tex   | 纹理文件   | 1000-1011 版本 | 不支持写出 1000 版本，并不是做不到，而是我不想做 |
 | .anm   | 动画文件   | 所有版本         | 目前未发生过结构更改                       |
 | .model | 模型文件   | 1000-2200 版本 |                             |
+
+每种文件对应一个 .go 文件：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2)
 
 ### 参考
 
