@@ -18,17 +18,17 @@ currently supports CM3D2 and COM3D2 game file formats.
 
 ### Supported File Types
 
-| Extension | Description           | Version Support    | Note                      |
-|-----------|-----------------------|--------------------|---------------------------|
-| .menu     | Menu files            | All versions       |                           |
-| .mate     | Material files        | All versions       |                           |
-| .pmat     | Rendering order files | All versions       |                           |
-| .col      | Collider files        | All versions       |                           |
-| .phy      | Physics files         | All versions       |                           |
-| .psk      | Panier skirt files    | All versions       |                           |
-| .tex      | Texture files         | Versions 1000-1011 | Cannot write version 1000 |
-| .anm      | Animation files       | All versions       |                           |
-| .model    | Model files           | Versions 1000-2200 |                           |
+| Extension | Description           | Version Support    | Note                                                                       |
+|-----------|-----------------------|--------------------|----------------------------------------------------------------------------|
+| .menu     | Menu files            | All versions       | No structural changes so far                                               |
+| .mate     | Material files        | All versions       | No structural changes so far, but there are some 2.5-only features         |
+| .pmat     | Rendering order files | All versions       | No structural changes so far                                               |
+| .col      | Collider files        | All versions       | No structural changes so far                                               |
+| .phy      | Physics files         | All versions       | No structural changes so far                                               |
+| .psk      | Panier skirt files    | All versions       |                                                                            |
+| .tex      | Texture files         | All versions       | Cannot write version 1000, not that can't do it, it's that I don't want to |
+| .anm      | Animation files       | All versions       | No structural changes so far                                               |
+| .model    | Model files           | Versions 1000-2200 |                                                                            |
 
 ### References
 
@@ -182,17 +182,17 @@ MeidoSerialization 是一个用 Golang 编写的序列化库，专为处理 KISS
 
 ### 支持的文件类型
 
-| 扩展名    | 描述     | 版本支持         | 备注            |
-|--------|--------|--------------|---------------|
-| .menu  | 菜单文件   | 所有版本         |               |
-| .mate  | 材质文件   | 所有版本         |               |
-| .pmat  | 渲染顺序文件 | 所有版本         |               |
-| .col   | 碰撞体文件  | 所有版本         |               |
-| .phy   | 物理文件   | 所有版本         |               |
-| .psk   | 裙撑文件   | 所有版本         |               |
-| .tex   | 纹理文件   | 1000-1011 版本 | 不支持写出 1000 版本 |
-| .anm   | 动画文件   | 所有版本         |               |
-| .model | 模型文件   | 1000-2200 版本 |               |
+| 扩展名  | 描述     | 版本支持         | 备注                          |
+|--------|--------|--------------|--------------------------------------|
+| .menu  | 菜单文件   | 所有版本         | 目前未发生过结构更改                  |
+| .mate  | 材质文件   | 所有版本         | 目前未发生过结构更改                  |
+| .pmat  | 渲染顺序文件 | 所有版本         | 目前未发生过结构更改                  |
+| .col   | 碰撞体文件  | 所有版本         | 目前未发生过结构更改                  |
+| .phy   | 物理文件   | 所有版本         | 目前未发生过结构更改                  |
+| .psk   | 裙撑文件   | 所有版本         |                                     |
+| .tex   | 纹理文件   | 1000-1011 版本 | 不支持写出 1000 版本，并不是做不到，而是我不想做 |
+| .anm   | 动画文件   | 所有版本         | 目前未发生过结构更改                       |
+| .model | 模型文件   | 1000-2200 版本 |                             |
 
 ### 参考
 
