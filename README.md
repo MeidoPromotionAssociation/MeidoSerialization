@@ -18,17 +18,20 @@ currently supports CM3D2 and COM3D2 game file formats.
 
 ### Supported File Types
 
-| Extension | Description           | Version Support    | Note                                                                       |
-|-----------|-----------------------|--------------------|----------------------------------------------------------------------------|
-| .menu     | Menu files            | All versions       | No structural changes so far                                               |
-| .mate     | Material files        | All versions       | No structural changes so far, but there are some 2.5-only features         |
-| .pmat     | Rendering order files | All versions       | No structural changes so far                                               |
-| .col      | Collider files        | All versions       | No structural changes so far                                               |
-| .phy      | Physics files         | All versions       | No structural changes so far                                               |
-| .psk      | Panier skirt files    | All versions       |                                                                            |
-| .tex      | Texture files         | All versions       | Cannot write version 1000, not that can't do it, it's that I don't want to |
-| .anm      | Animation files       | All versions       | No structural changes so far                                               |
-| .model    | Model files           | Versions 1000-2200 |                                                                            |
+Current Game Version COM3D2 v2.44.1 & COM3D2.5 v3.44.1 
+
+| Extension | Description           | Version Support    | Note                                                                                                                                    |
+|-----------|-----------------------|--------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
+| .menu     | Menu files            | All versions       | No structural changes so far, so version numbers are irrelevant                                                                         |
+| .mate     | Material files        | All versions       | No structural changes so far, but there are some 2.5-only features                                                                      |
+| .pmat     | Rendering order files | All versions       | No structural changes so far, so version numbers are irrelevant                                                                         |
+| .col      | Collider files        | All versions       | No structural changes so far, so version numbers are irrelevant                                                                         |
+| .phy      | Physics files         | All versions       | No structural changes so far, so version numbers are irrelevant                                                                         |
+| .psk      | Panier skirt files    | All versions       | No structural change since version 217                                                                                                  |
+| .tex      | Texture files         | All versions       | not support write version 1000, because version 1000 is poorly designed (CM3D2 also supports version 1010,so there is no reason to use) |
+| .anm      | Animation files       | All versions       | No structural changes so far, so version numbers are irrelevant                                                                         |
+| .model    | Model files           | Versions 1000-2200 |                                                                                                                                         |
+
 
 Each file corresponds to a .go file：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2)
 
@@ -184,19 +187,21 @@ MeidoSerialization 是一个用 Golang 编写的序列化库，专为处理 KISS
 
 ### 支持的文件类型
 
-| 扩展名  | 描述     | 版本支持         | 备注                          |
-|--------|--------|--------------|--------------------------------------|
-| .menu  | 菜单文件   | 所有版本         | 目前未发生过结构更改                  |
-| .mate  | 材质文件   | 所有版本         | 目前未发生过结构更改                  |
-| .pmat  | 渲染顺序文件 | 所有版本         | 目前未发生过结构更改                  |
-| .col   | 碰撞体文件  | 所有版本         | 目前未发生过结构更改                  |
-| .phy   | 物理文件   | 所有版本         | 目前未发生过结构更改                  |
-| .psk   | 裙撑文件   | 所有版本         |                                     |
-| .tex   | 纹理文件   | 所有版本  | 不支持写出 1000 版本，并不是做不到，而是我不想做 |
-| .anm   | 动画文件   | 所有版本         | 目前未发生过结构更改                       |
-| .model | 模型文件   | 1000-2200 版本 |                             |
+当前游戏版本 COM3D2 v2.44.1 和 COM3D2.5 v3.44.1
 
-每种文件对应一个 .go 文件：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2)
+| 扩展名    | 描述     | 版本支持         | 备注                                                     |
+|--------|--------|--------------|--------------------------------------------------------|
+| .menu  | 菜单文件   | 所有版本         | 目前为止未发生过结构更改，因此版本号无关紧要                                   |
+| .mate  | 材质文件   | 所有版本         | 目前为止未发生过结构更改，但有一些属性只在 2.5 有效                             |
+| .pmat  | 渲染顺序文件 | 所有版本         | 目前为止未发生过结构更改，因此版本号无关紧要                                   |
+| .col   | 碰撞体文件  | 所有版本         | 目前为止未发生过结构更改，因此版本号无关紧要                                   |
+| .phy   | 物理文件   | 所有版本         | 目前为止未发生过结构更改，因此版本号无关紧要                                   |
+| .psk   | 裙撑文件   | 所有版本         | 自版本 217 以后没有发生结构变化                                     |
+| .tex   | 纹理文件   | 所有版本         | 不支持写出版本 1000，因为版本 1000 设计不佳（CM3D2 也支持版本 1010，因此没有理由使用） |
+| .anm   | 动画文件   | 所有版本         | 目前为止未发生过结构更改，因此版本号无关紧要                                   |
+| .model | 模型文件   | 1000-2200 版本 |                                                        |
+
+每种文件都对应一个 .go 文件：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2)
 
 ### 参考
 
