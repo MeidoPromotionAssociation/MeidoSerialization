@@ -1,25 +1,14 @@
-# MeidoSerialization CLI
-
 [English](#english) | [简体中文](#简体中文)
 
-## English
+# English
 
-### Introduction
+## MeidoSerialization CLI
 
 MeidoSerialization CLI is a command-line interface for the MeidoSerialization library, allowing you to convert between COM3D2 MOD files and JSON formats directly from the command line.
 
-### Build
+### Download
 
-1. Make sure you have Go installed (version 1.24 or higher)
-2. Clone the repository:
-   ```bash
-   git clone https://github.com/MeidoPromotionAssociation/MeidoSerialization.git
-   ```
-3. Build the CLI:
-   ```bash
-   cd MeidoSerialization
-   go build -o MeidoSerialization.exe
-   ```
+Download in [Release](https://github.com/MeidoPromotionAssociation/MeidoSerialization/releases)
 
 ### Usage
 
@@ -92,38 +81,34 @@ MeidoSerialization.exe determine --strict ./mods_directory
 
 ### Supported File Types
 
-- `.menu`: Menu files
-- `.mate`: Material files
-- `.pmat`: Particle material files
-- `.col`: Collision files
-- `.phy`: Physics files
-- `.psk`: Skeleton files
-- `.tex`: Texture files
-- `.anm`: Animation files
-- `.model`: Model files
+see main [README](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/README.md)
 
 ### External Dependencies
 
 - For texture file (.tex) conversion, ImageMagick version 7 or higher is required and must be in your system PATH
 
-## 简体中文
+### Build
 
-### 简介
-
-MeidoSerialization CLI 是 MeidoSerialization 库的命令行界面，允许您直接从命令行在 COM3D2 MOD 文件和 JSON 格式之间进行转换。
-
-### 构建
-
-1. 确保已安装 Go（版本 1.24 或更高）
-2. 克隆仓库：
+1. Make sure you have Go installed (version 1.24 or higher)
+2. Clone the repository:
    ```bash
    git clone https://github.com/MeidoPromotionAssociation/MeidoSerialization.git
    ```
-3. 构建 CLI：
+3. Build the CLI:
    ```bash
    cd MeidoSerialization
    go build -o MeidoSerialization.exe
    ```
+
+# 简体中文
+
+## MeidoSerialization CLI
+
+MeidoSerialization CLI 是 MeidoSerialization 库的命令行界面，允许您直接从命令行在 COM3D2 MOD 文件和 JSON 格式之间进行转换。
+
+### 下载
+
+在 [Release](https://github.com/MeidoPromotionAssociation/MeidoSerialization/releases) 中下载
 
 ### 使用方法
 
@@ -196,16 +181,21 @@ MeidoSerialization.exe determine --strict ./mods_directory
 
 ### 支持的文件类型
 
-- `.menu`：菜单文件
-- `.mate`：材质文件
-- `.pmat`：粒子材质文件
-- `.col`：碰撞文件
-- `.phy`：物理文件
-- `.psk`：骨骼文件
-- `.tex`：纹理文件
-- `.anm`：动画文件
-- `.model`：模型文件
+见主 [README](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/README.md)
 
 ### 外部依赖
 
 - 对于纹理文件（.tex）转换，需要 ImageMagick 7.0 或更高版本，且已添加到系统 PATH 中
+
+### 构建
+
+1. 确保已安装 Go（版本 1.24 或更高）
+2. 克隆仓库：
+   ```bash
+   git clone https://github.com/MeidoPromotionAssociation/MeidoSerialization.git
+   ```
+3. 构建 CLI：
+   ```bash
+   cd MeidoSerialization
+   go build -o MeidoSerialization.exe
+   ```
