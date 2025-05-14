@@ -18,7 +18,7 @@ currently supports CM3D2 and COM3D2 game file formats.
 
 ### Supported File Types
 
-Current Game Version COM3D2 v2.44.1 & COM3D2.5 v3.44.1 
+Current Game Version COM3D2 v2.44.1 & COM3D2.5 v3.44.1
 
 | Extension | Description           | Version Support    | Note                                                                                                                                    |
 |-----------|-----------------------|--------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
@@ -57,7 +57,34 @@ Each file corresponds to a .go file：[https://github.com/MeidoPromotionAssociat
    ```
 3. For texture (.tex) file processing, ensure ImageMagick 7.0 or higher is installed and added to your system PATH
 
+#### Use as a command line interface
+
+Currently a command line interface is provided to convert between COM3D2 MOD files and JSON format directly from the command line.
+
+For details, please see the separate instructions: [cmd instructions](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
+
 ### Usage examples
+
+#### Use as a command line interface
+
+See separate instructions for details: [cmd instructions](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
+
+The CLI provides the following main commands:
+
+`convert2json`: Convert MOD files to JSON format.
+
+`convert2mod`: Convert JSON files back to MOD format.
+
+`convert`: Automatically detect and convert files between MOD and JSON formats.
+
+`determine`: Determine the type of files in a directory or a single file.
+
+`version`: Get version information for MeidoSerialization.
+
+#### Global flags
+
+- `--strict` or `-s`: use strict mode for file type determination (based on content rather than file extension)
+- `--type` or `-t`: filter by file type (menu, mate, pmat, col, phy, psk, tex, anm, model)
 
 #### In Go Projects
 
@@ -149,10 +176,6 @@ func main() {
 }
 ```
 
-#### Other Languages Usage
-
-A HTTP server is planned to allow other languages to use this library, but it has not been implemented yet.
-
 ### Troubleshooting
 
 #### ImageMagick Issues
@@ -224,7 +247,34 @@ MeidoSerialization 是一个用 Golang 编写的序列化库，专为处理 KISS
    ```
 3. 对于纹理（.tex）文件处理，确保已安装 ImageMagick 7.0 或更高版本，并将其添加到系统 PATH 中
 
+#### 作为命令行界面使用
+
+目前提供一个命令行界面，可以直接从命令行在 COM3D2 MOD 文件和 JSON 格式之间进行转换。
+
+详情请见单独的说明： [cmd 说明](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
+
 ### 使用参考
+
+#### 作为命令行界面使用
+
+详情请见单独的说明： [cmd 说明](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
+
+CLI 提供以下主要命令：
+
+`convert2json`：将 MOD 文件转换为 JSON 格式。
+
+`convert2mod`：将 JSON 文件转换回 MOD 格式。
+
+`convert`：自动检测并在 MOD 和 JSON 格式之间转换文件。
+
+`determine`：确定目录中的文件或单个文件的类型。
+
+`version`：获取 MeidoSerialization 的版本信息。
+
+#### 全局标志
+
+- `--strict` 或 `-s`：使用严格模式进行文件类型判断（基于内容而非文件扩展名）
+- `--type` 或 `-t`：按文件类型过滤（menu, mate, pmat, col, phy, psk, tex, anm, model）
 
 #### 在 Go 项目中使用
 
@@ -315,10 +365,6 @@ func main() {
 	fmt.Println("所有操作已成功完成！")
 }
 ```
-
-#### 其他语言使用
-
-计划提供一个 HTTP 服务器，方便其他语言调用，目前尚未实现。
 
 ### 故障排除
 
