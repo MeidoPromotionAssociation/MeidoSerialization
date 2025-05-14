@@ -85,9 +85,11 @@ MeidoSerialization.exe determine --strict ./mods_directory
 
 see main [README](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/README.md)
 
-## External Dependencies
+## FAQ
 
-- For texture file (.tex) conversion, ImageMagick version 7 or higher is required and must be in your system PATH
+- Does it support converting .tex to images?
+   - Currently not supported, but [COM3D2 MOD EDITOR V2](https://github.com/90135/COM3D2_MOD_EDITOR) can do this
+   - But you need to do a little programming, because it can't handle folders
 
 ## Build
 
@@ -183,13 +185,15 @@ MeidoSerialization.exe determine --strict ./mods_directory
 - `--strict` 或 `-s`：使用严格模式进行文件类型判断（基于内容而非文件扩展名）
 - `--type` 或 `-t`：按文件类型过滤（menu, mate, pmat, col, phy, psk, tex, anm, model）
 
+## 常见问题
+
+- 它支持将 .tex 文件转换为图片吗？
+   - 目前不支持，但 [COM3D2 MOD EDITOR V2](https://github.com/90135/COM3D2_MOD_EDITOR) 可以实现。
+   - 但你需要进行一些编程，因为它无法处理文件夹。
+
 ## 支持的文件类型
 
 见主 [README](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/README.md)
-
-## 外部依赖
-
-- 对于纹理文件（.tex）转换，需要 ImageMagick 7.0 或更高版本，且已添加到系统 PATH 中
 
 ## 构建
 
