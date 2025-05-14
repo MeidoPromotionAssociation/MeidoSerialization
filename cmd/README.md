@@ -6,6 +6,8 @@
 
 MeidoSerialization CLI is a command-line interface for the MeidoSerialization library, allowing you to convert between COM3D2 MOD files and JSON formats directly from the command line.
 
+You can also use [COM3D2 MOD EDITOR V2](https://github.com/90135/COM3D2_MOD_EDITOR) to open the converted json file or unconverted files.
+
 ### Download
 
 Download in [Release](https://github.com/MeidoPromotionAssociation/MeidoSerialization/releases)
@@ -105,6 +107,8 @@ see main [README](https://github.com/MeidoPromotionAssociation/MeidoSerializatio
 ## MeidoSerialization CLI
 
 MeidoSerialization CLI 是 MeidoSerialization 库的命令行界面，允许您直接从命令行在 COM3D2 MOD 文件和 JSON 格式之间进行转换。
+
+您也可以使用 [COM3D2 MOD EDITOR V2](https://github.com/90135/COM3D2_MOD_EDITOR) 打开转换后的 json 文件或是未转换的文件。
 
 ### 下载
 
