@@ -1,0 +1,35 @@
+package cmd
+
+import (
+	"fmt"
+
+	"github.com/spf13/cobra"
+)
+
+// convert2modCmd represents the convert2mod command
+var convert2modCmd = &cobra.Command{
+	Use:   "convert2mod [file/directory]",
+	Short: "Convert JSON files to MOD",
+	Long: `Convert JSON files back to MOD format.
+This command can process a single file or all files in a directory.
+It will convert files like .menu.json back to .menu, .mate.json back to .mate, etc.
+
+Examples:
+  meido convert2mod example.menu.json
+  meido convert2mod ./json_directory`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		path := args[0]
+
+		if isDirectory(path) {
+			fmt.Printf("Processing directory: %s\n", path)
+			return processDirectory(path, convertToMod, isModJsonFile)
+		}
+
+		return processFile(path, convertToMod)
+	},
+}
+
+func init() {
+	// Add any command-specific flags here
+}
