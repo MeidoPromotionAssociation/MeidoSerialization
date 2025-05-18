@@ -7,7 +7,13 @@ import (
 )
 
 // CM3D2_ANIM
-// 无版本差异
+// 动画文件，用于描述模型的动画数据。
+// 
+// 版本 1001
+// 添加了两个布尔值 BustKeyLeft 和 BustKeyRight，用于控制左胸和右胸的动画开关。
+// 只在 public static PhotoMotionData AddMyPose(string fullpath) in class PhotoMotionData 中判断过版本号
+// 因此读取时保留了尝试读取 BustKeyLeft 和 BustKeyRight 的逻辑，即使版本号不匹配也不会报错。
+// 但在写入时，会根据版本号判断是否写入 BustKeyLeft 和 BustKeyRight。
 
 // PropertyIndex 表示属性索引，用于标识属性的类型。
 // 最高位为 6，含义如下：
@@ -23,11 +29,11 @@ const (
 
 // Anm 整体描述一个 .anm 文件的结构
 type Anm struct {
-	Signature    string          `json:"Signature"`    // CM3D2_ANIM
-	Version      int32           `json:"Version"`      // 1001
-	BoneCurves   []BoneCurveData `json:"BoneCurves"`   // 所有骨骼的动画曲线数据
-	BustKeyLeft  bool            `json:"BustKeyLeft"`  // 左胸部动画开关
-	BustKeyRight bool            `json:"BustKeyRight"` // 右胸部动画开关
+	Signature    string          `json:"Signature"`              // CM3D2_ANIM
+	Version      int32           `json:"Version"`                // 1001
+	BoneCurves   []BoneCurveData `json:"BoneCurves"`             // 所有骨骼的动画曲线数据
+	BustKeyLeft  bool            `json:"BustKeyLeft,omitempty"`  // 左胸部动画开关
+	BustKeyRight bool            `json:"BustKeyRight,omitempty"` // 右胸部动画开关
 }
 
 // PropertyCurve 存储单一属性（例如 localRotation.x）的一整条 AnimationCurve
@@ -136,12 +142,12 @@ func ReadAnm(r io.Reader) (*Anm, error) {
 			}
 			clip.BoneCurves[currentBoneIndex].PropertyCurves =
 				append(clip.BoneCurves[currentBoneIndex].PropertyCurves, curve)
-
 		default:
 			return nil, fmt.Errorf("unknown chunk byte: %d", b)
 		}
 	}
 
+	//if clip.Version >= 1001 {
 	// 4. 读取两个 byte，用来判断是否启用胸部动画
 	//    也有部分文件可能没有这两字节，如果动画不是全身骨骼角色就没有这个
 	bustKeyL, err := utilities.ReadByte(r)
@@ -156,6 +162,7 @@ func ReadAnm(r io.Reader) (*Anm, error) {
 	}
 	clip.BustKeyLeft = bustKeyL != 0
 	clip.BustKeyRight = bustKeyR != 0
+	//}
 
 	return clip, nil
 }
@@ -219,24 +226,25 @@ func (a Anm) Dump(w io.Writer) error {
 		return fmt.Errorf("write end-of-bonedata mark failed: %w", err)
 	}
 
-	// 5. 写两个 byte，表示胸部动画标志
-	// 非全身骨骼角色动画可以不写，但是写了也不会怎么样所以就写了
-	var bustL, bustR byte
-	if a.BustKeyLeft {
-		bustL = 1
-	} else {
-		bustL = 0
-	}
-	if a.BustKeyRight {
-		bustR = 1
-	} else {
-		bustR = 0
-	}
-	if err := utilities.WriteByte(w, bustL); err != nil {
-		return fmt.Errorf("write bustKeyL failed: %w", err)
-	}
-	if err := utilities.WriteByte(w, bustR); err != nil {
-		return fmt.Errorf("write bustKeyR failed: %w", err)
+	if a.Version >= 1001 {
+		// 5. 写两个 byte，表示胸部动画标志
+		var bustL, bustR byte
+		if a.BustKeyLeft {
+			bustL = 1
+		} else {
+			bustL = 0
+		}
+		if a.BustKeyRight {
+			bustR = 1
+		} else {
+			bustR = 0
+		}
+		if err := utilities.WriteByte(w, bustL); err != nil {
+			return fmt.Errorf("write bustKeyL failed: %w", err)
+		}
+		if err := utilities.WriteByte(w, bustR); err != nil {
+			return fmt.Errorf("write bustKeyR failed: %w", err)
+		}
 	}
 
 	return nil
