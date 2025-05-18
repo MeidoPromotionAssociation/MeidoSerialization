@@ -7,16 +7,18 @@ import (
 )
 
 // CM3D2_PMATERIAL
+// 渲染顺序文件
+//
 // 无版本差异
 
 // PMat 对应 .PMat 文件结构
 type PMat struct {
-	Signature    string  `json:"Signature"` // "CM3D2_PMATERIAL"
-	Version      int32   `json:"Version"`   // 1000
-	Hash         int32   `json:"Hash"`
-	MaterialName string  `json:"MaterialName"`
-	RenderQueue  float32 `json:"RenderQueue"`
-	Shader       string  `json:"Shader"`
+	Signature    string  `json:"Signature"`    // "CM3D2_PMATERIAL"
+	Version      int32   `json:"Version"`      // 1000
+	Hash         int32   `json:"Hash"`         // 哈希值，用于缓存控制
+	MaterialName string  `json:"MaterialName"` // 材质名称
+	RenderQueue  float32 `json:"RenderQueue"`  // 渲染顺序
+	Shader       string  `json:"Shader"`       // 着色器名称
 }
 
 // ReadPMat 从 r 中读取一个 .PMat 文件，并解析为 PMat 结构。

@@ -9,6 +9,8 @@ import (
 )
 
 // CM3D2_MATERIAL
+// 材质文件
+//
 // 有版本差异，但不体现在版本号上，也无结构差异
 // COM3D2_5 新增了一些属性，见 propertyRegistry
 

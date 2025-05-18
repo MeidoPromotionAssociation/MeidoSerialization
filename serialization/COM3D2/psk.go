@@ -7,6 +7,8 @@ import (
 )
 
 // CM3D21_PSK
+// 裙子专用物理信息文件
+//
 // 版本 217 以上
 // 新增 PanierRadiusDistribGroup
 // 推测对应 COM3D2 2.17 版本
