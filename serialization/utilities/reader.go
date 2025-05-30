@@ -50,21 +50,37 @@ func ReadFloat32(r io.Reader) (float32, error) {
 	return math.Float32frombits(bits), nil
 }
 
-// ReadString 先读一个 LEB128 长度，再读相应字节的 UTF-8
+// ReadString 读取 C# BinaryWriter.WriteString 格式的字符串
+// 完全匹配 .NET 4.8 的实现逻辑
+// 需要注意这个 7BitEncode 虽然与 LEB128 类似，但不是完全相同
 func ReadString(r io.Reader) (string, error) {
-	length, err := ReadLEB128(r)
+	// 读取字符串的字节长度（不是字符长度）
+	stringLength, err := Read7BitEncodedInt(r)
 	if err != nil {
-		return "", fmt.Errorf("read string length failed: %w", err)
+		return "", err
 	}
-	if length < 0 {
-		return "", fmt.Errorf("invalid string length: %d", length)
+
+	// 检查长度有效性
+	if stringLength < 0 {
+		return "", fmt.Errorf("invalid string length: %d", stringLength)
 	}
-	data := make([]byte, length)
-	_, err = io.ReadFull(r, data)
+
+	if stringLength == 0 {
+		return "", nil
+	}
+
+	// 对于 Go 来说，由于 string 本身就是 UTF-8，我们可以简化处理
+	// 直接读取所有字节并转换为字符串
+	buffer := make([]byte, stringLength)
+	_, err = io.ReadFull(r, buffer)
 	if err != nil {
-		return "", fmt.Errorf("read string bytes failed: %w", err)
+		if err == io.EOF {
+			return "", errors.New("unexpected end of stream while reading string")
+		}
+		return "", err
 	}
-	return string(data), nil
+
+	return string(buffer), nil
 }
 
 // ReadBool 读取一个字节，返回 bool，如果字节非 0 则返回 true，否则返回 false
@@ -170,33 +186,4 @@ func PeekString(rs io.ReadSeeker) (string, error) {
 	}
 
 	return str, nil
-}
-
-// -------------------- Decode --------------------
-
-// decodeLEB128FromBytes 尝试从 buf 开头解出一个 LEB128 整数，
-// 返回解析出来的数值 value，使用了多少字节 used，以及错误 err。
-func decodeLEB128FromBytes(buf []byte) (value int, used int, err error) {
-	var shift uint
-	used = 0
-	value = 0
-
-	for {
-		if used >= len(buf) {
-			return 0, used, io.ErrUnexpectedEOF
-		}
-		b := buf[used]
-		used++
-
-		value |= int(b&0x7F) << shift
-		if (b & 0x80) == 0 {
-			// 最高位 0，结束
-			break
-		}
-		shift += 7
-		if shift > 31 {
-			return 0, used, errors.New("decodeLEB128: too large for int32")
-		}
-	}
-	return value, used, nil
 }

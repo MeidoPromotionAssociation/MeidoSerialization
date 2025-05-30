@@ -2,7 +2,6 @@ package utilities
 
 import (
 	"encoding/binary"
-	"fmt"
 	"io"
 	"math"
 )
@@ -39,19 +38,20 @@ func WriteFloat32(w io.Writer, val float32) error {
 	return err
 }
 
-// WriteString 先写字符串长度(LEB128)，再写 UTF8 字节
+// WriteString 写入 C# BinaryWriter.WriteString 格式的字符串
+// 完全匹配 .NET 4.8 的实现逻辑
+// 需要注意这个 7BitEncode 虽然与 LEB128 类似，但不是完全相同
 func WriteString(w io.Writer, s string) error {
-	length := len(s)
-	if err := WriteLEB128(w, length); err != nil {
-		return fmt.Errorf("write string length failed: %w", err)
+	// 将字符串转换为 UTF-8 字节数组
+	buffer := []byte(s)
+	// 写入字节长度（不是字符长度）
+	err := Write7BitEncodedInt(w, int32(len(buffer)))
+	if err != nil {
+		return err
 	}
-	if length > 0 {
-		_, err := w.Write([]byte(s))
-		if err != nil {
-			return fmt.Errorf("write string content failed: %w", err)
-		}
-	}
-	return nil
+	// 写入实际的字节数据
+	_, err = w.Write(buffer)
+	return err
 }
 
 // WriteBool 写一个字节，如果 b 为 true 则写入 1，否则写入 0

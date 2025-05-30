@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
 	"io"
+	"math"
 )
 
 // CM3D2_MENU
@@ -127,7 +128,10 @@ func ReadMenu(r io.Reader) (*Menu, error) {
 
 // Dump 把 Menu 写出到 w 中
 func (m *Menu) Dump(w io.Writer) error {
-	m.UpdateBodySize()
+	err := m.UpdateBodySize()
+	if err != nil {
+		return fmt.Errorf("update bodySize failed: %w", err)
+	}
 
 	// 1. Signature
 	if err := utilities.WriteString(w, m.Signature); err != nil {
@@ -191,9 +195,9 @@ func (m *Menu) Dump(w io.Writer) error {
 // UpdateBodySize 根据当前的 Commands 列表计算 BodySize。
 //   - 每个命令占用 1 字节记录 ArgCount。
 //   - 对于每个字符串参数，先计算其 UTF-8 编码后字节数 encodedLength，然后
-//     加上 LEB128 编码 encodedLength 所需的字节数，再加上 encodedLength 本身。
+//     加上 7BitEncoded 编码 encodedLength 所需的字节数，再加上 encodedLength 本身。
 //   - 最后再加上 1 个字节的结束标志。
-func (m *Menu) UpdateBodySize() {
+func (m *Menu) UpdateBodySize() error {
 	var sum int32 = 0
 
 	for _, cmd := range m.Commands {
@@ -204,8 +208,13 @@ func (m *Menu) UpdateBodySize() {
 		for _, arg := range cmd.Args {
 			// Go 的字符串底层就是 UTF-8 编码，len(arg) 返回字节数
 			encodedLength := len(arg)
+
+			if encodedLength > math.MaxInt32 {
+				return fmt.Errorf("string parameter length (%d) exceeds the maximum value of int32", encodedLength)
+			}
+
 			// 计算 encodedLength 对应的 LEB128 编码所占字节数
-			lebSize := utilities.LEB128SizeOfValue(encodedLength)
+			lebSize := utilities.Get7BitEncodedIntSize(int32(encodedLength))
 			sum += int32(lebSize)
 			// 加上字符串的实际字节数
 			sum += int32(encodedLength)
@@ -216,4 +225,6 @@ func (m *Menu) UpdateBodySize() {
 	sum += 1
 
 	m.BodySize = sum
+
+	return nil
 }
