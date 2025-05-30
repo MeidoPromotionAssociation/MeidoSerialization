@@ -192,6 +192,15 @@ If you encounter errors when working with texture (.tex) files:
 
 This project is licensed under the BSD-3-Clause License - see the LICENSE file for details.
 
+### Also check out my other repositories
+
+- [COM3D2 Simple MOD Guide Chinese](https://github.com/90135/COM3D2_Simple_MOD_Guide_Chinese)
+- [COM3D2 MOD Editor](https://github.com/90135/COM3D2_MOD_EDITOR)
+- [COM3D2 Plugin Chinese Translation](https://github.com/90135/COM3D2_Plugin_Translate_Chinese)
+- [90135's COM3D2 Chinese Guide](https://github.com/90135/COM3D2_GUIDE_CHINESE)
+- [90135's COM3D2 Script Collection](https://github.com/90135/COM3D2_Scripts_901)
+- [90135's COM3D2 Tools](https://github.com/90135/COM3D2_Tools_901)
+
 ---
 
 # 简体中文
@@ -381,3 +390,13 @@ func main() {
 ### 许可证
 
 本项目采用 BSD-3-Clause License 许可 - 详情请参阅 LICENSE 文件。
+
+
+### 也可以看看我的其他仓库
+
+- [COM3D2 简明 MOD 教程中文](https://github.com/90135/COM3D2_Simple_MOD_Guide_Chinese)
+- [COM3D2 MOD 编辑器](https://github.com/90135/COM3D2_MOD_EDITOR)
+- [COM3D2 插件中文翻译](https://github.com/90135/COM3D2_Plugin_Translate_Chinese)
+- [90135 的 COM3D2 中文指北](https://github.com/90135/COM3D2_GUIDE_CHINESE)
+- [90135 的 COM3D2 脚本收藏集](https://github.com/90135/COM3D2_Scripts_901)
+- [90135 的 COM3D2 工具](https://github.com/90135/COM3D2_Tools_901)
