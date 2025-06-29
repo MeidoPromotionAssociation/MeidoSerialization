@@ -949,6 +949,9 @@ func (m *Model) Dump(w io.Writer) error {
 
 	// 写入阴影投射方式（如果版本支持）
 	if m.Version >= 2104 && m.Version < 2200 {
+		if m.ShadowCastingMode == nil {
+			return fmt.Errorf("ShadowCastingMode is nil. ShadowCastingMode is required, when version >= 2104 and < 2200")
+		}
 		if err := utilities.WriteString(w, *m.ShadowCastingMode); err != nil {
 			return fmt.Errorf("failed to write shadow casting mode: %w", err)
 		}
