@@ -64,9 +64,10 @@ func ReadPMat(r io.Reader) (*PMat, error) {
 	p.RenderQueue = rq
 
 	// 6. shader (string)
+	// 官方文件有这个字段，但代码中从未读取过。考虑到可能有程序不写入此字段，因此不做报错处理
 	shaderStr, err := utilities.ReadString(r)
 	if err != nil {
-		return nil, fmt.Errorf("read .PMat shader failed: %w", err)
+		shaderStr = ""
 	}
 	p.Shader = shaderStr
 
@@ -91,7 +92,10 @@ func (p *PMat) Dump(w io.Writer, calculateHash bool) error {
 	//  Because the game uses this Hash value to determine the cache key
 	//  Even if their values are the same, the calculated hashes are different
 	if calculateHash {
-		materialNameHash := utilities.GetStringHashInt32(p.MaterialName + p.Shader)
+		materialNameHash, err := utilities.GetStringHashFNV1a(p.MaterialName + p.Shader)
+		if err != nil {
+			return fmt.Errorf("write .PMat hash failed: %w", err)
+		}
 		if err := utilities.WriteInt32(w, materialNameHash); err != nil {
 			return fmt.Errorf("write .PMat hash failed: %w", err)
 		}
@@ -105,11 +109,14 @@ func (p *PMat) Dump(w io.Writer, calculateHash bool) error {
 	if err := utilities.WriteString(w, p.MaterialName); err != nil {
 		return fmt.Errorf("write .PMat materialName failed: %w", err)
 	}
+
 	// 5. renderQueue
 	if err := utilities.WriteFloat32(w, p.RenderQueue); err != nil {
 		return fmt.Errorf("write .PMat renderQueue failed: %w", err)
 	}
+
 	// 6. shader
+	// 官方文件有这个字段，但未读取过，考虑到官方文件有，我们照常写入
 	if err := utilities.WriteString(w, p.Shader); err != nil {
 		return fmt.Errorf("write .PMat shader failed: %w", err)
 	}
