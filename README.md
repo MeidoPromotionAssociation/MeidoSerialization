@@ -77,6 +77,10 @@ The CLI provides the following main commands:
 
 `convert2mod`: Convert JSON files back to MOD format.
 
+`convert2tex`：Convert normal image files to texture format(.tex).
+
+`convert2image`：Convert .tex files to image format.
+
 `convert`: Automatically detect and convert files between MOD and JSON formats.
 
 `determine`: Determine the type of files in a directory or a single file.
@@ -275,6 +279,10 @@ CLI 提供以下主要命令：
 `convert2json`：将 MOD 文件转换为 JSON 格式。
 
 `convert2mod`：将 JSON 文件转换回 MOD 格式。
+
+`convert2tex`：将普通图片文件转换为纹理文件（.tex）。
+
+`convert2image`：将 .tex 文件转换为普通图片格式。
 
 `convert`：自动检测并在 MOD 和 JSON 格式之间转换文件。
 
