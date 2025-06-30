@@ -15,12 +15,15 @@ This command automatically determines the direction of conversion:
 - If the file is a MOD file, it will be converted to JSON
 - If the file is a JSON file that corresponds to a MOD file, it will be converted back to MOD
 
+Not supported: .tex.json and .tex
+  please use convert2tex and convert2image instead
+
 This command can process a single file or all files in a directory.
 
 Examples:
-  meido convert example.menu
-  meido convert example.menu.json
-  meido convert ./mixed_directory`,
+  MeidoSerialization convert example.menu
+  MeidoSerialization convert example.menu.json
+  MeidoSerialization convert ./mixed_directory`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := args[0]

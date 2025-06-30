@@ -22,7 +22,10 @@ Github: https://github.com/MeidoPromotionAssociation/MeidoSerialization
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		// If no subcommand is provided, print help
-		cmd.Help()
+		err := cmd.Help()
+		if err != nil {
+			return
+		}
 	},
 }
 
@@ -38,9 +41,11 @@ func init() {
 	RootCmd.PersistentFlags().StringVarP(&fileType, "type", "t", "", "Filter by file type (menu, mate, pmat, col, phy, psk, tex, anm, model)")
 
 	// Add subcommands
+	RootCmd.AddCommand(convertCmd)
 	RootCmd.AddCommand(convert2jsonCmd)
 	RootCmd.AddCommand(convert2modCmd)
-	RootCmd.AddCommand(convertCmd)
 	RootCmd.AddCommand(determineCmd)
 	RootCmd.AddCommand(versionCmd)
+	RootCmd.AddCommand(convert2texCmd)
+	RootCmd.AddCommand(convert2imageCmd)
 }

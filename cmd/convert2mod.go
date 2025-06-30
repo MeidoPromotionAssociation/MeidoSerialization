@@ -14,9 +14,12 @@ var convert2modCmd = &cobra.Command{
 This command can process a single file or all files in a directory.
 It will convert files like .menu.json back to .menu, .mate.json back to .mate, etc.
 
+Not supported: .tex.json
+  please use convert2tex instead
+
 Examples:
-  meido convert2mod example.menu.json
-  meido convert2mod ./json_directory`,
+  MeidoSerialization convert2mod example.menu.json
+  MeidoSerialization convert2mod ./json_directory`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := args[0]

@@ -18,8 +18,8 @@ Use the --strict flag to enforce strict file type determination based on content
 rather than relying on file extensions.
 
 Examples:
-  meido determine example.menu
-  meido determine --strict ./mods_directory`,
+  MeidoSerialization determine example.menu
+  MeidoSerialization determine --strict ./mods_directory`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := args[0]

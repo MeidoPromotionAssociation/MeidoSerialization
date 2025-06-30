@@ -12,11 +12,14 @@ var convert2jsonCmd = &cobra.Command{
 	Short: "Convert MOD files to JSON",
 	Long: `Convert MOD files to JSON format.
 This command can process a single file or all files in a directory.
-Supported file types include: .menu, .mate, .pmat, .col, .phy, .psk, .tex, .anm, and .model.
+Supported file types include: .menu, .mate, .pmat, .col, .phy, .psk, .anm, and .model.
+
+Not supported: .tex
+  please use convert2image instead
 
 Examples:
-  meido convert2json example.menu
-  meido convert2json ./mods_directory`,
+  MeidoSerialization convert2json example.menu
+  MeidoSerialization convert2json ./mods_directory`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := args[0]
