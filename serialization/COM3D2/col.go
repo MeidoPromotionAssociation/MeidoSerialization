@@ -119,7 +119,7 @@ func (c *Col) Dump(w io.Writer) error {
 }
 
 // ICollider 是所有Collider的接口，不同具体类型各自实现。
-// 注意在每个 struct 中保存 TypeName 是故意的，否则前端类型推断困难
+// 注意在每个 struct 中保存 TypeName 是故意的，否则前端类型推断困难，实际不写入二进制。
 type ICollider interface {
 	GetTypeName() string
 	Read(r io.Reader, version int32) error
