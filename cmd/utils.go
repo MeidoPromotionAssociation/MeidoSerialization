@@ -1,13 +1,13 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	servicecom "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
+	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
 )
 
 // isDirectory checks if the given path is a directory
@@ -42,10 +42,11 @@ func processDirectory(dirPath string, processor func(string) error, filter func(
 }
 
 // isModFile checks if the file has a supported MOD file extension
+// In addition to .tex
 func isModFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
-	case ".menu", ".mate", ".pmat", ".col", ".phy", ".psk", ".tex", ".anm", ".model":
+	case ".menu", ".mate", ".pmat", ".col", ".phy", ".psk", ".anm", ".model":
 		// If fileType is specified, check if it matches
 		if fileType != "" {
 			// Remove the leading dot
@@ -63,6 +64,7 @@ func isJsonFile(path string) bool {
 }
 
 // isModJsonFile checks if the file is a JSON file that corresponds to a MOD file
+// In addition to .tex
 func isModJsonFile(path string) bool {
 	if !isJsonFile(path) {
 		return false
@@ -82,30 +84,21 @@ func isModJsonFile(path string) bool {
 	// Otherwise check if it's any supported MOD file
 	// We need to check directly without using isModFile because it also considers fileType
 	switch strings.ToLower(ext) {
-	case ".menu", ".mate", ".pmat", ".col", ".phy", ".psk", ".tex", ".anm", ".model":
+	case ".menu", ".mate", ".pmat", ".col", ".phy", ".psk", ".anm", ".model":
 		return true
 	default:
 		return false
 	}
 }
 
-// determineFileType determines the type of the file using the CommonService
-func determineFileType(path string) error {
-	commonService := &servicecom.CommonService{}
-	fileInfo, err := commonService.FileTypeDetermine(path, strictMode)
-	if err != nil {
-		return fmt.Errorf("failed to determine file type: %w", err)
-	}
+// isTexFile checks if the file has a .tex extension
+func isTexFile(path string) bool {
+	return strings.HasSuffix(strings.ToLower(path), ".tex")
+}
 
-	fmt.Printf("File: %s\n", path)
-	fmt.Printf("  Type: %s\n", fileInfo.FileType)
-	fmt.Printf("  Format: %s\n", fileInfo.StorageFormat)
-	fmt.Printf("  Game: %s\n", fileInfo.Game)
-	fmt.Printf("  Signature: %s\n", fileInfo.Signature)
-	fmt.Printf("  Version: %d\n", fileInfo.Version)
-	fmt.Printf("  Size: %d bytes\n", fileInfo.Size)
-
-	return nil
+// isImageFile checks if the file has a supported image extension
+func isImageFile(path string) bool {
+	return tools.IsSupportedImageType(path) == nil
 }
 
 // convertToJson converts a MOD file to JSON
@@ -116,63 +109,28 @@ func convertToJson(path string) error {
 	var err error
 	switch ext {
 	case ".menu":
-		service := &servicecom.MenuService{}
+		service := &COM3D2Service.MenuService{}
 		err = service.ConvertMenuToJson(path, outputPath)
 	case ".mate":
-		service := &servicecom.MateService{}
+		service := &COM3D2Service.MateService{}
 		err = service.ConvertMateToJson(path, outputPath)
 	case ".pmat":
-		service := &servicecom.PMatService{}
+		service := &COM3D2Service.PMatService{}
 		err = service.ConvertPMatToJson(path, outputPath)
 	case ".col":
-		service := &servicecom.ColService{}
+		service := &COM3D2Service.ColService{}
 		err = service.ConvertColToJson(path, outputPath)
 	case ".phy":
-		service := &servicecom.PhyService{}
+		service := &COM3D2Service.PhyService{}
 		err = service.ConvertPhyToJson(path, outputPath)
 	case ".psk":
-		service := &servicecom.PskService{}
+		service := &COM3D2Service.PskService{}
 		err = service.ConvertPskToJson(path, outputPath)
-	case ".tex":
-		service := &servicecom.TexService{}
-		// For .tex files, we'll convert to PNG and also save JSON metadata
-		tex, readErr := service.ReadTexFile(path)
-		if readErr != nil {
-			return fmt.Errorf("failed to read tex file: %w", readErr)
-		}
-
-		// Convert to image
-		pngPath := strings.TrimSuffix(outputPath, ".json") + ".png"
-		err = service.ConvertTexToImageAndWrite(tex, pngPath, true)
-		if err != nil {
-			return fmt.Errorf("failed to convert tex to image: %w", err)
-		}
-
-		// Also save the JSON metadata
-		jsonData, err := json.Marshal(tex)
-		if err != nil {
-			return fmt.Errorf("failed to marshal tex data: %w", err)
-		}
-
-		f, err := os.Create(outputPath)
-		if err != nil {
-			return fmt.Errorf("unable to create tex.json file: %w", err)
-		}
-		defer func() {
-			if closeErr := f.Close(); closeErr != nil && err == nil {
-				err = fmt.Errorf("error closing output file: %w", closeErr)
-			}
-		}()
-
-		_, err = f.Write(jsonData)
-		if err != nil {
-			return fmt.Errorf("failed to write tex.json file: %w", err)
-		}
 	case ".anm":
-		service := &servicecom.AnmService{}
+		service := &COM3D2Service.AnmService{}
 		err = service.ConvertAnmToJson(path, outputPath)
 	case ".model":
-		service := &servicecom.ModelService{}
+		service := &COM3D2Service.ModelService{}
 		err = service.ConvertModelToJson(path, outputPath)
 	default:
 		return fmt.Errorf("unsupported file type: %s", ext)
@@ -200,34 +158,28 @@ func convertToMod(path string) error {
 	var err error
 	switch strings.ToLower(ext) {
 	case ".menu":
-		service := &servicecom.MenuService{}
+		service := &COM3D2Service.MenuService{}
 		err = service.ConvertJsonToMenu(path, outputPath)
 	case ".mate":
-		service := &servicecom.MateService{}
+		service := &COM3D2Service.MateService{}
 		err = service.ConvertJsonToMate(path, outputPath)
 	case ".pmat":
-		service := &servicecom.PMatService{}
+		service := &COM3D2Service.PMatService{}
 		err = service.ConvertJsonToPMat(path, outputPath)
 	case ".col":
-		service := &servicecom.ColService{}
+		service := &COM3D2Service.ColService{}
 		err = service.ConvertJsonToCol(path, outputPath)
 	case ".phy":
-		service := &servicecom.PhyService{}
+		service := &COM3D2Service.PhyService{}
 		err = service.ConvertJsonToPhy(path, outputPath)
 	case ".psk":
-		service := &servicecom.PskService{}
+		service := &COM3D2Service.PskService{}
 		err = service.ConvertJsonToPsk(path, outputPath)
-	case ".tex":
-		// For .tex files, we need to handle differently
-		service := &servicecom.TexService{}
-		// We need a texture name, use the base name without extension
-		texName := strings.TrimSuffix(baseName, ext)
-		err = service.ConvertImageToTexAndWrite(path, texName, false, true, outputPath)
 	case ".anm":
-		service := &servicecom.AnmService{}
+		service := &COM3D2Service.AnmService{}
 		err = service.ConvertJsonToAnm(path, outputPath)
 	case ".model":
-		service := &servicecom.ModelService{}
+		service := &COM3D2Service.ModelService{}
 		err = service.ConvertJsonToModel(path, outputPath)
 	default:
 		return fmt.Errorf("unsupported file type: %s", ext)
@@ -238,6 +190,69 @@ func convertToMod(path string) error {
 	}
 
 	fmt.Printf("Converted %s to %s\n", path, outputPath)
+	return nil
+}
+
+// convertToImage converts a TEX file to an image file
+func convertToImage(path string, format string) error {
+	if !isTexFile(path) {
+		return fmt.Errorf("not a TEX file: %s", path)
+	}
+
+	if format == "" {
+		format = "png"
+	}
+
+	service := &COM3D2Service.TexService{}
+
+	outputPath := strings.TrimSuffix(path, ".tex") + "." + format
+	err := service.ConvertAnyToAnyAndWrite(path, "", false, false, outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to convert %s to image: %w", path, err)
+	}
+
+	fmt.Printf("Converted %s to %s\n", path, outputPath)
+	return nil
+}
+
+// convertToTex converts an image file to TEX
+func convertToTex(path string, compress bool, forcePng bool) error {
+	if !isImageFile(path) {
+		return fmt.Errorf("not a supported image file: %s", path)
+	}
+
+	if compress {
+		forcePng = false
+	}
+
+	ext := filepath.Ext(path)
+	outputPath := strings.TrimSuffix(path, ext) + ".tex"
+
+	service := &COM3D2Service.TexService{}
+	err := service.ConvertAnyToAnyAndWrite(path, "", compress, forcePng, outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to convert %s to TEX: %w", path, err)
+	}
+	fmt.Printf("Converted %s to %s\n", path, outputPath)
+	return nil
+}
+
+// determineFileType determines the type of the file using the CommonService
+func determineFileType(path string) error {
+	commonService := &COM3D2Service.CommonService{}
+	fileInfo, err := commonService.FileTypeDetermine(path, strictMode)
+	if err != nil {
+		return fmt.Errorf("failed to determine file type: %w", err)
+	}
+
+	fmt.Printf("File: %s\n", path)
+	fmt.Printf("  Type: %s\n", fileInfo.FileType)
+	fmt.Printf("  Format: %s\n", fileInfo.StorageFormat)
+	fmt.Printf("  Game: %s\n", fileInfo.Game)
+	fmt.Printf("  Signature: %s\n", fileInfo.Signature)
+	fmt.Printf("  Version: %d\n", fileInfo.Version)
+	fmt.Printf("  Size: %d bytes\n", fileInfo.Size)
+
 	return nil
 }
 

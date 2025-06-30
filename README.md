@@ -102,7 +102,7 @@ package main
 
 import (
 	"fmt"
-	servicecom "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
+	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
 	serialcom "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
 	"os"
 	"bufio"
@@ -111,7 +111,7 @@ import (
 func main() {
 	// Example 1: Using the service package to handle files directly
 	// Create a service for handling material files
-	mateService := &servicecom.MateService{}
+	mateService := &COM3D2Service.MateService{}
 
 	// Convert a binary material file to JSON
 	err := mateService.ConvertMateToJson("example.mate", "example.mate.json")
@@ -301,7 +301,7 @@ package main
 
 import (
 	"fmt"
-	servicecom "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
+	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
 	serialcom "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
 	"os"
 	"bufio"
@@ -310,7 +310,7 @@ import (
 func main() {
 	// 示例1：使用 service 包直接处理文件
 	// 创建一个用于处理材质文件的服务
-	mateService := &servicecom.MateService{}
+	mateService := &COM3D2Service.MateService{}
 
 	// 将二进制材质文件转换为 JSON
 	err := mateService.ConvertMateToJson("example.mate", "example.mate.json")
