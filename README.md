@@ -1,6 +1,6 @@
 [English](#english) | [简体中文](#简体中文)
 
-[![Github All Releases](https://img.shields.io/github/downloads/MeidoPromotionAssociation/MeidoSerialization/total.svg)]()  [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
+[![Go Report Card](https://goreportcard.com/badge/github.com/MeidoPromotionAssociation/MeidoSerialization)](https://goreportcard.com/report/github.com/MeidoPromotionAssociation/MeidoSerialization) [![Github All Releases](https://img.shields.io/github/downloads/MeidoPromotionAssociation/MeidoSerialization/total.svg)]()  [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
 
 # English
 
