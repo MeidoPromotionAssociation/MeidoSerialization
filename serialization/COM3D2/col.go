@@ -3,8 +3,9 @@ package COM3D2
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
 	"io"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
 )
 
 // CM3D21_COL

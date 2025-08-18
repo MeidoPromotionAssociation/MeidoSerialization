@@ -105,11 +105,13 @@ Example usage:
 package main
 
 import (
-	"fmt"
-	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
-	serialcom "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
-	"os"
-	"bufio"
+
+"bufio"
+"fmt"
+"os"
+
+serialcom "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
+COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
 )
 
 func main() {
@@ -308,11 +310,12 @@ CLI 提供以下主要命令：
 package main
 
 import (
-	"fmt"
-	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
-	serialcom "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
-	"os"
 	"bufio"
+	"fmt"
+	"os"
+
+	serialcom "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
+	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
 )
 
 func main() {

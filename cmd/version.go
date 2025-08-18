@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"runtime/debug"
 	"time"
+
+	"github.com/spf13/cobra"
 )
 
 // versionCmd get app version

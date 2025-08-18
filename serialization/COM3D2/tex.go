@@ -5,14 +5,15 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
 )
 
 // CM3D2_TEX

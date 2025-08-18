@@ -2,9 +2,10 @@ package COM3D2
 
 import (
 	"fmt"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
 	"io"
 	"math"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
 )
 
 // CM3D2_MENU

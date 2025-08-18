@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
 	"io"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
 )
 
 // CM3D2_MATERIAL

@@ -2,8 +2,9 @@ package COM3D2
 
 import (
 	"fmt"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
 	"io"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
 )
 
 const (

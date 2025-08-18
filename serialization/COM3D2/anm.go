@@ -2,13 +2,14 @@ package COM3D2
 
 import (
 	"fmt"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
 	"io"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
 )
 
 // CM3D2_ANIM
 // 动画文件，用于描述模型的动画数据。
-// 
+//
 // 版本 1001
 // 添加了两个布尔值 BustKeyLeft 和 BustKeyRight，用于控制左胸和右胸的动画开关。
 // 只在 public static PhotoMotionData AddMyPose(string fullpath) in class PhotoMotionData 中判断过版本号
