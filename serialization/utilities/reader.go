@@ -18,6 +18,13 @@ func ReadByte(r io.Reader) (byte, error) {
 	return b[0], nil
 }
 
+// ReadBytes 读取 n 个字节
+func ReadBytes(r io.Reader, n int) ([]byte, error) {
+	buf := make([]byte, n)
+	_, err := io.ReadFull(r, buf)
+	return buf, err
+}
+
 // ReadInt32 读取 4 字节 int32（little-endian）
 func ReadInt32(r io.Reader) (int32, error) {
 	var buf [4]byte
@@ -26,6 +33,16 @@ func ReadInt32(r io.Reader) (int32, error) {
 		return 0, err
 	}
 	return int32(binary.LittleEndian.Uint32(buf[:])), nil
+}
+
+// ReadUInt32 读取 4 字节无符号整数 (little-endian)
+func ReadUInt32(r io.Reader) (uint32, error) {
+	var buf [4]byte
+	_, err := io.ReadFull(r, buf[:])
+	if err != nil {
+		return 0, err
+	}
+	return binary.LittleEndian.Uint32(buf[:]), nil
 }
 
 // ReadUInt16 读取 2 字节无符号整数 (little-endian)

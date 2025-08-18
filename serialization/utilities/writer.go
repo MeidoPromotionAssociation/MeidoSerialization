@@ -12,10 +12,24 @@ func WriteByte(w io.Writer, b byte) error {
 	return err
 }
 
+// WriteBytes 写多个字节
+func WriteBytes(w io.Writer, bs []byte) error {
+	_, err := w.Write(bs)
+	return err
+}
+
 // WriteInt32 写一个 4 字节 int32（little-endian）
 func WriteInt32(w io.Writer, v int32) error {
 	var buf [4]byte
 	binary.LittleEndian.PutUint32(buf[:], uint32(v))
+	_, err := w.Write(buf[:])
+	return err
+}
+
+// WriteUInt32 写入一个 4 字节 uint32(little-endian)
+func WriteUInt32(w io.Writer, val uint32) error {
+	var buf [4]byte
+	binary.LittleEndian.PutUint32(buf[:], val)
 	_, err := w.Write(buf[:])
 	return err
 }
