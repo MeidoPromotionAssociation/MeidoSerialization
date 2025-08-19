@@ -15,7 +15,8 @@ import (
 )
 
 // COM3D2 .nei
-// Nei 格式是一种 AES 加密的 Shift-JIS 编码的 CSV 文件
+// Nei 格式是一种 AES（CBC 模式，无填充，手动补齐）+ 自定义 IV 生成与嵌入机制 加密的 Shift-JIS 编码的 CSV 文件
+// 通常情况下应该是固定密钥的，除非 KISS 做了什么奇怪的事情
 // 本模块实现参考自 https://github.com/usagirei/CM3D2.Toolkit 和 https://github.com/JustAGuest4168/CM3D2.Toolkit
 // 感谢 @usagirei 和 @JustAGuest4168 完整的实现了加解密与转换
 // Under MIT License
@@ -33,8 +34,6 @@ var (
 		0x40, 0xC5, 0x61, 0x7C,
 		0x01, 0xDF, 0x66, 0x54,
 	} // 加密密钥
-
-	NeiSignature = []byte{0x77, 0x73, 0x76, 0xFF} // .nei 文件的签名
 )
 
 // ReadNei 从 r 中读取一个 .nei 文件，并解析为 Nei 结构。
@@ -267,7 +266,10 @@ func generateIV(ivSeed []byte) []byte {
 		seed[0] = seed[1]
 		seed[1] = seed[2]
 		seed[2] = seed[3]
-		seed[3] = n ^ seed[3] ^ ((n^seed[3])>>11)>>8
+		// 注：Golang 中位运算优先级与 C# 不同
+		// C# 原式：seed[3] = n ^ seed[3] ^ (n ^ seed[3] >> 11) >> 8;
+		// 解析为：seed[3] = n ^ seed[3] ^ ((n ^ (seed[3] >> 11)) >> 8)
+		seed[3] = n ^ seed[3] ^ ((n ^ (seed[3] >> 11)) >> 8)
 	}
 
 	// 转换为字节数组

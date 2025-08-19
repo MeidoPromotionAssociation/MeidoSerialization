@@ -36,6 +36,10 @@ const (
 	EndTag                 = "end"
 )
 
+var (
+	NeiSignature = []byte{0x77, 0x73, 0x76, 0xFF}
+)
+
 // Vector2 表示二维向量或UV坐标
 type Vector2 struct {
 	X float32 `json:"X"`
