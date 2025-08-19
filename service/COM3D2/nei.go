@@ -2,11 +2,11 @@ package COM3D2
 
 import (
 	"bufio"
-	"encoding/csv"
 	"fmt"
 	"os"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
 )
 
 // NeiService 专门处理 .nei 文件的读写
@@ -74,8 +74,7 @@ func (s *NeiService) NeiFileToCSVFile(inputPath string, outputPath string) error
 	}
 	defer csvFile.Close()
 
-	writer := csv.NewWriter(csvFile)
-	if err := writer.WriteAll(csvData); err != nil {
+	if err := tools.WriteCSVWithUTF8BOM(csvFile, csvData); err != nil {
 		return fmt.Errorf("failed to write CSV file: %w", err)
 	}
 
@@ -105,7 +104,7 @@ func (s *NeiService) CSVFileToNei(path string) (*COM3D2.Nei, error) {
 	}
 	defer csvFile.Close()
 
-	reader := csv.NewReader(csvFile)
+	reader := tools.NewCSVReaderSkipUTF8BOM(csvFile)
 	records, err := reader.ReadAll()
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CSV: %w", err)
