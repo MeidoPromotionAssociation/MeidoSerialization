@@ -61,7 +61,11 @@ Each file corresponds to a .go file：[https://github.com/MeidoPromotionAssociat
 
 #### Use as a command line interface
 
-Currently a command line interface is provided to convert between COM3D2 MOD files and JSON format directly from the command line.
+The MeidoSerialization CLI is a command-line interface for the MeidoSerialization library.
+
+It allows you to convert between COM3D2 MOD files and JSON format using the command line. It also allows you to perform single or batch conversions between .tex and images, or between .nei and .csv.
+
+JSON files converted by this tool can also be read by  [COM3D2 MOD EDITOR V2](https://github.com/MeidoPromotionAssociation/COM3D2_MOD_EDITOR).
 
 For details, please see the separate instructions: [cmd instructions](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
 
@@ -281,7 +285,11 @@ MeidoSerialization 是一个用 Golang 编写的序列化库，专为处理 KISS
 
 ### 作为命令行界面使用
 
-目前提供一个命令行界面，可以直接从命令行在 COM3D2 MOD 文件和 JSON 格式之间进行转换。
+MeidoSerialization CLI 是 MeidoSerialization 库的命令行界面
+
+它允许您使用命令行在 COM3D2 MOD 文件和 JSON 格式之间进行转换，也允许您在 .tex 和图片，或是在 .nei 和 .csv 之间进行单个或批量转换。
+
+由此工具转换的 JSON 文件也可以被 [COM3D2 MOD EDITOR V2](https://github.com/MeidoPromotionAssociation/COM3D2_MOD_EDITOR) 读取。
 
 详情请见单独的说明： [cmd 说明](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
 
