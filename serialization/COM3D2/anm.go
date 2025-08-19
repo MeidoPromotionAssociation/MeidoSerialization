@@ -148,9 +148,9 @@ func ReadAnm(r io.Reader) (*Anm, error) {
 		}
 	}
 
-	//if clip.Version >= 1001 {
 	// 4. 读取两个 byte，用来判断是否启用胸部动画
 	//    也有部分文件可能没有这两字节，如果动画不是全身骨骼角色就没有这个
+	//if clip.Version >= 1001 {
 	bustKeyL, err := utilities.ReadByte(r)
 	if err != nil {
 		return clip, nil
