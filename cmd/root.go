@@ -16,7 +16,7 @@ var RootCmd = &cobra.Command{
 	Long: `MeidoSerialization CLI tool for converting between COM3D2 MOD files and JSON.
 This tool can convert MOD files to JSON, JSON files to MOD files, and determine file types.
 
-Supported file types include: .menu, .mate, .pmat, .col, .phy, .psk, .tex, .anm, and .model
+Supported file types include: .menu, .mate, .pmat, .col, .phy, .psk, .tex, .anm, .model, .nei
 
 Github: https://github.com/MeidoPromotionAssociation/MeidoSerialization
 `,
@@ -48,4 +48,6 @@ func init() {
 	RootCmd.AddCommand(versionCmd)
 	RootCmd.AddCommand(convert2texCmd)
 	RootCmd.AddCommand(convert2imageCmd)
+	RootCmd.AddCommand(convert2neiCmd)
+	RootCmd.AddCommand(convert2csvCmd)
 }

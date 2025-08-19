@@ -331,8 +331,21 @@ func decryptData(encryptedData []byte, key []byte) ([]byte, error) {
 
 	// 提取控制信息
 	dataLen := len(encryptedData) - 5
+	if dataLen <= 0 {
+		return nil, fmt.Errorf("invalid encrypted payload length: %d", dataLen)
+	}
+	// CBC 模式要求输入为分组大小的整数倍，否则 CryptBlocks 将 panic
+	if dataLen%aes.BlockSize != 0 {
+		return nil, fmt.Errorf("ciphertext length (%d) is not a multiple of AES block size (%d)", dataLen, aes.BlockSize)
+	}
 	ivSeed := encryptedData[dataLen+1 : dataLen+5]
 	extraLen := int(encryptedData[dataLen] ^ ivSeed[0])
+	if len(ivSeed) != 4 {
+		return nil, fmt.Errorf("invalid IV seed length: %d", len(ivSeed))
+	}
+	if extraLen < 0 || extraLen >= aes.BlockSize {
+		return nil, fmt.Errorf("invalid padding length (extraLen): %d", extraLen)
+	}
 
 	// 生成IV
 	iv := generateIV(ivSeed)

@@ -42,7 +42,7 @@ func processDirectory(dirPath string, processor func(string) error, filter func(
 }
 
 // isModFile checks if the file has a supported MOD file extension
-// In addition to .tex
+// In addition to .tex and .nei
 func isModFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
@@ -256,6 +256,48 @@ func determineFileType(path string) error {
 	return nil
 }
 
+// isNeiFile checks if the file has a .nei extension
+func isNeiFile(path string) bool {
+	return strings.HasSuffix(strings.ToLower(path), ".nei")
+}
+
+// isCsvFile checks if the file has a .csv extension
+func isCsvFile(path string) bool {
+	return strings.HasSuffix(strings.ToLower(path), ".csv")
+}
+
+// convertToCsv converts a NEI file to CSV
+func convertToCsv(path string) error {
+	if !isNeiFile(path) {
+		return fmt.Errorf("not a NEI file: %s", path)
+	}
+
+	service := &COM3D2Service.NeiService{}
+	outputPath := strings.TrimSuffix(path, ".nei") + ".csv"
+	if err := service.NeiFileToCSVFile(path, outputPath); err != nil {
+		return fmt.Errorf("failed to convert %s to CSV: %w", path, err)
+	}
+
+	fmt.Printf("Converted %s to %s\n", path, outputPath)
+	return nil
+}
+
+// convertToNei converts a CSV file to NEI
+func convertToNei(path string) error {
+	if !isCsvFile(path) {
+		return fmt.Errorf("not a CSV file: %s", path)
+	}
+
+	service := &COM3D2Service.NeiService{}
+	outputPath := strings.TrimSuffix(path, ".csv") + ".nei"
+	if err := service.CSVFileToNeiFile(path, outputPath); err != nil {
+		return fmt.Errorf("failed to convert %s to NEI: %w", path, err)
+	}
+
+	fmt.Printf("Converted %s to %s\n", path, outputPath)
+	return nil
+}
+
 // convertFile automatically determines the direction of conversion
 func convertFile(path string) error {
 	// If it's a JSON file, convert to MOD
@@ -266,6 +308,16 @@ func convertFile(path string) error {
 	// If it's a MOD file, convert to JSON
 	if isModFile(path) {
 		return convertToJson(path)
+	}
+
+	// If it's a NEI file, convert to CSV
+	if isNeiFile(path) {
+		return convertToCsv(path)
+	}
+
+	// If it's a CSV file, convert to NEI
+	if isCsvFile(path) {
+		return convertToNei(path)
 	}
 
 	return fmt.Errorf("unsupported file type for conversion: %s", path)

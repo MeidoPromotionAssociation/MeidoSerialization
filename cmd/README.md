@@ -22,7 +22,7 @@ Download in [Release](https://github.com/MeidoPromotionAssociation/MeidoSerializ
 
 ## Usage
 
-The CLI provides six main commands:
+The CLI provides eight main commands:
 
 ### convert2json
 
@@ -90,6 +90,34 @@ MeidoSerialization.exe convert2tex example.png --forcePng false
 MeidoSerialization.exe convert2tex example.png --forcePng true # Force using PNG format (lossless) for the data part of the .tex file
 MeidoSerialization.exe convert2tex ./images_directory
 MeidoSerialization.exe convert2tex ./images_directory --compress --forcePng false
+```
+
+### convert2csv
+
+Convert .nei files (encrypted Shift-JIS CSV) to .csv format.
+
+```bash
+MeidoSerialization.exe convert2csv [file/directory]
+```
+
+Examples:
+```bash
+MeidoSerialization.exe convert2csv example.nei
+MeidoSerialization.exe convert2csv ./nei_directory
+```
+
+### convert2nei
+
+Convert .csv files to .nei format (encrypted Shift-JIS CSV).
+
+```bash
+MeidoSerialization.exe convert2nei [file/directory]
+```
+
+Examples:
+```bash
+MeidoSerialization.exe convert2nei example.csv
+MeidoSerialization.exe convert2nei ./csv_directory
 ```
 
 ### convert
@@ -168,7 +196,7 @@ MeidoSerialization CLI 是 MeidoSerialization 库的命令行界面，允许您�
 
 ## 使用方法
 
-CLI 提供了六个主要命令：
+CLI 提供了八个主要命令：
 
 ### convert2json
 
@@ -236,6 +264,34 @@ MeidoSerialization.exe convert2tex example.png --forcePng false
 MeidoSerialization.exe convert2tex example.png --forcePng true # 强制使用 PNG 格式（无损）进行 .tex 文件的数据部分
 MeidoSerialization.exe convert2tex ./images_directory
 MeidoSerialization.exe convert2tex ./images_directory --compress --forcePng false
+```
+
+### convert2csv
+
+将 .nei 文件（加密的 Shift-JIS CSV）转换为 .csv 格式。
+
+```bash
+MeidoSerialization.exe convert2csv [文件/目录]
+```
+
+示例：
+```bash
+MeidoSerialization.exe convert2csv example.nei
+MeidoSerialization.exe convert2csv ./nei_directory
+```
+
+### convert2nei
+
+将 .csv 文件转换为 .nei 格式（加密的 Shift-JIS CSV）。
+
+```bash
+MeidoSerialization.exe convert2nei [文件/目录]
+```
+
+示例：
+```bash
+MeidoSerialization.exe convert2nei example.csv
+MeidoSerialization.exe convert2nei ./csv_directory
 ```
 
 ### convert
