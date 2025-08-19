@@ -13,6 +13,8 @@ var convert2csvCmd = &cobra.Command{
 	Long: `Convert .nei files (encrypted Shift-JIS CSV) to .csv format.
 This command can process a single file or all files in a directory.
 
+The CSV is written with UTF-8-BOM encoding, using ',' as the separator.
+
 Examples:
   MeidoSerialization convert2csv example.nei
   MeidoSerialization convert2csv ./nei_directory`,
