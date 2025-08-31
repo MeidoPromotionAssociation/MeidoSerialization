@@ -104,7 +104,7 @@ func (s *NeiService) CSVFileToNei(path string) (*COM3D2.Nei, error) {
 	}
 	defer csvFile.Close()
 
-	reader := tools.NewCSVReaderSkipUTF8BOM(csvFile)
+	reader := tools.NewCSVReaderSkipUTF8BOM(csvFile, 0)
 	records, err := reader.ReadAll()
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CSV: %w", err)

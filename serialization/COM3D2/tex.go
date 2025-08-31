@@ -259,41 +259,33 @@ func ConvertImageToTex(inputPath string, texName string, compress bool, forcePNG
 	// 2.尝试读取 .uv.csv 文件（纹理图集）
 	var rects []TexRect
 	rectsPath := inputPath + ".uv.csv"
-	file, err := os.Open(rectsPath)
-	if err != nil {
-		defer file.Close()
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			line := strings.TrimSpace(scanner.Text())
-			if line == "" {
-				continue
+	if data, err := os.ReadFile(rectsPath); err == nil {
+		// 优先按逗号分隔读取，失败则回退到分号
+		reader := tools.NewCSVReaderSkipUTF8BOM(bytes.NewReader(data), 0)
+		records, rErr := reader.ReadAll()
+		if rErr != nil {
+			reader2 := tools.NewCSVReaderSkipUTF8BOM(bytes.NewReader(data), ';')
+			records, rErr = reader2.ReadAll()
+		}
+		if rErr == nil {
+			for _, rec := range records {
+				if len(rec) != 4 {
+					continue
+				}
+				x, xErr := strconv.ParseFloat(strings.TrimSpace(rec[0]), 64)
+				y, yErr := strconv.ParseFloat(strings.TrimSpace(rec[1]), 64)
+				w, wErr := strconv.ParseFloat(strings.TrimSpace(rec[2]), 64)
+				h, hErr := strconv.ParseFloat(strings.TrimSpace(rec[3]), 64)
+				if xErr != nil || yErr != nil || wErr != nil || hErr != nil {
+					continue
+				}
+				rects = append(rects, TexRect{
+					X: float32(x),
+					Y: float32(y),
+					W: float32(w),
+					H: float32(h),
+				})
 			}
-
-			parts := strings.Split(line, ";")
-			if len(parts) != 4 {
-				continue
-			}
-
-			var x, y, w, h float64
-			if _, err := fmt.Sscanf(parts[0], "%f", &x); err != nil {
-				continue
-			}
-			if _, err := fmt.Sscanf(parts[1], "%f", &y); err != nil {
-				continue
-			}
-			if _, err := fmt.Sscanf(parts[2], "%f", &w); err != nil {
-				continue
-			}
-			if _, err := fmt.Sscanf(parts[3], "%f", &h); err != nil {
-				continue
-			}
-
-			rects = append(rects, TexRect{
-				X: float32(x),
-				Y: float32(y),
-				W: float32(w),
-				H: float32(h),
-			})
 		}
 	}
 
@@ -812,10 +804,17 @@ func ConvertTexToImageAndWrite(tex *Tex, outputPath string, forcePNG bool) error
 		}
 		defer file.Close()
 
+		records := make([][]string, 0, len(tex.Rects))
 		for _, rect := range tex.Rects {
-			if _, err := fmt.Fprintf(file, "%.6f,%.6f,%.6f,%.6f\n", rect.X, rect.Y, rect.W, rect.H); err != nil {
-				return fmt.Errorf("failed to write UV data: %w", err)
-			}
+			records = append(records, []string{
+				fmt.Sprintf("%.6f", rect.X),
+				fmt.Sprintf("%.6f", rect.Y),
+				fmt.Sprintf("%.6f", rect.W),
+				fmt.Sprintf("%.6f", rect.H),
+			})
+		}
+		if err := tools.WriteCSVWithUTF8BOM(file, records); err != nil {
+			return fmt.Errorf("failed to write UV data: %w", err)
 		}
 	}
 	return nil

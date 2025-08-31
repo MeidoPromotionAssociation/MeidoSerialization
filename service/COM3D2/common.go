@@ -230,7 +230,7 @@ func (m *CommonService) FileTypeDetermine(path string, strictMode bool) (fileInf
 
 	// 二进制签名读取失败，尝试按文本/CSV 进行内容识别；若仍无法识别，则返回 unknown 而非报错
 	if _, _ = f.Seek(0, 0); true {
-		csvReader := tools.NewCSVReaderSkipUTF8BOM(f)
+		csvReader := tools.NewCSVReaderSkipUTF8BOM(f, 0)
 		if csvReader != nil {
 			_, err = csvReader.Read()
 			if err == nil {

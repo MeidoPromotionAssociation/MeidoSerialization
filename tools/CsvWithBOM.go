@@ -10,12 +10,20 @@ import (
 var utf8BOM = []byte{0xEF, 0xBB, 0xBF}
 
 // NewCSVReaderSkipUTF8BOM 创建一个 CSV Reader，并在存在时跳过 UTF-8 BOM。
-func NewCSVReaderSkipUTF8BOM(r io.Reader) *csv.Reader {
+// comma 指定 CSV 的分隔符，传入 0 则默认表示 ','
+func NewCSVReaderSkipUTF8BOM(r io.Reader, comma rune) *csv.Reader {
+	if comma == 0 {
+		comma = ','
+	}
+
 	br := bufio.NewReader(r)
 	if b, err := br.Peek(3); err == nil && len(b) == 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF {
 		_, _ = br.Discard(3)
 	}
-	return csv.NewReader(br)
+
+	reader := csv.NewReader(br)
+	reader.Comma = comma
+	return reader
 }
 
 // WriteCSVWithUTF8BOM 将 records 写入 w，并在文件开头写入 UTF-8 BOM，便于 Microsoft Excel 识别。
