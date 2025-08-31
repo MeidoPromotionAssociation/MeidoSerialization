@@ -200,6 +200,26 @@ If you encounter errors when working with texture (.tex) files:
 - Verify that ImageMagick is in your system PATH (you should be able to run the 'magick' command from any terminal)
 - Restart the application after installing ImageMagick
 
+### About version 1011 of the .tex file
+
+- __New fields__: Version 1011 adds a `Rects` (texture atlas) array to the binary structure. Its elements are four `float32` values: `x, y, w, h`, representing rectangles in normalized UV space.
+- __When converting an image to `.tex`:
+- If a `.uv.csv` file with the same name exists in the same directory (e.g., `foo.png.uv.csv`), the rectangles in it will be read and the 1011 version of the tex file will be generated.
+- If no `.uv.csv` file exists, the 1010 version (without `Rects`) will be generated.
+- __When converting `.tex` to an image__:
+- If the source `.tex` is 1011 and contains `Rects`, a `.uv.csv` file with the same name will be generated next to the output image (e.g., `output.png.uv.csv`).
+- __.uv.csv format__:
+- Encoding must be: UTF-8 with BOM.
+- Delimiter: English comma `,`.
+- Number of columns: 4 columns per row, in the order `x, y, w, h` (x, y, width, height); values ​​are typically in the range `[0, 1]` (normalized UVs). It is recommended to retain up to 6 decimal places and use `float32` precision.
+  Example:
+
+```csv
+0.000000,0.000000,0.500000,0.500000
+0.500000,0.000000,0.500000,0.500000
+0.000000,0.500000,0.500000,0.500000
+```
+
 ## License
 
 This project is licensed under the BSD-3-Clause License - see the LICENSE file for details.
@@ -423,6 +443,26 @@ func main() {
 - 验证 ImageMagick 在您的系统 PATH 中（您应该能够从任何终端运行 'magick' 命令）
 - 安装 ImageMagick 后重启应用程序
 
+### 关于 1011 版本的 .tex
+
+- __新增字段__：1011 版本在二进制结构中新增 `Rects`（纹理图集）数组，元素为 `x, y, w, h` 四个 `float32`，表示归一化 UV 空间内的矩形。
+- __将图片转换为 `.tex` 时__：
+  - 若同目录存在同名的 `.uv.csv`（如 `foo.png.uv.csv`），会读取其中的矩形并生成 1011 版本的 tex。
+  - 若不存在 `.uv.csv`，则生成 1010 版本（不含 `Rects`）。
+- __将 `.tex` 转换为图片时__:
+  - 若源 `.tex` 为 1011 且包含 `Rects`，在输出图片旁会生成同名 `.uv.csv`（如 `output.png.uv.csv`）
+- __.uv.csv 格式__：
+  - 编码必须为：UTF-8-BOM。
+  - 分隔符：英文逗号`,`。
+  - 列数：每行 4 列，依次为 `x, y, w, h` (x, y, width, heigh)；取值通常位于区间 `[0,1]`（归一化 UV），建议保留最多 6 位小数，精度为 `float32`。
+  - 示例：
+
+```csv
+0.000000,0.000000,0.500000,0.500000
+0.500000,0.000000,0.500000,0.500000
+0.000000,0.500000,0.500000,0.500000
+```
+
 ## 许可证
 
 本项目采用 BSD-3-Clause License 许可 - 详情请参阅 LICENSE 文件。
@@ -435,9 +475,6 @@ func main() {
 - [90135 的 COM3D2 中文指北](https://github.com/90135/COM3D2_GUIDE_CHINESE)
 - [90135 的 COM3D2 脚本收藏集](https://github.com/90135/COM3D2_Scripts_901)
 - [90135 的 COM3D2 工具](https://github.com/90135/COM3D2_Tools_901)
-
-
-
 
 <br>
 <br>
@@ -453,12 +490,6 @@ func main() {
 <br>
 <br>
 <br>
-<br>
-
-
-
-
-
 <br>
 
 # KISS Rule
