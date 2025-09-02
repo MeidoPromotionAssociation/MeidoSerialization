@@ -160,6 +160,10 @@ func (nei *Nei) Dump(w io.Writer) error {
 		}
 	}
 
+	//重新计算行列数
+	nei.Rows = uint32(len(nei.Data))
+	nei.Cols = uint32(len(nei.Data[0]))
+
 	// 写入文件头
 	err := utilities.WriteBytes(buf, NeiSignature)
 	if err != nil {
