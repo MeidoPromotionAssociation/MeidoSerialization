@@ -33,13 +33,13 @@ func (s *NeiService) ReadNeiFile(path string) (*COM3D2.Nei, error) {
 func (s *NeiService) WriteNeiFile(neiData *COM3D2.Nei, path string) error {
 	f, err := os.Create(path)
 	if err != nil {
-		return fmt.Errorf("unable to create .neiData file: %w", err)
+		return fmt.Errorf("unable to create .nei file: %w", err)
 	}
 	defer f.Close()
 
 	bw := bufio.NewWriter(f)
 	if err := neiData.Dump(bw); err != nil {
-		return fmt.Errorf("failed to write to .neiData file: %w", err)
+		return fmt.Errorf("failed to write to .nei file: %w", err)
 	}
 	if err := bw.Flush(); err != nil {
 		return fmt.Errorf("an error occurred while flush bufio: %w", err)
