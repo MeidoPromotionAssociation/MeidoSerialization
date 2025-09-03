@@ -190,7 +190,7 @@ func main() {
 }
 ```
 
-## Troubleshooting
+## FAQ
 
 ### ImageMagick Issues
 
@@ -199,6 +199,12 @@ If you encounter errors when working with texture (.tex) files:
 - Ensure ImageMagick version 7 or higher is installed
 - Verify that ImageMagick is in your system PATH (you should be able to run the 'magick' command from any terminal)
 - Restart the application after installing ImageMagick
+
+### Unable to save when using certain characters in `.nei` file
+If you got the error below
+That's because you used characters that are not supported by Shift-JIS encoding. .nei files use Shift-JIS encoding internally and we cannot change this. Please remove the unsupported characters.
+- `failed to write to .neiData file: failed to encode string: encoding: rune not supported by encoding.`
+- `failed to write to .nei file: failed to encode string: encoding: rune not supported by encoding.`
 
 ### About version 1011 of the .tex file
 
@@ -219,6 +225,12 @@ If you encounter errors when working with texture (.tex) files:
 0.500000,0.000000,0.500000,0.500000
 0.000000,0.500000,0.500000,0.500000
 ```
+
+### About CSV format
+
+All CSV files used in this program are encoded using UTF-8-BOM, separated by ',', and follow the RFC4180 standard.
+
+
 
 ## License
 
@@ -433,7 +445,7 @@ func main() {
 }
 ```
 
-## 故障排除
+## 问与答
 
 ### ImageMagick 问题
 
@@ -462,6 +474,16 @@ func main() {
 0.500000,0.000000,0.500000,0.500000
 0.000000,0.500000,0.500000,0.500000
 ```
+
+### 在 `.nei` 文件中使用某些字符时无法保存
+如果您遇到下面的错误
+这是因为您使用了 Shift-JIS 编码不支持的字符。.nei 文件内部使用 Shift-JIS 编码，我们无法更改此设置。请删除不支持的字符。
+- `failed to write to .neiData file: failed to encode string: encoding: rune not supported by encoding.`
+- `failed to write to .nei file: failed to encode string: encoding: rune not supported by encoding.`
+
+### 关于 CSV 格式
+本程序中使用的所有 CSV 文件均采用 UTF-8-BOM 编码，以“,”分隔，并遵循 [RFC4180](https://datatracker.ietf.org/doc/html/rfc4180) 标准。
+
 
 ## 许可证
 
