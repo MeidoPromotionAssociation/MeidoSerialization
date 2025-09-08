@@ -35,7 +35,10 @@ Examples:
 		if isDirectory(path) {
 			fmt.Printf("Processing directory: %s\n", path)
 			return processDirectory(path, convertFile, func(p string) bool {
-				return isModFile(p) || isModJsonFile(p)
+				if !fileTypeFilter(p) {
+					return false
+				}
+				return isModJsonFile(p) || isModFile(p) || isTexFile(p) || isImageFile(p) || isNeiFile(p) || isCsvFile(p)
 			})
 		}
 

@@ -25,6 +25,7 @@ func processFile(path string, processor func(string) error) error {
 }
 
 // processDirectory processes all files in a directory (recursively) based on the provided function
+// if filter returns true, the file will be processed
 func processDirectory(dirPath string, processor func(string) error, filter func(string) bool) error {
 	return filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -47,11 +48,6 @@ func isModFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
 	case ".menu", ".mate", ".pmat", ".col", ".phy", ".psk", ".anm", ".model":
-		// If fileType is specified, check if it matches
-		if fileType != "" {
-			// Remove the leading dot
-			return strings.TrimPrefix(ext, ".") == fileType
-		}
 		return true
 	default:
 		return false
@@ -74,12 +70,6 @@ func isModJsonFile(path string) bool {
 	baseName := filepath.Base(path)
 	baseName = strings.TrimSuffix(baseName, ".json")
 	ext := filepath.Ext(baseName)
-
-	// If fileType is specified, check if it matches
-	if fileType != "" {
-		// Remove the leading dot
-		return strings.TrimPrefix(ext, ".") == fileType
-	}
 
 	// Otherwise check if it's any supported MOD file
 	// We need to check directly without using isModFile because it also considers fileType
@@ -300,6 +290,11 @@ func convertToNei(path string) error {
 
 // convertFile automatically determines the direction of conversion
 func convertFile(path string) error {
+	if !fileTypeFilter(path) {
+		fmt.Printf("Skip file %s Because, filetype not match", path)
+		return nil // silent skip
+	}
+
 	// If it's a JSON file, convert to MOD
 	if isJsonFile(path) && isModJsonFile(path) {
 		return convertToMod(path)
@@ -331,4 +326,87 @@ func convertFile(path string) error {
 	}
 
 	return fmt.Errorf("unsupported file type for conversion: %s", path)
+}
+
+// fileTypeFilter filters files based on the fileType flag
+// return true mean file should be processed
+func fileTypeFilter(path string) bool {
+	// Empty means no filtering
+	ft := strings.ToLower(strings.TrimSpace(fileType))
+	if ft == "" {
+		return true
+	}
+
+	// Compatible with names starting with a dot, such as ".menu" or ".menu.json"
+	ft = strings.TrimPrefix(ft, ".")
+
+	// Parse whether it is in the "<type>.json" format
+	wantJson := false
+	if strings.HasSuffix(ft, ".json") {
+		ft = strings.TrimSuffix(ft, ".json")
+		wantJson = true
+	}
+
+	// Strict mode: identify types based on content
+	if strictMode {
+		commonService := &COM3D2Service.CommonService{}
+		info, err := commonService.FileTypeDetermine(path, true)
+		if err != nil {
+			return false
+		}
+		// Type name matching (ignoring case)
+		if !strings.EqualFold(info.FileType, ft) {
+			return false
+		}
+		// If <type>.json is explicitly required, the storage format must be JSON
+		if wantJson {
+			return strings.EqualFold(info.StorageFormat, "json")
+		}
+		// non-<type>.json: only matches non-JSON (binary)
+		return !strings.EqualFold(info.StorageFormat, "json")
+	}
+
+	// Non-strict mode: retain the original extension/detection-based logic
+	if wantJson {
+		// Only match files of the form .<type>.json
+		if !isJsonFile(path) {
+			return false
+		}
+		base := filepath.Base(path)
+		base = strings.TrimSuffix(base, ".json")
+		innerExt := strings.ToLower(strings.TrimPrefix(filepath.Ext(base), "."))
+		return innerExt == ft
+	}
+
+	// General type matching
+	switch ft {
+	case "menu", "mate", "pmat", "col", "phy", "psk", "anm", "model":
+		// Pure type: only matches binary .<type>, not .<type>.json
+		if isJsonFile(path) {
+			return false
+		}
+		ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(path), "."))
+		return ext == ft
+	case "tex":
+		return isTexFile(path)
+	case "nei":
+		return isNeiFile(path)
+	case "csv":
+		return isCsvFile(path)
+	case "image":
+		return isImageFile(path)
+	default:
+		// Fallback: compare directly with the file extension; if it is .json, compare the internal extension
+		ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(path), "."))
+		if ext == ft {
+			return true
+		}
+		if isJsonFile(path) {
+			base := filepath.Base(path)
+			base = strings.TrimSuffix(base, ".json")
+			innerExt := strings.ToLower(strings.TrimPrefix(filepath.Ext(base), "."))
+			return innerExt == ft
+		}
+		return false
+	}
 }

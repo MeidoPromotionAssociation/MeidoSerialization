@@ -4,17 +4,22 @@
 
 # MeidoSerialization CLI
 
-MeidoSerialization CLI is a command-line interface for the MeidoSerialization library, allowing you to convert between COM3D2 MOD files and JSON formats directly from the command line.
+MeidoSerialization CLI is a command-line interface for the MeidoSerialization library, allowing you to convert between
+COM3D2 MOD files and JSON formats directly from the command line.
 
 For .tex files, it converts between common image formats and the .tex format.
 
-You can also use [COM3D2 MOD EDITOR V2](https://github.com/90135/COM3D2_MOD_EDITOR) to open the converted json file or unconverted files.
+You can also use [COM3D2 MOD EDITOR V2](https://github.com/90135/COM3D2_MOD_EDITOR) to open the converted json file or
+unconverted files.
 
 After converting to JSON text, you can more conveniently use batch processing tools for tasks like keyword replacement.
 
-Please note that the converted JSON does not contain newlines. You may need to use tools like Visual Studio Code to format it for readability.
+Please note that the converted JSON does not contain newlines. You may need to use tools like Visual Studio Code to
+format it for readability.
 
-You can use this simple GUI tool for batch processing like keyword replacement and renaming, which is useful for creating variations (Chinese only): [https://github.com/90135/COM3D2_Tools_901](https://github.com/90135/COM3D2_Tools_901)
+You can use this simple GUI tool for batch processing like keyword replacement and renaming, which is useful for
+creating variations (Chinese
+only): [https://github.com/90135/COM3D2_Tools_901](https://github.com/90135/COM3D2_Tools_901)
 
 ## Download
 
@@ -35,6 +40,7 @@ MeidoSerialization.exe convert2json [file/directory]
 ```
 
 Examples:
+
 ```bash
 MeidoSerialization.exe convert2json example.menu
 MeidoSerialization.exe convert2json ./mods_directory
@@ -52,10 +58,11 @@ MeidoSerialization.exe convert2mod [file/directory]
 ```
 
 Examples:
+
 ```bash
 MeidoSerialization.exe convert2mod example.menu.json
 MeidoSerialization.exe convert2mod ./json_directory
-MeidoSerialization.exe convert2mod --type mate ./json_directory  # Only convert .mate.json files
+MeidoSerialization.exe convert2mod --type mate.json ./json_directory  # Only convert .mate.json files
 ```
 
 ### convert2image
@@ -67,11 +74,14 @@ MeidoSerialization.exe convert2image [file/directory]
 ```
 
 Examples:
+
 ```bash
 MeidoSerialization.exe convert2image example.tex
 MeidoSerialization.exe convert2image example.tex --format jpg  # Convert to JPG format
 MeidoSerialization.exe convert2image ./textures_directory
 MeidoSerialization.exe convert2image ./textures_directory --format webp # Convert to WebP format
+# You can also filter by type in directory mode
+MeidoSerialization.exe convert2image ./textures_directory --type tex
 ```
 
 ### convert2tex
@@ -83,6 +93,7 @@ MeidoSerialization.exe convert2tex [file/directory]
 ```
 
 Examples:
+
 ```bash
 MeidoSerialization.exe convert2tex example.png
 MeidoSerialization.exe convert2tex example.jpg --compress # Use DXT compression
@@ -90,6 +101,8 @@ MeidoSerialization.exe convert2tex example.png --forcePng false
 MeidoSerialization.exe convert2tex example.png --forcePng true # Force using PNG format (lossless) for the data part of the .tex file
 MeidoSerialization.exe convert2tex ./images_directory
 MeidoSerialization.exe convert2tex ./images_directory --compress --forcePng false
+# Filter only images in directory mode
+MeidoSerialization.exe convert2tex ./images_directory --type image
 ```
 
 ### convert2csv
@@ -101,9 +114,12 @@ MeidoSerialization.exe convert2csv [file/directory]
 ```
 
 Examples:
+
 ```bash
 MeidoSerialization.exe convert2csv example.nei
 MeidoSerialization.exe convert2csv ./nei_directory
+# Filter only .nei in directory mode
+MeidoSerialization.exe convert2csv ./nei_directory --type nei
 ```
 
 ### convert2nei
@@ -115,27 +131,41 @@ MeidoSerialization.exe convert2nei [file/directory]
 ```
 
 Examples:
+
 ```bash
 MeidoSerialization.exe convert2nei example.csv
 MeidoSerialization.exe convert2nei ./csv_directory
+# Filter only .csv in directory mode
+MeidoSerialization.exe convert2nei ./csv_directory --type csv
 ```
 
 ### convert
 
-Auto-detect and convert files between MOD and JSON formats.
+Auto-detect and convert files:
 
-Does not support .tex conversion.
+- MOD <-> JSON
+- TEX <-> Image
+- NEI <-> CSV
 
 ```bash
 MeidoSerialization.exe convert [file/directory]
 ```
 
 Examples:
+
 ```bash
 MeidoSerialization.exe convert example.menu
 MeidoSerialization.exe convert example.menu.json
+MeidoSerialization.exe convert example.tex
+MeidoSerialization.exe convert example.nei
 MeidoSerialization.exe convert ./mixed_directory
-MeidoSerialization.exe convert --type pmat ./mixed_directory  # Only convert .pmat and .pmat.json files
+# In directory mode, you can filter by type
+MeidoSerialization.exe convert --type pmat ./mixed_directory      # Only convert .pmat (binary)
+MeidoSerialization.exe convert --type pmat.json ./mixed_directory # Only convert .pmat.json
+MeidoSerialization.exe convert --type tex ./mixed_directory       # Only convert .tex to image
+MeidoSerialization.exe convert --type image ./mixed_directory     # Only convert image files to .tex
+MeidoSerialization.exe convert --type nei ./mixed_directory       # Only convert .nei to .csv
+MeidoSerialization.exe convert --type csv ./mixed_directory       # Only convert .csv to .nei
 ```
 
 ### determine
@@ -147,15 +177,22 @@ MeidoSerialization.exe determine [file/directory]
 ```
 
 Examples:
+
 ```bash
 MeidoSerialization.exe determine example.menu
 MeidoSerialization.exe determine --strict ./mods_directory
+# Type filtering also supported (including '<type>.json')
+MeidoSerialization.exe determine --type menu ./mods_directory
+MeidoSerialization.exe determine --type menu.json ./mods_directory
 ```
 
 ### Global Flags
 
 - `--strict` or `-s`: Use strict mode for file type determination (based on content rather than file extension)
-- `--type` or `-t`: Filter by file type (menu, mate, pmat, col, phy, psk, tex, anm, model)
+- `--type` or `-t`: Filter by file type. Supported values:
+    - `menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image`
+    - or `'<type>.json'` for MOD JSON files (e.g., `menu.json`)
+    - Note: `<type>` (without `.json`) matches binary only; `<type>.json` matches JSON only.
 
 ## Supported File Types
 
@@ -188,7 +225,8 @@ MeidoSerialization CLI 是 MeidoSerialization 库的命令行界面，允许您�
 
 请注意转换后的 JSON 是没有换行符的，进行关键词替换时需要注意，您也可以使用 Visual Studio Code 等工具进行格式化。
 
-您可以使用这里提供的简单 GUI 工具来进行简单的关键词替换，重命名等批处理，制作差分很有用（仅中文）：[https://github.com/90135/COM3D2_Tools_901](https://github.com/90135/COM3D2_Tools_901)
+您可以使用这里提供的简单 GUI
+工具来进行简单的关键词替换，重命名等批处理，制作差分很有用（仅中文）：[https://github.com/90135/COM3D2_Tools_901](https://github.com/90135/COM3D2_Tools_901)
 
 ## 下载
 
@@ -209,6 +247,7 @@ MeidoSerialization.exe convert2json [文件/目录]
 ```
 
 示例：
+
 ```bash
 MeidoSerialization.exe convert2json example.menu
 MeidoSerialization.exe convert2json ./mods_directory
@@ -226,10 +265,11 @@ MeidoSerialization.exe convert2mod [文件/目录]
 ```
 
 示例：
+
 ```bash
 MeidoSerialization.exe convert2mod example.menu.json
 MeidoSerialization.exe convert2mod ./json_directory
-MeidoSerialization.exe convert2mod --type mate ./json_directory  # 仅转换 .mate.json 文件
+MeidoSerialization.exe convert2mod --type mate.json ./json_directory  # 仅转换 .mate.json 文件
 ```
 
 ### convert2image
@@ -241,11 +281,14 @@ MeidoSerialization.exe convert2image [文件/目录]
 ```
 
 示例：
+
 ```bash
 MeidoSerialization.exe convert2image example.tex
 MeidoSerialization.exe convert2image example.tex --format jpg  # 转换为 JPG 格式
 MeidoSerialization.exe convert2image ./textures_directory
 MeidoSerialization.exe convert2image ./textures_directory --format webp # 转换为 WebP 格式
+# 目录模式下也可以用类型过滤
+MeidoSerialization.exe convert2image ./textures_directory --type tex
 ```
 
 ### convert2tex
@@ -257,6 +300,7 @@ MeidoSerialization.exe convert2tex [文件/目录]
 ```
 
 示例：
+
 ```bash
 MeidoSerialization.exe convert2tex example.png
 MeidoSerialization.exe convert2tex example.jpg --compress # 使用 DXT 压缩
@@ -264,6 +308,8 @@ MeidoSerialization.exe convert2tex example.png --forcePng false
 MeidoSerialization.exe convert2tex example.png --forcePng true # 强制使用 PNG 格式（无损）进行 .tex 文件的数据部分
 MeidoSerialization.exe convert2tex ./images_directory
 MeidoSerialization.exe convert2tex ./images_directory --compress --forcePng false
+# 目录模式下按类型过滤
+MeidoSerialization.exe convert2tex ./images_directory --type image
 ```
 
 ### convert2csv
@@ -275,9 +321,12 @@ MeidoSerialization.exe convert2csv [文件/目录]
 ```
 
 示例：
+
 ```bash
 MeidoSerialization.exe convert2csv example.nei
 MeidoSerialization.exe convert2csv ./nei_directory
+# 目录模式下按类型过滤
+MeidoSerialization.exe convert2csv ./nei_directory --type nei
 ```
 
 ### convert2nei
@@ -289,27 +338,41 @@ MeidoSerialization.exe convert2nei [文件/目录]
 ```
 
 示例：
+
 ```bash
 MeidoSerialization.exe convert2nei example.csv
 MeidoSerialization.exe convert2nei ./csv_directory
+# 目录模式下按类型过滤
+MeidoSerialization.exe convert2nei ./csv_directory --type csv
 ```
 
 ### convert
 
-自动检测并在 MOD 和 JSON 格式之间转换文件。
+自动检测并进行转换：
 
-不支持 .tex 转换
+- MOD <-> JSON
+- TEX <-> 图片
+- NEI <-> CSV
 
 ```bash
 MeidoSerialization.exe convert [文件/目录]
 ```
 
 示例：
+
 ```bash
 MeidoSerialization.exe convert example.menu
 MeidoSerialization.exe convert example.menu.json
+MeidoSerialization.exe convert example.tex
+MeidoSerialization.exe convert example.nei
 MeidoSerialization.exe convert ./mixed_directory
-MeidoSerialization.exe convert --type pmat ./mixed_directory  # 仅转换 .pmat 和 .pmat.json 文件
+# 目录模式下可按类型过滤
+MeidoSerialization.exe convert --type pmat ./mixed_directory      # 仅转换 .pmat（二进制）
+MeidoSerialization.exe convert --type pmat.json ./mixed_directory # 仅转换 .pmat.json
+MeidoSerialization.exe convert --type tex ./mixed_directory       # 仅将 .tex 转为图片
+MeidoSerialization.exe convert --type image ./mixed_directory     # 仅将图片转为 .tex
+MeidoSerialization.exe convert --type nei ./mixed_directory       # 仅将 .nei 转为 .csv
+MeidoSerialization.exe convert --type csv ./mixed_directory       # 仅将 .csv 转为 .nei
 ```
 
 ### determine
@@ -321,15 +384,22 @@ MeidoSerialization.exe determine [文件/目录]
 ```
 
 示例：
+
 ```bash
 MeidoSerialization.exe determine example.menu
 MeidoSerialization.exe determine --strict ./mods_directory
+# 也支持类型过滤（包含 '<type>.json'）
+MeidoSerialization.exe determine --type menu ./mods_directory
+MeidoSerialization.exe determine --type menu.json ./mods_directory
 ```
 
 ### 全局参数
 
-- `--strict` 或 `-s`：使用严格模式进行文件类型判断（基于内容而非文件扩展名）
-- `--type` 或 `-t`：按文件类型过滤（menu, mate, pmat, col, phy, psk, tex, anm, model）
+- `--strict` 或 `-s`：使用严格模式进行文件类型判断（基于文件内容而非扩展名）
+- `--type` 或 `-t`：按类型过滤。支持：
+    - `menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image`
+    - 或使用 `'<type>.json'` 过滤 MOD 的 JSON 文件（如 `menu.json`）
+    - 注意：不带 `.json` 的 `<type>` 仅匹配二进制；带 `.json` 的 `<type>.json` 仅匹配 JSON。
 
 ## 支持的文件类型
 

@@ -21,6 +21,8 @@ Supported file types include: .menu, .mate, .pmat, .col, .phy, .psk, .tex, .anm,
 
 Github: https://github.com/MeidoPromotionAssociation/MeidoSerialization
 
+
+
 MeidoSerialization CLI 工具，用于在 COM3D2 MOD 文件和 JSON 之间进行转换。
 此工具可以将 MOD 文件转换为 JSON，也可以将 JSON 文件转换为 MOD 文件，并可识别文件类型。
 （对于 .tex 则是转换为图片，对于 .nei 则是转换为 .csv)
@@ -48,7 +50,7 @@ func Execute() error {
 func init() {
 	// Add global flags
 	RootCmd.PersistentFlags().BoolVarP(&strictMode, "strict", "s", false, "Use strict mode for file type determination")
-	RootCmd.PersistentFlags().StringVarP(&fileType, "type", "t", "", "Filter by file type (menu, mate, pmat, col, phy, psk, tex, anm, model)")
+	RootCmd.PersistentFlags().StringVarP(&fileType, "type", "t", "", "Filter by file type (menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image) or '<type>.json' (e.g., 'menu.json')")
 
 	// Add subcommands
 	RootCmd.AddCommand(convertCmd)

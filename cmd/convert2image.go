@@ -34,7 +34,9 @@ Examples:
 
 		if isDirectory(path) {
 			fmt.Printf("Processing directory: %s\n", path)
-			return processDirectory(path, processor, isTexFile)
+			return processDirectory(path, processor, func(p string) bool {
+				return fileTypeFilter(p) && isTexFile(p)
+			})
 		}
 
 		return processFile(path, processor)

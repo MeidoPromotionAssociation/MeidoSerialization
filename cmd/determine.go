@@ -26,10 +26,7 @@ Examples:
 
 		if isDirectory(path) {
 			fmt.Printf("Analyzing directory: %s\n", path)
-			return processDirectory(path, determineFileType, func(p string) bool {
-				// Process all files when determining types
-				return true
-			})
+			return processDirectory(path, determineFileType, fileTypeFilter)
 		}
 
 		return processFile(path, determineFileType)

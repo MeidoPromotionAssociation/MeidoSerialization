@@ -28,7 +28,9 @@ Examples:
 
 		if isDirectory(path) {
 			fmt.Printf("Processing directory: %s\n", path)
-			return processDirectory(path, processor, isCsvFile)
+			return processDirectory(path, processor, func(p string) bool {
+				return fileTypeFilter(p) && isCsvFile(p)
+			})
 		}
 
 		return processFile(path, processor)
