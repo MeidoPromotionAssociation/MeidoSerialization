@@ -27,8 +27,8 @@ type Menu struct {
 
 // Command 对应 .menu 中的命令
 type Command struct {
-	ArgCount byte     `json:"ArgCount"`
-	Args     []string `json:"Args"`
+	Command string   `json:"Command"`
+	Args    []string `json:"Args"`
 }
 
 // ReadMenu 从 r 中读取一个 .menu 文件结构
@@ -36,7 +36,7 @@ func ReadMenu(r io.Reader) (*Menu, error) {
 	m := &Menu{}
 
 	// 1. Signature
-	sig, err := utilities.ReadString(r) // LEB128 + UTF8
+	sig, err := utilities.ReadString(r)
 	if err != nil {
 		return nil, err
 	}
@@ -103,14 +103,27 @@ func ReadMenu(r io.Reader) (*Menu, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read command.argCount failed: %w", err)
 		}
-		cmd.ArgCount = ac
-		cmd.Args = make([]string, ac)
-		for i := 0; i < int(ac); i++ {
-			arg, err := utilities.ReadString(r)
+		if ac == 0 {
+			// 理论上不会出现，因为 0 在 PeekByte 时已作为终止判断，这里容错
+			cmd.Command = ""
+			cmd.Args = nil
+		} else {
+			// 第一个字符串为命令，其余为参数
+			first, err := utilities.ReadString(r)
 			if err != nil {
-				return nil, fmt.Errorf("read command arg failed: %w", err)
+				return nil, fmt.Errorf("read command failed: %w", err)
 			}
-			cmd.Args[i] = arg
+			cmd.Command = first
+			if ac > 1 {
+				cmd.Args = make([]string, 0, int(ac)-1)
+				for i := 1; i < int(ac); i++ {
+					arg, err := utilities.ReadString(r)
+					if err != nil {
+						return nil, fmt.Errorf("read command arg failed: %w", err)
+					}
+					cmd.Args = append(cmd.Args, arg)
+				}
+			}
 		}
 		m.Commands = append(m.Commands, cmd)
 	}
@@ -171,14 +184,27 @@ func (m *Menu) Dump(w io.Writer) error {
 
 	// 8. 写入 Commands
 	for _, cmd := range m.Commands {
-		if len(cmd.Args) == 0 || len(cmd.Args) > 255 {
-			return fmt.Errorf("command %v has invalid arg count=%d", cmd.Args, len(cmd.Args))
+		// 至少要有命令名；Args 可以为空
+		if cmd.Command == "" {
+			continue
 		}
-		// ArgCount
-		if err := utilities.WriteByte(w, cmd.ArgCount); err != nil {
+
+		// ArgCount = 1(命令名) + len(Args)，总数不能超过 255
+		if len(cmd.Args)+1 > 255 {
+			return fmt.Errorf("command %q has invalid arg count=%d, max count is 255", cmd.Command, len(cmd.Args)+1)
+		}
+
+		// 写 ArgCount
+		if err := utilities.WriteByte(w, byte(len(cmd.Args)+1)); err != nil {
 			return fmt.Errorf("write command argCount failed: %w", err)
 		}
-		// Args
+
+		// 先写命令名
+		if err := utilities.WriteString(w, cmd.Command); err != nil {
+			return fmt.Errorf("write command name failed: %w", err)
+		}
+
+		// 再写参数
 		for _, arg := range cmd.Args {
 			if err := utilities.WriteString(w, arg); err != nil {
 				return fmt.Errorf("write command arg failed: %w", err)
@@ -205,19 +231,25 @@ func (m *Menu) UpdateBodySize() error {
 		// 1. 写入 ArgCount (1 字节)
 		sum += 1
 
-		// 2. 遍历每个参数
-		for _, arg := range cmd.Args {
-			// Go 的字符串底层就是 UTF-8 编码，len(arg) 返回字节数
-			encodedLength := len(arg)
-
+		// 2. 命令名
+		{
+			encodedLength := len(cmd.Command)
 			if encodedLength > math.MaxInt32 {
 				return fmt.Errorf("string parameter length (%d) exceeds the maximum value of int32", encodedLength)
 			}
-
-			// 计算 encodedLength 对应的 LEB128 编码所占字节数
 			lebSize := utilities.Get7BitEncodedIntSize(int32(encodedLength))
 			sum += int32(lebSize)
-			// 加上字符串的实际字节数
+			sum += int32(encodedLength)
+		}
+
+		// 3. 遍历每个参数
+		for _, arg := range cmd.Args {
+			encodedLength := len(arg)
+			if encodedLength > math.MaxInt32 {
+				return fmt.Errorf("string parameter length (%d) exceeds the maximum value of int32", encodedLength)
+			}
+			lebSize := utilities.Get7BitEncodedIntSize(int32(encodedLength))
+			sum += int32(lebSize)
 			sum += int32(encodedLength)
 		}
 	}
