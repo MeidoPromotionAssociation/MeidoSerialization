@@ -310,6 +310,16 @@ func convertFile(path string) error {
 		return convertToJson(path)
 	}
 
+	// If it's a TEX file, convert to image
+	if isTexFile(path) {
+		return convertToImage(path, "png")
+	}
+
+	// If it's an image file, convert to TEX
+	if isImageFile(path) {
+		return convertToTex(path, false, true)
+	}
+
 	// If it's a NEI file, convert to CSV
 	if isNeiFile(path) {
 		return convertToCsv(path)
