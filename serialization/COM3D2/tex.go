@@ -804,7 +804,8 @@ func ConvertTexToImageAndWrite(tex *Tex, outputPath string, forcePNG bool) error
 		}
 		defer file.Close()
 
-		records := make([][]string, 0, len(tex.Rects))
+		records := make([][]string, 0, len(tex.Rects)+1)
+		records = append(records, []string{"X", "Y", "W", "H"}) // 表头
 		for _, rect := range tex.Rects {
 			records = append(records, []string{
 				fmt.Sprintf("%.6f", rect.X),
