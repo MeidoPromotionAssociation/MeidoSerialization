@@ -200,7 +200,7 @@ see main [README](https://github.com/MeidoPromotionAssociation/MeidoSerializatio
 
 ## Build
 
-1. Make sure you have Go installed (version 1.24 or higher)
+1. Make sure you have Go installed (version 1.25 or higher)
 2. Clone the repository:
    ```bash
    git clone https://github.com/MeidoPromotionAssociation/MeidoSerialization.git
@@ -210,6 +210,23 @@ see main [README](https://github.com/MeidoPromotionAssociation/MeidoSerializatio
    cd MeidoSerialization
    go build -o MeidoSerialization.exe
    ```
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+------
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
 
 # 简体中文
 
@@ -407,7 +424,7 @@ MeidoSerialization.exe determine --type menu.json ./mods_directory
 
 ## 构建
 
-1. 确保已安装 Go（版本 1.24 或更高）
+1. 确保已安装 Go（版本 1.25 或更高）
 2. 克隆仓库：
    ```bash
    git clone https://github.com/MeidoPromotionAssociation/MeidoSerialization.git
