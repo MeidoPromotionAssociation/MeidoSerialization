@@ -83,24 +83,23 @@ See separate instructions for details: [cmd instructions](https://github.com/Mei
 
 The CLI provides the following main commands:
 
-`convert2json`: Convert MOD files to JSON format.
-
-`convert2mod`: Convert JSON files back to MOD format.
-
-`convert2tex`：Convert normal image files to texture format(.tex).
-
-`convert2image`：Convert .tex files to image format.
-
-`convert`: Automatically detect and convert files between MOD and JSON formats.
-
-`determine`: Determine the type of files in a directory or a single file.
-
-`version`: Get version information for MeidoSerialization.
+- `convert`: Automatically detects and converts files between MOD and JSON formats, TEX and image formats, and NEI and CSV formats.
+- `convert2json`: Converts MOD files to JSON format.
+- `convert2mod`: Converts JSON files back to MOD format.
+- `convert2tex`: Converts regular image files to texture files (.tex).
+- `convert2image`: Converts .tex files to regular image formats.
+- `convert2csv`: Converts .nei files to .csv format.
+- `convert2nei`: Converts .csv files to .nei format.
+- `determine`: Determines the type of files in a directory or a single file.
+- `version`: Gets the version information of MeidoSerialization.
 
 #### Global flags
 
-- `--strict` or `-s`: use strict mode for file type determination (based on content rather than file extension)
-- `--type` or `-t`: filter by file type (menu, mate, pmat, col, phy, psk, tex, anm, model)
+- `--strict` or `-s`: Use strict mode for file type determination (based on content rather than file extension)
+- `--type` or `-t`: Filter by file type. Supported values:
+    - `menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image`
+    - or `'<type>.json'` for MOD JSON files (e.g., `menu.json`)
+    - Note: `<type>` (without `.json`) matches binary only; `<type>.json` matches JSON only.
 
 ### In Go Projects
 
@@ -109,7 +108,11 @@ The library provides two main packages:
 - `service` package: Provides methods for reading and writing files directly
 - `serialization` package: Provides methods for serializing and deserializing structures
 
-Example usage:
+
+
+<details>
+
+<summary>Example usage</summary>
 
 ```go
 package main
@@ -194,6 +197,8 @@ func main() {
 }
 ```
 
+</details>
+
 ## FAQ
 
 ### ImageMagick Issues
@@ -203,12 +208,6 @@ If you encounter errors when working with texture (.tex) files:
 - Ensure ImageMagick version 7 or higher is installed
 - Verify that ImageMagick is in your system PATH (you should be able to run the 'magick' command from any terminal)
 - Restart the application after installing ImageMagick
-
-### Unable to save when using certain characters in `.nei` file
-If you got the error below
-That's because you used characters that are not supported by Shift-JIS encoding. .nei files use Shift-JIS encoding internally and we cannot change this. Please remove the unsupported characters.
-- `failed to write to .neiData file: failed to encode string: encoding: rune not supported by encoding.`
-- `failed to write to .nei file: failed to encode string: encoding: rune not supported by encoding.`
 
 ### About version 1011 of the .tex file
 
@@ -230,9 +229,15 @@ That's because you used characters that are not supported by Shift-JIS encoding.
 0.000000,0.500000,0.500000,0.500000
 ```
 
+### Unable to save when using certain characters in `.nei` file
+If you encounter the following error, it's because you're using characters that aren't supported by the Shift-JIS encoding.
+.nei files use Shift-JIS encoding internally, and we can't do anything about it. Please remove the unsupported characters.
+- `failed to write to .neiData file: failed to encode string: encoding: rune not supported by encoding.`
+- `failed to write to .nei file: failed to encode string: encoding: rune not supported by encoding.`
+
 ### About CSV format
 
-All CSV files used in this program are encoded using UTF-8-BOM, separated by ',', and follow the RFC4180 standard.
+All CSV files used in this program are encoded using UTF-8-BOM, separated by ',', and follow the [RFC4180](https://datatracker.ietf.org/doc/html/rfc4180) standard.
 
 
 
@@ -339,24 +344,24 @@ MeidoSerialization CLI 是 MeidoSerialization 库的命令行界面
 
 CLI 提供以下主要命令：
 
-`convert2json`：将 MOD 文件转换为 JSON 格式。
-
-`convert2mod`：将 JSON 文件转换回 MOD 格式。
-
-`convert2tex`：将普通图片文件转换为纹理文件（.tex）。
-
-`convert2image`：将 .tex 文件转换为普通图片格式。
-
-`convert`：自动检测并在 MOD 和 JSON 格式之间转换文件。
-
-`determine`：确定目录中的文件或单个文件的类型。
-
-`version`：获取 MeidoSerialization 的版本信息。
+- `convert`：自动检测并在 MOD 和 JSON 格式、TEX 和图片格式，NEI 和 CSV 格式之间转换文件。
+- `convert2json`：将 MOD 文件转换为 JSON 格式。
+- `convert2mod`：将 JSON 文件转换回 MOD 格式。
+- `convert2tex`：将普通图片文件转换为纹理文件（.tex）。
+- `convert2image`：将 .tex 文件转换为普通图片格式。
+- `convert2csv`：将 .nei 文件转换为 .csv 格式。
+- `convert2nei`：将 .csv 文件转换为 .nei 格式。
+- `determine`：确定目录中的文件或单个文件的类型。
+- `version`：获取 MeidoSerialization 的版本信息。
 
 #### 全局标志
 
-- `--strict` 或 `-s`：使用严格模式进行文件类型判断（基于内容而非文件扩展名）
-- `--type` 或 `-t`：按文件类型过滤（menu, mate, pmat, col, phy, psk, tex, anm, model）
+- `--strict` 或 `-s`：使用严格模式进行文件类型判断（基于文件内容而非扩展名）
+- `--type` 或 `-t`：按类型过滤。支持：
+    - `menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image`
+    - 或使用 `'<type>.json'` 过滤 MOD 的 JSON 文件（如 `menu.json`）
+    - 注意：不带 `.json` 的 `<type>` 仅匹配二进制；带 `.json` 的 `<type>.json` 仅匹配 JSON。
+
 
 ### 在 Go 项目中使用
 
@@ -365,7 +370,9 @@ CLI 提供以下主要命令：
 - `service` 包：提供直接读取和写入文件的方法
 - `serialization` 包：提供序列化和反序列化结构体的方法
 
-使用示例：
+<details>
+
+<summary>使用示例</summary>
 
 ```go
 package main
@@ -449,6 +456,8 @@ func main() {
 }
 ```
 
+</details>
+
 ## 问与答
 
 ### ImageMagick 问题
@@ -480,13 +489,13 @@ func main() {
 ```
 
 ### 在 `.nei` 文件中使用某些字符时无法保存
-如果您遇到下面的错误
-这是因为您使用了 Shift-JIS 编码不支持的字符。.nei 文件内部使用 Shift-JIS 编码，我们无法更改此设置。请删除不支持的字符。
+如果您遇到下面的错误，这是因为您使用了 Shift-JIS 编码不支持的字符。
+.nei 文件内部使用 Shift-JIS 编码，我们对此无能为力。请删除不支持的字符。
 - `failed to write to .neiData file: failed to encode string: encoding: rune not supported by encoding.`
 - `failed to write to .nei file: failed to encode string: encoding: rune not supported by encoding.`
 
 ### 关于 CSV 格式
-本程序中使用的所有 CSV 文件均采用 UTF-8-BOM 编码，以“,”分隔，并遵循 [RFC4180](https://datatracker.ietf.org/doc/html/rfc4180) 标准。
+本程序中使用的所有 CSV 文件均采用 UTF-8-BOM 编码，以 ',' 分隔，并遵循 [RFC4180](https://datatracker.ietf.org/doc/html/rfc4180) 标准。
 
 
 ## 许可证
