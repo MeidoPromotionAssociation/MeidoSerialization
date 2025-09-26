@@ -47,7 +47,7 @@ func processDirectory(dirPath string, processor func(string) error, filter func(
 func isModFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
-	case ".menu", ".mate", ".pmat", ".col", ".phy", ".psk", ".anm", ".model":
+	case ".menu", ".mate", ".pmat", ".col", ".phy", ".psk", ".anm", ".model", ".preset":
 		return true
 	default:
 		return false
@@ -74,7 +74,7 @@ func isModJsonFile(path string) bool {
 	// Otherwise check if it's any supported MOD file
 	// We need to check directly without using isModFile because it also considers fileType
 	switch strings.ToLower(ext) {
-	case ".menu", ".mate", ".pmat", ".col", ".phy", ".psk", ".anm", ".model":
+	case ".menu", ".mate", ".pmat", ".col", ".phy", ".psk", ".anm", ".model", ".preset":
 		return true
 	default:
 		return false
@@ -122,6 +122,9 @@ func convertToJson(path string) error {
 	case ".model":
 		service := &COM3D2Service.ModelService{}
 		err = service.ConvertModelToJson(path, outputPath)
+	case ".preset":
+		service := &COM3D2Service.PresetService{}
+		err = service.ConvertPresetToJson(path, outputPath)
 	default:
 		return fmt.Errorf("unsupported file type: %s", ext)
 	}
@@ -171,6 +174,9 @@ func convertToMod(path string) error {
 	case ".model":
 		service := &COM3D2Service.ModelService{}
 		err = service.ConvertJsonToModel(path, outputPath)
+	case ".preset":
+		service := &COM3D2Service.PresetService{}
+		err = service.ConvertJsonToPreset(path, outputPath)
 	default:
 		return fmt.Errorf("unsupported file type: %s", ext)
 	}
@@ -380,7 +386,7 @@ func fileTypeFilter(path string) bool {
 
 	// General type matching
 	switch ft {
-	case "menu", "mate", "pmat", "col", "phy", "psk", "anm", "model":
+	case "menu", "mate", "pmat", "col", "phy", "psk", "anm", "model", "preset":
 		// Pure type: only matches binary .<type>, not .<type>.json
 		if isJsonFile(path) {
 			return false

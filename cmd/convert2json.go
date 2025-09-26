@@ -12,7 +12,7 @@ var convert2jsonCmd = &cobra.Command{
 	Short: "Convert MOD files to JSON",
 	Long: `Convert MOD files to JSON format.
 This command can process a single file or all files in a directory.
-Supported file types include: .menu, .mate, .pmat, .col, .phy, .psk, .anm, and .model.
+Supported file types include: .menu, .mate, .pmat, .col, .phy, .psk, .anm, .model and .preset.
 
 Not supported: .tex
   please use convert2image instead

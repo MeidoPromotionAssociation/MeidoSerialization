@@ -8,32 +8,49 @@ import (
 )
 
 const (
-	MenuSignature          = "CM3D2_MENU"
-	MenuVersion            = 1000
-	MateSignature          = "CM3D2_MATERIAL"
-	MateVersion            = 2001
-	PMatSignature          = "CM3D2_PMATERIAL"
-	PMatVersion            = 1000
-	ColSignature           = "CM3D21_COL"
-	ColVersion             = 24301
-	PhySignature           = "CM3D21_PHY"
-	PhyVersion             = 24301
-	PskSignature           = "CM3D21_PSK"
-	PskVersion             = 24301
-	TexSignature           = "CM3D2_TEX"
-	TexVersion             = 1010
-	AnmSignature           = "CM3D2_ANIM"
-	AnmVersion             = 1001
-	ModelSignature         = "CM3D2_MESH"
-	ModelVersion           = 2001
-	PresetSignature        = "CM3D2_PRESET"
-	PresetVersion          = 24301
-	SaveSignature          = "COM3D2_SAVE"
-	SaveVersion            = 24301
+	MenuSignature   = "CM3D2_MENU"
+	MenuVersion     = 1000
+	MateSignature   = "CM3D2_MATERIAL"
+	MateVersion     = 2001
+	PMatSignature   = "CM3D2_PMATERIAL"
+	PMatVersion     = 1000
+	ColSignature    = "CM3D21_COL"
+	ColVersion      = 24301
+	PhySignature    = "CM3D21_PHY"
+	PhyVersion      = 24301
+	PskSignature    = "CM3D21_PSK"
+	PskVersion      = 24301
+	TexSignature    = "CM3D2_TEX"
+	TexVersion      = 1010
+	AnmSignature    = "CM3D2_ANIM"
+	AnmVersion      = 1001
+	ModelSignature  = "CM3D2_MESH"
+	ModelVersion    = 2001
+	PresetSignature = "CM3D2_PRESET"
+	PresetVersion   = 24301
+	SaveSignature   = "COM3D2_SAVE"
+	SaveVersion     = 24301
+)
+
+const (
+	endByte = 0x00
+	EndTag  = "end"
+)
+
+const (
 	SkinThicknessSignature = "SkinThickness"
 	SkinThicknessVersion   = 100
-	endByte                = 0x00
-	EndTag                 = "end"
+)
+
+const (
+	PresetPropertyListSignature = "CM3D2_MPROP_LIST"
+	PresetPropertyListVersion   = 24301
+	PresetPropertySignature     = "CM3D2_MPROP"
+	PresetPropertyVersion       = 24301
+	MultiColorSignature         = "CM3D2_MULTI_COL"
+	MultiColorVersion           = 24301
+	BodyPropertySignature       = "CM3D2_MAID_BODY"
+	BodyPropertyVersion         = 24301
 )
 
 var (
@@ -59,6 +76,13 @@ type Quaternion struct {
 	Y float32 `json:"Y"`
 	Z float32 `json:"Z"`
 	W float32 `json:"W"`
+}
+
+// PositionRotationScale 表示组合位置、旋转、缩放信息
+type PositionRotationScale struct {
+	Position Vector3    `json:"Position"` // 位置
+	Rotation Quaternion `json:"Rotation"` // 旋转
+	Scale    Vector3    `json:"Scale"`    // 缩放
 }
 
 // Matrix4x4 表示4x4矩阵
