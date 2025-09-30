@@ -13,9 +13,13 @@ import (
 //有两种 PRESET 一种 CM3D2_PRESET 一种 CM3D2_PRESET_S， CM3D2_PRESET_S 已官方废弃（不支持、不解析）
 //
 // - 版本范围：
-//   * COM3D2 使用 20000 ≤ version < 30000（当前游戏写入 24405）
-//   * CM3D2 的 1560 ≤ version < 20000（不支持）
-//   * COM3D2.5 的 version ≥ 30000（不支持）
+//	 1 ≤ version < 1560 某些官方预设文件（支持）
+//   * CM3D2 的 1560 ≤ version < 20000（支持）
+//   * COM3D2 使用 20000 ≤ version < 30000（支持）
+//   * COM3D2.5 的 version ≥ 30000（支持）
+//
+//   COM3D2 和 COM3D2.5 的 Preset 无结构差异，但 COM3D2 会拒绝读取版本大于等于 30000 的文件
+//	 COM3D2.5 则无读取版本校验
 //
 // 子块版本差异（与实际内容功能相关）
 //
@@ -93,7 +97,7 @@ type PresetProperty struct {
 	TempValue       int32                                `json:"TempValue"`       // 临时值
 	LinkMaxValue    int32                                `json:"LinkMaxValue"`    // 链接最大值
 	FileName        string                               `json:"FileName"`        // 文件名
-	FileNameRID     int32                                `json:"FileNameRID"`     // 文件名哈希值
+	FileNameRID     int32                                `json:"FileNameRID"`     // 文件名哈希值  this.strFileName.ToLower().GetHashCode();
 	IsDut           bool                                 `json:"IsDut"`           // 是否使用
 	Max             int32                                `json:"Max"`             // 最大值
 	Min             int32                                `json:"Min"`             // 最小值
@@ -202,12 +206,6 @@ func ReadPreset(r io.Reader) (*Preset, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset version failed: %w", err)
 	}
-	if version >= 30000 {
-		return nil, fmt.Errorf(".Preset version unsupported, expect < 30000, got %d, this file may came form COM3D2.5 which is not supported", version)
-	}
-	if version >= 1560 && version < 20000 {
-		return nil, fmt.Errorf(".Preset version unsupported, expect > 20000, got %d, this file may came form CM3D2 which is not supported", version)
-	}
 	p.Version = version
 
 	// 3. presetType
@@ -243,7 +241,7 @@ func ReadPreset(r io.Reader) (*Preset, error) {
 	}
 
 	// 7. MultiColor
-	if version >= 2 { // always true, but keep it anyway
+	if version >= 2 && (version < 2000) {
 		mc, err := readMultiColor(r)
 		if err != nil {
 			return nil, fmt.Errorf("read .Preset MultiColor failed: %w", err)
@@ -252,7 +250,7 @@ func ReadPreset(r io.Reader) (*Preset, error) {
 	}
 
 	// 8. Body
-	if version >= 200 {
+	if version >= 200 && (version < 2000) {
 		bp, err := readBodyProperty(r)
 		if err != nil {
 			return nil, fmt.Errorf("read .Preset Body failed: %w", err)
@@ -637,19 +635,20 @@ func readMultiColor(r io.Reader) (*MultiColor, error) {
 	}
 	mc.Version = ver
 
-	n, err := utilities.ReadInt32(r)
+	count, err := utilities.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read MultiColor count failed: %w", err)
 	}
-	mc.PartCount = n
+	mc.PartCount = count
 
 	// 统一生成长度 13 的颜色数组（与新版本一致）
 	colors := make([]PartsColor, 13)
 
 	if ver <= 1200 {
 		// 旧布局（前 9 项，固定顺序）
+		// 数量为 7 或 9
 		order := []string{"EYE_L", "EYE_R", "HAIR", "EYE_BROW", "UNDER_HAIR", "SKIN", "NIPPLE", "HAIR_OUTLINE", "SKIN_OUTLINE"}
-		for j := 0; j < int(n) && j < len(order); j++ {
+		for j := 0; j < int(count); j++ {
 			pc := PartsColor{}
 			if pc.IsUse, err = utilities.ReadBool(r); err != nil {
 				return nil, fmt.Errorf("read MultiColor[%d].isUse failed: %w", j, err)
@@ -680,6 +679,10 @@ func readMultiColor(r io.Reader) (*MultiColor, error) {
 			}
 			if pc.ShadowContrast, err = utilities.ReadInt32(r); err != nil {
 				return nil, fmt.Errorf("read MultiColor[%d].shadowContrast failed: %w", j, err)
+			}
+			// 仅旧格式前 9 项有固定顺序，多余项只消费不落位，避免越界
+			if j >= len(order) {
+				continue
 			}
 			idx := partsColorIndex(order[j])
 			if idx >= 0 && idx < len(colors) {
@@ -770,6 +773,8 @@ func readBodyProperty(r io.Reader) (*BodyProperty, error) {
 // 多颜色名到索引（与 MaidParts.PARTS_COLOR 对齐）
 func partsColorIndex(name string) int {
 	switch name {
+	case "NONE":
+		return -1
 	case "EYE_L":
 		return 0
 	case "EYE_R":
@@ -817,7 +822,7 @@ func (p *Preset) Dump(w io.Writer) error {
 		return fmt.Errorf("write preset type failed: %w", err)
 	}
 
-	// 4. thumbnail
+	// 4. thumb
 	if len(p.ThumbData) > 0 {
 		if err := utilities.WriteInt32(w, int32(len(p.ThumbData))); err != nil {
 			return fmt.Errorf("write thumb length failed: %w", err)
@@ -837,20 +842,17 @@ func (p *Preset) Dump(w io.Writer) error {
 	}
 
 	// 6. multicolor
-	if p.MultiColor == nil {
-		// 写一个空但合法的多颜色块（与 Serialize 一致）
-		p.MultiColor = &MultiColor{Signature: "CM3D2_MULTI_COL", Version: p.Version}
-	}
-	if err := dumpMultiColor(w, p.MultiColor); err != nil {
-		return fmt.Errorf("write MultiColor failed: %w", err)
+	if p.Version >= 2 && (p.Version < 2000 || 10000 <= p.Version) {
+		if err := dumpMultiColor(w, p.MultiColor); err != nil {
+			return fmt.Errorf("write MultiColor failed: %w", err)
+		}
 	}
 
 	// 7. body
-	if p.BodyProperty == nil {
-		p.BodyProperty = &BodyProperty{Signature: "CM3D2_MAID_BODY", Version: p.Version}
-	}
-	if err := dumpBodyProperty(w, p.BodyProperty); err != nil {
-		return fmt.Errorf("write Body failed: %w", err)
+	if p.Version >= 200 && (p.Version < 2000 || 10000 <= p.Version) {
+		if err := dumpBodyProperty(w, p.BodyProperty); err != nil {
+			return fmt.Errorf("write Body failed: %w", err)
+		}
 	}
 
 	return nil
@@ -859,7 +861,7 @@ func (p *Preset) Dump(w io.Writer) error {
 // 写入属性列表：Maid.SerializeProp
 func dumpPresetPropertyList(w io.Writer, ppl *PresetPropertyList) error {
 	if ppl == nil {
-		return fmt.Errorf("PresetPropertyList is nil")
+		return fmt.Errorf("write PresetPropertyList failed: PresetPropertyList is nil")
 	}
 
 	if err := utilities.WriteString(w, ppl.Signature); err != nil {
@@ -876,15 +878,18 @@ func dumpPresetPropertyList(w io.Writer, ppl *PresetPropertyList) error {
 	}
 
 	for k, v := range ppl.PresetProperties {
-		if err := utilities.WriteString(w, k); err != nil {
-			return fmt.Errorf("write prop key failed: %w", err)
+		// 仅当列表版本 >= 4 时写 key（MPN 字符串）
+		if ppl.Version >= 4 {
+			if err := utilities.WriteString(w, k); err != nil {
+				return fmt.Errorf("write prop key failed: %w", err)
+			}
 		}
-		// 将值写回
 		prop := v // copy
 		if err := writePresetProperty(w, &prop); err != nil {
 			return fmt.Errorf("write prop '%s' failed: %w", k, err)
 		}
 	}
+
 	return nil
 }
 
@@ -912,8 +917,11 @@ func writePresetProperty(w io.Writer, pp *PresetProperty) error {
 	if err := utilities.WriteInt32(w, pp.Value); err != nil {
 		return fmt.Errorf("write prop value failed: %w", err)
 	}
-	if err := utilities.WriteInt32(w, pp.TempValue); err != nil {
-		return fmt.Errorf("write prop temp value failed: %w", err)
+	// ver >= 101 才写 TempValue
+	if ver >= 101 {
+		if err := utilities.WriteInt32(w, pp.TempValue); err != nil {
+			return fmt.Errorf("write prop temp value failed: %w", err)
+		}
 	}
 	if err := utilities.WriteInt32(w, pp.LinkMaxValue); err != nil {
 		return fmt.Errorf("write prop link max value failed: %w", err)
@@ -933,209 +941,216 @@ func writePresetProperty(w io.Writer, pp *PresetProperty) error {
 	if err := utilities.WriteInt32(w, pp.Min); err != nil {
 		return fmt.Errorf("write prop min failed: %w", err)
 	}
+	// 仅当 ver >= 200 时才写入子属性与附加块（与读取保持一致）
+	if ver >= 200 {
+		// 子属性
+		nSub := int32(len(pp.SubProps))
+		if err := utilities.WriteInt32(w, nSub); err != nil {
+			return fmt.Errorf("write prop sub count failed: %w", err)
+		}
+		for i := 0; i < int(nSub); i++ {
+			sp := pp.SubProps[i]
+			// 是否存在
+			if err := utilities.WriteBool(w, true); err != nil {
+				return fmt.Errorf("write prop sub exists failed: %w", err)
+			}
+			if err := utilities.WriteBool(w, sp.IsDut); err != nil {
+				return fmt.Errorf("write prop sub is dut failed: %w", err)
+			}
+			if err := utilities.WriteString(w, sp.FileName); err != nil {
+				return fmt.Errorf("write prop sub file name failed: %w", err)
+			}
+			if err := utilities.WriteInt32(w, sp.FileNameRID); err != nil {
+				return fmt.Errorf("write prop sub file name rid failed: %w", err)
+			}
+			// ver >= 211 才写 TexMulAlpha
+			if ver >= 211 {
+				if err := utilities.WriteFloat32(w, sp.TexMulAlpha); err != nil {
+					return fmt.Errorf("write prop sub tex mul alpha failed: %w", err)
+				}
+			}
+		}
 
-	// 子属性
-	nSub := int32(len(pp.SubProps))
-	if err := utilities.WriteInt32(w, nSub); err != nil {
-		return fmt.Errorf("write prop sub count failed: %w", err)
-	}
-	for i := 0; i < int(nSub); i++ {
-		sp := pp.SubProps[i]
-		// 是否存在
-		if err := utilities.WriteBool(w, true); err != nil {
-			return fmt.Errorf("write prop sub is dut failed: %w", err)
-		}
-		if err := utilities.WriteBool(w, sp.IsDut); err != nil {
-			return fmt.Errorf("write prop sub is dut failed: %w", err)
-		}
-		if err := utilities.WriteString(w, sp.FileName); err != nil {
-			return fmt.Errorf("write prop sub file name failed: %w", err)
-		}
-		if err := utilities.WriteInt32(w, sp.FileNameRID); err != nil {
-			return fmt.Errorf("write prop sub file name rid failed: %w", err)
-		}
-		if err := utilities.WriteFloat32(w, sp.TexMulAlpha); err != nil {
-			return fmt.Errorf("write prop sub tex mul alpha failed: %w", err)
-		}
-	}
-
-	// 皮肤位置：PropertyCount -> [slotID, RID, data...]
-	if len(pp.SkinPositions) == 0 {
-		if err := utilities.WriteInt32(w, 0); err != nil {
-			return fmt.Errorf("write prop skin position count failed: %w", err)
-		}
-	} else {
-		if err := utilities.WriteInt32(w, int32(len(pp.SkinPositions))); err != nil {
-			return fmt.Errorf("write prop skin position count failed: %w", err)
-		}
-		for slot, e := range pp.SkinPositions {
-			if err := utilities.WriteInt32(w, int32(slot)); err != nil {
-				return fmt.Errorf("write prop skin position slot failed: %w", err)
+		// 皮肤位置：PropertyCount -> [slotID, RID, data...]
+		if len(pp.SkinPositions) == 0 {
+			if err := utilities.WriteInt32(w, 0); err != nil {
+				return fmt.Errorf("write prop skin position count failed: %w", err)
 			}
-			if err := utilities.WriteInt32(w, e.RID); err != nil {
-				return fmt.Errorf("write prop skin position rid failed: %w", err)
+		} else {
+			if err := utilities.WriteInt32(w, int32(len(pp.SkinPositions))); err != nil {
+				return fmt.Errorf("write prop skin position count failed: %w", err)
 			}
-			b := e.BoneAttachPos
-			if err := utilities.WriteBool(w, b.Enable); err != nil {
-				return fmt.Errorf("write prop skin position bone attach pos enable failed: %w", err)
-			}
-			if err := utilities.WriteFloat32(w, b.PosRotScale.Position.X); err != nil {
-				return fmt.Errorf("write prop skin position bone attach pos position x failed: %w", err)
-			}
-			if err := utilities.WriteFloat32(w, b.PosRotScale.Position.Y); err != nil {
-				return fmt.Errorf("write prop skin position bone attach pos position y failed: %w", err)
-			}
-			if err := utilities.WriteFloat32(w, b.PosRotScale.Position.Z); err != nil {
-				return fmt.Errorf("write prop skin position bone attach pos position z failed: %w", err)
-			}
-			if err := utilities.WriteFloat32(w, b.PosRotScale.Rotation.X); err != nil {
-				return fmt.Errorf("write prop skin position bone attach pos rotation x failed: %w", err)
-			}
-			if err := utilities.WriteFloat32(w, b.PosRotScale.Rotation.Y); err != nil {
-				return fmt.Errorf("write prop skin position bone attach pos rotation y failed: %w", err)
-			}
-			if err := utilities.WriteFloat32(w, b.PosRotScale.Rotation.Z); err != nil {
-				return fmt.Errorf("write prop skin position bone attach pos rotation z failed: %w", err)
-			}
-			if err := utilities.WriteFloat32(w, b.PosRotScale.Rotation.W); err != nil {
-				return fmt.Errorf("write prop skin position bone attach pos rotation w failed: %w", err)
-			}
-			if err := utilities.WriteFloat32(w, b.PosRotScale.Scale.X); err != nil {
-				return fmt.Errorf("write prop skin position bone attach pos scale x failed: %w", err)
-			}
-			if err := utilities.WriteFloat32(w, b.PosRotScale.Scale.Y); err != nil {
-				return fmt.Errorf("write prop skin position bone attach pos scale y failed: %w", err)
-			}
-			if err := utilities.WriteFloat32(w, b.PosRotScale.Scale.Z); err != nil {
-				return fmt.Errorf("write prop skin position bone attach pos scale z failed: %w", err)
-			}
-		}
-	}
-
-	// 附着位置：slotID -> map[name]Entry
-	if len(pp.AttachPositions) == 0 {
-		if err := utilities.WriteInt32(w, 0); err != nil {
-			return fmt.Errorf("write prop attach position count failed: %w", err)
-		}
-	} else {
-		if err := utilities.WriteInt32(w, int32(len(pp.AttachPositions))); err != nil {
-			return fmt.Errorf("write prop attach position count failed: %w", err)
-		}
-		for slot, mp := range pp.AttachPositions {
-			if err := utilities.WriteInt32(w, int32(slot)); err != nil {
-				return fmt.Errorf("write prop attach position slot failed: %w", err)
-			}
-			if err := utilities.WriteInt32(w, int32(len(mp))); err != nil {
-				return fmt.Errorf("write prop attach position name count failed: %w", err)
-			}
-			for name, e := range mp {
-				if err := utilities.WriteString(w, name); err != nil {
-					return fmt.Errorf("write prop attach position name failed: %w", err)
+			for slot, e := range pp.SkinPositions {
+				if err := utilities.WriteInt32(w, int32(slot)); err != nil {
+					return fmt.Errorf("write prop skin position slot failed: %w", err)
 				}
 				if err := utilities.WriteInt32(w, e.RID); err != nil {
-					return fmt.Errorf("write prop attach position rid failed: %w", err)
+					return fmt.Errorf("write prop skin position rid failed: %w", err)
 				}
-				v := e.VtxAttachPos
-				if err := utilities.WriteBool(w, v.Enable); err != nil {
-					return fmt.Errorf("write prop attach position vtx attach pos enable failed: %w", err)
+				b := e.BoneAttachPos
+				if err := utilities.WriteBool(w, b.Enable); err != nil {
+					return fmt.Errorf("write prop skin position bone attach pos enable failed: %w", err)
 				}
-				if err := utilities.WriteInt32(w, v.VtxCount); err != nil {
-					return fmt.Errorf("write prop attach position vtx attach pos vtx count failed: %w", err)
+				if err := utilities.WriteFloat32(w, b.PosRotScale.Position.X); err != nil {
+					return fmt.Errorf("write prop skin position bone attach pos position x failed: %w", err)
 				}
-				if err := utilities.WriteInt32(w, v.VtxIdx); err != nil {
-					return fmt.Errorf("write prop attach position vtx attach pos vtx idx failed: %w", err)
+				if err := utilities.WriteFloat32(w, b.PosRotScale.Position.Y); err != nil {
+					return fmt.Errorf("write prop skin position bone attach pos position y failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, v.PosRotScale.Position.X); err != nil {
-					return fmt.Errorf("write prop attach position vtx attach pos position x failed: %w", err)
+				if err := utilities.WriteFloat32(w, b.PosRotScale.Position.Z); err != nil {
+					return fmt.Errorf("write prop skin position bone attach pos position z failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, v.PosRotScale.Position.Y); err != nil {
-					return fmt.Errorf("write prop attach position vtx attach pos position y failed: %w", err)
+				if err := utilities.WriteFloat32(w, b.PosRotScale.Rotation.X); err != nil {
+					return fmt.Errorf("write prop skin position bone attach pos rotation x failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, v.PosRotScale.Position.Z); err != nil {
-					return fmt.Errorf("write prop attach position vtx attach pos position z failed: %w", err)
+				if err := utilities.WriteFloat32(w, b.PosRotScale.Rotation.Y); err != nil {
+					return fmt.Errorf("write prop skin position bone attach pos rotation y failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, v.PosRotScale.Rotation.X); err != nil {
-					return fmt.Errorf("write prop attach position vtx attach pos rotation x failed: %w", err)
+				if err := utilities.WriteFloat32(w, b.PosRotScale.Rotation.Z); err != nil {
+					return fmt.Errorf("write prop skin position bone attach pos rotation z failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, v.PosRotScale.Rotation.Y); err != nil {
-					return fmt.Errorf("write prop attach position vtx attach pos rotation y failed: %w", err)
+				if err := utilities.WriteFloat32(w, b.PosRotScale.Rotation.W); err != nil {
+					return fmt.Errorf("write prop skin position bone attach pos rotation w failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, v.PosRotScale.Rotation.Z); err != nil {
-					return fmt.Errorf("write prop attach position vtx attach pos rotation z failed: %w", err)
+				if err := utilities.WriteFloat32(w, b.PosRotScale.Scale.X); err != nil {
+					return fmt.Errorf("write prop skin position bone attach pos scale x failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, v.PosRotScale.Rotation.W); err != nil {
-					return fmt.Errorf("write prop attach position vtx attach pos rotation w failed: %w", err)
+				if err := utilities.WriteFloat32(w, b.PosRotScale.Scale.Y); err != nil {
+					return fmt.Errorf("write prop skin position bone attach pos scale y failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, v.PosRotScale.Scale.X); err != nil {
-					return fmt.Errorf("write prop attach position vtx attach pos scale x failed: %w", err)
-				}
-				if err := utilities.WriteFloat32(w, v.PosRotScale.Scale.Y); err != nil {
-					return fmt.Errorf("write prop attach position vtx attach pos scale y failed: %w", err)
-				}
-				if err := utilities.WriteFloat32(w, v.PosRotScale.Scale.Z); err != nil {
-					return fmt.Errorf("write prop attach position vtx attach pos scale z failed: %w", err)
+				if err := utilities.WriteFloat32(w, b.PosRotScale.Scale.Z); err != nil {
+					return fmt.Errorf("write prop skin position bone attach pos scale z failed: %w", err)
 				}
 			}
 		}
-	}
 
-	// 材质属性：slotID -> Entry
-	if len(pp.MaterialProps) == 0 {
-		if err := utilities.WriteInt32(w, 0); err != nil {
-			return fmt.Errorf("write prop material prop count failed: %w", err)
-		}
-	} else {
-		if err := utilities.WriteInt32(w, int32(len(pp.MaterialProps))); err != nil {
-			return fmt.Errorf("write prop material prop count failed: %w", err)
-		}
-		for slot, e := range pp.MaterialProps {
-			if err := utilities.WriteInt32(w, int32(slot)); err != nil {
-				return fmt.Errorf("write prop material prop slot failed: %w", err)
+		// 附着位置：slotID -> map[name]Entry
+		if len(pp.AttachPositions) == 0 {
+			if err := utilities.WriteInt32(w, 0); err != nil {
+				return fmt.Errorf("write prop attach position count failed: %w", err)
 			}
-			if err := utilities.WriteInt32(w, e.RID); err != nil {
-				return fmt.Errorf("write prop material prop rid failed: %w", err)
+		} else {
+			if err := utilities.WriteInt32(w, int32(len(pp.AttachPositions))); err != nil {
+				return fmt.Errorf("write prop attach position count failed: %w", err)
 			}
-			m := e.MatPropSave
-			if err := utilities.WriteInt32(w, m.MatId); err != nil {
-				return fmt.Errorf("write prop material prop mat id failed: %w", err)
-			}
-			if err := utilities.WriteString(w, m.PropName); err != nil {
-				return fmt.Errorf("write prop material prop prop name failed: %w", err)
-			}
-			if err := utilities.WriteString(w, m.TypeName); err != nil {
-				return fmt.Errorf("write prop material prop type name failed: %w", err)
-			}
-			if err := utilities.WriteString(w, m.Value); err != nil {
-				return fmt.Errorf("write prop material prop value failed: %w", err)
-			}
-		}
-	}
-
-	// 骨骼长度：slotID -> Entry(RID, map[name]len)
-	if len(pp.BoneLengths) == 0 {
-		if err := utilities.WriteInt32(w, 0); err != nil {
-			return fmt.Errorf("write prop bone length count failed: %w", err)
-		}
-	} else {
-		if err := utilities.WriteInt32(w, int32(len(pp.BoneLengths))); err != nil {
-			return fmt.Errorf("write prop bone length count failed: %w", err)
-		}
-		for slot, e := range pp.BoneLengths {
-			if err := utilities.WriteInt32(w, int32(slot)); err != nil {
-				return fmt.Errorf("write prop bone length slot failed: %w", err)
-			}
-			if err := utilities.WriteInt32(w, e.RID); err != nil {
-				return fmt.Errorf("write prop bone length rid failed: %w", err)
-			}
-			if err := utilities.WriteInt32(w, int32(len(e.Lengths))); err != nil {
-				return fmt.Errorf("write prop bone length len count failed: %w", err)
-			}
-			for k, v := range e.Lengths {
-				if err := utilities.WriteString(w, k); err != nil {
-					return fmt.Errorf("write prop bone length len name failed: %w", err)
+			for slot, mp := range pp.AttachPositions {
+				if err := utilities.WriteInt32(w, int32(slot)); err != nil {
+					return fmt.Errorf("write prop attach position slot failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, v); err != nil {
-					return fmt.Errorf("write prop bone length len value failed: %w", err)
+				if err := utilities.WriteInt32(w, int32(len(mp))); err != nil {
+					return fmt.Errorf("write prop attach position name count failed: %w", err)
+				}
+				for name, e := range mp {
+					if err := utilities.WriteString(w, name); err != nil {
+						return fmt.Errorf("write prop attach position name failed: %w", err)
+					}
+					if err := utilities.WriteInt32(w, e.RID); err != nil {
+						return fmt.Errorf("write prop attach position rid failed: %w", err)
+					}
+					v := e.VtxAttachPos
+					if err := utilities.WriteBool(w, v.Enable); err != nil {
+						return fmt.Errorf("write prop attach position vtx attach pos enable failed: %w", err)
+					}
+					if err := utilities.WriteInt32(w, v.VtxCount); err != nil {
+						return fmt.Errorf("write prop attach position vtx attach pos vtx count failed: %w", err)
+					}
+					if err := utilities.WriteInt32(w, v.VtxIdx); err != nil {
+						return fmt.Errorf("write prop attach position vtx attach pos vtx idx failed: %w", err)
+					}
+					if err := utilities.WriteFloat32(w, v.PosRotScale.Position.X); err != nil {
+						return fmt.Errorf("write prop attach position vtx attach pos position x failed: %w", err)
+					}
+					if err := utilities.WriteFloat32(w, v.PosRotScale.Position.Y); err != nil {
+						return fmt.Errorf("write prop attach position vtx attach pos position y failed: %w", err)
+					}
+					if err := utilities.WriteFloat32(w, v.PosRotScale.Position.Z); err != nil {
+						return fmt.Errorf("write prop attach position vtx attach pos position z failed: %w", err)
+					}
+					if err := utilities.WriteFloat32(w, v.PosRotScale.Rotation.X); err != nil {
+						return fmt.Errorf("write prop attach position vtx attach pos rotation x failed: %w", err)
+					}
+					if err := utilities.WriteFloat32(w, v.PosRotScale.Rotation.Y); err != nil {
+						return fmt.Errorf("write prop attach position vtx attach pos rotation y failed: %w", err)
+					}
+					if err := utilities.WriteFloat32(w, v.PosRotScale.Rotation.Z); err != nil {
+						return fmt.Errorf("write prop attach position vtx attach pos rotation z failed: %w", err)
+					}
+					if err := utilities.WriteFloat32(w, v.PosRotScale.Rotation.W); err != nil {
+						return fmt.Errorf("write prop attach position vtx attach pos rotation w failed: %w", err)
+					}
+					if err := utilities.WriteFloat32(w, v.PosRotScale.Scale.X); err != nil {
+						return fmt.Errorf("write prop attach position vtx attach pos scale x failed: %w", err)
+					}
+					if err := utilities.WriteFloat32(w, v.PosRotScale.Scale.Y); err != nil {
+						return fmt.Errorf("write prop attach position vtx attach pos scale y failed: %w", err)
+					}
+					if err := utilities.WriteFloat32(w, v.PosRotScale.Scale.Z); err != nil {
+						return fmt.Errorf("write prop attach position vtx attach pos scale z failed: %w", err)
+					}
+				}
+			}
+		}
+
+		// 材质属性：slotID -> Entry
+		if len(pp.MaterialProps) == 0 {
+			if err := utilities.WriteInt32(w, 0); err != nil {
+				return fmt.Errorf("write prop material prop count failed: %w", err)
+			}
+		} else {
+			if err := utilities.WriteInt32(w, int32(len(pp.MaterialProps))); err != nil {
+				return fmt.Errorf("write prop material prop count failed: %w", err)
+			}
+			for slot, e := range pp.MaterialProps {
+				if err := utilities.WriteInt32(w, int32(slot)); err != nil {
+					return fmt.Errorf("write prop material prop slot failed: %w", err)
+				}
+				if err := utilities.WriteInt32(w, e.RID); err != nil {
+					return fmt.Errorf("write prop material prop rid failed: %w", err)
+				}
+				m := e.MatPropSave
+				if err := utilities.WriteInt32(w, m.MatId); err != nil {
+					return fmt.Errorf("write prop material prop mat id failed: %w", err)
+				}
+				if err := utilities.WriteString(w, m.PropName); err != nil {
+					return fmt.Errorf("write prop material prop prop name failed: %w", err)
+				}
+				if err := utilities.WriteString(w, m.TypeName); err != nil {
+					return fmt.Errorf("write prop material prop type name failed: %w", err)
+				}
+				if err := utilities.WriteString(w, m.Value); err != nil {
+					return fmt.Errorf("write prop material prop value failed: %w", err)
+				}
+			}
+		}
+
+		// 骨骼长度块仅在 ver >= 213 时写入
+		if ver >= 213 {
+			if len(pp.BoneLengths) == 0 {
+				if err := utilities.WriteInt32(w, 0); err != nil {
+					return fmt.Errorf("write prop bone length count failed: %w", err)
+				}
+			} else {
+				if err := utilities.WriteInt32(w, int32(len(pp.BoneLengths))); err != nil {
+					return fmt.Errorf("write prop bone length count failed: %w", err)
+				}
+				for slot, e := range pp.BoneLengths {
+					if err := utilities.WriteInt32(w, int32(slot)); err != nil {
+						return fmt.Errorf("write prop bone length slot failed: %w", err)
+					}
+					if err := utilities.WriteInt32(w, e.RID); err != nil {
+						return fmt.Errorf("write prop bone length rid failed: %w", err)
+					}
+					if err := utilities.WriteInt32(w, int32(len(e.Lengths))); err != nil {
+						return fmt.Errorf("write prop bone length len count failed: %w", err)
+					}
+					for k, v := range e.Lengths {
+						if err := utilities.WriteString(w, k); err != nil {
+							return fmt.Errorf("write prop bone length len name failed: %w", err)
+						}
+						if err := utilities.WriteFloat32(w, v); err != nil {
+							return fmt.Errorf("write prop bone length len value failed: %w", err)
+						}
+					}
 				}
 			}
 		}
@@ -1146,13 +1161,74 @@ func writePresetProperty(w io.Writer, pp *PresetProperty) error {
 
 // 写入多颜色：MaidParts.Serialize（统一按新版本写）
 func dumpMultiColor(w io.Writer, mc *MultiColor) error {
+	if mc == nil {
+		return fmt.Errorf("write MultiColor failed: MultiColor is nil")
+	}
+
 	if err := utilities.WriteString(w, mc.Signature); err != nil {
 		return fmt.Errorf("write prop multi color name failed: %w", err)
 	}
 	if err := utilities.WriteInt32(w, mc.Version); err != nil {
 		return fmt.Errorf("write prop multi color version failed: %w", err)
 	}
-	// 统一写 13
+
+	if mc.Version <= 1200 {
+		// 旧格式：固定顺序、无名字串、无 "MAX"
+		var order []int // 索引映射到你的 colors
+		if mc.Version < 200 {
+			// 7 项
+			order = []int{0, 1, 2, 3, 4, 5, 6} // EYE_L, EYE_R, HAIR, EYE_BROW, UNDER_HAIR, SKIN, NIPPLE
+		} else {
+			// 9 项
+			order = []int{0, 1, 2, 3, 4, 5, 6, 7, 8} // EYE_L, EYE_R, HAIR, EYE_BROW, UNDER_HAIR, SKIN, NIPPLE, HAIR_OUTLINE, SKIN_OUTLINE
+		}
+		if err := utilities.WriteInt32(w, int32(len(order))); err != nil {
+			return fmt.Errorf("write prop multi color len count failed: %w", err)
+		}
+		colors := mc.PartsColors
+		need := len(order)
+		if len(colors) < need {
+			tmp := make([]PartsColor, need)
+			copy(tmp, colors)
+			colors = tmp // 用零值补足未提供的项
+		}
+		for _, idx := range order {
+			pc := colors[idx]
+			if err := utilities.WriteBool(w, pc.IsUse); err != nil {
+				return fmt.Errorf("write prop multi color is use failed: %w", err)
+			}
+			if err := utilities.WriteInt32(w, pc.MainHue); err != nil {
+				return fmt.Errorf("write prop multi color main hue failed: %w", err)
+			}
+			if err := utilities.WriteInt32(w, pc.MainChroma); err != nil {
+				return fmt.Errorf("write prop multi color main hue failed: %w", err)
+			}
+			if err := utilities.WriteInt32(w, pc.MainBrightness); err != nil {
+				return fmt.Errorf("write prop multi color main brightness failed: %w", err)
+			}
+			if err := utilities.WriteInt32(w, pc.MainContrast); err != nil {
+				return fmt.Errorf("write prop multi color main contrast failed: %w", err)
+			}
+			if err := utilities.WriteInt32(w, pc.ShadowRate); err != nil {
+				return fmt.Errorf("write prop multi color shadow rate failed: %w", err)
+			}
+			if err := utilities.WriteInt32(w, pc.ShadowHue); err != nil {
+				return fmt.Errorf("write prop multi color shadow hue failed: %w", err)
+			}
+			if err := utilities.WriteInt32(w, pc.ShadowChroma); err != nil {
+				return fmt.Errorf("write prop multi color shadow chroma failed: %w", err)
+			}
+			if err := utilities.WriteInt32(w, pc.ShadowBrightness); err != nil {
+				return fmt.Errorf("write prop multi color shadow contrast failed: %w", err)
+			}
+			if err := utilities.WriteInt32(w, pc.ShadowContrast); err != nil {
+				return fmt.Errorf("write prop multi color shadow chroma failed: %w", err)
+			}
+		}
+		return nil
+	}
+
+	// 统一写 13, C# 中直接初始化为 m_aryPartsColor = new MaidParts.PartsColor[13]; 写入 m_aryPartsColor.Length
 	names := []string{"EYE_L", "EYE_R", "HAIR", "EYE_BROW", "UNDER_HAIR", "SKIN", "NIPPLE", "HAIR_OUTLINE", "SKIN_OUTLINE", "EYE_WHITE", "MATSUGE_UP", "MATSUGE_LOW", "FUTAE"}
 	if err := utilities.WriteInt32(w, int32(len(names))); err != nil {
 		return fmt.Errorf("write prop multi color len count failed: %w", err)
@@ -1208,6 +1284,10 @@ func dumpMultiColor(w io.Writer, mc *MultiColor) error {
 
 // 写入身体块：Maid.SerializeBody（仅头+版本）
 func dumpBodyProperty(w io.Writer, bp *BodyProperty) error {
+	if bp == nil {
+		return fmt.Errorf("write Body failed: BodyProperty is nil")
+	}
+
 	if err := utilities.WriteString(w, bp.Signature); err != nil {
 		return fmt.Errorf("write prop body property signature failed: %w", err)
 	}
