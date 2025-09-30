@@ -18,8 +18,7 @@ Please note that the converted JSON does not contain newlines. You may need to u
 format it for readability.
 
 You can use this simple GUI tool for batch processing like keyword replacement and renaming, which is useful for
-creating variations (Chinese
-only): [https://github.com/90135/COM3D2_Tools_901](https://github.com/90135/COM3D2_Tools_901)
+creating variations (Chinese only): [https://github.com/90135/COM3D2_Tools_901](https://github.com/90135/COM3D2_Tools_901)
 
 ## Download
 
@@ -190,7 +189,8 @@ MeidoSerialization.exe determine --type menu.json ./mods_directory
 
 - `--strict` or `-s`: Use strict mode for file type determination (based on content rather than file extension)
 - `--type` or `-t`: Filter by file type. Supported values:
-    - `menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image`
+    - `menu, mate, pmat, col, phy, psk, anm, model, tex, preset, nei, csv, image`
+    - image refers to any image format supported by ImageMagick (such as .png, .jpg, .gif, .webp, etc.)
     - or `'<type>.json'` for MOD JSON files (e.g., `menu.json`)
     - Note: `<type>` (without `.json`) matches binary only; `<type>.json` matches JSON only.
 
@@ -414,7 +414,8 @@ MeidoSerialization.exe determine --type menu.json ./mods_directory
 
 - `--strict` 或 `-s`：使用严格模式进行文件类型判断（基于文件内容而非扩展名）
 - `--type` 或 `-t`：按类型过滤。支持：
-    - `menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image`
+    - `menu, mate, pmat, col, phy, psk, anm, model, tex, preset, nei, csv, image`
+    - image 指任意被 ImageMagick 支持的图片格式（如 .png, .jpg, .gif, .webp 等）
     - 或使用 `'<type>.json'` 过滤 MOD 的 JSON 文件（如 `menu.json`）
     - 注意：不带 `.json` 的 `<type>` 仅匹配二进制；带 `.json` 的 `<type>.json` 仅匹配 JSON。
 
