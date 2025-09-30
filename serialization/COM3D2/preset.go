@@ -77,6 +77,15 @@ type Preset struct {
 	BodyProperty       *BodyProperty       `json:"BodyProperty"`       // 身体属性
 }
 
+// PresetMetadata 表示仅包含略缩图的的角色预设数据，不包含实际数据
+type PresetMetadata struct {
+	Signature   string `json:"Signature"`   // "CM3D2_PRESET"
+	Version     int32  `json:"Version"`     // 版本号
+	PresetType  int32  `json:"PresetType"`  // 预设类型：0=衣服, 1=身体, 2=全部
+	ThumbLength int32  `json:"ThumbLength"` // 略缩图数据长度
+	ThumbData   []byte `json:"ThumbData"`   // 略缩图数据，PNG格式
+}
+
 // PresetPropertyList 表示预设属性列表
 type PresetPropertyList struct {
 	Signature        string                    `json:"Signature"`        // "CM3D2_MPROP_LIST"
@@ -256,6 +265,56 @@ func ReadPreset(r io.Reader) (*Preset, error) {
 			return nil, fmt.Errorf("read .Preset Body failed: %w", err)
 		}
 		p.BodyProperty = bp
+	}
+
+	return p, nil
+}
+
+// ReadPresetMetadata 从 r 中读取 PresetMetadata
+func ReadPresetMetadata(r io.Reader) (*PresetMetadata, error) {
+	p := &PresetMetadata{}
+
+	// 1. signature
+	sig, err := utilities.ReadString(r)
+	if err != nil {
+		return nil, fmt.Errorf("read .Preset signature failed: %w", err)
+	}
+	//if sig != "CM3D2_PRESET" {
+	//	return nil, fmt.Errorf("ReadPreset: signature error, expect CM3D2_PRESET, got %s", sig)
+	//}
+	p.Signature = sig
+
+	// 2. version
+	version, err := utilities.ReadInt32(r)
+	if err != nil {
+		return nil, fmt.Errorf("read .Preset version failed: %w", err)
+	}
+	p.Version = version
+
+	// 3. presetType
+	presetType, err := utilities.ReadInt32(r)
+	if err != nil {
+		return nil, fmt.Errorf("read .Preset presetType failed: %w", err)
+	}
+	//if presetType < int32(PresetTypeWear) || presetType > int32(PresetTypeAll) {
+	//	return nil, fmt.Errorf("invalid .Preset presetType: %d", presetType)
+	//}
+	p.PresetType = presetType
+
+	// 4. ThumbLength
+	thumbLength, err := utilities.ReadInt32(r)
+	if err != nil {
+		return nil, fmt.Errorf("read .Preset ThumbLength failed: %w", err)
+	}
+	p.ThumbLength = thumbLength
+
+	// 5. ThumbData
+	if p.ThumbLength > 0 {
+		p.ThumbData = make([]byte, p.ThumbLength)
+		_, err = io.ReadFull(r, p.ThumbData)
+		if err != nil {
+			return nil, fmt.Errorf("read .Preset ThumbData failed: %w", err)
+		}
 	}
 
 	return p, nil

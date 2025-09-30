@@ -39,6 +39,32 @@ func (s *PresetService) ReadPresetFile(path string) (*COM3D2.Preset, error) {
 	return PresetData, nil
 }
 
+// ReadPresetFileMetadata 读取 .preset 或 .preset.json 文件并返回对应结构体，仅包含预览图等元数据
+func (s *PresetService) ReadPresetFileMetadata(path string) (*COM3D2.PresetMetadata, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("cannot open .preset file: %w", err)
+	}
+	defer f.Close()
+
+	if strings.HasSuffix(path, ".json") {
+		decoder := json.NewDecoder(f)
+		presetData := &COM3D2.PresetMetadata{}
+		if err := decoder.Decode(presetData); err != nil {
+			return nil, fmt.Errorf("failed to read .preset.json file: %w", err)
+		}
+		return presetData, nil
+	}
+
+	br := bufio.NewReaderSize(f, 1024*1024*1) //1MB 缓冲区
+	PresetData, err := COM3D2.ReadPresetMetadata(br)
+	if err != nil {
+		return nil, fmt.Errorf("parsing the .preset file failed: %w", err)
+	}
+
+	return PresetData, nil
+}
+
 // WritePresetFile 接收 Preset 数据并写入 .preset 或 .preset.json 文件
 func (s *PresetService) WritePresetFile(path string, PresetData *COM3D2.Preset) error {
 	f, err := os.Create(path)
