@@ -26,7 +26,7 @@ Examples:
 
 		if isDirectory(path) {
 			fmt.Printf("Analyzing directory: %s\n", path)
-			return processDirectory(path, determineFileType, fileTypeFilter)
+			return processDirectoryConcurrent(path, determineFileType, fileTypeFilter)
 		}
 
 		return processFile(path, determineFileType)

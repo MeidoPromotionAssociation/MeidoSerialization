@@ -26,7 +26,7 @@ Examples:
 
 		if isDirectory(path) {
 			fmt.Printf("Processing directory: %s\n", path)
-			return processDirectory(path, convertToJson, func(p string) bool {
+			return processDirectoryConcurrent(path, convertToJson, func(p string) bool {
 				return fileTypeFilter(p) && isModFile(p)
 			})
 		}

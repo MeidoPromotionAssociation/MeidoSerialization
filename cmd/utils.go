@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 
 	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
@@ -40,6 +42,65 @@ func processDirectory(dirPath string, processor func(string) error, filter func(
 		}
 		return nil
 	})
+}
+
+// processDirectoryConcurrent processes all files in a directory (recursively) based on the provided function
+// if filter returns true, the file will be processed
+// Now uses concurrent workers to speed up processing while preserving error handling semantics.
+func processDirectoryConcurrent(dirPath string, processor func(string) error, filter func(string) bool) error {
+	fmt.Printf("Concurrent processing folder %s\n", dirPath)
+
+	var files []string
+	// First collect all eligible files
+	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && filter(path) {
+			files = append(files, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	if len(files) == 0 {
+		return nil
+	}
+
+	// Determine worker count
+	workerCount := runtime.NumCPU()
+	if workerCount < 1 {
+		workerCount = 1
+	}
+
+	pathsCh := make(chan string, workerCount*2)
+	var wg sync.WaitGroup
+
+	// Start workers
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for p := range pathsCh {
+				err = processor(p)
+				if err != nil {
+					fmt.Printf("Error processing file %s: %v\n", p, err)
+					// continue other files
+				}
+			}
+		}()
+	}
+
+	// Feed paths
+	for _, p := range files {
+		pathsCh <- p
+	}
+	close(pathsCh)
+
+	wg.Wait()
+	return nil
 }
 
 // isModFile checks if the file has a supported MOD file extension

@@ -22,6 +22,8 @@ This command automatically determines the direction of conversion:
 
 This command can process a single file or all files in a directory.
 
+This method does not perform concurrent operations when processing folders and is therefore slower than separate commands (convert2mod convert2json...).
+
 Examples:
   MeidoSerialization convert example.menu
   MeidoSerialization convert example.menu.json
