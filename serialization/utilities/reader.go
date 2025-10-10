@@ -25,6 +25,46 @@ func ReadBytes(r io.Reader, n int) ([]byte, error) {
 	return buf, err
 }
 
+// ReadBool 读取一个字节，返回 bool，如果字节非 0 则返回 true，否则返回 false
+// 对应 C# 中的 BinaryReader.ReadBoolean
+func ReadBool(r io.Reader) (bool, error) {
+	b, err := ReadByte(r)
+	if err != nil {
+		return false, fmt.Errorf("read bool failed: %w", err)
+	}
+	return b != 0, nil
+}
+
+// ReadInt8 读取 1 字节有符号整数
+func ReadInt8(r io.Reader) (int8, error) {
+	var buf [1]byte
+	_, err := io.ReadFull(r, buf[:])
+	if err != nil {
+		return 0, err
+	}
+	return int8(buf[0]), nil
+}
+
+// ReadInt16 读取 2 字节有符号整数 (little-endian)
+func ReadInt16(r io.Reader) (int16, error) {
+	var buf [2]byte
+	_, err := io.ReadFull(r, buf[:])
+	if err != nil {
+		return 0, err
+	}
+	return int16(binary.LittleEndian.Uint16(buf[:])), nil
+}
+
+// ReadUInt16 读取 2 字节无符号整数 (little-endian)
+func ReadUInt16(r io.Reader) (uint16, error) {
+	var buf [2]byte
+	_, err := io.ReadFull(r, buf[:])
+	if err != nil {
+		return 0, err
+	}
+	return binary.LittleEndian.Uint16(buf[:]), nil
+}
+
 // ReadInt32 读取 4 字节 int32（little-endian）
 func ReadInt32(r io.Reader) (int32, error) {
 	var buf [4]byte
@@ -45,14 +85,24 @@ func ReadUInt32(r io.Reader) (uint32, error) {
 	return binary.LittleEndian.Uint32(buf[:]), nil
 }
 
-// ReadUInt16 读取 2 字节无符号整数 (little-endian)
-func ReadUInt16(r io.Reader) (uint16, error) {
-	var buf [2]byte
+// ReadInt64 读取 8 字节有符号整数 (little-endian)
+func ReadInt64(r io.Reader) (int64, error) {
+	var buf [8]byte
 	_, err := io.ReadFull(r, buf[:])
 	if err != nil {
 		return 0, err
 	}
-	return binary.LittleEndian.Uint16(buf[:]), nil
+	return int64(binary.LittleEndian.Uint64(buf[:])), nil
+}
+
+// ReadUInt64 读取 8 字节无符号整数 (little-endian)
+func ReadUInt64(r io.Reader) (uint64, error) {
+	var buf [8]byte
+	_, err := io.ReadFull(r, buf[:])
+	if err != nil {
+		return 0, err
+	}
+	return binary.LittleEndian.Uint64(buf[:]), nil
 }
 
 // ReadFloat32 从 r 中读取 4 个字节，以 little-endian 解码成 float32
@@ -65,6 +115,17 @@ func ReadFloat32(r io.Reader) (float32, error) {
 	}
 	bits := binary.LittleEndian.Uint32(buf[:])
 	return math.Float32frombits(bits), nil
+}
+
+// ReadFloat64 读取 8 字节浮点数 (little-endian)
+func ReadFloat64(r io.Reader) (float64, error) {
+	var buf [8]byte
+	_, err := io.ReadFull(r, buf[:])
+	if err != nil {
+		return 0, err
+	}
+	bits := binary.LittleEndian.Uint64(buf[:])
+	return math.Float64frombits(bits), nil
 }
 
 // ReadString 读取 C# BinaryWriter.WriteString 格式的字符串
@@ -98,16 +159,6 @@ func ReadString(r io.Reader) (string, error) {
 	}
 
 	return string(buffer), nil
-}
-
-// ReadBool 读取一个字节，返回 bool，如果字节非 0 则返回 true，否则返回 false
-// 对应 C# 中的 BinaryReader.ReadBoolean
-func ReadBool(r io.Reader) (bool, error) {
-	b, err := ReadByte(r)
-	if err != nil {
-		return false, fmt.Errorf("read bool failed: %w", err)
-	}
-	return b != 0, nil
 }
 
 // -------------------- Float2 / Float3 / Float4 / Float4x4 --------------------
