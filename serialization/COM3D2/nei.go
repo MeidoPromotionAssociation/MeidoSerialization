@@ -37,6 +37,7 @@ var (
 )
 
 // ReadNei 从 r 中读取一个 .nei 文件，并解析为 Nei 结构。
+// neiKey 传入 nil 则使用默认密钥
 func ReadNei(r io.Reader, neiKey []byte) (*Nei, error) {
 	if neiKey == nil {
 		neiKey = NeiKey
