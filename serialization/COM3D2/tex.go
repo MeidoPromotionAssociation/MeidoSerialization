@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
 )
 
@@ -68,7 +68,7 @@ type Tex struct {
 // 需要数据流是 .tex 格式
 func ReadTex(r io.Reader) (*Tex, error) {
 	// 1. Signature
-	sig, err := utilities.ReadString(r)
+	sig, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .tex signature failed: %w", err)
 	}
@@ -77,13 +77,13 @@ func ReadTex(r io.Reader) (*Tex, error) {
 	//}
 
 	// 2. Version
-	ver, err := utilities.ReadInt32(r)
+	ver, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .tex version failed: %w", err)
 	}
 
 	// 3. TextureName
-	texName, err := utilities.ReadString(r)
+	texName, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .tex textureName failed: %w", err)
 	}
@@ -91,26 +91,26 @@ func ReadTex(r io.Reader) (*Tex, error) {
 	// 4. 如果 version >= 1011，读取 rects
 	var rects []TexRect
 	if ver >= 1011 {
-		rectCount, err := utilities.ReadInt32(r)
+		rectCount, err := binaryio.ReadInt32(r)
 		if err != nil {
 			return nil, fmt.Errorf("read .tex rectCount failed: %w", err)
 		}
 		if rectCount > 0 {
 			rects = make([]TexRect, rectCount)
 			for i := 0; i < int(rectCount); i++ {
-				x, err := utilities.ReadFloat32(r)
+				x, err := binaryio.ReadFloat32(r)
 				if err != nil {
 					return nil, err
 				}
-				y, err := utilities.ReadFloat32(r)
+				y, err := binaryio.ReadFloat32(r)
 				if err != nil {
 					return nil, err
 				}
-				w, err := utilities.ReadFloat32(r)
+				w, err := binaryio.ReadFloat32(r)
 				if err != nil {
 					return nil, err
 				}
-				h, err := utilities.ReadFloat32(r)
+				h, err := binaryio.ReadFloat32(r)
 				if err != nil {
 					return nil, err
 				}
@@ -122,15 +122,15 @@ func ReadTex(r io.Reader) (*Tex, error) {
 	// 5. 如果 version >= 1010，读取 width, height, textureFormat
 	var width, height, texFmt int32
 	if ver >= 1010 {
-		w, err := utilities.ReadInt32(r)
+		w, err := binaryio.ReadInt32(r)
 		if err != nil {
 			return nil, err
 		}
-		h, err := utilities.ReadInt32(r)
+		h, err := binaryio.ReadInt32(r)
 		if err != nil {
 			return nil, err
 		}
-		f, err := utilities.ReadInt32(r)
+		f, err := binaryio.ReadInt32(r)
 		if err != nil {
 			return nil, err
 		}
@@ -138,7 +138,7 @@ func ReadTex(r io.Reader) (*Tex, error) {
 	}
 
 	// 6. 读取 dataLength
-	dataLen, err := utilities.ReadInt32(r)
+	dataLen, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .tex dataLength failed: %w", err)
 	}
@@ -176,15 +176,15 @@ func ReadTex(r io.Reader) (*Tex, error) {
 // 输出的数据流是 .tex 格式
 func (t *Tex) Dump(w io.Writer) error {
 	// 1. Signature
-	if err := utilities.WriteString(w, t.Signature); err != nil {
+	if err := binaryio.WriteString(w, t.Signature); err != nil {
 		return fmt.Errorf("write signature failed: %w", err)
 	}
 	// 2. Version
-	if err := utilities.WriteInt32(w, t.Version); err != nil {
+	if err := binaryio.WriteInt32(w, t.Version); err != nil {
 		return fmt.Errorf("write version failed: %w", err)
 	}
 	// 3. TextureName
-	if err := utilities.WriteString(w, t.TextureName); err != nil {
+	if err := binaryio.WriteString(w, t.TextureName); err != nil {
 		return fmt.Errorf("write textureName failed: %w", err)
 	}
 
@@ -196,20 +196,20 @@ func (t *Tex) Dump(w io.Writer) error {
 	// 4. 如果 version >= 1011, 写出 rects
 	if t.Version >= 1011 {
 		rectCount := int32(len(t.Rects))
-		if err := utilities.WriteInt32(w, rectCount); err != nil {
+		if err := binaryio.WriteInt32(w, rectCount); err != nil {
 			return fmt.Errorf("write rectCount failed: %w", err)
 		}
 		for _, rect := range t.Rects {
-			if err := utilities.WriteFloat32(w, rect.X); err != nil {
+			if err := binaryio.WriteFloat32(w, rect.X); err != nil {
 				return err
 			}
-			if err := utilities.WriteFloat32(w, rect.Y); err != nil {
+			if err := binaryio.WriteFloat32(w, rect.Y); err != nil {
 				return err
 			}
-			if err := utilities.WriteFloat32(w, rect.W); err != nil {
+			if err := binaryio.WriteFloat32(w, rect.W); err != nil {
 				return err
 			}
-			if err := utilities.WriteFloat32(w, rect.H); err != nil {
+			if err := binaryio.WriteFloat32(w, rect.H); err != nil {
 				return err
 			}
 		}
@@ -217,20 +217,20 @@ func (t *Tex) Dump(w io.Writer) error {
 
 	// 5. 如果 version >= 1010, 写出 width, height, textureFormat
 	if t.Version >= 1010 {
-		if err := utilities.WriteInt32(w, t.Width); err != nil {
+		if err := binaryio.WriteInt32(w, t.Width); err != nil {
 			return fmt.Errorf("write width failed: %w", err)
 		}
-		if err := utilities.WriteInt32(w, t.Height); err != nil {
+		if err := binaryio.WriteInt32(w, t.Height); err != nil {
 			return fmt.Errorf("write height failed: %w", err)
 		}
-		if err := utilities.WriteInt32(w, t.TextureFormat); err != nil {
+		if err := binaryio.WriteInt32(w, t.TextureFormat); err != nil {
 			return fmt.Errorf("write textureFormat failed: %w", err)
 		}
 	}
 
 	// 6. 写出 dataLength
 	dataLen := int32(len(t.Data))
-	if err := utilities.WriteInt32(w, dataLen); err != nil {
+	if err := binaryio.WriteInt32(w, dataLen); err != nil {
 		return fmt.Errorf("write dataLen failed: %w", err)
 	}
 	// 7. 写出 data

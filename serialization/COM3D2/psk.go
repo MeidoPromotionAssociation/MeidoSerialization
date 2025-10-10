@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
 // CM3D21_PSK
@@ -49,7 +49,7 @@ func ReadPsk(r io.Reader) (*Psk, error) {
 	psk := &Psk{}
 
 	// 1. 读取签名字符串 "CM3D21_PSK"
-	sig, err := utilities.ReadString(r)
+	sig, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read psk signature failed: %w", err)
 	}
@@ -59,14 +59,14 @@ func ReadPsk(r io.Reader) (*Psk, error) {
 	psk.Signature = sig
 
 	// 2. 读取版本号 int32
-	ver, err := utilities.ReadInt32(r)
+	ver, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read psk version failed: %w", err)
 	}
 	psk.Version = ver
 
 	// 3. 读取裙撑半径
-	panierRadius, err := utilities.ReadFloat32(r)
+	panierRadius, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read panier radius failed: %w", err)
 	}
@@ -81,7 +81,7 @@ func ReadPsk(r io.Reader) (*Psk, error) {
 
 	// 5. 判断版本号并读取裙撑半径分布组
 	if ver >= 217 { //2.1.7? no idea, now this version fellow game version like 2.42.1 will be 24201
-		groupCount, err := utilities.ReadInt32(r)
+		groupCount, err := binaryio.ReadInt32(r)
 		if err != nil {
 			return nil, fmt.Errorf("read panier radius group count failed: %w", err)
 		}
@@ -89,12 +89,12 @@ func ReadPsk(r io.Reader) (*Psk, error) {
 		if groupCount > 0 {
 			psk.PanierRadiusDistribGroups = make([]PanierRadiusGroup, groupCount)
 			for i := 0; i < int(groupCount); i++ {
-				boneName, err := utilities.ReadString(r)
+				boneName, err := binaryio.ReadString(r)
 				if err != nil {
 					return nil, fmt.Errorf("read bone name failed: %w", err)
 				}
 
-				radius, err := utilities.ReadFloat32(r)
+				radius, err := binaryio.ReadFloat32(r)
 				if err != nil {
 					return nil, fmt.Errorf("read radius failed: %w", err)
 				}
@@ -114,7 +114,7 @@ func ReadPsk(r io.Reader) (*Psk, error) {
 	}
 
 	// 6. 读取裙撑力度
-	panierForce, err := utilities.ReadFloat32(r)
+	panierForce, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read panier force failed: %w", err)
 	}
@@ -128,56 +128,56 @@ func ReadPsk(r io.Reader) (*Psk, error) {
 	psk.PanierForceDistrib = panierForceDistrib
 
 	// 8. 读取裙撑应力
-	panierStressForce, err := utilities.ReadFloat32(r)
+	panierStressForce, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read panier stress force failed: %w", err)
 	}
 	psk.PanierStressForce = panierStressForce
 
 	// 9. 读取最小应力度
-	stressDegreeMin, err := utilities.ReadFloat32(r)
+	stressDegreeMin, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read stress degree min failed: %w", err)
 	}
 	psk.StressDegreeMin = stressDegreeMin
 
 	// 10. 读取最大应力度
-	stressDegreeMax, err := utilities.ReadFloat32(r)
+	stressDegreeMax, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read stress degree max failed: %w", err)
 	}
 	psk.StressDegreeMax = stressDegreeMax
 
 	// 11. 读取最小应力缩放
-	stressMinScale, err := utilities.ReadFloat32(r)
+	stressMinScale, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read stress min scale failed: %w", err)
 	}
 	psk.StressMinScale = stressMinScale
 
 	// 12. 读取缩放平滑速度
-	scaleEaseSpeed, err := utilities.ReadFloat32(r)
+	scaleEaseSpeed, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read scale ease speed failed: %w", err)
 	}
 	psk.ScaleEaseSpeed = scaleEaseSpeed
 
 	// 13. 读取裙撑力度距离阈值
-	panierForceDistanceThreshold, err := utilities.ReadFloat32(r)
+	panierForceDistanceThreshold, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read panier force distance threshold failed: %w", err)
 	}
 	psk.PanierForceDistanceThreshold = panierForceDistanceThreshold
 
 	// 14. 读取计算时间
-	calcTime, err := utilities.ReadInt32(r)
+	calcTime, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read calc time failed: %w", err)
 	}
 	psk.CalcTime = calcTime
 
 	// 15. 读取速度力率
-	velocityForceRate, err := utilities.ReadFloat32(r)
+	velocityForceRate, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read velocity force rate failed: %w", err)
 	}
@@ -191,15 +191,15 @@ func ReadPsk(r io.Reader) (*Psk, error) {
 	psk.VelocityForceRateDistrib = velocityForceRateDistrib
 
 	// 17. 读取重力向量
-	gravityX, err := utilities.ReadFloat32(r)
+	gravityX, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read gravity X failed: %w", err)
 	}
-	gravityY, err := utilities.ReadFloat32(r)
+	gravityY, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read gravity Y failed: %w", err)
 	}
-	gravityZ, err := utilities.ReadFloat32(r)
+	gravityZ, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read gravity Z failed: %w", err)
 	}
@@ -214,7 +214,7 @@ func ReadPsk(r io.Reader) (*Psk, error) {
 
 	// 19. 读取硬度值数组
 	for i := 0; i < 4; i++ {
-		hardValue, err := utilities.ReadFloat32(r)
+		hardValue, err := binaryio.ReadFloat32(r)
 		if err != nil {
 			return nil, fmt.Errorf("read hard value %d failed: %w", i, err)
 		}
@@ -227,17 +227,17 @@ func ReadPsk(r io.Reader) (*Psk, error) {
 // Dump 将 Psk 结构写到 w 中，生成符合 CM3D21_PSK 格式的二进制数据。
 func (p Psk) Dump(w io.Writer) error {
 	// 1. 写签名
-	if err := utilities.WriteString(w, p.Signature); err != nil {
+	if err := binaryio.WriteString(w, p.Signature); err != nil {
 		return fmt.Errorf("write psk signature failed: %w", err)
 	}
 
 	// 2. 写版本号
-	if err := utilities.WriteInt32(w, p.Version); err != nil {
+	if err := binaryio.WriteInt32(w, p.Version); err != nil {
 		return fmt.Errorf("write psk version failed: %w", err)
 	}
 
 	// 3. 写裙撑半径
-	if err := utilities.WriteFloat32(w, p.PanierRadius); err != nil {
+	if err := binaryio.WriteFloat32(w, p.PanierRadius); err != nil {
 		return fmt.Errorf("write panier radius failed: %w", err)
 	}
 
@@ -248,17 +248,17 @@ func (p Psk) Dump(w io.Writer) error {
 
 	// 5. 写裙撑半径分布组
 	groupCount := int32(len(p.PanierRadiusDistribGroups))
-	if err := utilities.WriteInt32(w, groupCount); err != nil { //先写裙撑半径分布组数量
+	if err := binaryio.WriteInt32(w, groupCount); err != nil { //先写裙撑半径分布组数量
 		return fmt.Errorf("write panier radius group count failed: %w", err)
 	}
 
 	for i := 0; i < int(groupCount); i++ {
 		group := p.PanierRadiusDistribGroups[i]
-		if err := utilities.WriteString(w, group.BoneName); err != nil {
+		if err := binaryio.WriteString(w, group.BoneName); err != nil {
 			return fmt.Errorf("write bone name failed: %w", err)
 		}
 
-		if err := utilities.WriteFloat32(w, group.Radius); err != nil {
+		if err := binaryio.WriteFloat32(w, group.Radius); err != nil {
 			return fmt.Errorf("write radius failed: %w", err)
 		}
 
@@ -268,7 +268,7 @@ func (p Psk) Dump(w io.Writer) error {
 	}
 
 	// 6. 写裙撑力度
-	if err := utilities.WriteFloat32(w, p.PanierForce); err != nil {
+	if err := binaryio.WriteFloat32(w, p.PanierForce); err != nil {
 		return fmt.Errorf("write panier force failed: %w", err)
 	}
 
@@ -278,42 +278,42 @@ func (p Psk) Dump(w io.Writer) error {
 	}
 
 	// 8. 写裙撑应力
-	if err := utilities.WriteFloat32(w, p.PanierStressForce); err != nil {
+	if err := binaryio.WriteFloat32(w, p.PanierStressForce); err != nil {
 		return fmt.Errorf("write panier stress force failed: %w", err)
 	}
 
 	// 9. 写最小应力度
-	if err := utilities.WriteFloat32(w, p.StressDegreeMin); err != nil {
+	if err := binaryio.WriteFloat32(w, p.StressDegreeMin); err != nil {
 		return fmt.Errorf("write stress degree min failed: %w", err)
 	}
 
 	// 10. 写最大应力度
-	if err := utilities.WriteFloat32(w, p.StressDegreeMax); err != nil {
+	if err := binaryio.WriteFloat32(w, p.StressDegreeMax); err != nil {
 		return fmt.Errorf("write stress degree max failed: %w", err)
 	}
 
 	// 11. 写最小应力缩放
-	if err := utilities.WriteFloat32(w, p.StressMinScale); err != nil {
+	if err := binaryio.WriteFloat32(w, p.StressMinScale); err != nil {
 		return fmt.Errorf("write stress min scale failed: %w", err)
 	}
 
 	// 12. 写缩放平滑速度
-	if err := utilities.WriteFloat32(w, p.ScaleEaseSpeed); err != nil {
+	if err := binaryio.WriteFloat32(w, p.ScaleEaseSpeed); err != nil {
 		return fmt.Errorf("write scale ease speed failed: %w", err)
 	}
 
 	// 13. 写裙撑力度距离阈值
-	if err := utilities.WriteFloat32(w, p.PanierForceDistanceThreshold); err != nil {
+	if err := binaryio.WriteFloat32(w, p.PanierForceDistanceThreshold); err != nil {
 		return fmt.Errorf("write panier force distance threshold failed: %w", err)
 	}
 
 	// 14. 写计算时间
-	if err := utilities.WriteInt32(w, p.CalcTime); err != nil {
+	if err := binaryio.WriteInt32(w, p.CalcTime); err != nil {
 		return fmt.Errorf("write calc time failed: %w", err)
 	}
 
 	// 15. 写速度力率
-	if err := utilities.WriteFloat32(w, p.VelocityForceRate); err != nil {
+	if err := binaryio.WriteFloat32(w, p.VelocityForceRate); err != nil {
 		return fmt.Errorf("write velocity force rate failed: %w", err)
 	}
 
@@ -323,13 +323,13 @@ func (p Psk) Dump(w io.Writer) error {
 	}
 
 	// 17. 写重力向量
-	if err := utilities.WriteFloat32(w, p.Gravity.X); err != nil {
+	if err := binaryio.WriteFloat32(w, p.Gravity.X); err != nil {
 		return fmt.Errorf("write gravity X failed: %w", err)
 	}
-	if err := utilities.WriteFloat32(w, p.Gravity.Y); err != nil {
+	if err := binaryio.WriteFloat32(w, p.Gravity.Y); err != nil {
 		return fmt.Errorf("write gravity Y failed: %w", err)
 	}
-	if err := utilities.WriteFloat32(w, p.Gravity.Z); err != nil {
+	if err := binaryio.WriteFloat32(w, p.Gravity.Z); err != nil {
 		return fmt.Errorf("write gravity Z failed: %w", err)
 	}
 
@@ -340,7 +340,7 @@ func (p Psk) Dump(w io.Writer) error {
 
 	// 19. 写硬度值数组
 	for i := 0; i < 4; i++ {
-		if err := utilities.WriteFloat32(w, p.HardValues[i]); err != nil {
+		if err := binaryio.WriteFloat32(w, p.HardValues[i]); err != nil {
 			return fmt.Errorf("write hard value %d failed: %w", i, err)
 		}
 	}

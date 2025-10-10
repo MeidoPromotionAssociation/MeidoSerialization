@@ -5,7 +5,7 @@ import (
 	"io"
 	"math"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
 // CM3D2_MENU
@@ -36,7 +36,7 @@ func ReadMenu(r io.Reader) (*Menu, error) {
 	m := &Menu{}
 
 	// 1. Signature
-	sig, err := utilities.ReadString(r)
+	sig, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, err
 	}
@@ -46,42 +46,42 @@ func ReadMenu(r io.Reader) (*Menu, error) {
 	m.Signature = sig
 
 	// 2. Version (4 bytes little-endian)
-	ver, err := utilities.ReadInt32(r)
+	ver, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read version failed: %w", err)
 	}
 	m.Version = ver
 
 	// 3. SrcFileName (string)
-	src, err := utilities.ReadString(r)
+	src, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read srcFileName failed: %w", err)
 	}
 	m.SrcFileName = src
 
 	// 4. ItemName
-	itemName, err := utilities.ReadString(r)
+	itemName, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read itemName failed: %w", err)
 	}
 	m.ItemName = itemName
 
 	// 5. Category
-	cat, err := utilities.ReadString(r)
+	cat, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read category failed: %w", err)
 	}
 	m.Category = cat
 
 	// 6. InfoText
-	infoText, err := utilities.ReadString(r)
+	infoText, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read infoText failed: %w", err)
 	}
 	m.InfoText = infoText
 
 	// 7. BodySize
-	bodySize, err := utilities.ReadInt32(r)
+	bodySize, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read bodySize failed: %w", err)
 	}
@@ -89,7 +89,7 @@ func ReadMenu(r io.Reader) (*Menu, error) {
 
 	// 8. Commands, until we see a 0 byte
 	for {
-		peek, err := utilities.PeekByte(r)
+		peek, err := binaryio.PeekByte(r)
 		if err != nil {
 			return nil, fmt.Errorf("peek command argCount failed: %w", err)
 		}
@@ -99,7 +99,7 @@ func ReadMenu(r io.Reader) (*Menu, error) {
 		}
 		// read a new Command
 		var cmd Command
-		ac, err := utilities.ReadByte(r)
+		ac, err := binaryio.ReadByte(r)
 		if err != nil {
 			return nil, fmt.Errorf("read command.argCount failed: %w", err)
 		}
@@ -109,7 +109,7 @@ func ReadMenu(r io.Reader) (*Menu, error) {
 			cmd.Args = nil
 		} else {
 			// 第一个字符串为命令，其余为参数
-			first, err := utilities.ReadString(r)
+			first, err := binaryio.ReadString(r)
 			if err != nil {
 				return nil, fmt.Errorf("read command failed: %w", err)
 			}
@@ -117,7 +117,7 @@ func ReadMenu(r io.Reader) (*Menu, error) {
 			if ac > 1 {
 				cmd.Args = make([]string, 0, int(ac)-1)
 				for i := 1; i < int(ac); i++ {
-					arg, err := utilities.ReadString(r)
+					arg, err := binaryio.ReadString(r)
 					if err != nil {
 						return nil, fmt.Errorf("read command arg failed: %w", err)
 					}
@@ -129,7 +129,7 @@ func ReadMenu(r io.Reader) (*Menu, error) {
 	}
 
 	// 9. endByte = 0
-	endB, err := utilities.ReadByte(r)
+	endB, err := binaryio.ReadByte(r)
 	if err != nil {
 		return nil, fmt.Errorf("read endByte failed: %w", err)
 	}
@@ -148,37 +148,37 @@ func (m *Menu) Dump(w io.Writer) error {
 	}
 
 	// 1. Signature
-	if err := utilities.WriteString(w, m.Signature); err != nil {
+	if err := binaryio.WriteString(w, m.Signature); err != nil {
 		return fmt.Errorf("write signature failed: %w", err)
 	}
 
 	// 2. Version
-	if err := utilities.WriteInt32(w, m.Version); err != nil {
+	if err := binaryio.WriteInt32(w, m.Version); err != nil {
 		return fmt.Errorf("write version failed: %w", err)
 	}
 
 	// 3. SrcFileName
-	if err := utilities.WriteString(w, m.SrcFileName); err != nil {
+	if err := binaryio.WriteString(w, m.SrcFileName); err != nil {
 		return fmt.Errorf("write srcFileName failed: %w", err)
 	}
 
 	// 4. ItemName
-	if err := utilities.WriteString(w, m.ItemName); err != nil {
+	if err := binaryio.WriteString(w, m.ItemName); err != nil {
 		return fmt.Errorf("write itemName failed: %w", err)
 	}
 
 	// 5. Category
-	if err := utilities.WriteString(w, m.Category); err != nil {
+	if err := binaryio.WriteString(w, m.Category); err != nil {
 		return fmt.Errorf("write category failed: %w", err)
 	}
 
 	// 6. InfoText
-	if err := utilities.WriteString(w, m.InfoText); err != nil {
+	if err := binaryio.WriteString(w, m.InfoText); err != nil {
 		return fmt.Errorf("write infoText failed: %w", err)
 	}
 
 	// 7. BodySize
-	if err := utilities.WriteInt32(w, m.BodySize); err != nil {
+	if err := binaryio.WriteInt32(w, m.BodySize); err != nil {
 		return fmt.Errorf("write bodySize failed: %w", err)
 	}
 
@@ -195,25 +195,25 @@ func (m *Menu) Dump(w io.Writer) error {
 		}
 
 		// 写 ArgCount
-		if err := utilities.WriteByte(w, byte(len(cmd.Args)+1)); err != nil {
+		if err := binaryio.WriteByte(w, byte(len(cmd.Args)+1)); err != nil {
 			return fmt.Errorf("write command argCount failed: %w", err)
 		}
 
 		// 先写命令名
-		if err := utilities.WriteString(w, cmd.Command); err != nil {
+		if err := binaryio.WriteString(w, cmd.Command); err != nil {
 			return fmt.Errorf("write command name failed: %w", err)
 		}
 
 		// 再写参数
 		for _, arg := range cmd.Args {
-			if err := utilities.WriteString(w, arg); err != nil {
+			if err := binaryio.WriteString(w, arg); err != nil {
 				return fmt.Errorf("write command arg failed: %w", err)
 			}
 		}
 	}
 
 	// 9. 写一个 0 byte 结束
-	if err := utilities.WriteByte(w, endByte); err != nil {
+	if err := binaryio.WriteByte(w, endByte); err != nil {
 		return fmt.Errorf("write endByte=0 failed: %w", err)
 	}
 	return nil
@@ -237,7 +237,7 @@ func (m *Menu) UpdateBodySize() error {
 			if encodedLength > math.MaxInt32 {
 				return fmt.Errorf("string parameter length (%d) exceeds the maximum value of int32", encodedLength)
 			}
-			lebSize := utilities.Get7BitEncodedIntSize(int32(encodedLength))
+			lebSize := binaryio.Get7BitEncodedIntSize(int32(encodedLength))
 			sum += int32(lebSize)
 			sum += int32(encodedLength)
 		}
@@ -248,7 +248,7 @@ func (m *Menu) UpdateBodySize() error {
 			if encodedLength > math.MaxInt32 {
 				return fmt.Errorf("string parameter length (%d) exceeds the maximum value of int32", encodedLength)
 			}
-			lebSize := utilities.Get7BitEncodedIntSize(int32(encodedLength))
+			lebSize := binaryio.Get7BitEncodedIntSize(int32(encodedLength))
 			sum += int32(lebSize)
 			sum += int32(encodedLength)
 		}

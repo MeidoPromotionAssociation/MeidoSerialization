@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
 // CM3D2_PRESET
@@ -201,7 +201,7 @@ func ReadPreset(r io.Reader) (*Preset, error) {
 	p := &Preset{}
 
 	// 1. signature
-	sig, err := utilities.ReadString(r)
+	sig, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset signature failed: %w", err)
 	}
@@ -211,14 +211,14 @@ func ReadPreset(r io.Reader) (*Preset, error) {
 	p.Signature = sig
 
 	// 2. version
-	version, err := utilities.ReadInt32(r)
+	version, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset version failed: %w", err)
 	}
 	p.Version = version
 
 	// 3. presetType
-	presetType, err := utilities.ReadInt32(r)
+	presetType, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset presetType failed: %w", err)
 	}
@@ -228,7 +228,7 @@ func ReadPreset(r io.Reader) (*Preset, error) {
 	p.PresetType = presetType
 
 	// 4. ThumbLength
-	thumbLength, err := utilities.ReadInt32(r)
+	thumbLength, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset ThumbLength failed: %w", err)
 	}
@@ -275,7 +275,7 @@ func ReadPresetMetadata(r io.Reader) (*PresetMetadata, error) {
 	p := &PresetMetadata{}
 
 	// 1. signature
-	sig, err := utilities.ReadString(r)
+	sig, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset signature failed: %w", err)
 	}
@@ -285,14 +285,14 @@ func ReadPresetMetadata(r io.Reader) (*PresetMetadata, error) {
 	p.Signature = sig
 
 	// 2. version
-	version, err := utilities.ReadInt32(r)
+	version, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset version failed: %w", err)
 	}
 	p.Version = version
 
 	// 3. presetType
-	presetType, err := utilities.ReadInt32(r)
+	presetType, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset presetType failed: %w", err)
 	}
@@ -302,7 +302,7 @@ func ReadPresetMetadata(r io.Reader) (*PresetMetadata, error) {
 	p.PresetType = presetType
 
 	// 4. ThumbLength
-	thumbLength, err := utilities.ReadInt32(r)
+	thumbLength, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset ThumbLength failed: %w", err)
 	}
@@ -325,7 +325,7 @@ func readPresetPropertyList(r io.Reader) (*PresetPropertyList, error) {
 	ppl := &PresetPropertyList{PresetProperties: map[string]PresetProperty{}}
 
 	// 1. signature
-	sig, err := utilities.ReadString(r)
+	sig, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset PresetPropertyList signature failed: %w", err)
 	}
@@ -335,14 +335,14 @@ func readPresetPropertyList(r io.Reader) (*PresetPropertyList, error) {
 	ppl.Signature = sig
 
 	// 2. version
-	version, err := utilities.ReadInt32(r)
+	version, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset PresetPropertyList version failed: %w", err)
 	}
 	ppl.Version = version
 
 	//3. PropertyCount
-	count, err := utilities.ReadInt32(r)
+	count, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset PresetPropertyList propertyCount failed: %w", err)
 	}
@@ -353,7 +353,7 @@ func readPresetPropertyList(r io.Reader) (*PresetPropertyList, error) {
 		var key string
 		if version >= 4 {
 			// 新版：SerializeProp 会先写 key（MPN 名称字符串）
-			k, err := utilities.ReadString(r)
+			k, err := binaryio.ReadString(r)
 			if err != nil {
 				return nil, fmt.Errorf("read Prop key[%d] failed: %w", i, err)
 			}
@@ -378,70 +378,70 @@ func readPresetProperty(r io.Reader) (*PresetProperty, error) {
 	prop := &PresetProperty{}
 
 	// 1. signature
-	sig, err := utilities.ReadString(r)
+	sig, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset PresetProperty signature failed: %w", err)
 	}
 	prop.Signature = sig
 
 	// 2. version
-	ver, err := utilities.ReadInt32(r)
+	ver, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset PresetProperty version failed: %w", err)
 	}
 	prop.Version = ver
 
 	// 3. index
-	idx, err := utilities.ReadInt32(r)
+	idx, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read prop.idx failed: %w", err)
 	}
 	prop.Index = idx
 
 	// 4. name
-	name, err := utilities.ReadString(r)
+	name, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read prop.name failed: %w", err)
 	}
 	prop.Name = name
 
 	// 5. 基本数值
-	if prop.Type, err = utilities.ReadInt32(r); err != nil {
+	if prop.Type, err = binaryio.ReadInt32(r); err != nil {
 		return nil, fmt.Errorf("read prop.type failed: %w", err)
 	}
-	if prop.DefaultValue, err = utilities.ReadInt32(r); err != nil {
+	if prop.DefaultValue, err = binaryio.ReadInt32(r); err != nil {
 		return nil, fmt.Errorf("read prop.default failed: %w", err)
 	}
-	if prop.Value, err = utilities.ReadInt32(r); err != nil {
+	if prop.Value, err = binaryio.ReadInt32(r); err != nil {
 		return nil, fmt.Errorf("read prop.value failed: %w", err)
 	}
 	if ver >= 101 {
-		if prop.TempValue, err = utilities.ReadInt32(r); err != nil {
+		if prop.TempValue, err = binaryio.ReadInt32(r); err != nil {
 			return nil, fmt.Errorf("read prop.temp_value failed: %w", err)
 		}
 	}
-	if prop.LinkMaxValue, err = utilities.ReadInt32(r); err != nil {
+	if prop.LinkMaxValue, err = binaryio.ReadInt32(r); err != nil {
 		return nil, fmt.Errorf("read prop.linkMax failed: %w", err)
 	}
-	if prop.FileName, err = utilities.ReadString(r); err != nil {
+	if prop.FileName, err = binaryio.ReadString(r); err != nil {
 		return nil, fmt.Errorf("read prop.fileName failed: %w", err)
 	}
-	if prop.FileNameRID, err = utilities.ReadInt32(r); err != nil {
+	if prop.FileNameRID, err = binaryio.ReadInt32(r); err != nil {
 		return nil, fmt.Errorf("read prop.fileNameRID failed: %w", err)
 	}
-	if prop.IsDut, err = utilities.ReadBool(r); err != nil {
+	if prop.IsDut, err = binaryio.ReadBool(r); err != nil {
 		return nil, fmt.Errorf("read prop.isDut failed: %w", err)
 	}
-	if prop.Max, err = utilities.ReadInt32(r); err != nil {
+	if prop.Max, err = binaryio.ReadInt32(r); err != nil {
 		return nil, fmt.Errorf("read prop.max failed: %w", err)
 	}
-	if prop.Min, err = utilities.ReadInt32(r); err != nil {
+	if prop.Min, err = binaryio.ReadInt32(r); err != nil {
 		return nil, fmt.Errorf("read prop.min failed: %w", err)
 	}
 
 	// 子属性（ver >= 200）
 	if ver >= 200 {
-		cnt, err := utilities.ReadInt32(r)
+		cnt, err := binaryio.ReadInt32(r)
 		if err != nil {
 			return nil, fmt.Errorf("read subProp count failed: %w", err)
 		}
@@ -449,7 +449,7 @@ func readPresetProperty(r io.Reader) (*PresetProperty, error) {
 			prop.SubProps = make([]SubProp, cnt)
 		}
 		for i := 0; i < int(cnt); i++ {
-			exists, err := utilities.ReadBool(r)
+			exists, err := binaryio.ReadBool(r)
 			if err != nil {
 				return nil, fmt.Errorf("read subProp[%d] exists failed: %w", i, err)
 			}
@@ -458,17 +458,17 @@ func readPresetProperty(r io.Reader) (*PresetProperty, error) {
 				continue
 			}
 			var sp SubProp
-			if sp.IsDut, err = utilities.ReadBool(r); err != nil {
+			if sp.IsDut, err = binaryio.ReadBool(r); err != nil {
 				return nil, fmt.Errorf("read subProp[%d].IsDut failed: %w", i, err)
 			}
-			if sp.FileName, err = utilities.ReadString(r); err != nil {
+			if sp.FileName, err = binaryio.ReadString(r); err != nil {
 				return nil, fmt.Errorf("read subProp[%d].FileName failed: %w", i, err)
 			}
-			if sp.FileNameRID, err = utilities.ReadInt32(r); err != nil {
+			if sp.FileNameRID, err = binaryio.ReadInt32(r); err != nil {
 				return nil, fmt.Errorf("read subProp[%d].FileNameRID failed: %w", i, err)
 			}
 			if ver >= 211 {
-				if sp.TexMulAlpha, err = utilities.ReadFloat32(r); err != nil {
+				if sp.TexMulAlpha, err = binaryio.ReadFloat32(r); err != nil {
 					return nil, fmt.Errorf("read subProp[%d].TexMulAlpha failed: %w", i, err)
 				}
 			}
@@ -476,7 +476,7 @@ func readPresetProperty(r io.Reader) (*PresetProperty, error) {
 		}
 
 		// 皮肤位置：slotID, RID, BoneAttachPos
-		nSkin, err := utilities.ReadInt32(r)
+		nSkin, err := binaryio.ReadInt32(r)
 		if err != nil {
 			return nil, fmt.Errorf("read skinPos count failed: %w", err)
 		}
@@ -484,46 +484,46 @@ func readPresetProperty(r io.Reader) (*PresetProperty, error) {
 			prop.SkinPositions = make(map[int]BoneAttachPosEntry, nSkin)
 		}
 		for i := 0; i < int(nSkin); i++ {
-			slotID, err := utilities.ReadInt32(r)
+			slotID, err := binaryio.ReadInt32(r)
 			if err != nil {
 				return nil, fmt.Errorf("read skinPos[%d].slotID failed: %w", i, err)
 			}
-			rid, err := utilities.ReadInt32(r)
+			rid, err := binaryio.ReadInt32(r)
 			if err != nil {
 				return nil, fmt.Errorf("read skinPos[%d].rid failed: %w", i, err)
 			}
 			var b BoneAttachPos
-			if b.Enable, err = utilities.ReadBool(r); err != nil {
+			if b.Enable, err = binaryio.ReadBool(r); err != nil {
 				return nil, fmt.Errorf("read skinPos[%d].enable failed: %w", i, err)
 			}
-			if b.PosRotScale.Position.X, err = utilities.ReadFloat32(r); err != nil {
+			if b.PosRotScale.Position.X, err = binaryio.ReadFloat32(r); err != nil {
 				return nil, fmt.Errorf("read skinPos[%d].pos.x failed: %w", i, err)
 			}
-			if b.PosRotScale.Position.Y, err = utilities.ReadFloat32(r); err != nil {
+			if b.PosRotScale.Position.Y, err = binaryio.ReadFloat32(r); err != nil {
 				return nil, fmt.Errorf("read skinPos[%d].pos.y failed: %w", i, err)
 			}
-			if b.PosRotScale.Position.Z, err = utilities.ReadFloat32(r); err != nil {
+			if b.PosRotScale.Position.Z, err = binaryio.ReadFloat32(r); err != nil {
 				return nil, fmt.Errorf("read skinPos[%d].pos.z failed: %w", i, err)
 			}
-			if b.PosRotScale.Rotation.X, err = utilities.ReadFloat32(r); err != nil {
+			if b.PosRotScale.Rotation.X, err = binaryio.ReadFloat32(r); err != nil {
 				return nil, fmt.Errorf("read skinPos[%d].rot.x failed: %w", i, err)
 			}
-			if b.PosRotScale.Rotation.Y, err = utilities.ReadFloat32(r); err != nil {
+			if b.PosRotScale.Rotation.Y, err = binaryio.ReadFloat32(r); err != nil {
 				return nil, fmt.Errorf("read skinPos[%d].rot.y failed: %w", i, err)
 			}
-			if b.PosRotScale.Rotation.Z, err = utilities.ReadFloat32(r); err != nil {
+			if b.PosRotScale.Rotation.Z, err = binaryio.ReadFloat32(r); err != nil {
 				return nil, fmt.Errorf("read skinPos[%d].rot.z failed: %w", i, err)
 			}
-			if b.PosRotScale.Rotation.W, err = utilities.ReadFloat32(r); err != nil {
+			if b.PosRotScale.Rotation.W, err = binaryio.ReadFloat32(r); err != nil {
 				return nil, fmt.Errorf("read skinPos[%d].rot.w failed: %w", i, err)
 			}
-			if b.PosRotScale.Scale.X, err = utilities.ReadFloat32(r); err != nil {
+			if b.PosRotScale.Scale.X, err = binaryio.ReadFloat32(r); err != nil {
 				return nil, fmt.Errorf("read skinPos[%d].scale.x failed: %w", i, err)
 			}
-			if b.PosRotScale.Scale.Y, err = utilities.ReadFloat32(r); err != nil {
+			if b.PosRotScale.Scale.Y, err = binaryio.ReadFloat32(r); err != nil {
 				return nil, fmt.Errorf("read skinPos[%d].scale.y failed: %w", i, err)
 			}
-			if b.PosRotScale.Scale.Z, err = utilities.ReadFloat32(r); err != nil {
+			if b.PosRotScale.Scale.Z, err = binaryio.ReadFloat32(r); err != nil {
 				return nil, fmt.Errorf("read skinPos[%d].scale.z failed: %w", i, err)
 			}
 
@@ -531,7 +531,7 @@ func readPresetProperty(r io.Reader) (*PresetProperty, error) {
 		}
 
 		// 附着位置：slotID, count, (name, RID, VtxAttachPos)*
-		nAttach, err := utilities.ReadInt32(r)
+		nAttach, err := binaryio.ReadInt32(r)
 		if err != nil {
 			return nil, fmt.Errorf("read attachPos count failed: %w", err)
 		}
@@ -539,62 +539,62 @@ func readPresetProperty(r io.Reader) (*PresetProperty, error) {
 			prop.AttachPositions = make(map[int]map[string]VtxAttachPosEntry, nAttach)
 		}
 		for i := 0; i < int(nAttach); i++ {
-			slotID, err := utilities.ReadInt32(r)
+			slotID, err := binaryio.ReadInt32(r)
 			if err != nil {
 				return nil, fmt.Errorf("read attachPos[%d].slotID failed: %w", i, err)
 			}
-			inner, err := utilities.ReadInt32(r)
+			inner, err := binaryio.ReadInt32(r)
 			if err != nil {
 				return nil, fmt.Errorf("read attachPos[%d].innerCount failed: %w", i, err)
 			}
 			mp := make(map[string]VtxAttachPosEntry, inner)
 			for j := 0; j < int(inner); j++ {
-				key, err := utilities.ReadString(r)
+				key, err := binaryio.ReadString(r)
 				if err != nil {
 					return nil, fmt.Errorf("read attachPos[%d][%d].key failed: %w", i, j, err)
 				}
-				rid, err := utilities.ReadInt32(r)
+				rid, err := binaryio.ReadInt32(r)
 				if err != nil {
 					return nil, fmt.Errorf("read attachPos[%d][%d].rid failed: %w", i, j, err)
 				}
 				var v VtxAttachPos
-				if v.Enable, err = utilities.ReadBool(r); err != nil {
+				if v.Enable, err = binaryio.ReadBool(r); err != nil {
 					return nil, fmt.Errorf("read attachPos[%d][%d].enable failed: %w", i, j, err)
 				}
-				if v.VtxCount, err = utilities.ReadInt32(r); err != nil {
+				if v.VtxCount, err = binaryio.ReadInt32(r); err != nil {
 					return nil, fmt.Errorf("read attachPos[%d][%d].vtxCount failed: %w", i, j, err)
 				}
-				if v.VtxIdx, err = utilities.ReadInt32(r); err != nil {
+				if v.VtxIdx, err = binaryio.ReadInt32(r); err != nil {
 					return nil, fmt.Errorf("read attachPos[%d][%d].vtxIdx failed: %w", i, j, err)
 				}
-				if v.PosRotScale.Position.X, err = utilities.ReadFloat32(r); err != nil {
+				if v.PosRotScale.Position.X, err = binaryio.ReadFloat32(r); err != nil {
 					return nil, fmt.Errorf("read attachPos[%d][%d].pos.x failed: %w", i, j, err)
 				}
-				if v.PosRotScale.Position.Y, err = utilities.ReadFloat32(r); err != nil {
+				if v.PosRotScale.Position.Y, err = binaryio.ReadFloat32(r); err != nil {
 					return nil, fmt.Errorf("read attachPos[%d][%d].pos.y failed: %w", i, j, err)
 				}
-				if v.PosRotScale.Position.Z, err = utilities.ReadFloat32(r); err != nil {
+				if v.PosRotScale.Position.Z, err = binaryio.ReadFloat32(r); err != nil {
 					return nil, fmt.Errorf("read attachPos[%d][%d].pos.z failed: %w", i, j, err)
 				}
-				if v.PosRotScale.Rotation.X, err = utilities.ReadFloat32(r); err != nil {
+				if v.PosRotScale.Rotation.X, err = binaryio.ReadFloat32(r); err != nil {
 					return nil, fmt.Errorf("read attachPos[%d][%d].rot.x failed: %w", i, j, err)
 				}
-				if v.PosRotScale.Rotation.Y, err = utilities.ReadFloat32(r); err != nil {
+				if v.PosRotScale.Rotation.Y, err = binaryio.ReadFloat32(r); err != nil {
 					return nil, fmt.Errorf("read attachPos[%d][%d].rot.y failed: %w", i, j, err)
 				}
-				if v.PosRotScale.Rotation.Z, err = utilities.ReadFloat32(r); err != nil {
+				if v.PosRotScale.Rotation.Z, err = binaryio.ReadFloat32(r); err != nil {
 					return nil, fmt.Errorf("read attachPos[%d][%d].rot.z failed: %w", i, j, err)
 				}
-				if v.PosRotScale.Rotation.W, err = utilities.ReadFloat32(r); err != nil {
+				if v.PosRotScale.Rotation.W, err = binaryio.ReadFloat32(r); err != nil {
 					return nil, fmt.Errorf("read attachPos[%d][%d].rot.w failed: %w", i, j, err)
 				}
-				if v.PosRotScale.Scale.X, err = utilities.ReadFloat32(r); err != nil {
+				if v.PosRotScale.Scale.X, err = binaryio.ReadFloat32(r); err != nil {
 					return nil, fmt.Errorf("read attachPos[%d][%d].scale.x failed: %w", i, j, err)
 				}
-				if v.PosRotScale.Scale.Y, err = utilities.ReadFloat32(r); err != nil {
+				if v.PosRotScale.Scale.Y, err = binaryio.ReadFloat32(r); err != nil {
 					return nil, fmt.Errorf("read attachPos[%d][%d].scale.y failed: %w", i, j, err)
 				}
-				if v.PosRotScale.Scale.Z, err = utilities.ReadFloat32(r); err != nil {
+				if v.PosRotScale.Scale.Z, err = binaryio.ReadFloat32(r); err != nil {
 					return nil, fmt.Errorf("read attachPos[%d][%d].scale.z failed: %w", i, j, err)
 				}
 
@@ -604,7 +604,7 @@ func readPresetProperty(r io.Reader) (*PresetProperty, error) {
 		}
 
 		// 材质属性：slotID, RID, MatPropSave
-		nMat, err := utilities.ReadInt32(r)
+		nMat, err := binaryio.ReadInt32(r)
 		if err != nil {
 			return nil, fmt.Errorf("read matProp count failed: %w", err)
 		}
@@ -612,25 +612,25 @@ func readPresetProperty(r io.Reader) (*PresetProperty, error) {
 			prop.MaterialProps = make(map[int]MatPropSaveEntry, nMat)
 		}
 		for i := 0; i < int(nMat); i++ {
-			slotID, err := utilities.ReadInt32(r)
+			slotID, err := binaryio.ReadInt32(r)
 			if err != nil {
 				return nil, fmt.Errorf("read matProp[%d].slotID failed: %w", i, err)
 			}
-			rid, err := utilities.ReadInt32(r)
+			rid, err := binaryio.ReadInt32(r)
 			if err != nil {
 				return nil, fmt.Errorf("read matProp[%d].rid failed: %w", i, err)
 			}
 			var m MatPropSave
-			if m.MatId, err = utilities.ReadInt32(r); err != nil {
+			if m.MatId, err = binaryio.ReadInt32(r); err != nil {
 				return nil, fmt.Errorf("read matProp[%d].matId failed: %w", i, err)
 			}
-			if m.PropName, err = utilities.ReadString(r); err != nil {
+			if m.PropName, err = binaryio.ReadString(r); err != nil {
 				return nil, fmt.Errorf("read matProp[%d].propName failed: %w", i, err)
 			}
-			if m.TypeName, err = utilities.ReadString(r); err != nil {
+			if m.TypeName, err = binaryio.ReadString(r); err != nil {
 				return nil, fmt.Errorf("read matProp[%d].typeName failed: %w", i, err)
 			}
-			if m.Value, err = utilities.ReadString(r); err != nil {
+			if m.Value, err = binaryio.ReadString(r); err != nil {
 				return nil, fmt.Errorf("read matProp[%d].value failed: %w", i, err)
 			}
 			prop.MaterialProps[int(slotID)] = MatPropSaveEntry{RID: rid, MatPropSave: m}
@@ -638,7 +638,7 @@ func readPresetProperty(r io.Reader) (*PresetProperty, error) {
 
 		// 骨骼长度（ver >= 213）：slotID, RID, count, (name,float)*
 		if ver >= 213 {
-			nBone, err := utilities.ReadInt32(r)
+			nBone, err := binaryio.ReadInt32(r)
 			if err != nil {
 				return nil, fmt.Errorf("read boneLen count failed: %w", err)
 			}
@@ -646,25 +646,25 @@ func readPresetProperty(r io.Reader) (*PresetProperty, error) {
 				prop.BoneLengths = make(map[int]BoneLengthEntry, nBone)
 			}
 			for i := 0; i < int(nBone); i++ {
-				slotID, err := utilities.ReadInt32(r)
+				slotID, err := binaryio.ReadInt32(r)
 				if err != nil {
 					return nil, fmt.Errorf("read boneLen[%d].slotID failed: %w", i, err)
 				}
-				rid, err := utilities.ReadInt32(r)
+				rid, err := binaryio.ReadInt32(r)
 				if err != nil {
 					return nil, fmt.Errorf("read boneLen[%d].rid failed: %w", i, err)
 				}
-				inner, err := utilities.ReadInt32(r)
+				inner, err := binaryio.ReadInt32(r)
 				if err != nil {
 					return nil, fmt.Errorf("read boneLen[%d].inner failed: %w", i, err)
 				}
 				m := make(map[string]float32, inner)
 				for j := 0; j < int(inner); j++ {
-					k, err := utilities.ReadString(r)
+					k, err := binaryio.ReadString(r)
 					if err != nil {
 						return nil, fmt.Errorf("read boneLen[%d][%d].name failed: %w", i, j, err)
 					}
-					v, err := utilities.ReadFloat32(r)
+					v, err := binaryio.ReadFloat32(r)
 					if err != nil {
 						return nil, fmt.Errorf("read boneLen[%d][%d].value failed: %w", i, j, err)
 					}
@@ -682,19 +682,19 @@ func readPresetProperty(r io.Reader) (*PresetProperty, error) {
 func readMultiColor(r io.Reader) (*MultiColor, error) {
 	mc := &MultiColor{}
 
-	sig, err := utilities.ReadString(r)
+	sig, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read MultiColor signature failed: %w", err)
 	}
 	mc.Signature = sig
 
-	ver, err := utilities.ReadInt32(r)
+	ver, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read MultiColor version failed: %w", err)
 	}
 	mc.Version = ver
 
-	count, err := utilities.ReadInt32(r)
+	count, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read MultiColor count failed: %w", err)
 	}
@@ -709,34 +709,34 @@ func readMultiColor(r io.Reader) (*MultiColor, error) {
 		order := []string{"EYE_L", "EYE_R", "HAIR", "EYE_BROW", "UNDER_HAIR", "SKIN", "NIPPLE", "HAIR_OUTLINE", "SKIN_OUTLINE"}
 		for j := 0; j < int(count); j++ {
 			pc := PartsColor{}
-			if pc.IsUse, err = utilities.ReadBool(r); err != nil {
+			if pc.IsUse, err = binaryio.ReadBool(r); err != nil {
 				return nil, fmt.Errorf("read MultiColor[%d].isUse failed: %w", j, err)
 			}
-			if pc.MainHue, err = utilities.ReadInt32(r); err != nil {
+			if pc.MainHue, err = binaryio.ReadInt32(r); err != nil {
 				return nil, fmt.Errorf("read MultiColor[%d].mainHue failed: %w", j, err)
 			}
-			if pc.MainChroma, err = utilities.ReadInt32(r); err != nil {
+			if pc.MainChroma, err = binaryio.ReadInt32(r); err != nil {
 				return nil, fmt.Errorf("read MultiColor[%d].mainChroma failed: %w", j, err)
 			}
-			if pc.MainBrightness, err = utilities.ReadInt32(r); err != nil {
+			if pc.MainBrightness, err = binaryio.ReadInt32(r); err != nil {
 				return nil, fmt.Errorf("read MultiColor[%d].mainBrightness failed: %w", j, err)
 			}
-			if pc.MainContrast, err = utilities.ReadInt32(r); err != nil {
+			if pc.MainContrast, err = binaryio.ReadInt32(r); err != nil {
 				return nil, fmt.Errorf("read MultiColor[%d].mainContrast failed: %w", j, err)
 			}
-			if pc.ShadowRate, err = utilities.ReadInt32(r); err != nil {
+			if pc.ShadowRate, err = binaryio.ReadInt32(r); err != nil {
 				return nil, fmt.Errorf("read MultiColor[%d].shadowRate failed: %w", j, err)
 			}
-			if pc.ShadowHue, err = utilities.ReadInt32(r); err != nil {
+			if pc.ShadowHue, err = binaryio.ReadInt32(r); err != nil {
 				return nil, fmt.Errorf("read MultiColor[%d].shadowHue failed: %w", j, err)
 			}
-			if pc.ShadowChroma, err = utilities.ReadInt32(r); err != nil {
+			if pc.ShadowChroma, err = binaryio.ReadInt32(r); err != nil {
 				return nil, fmt.Errorf("read MultiColor[%d].shadowChroma failed: %w", j, err)
 			}
-			if pc.ShadowBrightness, err = utilities.ReadInt32(r); err != nil {
+			if pc.ShadowBrightness, err = binaryio.ReadInt32(r); err != nil {
 				return nil, fmt.Errorf("read MultiColor[%d].shadowBrightness failed: %w", j, err)
 			}
-			if pc.ShadowContrast, err = utilities.ReadInt32(r); err != nil {
+			if pc.ShadowContrast, err = binaryio.ReadInt32(r); err != nil {
 				return nil, fmt.Errorf("read MultiColor[%d].shadowContrast failed: %w", j, err)
 			}
 			// 仅旧格式前 9 项有固定顺序，多余项只消费不落位，避免越界
@@ -751,7 +751,7 @@ func readMultiColor(r io.Reader) (*MultiColor, error) {
 	} else {
 		// 新布局：读字符串直到 "MAX"
 		for {
-			name, err := utilities.ReadString(r)
+			name, err := binaryio.ReadString(r)
 			if err != nil {
 				return nil, fmt.Errorf("read MultiColor entry name failed: %w", err)
 			}
@@ -779,34 +779,34 @@ func readMultiColor(r io.Reader) (*MultiColor, error) {
 
 func readPartsColor(r io.Reader, pc *PartsColor) (int, error) {
 	var err error
-	if pc.IsUse, err = utilities.ReadBool(r); err != nil {
+	if pc.IsUse, err = binaryio.ReadBool(r); err != nil {
 		return 0, fmt.Errorf("read isUse failed: %w", err)
 	}
-	if pc.MainHue, err = utilities.ReadInt32(r); err != nil {
+	if pc.MainHue, err = binaryio.ReadInt32(r); err != nil {
 		return 0, fmt.Errorf("read mainHue failed: %w", err)
 	}
-	if pc.MainChroma, err = utilities.ReadInt32(r); err != nil {
+	if pc.MainChroma, err = binaryio.ReadInt32(r); err != nil {
 		return 0, fmt.Errorf("read mainChroma failed: %w", err)
 	}
-	if pc.MainBrightness, err = utilities.ReadInt32(r); err != nil {
+	if pc.MainBrightness, err = binaryio.ReadInt32(r); err != nil {
 		return 0, fmt.Errorf("read mainBrightness failed: %w", err)
 	}
-	if pc.MainContrast, err = utilities.ReadInt32(r); err != nil {
+	if pc.MainContrast, err = binaryio.ReadInt32(r); err != nil {
 		return 0, fmt.Errorf("read mainContrast failed: %w", err)
 	}
-	if pc.ShadowRate, err = utilities.ReadInt32(r); err != nil {
+	if pc.ShadowRate, err = binaryio.ReadInt32(r); err != nil {
 		return 0, fmt.Errorf("read shadowRate failed: %w", err)
 	}
-	if pc.ShadowHue, err = utilities.ReadInt32(r); err != nil {
+	if pc.ShadowHue, err = binaryio.ReadInt32(r); err != nil {
 		return 0, fmt.Errorf("read shadowHue failed: %w", err)
 	}
-	if pc.ShadowChroma, err = utilities.ReadInt32(r); err != nil {
+	if pc.ShadowChroma, err = binaryio.ReadInt32(r); err != nil {
 		return 0, fmt.Errorf("read shadowChroma failed: %w", err)
 	}
-	if pc.ShadowBrightness, err = utilities.ReadInt32(r); err != nil {
+	if pc.ShadowBrightness, err = binaryio.ReadInt32(r); err != nil {
 		return 0, fmt.Errorf("read shadowBrightness failed: %w", err)
 	}
-	if pc.ShadowContrast, err = utilities.ReadInt32(r); err != nil {
+	if pc.ShadowContrast, err = binaryio.ReadInt32(r); err != nil {
 		return 0, fmt.Errorf("read shadowContrast failed: %w", err)
 	}
 	return 10, nil
@@ -815,12 +815,12 @@ func readPartsColor(r io.Reader, pc *PartsColor) (int, error) {
 // 读取身体块：Maid.DeserializeBodyRead
 func readBodyProperty(r io.Reader) (*BodyProperty, error) {
 	bp := &BodyProperty{}
-	sig, err := utilities.ReadString(r)
+	sig, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read Body signature failed: %w", err)
 	}
 	bp.Signature = sig
-	ver, err := utilities.ReadInt32(r)
+	ver, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read Body version failed: %w", err)
 	}
@@ -867,30 +867,30 @@ func partsColorIndex(name string) int {
 
 func (p *Preset) Dump(w io.Writer) error {
 	// 1. signature
-	if err := utilities.WriteString(w, p.Signature); err != nil {
+	if err := binaryio.WriteString(w, p.Signature); err != nil {
 		return fmt.Errorf("write preset signature failed: %w", err)
 	}
 
 	// 2. version
-	if err := utilities.WriteInt32(w, p.Version); err != nil {
+	if err := binaryio.WriteInt32(w, p.Version); err != nil {
 		return fmt.Errorf("write preset version failed: %w", err)
 	}
 
 	// 3. presetType
-	if err := utilities.WriteInt32(w, p.PresetType); err != nil {
+	if err := binaryio.WriteInt32(w, p.PresetType); err != nil {
 		return fmt.Errorf("write preset type failed: %w", err)
 	}
 
 	// 4. thumb
 	if len(p.ThumbData) > 0 {
-		if err := utilities.WriteInt32(w, int32(len(p.ThumbData))); err != nil {
+		if err := binaryio.WriteInt32(w, int32(len(p.ThumbData))); err != nil {
 			return fmt.Errorf("write thumb length failed: %w", err)
 		}
 		if _, err := w.Write(p.ThumbData); err != nil {
 			return fmt.Errorf("write thumb data failed: %w", err)
 		}
 	} else {
-		if err := utilities.WriteInt32(w, 0); err != nil {
+		if err := binaryio.WriteInt32(w, 0); err != nil {
 			return fmt.Errorf("write thumb length(0) failed: %w", err)
 		}
 	}
@@ -923,23 +923,23 @@ func dumpPresetPropertyList(w io.Writer, ppl *PresetPropertyList) error {
 		return fmt.Errorf("write PresetPropertyList failed: PresetPropertyList is nil")
 	}
 
-	if err := utilities.WriteString(w, ppl.Signature); err != nil {
+	if err := binaryio.WriteString(w, ppl.Signature); err != nil {
 		return fmt.Errorf("write preset property list signature failed: %w", err)
 	}
 
-	if err := utilities.WriteInt32(w, ppl.Version); err != nil {
+	if err := binaryio.WriteInt32(w, ppl.Version); err != nil {
 		return fmt.Errorf("write preset property list version failed: %w", err)
 	}
 
 	count := int32(len(ppl.PresetProperties))
-	if err := utilities.WriteInt32(w, count); err != nil {
+	if err := binaryio.WriteInt32(w, count); err != nil {
 		return fmt.Errorf("write preset property list count failed: %w", err)
 	}
 
 	for k, v := range ppl.PresetProperties {
 		// 仅当列表版本 >= 4 时写 key（MPN 字符串）
 		if ppl.Version >= 4 {
-			if err := utilities.WriteString(w, k); err != nil {
+			if err := binaryio.WriteString(w, k); err != nil {
 				return fmt.Errorf("write prop key failed: %w", err)
 			}
 		}
@@ -954,77 +954,77 @@ func dumpPresetPropertyList(w io.Writer, ppl *PresetPropertyList) error {
 
 // 写入单个属性：MaidProp.Serialize
 func writePresetProperty(w io.Writer, pp *PresetProperty) error {
-	if err := utilities.WriteString(w, pp.Signature); err != nil {
+	if err := binaryio.WriteString(w, pp.Signature); err != nil {
 		return fmt.Errorf("write prop signature failed: %w", err)
 	}
 	ver := pp.Version
-	if err := utilities.WriteInt32(w, ver); err != nil {
+	if err := binaryio.WriteInt32(w, ver); err != nil {
 		return fmt.Errorf("write prop version failed: %w", err)
 	}
-	if err := utilities.WriteInt32(w, pp.Index); err != nil {
+	if err := binaryio.WriteInt32(w, pp.Index); err != nil {
 		return fmt.Errorf("write prop index failed: %w", err)
 	}
-	if err := utilities.WriteString(w, pp.Name); err != nil {
+	if err := binaryio.WriteString(w, pp.Name); err != nil {
 		return fmt.Errorf("write prop name failed: %w", err)
 	}
-	if err := utilities.WriteInt32(w, pp.Type); err != nil {
+	if err := binaryio.WriteInt32(w, pp.Type); err != nil {
 		return fmt.Errorf("write prop type failed: %w", err)
 	}
-	if err := utilities.WriteInt32(w, pp.DefaultValue); err != nil {
+	if err := binaryio.WriteInt32(w, pp.DefaultValue); err != nil {
 		return fmt.Errorf("write prop default value failed: %w", err)
 	}
-	if err := utilities.WriteInt32(w, pp.Value); err != nil {
+	if err := binaryio.WriteInt32(w, pp.Value); err != nil {
 		return fmt.Errorf("write prop value failed: %w", err)
 	}
 	// ver >= 101 才写 TempValue
 	if ver >= 101 {
-		if err := utilities.WriteInt32(w, pp.TempValue); err != nil {
+		if err := binaryio.WriteInt32(w, pp.TempValue); err != nil {
 			return fmt.Errorf("write prop temp value failed: %w", err)
 		}
 	}
-	if err := utilities.WriteInt32(w, pp.LinkMaxValue); err != nil {
+	if err := binaryio.WriteInt32(w, pp.LinkMaxValue); err != nil {
 		return fmt.Errorf("write prop link max value failed: %w", err)
 	}
-	if err := utilities.WriteString(w, pp.FileName); err != nil {
+	if err := binaryio.WriteString(w, pp.FileName); err != nil {
 		return fmt.Errorf("write prop file name failed: %w", err)
 	}
-	if err := utilities.WriteInt32(w, pp.FileNameRID); err != nil {
+	if err := binaryio.WriteInt32(w, pp.FileNameRID); err != nil {
 		return fmt.Errorf("write prop file name rid failed: %w", err)
 	}
-	if err := utilities.WriteBool(w, pp.IsDut); err != nil {
+	if err := binaryio.WriteBool(w, pp.IsDut); err != nil {
 		return fmt.Errorf("write prop is dut failed: %w", err)
 	}
-	if err := utilities.WriteInt32(w, pp.Max); err != nil {
+	if err := binaryio.WriteInt32(w, pp.Max); err != nil {
 		return fmt.Errorf("write prop max failed: %w", err)
 	}
-	if err := utilities.WriteInt32(w, pp.Min); err != nil {
+	if err := binaryio.WriteInt32(w, pp.Min); err != nil {
 		return fmt.Errorf("write prop min failed: %w", err)
 	}
 	// 仅当 ver >= 200 时才写入子属性与附加块（与读取保持一致）
 	if ver >= 200 {
 		// 子属性
 		nSub := int32(len(pp.SubProps))
-		if err := utilities.WriteInt32(w, nSub); err != nil {
+		if err := binaryio.WriteInt32(w, nSub); err != nil {
 			return fmt.Errorf("write prop sub count failed: %w", err)
 		}
 		for i := 0; i < int(nSub); i++ {
 			sp := pp.SubProps[i]
 			// 是否存在
-			if err := utilities.WriteBool(w, true); err != nil {
+			if err := binaryio.WriteBool(w, true); err != nil {
 				return fmt.Errorf("write prop sub exists failed: %w", err)
 			}
-			if err := utilities.WriteBool(w, sp.IsDut); err != nil {
+			if err := binaryio.WriteBool(w, sp.IsDut); err != nil {
 				return fmt.Errorf("write prop sub is dut failed: %w", err)
 			}
-			if err := utilities.WriteString(w, sp.FileName); err != nil {
+			if err := binaryio.WriteString(w, sp.FileName); err != nil {
 				return fmt.Errorf("write prop sub file name failed: %w", err)
 			}
-			if err := utilities.WriteInt32(w, sp.FileNameRID); err != nil {
+			if err := binaryio.WriteInt32(w, sp.FileNameRID); err != nil {
 				return fmt.Errorf("write prop sub file name rid failed: %w", err)
 			}
 			// ver >= 211 才写 TexMulAlpha
 			if ver >= 211 {
-				if err := utilities.WriteFloat32(w, sp.TexMulAlpha); err != nil {
+				if err := binaryio.WriteFloat32(w, sp.TexMulAlpha); err != nil {
 					return fmt.Errorf("write prop sub tex mul alpha failed: %w", err)
 				}
 			}
@@ -1032,52 +1032,52 @@ func writePresetProperty(w io.Writer, pp *PresetProperty) error {
 
 		// 皮肤位置：PropertyCount -> [slotID, RID, data...]
 		if len(pp.SkinPositions) == 0 {
-			if err := utilities.WriteInt32(w, 0); err != nil {
+			if err := binaryio.WriteInt32(w, 0); err != nil {
 				return fmt.Errorf("write prop skin position count failed: %w", err)
 			}
 		} else {
-			if err := utilities.WriteInt32(w, int32(len(pp.SkinPositions))); err != nil {
+			if err := binaryio.WriteInt32(w, int32(len(pp.SkinPositions))); err != nil {
 				return fmt.Errorf("write prop skin position count failed: %w", err)
 			}
 			for slot, e := range pp.SkinPositions {
-				if err := utilities.WriteInt32(w, int32(slot)); err != nil {
+				if err := binaryio.WriteInt32(w, int32(slot)); err != nil {
 					return fmt.Errorf("write prop skin position slot failed: %w", err)
 				}
-				if err := utilities.WriteInt32(w, e.RID); err != nil {
+				if err := binaryio.WriteInt32(w, e.RID); err != nil {
 					return fmt.Errorf("write prop skin position rid failed: %w", err)
 				}
 				b := e.BoneAttachPos
-				if err := utilities.WriteBool(w, b.Enable); err != nil {
+				if err := binaryio.WriteBool(w, b.Enable); err != nil {
 					return fmt.Errorf("write prop skin position bone attach pos enable failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, b.PosRotScale.Position.X); err != nil {
+				if err := binaryio.WriteFloat32(w, b.PosRotScale.Position.X); err != nil {
 					return fmt.Errorf("write prop skin position bone attach pos position x failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, b.PosRotScale.Position.Y); err != nil {
+				if err := binaryio.WriteFloat32(w, b.PosRotScale.Position.Y); err != nil {
 					return fmt.Errorf("write prop skin position bone attach pos position y failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, b.PosRotScale.Position.Z); err != nil {
+				if err := binaryio.WriteFloat32(w, b.PosRotScale.Position.Z); err != nil {
 					return fmt.Errorf("write prop skin position bone attach pos position z failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, b.PosRotScale.Rotation.X); err != nil {
+				if err := binaryio.WriteFloat32(w, b.PosRotScale.Rotation.X); err != nil {
 					return fmt.Errorf("write prop skin position bone attach pos rotation x failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, b.PosRotScale.Rotation.Y); err != nil {
+				if err := binaryio.WriteFloat32(w, b.PosRotScale.Rotation.Y); err != nil {
 					return fmt.Errorf("write prop skin position bone attach pos rotation y failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, b.PosRotScale.Rotation.Z); err != nil {
+				if err := binaryio.WriteFloat32(w, b.PosRotScale.Rotation.Z); err != nil {
 					return fmt.Errorf("write prop skin position bone attach pos rotation z failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, b.PosRotScale.Rotation.W); err != nil {
+				if err := binaryio.WriteFloat32(w, b.PosRotScale.Rotation.W); err != nil {
 					return fmt.Errorf("write prop skin position bone attach pos rotation w failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, b.PosRotScale.Scale.X); err != nil {
+				if err := binaryio.WriteFloat32(w, b.PosRotScale.Scale.X); err != nil {
 					return fmt.Errorf("write prop skin position bone attach pos scale x failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, b.PosRotScale.Scale.Y); err != nil {
+				if err := binaryio.WriteFloat32(w, b.PosRotScale.Scale.Y); err != nil {
 					return fmt.Errorf("write prop skin position bone attach pos scale y failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, b.PosRotScale.Scale.Z); err != nil {
+				if err := binaryio.WriteFloat32(w, b.PosRotScale.Scale.Z); err != nil {
 					return fmt.Errorf("write prop skin position bone attach pos scale z failed: %w", err)
 				}
 			}
@@ -1085,65 +1085,65 @@ func writePresetProperty(w io.Writer, pp *PresetProperty) error {
 
 		// 附着位置：slotID -> map[name]Entry
 		if len(pp.AttachPositions) == 0 {
-			if err := utilities.WriteInt32(w, 0); err != nil {
+			if err := binaryio.WriteInt32(w, 0); err != nil {
 				return fmt.Errorf("write prop attach position count failed: %w", err)
 			}
 		} else {
-			if err := utilities.WriteInt32(w, int32(len(pp.AttachPositions))); err != nil {
+			if err := binaryio.WriteInt32(w, int32(len(pp.AttachPositions))); err != nil {
 				return fmt.Errorf("write prop attach position count failed: %w", err)
 			}
 			for slot, mp := range pp.AttachPositions {
-				if err := utilities.WriteInt32(w, int32(slot)); err != nil {
+				if err := binaryio.WriteInt32(w, int32(slot)); err != nil {
 					return fmt.Errorf("write prop attach position slot failed: %w", err)
 				}
-				if err := utilities.WriteInt32(w, int32(len(mp))); err != nil {
+				if err := binaryio.WriteInt32(w, int32(len(mp))); err != nil {
 					return fmt.Errorf("write prop attach position name count failed: %w", err)
 				}
 				for name, e := range mp {
-					if err := utilities.WriteString(w, name); err != nil {
+					if err := binaryio.WriteString(w, name); err != nil {
 						return fmt.Errorf("write prop attach position name failed: %w", err)
 					}
-					if err := utilities.WriteInt32(w, e.RID); err != nil {
+					if err := binaryio.WriteInt32(w, e.RID); err != nil {
 						return fmt.Errorf("write prop attach position rid failed: %w", err)
 					}
 					v := e.VtxAttachPos
-					if err := utilities.WriteBool(w, v.Enable); err != nil {
+					if err := binaryio.WriteBool(w, v.Enable); err != nil {
 						return fmt.Errorf("write prop attach position vtx attach pos enable failed: %w", err)
 					}
-					if err := utilities.WriteInt32(w, v.VtxCount); err != nil {
+					if err := binaryio.WriteInt32(w, v.VtxCount); err != nil {
 						return fmt.Errorf("write prop attach position vtx attach pos vtx count failed: %w", err)
 					}
-					if err := utilities.WriteInt32(w, v.VtxIdx); err != nil {
+					if err := binaryio.WriteInt32(w, v.VtxIdx); err != nil {
 						return fmt.Errorf("write prop attach position vtx attach pos vtx idx failed: %w", err)
 					}
-					if err := utilities.WriteFloat32(w, v.PosRotScale.Position.X); err != nil {
+					if err := binaryio.WriteFloat32(w, v.PosRotScale.Position.X); err != nil {
 						return fmt.Errorf("write prop attach position vtx attach pos position x failed: %w", err)
 					}
-					if err := utilities.WriteFloat32(w, v.PosRotScale.Position.Y); err != nil {
+					if err := binaryio.WriteFloat32(w, v.PosRotScale.Position.Y); err != nil {
 						return fmt.Errorf("write prop attach position vtx attach pos position y failed: %w", err)
 					}
-					if err := utilities.WriteFloat32(w, v.PosRotScale.Position.Z); err != nil {
+					if err := binaryio.WriteFloat32(w, v.PosRotScale.Position.Z); err != nil {
 						return fmt.Errorf("write prop attach position vtx attach pos position z failed: %w", err)
 					}
-					if err := utilities.WriteFloat32(w, v.PosRotScale.Rotation.X); err != nil {
+					if err := binaryio.WriteFloat32(w, v.PosRotScale.Rotation.X); err != nil {
 						return fmt.Errorf("write prop attach position vtx attach pos rotation x failed: %w", err)
 					}
-					if err := utilities.WriteFloat32(w, v.PosRotScale.Rotation.Y); err != nil {
+					if err := binaryio.WriteFloat32(w, v.PosRotScale.Rotation.Y); err != nil {
 						return fmt.Errorf("write prop attach position vtx attach pos rotation y failed: %w", err)
 					}
-					if err := utilities.WriteFloat32(w, v.PosRotScale.Rotation.Z); err != nil {
+					if err := binaryio.WriteFloat32(w, v.PosRotScale.Rotation.Z); err != nil {
 						return fmt.Errorf("write prop attach position vtx attach pos rotation z failed: %w", err)
 					}
-					if err := utilities.WriteFloat32(w, v.PosRotScale.Rotation.W); err != nil {
+					if err := binaryio.WriteFloat32(w, v.PosRotScale.Rotation.W); err != nil {
 						return fmt.Errorf("write prop attach position vtx attach pos rotation w failed: %w", err)
 					}
-					if err := utilities.WriteFloat32(w, v.PosRotScale.Scale.X); err != nil {
+					if err := binaryio.WriteFloat32(w, v.PosRotScale.Scale.X); err != nil {
 						return fmt.Errorf("write prop attach position vtx attach pos scale x failed: %w", err)
 					}
-					if err := utilities.WriteFloat32(w, v.PosRotScale.Scale.Y); err != nil {
+					if err := binaryio.WriteFloat32(w, v.PosRotScale.Scale.Y); err != nil {
 						return fmt.Errorf("write prop attach position vtx attach pos scale y failed: %w", err)
 					}
-					if err := utilities.WriteFloat32(w, v.PosRotScale.Scale.Z); err != nil {
+					if err := binaryio.WriteFloat32(w, v.PosRotScale.Scale.Z); err != nil {
 						return fmt.Errorf("write prop attach position vtx attach pos scale z failed: %w", err)
 					}
 				}
@@ -1152,31 +1152,31 @@ func writePresetProperty(w io.Writer, pp *PresetProperty) error {
 
 		// 材质属性：slotID -> Entry
 		if len(pp.MaterialProps) == 0 {
-			if err := utilities.WriteInt32(w, 0); err != nil {
+			if err := binaryio.WriteInt32(w, 0); err != nil {
 				return fmt.Errorf("write prop material prop count failed: %w", err)
 			}
 		} else {
-			if err := utilities.WriteInt32(w, int32(len(pp.MaterialProps))); err != nil {
+			if err := binaryio.WriteInt32(w, int32(len(pp.MaterialProps))); err != nil {
 				return fmt.Errorf("write prop material prop count failed: %w", err)
 			}
 			for slot, e := range pp.MaterialProps {
-				if err := utilities.WriteInt32(w, int32(slot)); err != nil {
+				if err := binaryio.WriteInt32(w, int32(slot)); err != nil {
 					return fmt.Errorf("write prop material prop slot failed: %w", err)
 				}
-				if err := utilities.WriteInt32(w, e.RID); err != nil {
+				if err := binaryio.WriteInt32(w, e.RID); err != nil {
 					return fmt.Errorf("write prop material prop rid failed: %w", err)
 				}
 				m := e.MatPropSave
-				if err := utilities.WriteInt32(w, m.MatId); err != nil {
+				if err := binaryio.WriteInt32(w, m.MatId); err != nil {
 					return fmt.Errorf("write prop material prop mat id failed: %w", err)
 				}
-				if err := utilities.WriteString(w, m.PropName); err != nil {
+				if err := binaryio.WriteString(w, m.PropName); err != nil {
 					return fmt.Errorf("write prop material prop prop name failed: %w", err)
 				}
-				if err := utilities.WriteString(w, m.TypeName); err != nil {
+				if err := binaryio.WriteString(w, m.TypeName); err != nil {
 					return fmt.Errorf("write prop material prop type name failed: %w", err)
 				}
-				if err := utilities.WriteString(w, m.Value); err != nil {
+				if err := binaryio.WriteString(w, m.Value); err != nil {
 					return fmt.Errorf("write prop material prop value failed: %w", err)
 				}
 			}
@@ -1185,28 +1185,28 @@ func writePresetProperty(w io.Writer, pp *PresetProperty) error {
 		// 骨骼长度块仅在 ver >= 213 时写入
 		if ver >= 213 {
 			if len(pp.BoneLengths) == 0 {
-				if err := utilities.WriteInt32(w, 0); err != nil {
+				if err := binaryio.WriteInt32(w, 0); err != nil {
 					return fmt.Errorf("write prop bone length count failed: %w", err)
 				}
 			} else {
-				if err := utilities.WriteInt32(w, int32(len(pp.BoneLengths))); err != nil {
+				if err := binaryio.WriteInt32(w, int32(len(pp.BoneLengths))); err != nil {
 					return fmt.Errorf("write prop bone length count failed: %w", err)
 				}
 				for slot, e := range pp.BoneLengths {
-					if err := utilities.WriteInt32(w, int32(slot)); err != nil {
+					if err := binaryio.WriteInt32(w, int32(slot)); err != nil {
 						return fmt.Errorf("write prop bone length slot failed: %w", err)
 					}
-					if err := utilities.WriteInt32(w, e.RID); err != nil {
+					if err := binaryio.WriteInt32(w, e.RID); err != nil {
 						return fmt.Errorf("write prop bone length rid failed: %w", err)
 					}
-					if err := utilities.WriteInt32(w, int32(len(e.Lengths))); err != nil {
+					if err := binaryio.WriteInt32(w, int32(len(e.Lengths))); err != nil {
 						return fmt.Errorf("write prop bone length len count failed: %w", err)
 					}
 					for k, v := range e.Lengths {
-						if err := utilities.WriteString(w, k); err != nil {
+						if err := binaryio.WriteString(w, k); err != nil {
 							return fmt.Errorf("write prop bone length len name failed: %w", err)
 						}
-						if err := utilities.WriteFloat32(w, v); err != nil {
+						if err := binaryio.WriteFloat32(w, v); err != nil {
 							return fmt.Errorf("write prop bone length len value failed: %w", err)
 						}
 					}
@@ -1224,10 +1224,10 @@ func dumpMultiColor(w io.Writer, mc *MultiColor) error {
 		return fmt.Errorf("write MultiColor failed: MultiColor is nil")
 	}
 
-	if err := utilities.WriteString(w, mc.Signature); err != nil {
+	if err := binaryio.WriteString(w, mc.Signature); err != nil {
 		return fmt.Errorf("write prop multi color name failed: %w", err)
 	}
-	if err := utilities.WriteInt32(w, mc.Version); err != nil {
+	if err := binaryio.WriteInt32(w, mc.Version); err != nil {
 		return fmt.Errorf("write prop multi color version failed: %w", err)
 	}
 
@@ -1241,7 +1241,7 @@ func dumpMultiColor(w io.Writer, mc *MultiColor) error {
 			// 9 项
 			order = []int{0, 1, 2, 3, 4, 5, 6, 7, 8} // EYE_L, EYE_R, HAIR, EYE_BROW, UNDER_HAIR, SKIN, NIPPLE, HAIR_OUTLINE, SKIN_OUTLINE
 		}
-		if err := utilities.WriteInt32(w, int32(len(order))); err != nil {
+		if err := binaryio.WriteInt32(w, int32(len(order))); err != nil {
 			return fmt.Errorf("write prop multi color len count failed: %w", err)
 		}
 		colors := mc.PartsColors
@@ -1253,34 +1253,34 @@ func dumpMultiColor(w io.Writer, mc *MultiColor) error {
 		}
 		for _, idx := range order {
 			pc := colors[idx]
-			if err := utilities.WriteBool(w, pc.IsUse); err != nil {
+			if err := binaryio.WriteBool(w, pc.IsUse); err != nil {
 				return fmt.Errorf("write prop multi color is use failed: %w", err)
 			}
-			if err := utilities.WriteInt32(w, pc.MainHue); err != nil {
+			if err := binaryio.WriteInt32(w, pc.MainHue); err != nil {
 				return fmt.Errorf("write prop multi color main hue failed: %w", err)
 			}
-			if err := utilities.WriteInt32(w, pc.MainChroma); err != nil {
+			if err := binaryio.WriteInt32(w, pc.MainChroma); err != nil {
 				return fmt.Errorf("write prop multi color main hue failed: %w", err)
 			}
-			if err := utilities.WriteInt32(w, pc.MainBrightness); err != nil {
+			if err := binaryio.WriteInt32(w, pc.MainBrightness); err != nil {
 				return fmt.Errorf("write prop multi color main brightness failed: %w", err)
 			}
-			if err := utilities.WriteInt32(w, pc.MainContrast); err != nil {
+			if err := binaryio.WriteInt32(w, pc.MainContrast); err != nil {
 				return fmt.Errorf("write prop multi color main contrast failed: %w", err)
 			}
-			if err := utilities.WriteInt32(w, pc.ShadowRate); err != nil {
+			if err := binaryio.WriteInt32(w, pc.ShadowRate); err != nil {
 				return fmt.Errorf("write prop multi color shadow rate failed: %w", err)
 			}
-			if err := utilities.WriteInt32(w, pc.ShadowHue); err != nil {
+			if err := binaryio.WriteInt32(w, pc.ShadowHue); err != nil {
 				return fmt.Errorf("write prop multi color shadow hue failed: %w", err)
 			}
-			if err := utilities.WriteInt32(w, pc.ShadowChroma); err != nil {
+			if err := binaryio.WriteInt32(w, pc.ShadowChroma); err != nil {
 				return fmt.Errorf("write prop multi color shadow chroma failed: %w", err)
 			}
-			if err := utilities.WriteInt32(w, pc.ShadowBrightness); err != nil {
+			if err := binaryio.WriteInt32(w, pc.ShadowBrightness); err != nil {
 				return fmt.Errorf("write prop multi color shadow contrast failed: %w", err)
 			}
-			if err := utilities.WriteInt32(w, pc.ShadowContrast); err != nil {
+			if err := binaryio.WriteInt32(w, pc.ShadowContrast); err != nil {
 				return fmt.Errorf("write prop multi color shadow chroma failed: %w", err)
 			}
 		}
@@ -1289,7 +1289,7 @@ func dumpMultiColor(w io.Writer, mc *MultiColor) error {
 
 	// 统一写 13, C# 中直接初始化为 m_aryPartsColor = new MaidParts.PartsColor[13]; 写入 m_aryPartsColor.Length
 	names := []string{"EYE_L", "EYE_R", "HAIR", "EYE_BROW", "UNDER_HAIR", "SKIN", "NIPPLE", "HAIR_OUTLINE", "SKIN_OUTLINE", "EYE_WHITE", "MATSUGE_UP", "MATSUGE_LOW", "FUTAE"}
-	if err := utilities.WriteInt32(w, int32(len(names))); err != nil {
+	if err := binaryio.WriteInt32(w, int32(len(names))); err != nil {
 		return fmt.Errorf("write prop multi color len count failed: %w", err)
 	}
 	colors := mc.PartsColors
@@ -1299,43 +1299,43 @@ func dumpMultiColor(w io.Writer, mc *MultiColor) error {
 		colors = tmp
 	}
 	for i, name := range names {
-		if err := utilities.WriteString(w, name); err != nil {
+		if err := binaryio.WriteString(w, name); err != nil {
 			return fmt.Errorf("write prop multi color name failed: %w", err)
 		}
 		pc := colors[i]
-		if err := utilities.WriteBool(w, pc.IsUse); err != nil {
+		if err := binaryio.WriteBool(w, pc.IsUse); err != nil {
 			return fmt.Errorf("write prop multi color is use failed: %w", err)
 		}
-		if err := utilities.WriteInt32(w, pc.MainHue); err != nil {
+		if err := binaryio.WriteInt32(w, pc.MainHue); err != nil {
 			return fmt.Errorf("write prop multi color main hue failed: %w", err)
 		}
-		if err := utilities.WriteInt32(w, pc.MainChroma); err != nil {
+		if err := binaryio.WriteInt32(w, pc.MainChroma); err != nil {
 			return fmt.Errorf("write prop multi color main chroma failed: %w", err)
 		}
-		if err := utilities.WriteInt32(w, pc.MainBrightness); err != nil {
+		if err := binaryio.WriteInt32(w, pc.MainBrightness); err != nil {
 			return fmt.Errorf("write prop multi color main brightness failed: %w", err)
 		}
-		if err := utilities.WriteInt32(w, pc.MainContrast); err != nil {
+		if err := binaryio.WriteInt32(w, pc.MainContrast); err != nil {
 			return fmt.Errorf("write prop multi color main contrast failed: %w", err)
 		}
-		if err := utilities.WriteInt32(w, pc.ShadowRate); err != nil {
+		if err := binaryio.WriteInt32(w, pc.ShadowRate); err != nil {
 			return fmt.Errorf("write prop multi color shadow rate failed: %w", err)
 		}
-		if err := utilities.WriteInt32(w, pc.ShadowHue); err != nil {
+		if err := binaryio.WriteInt32(w, pc.ShadowHue); err != nil {
 			return fmt.Errorf("write prop multi color shadow hue failed: %w", err)
 		}
-		if err := utilities.WriteInt32(w, pc.ShadowChroma); err != nil {
+		if err := binaryio.WriteInt32(w, pc.ShadowChroma); err != nil {
 			return fmt.Errorf("write prop multi color shadow chroma failed: %w", err)
 		}
-		if err := utilities.WriteInt32(w, pc.ShadowBrightness); err != nil {
+		if err := binaryio.WriteInt32(w, pc.ShadowBrightness); err != nil {
 			return fmt.Errorf("write prop multi color shadow brightness failed: %w", err)
 		}
-		if err := utilities.WriteInt32(w, pc.ShadowContrast); err != nil {
+		if err := binaryio.WriteInt32(w, pc.ShadowContrast); err != nil {
 			return fmt.Errorf("write prop multi color shadow contrast failed: %w", err)
 		}
 	}
 	// 结尾 "MAX"
-	if err := utilities.WriteString(w, "MAX"); err != nil {
+	if err := binaryio.WriteString(w, "MAX"); err != nil {
 		return fmt.Errorf("write prop multi color max failed: %w", err)
 	}
 	return nil
@@ -1347,10 +1347,10 @@ func dumpBodyProperty(w io.Writer, bp *BodyProperty) error {
 		return fmt.Errorf("write Body failed: BodyProperty is nil")
 	}
 
-	if err := utilities.WriteString(w, bp.Signature); err != nil {
+	if err := binaryio.WriteString(w, bp.Signature); err != nil {
 		return fmt.Errorf("write prop body property signature failed: %w", err)
 	}
-	if err := utilities.WriteInt32(w, bp.Version); err != nil {
+	if err := binaryio.WriteInt32(w, bp.Version); err != nil {
 		return fmt.Errorf("write prop body property version failed: %w", err)
 	}
 	return nil

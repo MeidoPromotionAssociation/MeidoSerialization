@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
 )
 
@@ -27,7 +28,7 @@ func ReadPMat(r io.Reader) (*PMat, error) {
 	p := &PMat{}
 
 	// 1. signature
-	sig, err := utilities.ReadString(r)
+	sig, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .PMat signature failed: %w", err)
 	}
@@ -37,28 +38,28 @@ func ReadPMat(r io.Reader) (*PMat, error) {
 	p.Signature = sig
 
 	// 2. version (int32)
-	ver, err := utilities.ReadInt32(r)
+	ver, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .PMat version failed: %w", err)
 	}
 	p.Version = ver
 
 	// 3. hash (int32)
-	h, err := utilities.ReadInt32(r)
+	h, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .PMat hash failed: %w", err)
 	}
 	p.Hash = h
 
 	// 4. materialName (string)
-	matName, err := utilities.ReadString(r)
+	matName, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .PMat materialName failed: %w", err)
 	}
 	p.MaterialName = matName
 
 	// 5. renderQueue (float32)
-	rq, err := utilities.ReadFloat32(r)
+	rq, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .PMat renderQueue failed: %w", err)
 	}
@@ -66,7 +67,7 @@ func ReadPMat(r io.Reader) (*PMat, error) {
 
 	// 6. shader (string)
 	// 官方文件有这个字段，但代码中从未读取过。考虑到可能有程序不写入此字段，因此不做报错处理
-	shaderStr, err := utilities.ReadString(r)
+	shaderStr, err := binaryio.ReadString(r)
 	if err != nil {
 		shaderStr = ""
 	}
@@ -78,12 +79,12 @@ func ReadPMat(r io.Reader) (*PMat, error) {
 // Dump 将 p 写出到 w 中，格式与 .PMat 兼容。
 func (p *PMat) Dump(w io.Writer, calculateHash bool) error {
 	// 1. signature
-	if err := utilities.WriteString(w, p.Signature); err != nil {
+	if err := binaryio.WriteString(w, p.Signature); err != nil {
 		return fmt.Errorf("write .PMat signature failed: %w", err)
 	}
 
 	// 2. version
-	if err := utilities.WriteInt32(w, p.Version); err != nil {
+	if err := binaryio.WriteInt32(w, p.Version); err != nil {
 		return fmt.Errorf("write .PMat version failed: %w", err)
 	}
 
@@ -97,28 +98,28 @@ func (p *PMat) Dump(w io.Writer, calculateHash bool) error {
 		if err != nil {
 			return fmt.Errorf("write .PMat hash failed: %w", err)
 		}
-		if err := utilities.WriteInt32(w, materialNameHash); err != nil {
+		if err := binaryio.WriteInt32(w, materialNameHash); err != nil {
 			return fmt.Errorf("write .PMat hash failed: %w", err)
 		}
 	} else {
-		if err := utilities.WriteInt32(w, p.Hash); err != nil {
+		if err := binaryio.WriteInt32(w, p.Hash); err != nil {
 			return fmt.Errorf("write .PMat hash failed: %w", err)
 		}
 	}
 
 	// 4. materialName
-	if err := utilities.WriteString(w, p.MaterialName); err != nil {
+	if err := binaryio.WriteString(w, p.MaterialName); err != nil {
 		return fmt.Errorf("write .PMat materialName failed: %w", err)
 	}
 
 	// 5. renderQueue
-	if err := utilities.WriteFloat32(w, p.RenderQueue); err != nil {
+	if err := binaryio.WriteFloat32(w, p.RenderQueue); err != nil {
 		return fmt.Errorf("write .PMat renderQueue failed: %w", err)
 	}
 
 	// 6. shader
 	// 官方文件有这个字段，但未读取过，考虑到官方文件有，我们照常写入
-	if err := utilities.WriteString(w, p.Shader); err != nil {
+	if err := binaryio.WriteString(w, p.Shader); err != nil {
 		return fmt.Errorf("write .PMat shader failed: %w", err)
 	}
 

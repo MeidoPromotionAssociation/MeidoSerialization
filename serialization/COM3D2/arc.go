@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
 var (
@@ -29,7 +29,7 @@ type Arc struct {
 func ReadArc(r io.Reader) (*Arc, error) {
 	arc := &Arc{}
 
-	signature, err := utilities.ReadBytes(r, 20)
+	signature, err := binaryio.ReadBytes(r, 20)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read signature: %w", err)
 	}

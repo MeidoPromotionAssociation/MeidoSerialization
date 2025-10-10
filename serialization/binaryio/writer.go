@@ -1,4 +1,4 @@
-package utilities
+package binaryio
 
 import (
 	"encoding/binary"

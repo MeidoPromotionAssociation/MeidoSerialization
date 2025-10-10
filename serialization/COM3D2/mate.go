@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
 // CM3D2_MATERIAL
@@ -28,7 +28,7 @@ func ReadMate(r io.Reader) (*Mate, error) {
 	m := &Mate{}
 
 	// 1. signature (string)
-	sig, err := utilities.ReadString(r)
+	sig, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .mate signature failed: %w", err)
 	}
@@ -38,14 +38,14 @@ func ReadMate(r io.Reader) (*Mate, error) {
 	m.Signature = sig
 
 	// 2. version (int32)
-	ver, err := utilities.ReadInt32(r)
+	ver, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .mate version failed: %w", err)
 	}
 	m.Version = ver
 
 	// 3. name (string)
-	nameStr, err := utilities.ReadString(r)
+	nameStr, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read .mate name failed: %w", err)
 	}
@@ -64,17 +64,17 @@ func ReadMate(r io.Reader) (*Mate, error) {
 // Dump 将 Mate 写出到 w 中
 func (m *Mate) Dump(w io.Writer) error {
 	// 1. signature
-	if err := utilities.WriteString(w, m.Signature); err != nil {
+	if err := binaryio.WriteString(w, m.Signature); err != nil {
 		return fmt.Errorf("write .mate signature failed: %w", err)
 	}
 
 	// 2. version
-	if err := utilities.WriteInt32(w, m.Version); err != nil {
+	if err := binaryio.WriteInt32(w, m.Version); err != nil {
 		return fmt.Errorf("write .mate version failed: %w", err)
 	}
 
 	// 3. name
-	if err := utilities.WriteString(w, m.Name); err != nil {
+	if err := binaryio.WriteString(w, m.Name); err != nil {
 		return fmt.Errorf("write .mate name failed: %w", err)
 	}
 
@@ -113,21 +113,21 @@ func readMaterial(r io.Reader) (*Material, error) {
 	m := &Material{}
 
 	// 1. name
-	nameStr, err := utilities.ReadString(rs)
+	nameStr, err := binaryio.ReadString(rs)
 	if err != nil {
 		return nil, fmt.Errorf("read material.name failed: %w", err)
 	}
 	m.Name = nameStr
 
 	// 2. shaderName
-	shaderName, err := utilities.ReadString(rs)
+	shaderName, err := binaryio.ReadString(rs)
 	if err != nil {
 		return nil, fmt.Errorf("read material.shaderName failed: %w", err)
 	}
 	m.ShaderName = shaderName
 
 	// 3. shaderFilename
-	shaderFile, err := utilities.ReadString(rs)
+	shaderFile, err := binaryio.ReadString(rs)
 	if err != nil {
 		return nil, fmt.Errorf("read material.shaderFilename failed: %w", err)
 	}
@@ -136,14 +136,14 @@ func readMaterial(r io.Reader) (*Material, error) {
 	// 4. properties (循环读取，直到遇到 EndTag 字段)
 	props := make([]Property, 0)
 	for {
-		peek, err := utilities.PeekString(rs)
+		peek, err := binaryio.PeekString(rs)
 		if err != nil {
 			return nil, fmt.Errorf("peek property type failed: %w", err)
 		}
 
 		if peek == EndTag {
 			// 消费掉 EndTag
-			_, _ = utilities.ReadString(rs)
+			_, _ = binaryio.ReadString(rs)
 			break
 		}
 		// 根据不同的类型创建不同的 property
@@ -162,17 +162,17 @@ func readMaterial(r io.Reader) (*Material, error) {
 // Dump 将 Material 写出到 w 中。
 func (m *Material) Dump(w io.Writer) error {
 	// 1. name
-	if err := utilities.WriteString(w, m.Name); err != nil {
+	if err := binaryio.WriteString(w, m.Name); err != nil {
 		return fmt.Errorf("write material.name failed: %w", err)
 	}
 
 	// 2. shaderName
-	if err := utilities.WriteString(w, m.ShaderName); err != nil {
+	if err := binaryio.WriteString(w, m.ShaderName); err != nil {
 		return fmt.Errorf("write material.shaderName failed: %w", err)
 	}
 
 	// 3. shaderFilename
-	if err := utilities.WriteString(w, m.ShaderFilename); err != nil {
+	if err := binaryio.WriteString(w, m.ShaderFilename); err != nil {
 		return fmt.Errorf("write material.shaderFilename failed: %w", err)
 	}
 
@@ -184,7 +184,7 @@ func (m *Material) Dump(w io.Writer) error {
 	}
 
 	// 最后写出一个 EndTag 标识，表示 property 列表结束
-	if err := utilities.WriteString(w, EndTag); err != nil {
+	if err := binaryio.WriteString(w, EndTag); err != nil {
 		return fmt.Errorf("write properties %s failed: %w", EndTag, err)
 	}
 
@@ -218,7 +218,7 @@ var propertyRegistry = map[string]PropertyCreator{
 // readProperty 根据下一段内容来解析 Property 的具体子类型
 func readProperty(r io.Reader) (Property, error) {
 	// 先读出 property 的类型标识，比如 "tex", "col", "vec", "f"
-	typeStr, err := utilities.ReadString(r)
+	typeStr, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read property type failed: %w", err)
 	}
@@ -270,14 +270,14 @@ func (t *TexProperty) Read(r io.Reader) error {
 	t.TypeName = t.GetTypeName()
 
 	// 读取属性名 (string)
-	name, err := utilities.ReadString(r)
+	name, err := binaryio.ReadString(r)
 	if err != nil {
 		return fmt.Errorf("read property name failed: %w", err)
 	}
 	t.PropName = name
 
 	// 读取 subTag (string) => "tex2d" or "cube" or "texRT" or "null"
-	subTag, err := utilities.ReadString(r)
+	subTag, err := binaryio.ReadString(r)
 
 	if err != nil {
 		return fmt.Errorf("read TexProperty subtag failed: %w", err)
@@ -290,25 +290,25 @@ func (t *TexProperty) Read(r io.Reader) error {
 		var tex2d Tex2DSubProperty
 
 		// name
-		s1, err := utilities.ReadString(r)
+		s1, err := binaryio.ReadString(r)
 		if err != nil {
 			return fmt.Errorf("read tex2d.name failed: %w", err)
 		}
 		tex2d.Name = s1
 
 		// path
-		s2, err := utilities.ReadString(r)
+		s2, err := binaryio.ReadString(r)
 		if err != nil {
 			return fmt.Errorf("read tex2d.path failed: %w", err)
 		}
 		tex2d.Path = s2
 
 		// offset (Float2)
-		offsetX, err := utilities.ReadFloat32(r)
+		offsetX, err := binaryio.ReadFloat32(r)
 		if err != nil {
 			return fmt.Errorf("read tex2d.offset.x failed: %w", err)
 		}
-		offsetY, err := utilities.ReadFloat32(r)
+		offsetY, err := binaryio.ReadFloat32(r)
 		if err != nil {
 			return fmt.Errorf("read tex2d.offset.y failed: %w", err)
 		}
@@ -316,11 +316,11 @@ func (t *TexProperty) Read(r io.Reader) error {
 		tex2d.Offset[1] = offsetY
 
 		// scale (Float2)
-		scaleX, err := utilities.ReadFloat32(r)
+		scaleX, err := binaryio.ReadFloat32(r)
 		if err != nil {
 			return fmt.Errorf("read tex2d.scale.x failed: %w", err)
 		}
-		scaleY, err := utilities.ReadFloat32(r)
+		scaleY, err := binaryio.ReadFloat32(r)
 		if err != nil {
 			return fmt.Errorf("read tex2d.scale.y failed: %w", err)
 		}
@@ -333,11 +333,11 @@ func (t *TexProperty) Read(r io.Reader) error {
 		// 解析 TexRTSubProperty
 		var texRT TexRTSubProperty
 
-		s1, err := utilities.ReadString(r)
+		s1, err := binaryio.ReadString(r)
 		if err != nil {
 			return fmt.Errorf("read texRT.discardedStr1 failed: %w", err)
 		}
-		s2, err := utilities.ReadString(r)
+		s2, err := binaryio.ReadString(r)
 		if err != nil {
 			return fmt.Errorf("read texRT.discardedStr2 failed: %w", err)
 		}
@@ -359,15 +359,15 @@ func (t *TexProperty) Read(r io.Reader) error {
 
 func (t *TexProperty) Write(w io.Writer) error {
 	// 写出类型标识 "tex"
-	if err := utilities.WriteString(w, t.GetTypeName()); err != nil {
+	if err := binaryio.WriteString(w, t.GetTypeName()); err != nil {
 		return fmt.Errorf("write TexProperty type failed: %w", err)
 	}
 	// 写出属性名
-	if err := utilities.WriteString(w, t.PropName); err != nil {
+	if err := binaryio.WriteString(w, t.PropName); err != nil {
 		return fmt.Errorf("write TexProperty name failed: %w", err)
 	}
 	// 写出子标签 (subTag): "tex2d"/"cube"/"texRT"/"null"
-	if err := utilities.WriteString(w, t.SubTag); err != nil {
+	if err := binaryio.WriteString(w, t.SubTag); err != nil {
 		return fmt.Errorf("write TexProperty subTag failed: %w", err)
 	}
 	// 根据 subTag 写出不同的内容
@@ -377,22 +377,22 @@ func (t *TexProperty) Write(w io.Writer) error {
 			return fmt.Errorf("TexProperty with subTag '%s' but Tex2D is nil", t.SubTag)
 		}
 		// 写出 Tex2DSubProperty
-		if err := utilities.WriteString(w, t.Tex2D.Name); err != nil {
+		if err := binaryio.WriteString(w, t.Tex2D.Name); err != nil {
 			return fmt.Errorf("write tex2d.name failed: %w", err)
 		}
-		if err := utilities.WriteString(w, t.Tex2D.Path); err != nil {
+		if err := binaryio.WriteString(w, t.Tex2D.Path); err != nil {
 			return fmt.Errorf("write tex2d.path failed: %w", err)
 		}
-		if err := utilities.WriteFloat32(w, t.Tex2D.Offset[0]); err != nil {
+		if err := binaryio.WriteFloat32(w, t.Tex2D.Offset[0]); err != nil {
 			return fmt.Errorf("write tex2d.offset.x failed: %w", err)
 		}
-		if err := utilities.WriteFloat32(w, t.Tex2D.Offset[1]); err != nil {
+		if err := binaryio.WriteFloat32(w, t.Tex2D.Offset[1]); err != nil {
 			return fmt.Errorf("write tex2d.offset.y failed: %w", err)
 		}
-		if err := utilities.WriteFloat32(w, t.Tex2D.Scale[0]); err != nil {
+		if err := binaryio.WriteFloat32(w, t.Tex2D.Scale[0]); err != nil {
 			return fmt.Errorf("write tex2d.scale.x failed: %w", err)
 		}
-		if err := utilities.WriteFloat32(w, t.Tex2D.Scale[1]); err != nil {
+		if err := binaryio.WriteFloat32(w, t.Tex2D.Scale[1]); err != nil {
 			return fmt.Errorf("write tex2d.scale.y failed: %w", err)
 		}
 	case "texRT":
@@ -400,10 +400,10 @@ func (t *TexProperty) Write(w io.Writer) error {
 			return fmt.Errorf("TexProperty with subTag 'texRT' but TexRT is nil")
 		}
 		// 写出 TexRTSubProperty
-		if err := utilities.WriteString(w, t.TexRT.DiscardedStr1); err != nil {
+		if err := binaryio.WriteString(w, t.TexRT.DiscardedStr1); err != nil {
 			return fmt.Errorf("write texRT.discardedStr1 failed: %w", err)
 		}
-		if err := utilities.WriteString(w, t.TexRT.DiscardedStr2); err != nil {
+		if err := binaryio.WriteString(w, t.TexRT.DiscardedStr2); err != nil {
 			return fmt.Errorf("write texRT.discardedStr2 failed: %w", err)
 		}
 	case "null":
@@ -429,7 +429,7 @@ func (c *ColProperty) Read(r io.Reader) error {
 	c.TypeName = c.GetTypeName()
 
 	// 读取属性名 (string)
-	name, err := utilities.ReadString(r)
+	name, err := binaryio.ReadString(r)
 	if err != nil {
 		return fmt.Errorf("read property name failed: %w", err)
 	}
@@ -437,7 +437,7 @@ func (c *ColProperty) Read(r io.Reader) error {
 
 	// 读取 4 个 float32
 	for i := 0; i < 4; i++ {
-		c.Color[i], err = utilities.ReadFloat32(r)
+		c.Color[i], err = binaryio.ReadFloat32(r)
 		if err != nil {
 			return fmt.Errorf("read ColProperty color[%d] failed: %w", i, err)
 		}
@@ -448,16 +448,16 @@ func (c *ColProperty) Read(r io.Reader) error {
 
 func (c *ColProperty) Write(w io.Writer) error {
 	// 写出类型标识 "col"
-	if err := utilities.WriteString(w, c.GetTypeName()); err != nil {
+	if err := binaryio.WriteString(w, c.GetTypeName()); err != nil {
 		return fmt.Errorf("write ColProperty type failed: %w", err)
 	}
 	// 写出属性名
-	if err := utilities.WriteString(w, c.PropName); err != nil {
+	if err := binaryio.WriteString(w, c.PropName); err != nil {
 		return fmt.Errorf("write ColProperty name failed: %w", err)
 	}
 	// 写出四个 float32 (RGBA)
 	for i, c := range c.Color {
-		if err := utilities.WriteFloat32(w, c); err != nil {
+		if err := binaryio.WriteFloat32(w, c); err != nil {
 			return fmt.Errorf("write ColProperty color[%d] failed: %w", i, err)
 		}
 	}
@@ -479,7 +479,7 @@ func (v *VecProperty) Read(r io.Reader) error {
 	v.TypeName = v.GetTypeName()
 
 	// 读取属性名 (string)
-	name, err := utilities.ReadString(r)
+	name, err := binaryio.ReadString(r)
 	if err != nil {
 		return fmt.Errorf("read property name failed: %w", err)
 	}
@@ -487,7 +487,7 @@ func (v *VecProperty) Read(r io.Reader) error {
 
 	// 读取 4 个 float32
 	for i := 0; i < 4; i++ {
-		v.Vector[i], err = utilities.ReadFloat32(r)
+		v.Vector[i], err = binaryio.ReadFloat32(r)
 		if err != nil {
 			return fmt.Errorf("read VecProperty vector[%d] failed: %w", i, err)
 		}
@@ -498,16 +498,16 @@ func (v *VecProperty) Read(r io.Reader) error {
 
 func (v *VecProperty) Write(w io.Writer) error {
 	// 写出类型标识 "vec"
-	if err := utilities.WriteString(w, v.GetTypeName()); err != nil {
+	if err := binaryio.WriteString(w, v.GetTypeName()); err != nil {
 		return fmt.Errorf("write VecProperty type failed: %w", err)
 	}
 	// 写出属性名
-	if err := utilities.WriteString(w, v.PropName); err != nil {
+	if err := binaryio.WriteString(w, v.PropName); err != nil {
 		return fmt.Errorf("write VecProperty name failed: %w", err)
 	}
 	// 写出四个 float32
 	for i, v := range v.Vector {
-		if err := utilities.WriteFloat32(w, v); err != nil {
+		if err := binaryio.WriteFloat32(w, v); err != nil {
 			return fmt.Errorf("write VecProperty vector[%d] failed: %w", i, err)
 		}
 	}
@@ -528,14 +528,14 @@ func (f *FProperty) GetTypeName() string { return "f" }
 func (f *FProperty) Read(r io.Reader) error {
 	f.TypeName = f.GetTypeName()
 	// 读取属性名 (string)
-	name, err := utilities.ReadString(r)
+	name, err := binaryio.ReadString(r)
 	if err != nil {
 		return fmt.Errorf("read property name failed: %w", err)
 	}
 	f.PropName = name
 
 	// 读取一个 float32
-	val, err := utilities.ReadFloat32(r)
+	val, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return fmt.Errorf("read FProperty float failed: %w", err)
 	}
@@ -546,15 +546,15 @@ func (f *FProperty) Read(r io.Reader) error {
 
 func (f *FProperty) Write(w io.Writer) error {
 	// 写出类型标识 "f"
-	if err := utilities.WriteString(w, f.GetTypeName()); err != nil {
+	if err := binaryio.WriteString(w, f.GetTypeName()); err != nil {
 		return fmt.Errorf("write FProperty type failed: %w", err)
 	}
 	// 写出属性名
-	if err := utilities.WriteString(w, f.PropName); err != nil {
+	if err := binaryio.WriteString(w, f.PropName); err != nil {
 		return fmt.Errorf("write FProperty name failed: %w", err)
 	}
 	// 写出一个 float32
-	if err := utilities.WriteFloat32(w, f.Number); err != nil {
+	if err := binaryio.WriteFloat32(w, f.Number); err != nil {
 		return fmt.Errorf("write FProperty float failed: %w", err)
 	}
 	return nil
@@ -576,14 +576,14 @@ func (ra *RangeProperty) Read(r io.Reader) error {
 	ra.TypeName = ra.GetTypeName()
 
 	// 读取属性名 (string)
-	name, err := utilities.ReadString(r)
+	name, err := binaryio.ReadString(r)
 	if err != nil {
 		return fmt.Errorf("read property name failed: %w", err)
 	}
 	ra.PropName = name
 
 	// 读取一个 float32
-	val, err := utilities.ReadFloat32(r)
+	val, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return fmt.Errorf("read RangeProperty float failed: %w", err)
 	}
@@ -594,15 +594,15 @@ func (ra *RangeProperty) Read(r io.Reader) error {
 
 func (ra *RangeProperty) Write(w io.Writer) error {
 	// 写出类型标识 "range"
-	if err := utilities.WriteString(w, ra.GetTypeName()); err != nil {
+	if err := binaryio.WriteString(w, ra.GetTypeName()); err != nil {
 		return fmt.Errorf("write RangeProperty type failed: %w", err)
 	}
 	// 写出属性名
-	if err := utilities.WriteString(w, ra.PropName); err != nil {
+	if err := binaryio.WriteString(w, ra.PropName); err != nil {
 		return fmt.Errorf("write RangeProperty name failed: %w", err)
 	}
 	// 写出一个 float32
-	if err := utilities.WriteFloat32(w, ra.Number); err != nil {
+	if err := binaryio.WriteFloat32(w, ra.Number); err != nil {
 		return fmt.Errorf("write RangeProperty float failed: %w", err)
 	}
 	return nil
@@ -625,20 +625,20 @@ func (to *TexOffsetProperty) Read(r io.Reader) error {
 	to.TypeName = to.GetTypeName()
 
 	// 读取属性名 (string)
-	name, err := utilities.ReadString(r)
+	name, err := binaryio.ReadString(r)
 	if err != nil {
 		return fmt.Errorf("read property name failed: %w", err)
 	}
 	to.PropName = name
 
 	// 读取两个 float32
-	x, err := utilities.ReadFloat32(r)
+	x, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return fmt.Errorf("read RangeProperty float x failed: %w", err)
 	}
 	to.OffsetX = x
 
-	y, err := utilities.ReadFloat32(r)
+	y, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return fmt.Errorf("read RangeProperty float y failed: %w", err)
 	}
@@ -649,19 +649,19 @@ func (to *TexOffsetProperty) Read(r io.Reader) error {
 
 func (to *TexOffsetProperty) Write(w io.Writer) error {
 	// 写出类型标识 "tex_offset"
-	if err := utilities.WriteString(w, to.GetTypeName()); err != nil {
+	if err := binaryio.WriteString(w, to.GetTypeName()); err != nil {
 		return fmt.Errorf("write TexOffsetProperty type failed: %w", err)
 	}
 	// 写出属性名
-	if err := utilities.WriteString(w, to.PropName); err != nil {
+	if err := binaryio.WriteString(w, to.PropName); err != nil {
 		return fmt.Errorf("write TexOffsetProperty name failed: %w", err)
 	}
 	// 写出两个 float32
-	if err := utilities.WriteFloat32(w, to.OffsetX); err != nil {
+	if err := binaryio.WriteFloat32(w, to.OffsetX); err != nil {
 		return fmt.Errorf("write TexOffsetProperty float x failed: %w", err)
 	}
 
-	if err := utilities.WriteFloat32(w, to.OffsetY); err != nil {
+	if err := binaryio.WriteFloat32(w, to.OffsetY); err != nil {
 		return fmt.Errorf("write TexOffsetProperty float y failed: %w", err)
 	}
 	return nil
@@ -683,20 +683,20 @@ func (ts *TexScaleProperty) GetTypeName() string { return "tex_scale" }
 func (ts *TexScaleProperty) Read(r io.Reader) error {
 	ts.TypeName = ts.GetTypeName()
 	// 读取属性名 (string)
-	name, err := utilities.ReadString(r)
+	name, err := binaryio.ReadString(r)
 	if err != nil {
 		return fmt.Errorf("read property name failed: %w", err)
 	}
 	ts.PropName = name
 
 	// 读取两个 float32
-	x, err := utilities.ReadFloat32(r)
+	x, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return fmt.Errorf("read RangeProperty float x failed: %w", err)
 	}
 	ts.ScaleX = x
 
-	y, err := utilities.ReadFloat32(r)
+	y, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return fmt.Errorf("read RangeProperty float y failed: %w", err)
 	}
@@ -707,19 +707,19 @@ func (ts *TexScaleProperty) Read(r io.Reader) error {
 
 func (ts *TexScaleProperty) Write(w io.Writer) error {
 	// 写出类型标识 "tex_offset"
-	if err := utilities.WriteString(w, ts.GetTypeName()); err != nil {
+	if err := binaryio.WriteString(w, ts.GetTypeName()); err != nil {
 		return fmt.Errorf("write TexOffsetProperty type failed: %w", err)
 	}
 	// 写出属性名
-	if err := utilities.WriteString(w, ts.PropName); err != nil {
+	if err := binaryio.WriteString(w, ts.PropName); err != nil {
 		return fmt.Errorf("write TexOffsetProperty name failed: %w", err)
 	}
 	// 写出两个 float32
-	if err := utilities.WriteFloat32(w, ts.ScaleX); err != nil {
+	if err := binaryio.WriteFloat32(w, ts.ScaleX); err != nil {
 		return fmt.Errorf("write TexOffsetProperty float x failed: %w", err)
 	}
 
-	if err := utilities.WriteFloat32(w, ts.ScaleY); err != nil {
+	if err := binaryio.WriteFloat32(w, ts.ScaleY); err != nil {
 		return fmt.Errorf("write TexOffsetProperty float y failed: %w", err)
 	}
 	return nil
@@ -747,14 +747,14 @@ func (f *KeywordProperty) Read(r io.Reader) error {
 	f.TypeName = f.GetTypeName()
 
 	// 读取属性名 (string)
-	name, err := utilities.ReadString(r)
+	name, err := binaryio.ReadString(r)
 	if err != nil {
 		return fmt.Errorf("read property name failed: %w", err)
 	}
 	f.PropName = name
 
 	// 读取一个 int32， keyword 的数量
-	count, err := utilities.ReadInt32(r)
+	count, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return fmt.Errorf("read Keyword count failed: %w", err)
 	}
@@ -763,11 +763,11 @@ func (f *KeywordProperty) Read(r io.Reader) error {
 	// 循环读取 count 个 keyword
 	f.Keywords = make([]Keyword, count)
 	for i := int32(0); i < count; i++ {
-		key, err := utilities.ReadString(r)
+		key, err := binaryio.ReadString(r)
 		if err != nil {
 			return fmt.Errorf("read Keyword key failed: %w", err)
 		}
-		value, err := utilities.ReadBool(r)
+		value, err := binaryio.ReadBool(r)
 		if err != nil {
 			return fmt.Errorf("read Keyword value failed: %w", err)
 		}
@@ -781,23 +781,23 @@ func (f *KeywordProperty) Read(r io.Reader) error {
 
 func (f *KeywordProperty) Write(w io.Writer) error {
 	// 写出类型标识 "keyword"
-	if err := utilities.WriteString(w, f.GetTypeName()); err != nil {
+	if err := binaryio.WriteString(w, f.GetTypeName()); err != nil {
 		return fmt.Errorf("write KeywordProperty type failed: %w", err)
 	}
 	// 写出属性名
-	if err := utilities.WriteString(w, f.PropName); err != nil {
+	if err := binaryio.WriteString(w, f.PropName); err != nil {
 		return fmt.Errorf("write KeywordProperty name failed: %w", err)
 	}
 	// 写出 count
-	if err := utilities.WriteInt32(w, int32(len(f.Keywords))); err != nil {
+	if err := binaryio.WriteInt32(w, int32(len(f.Keywords))); err != nil {
 		return fmt.Errorf("write KeywordProperty count failed: %w", err)
 	}
 	// 循环写出 count 个 keyword
 	for i, kv := range f.Keywords {
-		if err := utilities.WriteString(w, kv.Key); err != nil {
+		if err := binaryio.WriteString(w, kv.Key); err != nil {
 			return fmt.Errorf("write Keywords[%d] key failed: %w", i, err)
 		}
-		if err := utilities.WriteBool(w, kv.Value); err != nil {
+		if err := binaryio.WriteBool(w, kv.Value); err != nil {
 			return fmt.Errorf("write Keywords[%d] value failed: %w", i, err)
 		}
 	}

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
 // CM3D21_COL
@@ -32,7 +32,7 @@ func ReadCol(r io.Reader) (*Col, error) {
 	file := &Col{}
 
 	// 1. Signature
-	sig, err := utilities.ReadString(r)
+	sig, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read signature failed: %w", err)
 	}
@@ -42,14 +42,14 @@ func ReadCol(r io.Reader) (*Col, error) {
 	file.Signature = sig
 
 	// 2. Version
-	ver, err := utilities.ReadInt32(r)
+	ver, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read version failed: %w", err)
 	}
 	file.Version = ver
 
 	// 3. Collider count
-	count, err := utilities.ReadInt32(r)
+	count, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read collider count failed: %w", err)
 	}
@@ -57,7 +57,7 @@ func ReadCol(r io.Reader) (*Col, error) {
 	// 4. 逐个读取 Collider
 	file.Colliders = make([]ICollider, 0, count)
 	for i := 0; i < int(count); i++ {
-		typeName, err := utilities.ReadString(r)
+		typeName, err := binaryio.ReadString(r)
 		if err != nil {
 			return nil, fmt.Errorf("read collider type string failed at index %d: %w", i, err)
 		}
@@ -92,23 +92,23 @@ func ReadCol(r io.Reader) (*Col, error) {
 // Dump 把 Col 写出到 w 中
 func (c *Col) Dump(w io.Writer) error {
 	// 1. 写 Signature
-	if err := utilities.WriteString(w, c.Signature); err != nil {
+	if err := binaryio.WriteString(w, c.Signature); err != nil {
 		return fmt.Errorf("write signature failed: %w", err)
 	}
 	// 2. 写 Version
-	if err := utilities.WriteInt32(w, c.Version); err != nil {
+	if err := binaryio.WriteInt32(w, c.Version); err != nil {
 		return fmt.Errorf("write version failed: %w", err)
 	}
 	// 3. 写 Collider count
 	count := int32(len(c.Colliders))
-	if err := utilities.WriteInt32(w, count); err != nil {
+	if err := binaryio.WriteInt32(w, count); err != nil {
 		return fmt.Errorf("write collider count failed: %w", err)
 	}
 	// 4. 遍历写出每个 collider
 	for i, collider := range c.Colliders {
 		typeName := collider.GetTypeName()
 		// 先写 typeName
-		if err := utilities.WriteString(w, typeName); err != nil {
+		if err := binaryio.WriteString(w, typeName); err != nil {
 			return fmt.Errorf("write collider type failed at index %d: %w", i, err)
 		}
 		// 写具体数据
@@ -155,20 +155,20 @@ func (base *DynamicBoneColliderBase) Read(r io.Reader, version int32) error {
 	var err error
 
 	// 1. ParentName
-	base.ParentName, err = utilities.ReadString(r)
+	base.ParentName, err = binaryio.ReadString(r)
 	if err != nil {
 		return fmt.Errorf("read parentName failed: %w", err)
 	}
 
 	// 2. SelfName
-	base.SelfName, err = utilities.ReadString(r)
+	base.SelfName, err = binaryio.ReadString(r)
 	if err != nil {
 		return fmt.Errorf("read selfName failed: %w", err)
 	}
 
 	// 3. localPosition
 	for i := 0; i < 3; i++ {
-		base.LocalPosition[i], err = utilities.ReadFloat32(r)
+		base.LocalPosition[i], err = binaryio.ReadFloat32(r)
 		if err != nil {
 			return fmt.Errorf("read localPosition[%d] failed: %w", i, err)
 		}
@@ -176,7 +176,7 @@ func (base *DynamicBoneColliderBase) Read(r io.Reader, version int32) error {
 
 	// 4. localRotation
 	for i := 0; i < 4; i++ {
-		base.LocalRotation[i], err = utilities.ReadFloat32(r)
+		base.LocalRotation[i], err = binaryio.ReadFloat32(r)
 		if err != nil {
 			return fmt.Errorf("read localRotation[%d] failed: %w", i, err)
 		}
@@ -184,28 +184,28 @@ func (base *DynamicBoneColliderBase) Read(r io.Reader, version int32) error {
 
 	// 5. localScale
 	for i := 0; i < 3; i++ {
-		base.LocalScale[i], err = utilities.ReadFloat32(r)
+		base.LocalScale[i], err = binaryio.ReadFloat32(r)
 		if err != nil {
 			return fmt.Errorf("read localScale[%d] failed: %w", i, err)
 		}
 	}
 
 	// 6. Direction
-	base.Direction, err = utilities.ReadInt32(r)
+	base.Direction, err = binaryio.ReadInt32(r)
 	if err != nil {
 		return fmt.Errorf("read direction failed: %w", err)
 	}
 
 	// 7. Center (x,y,z)
 	for i := 0; i < 3; i++ {
-		base.Center[i], err = utilities.ReadFloat32(r)
+		base.Center[i], err = binaryio.ReadFloat32(r)
 		if err != nil {
 			return fmt.Errorf("read center[%d] failed: %w", i, err)
 		}
 	}
 
 	// 8. Bound
-	base.Bound, err = utilities.ReadInt32(r)
+	base.Bound, err = binaryio.ReadInt32(r)
 	if err != nil {
 		return fmt.Errorf("read bound failed: %w", err)
 	}
@@ -215,49 +215,49 @@ func (base *DynamicBoneColliderBase) Read(r io.Reader, version int32) error {
 
 func (base *DynamicBoneColliderBase) Write(w io.Writer, version int32) error {
 	// 1. ParentName
-	if err := utilities.WriteString(w, base.ParentName); err != nil {
+	if err := binaryio.WriteString(w, base.ParentName); err != nil {
 		return fmt.Errorf("write parentName failed: %w", err)
 	}
 	// 2. SelfName
-	if err := utilities.WriteString(w, base.SelfName); err != nil {
+	if err := binaryio.WriteString(w, base.SelfName); err != nil {
 		return fmt.Errorf("write selfName failed: %w", err)
 	}
 
 	// 3. localPosition
 	for i := 0; i < 3; i++ {
-		if err := utilities.WriteFloat32(w, base.LocalPosition[i]); err != nil {
+		if err := binaryio.WriteFloat32(w, base.LocalPosition[i]); err != nil {
 			return fmt.Errorf("write localPosition[%d] failed: %w", i, err)
 		}
 	}
 
 	// 4. localRotation
 	for i := 0; i < 4; i++ {
-		if err := utilities.WriteFloat32(w, base.LocalRotation[i]); err != nil {
+		if err := binaryio.WriteFloat32(w, base.LocalRotation[i]); err != nil {
 			return fmt.Errorf("write localRotation[%d] failed: %w", i, err)
 		}
 	}
 
 	// 5. localScale
 	for i := 0; i < 3; i++ {
-		if err := utilities.WriteFloat32(w, base.LocalScale[i]); err != nil {
+		if err := binaryio.WriteFloat32(w, base.LocalScale[i]); err != nil {
 			return fmt.Errorf("write localScale[%d] failed: %w", i, err)
 		}
 	}
 
 	// 6. Direction
-	if err := utilities.WriteInt32(w, base.Direction); err != nil {
+	if err := binaryio.WriteInt32(w, base.Direction); err != nil {
 		return fmt.Errorf("write direction failed: %w", err)
 	}
 
 	// 7. Center
 	for i := 0; i < 3; i++ {
-		if err := utilities.WriteFloat32(w, base.Center[i]); err != nil {
+		if err := binaryio.WriteFloat32(w, base.Center[i]); err != nil {
 			return fmt.Errorf("write center[%d] failed: %w", i, err)
 		}
 	}
 
 	// 8. Bound
-	if err := utilities.WriteInt32(w, base.Bound); err != nil {
+	if err := binaryio.WriteInt32(w, base.Bound); err != nil {
 		return fmt.Errorf("write bound failed: %w", err)
 	}
 
@@ -289,11 +289,11 @@ func (dbc *DynamicBoneCollider) Read(r io.Reader, version int32) error {
 	dbc.Base = &baseData
 
 	// 读 2 个 Float32
-	radius, err := utilities.ReadFloat32(r)
+	radius, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return fmt.Errorf("read m_Radius failed: %w", err)
 	}
-	height, err := utilities.ReadFloat32(r)
+	height, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return fmt.Errorf("read m_Height failed: %w", err)
 	}
@@ -311,11 +311,11 @@ func (dbc *DynamicBoneCollider) Write(w io.Writer, version int32) error {
 	}
 
 	// 写 2 个 Float32
-	if err := utilities.WriteFloat32(w, dbc.Radius); err != nil {
+	if err := binaryio.WriteFloat32(w, dbc.Radius); err != nil {
 		return fmt.Errorf("write m_Radius failed: %w", err)
 	}
 
-	if err := utilities.WriteFloat32(w, dbc.Height); err != nil {
+	if err := binaryio.WriteFloat32(w, dbc.Height); err != nil {
 		return fmt.Errorf("write m_Height failed: %w", err)
 	}
 	return nil
@@ -380,19 +380,19 @@ func (c *DynamicBoneMuneCollider) Read(r io.Reader, version int32) error {
 	}
 	c.Base = &baseData
 
-	radius, err := utilities.ReadFloat32(r)
+	radius, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return fmt.Errorf("read m_Radius failed: %w", err)
 	}
 	c.Radius = radius
 
-	height, err := utilities.ReadFloat32(r)
+	height, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return fmt.Errorf("read m_Height failed: %w", err)
 	}
 	c.Height = height
 
-	scaleRateMulMax, err := utilities.ReadFloat32(r)
+	scaleRateMulMax, err := binaryio.ReadFloat32(r)
 	if err != nil {
 		return fmt.Errorf("read m_fScaleRateMulMax failed: %w", err)
 	}
@@ -400,7 +400,7 @@ func (c *DynamicBoneMuneCollider) Read(r io.Reader, version int32) error {
 
 	var centerRateMax [3]float32
 	for i := 0; i < 3; i++ {
-		centerRateMax[i], err = utilities.ReadFloat32(r)
+		centerRateMax[i], err = binaryio.ReadFloat32(r)
 		if err != nil {
 			return fmt.Errorf("read m_CenterRateMax[%d] failed: %w", i, err)
 		}
@@ -417,22 +417,22 @@ func (c *DynamicBoneMuneCollider) Write(w io.Writer, version int32) error {
 	}
 
 	// 写 2 个 Float32
-	if err := utilities.WriteFloat32(w, c.Radius); err != nil {
+	if err := binaryio.WriteFloat32(w, c.Radius); err != nil {
 		return fmt.Errorf("write m_Radius failed: %w", err)
 	}
 
-	if err := utilities.WriteFloat32(w, c.Height); err != nil {
+	if err := binaryio.WriteFloat32(w, c.Height); err != nil {
 		return fmt.Errorf("write m_Height failed: %w", err)
 	}
 
 	// 写 1 个 Float32
-	if err := utilities.WriteFloat32(w, c.ScaleRateMulMax); err != nil {
+	if err := binaryio.WriteFloat32(w, c.ScaleRateMulMax); err != nil {
 		return fmt.Errorf("write m_fScaleRateMulMax failed: %w", err)
 	}
 
 	// 写 3 个 Float32
 	for i := 0; i < 3; i++ {
-		if err := utilities.WriteFloat32(w, c.CenterRateMax[i]); err != nil {
+		if err := binaryio.WriteFloat32(w, c.CenterRateMax[i]); err != nil {
 			return fmt.Errorf("write m_CenterRateMax[%d] failed: %w", i, err)
 		}
 	}

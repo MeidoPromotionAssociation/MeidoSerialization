@@ -18,7 +18,8 @@ Please note that the converted JSON does not contain newlines. You may need to u
 format it for readability.
 
 You can use this simple GUI tool for batch processing like keyword replacement and renaming, which is useful for
-creating variations (Chinese only): [https://github.com/90135/COM3D2_Tools_901](https://github.com/90135/COM3D2_Tools_901)
+creating variations (Chinese
+only): [https://github.com/90135/COM3D2_Tools_901](https://github.com/90135/COM3D2_Tools_901)
 
 ## Download
 
@@ -226,7 +227,6 @@ see main [README](https://github.com/MeidoPromotionAssociation/MeidoSerializatio
 <br>
 <br>
 <br>
-
 
 # 简体中文
 

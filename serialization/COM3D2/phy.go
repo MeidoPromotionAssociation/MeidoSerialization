@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
 // CM3D21_PHY
@@ -97,7 +97,7 @@ func ReadPhy(r io.Reader) (*Phy, error) {
 	p := &Phy{}
 
 	// 1. Signature
-	sig, err := utilities.ReadString(r)
+	sig, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read signature failed: %w", err)
 	}
@@ -107,14 +107,14 @@ func ReadPhy(r io.Reader) (*Phy, error) {
 	p.Signature = sig
 
 	// 2. Version
-	ver, err := utilities.ReadInt32(r)
+	ver, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read version failed: %w", err)
 	}
 	p.Version = ver
 
 	// 3. RootName
-	rootName, err := utilities.ReadString(r)
+	rootName, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read rootName failed: %w", err)
 	}
@@ -125,7 +125,7 @@ func ReadPhy(r io.Reader) (*Phy, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read partial damping failed: %w", err)
 	}
-	p.Damping, err = utilities.ReadFloat32(r)
+	p.Damping, err = binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read Damping failed: %w", err)
 	}
@@ -139,7 +139,7 @@ func ReadPhy(r io.Reader) (*Phy, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read partial elasticity failed: %w", err)
 	}
-	p.Elasticity, err = utilities.ReadFloat32(r)
+	p.Elasticity, err = binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read Elasticity failed: %w", err)
 	}
@@ -153,7 +153,7 @@ func ReadPhy(r io.Reader) (*Phy, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read partial stiffness failed: %w", err)
 	}
-	p.Stiffness, err = utilities.ReadFloat32(r)
+	p.Stiffness, err = binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read Stiffness failed: %w", err)
 	}
@@ -167,7 +167,7 @@ func ReadPhy(r io.Reader) (*Phy, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read partial inert failed: %w", err)
 	}
-	p.Inert, err = utilities.ReadFloat32(r)
+	p.Inert, err = binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read Inert failed: %w", err)
 	}
@@ -181,7 +181,7 @@ func ReadPhy(r io.Reader) (*Phy, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read partial radius failed: %w", err)
 	}
-	p.Radius, err = utilities.ReadFloat32(r)
+	p.Radius, err = binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read Radius failed: %w", err)
 	}
@@ -191,13 +191,13 @@ func ReadPhy(r io.Reader) (*Phy, error) {
 	}
 
 	// 9. EndLength, EndOffset (x,y,z)
-	p.EndLength, err = utilities.ReadFloat32(r)
+	p.EndLength, err = binaryio.ReadFloat32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read EndLength failed: %w", err)
 	}
 	// EndOffset
 	for i := 0; i < 3; i++ {
-		p.EndOffset[i], err = utilities.ReadFloat32(r)
+		p.EndOffset[i], err = binaryio.ReadFloat32(r)
 		if err != nil {
 			return nil, fmt.Errorf("read EndOffset[%d] failed: %w", i, err)
 		}
@@ -205,28 +205,28 @@ func ReadPhy(r io.Reader) (*Phy, error) {
 
 	// 10.  Gravity (x,y,z), Force (x,y,z)
 	for i := 0; i < 3; i++ {
-		p.Gravity[i], err = utilities.ReadFloat32(r)
+		p.Gravity[i], err = binaryio.ReadFloat32(r)
 		if err != nil {
 			return nil, fmt.Errorf("read Gravity[%d] failed: %w", i, err)
 		}
 	}
 	// Force
 	for i := 0; i < 3; i++ {
-		p.Force[i], err = utilities.ReadFloat32(r)
+		p.Force[i], err = binaryio.ReadFloat32(r)
 		if err != nil {
 			return nil, fmt.Errorf("read Force[%d] failed: %w", i, err)
 		}
 	}
 
 	// 11. ColliderFileName
-	cfn, err := utilities.ReadString(r)
+	cfn, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read ColliderFileName failed: %w", err)
 	}
 	p.ColliderFileName = cfn
 
 	// 12. CollidersCount
-	colCount, err := utilities.ReadInt32(r)
+	colCount, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read CollidersCount failed: %w", err)
 	}
@@ -236,7 +236,7 @@ func ReadPhy(r io.Reader) (*Phy, error) {
 	// 目前记录 CollidersCount 只是为了初始化列表
 
 	// 13. ExclusionsCount
-	excCount, err := utilities.ReadInt32(r)
+	excCount, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read ExclusionsCount failed: %w", err)
 	}
@@ -247,7 +247,7 @@ func ReadPhy(r io.Reader) (*Phy, error) {
 	// 目前记录 ExclusionsCount 只是为了初始化列表
 
 	// 13. FreezeAxis
-	fa, err := utilities.ReadInt32(r)
+	fa, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read freezeAxis failed: %w", err)
 	}
@@ -259,15 +259,15 @@ func ReadPhy(r io.Reader) (*Phy, error) {
 // Dump 写出 "CM3D21_PHY" 格式
 func (p *Phy) Dump(w io.Writer) error {
 	// 1. Signature
-	if err := utilities.WriteString(w, p.Signature); err != nil {
+	if err := binaryio.WriteString(w, p.Signature); err != nil {
 		return fmt.Errorf("write signature failed: %w", err)
 	}
 	// 2. Version
-	if err := utilities.WriteInt32(w, p.Version); err != nil {
+	if err := binaryio.WriteInt32(w, p.Version); err != nil {
 		return fmt.Errorf("write version failed: %w", err)
 	}
 	// 3. RootName
-	if err := utilities.WriteString(w, p.RootName); err != nil {
+	if err := binaryio.WriteString(w, p.RootName); err != nil {
 		return fmt.Errorf("write rootName failed: %w", err)
 	}
 
@@ -275,7 +275,7 @@ func (p *Phy) Dump(w io.Writer) error {
 	if err := writePartial(w, p.EnablePartialDamping, p.PartialDamping); err != nil {
 		return fmt.Errorf("write partial damping failed: %w", err)
 	}
-	if err := utilities.WriteFloat32(w, p.Damping); err != nil {
+	if err := binaryio.WriteFloat32(w, p.Damping); err != nil {
 		return fmt.Errorf("write Damping failed: %w", err)
 	}
 	if err := WriteAnimationCurve(w, p.DampingDistrib); err != nil {
@@ -286,7 +286,7 @@ func (p *Phy) Dump(w io.Writer) error {
 	if err := writePartial(w, p.EnablePartialElasticity, p.PartialElasticity); err != nil {
 		return fmt.Errorf("write partial elasticity failed: %w", err)
 	}
-	if err := utilities.WriteFloat32(w, p.Elasticity); err != nil {
+	if err := binaryio.WriteFloat32(w, p.Elasticity); err != nil {
 		return fmt.Errorf("write Elasticity failed: %w", err)
 	}
 	if err := WriteAnimationCurve(w, p.ElasticityDistrib); err != nil {
@@ -297,7 +297,7 @@ func (p *Phy) Dump(w io.Writer) error {
 	if err := writePartial(w, p.EnablePartialStiffness, p.PartialStiffness); err != nil {
 		return fmt.Errorf("write partial stiffness failed: %w", err)
 	}
-	if err := utilities.WriteFloat32(w, p.Stiffness); err != nil {
+	if err := binaryio.WriteFloat32(w, p.Stiffness); err != nil {
 		return fmt.Errorf("write Stiffness failed: %w", err)
 	}
 	if err := WriteAnimationCurve(w, p.StiffnessDistrib); err != nil {
@@ -308,7 +308,7 @@ func (p *Phy) Dump(w io.Writer) error {
 	if err := writePartial(w, p.EnablePartialInert, p.PartialInert); err != nil {
 		return fmt.Errorf("write partial inert failed: %w", err)
 	}
-	if err := utilities.WriteFloat32(w, p.Inert); err != nil {
+	if err := binaryio.WriteFloat32(w, p.Inert); err != nil {
 		return fmt.Errorf("write Inert failed: %w", err)
 	}
 	if err := WriteAnimationCurve(w, p.InertDistrib); err != nil {
@@ -319,7 +319,7 @@ func (p *Phy) Dump(w io.Writer) error {
 	if err := writePartial(w, p.EnablePartialRadius, p.PartialRadius); err != nil {
 		return fmt.Errorf("write partial radius failed: %w", err)
 	}
-	if err := utilities.WriteFloat32(w, p.Radius); err != nil {
+	if err := binaryio.WriteFloat32(w, p.Radius); err != nil {
 		return fmt.Errorf("write Radius failed: %w", err)
 	}
 	if err := WriteAnimationCurve(w, p.RadiusDistrib); err != nil {
@@ -327,35 +327,35 @@ func (p *Phy) Dump(w io.Writer) error {
 	}
 
 	// 9. EndLength
-	if err := utilities.WriteFloat32(w, p.EndLength); err != nil {
+	if err := binaryio.WriteFloat32(w, p.EndLength); err != nil {
 		return fmt.Errorf("write EndLength failed: %w", err)
 	}
 	// 10. EndOffset (x, y, z)
 	for i := 0; i < 3; i++ {
-		if err := utilities.WriteFloat32(w, p.EndOffset[i]); err != nil {
+		if err := binaryio.WriteFloat32(w, p.EndOffset[i]); err != nil {
 			return fmt.Errorf("write EndOffset[%d] failed: %w", i, err)
 		}
 	}
 	// 11. Gravity (x, y, z)
 	for i := 0; i < 3; i++ {
-		if err := utilities.WriteFloat32(w, p.Gravity[i]); err != nil {
+		if err := binaryio.WriteFloat32(w, p.Gravity[i]); err != nil {
 			return fmt.Errorf("write Gravity[%d] failed: %w", i, err)
 		}
 	}
 	// 12. Force (x, y, z)
 	for i := 0; i < 3; i++ {
-		if err := utilities.WriteFloat32(w, p.Force[i]); err != nil {
+		if err := binaryio.WriteFloat32(w, p.Force[i]); err != nil {
 			return fmt.Errorf("write Force[%d] failed: %w", i, err)
 		}
 	}
 
 	// 13. ColliderFileName
-	if err := utilities.WriteString(w, p.ColliderFileName); err != nil {
+	if err := binaryio.WriteString(w, p.ColliderFileName); err != nil {
 		return fmt.Errorf("write ColliderFileName failed: %w", err)
 	}
 
 	// 14. CollidersCount
-	if err := utilities.WriteInt32(w, p.CollidersCount); err != nil {
+	if err := binaryio.WriteInt32(w, p.CollidersCount); err != nil {
 		return fmt.Errorf("write CollidersCount failed: %w", err)
 	}
 
@@ -365,7 +365,7 @@ func (p *Phy) Dump(w io.Writer) error {
 	// 记录 CollidersCount 只是为了初始化列表
 
 	// 15. ExclusionsCount
-	if err := utilities.WriteInt32(w, p.ExclusionsCount); err != nil {
+	if err := binaryio.WriteInt32(w, p.ExclusionsCount); err != nil {
 		return fmt.Errorf("write ExclusionsCount failed: %w", err)
 	}
 	// 同样，C# 只写了数量，没有写任何内容
@@ -373,7 +373,7 @@ func (p *Phy) Dump(w io.Writer) error {
 	// 记录 ExclusionsCount 只是为了初始化列表
 
 	// 16. FreezeAxis
-	if err := utilities.WriteInt32(w, p.FreezeAxis); err != nil {
+	if err := binaryio.WriteInt32(w, p.FreezeAxis); err != nil {
 		return fmt.Errorf("write freezeAxis failed: %w", err)
 	}
 
@@ -385,7 +385,7 @@ func (p *Phy) Dump(w io.Writer) error {
 //	int(PartialMode) -> 如果 != PartialMode_Partial, 结束；
 //	int(boneCount) -> 循环读取 boneName + floatValue
 func readPartial(r io.Reader) (int32, []BoneValue, error) {
-	mode, err := utilities.ReadInt32(r) // 读取 PartialMode，对应 PartialMode 枚举
+	mode, err := binaryio.ReadInt32(r) // 读取 PartialMode，对应 PartialMode 枚举
 	if err != nil {
 		return 0, nil, fmt.Errorf("read partialMode failed: %w", err)
 	}
@@ -393,18 +393,18 @@ func readPartial(r io.Reader) (int32, []BoneValue, error) {
 		return mode, nil, nil
 	}
 
-	count, err := utilities.ReadInt32(r) // 读取骨骼数量
+	count, err := binaryio.ReadInt32(r) // 读取骨骼数量
 	if err != nil {
 		return mode, nil, fmt.Errorf("read partial count failed: %w", err)
 	}
 
 	vals := make([]BoneValue, count)
 	for i := 0; i < int(count); i++ { // 循环读取骨骼名称和对应 float 值
-		bn, err := utilities.ReadString(r) // 读取骨骼名称
+		bn, err := binaryio.ReadString(r) // 读取骨骼名称
 		if err != nil {
 			return mode, nil, fmt.Errorf("read boneName failed: %w", err)
 		}
-		fv, err := utilities.ReadFloat32(r) // 读取对应 float 值
+		fv, err := binaryio.ReadFloat32(r) // 读取对应 float 值
 		if err != nil {
 			return mode, nil, fmt.Errorf("read boneValue failed: %w", err)
 		}
@@ -417,7 +417,7 @@ func readPartial(r io.Reader) (int32, []BoneValue, error) {
 //
 //	int(PartialMode) -> 如果 == PartialMode_Partial 再写 (count + boneName + floatValue * count)
 func writePartial(w io.Writer, mode int32, values []BoneValue) error {
-	if err := utilities.WriteInt32(w, mode); err != nil {
+	if err := binaryio.WriteInt32(w, mode); err != nil {
 		return fmt.Errorf("write partialMode failed: %w", err)
 	}
 	if mode != PartialMode_Partial {
@@ -425,14 +425,14 @@ func writePartial(w io.Writer, mode int32, values []BoneValue) error {
 	}
 
 	count := int32(len(values))
-	if err := utilities.WriteInt32(w, count); err != nil {
+	if err := binaryio.WriteInt32(w, count); err != nil {
 		return fmt.Errorf("write partial count failed: %w", err)
 	}
 	for _, bv := range values {
-		if err := utilities.WriteString(w, bv.BoneName); err != nil {
+		if err := binaryio.WriteString(w, bv.BoneName); err != nil {
 			return fmt.Errorf("write boneName failed: %w", err)
 		}
-		if err := utilities.WriteFloat32(w, bv.Value); err != nil {
+		if err := binaryio.WriteFloat32(w, bv.Value); err != nil {
 			return fmt.Errorf("write boneValue failed: %w", err)
 		}
 	}

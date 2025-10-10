@@ -9,7 +9,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/transform"
 )
@@ -57,7 +57,7 @@ func ReadNei(r io.Reader, neiKey []byte) (*Nei, error) {
 	buf := bytes.NewReader(decrypted)
 
 	// 验证签名
-	signature, err := utilities.ReadBytes(buf, 4)
+	signature, err := binaryio.ReadBytes(buf, 4)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read signature: %w", err)
 	}
@@ -66,11 +66,11 @@ func ReadNei(r io.Reader, neiKey []byte) (*Nei, error) {
 	}
 
 	// 读取列数和行数
-	cols, err := utilities.ReadUInt32(buf)
+	cols, err := binaryio.ReadUInt32(buf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read col: %w", err)
 	}
-	rows, err := utilities.ReadUInt32(buf)
+	rows, err := binaryio.ReadUInt32(buf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read row: %w", err)
 	}
@@ -83,12 +83,12 @@ func ReadNei(r io.Reader, neiKey []byte) (*Nei, error) {
 
 		// 该单元格内容在“字符串数据区”中的起始偏移（以 0 为该数据区起点）
 		// 应该是用于随机访问使用的，对我们来说没有用
-		_, err := utilities.ReadUInt32(buf)
+		_, err := binaryio.ReadUInt32(buf)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read offset: %w", err)
 		}
 
-		length, err := utilities.ReadUInt32(buf)
+		length, err := binaryio.ReadUInt32(buf)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read length: %w", err)
 		}
@@ -108,7 +108,7 @@ func ReadNei(r io.Reader, neiKey []byte) (*Nei, error) {
 		length := lengths[i]
 
 		if length > 0 {
-			cellData, err := utilities.ReadBytes(buf, length)
+			cellData, err := binaryio.ReadBytes(buf, length)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read cellData: %w", err)
 			}
@@ -165,19 +165,19 @@ func (nei *Nei) Dump(w io.Writer) error {
 	nei.Cols = uint32(len(nei.Data[0]))
 
 	// 写入文件头
-	err := utilities.WriteBytes(buf, NeiSignature)
+	err := binaryio.WriteBytes(buf, NeiSignature)
 	if err != nil {
 		return fmt.Errorf("failed to write signature: %w", err)
 	}
 
 	// 写入列数
-	err = utilities.WriteUInt32(buf, nei.Cols)
+	err = binaryio.WriteUInt32(buf, nei.Cols)
 	if err != nil {
 		return fmt.Errorf("failed to write Cols: %w", err)
 	}
 
 	// 写入行数
-	err = utilities.WriteUInt32(buf, nei.Rows)
+	err = binaryio.WriteUInt32(buf, nei.Rows)
 	if err != nil {
 		return fmt.Errorf("failed to write Rows: %w", err)
 	}
@@ -196,12 +196,12 @@ func (nei *Nei) Dump(w io.Writer) error {
 		}
 
 		// 索引偏移
-		err = utilities.WriteUInt32(buf, uint32(offset))
+		err = binaryio.WriteUInt32(buf, uint32(offset))
 		if err != nil {
 			return fmt.Errorf("failed to write offset: %w", err)
 		}
 		// 索引长度
-		err = utilities.WriteUInt32(buf, uint32(length))
+		err = binaryio.WriteUInt32(buf, uint32(length))
 		if err != nil {
 			return fmt.Errorf("failed to write length: %w", err)
 		}
@@ -212,12 +212,12 @@ func (nei *Nei) Dump(w io.Writer) error {
 	// 写入字符串数据
 	for _, encoded := range encodedValues {
 		if encoded != nil {
-			err = utilities.WriteBytes(buf, encoded)
+			err = binaryio.WriteBytes(buf, encoded)
 			if err != nil {
 				return fmt.Errorf("failed to write string: %w", err)
 			}
 			// 每个非空单元都追加一个 null 终止符
-			err = utilities.WriteByte(buf, 0x00)
+			err = binaryio.WriteByte(buf, 0x00)
 			if err != nil {
 				return fmt.Errorf("failed to write null terminator: %w", err)
 			}
@@ -231,7 +231,7 @@ func (nei *Nei) Dump(w io.Writer) error {
 	}
 
 	// 写入加密数据
-	err = utilities.WriteBytes(w, encryptedData)
+	err = binaryio.WriteBytes(w, encryptedData)
 	if err != nil {
 		return fmt.Errorf("failed to write encrypted data: %w", err)
 	}

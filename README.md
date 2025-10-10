@@ -2,11 +2,10 @@
 
 [Disclaimer/Credit/KISS Rule](#kiss-rule)
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/MeidoPromotionAssociation/MeidoSerialization)](https://goreportcard.com/report/github.com/MeidoPromotionAssociation/MeidoSerialization) 
-[![Github All Releases](https://img.shields.io/github/downloads/MeidoPromotionAssociation/MeidoSerialization/total.svg)]() 
-[![Go Reference](https://pkg.go.dev/badge/github.com/MeidoPromotionAssociation/MeidoSerialization.svg)](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization) 
+[![Go Report Card](https://goreportcard.com/badge/github.com/MeidoPromotionAssociation/MeidoSerialization)](https://goreportcard.com/report/github.com/MeidoPromotionAssociation/MeidoSerialization)
+[![Github All Releases](https://img.shields.io/github/downloads/MeidoPromotionAssociation/MeidoSerialization/total.svg)]()
+[![Go Reference](https://pkg.go.dev/badge/github.com/MeidoPromotionAssociation/MeidoSerialization.svg)](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
-
 
 # English
 
@@ -42,14 +41,17 @@ Current Game Version COM3D2 v2.44.5 & COM3D2.5 v3.44.5
 | .nei      | Encrypted CSV File    | All Versions       | .nei files use Shift-JIS encoding internally, but we use UTF-8-BOM encoding when reading and writing CSV files. Using characters not supported by Shift-JIS may result in errors. |
 | .preset   | Preset files          | All versions       |                                                                                                                                                                                   |
 
-
-Each file corresponds to a .go file：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2)
+Each file corresponds to a .go
+file：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2)
 
 ## References
 
-- This library was originally developed for the [COM3D2_MOD_EDITOR](https://github.com/90135/COM3D2_MOD_EDITOR) project and was later made independent for easier use. You can also refer to that project for usage examples.
-- pkg.go.dev: [https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
-- DeepWiki (Note: May contain AI hallucinations): [https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
+- This library was originally developed for the [COM3D2_MOD_EDITOR](https://github.com/90135/COM3D2_MOD_EDITOR) project
+  and was later made independent for easier use. You can also refer to that project for usage examples.
+-
+pkg.go.dev: [https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
+- DeepWiki (Note: May contain AI
+  hallucinations): [https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
 
 ## External Dependencies
 
@@ -71,21 +73,26 @@ Each file corresponds to a .go file：[https://github.com/MeidoPromotionAssociat
 
 The MeidoSerialization CLI is a command-line interface for the MeidoSerialization library.
 
-It allows you to convert between COM3D2 MOD files and JSON format using the command line. It also allows you to perform single or batch conversions between .tex and images, or between .nei and .csv.
+It allows you to convert between COM3D2 MOD files and JSON format using the command line. It also allows you to perform
+single or batch conversions between .tex and images, or between .nei and .csv.
 
-JSON files converted by this tool can also be read by  [COM3D2 MOD EDITOR V2](https://github.com/MeidoPromotionAssociation/COM3D2_MOD_EDITOR).
+JSON files converted by this tool can also be read
+by  [COM3D2 MOD EDITOR V2](https://github.com/MeidoPromotionAssociation/COM3D2_MOD_EDITOR).
 
-For details, please see the separate instructions: [cmd instructions](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
+For details, please see the separate
+instructions: [cmd instructions](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
 
 ### Usage examples
 
 #### Use as a command line interface
 
-See separate instructions for details: [cmd instructions](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
+See separate instructions for
+details: [cmd instructions](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
 
 The CLI provides the following main commands:
 
-- `convert`: Automatically detects and converts files between MOD and JSON formats, TEX and image formats, and NEI and CSV formats.
+- `convert`: Automatically detects and converts files between MOD and JSON formats, TEX and image formats, and NEI and
+  CSV formats.
 - `convert2json`: Converts MOD files to JSON format.
 - `convert2mod`: Converts JSON files back to MOD format.
 - `convert2tex`: Converts regular image files to texture files (.tex).
@@ -109,8 +116,6 @@ The library provides two main packages:
 
 - `service` package: Provides methods for reading and writing files directly
 - `serialization` package: Provides methods for serializing and deserializing structures
-
-
 
 <details>
 
@@ -213,16 +218,20 @@ If you encounter errors when working with texture (.tex) files:
 
 ### About version 1011 of the .tex file
 
-- __New fields__: Version 1011 adds a `Rects` (texture atlas) array to the binary structure. Its elements are four `float32` values: `x, y, w, h`, representing rectangles in normalized UV space.
+- __New fields__: Version 1011 adds a `Rects` (texture atlas) array to the binary structure. Its elements are four
+  `float32` values: `x, y, w, h`, representing rectangles in normalized UV space.
 - __When converting an image to `.tex`:
-- If a `.uv.csv` file with the same name exists in the same directory (e.g., `foo.png.uv.csv`), the rectangles in it will be read and the 1011 version of the tex file will be generated.
+- If a `.uv.csv` file with the same name exists in the same directory (e.g., `foo.png.uv.csv`), the rectangles in it
+  will be read and the 1011 version of the tex file will be generated.
 - If no `.uv.csv` file exists, the 1010 version (without `Rects`) will be generated.
 - __When converting `.tex` to an image__:
-- If the source `.tex` is 1011 and contains `Rects`, a `.uv.csv` file with the same name will be generated next to the output image (e.g., `output.png.uv.csv`).
+- If the source `.tex` is 1011 and contains `Rects`, a `.uv.csv` file with the same name will be generated next to the
+  output image (e.g., `output.png.uv.csv`).
 - __.uv.csv format__:
 - Encoding must be: UTF-8 with BOM.
 - Delimiter: English comma `,`.
-- Number of columns: 4 columns per row, in the order `x, y, w, h` (x, y, width, height); values ​​are typically in the range `[0, 1]` (normalized UVs). It is recommended to retain up to 6 decimal places and use `float32` precision.
+- Number of columns: 4 columns per row, in the order `x, y, w, h` (x, y, width, height); values ​​are typically in the
+  range `[0, 1]` (normalized UVs). It is recommended to retain up to 6 decimal places and use `float32` precision.
   Example:
 
 ```csv
@@ -232,16 +241,19 @@ If you encounter errors when working with texture (.tex) files:
 ```
 
 ### Unable to save when using certain characters in `.nei` file
-If you encounter the following error, it's because you're using characters that aren't supported by the Shift-JIS encoding.
-.nei files use Shift-JIS encoding internally, and we can't do anything about it. Please remove the unsupported characters.
+
+If you encounter the following error, it's because you're using characters that aren't supported by the Shift-JIS
+encoding.
+.nei files use Shift-JIS encoding internally, and we can't do anything about it. Please remove the unsupported
+characters.
+
 - `failed to write to .neiData file: failed to encode string: encoding: rune not supported by encoding.`
 - `failed to write to .nei file: failed to encode string: encoding: rune not supported by encoding.`
 
 ### About CSV format
 
-All CSV files used in this program are encoded using UTF-8-BOM, separated by ',', and follow the [RFC4180](https://datatracker.ietf.org/doc/html/rfc4180) standard.
-
-
+All CSV files used in this program are encoded using UTF-8-BOM, separated by ',', and follow
+the [RFC4180](https://datatracker.ietf.org/doc/html/rfc4180) standard.
 
 ## License
 
@@ -306,13 +318,16 @@ MeidoSerialization 是一个用 Golang 编写的序列化库，专为处理 KISS
 | .nei    | 加密 CSV 文件 | 所有版本         | .nei 内部使用 Shift-JIS 编码，但我们在读写时 CSV 时会使用 UTF-8-BOM 编码，如果使用了 Shift-JIS 不支持字符则可能会出错 |
 | .preset | 角色预设文件    | 所有版本         |                                                                                  |
 
-每种文件都对应一个 .go 文件：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2)
+每种文件都对应一个 .go
+文件：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2)
 
 ## 参考
 
 - 本库最初是为了 [COM3D2_MOD_EDITOR](https://github.com/90135/COM3D2_MOD_EDITOR) 项目开发的，后来独立出来以方便各位使用，您也可以参考该项目的使用方法。
-- pkg.go.dev：[https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
-- DeepWiki（请注意 AI 幻觉，有很多内容是它瞎编的）：[https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
+-
+pkg.go.dev：[https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
+- DeepWiki（请注意 AI
+  幻觉，有很多内容是它瞎编的）：[https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
 
 ## 外部依赖
 
@@ -335,7 +350,8 @@ MeidoSerialization CLI 是 MeidoSerialization 库的命令行界面
 
 它允许您使用命令行在 COM3D2 MOD 文件和 JSON 格式之间进行转换，也允许您在 .tex 和图片，或是在 .nei 和 .csv 之间进行单个或批量转换。
 
-由此工具转换的 JSON 文件也可以被 [COM3D2 MOD EDITOR V2](https://github.com/MeidoPromotionAssociation/COM3D2_MOD_EDITOR) 读取。
+由此工具转换的 JSON 文件也可以被 [COM3D2 MOD EDITOR V2](https://github.com/MeidoPromotionAssociation/COM3D2_MOD_EDITOR)
+读取。
 
 详情请见单独的说明： [cmd 说明](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
 
@@ -364,7 +380,6 @@ CLI 提供以下主要命令：
     - `menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image`
     - 或使用 `'<type>.json'` 过滤 MOD 的 JSON 文件（如 `menu.json`）
     - 注意：不带 `.json` 的 `<type>` 仅匹配二进制；带 `.json` 的 `<type>.json` 仅匹配 JSON。
-
 
 ### 在 Go 项目中使用
 
@@ -473,17 +488,19 @@ func main() {
 
 ### 关于 1011 版本的 .tex
 
-- __新增字段__：1011 版本在二进制结构中新增 `Rects`（纹理图集）数组，元素为 `x, y, w, h` 四个 `float32`，表示归一化 UV 空间内的矩形。
+- __新增字段__：1011 版本在二进制结构中新增 `Rects`（纹理图集）数组，元素为 `x, y, w, h` 四个 `float32`，表示归一化 UV
+  空间内的矩形。
 - __将图片转换为 `.tex` 时__：
-  - 若同目录存在同名的 `.uv.csv`（如 `foo.png.uv.csv`），会读取其中的矩形并生成 1011 版本的 tex。
-  - 若不存在 `.uv.csv`，则生成 1010 版本（不含 `Rects`）。
+    - 若同目录存在同名的 `.uv.csv`（如 `foo.png.uv.csv`），会读取其中的矩形并生成 1011 版本的 tex。
+    - 若不存在 `.uv.csv`，则生成 1010 版本（不含 `Rects`）。
 - __将 `.tex` 转换为图片时__:
-  - 若源 `.tex` 为 1011 且包含 `Rects`，在输出图片旁会生成同名 `.uv.csv`（如 `output.png.uv.csv`）
+    - 若源 `.tex` 为 1011 且包含 `Rects`，在输出图片旁会生成同名 `.uv.csv`（如 `output.png.uv.csv`）
 - __.uv.csv 格式__：
-  - 编码必须为：UTF-8-BOM。
-  - 分隔符：英文逗号`,`。
-  - 列数：每行 4 列，依次为 `x, y, w, h` (x, y, width, heigh)；取值通常位于区间 `[0,1]`（归一化 UV），建议保留最多 6 位小数，精度为 `float32`。
-  - 示例：
+    - 编码必须为：UTF-8-BOM。
+    - 分隔符：英文逗号`,`。
+    - 列数：每行 4 列，依次为 `x, y, w, h` (x, y, width, heigh)；取值通常位于区间 `[0,1]`（归一化 UV），建议保留最多 6 位小数，精度为
+      `float32`。
+    - 示例：
 
 ```csv
 0.000000,0.000000,0.500000,0.500000
@@ -492,14 +509,17 @@ func main() {
 ```
 
 ### 在 `.nei` 文件中使用某些字符时无法保存
+
 如果您遇到下面的错误，这是因为您使用了 Shift-JIS 编码不支持的字符。
 .nei 文件内部使用 Shift-JIS 编码，我们对此无能为力。请删除不支持的字符。
+
 - `failed to write to .neiData file: failed to encode string: encoding: rune not supported by encoding.`
 - `failed to write to .nei file: failed to encode string: encoding: rune not supported by encoding.`
 
 ### 关于 CSV 格式
-本程序中使用的所有 CSV 文件均采用 UTF-8-BOM 编码，以 ',' 分隔，并遵循 [RFC4180](https://datatracker.ietf.org/doc/html/rfc4180) 标准。
 
+本程序中使用的所有 CSV 文件均采用 UTF-8-BOM 编码，以 ','
+分隔，并遵循 [RFC4180](https://datatracker.ietf.org/doc/html/rfc4180) 标准。
 
 ## 许可证
 
@@ -540,7 +560,6 @@ func main() {
 
 *If any problem occurs, please do not contact KISS.
 
-
 ```
 KISS 規約
 
@@ -572,7 +591,8 @@ KISS 規約
 
 # Disclaimer
 
-By downloading this software, you agree to read, accept and abide by this Disclaimer, this is a developer protection measure and we apologize for any inconvenience this may cause.
+By downloading this software, you agree to read, accept and abide by this Disclaimer, this is a developer protection
+measure and we apologize for any inconvenience this may cause.
 
 下载此软件即表示您已阅读且接受并同意遵守此免责声明，这是为了保护开发人员而采取的措施，对于由此造成的不便，我们深表歉意。
 
@@ -800,5 +820,6 @@ In case of any discrepancy between the translated versions, the Simplified Chine
 - [Golang](https://golang.org/)
 - [CM3D2.Serialization](https://github.com/luvoid/CM3D2.Serialization) (I got some file structure information from here)
 - [CM3D2.ToolKit](https://github.com/usagirei/CM3D2.Toolkit) by usagirei
-- [CM3D2.ToolKit](https://github.com/JustAGuest4168/CM3D2.Toolkit) by JustAGuest4168 (I got .arc and .nei file structure information from here)
+- [CM3D2.ToolKit](https://github.com/JustAGuest4168/CM3D2.Toolkit) by JustAGuest4168 (I got .arc and .nei file structure
+  information from here)
 - [ImageMagick](https://imagemagick.org/) by ImageMagick Studio LLC

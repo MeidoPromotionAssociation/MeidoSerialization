@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
 // CM3D2_ANIM
@@ -54,7 +54,7 @@ func ReadAnm(r io.Reader) (*Anm, error) {
 	clip := &Anm{}
 
 	// 1. 读取签名字符串 "CM3D2_ANIM"
-	sig, err := utilities.ReadString(r)
+	sig, err := binaryio.ReadString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read anm signature failed: %w", err)
 	}
@@ -64,7 +64,7 @@ func ReadAnm(r io.Reader) (*Anm, error) {
 	clip.Signature = sig
 
 	// 2. 读取版本号 int32
-	ver, err := utilities.ReadInt32(r)
+	ver, err := binaryio.ReadInt32(r)
 	if err != nil {
 		return nil, fmt.Errorf("read anm version failed: %w", err)
 	}
@@ -75,7 +75,7 @@ func ReadAnm(r io.Reader) (*Anm, error) {
 
 	// 3. 循环读取，直到 b == 0
 	for {
-		b, err := utilities.ReadByte(r)
+		b, err := binaryio.ReadByte(r)
 		if err != nil {
 			return nil, fmt.Errorf("read chunk byte failed: %w", err)
 		}
@@ -88,7 +88,7 @@ func ReadAnm(r io.Reader) (*Anm, error) {
 		// 用一个字节标识不同数据块：1 表示“下一行是一个骨骼路径字符串”，>=100 表示“后一段是关键帧曲线数据”。
 		case b == 1:
 			// 读入新的骨骼路径
-			bonePath, err := utilities.ReadString(r)
+			bonePath, err := binaryio.ReadString(r)
 			if err != nil {
 				return nil, fmt.Errorf("read bone path failed: %w", err)
 			}
@@ -105,25 +105,25 @@ func ReadAnm(r io.Reader) (*Anm, error) {
 				return nil, fmt.Errorf("anm file invalid: got property curve data without bone path first")
 			}
 			// 读取关键帧数量
-			keyframeCount, err := utilities.ReadInt32(r)
+			keyframeCount, err := binaryio.ReadInt32(r)
 			if err != nil {
 				return nil, fmt.Errorf("read keyframeCount failed: %w", err)
 			}
 			kfs := make([]Keyframe, keyframeCount)
 			for i := 0; i < int(keyframeCount); i++ {
-				t, err := utilities.ReadFloat32(r)
+				t, err := binaryio.ReadFloat32(r)
 				if err != nil {
 					return nil, fmt.Errorf("read keyframe time failed: %w", err)
 				}
-				v, err := utilities.ReadFloat32(r)
+				v, err := binaryio.ReadFloat32(r)
 				if err != nil {
 					return nil, fmt.Errorf("read keyframe value failed: %w", err)
 				}
-				inT, err := utilities.ReadFloat32(r)
+				inT, err := binaryio.ReadFloat32(r)
 				if err != nil {
 					return nil, fmt.Errorf("read keyframe inTangent failed: %w", err)
 				}
-				outT, err := utilities.ReadFloat32(r)
+				outT, err := binaryio.ReadFloat32(r)
 				if err != nil {
 					return nil, fmt.Errorf("read keyframe outTangent failed: %w", err)
 				}
@@ -151,12 +151,12 @@ func ReadAnm(r io.Reader) (*Anm, error) {
 	// 4. 读取两个 byte，用来判断是否启用胸部动画
 	//    也有部分文件可能没有这两字节，如果动画不是全身骨骼角色就没有这个
 	//if clip.Version >= 1001 {
-	bustKeyL, err := utilities.ReadByte(r)
+	bustKeyL, err := binaryio.ReadByte(r)
 	if err != nil {
 		return clip, nil
 		//return nil, fmt.Errorf("read useBustKeyL failed: %w", err)
 	}
-	bustKeyR, err := utilities.ReadByte(r)
+	bustKeyR, err := binaryio.ReadByte(r)
 	if err != nil {
 		return clip, nil
 		//return nil, fmt.Errorf("read useBustKeyR failed: %w", err)
@@ -171,11 +171,11 @@ func ReadAnm(r io.Reader) (*Anm, error) {
 // Dump 将 Anm 结构写到 w 中，生成符合 CM3D2_ANIM 格式的二进制数据。
 func (a Anm) Dump(w io.Writer) error {
 	// 1. 写签名
-	if err := utilities.WriteString(w, a.Signature); err != nil {
+	if err := binaryio.WriteString(w, a.Signature); err != nil {
 		return fmt.Errorf("write anm signature failed: %w", err)
 	}
 	// 2. 写版本号
-	if err := utilities.WriteInt32(w, a.Version); err != nil {
+	if err := binaryio.WriteInt32(w, a.Version); err != nil {
 		return fmt.Errorf("write anm version failed: %w", err)
 	}
 
@@ -184,10 +184,10 @@ func (a Anm) Dump(w io.Writer) error {
 	//    然后对每条属性写 b=(100+index)，再写 keyframeCount，接着 N 个 keyframe
 	for _, boneData := range a.BoneCurves {
 		// 标记 byte=1，后跟骨骼路径
-		if err := utilities.WriteByte(w, 1); err != nil {
+		if err := binaryio.WriteByte(w, 1); err != nil {
 			return fmt.Errorf("write boneData mark failed: %w", err)
 		}
-		if err := utilities.WriteString(w, boneData.BonePath); err != nil {
+		if err := binaryio.WriteString(w, boneData.BonePath); err != nil {
 			return fmt.Errorf("write bone path failed: %w", err)
 		}
 
@@ -196,26 +196,26 @@ func (a Anm) Dump(w io.Writer) error {
 			// 属性标记 = 100 + PropertyIndex
 			// PropertyIndex 含义参考顶部枚举
 			b := byte(100 + pc.PropertyIndex)
-			if err := utilities.WriteByte(w, b); err != nil {
+			if err := binaryio.WriteByte(w, b); err != nil {
 				return fmt.Errorf("write property mark failed: %w", err)
 			}
 			// keyframe 数量
 			kfCount := int32(len(pc.Keyframes))
-			if err := utilities.WriteInt32(w, kfCount); err != nil {
+			if err := binaryio.WriteInt32(w, kfCount); err != nil {
 				return fmt.Errorf("write keyframeCount failed: %w", err)
 			}
 			// 写每个关键帧
 			for _, kf := range pc.Keyframes {
-				if err := utilities.WriteFloat32(w, kf.Time); err != nil {
+				if err := binaryio.WriteFloat32(w, kf.Time); err != nil {
 					return fmt.Errorf("write keyframe time failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, kf.Value); err != nil {
+				if err := binaryio.WriteFloat32(w, kf.Value); err != nil {
 					return fmt.Errorf("write keyframe value failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, kf.InTangent); err != nil {
+				if err := binaryio.WriteFloat32(w, kf.InTangent); err != nil {
 					return fmt.Errorf("write keyframe inTangent failed: %w", err)
 				}
-				if err := utilities.WriteFloat32(w, kf.OutTangent); err != nil {
+				if err := binaryio.WriteFloat32(w, kf.OutTangent); err != nil {
 					return fmt.Errorf("write keyframe outTangent failed: %w", err)
 				}
 			}
@@ -223,7 +223,7 @@ func (a Anm) Dump(w io.Writer) error {
 	}
 
 	// 4. 写一个 0 标记骨骼曲线段结束
-	if err := utilities.WriteByte(w, 0); err != nil {
+	if err := binaryio.WriteByte(w, 0); err != nil {
 		return fmt.Errorf("write end-of-bonedata mark failed: %w", err)
 	}
 
@@ -240,10 +240,10 @@ func (a Anm) Dump(w io.Writer) error {
 		} else {
 			bustR = 0
 		}
-		if err := utilities.WriteByte(w, bustL); err != nil {
+		if err := binaryio.WriteByte(w, bustL); err != nil {
 			return fmt.Errorf("write bustKeyL failed: %w", err)
 		}
-		if err := utilities.WriteByte(w, bustR); err != nil {
+		if err := binaryio.WriteByte(w, bustR); err != nil {
 			return fmt.Errorf("write bustKeyR failed: %w", err)
 		}
 	}
