@@ -25,7 +25,7 @@ currently supports CM3D2 and COM3D2 game file formats.
 
 ## Supported File Types
 
-Current Game Version COM3D2 v2.44.5 & COM3D2.5 v3.44.5
+Current Game Version COM3D2 v2.46.1 & COM3D2.5 v3.46.1
 
 | Extension | Description           | Version Support    | Note                                                                                                                                                                              |
 |-----------|-----------------------|--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -220,19 +220,19 @@ If you encounter errors when working with texture (.tex) files:
 
 - __New fields__: Version 1011 adds a `Rects` (texture atlas) array to the binary structure. Its elements are four
   `float32` values: `x, y, w, h`, representing rectangles in normalized UV space.
-- __When converting an image to `.tex`:
-- If a `.uv.csv` file with the same name exists in the same directory (e.g., `foo.png.uv.csv`), the rectangles in it
-  will be read and the 1011 version of the tex file will be generated.
-- If no `.uv.csv` file exists, the 1010 version (without `Rects`) will be generated.
+	- __When converting an image to `.tex`:
+	- If a `.uv.csv` file with the same name exists in the same directory (e.g., `foo.png.uv.csv`), the rectangles in it
+	  will be read and the 1011 version of the tex file will be generated.
+	- If no `.uv.csv` file exists, the 1010 version (without `Rects`) will be generated.
 - __When converting `.tex` to an image__:
-- If the source `.tex` is 1011 and contains `Rects`, a `.uv.csv` file with the same name will be generated next to the
-  output image (e.g., `output.png.uv.csv`).
+	- If the source `.tex` is 1011 and contains `Rects`, a `.uv.csv` file with the same name will be generated next to the
+	  output image (e.g., `output.png.uv.csv`).
 - __.uv.csv format__:
-- Encoding must be: UTF-8 with BOM.
-- Delimiter: English comma `,`.
-- Number of columns: 4 columns per row, in the order `x, y, w, h` (x, y, width, height); values ​​are typically in the
-  range `[0, 1]` (normalized UVs). It is recommended to retain up to 6 decimal places and use `float32` precision.
-  Example:
+	- Encoding must be: UTF-8 with BOM.
+	- Delimiter: English comma `,`.
+	- Number of columns: 4 columns per row, in the order `x, y, w, h` (x, y, width, height); values ​​are typically in the
+	  range `[0, 1]` (normalized UVs). It is recommended to retain up to 6 decimal places and use `float32` precision.
+	  Example:
 
 ```csv
 x,y,w,h
@@ -303,7 +303,7 @@ MeidoSerialization 是一个用 Golang 编写的序列化库，专为处理 KISS
 
 ## 支持的文件类型
 
-当前游戏版本 COM3D2 v2.44.5 和 COM3D2.5 v3.44.5
+当前游戏版本 COM3D2 v2.46.1 和 COM3D2.5 v3.46.1
 
 | 扩展名     | 描述        | 版本支持         | 备注                                                                               |
 |---------|-----------|--------------|----------------------------------------------------------------------------------|
