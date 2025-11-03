@@ -253,7 +253,7 @@ characters.
 
 ### About CSV format
 
-All CSV files used in this program are encoded using UTF-8-BOM, separated by ',', and follow
+All CSV files used in this program are encoded using UTF-8-BOM, separated by `,`, and follow
 the [RFC4180](https://datatracker.ietf.org/doc/html/rfc4180) standard.
 
 ## License
@@ -520,8 +520,7 @@ x,y,w,h
 
 ### 关于 CSV 格式
 
-本程序中使用的所有 CSV 文件均采用 UTF-8-BOM 编码，以 ','
-分隔，并遵循 [RFC4180](https://datatracker.ietf.org/doc/html/rfc4180) 标准。
+本程序中使用的所有 CSV 文件均采用 UTF-8-BOM 编码，以 `,` 分隔，并遵循 [RFC4180](https://datatracker.ietf.org/doc/html/rfc4180) 标准。
 
 ## 许可证
 
