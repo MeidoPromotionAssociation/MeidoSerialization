@@ -61,6 +61,21 @@ func (s *NeiService) NeiToCSV(neiData *COM3D2.Nei) (csvDate [][]string, err erro
 	return neiData.Data, nil
 }
 
+// NeiToCSVFile 将 Nei 结构体转换为 CSV 文件
+func (s *NeiService) NeiToCSVFile(neiData *COM3D2.Nei, outputPath string) error {
+	csvFile, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to create CSV file: %w", err)
+	}
+	defer csvFile.Close()
+
+	if err := tools.WriteCSVWithUTF8BOM(csvFile, neiData.Data); err != nil {
+		return fmt.Errorf("failed to write CSV file: %w", err)
+	}
+
+	return nil
+}
+
 // NeiFileToCSVFile 将 Nei 文件转换为 CSV 文件
 func (s *NeiService) NeiFileToCSVFile(inputPath string, outputPath string) error {
 	csvData, err := s.NeiFileToCSV(inputPath)
