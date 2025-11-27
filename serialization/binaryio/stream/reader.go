@@ -10,13 +10,13 @@ import (
 
 // BinaryReader 提供从流中读取基本类型的功能
 type BinaryReader struct {
-	r      io.Reader
+	R      io.Reader
 	buffer [64]byte // 用于读取基本类型的临时缓冲区
 }
 
 // NewBinaryReader 创建一个新的 BinaryReader
 func NewBinaryReader(r io.Reader) *BinaryReader {
-	return &BinaryReader{r: r}
+	return &BinaryReader{R: r}
 }
 
 // ReadBool 读取布尔值
@@ -30,7 +30,7 @@ func (br *BinaryReader) ReadBool() (bool, error) {
 
 // ReadByte 读取单个字节
 func (br *BinaryReader) ReadByte() (byte, error) {
-	_, err := io.ReadFull(br.r, br.buffer[:1])
+	_, err := io.ReadFull(br.R, br.buffer[:1])
 	if err != nil {
 		return 0, err
 	}
@@ -45,7 +45,7 @@ func (br *BinaryReader) ReadSByte() (int8, error) {
 
 // ReadInt16 读取 2 字节有符号整数 (little-endian)
 func (br *BinaryReader) ReadInt16() (int16, error) {
-	_, err := io.ReadFull(br.r, br.buffer[:2])
+	_, err := io.ReadFull(br.R, br.buffer[:2])
 	if err != nil {
 		return 0, err
 	}
@@ -54,7 +54,7 @@ func (br *BinaryReader) ReadInt16() (int16, error) {
 
 // ReadUInt16 读取 2 字节无符号整数 (little-endian)
 func (br *BinaryReader) ReadUInt16() (uint16, error) {
-	_, err := io.ReadFull(br.r, br.buffer[:2])
+	_, err := io.ReadFull(br.R, br.buffer[:2])
 	if err != nil {
 		return 0, err
 	}
@@ -63,7 +63,7 @@ func (br *BinaryReader) ReadUInt16() (uint16, error) {
 
 // ReadInt32 读取 4 字节有符号整数 (little-endian)
 func (br *BinaryReader) ReadInt32() (int32, error) {
-	_, err := io.ReadFull(br.r, br.buffer[:4])
+	_, err := io.ReadFull(br.R, br.buffer[:4])
 	if err != nil {
 		return 0, err
 	}
@@ -72,7 +72,7 @@ func (br *BinaryReader) ReadInt32() (int32, error) {
 
 // ReadUInt32 读取 4 字节无符号整数 (little-endian)
 func (br *BinaryReader) ReadUInt32() (uint32, error) {
-	_, err := io.ReadFull(br.r, br.buffer[:4])
+	_, err := io.ReadFull(br.R, br.buffer[:4])
 	if err != nil {
 		return 0, err
 	}
@@ -81,7 +81,7 @@ func (br *BinaryReader) ReadUInt32() (uint32, error) {
 
 // ReadInt64 读取 8 字节有符号整数 (little-endian)
 func (br *BinaryReader) ReadInt64() (int64, error) {
-	_, err := io.ReadFull(br.r, br.buffer[:8])
+	_, err := io.ReadFull(br.R, br.buffer[:8])
 	if err != nil {
 		return 0, err
 	}
@@ -90,7 +90,7 @@ func (br *BinaryReader) ReadInt64() (int64, error) {
 
 // ReadUInt64 读取 8 字节无符号整数 (little-endian)
 func (br *BinaryReader) ReadUInt64() (uint64, error) {
-	_, err := io.ReadFull(br.r, br.buffer[:8])
+	_, err := io.ReadFull(br.R, br.buffer[:8])
 	if err != nil {
 		return 0, err
 	}
@@ -99,7 +99,7 @@ func (br *BinaryReader) ReadUInt64() (uint64, error) {
 
 // ReadFloat32 读取 4 字节浮点数 (little-endian)
 func (br *BinaryReader) ReadFloat32() (float32, error) {
-	_, err := io.ReadFull(br.r, br.buffer[:4])
+	_, err := io.ReadFull(br.R, br.buffer[:4])
 	if err != nil {
 		return 0, err
 	}
@@ -109,7 +109,7 @@ func (br *BinaryReader) ReadFloat32() (float32, error) {
 
 // ReadFloat64 读取 8 字节浮点数 (little-endian)
 func (br *BinaryReader) ReadFloat64() (float64, error) {
-	_, err := io.ReadFull(br.r, br.buffer[:8])
+	_, err := io.ReadFull(br.R, br.buffer[:8])
 	if err != nil {
 		return 0, err
 	}
@@ -135,7 +135,7 @@ func (br *BinaryReader) ReadString() (string, error) {
 
 	// 读取字符串字节
 	buf := make([]byte, length)
-	_, err = io.ReadFull(br.r, buf)
+	_, err = io.ReadFull(br.R, buf)
 	if err != nil {
 		return "", err
 	}
@@ -180,7 +180,7 @@ func (br *BinaryReader) ReadBytes(count int) ([]byte, error) {
 	}
 
 	buf := make([]byte, count)
-	_, err := io.ReadFull(br.r, buf)
+	_, err := io.ReadFull(br.R, buf)
 	return buf, err
 }
 
@@ -189,7 +189,7 @@ func (br *BinaryReader) ReadBytes(count int) ([]byte, error) {
 // ReadFloat2 读取 2 个连续的 float32 (Vector2)
 func (br *BinaryReader) ReadFloat2() ([2]float32, error) {
 	var arr [2]float32
-	_, err := io.ReadFull(br.r, br.buffer[:8])
+	_, err := io.ReadFull(br.R, br.buffer[:8])
 	if err != nil {
 		return arr, err
 	}
@@ -201,7 +201,7 @@ func (br *BinaryReader) ReadFloat2() ([2]float32, error) {
 // ReadFloat3 读取 3 个连续的 float32 (Vector3)
 func (br *BinaryReader) ReadFloat3() ([3]float32, error) {
 	var arr [3]float32
-	_, err := io.ReadFull(br.r, br.buffer[:12])
+	_, err := io.ReadFull(br.R, br.buffer[:12])
 	if err != nil {
 		return arr, err
 	}
@@ -214,7 +214,7 @@ func (br *BinaryReader) ReadFloat3() ([3]float32, error) {
 // ReadFloat4 读取 4 个连续的 float32 (Vector4/Quaternion)
 func (br *BinaryReader) ReadFloat4() ([4]float32, error) {
 	var arr [4]float32
-	_, err := io.ReadFull(br.r, br.buffer[:16])
+	_, err := io.ReadFull(br.R, br.buffer[:16])
 	if err != nil {
 		return arr, err
 	}
@@ -228,7 +228,7 @@ func (br *BinaryReader) ReadFloat4() ([4]float32, error) {
 // ReadFloat4x4 读取 16 个连续的 float32 (4x4 Matrix)
 func (br *BinaryReader) ReadFloat4x4() ([16]float32, error) {
 	var arr [16]float32
-	_, err := io.ReadFull(br.r, br.buffer[:64])
+	_, err := io.ReadFull(br.R, br.buffer[:64])
 	if err != nil {
 		return arr, err
 	}
@@ -244,7 +244,7 @@ func (br *BinaryReader) ReadFloat4x4() ([16]float32, error) {
 // 如果底层 reader 不支持 Peek，会自动包装为 bufio.Reader
 func (br *BinaryReader) PeekByte() (byte, error) {
 	// 检查是否已经支持 Peek
-	if peeker, ok := br.r.(interface{ Peek(int) ([]byte, error) }); ok {
+	if peeker, ok := br.R.(interface{ Peek(int) ([]byte, error) }); ok {
 		bytes, err := peeker.Peek(1)
 		if err != nil {
 			return 0, err
@@ -253,11 +253,11 @@ func (br *BinaryReader) PeekByte() (byte, error) {
 	}
 
 	// 如果不支持，尝试将其包装为 bufio.Reader
-	if _, ok := br.r.(*bufio.Reader); !ok {
-		br.r = bufio.NewReader(br.r)
+	if _, ok := br.R.(*bufio.Reader); !ok {
+		br.R = bufio.NewReader(br.R)
 	}
 
-	if peeker, ok := br.r.(interface{ Peek(int) ([]byte, error) }); ok {
+	if peeker, ok := br.R.(interface{ Peek(int) ([]byte, error) }); ok {
 		bytes, err := peeker.Peek(1)
 		if err != nil {
 			return 0, err
@@ -271,7 +271,7 @@ func (br *BinaryReader) PeekByte() (byte, error) {
 // PeekString 偷看下一个字符串（7-bit 长度前缀 + UTF-8），不消耗数据
 // 要求底层 reader 实现 io.ReadSeeker 接口
 func (br *BinaryReader) PeekString() (string, error) {
-	seeker, ok := br.r.(io.ReadSeeker)
+	seeker, ok := br.R.(io.ReadSeeker)
 	if !ok {
 		return "", errors.New("PeekString: reader does not support Seek")
 	}

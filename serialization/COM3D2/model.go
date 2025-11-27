@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
 )
 
@@ -167,11 +167,12 @@ const (
 // ReadModel 从 r 中读取皮肤网格数据
 func ReadModel(r io.Reader) (*Model, error) {
 	model := &Model{}
+	reader := stream.NewBinaryReader(r)
 
 	// 读取文件头
 	var err error
 	// 读取签名
-	model.Signature, err = binaryio.ReadString(r)
+	model.Signature, err = reader.ReadString()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read signature: %w", err)
 	}
@@ -180,32 +181,32 @@ func ReadModel(r io.Reader) (*Model, error) {
 	//}
 
 	// 读取版本号
-	model.Version, err = binaryio.ReadInt32(r)
+	model.Version, err = reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read version: %w", err)
 	}
 
 	// 读取模型名称
-	model.Name, err = binaryio.ReadString(r)
+	model.Name, err = reader.ReadString()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read name: %w", err)
 	}
 
 	// 读取根骨骼名称
-	model.RootBoneName, err = binaryio.ReadString(r)
+	model.RootBoneName, err = reader.ReadString()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read root bone name: %w", err)
 	}
 
 	// 读取骨骼数量
-	boneCount, err := binaryio.ReadInt32(r)
+	boneCount, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read bone count: %w", err)
 	}
 
 	// 读取阴影投射方式
 	if model.Version >= 2104 && model.Version < 2200 {
-		shadowCastingMode, err := binaryio.ReadString(r)
+		shadowCastingMode, err := reader.ReadString()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read shadow casting mode: %w", err)
 		}
@@ -216,12 +217,12 @@ func ReadModel(r io.Reader) (*Model, error) {
 	for i := int32(0); i < boneCount; i++ {
 		bone := &Bone{}
 
-		bone.Name, err = binaryio.ReadString(r)
+		bone.Name, err = reader.ReadString()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone name: %w", err)
 		}
 
-		hasScale, err := binaryio.ReadByte(r)
+		hasScale, err := reader.ReadByte()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone scaling flags: %w", err)
 		}
@@ -232,7 +233,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 
 	// 读取骨骼父子关系
 	for i := int32(0); i < boneCount; i++ {
-		parentIndex, err := binaryio.ReadInt32(r)
+		parentIndex, err := reader.ReadInt32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone parent index: %w", err)
 		}
@@ -244,34 +245,34 @@ func ReadModel(r io.Reader) (*Model, error) {
 		bone := model.Bones[i]
 
 		// 位置
-		x, err := binaryio.ReadFloat32(r)
+		x, err := reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone position X: %w", err)
 		}
-		y, err := binaryio.ReadFloat32(r)
+		y, err := reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone position Y: %w", err)
 		}
-		z, err := binaryio.ReadFloat32(r)
+		z, err := reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone position Z: %w", err)
 		}
 		bone.Position = Vector3{X: x, Y: y, Z: z}
 
 		// 旋转
-		x, err = binaryio.ReadFloat32(r)
+		x, err = reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone rotation X: %w", err)
 		}
-		y, err = binaryio.ReadFloat32(r)
+		y, err = reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone rotation Y: %w", err)
 		}
-		z, err = binaryio.ReadFloat32(r)
+		z, err = reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone rotation Z: %w", err)
 		}
-		w, err := binaryio.ReadFloat32(r)
+		w, err := reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone rotation W: %w", err)
 		}
@@ -279,21 +280,21 @@ func ReadModel(r io.Reader) (*Model, error) {
 
 		// 如果版本大于等于2001且有缩放
 		if model.Version >= 2001 {
-			hasScale, err := binaryio.ReadBool(r)
+			hasScale, err := reader.ReadBool()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read bone scaling flags: %w", err)
 			}
 
 			if hasScale {
-				x, err := binaryio.ReadFloat32(r) // 读取缩放X
+				x, err := reader.ReadFloat32() // 读取缩放X
 				if err != nil {
 					return nil, fmt.Errorf("failed to read bone scale X: %w", err)
 				}
-				y, err := binaryio.ReadFloat32(r)
+				y, err := reader.ReadFloat32()
 				if err != nil {
 					return nil, fmt.Errorf("failed to read bone scale Y: %w", err)
 				}
-				z, err := binaryio.ReadFloat32(r)
+				z, err := reader.ReadFloat32()
 				if err != nil {
 					return nil, fmt.Errorf("failed to read bone scale Z: %w", err)
 				}
@@ -303,17 +304,17 @@ func ReadModel(r io.Reader) (*Model, error) {
 	}
 
 	// 读取网格基本信息
-	model.VertCount, err = binaryio.ReadInt32(r)
+	model.VertCount, err = reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the number of vertices: %w", err)
 	}
 
-	model.SubMeshCount, err = binaryio.ReadInt32(r)
+	model.SubMeshCount, err = reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the number of subgrids: %w", err)
 	}
 
-	model.BoneCount, err = binaryio.ReadInt32(r)
+	model.BoneCount, err = reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the number of bones: %w", err)
 	}
@@ -321,7 +322,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 	// 读取骨骼名称
 	boneNames := make([]string, model.BoneCount)
 	for i := int32(0); i < model.BoneCount; i++ {
-		boneName, err := binaryio.ReadString(r)
+		boneName, err := reader.ReadString()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone name (at bone index): %w", err)
 		}
@@ -332,7 +333,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 	// 读取骨骼绑定姿势
 	bindPoses := make([]Matrix4x4, model.BoneCount)
 	for i := int32(0); i < model.BoneCount; i++ {
-		matrix, err := binaryio.ReadFloat4x4(r)
+		matrix, err := reader.ReadFloat4x4()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read the armature binding pose: %w", err)
 		}
@@ -350,37 +351,37 @@ func ReadModel(r io.Reader) (*Model, error) {
 	hasUnknownFlag4 := false
 
 	if model.Version >= 2101 {
-		hasUV2, err = binaryio.ReadBool(r)
+		hasUV2, err = reader.ReadBool()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read UV2 flag: %w", err)
 		}
 
-		hasUV3, err = binaryio.ReadBool(r)
+		hasUV3, err = reader.ReadBool()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read UV3 flag: %w", err)
 		}
 
-		hasUV4, err = binaryio.ReadBool(r)
+		hasUV4, err = reader.ReadBool()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read UV4 flag: %w", err)
 		}
 
-		hasUnknownFlag1, err = binaryio.ReadBool(r)
+		hasUnknownFlag1, err = reader.ReadBool()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read unknown flag 1: %w", err)
 		}
 
-		hasUnknownFlag2, err = binaryio.ReadBool(r)
+		hasUnknownFlag2, err = reader.ReadBool()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read unknown flag 2: %w", err)
 		}
 
-		hasUnknownFlag3, err = binaryio.ReadBool(r)
+		hasUnknownFlag3, err = reader.ReadBool()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read unknown flag 3: %w", err)
 		}
 
-		hasUnknownFlag4, err = binaryio.ReadBool(r)
+		hasUnknownFlag4, err = reader.ReadBool()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read unknown flag 4: %w", err)
 		}
@@ -390,52 +391,52 @@ func ReadModel(r io.Reader) (*Model, error) {
 	model.Vertices = make([]Vertex, model.VertCount)
 	for i := int32(0); i < model.VertCount; i++ {
 		// 顶点位置
-		x, err := binaryio.ReadFloat32(r)
+		x, err := reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read vertex position X: %w", err)
 		}
-		y, err := binaryio.ReadFloat32(r)
+		y, err := reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read vertex position Y: %w", err)
 		}
-		z, err := binaryio.ReadFloat32(r)
+		z, err := reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read vertex position Z: %w", err)
 		}
 		model.Vertices[i].Position = Vector3{X: x, Y: y, Z: z}
 
 		// 法线
-		x, err = binaryio.ReadFloat32(r)
+		x, err = reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read vertex normal X: %w", err)
 		}
-		y, err = binaryio.ReadFloat32(r)
+		y, err = reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read vertex normal Y: %w", err)
 		}
-		z, err = binaryio.ReadFloat32(r)
+		z, err = reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read vertex normal Z: %w", err)
 		}
 		model.Vertices[i].Normal = Vector3{X: x, Y: y, Z: z}
 
 		// UV 坐标
-		uvX, err := binaryio.ReadFloat32(r)
+		uvX, err := reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read vertex UV coordinate X: %w", err)
 		}
-		uvY, err := binaryio.ReadFloat32(r)
+		uvY, err := reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read vertex UV coordinate Y: %w", err)
 		}
 		model.Vertices[i].UV = Vector2{X: uvX, Y: uvY}
 
 		if hasUV2 {
-			uv2X, err := binaryio.ReadFloat32(r)
+			uv2X, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read vertex UV2 coordinate X: %w", err)
 			}
-			uv2Y, err := binaryio.ReadFloat32(r)
+			uv2Y, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read vertex UV2 coordinate Y: %w", err)
 			}
@@ -443,11 +444,11 @@ func ReadModel(r io.Reader) (*Model, error) {
 		}
 
 		if hasUV3 {
-			uv3X, err := binaryio.ReadFloat32(r)
+			uv3X, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read vertex UV3 coordinate X: %w", err)
 			}
-			uv3Y, err := binaryio.ReadFloat32(r)
+			uv3Y, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read vertex UV3 coordinate Y: %w", err)
 			}
@@ -455,11 +456,11 @@ func ReadModel(r io.Reader) (*Model, error) {
 		}
 
 		if hasUV4 {
-			uv4X, err := binaryio.ReadFloat32(r)
+			uv4X, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read vertex UV4 coordinate X: %w", err)
 			}
-			uv4Y, err := binaryio.ReadFloat32(r)
+			uv4Y, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read vertex UV4 coordinate Y: %w", err)
 			}
@@ -468,11 +469,11 @@ func ReadModel(r io.Reader) (*Model, error) {
 
 		// 读取未知标志位对应的数据
 		if hasUnknownFlag1 {
-			unknownX1, err := binaryio.ReadFloat32(r)
+			unknownX1, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read unknown flag 1 data X: %w", err)
 			}
-			unknownY1, err := binaryio.ReadFloat32(r)
+			unknownY1, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read unknown flag 1 data Y: %w", err)
 			}
@@ -480,11 +481,11 @@ func ReadModel(r io.Reader) (*Model, error) {
 		}
 
 		if hasUnknownFlag2 {
-			unknownX2, err := binaryio.ReadFloat32(r)
+			unknownX2, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read unknown flag 2 data X: %w", err)
 			}
-			unknownY2, err := binaryio.ReadFloat32(r)
+			unknownY2, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read unknown flag 2 data Y: %w", err)
 			}
@@ -492,11 +493,11 @@ func ReadModel(r io.Reader) (*Model, error) {
 		}
 
 		if hasUnknownFlag3 {
-			unknownX3, err := binaryio.ReadFloat32(r)
+			unknownX3, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read unknown flag 3 data X: %w", err)
 			}
-			unknownY3, err := binaryio.ReadFloat32(r)
+			unknownY3, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read unknown flag 3 data Y: %w", err)
 			}
@@ -504,11 +505,11 @@ func ReadModel(r io.Reader) (*Model, error) {
 		}
 
 		if hasUnknownFlag4 {
-			unknownX4, err := binaryio.ReadFloat32(r)
+			unknownX4, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read unknown flag 4 data X: %w", err)
 			}
-			unknownY4, err := binaryio.ReadFloat32(r)
+			unknownY4, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read unknown flag 4 data Y: %w", err)
 			}
@@ -517,7 +518,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 	}
 
 	// 读取切线数据
-	tangentCount, err := binaryio.ReadInt32(r)
+	tangentCount, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the number of tangents: %w", err)
 	}
@@ -525,19 +526,19 @@ func ReadModel(r io.Reader) (*Model, error) {
 	if tangentCount > 0 {
 		model.Tangents = make([]Quaternion, tangentCount)
 		for i := int32(0); i < tangentCount; i++ {
-			x, err := binaryio.ReadFloat32(r)
+			x, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read tangent X: %w", err)
 			}
-			y, err := binaryio.ReadFloat32(r)
+			y, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read tangent Y: %w", err)
 			}
-			z, err := binaryio.ReadFloat32(r)
+			z, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read tangent Z: %w", err)
 			}
-			w, err := binaryio.ReadFloat32(r)
+			w, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read tangent W: %w", err)
 			}
@@ -550,42 +551,42 @@ func ReadModel(r io.Reader) (*Model, error) {
 	for i := int32(0); i < model.VertCount; i++ {
 		bw := &model.BoneWeights[i]
 
-		bw.BoneIndex0, err = binaryio.ReadUInt16(r)
+		bw.BoneIndex0, err = reader.ReadUInt16()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone weight index 0: %w", err)
 		}
 
-		bw.BoneIndex1, err = binaryio.ReadUInt16(r)
+		bw.BoneIndex1, err = reader.ReadUInt16()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone weight index 1: %w", err)
 		}
 
-		bw.BoneIndex2, err = binaryio.ReadUInt16(r)
+		bw.BoneIndex2, err = reader.ReadUInt16()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone weight index 2: %w", err)
 		}
 
-		bw.BoneIndex3, err = binaryio.ReadUInt16(r)
+		bw.BoneIndex3, err = reader.ReadUInt16()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone weight index 3: %w", err)
 		}
 
-		bw.Weight0, err = binaryio.ReadFloat32(r)
+		bw.Weight0, err = reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone weight 0: %w", err)
 		}
 
-		bw.Weight1, err = binaryio.ReadFloat32(r)
+		bw.Weight1, err = reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone weight 1: %w", err)
 		}
 
-		bw.Weight2, err = binaryio.ReadFloat32(r)
+		bw.Weight2, err = reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone weight 2: %w", err)
 		}
 
-		bw.Weight3, err = binaryio.ReadFloat32(r)
+		bw.Weight3, err = reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone weight 3: %w", err)
 		}
@@ -594,14 +595,14 @@ func ReadModel(r io.Reader) (*Model, error) {
 	// 读取子网格数据
 	model.SubMeshes = make([][]int32, model.SubMeshCount)
 	for i := int32(0); i < model.SubMeshCount; i++ {
-		triCount, err := binaryio.ReadInt32(r)
+		triCount, err := reader.ReadInt32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read submesh triangle count: %w", err)
 		}
 
 		triangles := make([]int32, triCount)
 		for j := int32(0); j < triCount; j++ {
-			index, err := binaryio.ReadUInt16(r)
+			index, err := reader.ReadUInt16()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read submesh triangle index: %w", err)
 			}
@@ -611,7 +612,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 	}
 
 	// 读取材质数据
-	materialCount, err := binaryio.ReadInt32(r)
+	materialCount, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the number of materials: %w", err)
 	}
@@ -625,7 +626,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 
 	// 读取形态数据数据
 	for {
-		tag, err := binaryio.ReadString(r)
+		tag, err := reader.ReadString()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read tag: %w", err)
 		}
@@ -635,7 +636,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 		}
 
 		if tag == "morph" {
-			morphData, err := ReadMorphData(r, model.Version)
+			morphData, err := ReadMorphData(reader, model.Version)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read morph data: %w", err)
 			}
@@ -645,7 +646,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 
 	// 检查版本号，读取SkinThickness
 	if model.Version >= 2100 {
-		hasSkinThickness, err := binaryio.ReadInt32(r)
+		hasSkinThickness, err := reader.ReadInt32()
 		if err != nil {
 			// 这可能是文件结束，不返回错误
 			if err == io.EOF {
@@ -655,7 +656,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 		}
 
 		if hasSkinThickness != 0 {
-			model.SkinThickness, err = ReadSkinThickness(r)
+			model.SkinThickness, err = ReadSkinThickness(reader)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read skin thickness: %w", err)
 			}
@@ -666,16 +667,16 @@ func ReadModel(r io.Reader) (*Model, error) {
 }
 
 // ReadMorphData 从r中读取形态数据
-func ReadMorphData(r io.Reader, version int32) (*MorphData, error) {
+func ReadMorphData(reader *stream.BinaryReader, version int32) (*MorphData, error) {
 	md := &MorphData{}
 	var err error
 
-	md.Name, err = binaryio.ReadString(r)
+	md.Name, err = reader.ReadString()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the morph name: %w", err)
 	}
 
-	vertCount, err := binaryio.ReadInt32(r)
+	vertCount, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the number of morph vertices: %w", err)
 	}
@@ -687,7 +688,7 @@ func ReadMorphData(r io.Reader, version int32) (*MorphData, error) {
 	// 2102 版本支持
 	hasTangents := false
 	if version >= 2102 {
-		hasTangents, err = binaryio.ReadBool(r)
+		hasTangents, err = reader.ReadBool()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read has tangents flag: %w", err)
 		}
@@ -698,37 +699,37 @@ func ReadMorphData(r io.Reader, version int32) (*MorphData, error) {
 	}
 
 	for i := int32(0); i < vertCount; i++ {
-		index, err := binaryio.ReadUInt16(r)
+		index, err := reader.ReadUInt16()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read the morph vertex index.: %w", err)
 		}
 		md.Indices[i] = int(index)
 
 		// 读取顶点位移
-		x, err := binaryio.ReadFloat32(r)
+		x, err := reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read morph vertex displacement X: %w", err)
 		}
-		y, err := binaryio.ReadFloat32(r)
+		y, err := reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read morph vertex displacement Y: %w", err)
 		}
-		z, err := binaryio.ReadFloat32(r)
+		z, err := reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read morph vertex displacement Z: %w", err)
 		}
 		md.Vertex[i] = Vector3{X: x, Y: y, Z: z}
 
 		// 读取法线位移
-		x, err = binaryio.ReadFloat32(r)
+		x, err = reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read the morph normal displacement X: %w", err)
 		}
-		y, err = binaryio.ReadFloat32(r)
+		y, err = reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read the morph normal displacement Y: %w", err)
 		}
-		z, err = binaryio.ReadFloat32(r)
+		z, err = reader.ReadFloat32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read the morph normal displacement Z: %w", err)
 		}
@@ -736,19 +737,19 @@ func ReadMorphData(r io.Reader, version int32) (*MorphData, error) {
 
 		// 如果有切线数据，读取切线
 		if hasTangents {
-			x, err := binaryio.ReadFloat32(r)
+			x, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read morph tangent X: %w", err)
 			}
-			y, err := binaryio.ReadFloat32(r)
+			y, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read morph tangent Y: %w", err)
 			}
-			z, err := binaryio.ReadFloat32(r)
+			z, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read morph tangent Z: %w", err)
 			}
-			w, err := binaryio.ReadFloat32(r)
+			w, err := reader.ReadFloat32()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read morph tangent W: %w", err)
 			}
@@ -760,7 +761,7 @@ func ReadMorphData(r io.Reader, version int32) (*MorphData, error) {
 }
 
 // ReadSkinThickness 从r中读取皮肤厚度数据
-func ReadSkinThickness(r io.Reader) (*SkinThickness, error) {
+func ReadSkinThickness(reader *stream.BinaryReader) (*SkinThickness, error) {
 	skinThickness := &SkinThickness{
 		Groups: make(map[string]*ThickGroup),
 	}
@@ -768,7 +769,7 @@ func ReadSkinThickness(r io.Reader) (*SkinThickness, error) {
 	var err error
 
 	// 读取签名
-	skinThickness.Signature, err = binaryio.ReadString(r)
+	skinThickness.Signature, err = reader.ReadString()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read skin thickness signature: %w", err)
 	}
@@ -777,32 +778,32 @@ func ReadSkinThickness(r io.Reader) (*SkinThickness, error) {
 	//}
 
 	// 读取版本号
-	skinThickness.Version, err = binaryio.ReadInt32(r)
+	skinThickness.Version, err = reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read skin thickness version: %w", err)
 	}
 
 	// 读取使用标志
-	skinThickness.Use, err = binaryio.ReadBool(r)
+	skinThickness.Use, err = reader.ReadBool()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read skin thickness use flag: %w", err)
 	}
 
 	// 读取组数量
-	groupCount, err := binaryio.ReadInt32(r)
+	groupCount, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read skin thickness group count: %w", err)
 	}
 
 	// 读取每个组
 	for i := int32(0); i < groupCount; i++ {
-		key, err := binaryio.ReadString(r)
+		key, err := reader.ReadString()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read skin thickness group key: %w", err)
 		}
 
 		group := &ThickGroup{}
-		err = readThickGroup(r, group)
+		err = readThickGroup(reader, group)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read skin thickness group: %w", err)
 		}
@@ -814,35 +815,35 @@ func ReadSkinThickness(r io.Reader) (*SkinThickness, error) {
 }
 
 // readThickGroup 从r中读取皮肤厚度组数据
-func readThickGroup(r io.Reader, group *ThickGroup) error {
+func readThickGroup(reader *stream.BinaryReader, group *ThickGroup) error {
 	var err error
 
 	// 读取组名
-	group.GroupName, err = binaryio.ReadString(r)
+	group.GroupName, err = reader.ReadString()
 	if err != nil {
 		return fmt.Errorf("failed to read group name: %w", err)
 	}
 
 	// 读取起始骨骼名
-	group.StartBoneName, err = binaryio.ReadString(r)
+	group.StartBoneName, err = reader.ReadString()
 	if err != nil {
 		return fmt.Errorf("failed to read start bone name: %w", err)
 	}
 
 	// 读取结束骨骼名
-	group.EndBoneName, err = binaryio.ReadString(r)
+	group.EndBoneName, err = reader.ReadString()
 	if err != nil {
 		return fmt.Errorf("failed to read end bone name: %w", err)
 	}
 
 	// 读取角度步长
-	group.StepAngleDegree, err = binaryio.ReadInt32(r)
+	group.StepAngleDegree, err = reader.ReadInt32()
 	if err != nil {
 		return fmt.Errorf("failed to read step angle degree: %w", err)
 	}
 
 	// 读取点数量
-	pointCount, err := binaryio.ReadInt32(r)
+	pointCount, err := reader.ReadInt32()
 	if err != nil {
 		return fmt.Errorf("failed to read point count: %w", err)
 	}
@@ -851,7 +852,7 @@ func readThickGroup(r io.Reader, group *ThickGroup) error {
 	group.Points = make([]*ThickPoint, pointCount)
 	for i := int32(0); i < pointCount; i++ {
 		point := &ThickPoint{}
-		err = readThickPoint(r, point)
+		err = readThickPoint(reader, point)
 		if err != nil {
 			return fmt.Errorf("failed to read point: %w", err)
 		}
@@ -862,23 +863,23 @@ func readThickGroup(r io.Reader, group *ThickGroup) error {
 }
 
 // readThickPoint 从r中读取皮肤厚度点数据
-func readThickPoint(r io.Reader, point *ThickPoint) error {
+func readThickPoint(reader *stream.BinaryReader, point *ThickPoint) error {
 	var err error
 
 	// 读取目标骨骼名
-	point.TargetBoneName, err = binaryio.ReadString(r)
+	point.TargetBoneName, err = reader.ReadString()
 	if err != nil {
 		return fmt.Errorf("failed to read target bone name: %w", err)
 	}
 
 	// 读取起始到结束的比例
-	point.RatioSegmentStartToEnd, err = binaryio.ReadFloat32(r)
+	point.RatioSegmentStartToEnd, err = reader.ReadFloat32()
 	if err != nil {
 		return fmt.Errorf("failed to read ratio segment start to end: %w", err)
 	}
 
 	// 读取角度定义数量
-	angleDefCount, err := binaryio.ReadInt32(r)
+	angleDefCount, err := reader.ReadInt32()
 	if err != nil {
 		return fmt.Errorf("failed to read angle definition count: %w", err)
 	}
@@ -887,7 +888,7 @@ func readThickPoint(r io.Reader, point *ThickPoint) error {
 	point.DistanceParAngle = make([]*ThickDefPerAngle, angleDefCount)
 	for i := int32(0); i < angleDefCount; i++ {
 		angleDef := &ThickDefPerAngle{}
-		err = readThickDefPerAngle(r, angleDef)
+		err = readThickDefPerAngle(reader, angleDef)
 		if err != nil {
 			return fmt.Errorf("failed to read angle definition: %w", err)
 		}
@@ -898,23 +899,23 @@ func readThickPoint(r io.Reader, point *ThickPoint) error {
 }
 
 // readThickDefPerAngle 从r中读取每个角度的皮肤厚度定义
-func readThickDefPerAngle(r io.Reader, angleDef *ThickDefPerAngle) error {
+func readThickDefPerAngle(reader *stream.BinaryReader, angleDef *ThickDefPerAngle) error {
 	var err error
 
 	// 读取角度
-	angleDef.AngleDegree, err = binaryio.ReadInt32(r)
+	angleDef.AngleDegree, err = reader.ReadInt32()
 	if err != nil {
 		return fmt.Errorf("failed to read angle degree: %w", err)
 	}
 
 	// 读取顶点索引
-	angleDef.VertexIndex, err = binaryio.ReadInt32(r)
+	angleDef.VertexIndex, err = reader.ReadInt32()
 	if err != nil {
 		return fmt.Errorf("failed to read vertex index: %w", err)
 	}
 
 	// 读取默认距离
-	angleDef.DefaultDistance, err = binaryio.ReadFloat32(r)
+	angleDef.DefaultDistance, err = reader.ReadFloat32()
 	if err != nil {
 		return fmt.Errorf("failed to read default distance: %w", err)
 	}
@@ -922,30 +923,30 @@ func readThickDefPerAngle(r io.Reader, angleDef *ThickDefPerAngle) error {
 	return nil
 }
 
-func (m *Model) Dump(w io.Writer) error {
+func (m *Model) Dump(writer *stream.BinaryWriter) error {
 	// 写入文件头
 	// 写入签名
-	if err := binaryio.WriteString(w, m.Signature); err != nil {
+	if err := writer.WriteString(m.Signature); err != nil {
 		return fmt.Errorf("failed to write signature: %w", err)
 	}
 
 	// 写入版本号
-	if err := binaryio.WriteInt32(w, m.Version); err != nil {
+	if err := writer.WriteInt32(m.Version); err != nil {
 		return fmt.Errorf("failed to write version: %w", err)
 	}
 
 	// 写入模型名称
-	if err := binaryio.WriteString(w, m.Name); err != nil {
+	if err := writer.WriteString(m.Name); err != nil {
 		return fmt.Errorf("failed to write name: %w", err)
 	}
 
 	// 写入根骨骼名称
-	if err := binaryio.WriteString(w, m.RootBoneName); err != nil {
+	if err := writer.WriteString(m.RootBoneName); err != nil {
 		return fmt.Errorf("failed to write root bone name: %w", err)
 	}
 
 	// 写入骨骼数量
-	if err := binaryio.WriteInt32(w, int32(len(m.Bones))); err != nil {
+	if err := writer.WriteInt32(int32(len(m.Bones))); err != nil {
 		return fmt.Errorf("failed to write bone count: %w", err)
 	}
 
@@ -954,7 +955,7 @@ func (m *Model) Dump(w io.Writer) error {
 		if m.ShadowCastingMode == nil {
 			return fmt.Errorf("ShadowCastingMode is nil. ShadowCastingMode is required, when version >= 2104 and < 2200")
 		}
-		if err := binaryio.WriteString(w, *m.ShadowCastingMode); err != nil {
+		if err := writer.WriteString(*m.ShadowCastingMode); err != nil {
 			return fmt.Errorf("failed to write shadow casting mode: %w", err)
 		}
 	}
@@ -962,12 +963,12 @@ func (m *Model) Dump(w io.Writer) error {
 	// 写入骨骼数据
 	for _, bone := range m.Bones {
 		// 写入骨骼名称
-		if err := binaryio.WriteString(w, bone.Name); err != nil {
+		if err := writer.WriteString(bone.Name); err != nil {
 			return fmt.Errorf("failed to write bone name: %w", err)
 		}
 
 		// 写入骨骼缩放标志
-		if err := binaryio.WriteByte(w, utilities.BoolToByte(bone.HasScale)); err != nil {
+		if err := writer.WriteByte(utilities.BoolToByte(bone.HasScale)); err != nil {
 			return fmt.Errorf("failed to write bone scaling flags: %w", err)
 		}
 	}
@@ -975,7 +976,7 @@ func (m *Model) Dump(w io.Writer) error {
 	// 写入骨骼父子关系
 	for _, bone := range m.Bones {
 		// 写入父骨骼索引
-		if err := binaryio.WriteInt32(w, bone.ParentIndex); err != nil {
+		if err := writer.WriteInt32(bone.ParentIndex); err != nil {
 			return fmt.Errorf("failed to write bone parent index: %w", err)
 		}
 	}
@@ -983,45 +984,45 @@ func (m *Model) Dump(w io.Writer) error {
 	// 写入骨骼变换信息
 	for _, bone := range m.Bones {
 		// 写入位置
-		if err := binaryio.WriteFloat32(w, bone.Position.X); err != nil {
+		if err := writer.WriteFloat32(bone.Position.X); err != nil {
 			return fmt.Errorf("failed to write bone position X: %w", err)
 		}
-		if err := binaryio.WriteFloat32(w, bone.Position.Y); err != nil {
+		if err := writer.WriteFloat32(bone.Position.Y); err != nil {
 			return fmt.Errorf("failed to write bone position Y: %w", err)
 		}
-		if err := binaryio.WriteFloat32(w, bone.Position.Z); err != nil {
+		if err := writer.WriteFloat32(bone.Position.Z); err != nil {
 			return fmt.Errorf("failed to write bone position Z: %w", err)
 		}
 
 		// 写入旋转
-		if err := binaryio.WriteFloat32(w, bone.Rotation.X); err != nil {
+		if err := writer.WriteFloat32(bone.Rotation.X); err != nil {
 			return fmt.Errorf("failed to write bone rotation X: %w", err)
 		}
-		if err := binaryio.WriteFloat32(w, bone.Rotation.Y); err != nil {
+		if err := writer.WriteFloat32(bone.Rotation.Y); err != nil {
 			return fmt.Errorf("failed to write bone rotation Y: %w", err)
 		}
-		if err := binaryio.WriteFloat32(w, bone.Rotation.Z); err != nil {
+		if err := writer.WriteFloat32(bone.Rotation.Z); err != nil {
 			return fmt.Errorf("failed to write bone rotation Z: %w", err)
 		}
-		if err := binaryio.WriteFloat32(w, bone.Rotation.W); err != nil {
+		if err := writer.WriteFloat32(bone.Rotation.W); err != nil {
 			return fmt.Errorf("failed to write bone rotation W: %w", err)
 		}
 
 		// 如果版本大于等于2001，处理骨骼缩放
 		if m.Version >= 2001 {
 			hasScale := bone.Scale != nil
-			if err := binaryio.WriteBool(w, hasScale); err != nil {
+			if err := writer.WriteBool(hasScale); err != nil {
 				return fmt.Errorf("failed to write bone scaling flag: %w", err)
 			}
 
 			if hasScale {
-				if err := binaryio.WriteFloat32(w, bone.Scale.X); err != nil {
+				if err := writer.WriteFloat32(bone.Scale.X); err != nil {
 					return fmt.Errorf("failed to write bone scale X: %w", err)
 				}
-				if err := binaryio.WriteFloat32(w, bone.Scale.Y); err != nil {
+				if err := writer.WriteFloat32(bone.Scale.Y); err != nil {
 					return fmt.Errorf("failed to write bone scale Y: %w", err)
 				}
-				if err := binaryio.WriteFloat32(w, bone.Scale.Z); err != nil {
+				if err := writer.WriteFloat32(bone.Scale.Z); err != nil {
 					return fmt.Errorf("failed to write bone scale Z: %w", err)
 				}
 			}
@@ -1029,28 +1030,28 @@ func (m *Model) Dump(w io.Writer) error {
 	}
 
 	// 写入网格基本信息
-	if err := binaryio.WriteInt32(w, m.VertCount); err != nil {
+	if err := writer.WriteInt32(m.VertCount); err != nil {
 		return fmt.Errorf("failed to write the number of vertices: %w", err)
 	}
 
-	if err := binaryio.WriteInt32(w, m.SubMeshCount); err != nil {
+	if err := writer.WriteInt32(m.SubMeshCount); err != nil {
 		return fmt.Errorf("failed to write the number of subgrids: %w", err)
 	}
 
-	if err := binaryio.WriteInt32(w, m.BoneCount); err != nil {
+	if err := writer.WriteInt32(m.BoneCount); err != nil {
 		return fmt.Errorf("failed to write the number of bones: %w", err)
 	}
 
 	// 写入骨骼名称
 	for _, boneName := range m.BoneNames {
-		if err := binaryio.WriteString(w, boneName); err != nil {
+		if err := writer.WriteString(boneName); err != nil {
 			return fmt.Errorf("failed to write bone name (at bone index): %w", err)
 		}
 	}
 
 	// 写入骨骼绑定姿势
 	for _, bindPose := range m.BindPoses {
-		if err := binaryio.WriteFloat4x4(w, bindPose); err != nil {
+		if err := writer.WriteFloat4x4(bindPose); err != nil {
 			return fmt.Errorf("failed to write the armature binding pose: %w", err)
 		}
 	}
@@ -1078,27 +1079,27 @@ func (m *Model) Dump(w io.Writer) error {
 		}
 
 		// 写入UV标志位
-		if err := binaryio.WriteBool(w, hasUV2); err != nil {
+		if err := writer.WriteBool(hasUV2); err != nil {
 			return fmt.Errorf("failed to write UV2 flag: %w", err)
 		}
-		if err := binaryio.WriteBool(w, hasUV3); err != nil {
+		if err := writer.WriteBool(hasUV3); err != nil {
 			return fmt.Errorf("failed to write UV3 flag: %w", err)
 		}
-		if err := binaryio.WriteBool(w, hasUV4); err != nil {
+		if err := writer.WriteBool(hasUV4); err != nil {
 			return fmt.Errorf("failed to write UV4 flag: %w", err)
 		}
 
 		// 写入未知标志位
-		if err := binaryio.WriteBool(w, hasUnknownFlag1); err != nil {
+		if err := writer.WriteBool(hasUnknownFlag1); err != nil {
 			return fmt.Errorf("failed to write unknown flag 1: %w", err)
 		}
-		if err := binaryio.WriteBool(w, hasUnknownFlag2); err != nil {
+		if err := writer.WriteBool(hasUnknownFlag2); err != nil {
 			return fmt.Errorf("failed to write unknown flag 2: %w", err)
 		}
-		if err := binaryio.WriteBool(w, hasUnknownFlag3); err != nil {
+		if err := writer.WriteBool(hasUnknownFlag3); err != nil {
 			return fmt.Errorf("failed to write unknown flag 3: %w", err)
 		}
-		if err := binaryio.WriteBool(w, hasUnknownFlag4); err != nil {
+		if err := writer.WriteBool(hasUnknownFlag4); err != nil {
 			return fmt.Errorf("failed to write unknown flag 4: %w", err)
 		}
 	}
@@ -1106,98 +1107,98 @@ func (m *Model) Dump(w io.Writer) error {
 	// 写入顶点数据
 	for _, vertex := range m.Vertices {
 		// 写入顶点位置
-		if err := binaryio.WriteFloat32(w, vertex.Position.X); err != nil {
+		if err := writer.WriteFloat32(vertex.Position.X); err != nil {
 			return fmt.Errorf("failed to write vertex position X: %w", err)
 		}
-		if err := binaryio.WriteFloat32(w, vertex.Position.Y); err != nil {
+		if err := writer.WriteFloat32(vertex.Position.Y); err != nil {
 			return fmt.Errorf("failed to write vertex position Y: %w", err)
 		}
-		if err := binaryio.WriteFloat32(w, vertex.Position.Z); err != nil {
+		if err := writer.WriteFloat32(vertex.Position.Z); err != nil {
 			return fmt.Errorf("failed to write vertex position Z: %w", err)
 		}
 
 		// 写入法线
-		if err := binaryio.WriteFloat32(w, vertex.Normal.X); err != nil {
+		if err := writer.WriteFloat32(vertex.Normal.X); err != nil {
 			return fmt.Errorf("failed to write vertex normal X: %w", err)
 		}
-		if err := binaryio.WriteFloat32(w, vertex.Normal.Y); err != nil {
+		if err := writer.WriteFloat32(vertex.Normal.Y); err != nil {
 			return fmt.Errorf("failed to write vertex normal Y: %w", err)
 		}
-		if err := binaryio.WriteFloat32(w, vertex.Normal.Z); err != nil {
+		if err := writer.WriteFloat32(vertex.Normal.Z); err != nil {
 			return fmt.Errorf("failed to write vertex normal Z: %w", err)
 		}
 
 		// 写入UV坐标
-		if err := binaryio.WriteFloat32(w, vertex.UV.X); err != nil {
+		if err := writer.WriteFloat32(vertex.UV.X); err != nil {
 			return fmt.Errorf("failed to write vertex UV coordinate X: %w", err)
 		}
-		if err := binaryio.WriteFloat32(w, vertex.UV.Y); err != nil {
+		if err := writer.WriteFloat32(vertex.UV.Y); err != nil {
 			return fmt.Errorf("failed to write vertex UV coordinate Y: %w", err)
 		}
 
 		// 写入UV2坐标（如果存在）
 		if vertex.UV2 != nil {
-			if err := binaryio.WriteFloat32(w, vertex.UV2.X); err != nil {
+			if err := writer.WriteFloat32(vertex.UV2.X); err != nil {
 				return fmt.Errorf("failed to write vertex UV2 coordinate X: %w", err)
 			}
-			if err := binaryio.WriteFloat32(w, vertex.UV2.Y); err != nil {
+			if err := writer.WriteFloat32(vertex.UV2.Y); err != nil {
 				return fmt.Errorf("failed to write vertex UV2 coordinate Y: %w", err)
 			}
 		}
 
 		// 写入UV3坐标（如果存在）
 		if vertex.UV3 != nil {
-			if err := binaryio.WriteFloat32(w, vertex.UV3.X); err != nil {
+			if err := writer.WriteFloat32(vertex.UV3.X); err != nil {
 				return fmt.Errorf("failed to write vertex UV3 coordinate X: %w", err)
 			}
-			if err := binaryio.WriteFloat32(w, vertex.UV3.Y); err != nil {
+			if err := writer.WriteFloat32(vertex.UV3.Y); err != nil {
 				return fmt.Errorf("failed to write vertex UV3 coordinate Y: %w", err)
 			}
 		}
 
 		// 写入UV4坐标（如果存在）
 		if vertex.UV4 != nil {
-			if err := binaryio.WriteFloat32(w, vertex.UV4.X); err != nil {
+			if err := writer.WriteFloat32(vertex.UV4.X); err != nil {
 				return fmt.Errorf("failed to write vertex UV4 coordinate X: %w", err)
 			}
-			if err := binaryio.WriteFloat32(w, vertex.UV4.Y); err != nil {
+			if err := writer.WriteFloat32(vertex.UV4.Y); err != nil {
 				return fmt.Errorf("failed to write vertex UV4 coordinate Y: %w", err)
 			}
 		}
 
 		// 写入未知标志位对应的数据（如果存在）
 		if vertex.Unknown1 != nil {
-			if err := binaryio.WriteFloat32(w, vertex.Unknown1.X); err != nil {
+			if err := writer.WriteFloat32(vertex.Unknown1.X); err != nil {
 				return fmt.Errorf("failed to write unknown flag 1 data X: %w", err)
 			}
-			if err := binaryio.WriteFloat32(w, vertex.Unknown1.Y); err != nil {
+			if err := writer.WriteFloat32(vertex.Unknown1.Y); err != nil {
 				return fmt.Errorf("failed to write unknown flag 1 data Y: %w", err)
 			}
 		}
 
 		if vertex.Unknown2 != nil {
-			if err := binaryio.WriteFloat32(w, vertex.Unknown2.X); err != nil {
+			if err := writer.WriteFloat32(vertex.Unknown2.X); err != nil {
 				return fmt.Errorf("failed to write unknown flag 2 data X: %w", err)
 			}
-			if err := binaryio.WriteFloat32(w, vertex.Unknown2.Y); err != nil {
+			if err := writer.WriteFloat32(vertex.Unknown2.Y); err != nil {
 				return fmt.Errorf("failed to write unknown flag 2 data Y: %w", err)
 			}
 		}
 
 		if vertex.Unknown3 != nil {
-			if err := binaryio.WriteFloat32(w, vertex.Unknown3.X); err != nil {
+			if err := writer.WriteFloat32(vertex.Unknown3.X); err != nil {
 				return fmt.Errorf("failed to write unknown flag 3 data X: %w", err)
 			}
-			if err := binaryio.WriteFloat32(w, vertex.Unknown3.Y); err != nil {
+			if err := writer.WriteFloat32(vertex.Unknown3.Y); err != nil {
 				return fmt.Errorf("failed to write unknown flag 3 data Y: %w", err)
 			}
 		}
 
 		if vertex.Unknown4 != nil {
-			if err := binaryio.WriteFloat32(w, vertex.Unknown4.X); err != nil {
+			if err := writer.WriteFloat32(vertex.Unknown4.X); err != nil {
 				return fmt.Errorf("failed to write unknown flag 4 data X: %w", err)
 			}
-			if err := binaryio.WriteFloat32(w, vertex.Unknown4.Y); err != nil {
+			if err := writer.WriteFloat32(vertex.Unknown4.Y); err != nil {
 				return fmt.Errorf("failed to write unknown flag 4 data Y: %w", err)
 			}
 		}
@@ -1205,110 +1206,110 @@ func (m *Model) Dump(w io.Writer) error {
 
 	// 写入切线数据
 	if m.Tangents != nil {
-		if err := binaryio.WriteInt32(w, int32(len(m.Tangents))); err != nil {
+		if err := writer.WriteInt32(int32(len(m.Tangents))); err != nil {
 			return fmt.Errorf("failed to write the number of tangents: %w", err)
 		}
 
 		for _, tangent := range m.Tangents {
-			if err := binaryio.WriteFloat32(w, tangent.X); err != nil {
+			if err := writer.WriteFloat32(tangent.X); err != nil {
 				return fmt.Errorf("failed to write tangent X: %w", err)
 			}
-			if err := binaryio.WriteFloat32(w, tangent.Y); err != nil {
+			if err := writer.WriteFloat32(tangent.Y); err != nil {
 				return fmt.Errorf("failed to write tangent Y: %w", err)
 			}
-			if err := binaryio.WriteFloat32(w, tangent.Z); err != nil {
+			if err := writer.WriteFloat32(tangent.Z); err != nil {
 				return fmt.Errorf("failed to write tangent Z: %w", err)
 			}
-			if err := binaryio.WriteFloat32(w, tangent.W); err != nil {
+			if err := writer.WriteFloat32(tangent.W); err != nil {
 				return fmt.Errorf("failed to write tangent W: %w", err)
 			}
 		}
 	} else {
 		// 如果没有切线数据，写入0
-		if err := binaryio.WriteInt32(w, 0); err != nil {
+		if err := writer.WriteInt32(0); err != nil {
 			return fmt.Errorf("failed to write the number of tangents: %w", err)
 		}
 	}
 
 	// 写入骨骼权重
 	for _, bw := range m.BoneWeights {
-		if err := binaryio.WriteUInt16(w, bw.BoneIndex0); err != nil {
+		if err := writer.WriteUInt16(bw.BoneIndex0); err != nil {
 			return fmt.Errorf("failed to write bone weight index 0: %w", err)
 		}
-		if err := binaryio.WriteUInt16(w, bw.BoneIndex1); err != nil {
+		if err := writer.WriteUInt16(bw.BoneIndex1); err != nil {
 			return fmt.Errorf("failed to write bone weight index 1: %w", err)
 		}
-		if err := binaryio.WriteUInt16(w, bw.BoneIndex2); err != nil {
+		if err := writer.WriteUInt16(bw.BoneIndex2); err != nil {
 			return fmt.Errorf("failed to write bone weight index 2: %w", err)
 		}
-		if err := binaryio.WriteUInt16(w, bw.BoneIndex3); err != nil {
+		if err := writer.WriteUInt16(bw.BoneIndex3); err != nil {
 			return fmt.Errorf("failed to write bone weight index 3: %w", err)
 		}
 
-		if err := binaryio.WriteFloat32(w, bw.Weight0); err != nil {
+		if err := writer.WriteFloat32(bw.Weight0); err != nil {
 			return fmt.Errorf("failed to write bone weight 0: %w", err)
 		}
-		if err := binaryio.WriteFloat32(w, bw.Weight1); err != nil {
+		if err := writer.WriteFloat32(bw.Weight1); err != nil {
 			return fmt.Errorf("failed to write bone weight 1: %w", err)
 		}
-		if err := binaryio.WriteFloat32(w, bw.Weight2); err != nil {
+		if err := writer.WriteFloat32(bw.Weight2); err != nil {
 			return fmt.Errorf("failed to write bone weight 2: %w", err)
 		}
-		if err := binaryio.WriteFloat32(w, bw.Weight3); err != nil {
+		if err := writer.WriteFloat32(bw.Weight3); err != nil {
 			return fmt.Errorf("failed to write bone weight 3: %w", err)
 		}
 	}
 
 	// 写入子网格数据
 	for _, subMesh := range m.SubMeshes {
-		if err := binaryio.WriteInt32(w, int32(len(subMesh))); err != nil {
+		if err := writer.WriteInt32(int32(len(subMesh))); err != nil {
 			return fmt.Errorf("failed to write submesh triangle count: %w", err)
 		}
 
 		for _, index := range subMesh {
-			if err := binaryio.WriteUInt16(w, uint16(index)); err != nil {
+			if err := writer.WriteUInt16(uint16(index)); err != nil {
 				return fmt.Errorf("failed to write submesh triangle index: %w", err)
 			}
 		}
 	}
 
 	// 写入材质数据
-	if err := binaryio.WriteInt32(w, int32(len(m.Materials))); err != nil {
+	if err := writer.WriteInt32(int32(len(m.Materials))); err != nil {
 		return fmt.Errorf("failed to write the number of materials: %w", err)
 	}
 	for _, material := range m.Materials {
-		if err := material.Dump(w); err != nil {
+		if err := material.Dump(writer.W); err != nil {
 			return fmt.Errorf("failed to write material: %w", err)
 		}
 	}
 
 	// 写入形态数据
 	for _, morph := range m.MorphData {
-		if err := binaryio.WriteString(w, "morph"); err != nil {
+		if err := writer.WriteString("morph"); err != nil {
 			return fmt.Errorf("failed to write morph tag: %w", err)
 		}
 
-		if err := writeMorphData(w, morph, m.Version); err != nil {
+		if err := writeMorphData(writer, morph, m.Version); err != nil {
 			return fmt.Errorf("failed to write morph data: %w", err)
 		}
 	}
 
 	// 写入结束标记
-	if err := binaryio.WriteString(w, EndTag); err != nil {
+	if err := writer.WriteString(EndTag); err != nil {
 		return fmt.Errorf("failed to write end tag: %w", err)
 	}
 
 	// 如果版本号大于等于2100，写入SkinThickness
 	if m.Version >= 2100 {
 		if m.SkinThickness != nil {
-			if err := binaryio.WriteInt32(w, 1); err != nil {
+			if err := writer.WriteInt32(1); err != nil {
 				return fmt.Errorf("failed to write skin thickness flag: %w", err)
 			}
-			if err := writeSkinThickness(w, m.SkinThickness); err != nil {
+			if err := writeSkinThickness(writer, m.SkinThickness); err != nil {
 				return fmt.Errorf("failed to write skin thickness: %w", err)
 			}
 		} else {
-			if err := binaryio.WriteInt32(w, 0); err != nil {
+			if err := writer.WriteInt32(0); err != nil {
 				return fmt.Errorf("failed to write skin thickness flag: %w", err)
 			}
 		}
@@ -1318,64 +1319,64 @@ func (m *Model) Dump(w io.Writer) error {
 }
 
 // writeMorphData 将形态数据写入w
-func writeMorphData(w io.Writer, md *MorphData, version int32) error {
+func writeMorphData(writer *stream.BinaryWriter, md *MorphData, version int32) error {
 	// 写入形态名称
-	if err := binaryio.WriteString(w, md.Name); err != nil {
+	if err := writer.WriteString(md.Name); err != nil {
 		return fmt.Errorf("failed to write the morph name: %w", err)
 	}
 
 	// 写入顶点数量
-	if err := binaryio.WriteInt32(w, int32(len(md.Indices))); err != nil {
+	if err := writer.WriteInt32(int32(len(md.Indices))); err != nil {
 		return fmt.Errorf("failed to write the number of morph vertices: %w", err)
 	}
 
 	// 2102 版本支持
 	hasTangents := md.Tangents != nil && version >= 2102
 	if version >= 2102 {
-		if err := binaryio.WriteBool(w, hasTangents); err != nil {
+		if err := writer.WriteBool(hasTangents); err != nil {
 			return fmt.Errorf("failed to write has tangents flag: %w", err)
 		}
 	}
 
 	for i, index := range md.Indices {
-		if err := binaryio.WriteUInt16(w, uint16(index)); err != nil {
+		if err := writer.WriteUInt16(uint16(index)); err != nil {
 			return fmt.Errorf("failed to write the morph vertex index: %w", err)
 		}
 
 		// 写入顶点位移
-		if err := binaryio.WriteFloat32(w, md.Vertex[i].X); err != nil {
+		if err := writer.WriteFloat32(md.Vertex[i].X); err != nil {
 			return fmt.Errorf("failed to write morph vertex displacement X: %w", err)
 		}
-		if err := binaryio.WriteFloat32(w, md.Vertex[i].Y); err != nil {
+		if err := writer.WriteFloat32(md.Vertex[i].Y); err != nil {
 			return fmt.Errorf("failed to write morph vertex displacement Y: %w", err)
 		}
-		if err := binaryio.WriteFloat32(w, md.Vertex[i].Z); err != nil {
+		if err := writer.WriteFloat32(md.Vertex[i].Z); err != nil {
 			return fmt.Errorf("failed to write morph vertex displacement Z: %w", err)
 		}
 
 		// 写入法线位移
-		if err := binaryio.WriteFloat32(w, md.Normals[i].X); err != nil {
+		if err := writer.WriteFloat32(md.Normals[i].X); err != nil {
 			return fmt.Errorf("failed to write the morph normal displacement X: %w", err)
 		}
-		if err := binaryio.WriteFloat32(w, md.Normals[i].Y); err != nil {
+		if err := writer.WriteFloat32(md.Normals[i].Y); err != nil {
 			return fmt.Errorf("failed to write the morph normal displacement Y: %w", err)
 		}
-		if err := binaryio.WriteFloat32(w, md.Normals[i].Z); err != nil {
+		if err := writer.WriteFloat32(md.Normals[i].Z); err != nil {
 			return fmt.Errorf("failed to write the morph normal displacement Z: %w", err)
 		}
 
 		// 如果有切线数据，写入切线
 		if hasTangents {
-			if err := binaryio.WriteFloat32(w, md.Tangents[i].X); err != nil {
+			if err := writer.WriteFloat32(md.Tangents[i].X); err != nil {
 				return fmt.Errorf("failed to write morph tangent X: %w", err)
 			}
-			if err := binaryio.WriteFloat32(w, md.Tangents[i].Y); err != nil {
+			if err := writer.WriteFloat32(md.Tangents[i].Y); err != nil {
 				return fmt.Errorf("failed to write morph tangent Y: %w", err)
 			}
-			if err := binaryio.WriteFloat32(w, md.Tangents[i].Z); err != nil {
+			if err := writer.WriteFloat32(md.Tangents[i].Z); err != nil {
 				return fmt.Errorf("failed to write morph tangent Z: %w", err)
 			}
-			if err := binaryio.WriteFloat32(w, md.Tangents[i].W); err != nil {
+			if err := writer.WriteFloat32(md.Tangents[i].W); err != nil {
 				return fmt.Errorf("failed to write morph tangent W: %w", err)
 			}
 		}
@@ -1385,34 +1386,34 @@ func writeMorphData(w io.Writer, md *MorphData, version int32) error {
 }
 
 // writeSkinThickness 将皮肤厚度数据写入w
-func writeSkinThickness(w io.Writer, st *SkinThickness) error {
+func writeSkinThickness(writer *stream.BinaryWriter, st *SkinThickness) error {
 	// 写入签名
-	if err := binaryio.WriteString(w, st.Signature); err != nil {
+	if err := writer.WriteString(st.Signature); err != nil {
 		return fmt.Errorf("failed to write skin thickness signature: %w", err)
 	}
 
 	// 写入版本号
-	if err := binaryio.WriteInt32(w, st.Version); err != nil {
+	if err := writer.WriteInt32(st.Version); err != nil {
 		return fmt.Errorf("failed to write skin thickness version: %w", err)
 	}
 
 	// 写入使用标志
-	if err := binaryio.WriteBool(w, st.Use); err != nil {
+	if err := writer.WriteBool(st.Use); err != nil {
 		return fmt.Errorf("failed to write skin thickness use flag: %w", err)
 	}
 
 	// 写入组数量
-	if err := binaryio.WriteInt32(w, int32(len(st.Groups))); err != nil {
+	if err := writer.WriteInt32(int32(len(st.Groups))); err != nil {
 		return fmt.Errorf("failed to write skin thickness group count: %w", err)
 	}
 
 	// 写入每个组
 	for key, group := range st.Groups {
-		if err := binaryio.WriteString(w, key); err != nil {
+		if err := writer.WriteString(key); err != nil {
 			return fmt.Errorf("failed to write skin thickness group key: %w", err)
 		}
 
-		if err := writeThickGroup(w, group); err != nil {
+		if err := writeThickGroup(writer, group); err != nil {
 			return fmt.Errorf("failed to write skin thickness group: %w", err)
 		}
 	}
@@ -1421,35 +1422,35 @@ func writeSkinThickness(w io.Writer, st *SkinThickness) error {
 }
 
 // writeThickGroup 将皮肤厚度组数据写入w
-func writeThickGroup(w io.Writer, group *ThickGroup) error {
+func writeThickGroup(writer *stream.BinaryWriter, group *ThickGroup) error {
 	// 写入组名
-	if err := binaryio.WriteString(w, group.GroupName); err != nil {
+	if err := writer.WriteString(group.GroupName); err != nil {
 		return fmt.Errorf("failed to write group name: %w", err)
 	}
 
 	// 写入起始骨骼名
-	if err := binaryio.WriteString(w, group.StartBoneName); err != nil {
+	if err := writer.WriteString(group.StartBoneName); err != nil {
 		return fmt.Errorf("failed to write start bone name: %w", err)
 	}
 
 	// 写入结束骨骼名
-	if err := binaryio.WriteString(w, group.EndBoneName); err != nil {
+	if err := writer.WriteString(group.EndBoneName); err != nil {
 		return fmt.Errorf("failed to write end bone name: %w", err)
 	}
 
 	// 写入角度步长
-	if err := binaryio.WriteInt32(w, group.StepAngleDegree); err != nil {
+	if err := writer.WriteInt32(group.StepAngleDegree); err != nil {
 		return fmt.Errorf("failed to write step angle degree: %w", err)
 	}
 
 	// 写入点数量
-	if err := binaryio.WriteInt32(w, int32(len(group.Points))); err != nil {
+	if err := writer.WriteInt32(int32(len(group.Points))); err != nil {
 		return fmt.Errorf("failed to write point count: %w", err)
 	}
 
 	// 写入每个点
 	for _, point := range group.Points {
-		if err := writeThickPoint(w, point); err != nil {
+		if err := writeThickPoint(writer, point); err != nil {
 			return fmt.Errorf("failed to write point: %w", err)
 		}
 	}
@@ -1458,25 +1459,25 @@ func writeThickGroup(w io.Writer, group *ThickGroup) error {
 }
 
 // writeThickPoint 将皮肤厚度点数据写入w
-func writeThickPoint(w io.Writer, point *ThickPoint) error {
+func writeThickPoint(writer *stream.BinaryWriter, point *ThickPoint) error {
 	// 写入目标骨骼名
-	if err := binaryio.WriteString(w, point.TargetBoneName); err != nil {
+	if err := writer.WriteString(point.TargetBoneName); err != nil {
 		return fmt.Errorf("failed to write target bone name: %w", err)
 	}
 
 	// 写入起始到结束的比例
-	if err := binaryio.WriteFloat32(w, point.RatioSegmentStartToEnd); err != nil {
+	if err := writer.WriteFloat32(point.RatioSegmentStartToEnd); err != nil {
 		return fmt.Errorf("failed to write ratio segment start to end: %w", err)
 	}
 
 	// 写入角度定义数量
-	if err := binaryio.WriteInt32(w, int32(len(point.DistanceParAngle))); err != nil {
+	if err := writer.WriteInt32(int32(len(point.DistanceParAngle))); err != nil {
 		return fmt.Errorf("failed to write angle definition count: %w", err)
 	}
 
 	// 写入每个角度定义
 	for _, angleDef := range point.DistanceParAngle {
-		if err := writeThickDefPerAngle(w, angleDef); err != nil {
+		if err := writeThickDefPerAngle(writer, angleDef); err != nil {
 			return fmt.Errorf("failed to write angle definition: %w", err)
 		}
 	}
@@ -1485,19 +1486,19 @@ func writeThickPoint(w io.Writer, point *ThickPoint) error {
 }
 
 // writeThickDefPerAngle 将每个角度的皮肤厚度定义写入w
-func writeThickDefPerAngle(w io.Writer, angleDef *ThickDefPerAngle) error {
+func writeThickDefPerAngle(writer *stream.BinaryWriter, angleDef *ThickDefPerAngle) error {
 	// 写入角度
-	if err := binaryio.WriteInt32(w, angleDef.AngleDegree); err != nil {
+	if err := writer.WriteInt32(angleDef.AngleDegree); err != nil {
 		return fmt.Errorf("failed to write angle degree: %w", err)
 	}
 
 	// 写入顶点索引
-	if err := binaryio.WriteInt32(w, angleDef.VertexIndex); err != nil {
+	if err := writer.WriteInt32(angleDef.VertexIndex); err != nil {
 		return fmt.Errorf("failed to write vertex index: %w", err)
 	}
 
 	// 写入默认距离
-	if err := binaryio.WriteFloat32(w, angleDef.DefaultDistance); err != nil {
+	if err := writer.WriteFloat32(angleDef.DefaultDistance); err != nil {
 		return fmt.Errorf("failed to write default distance: %w", err)
 	}
 
