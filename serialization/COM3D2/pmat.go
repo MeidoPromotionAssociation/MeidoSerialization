@@ -3,6 +3,7 @@ package COM3D2
 import (
 	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
@@ -66,7 +67,8 @@ func ReadPMat(r io.Reader) (*PMat, error) {
 	p.RenderQueue = rq
 
 	// 6. shader (string)
-	// 官方文件有这个字段，但代码中从未读取过。考虑到可能有程序不写入此字段，因此不做报错处理
+	// This field exists in the official files, but it's never read in the code.
+	// Considering that some programs might not write to this field, so no error.
 	shaderStr, err := binaryio.ReadString(r)
 	if err != nil {
 		shaderStr = ""
@@ -89,12 +91,15 @@ func (p *PMat) Dump(w io.Writer, calculateHash bool) error {
 	}
 
 	// 3. hash
-	//  Unfortunately, we can't match C#'s HashCode implementation
-	//  Therefore, files edited by this editor cannot share cache with files edited by other editors
-	//  Because the game uses this Hash value to determine the cache key
-	//  Even if their values are the same, the calculated hashes are different
+	//  In short, this is a bad design; different versions of C# runtime may produce different hash codes.
+	//	The game developers use `materialName.GetHashCode()` to query the cache, but the hashCode within the file is pre-written.
+	//  We can't match C#'s String.GetHashCode() implementation, Furthermore, C# does not guarantee a stable hashcode.
+	//	Which means that the cache may never be hit, especially when the game engine version changes (2.0 and 2.5).
+	//  Furthermore, it's only 32 bits, which means a higher probability of collisions.
+	//  Therefore, we use a standard algorithm to replace it.
+	//  Even so, it's impossible for it to hit the cache.
 	if calculateHash {
-		materialNameHash, err := utilities.GetStringHashFNV1a(p.MaterialName + p.Shader)
+		materialNameHash, err := utilities.GetStringHashFNV1a(p.MaterialName + p.Shader + strconv.FormatFloat(float64(p.RenderQueue), 'f', -1, 32))
 		if err != nil {
 			return fmt.Errorf("write .PMat hash failed: %w", err)
 		}
@@ -118,7 +123,8 @@ func (p *PMat) Dump(w io.Writer, calculateHash bool) error {
 	}
 
 	// 6. shader
-	// 官方文件有这个字段，但未读取过，考虑到官方文件有，我们照常写入
+	// The official file contains this field, but I didn't see it been read.
+	// Since it's in the official file, we'll write it as well.
 	if err := binaryio.WriteString(w, p.Shader); err != nil {
 		return fmt.Errorf("write .PMat shader failed: %w", err)
 	}
