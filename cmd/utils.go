@@ -152,6 +152,11 @@ func isImageFile(path string) bool {
 	return tools.IsSupportedImageType(path) == nil
 }
 
+// isArcFile checks if the file has an .arc extension
+func isArcFile(path string) bool {
+	return strings.HasSuffix(strings.ToLower(path), ".arc")
+}
+
 // convertToJson converts a MOD file to JSON
 func convertToJson(path string) error {
 	ext := strings.ToLower(filepath.Ext(path))
@@ -355,6 +360,36 @@ func convertToNei(path string) error {
 	return nil
 }
 
+// unpackArc unpacks an ARC file to a directory
+func unpackArc(path string) error {
+	return unpackArcTo(path, "")
+}
+
+func unpackArcTo(path string, outDir string) error {
+	service := &COM3D2Service.ArcService{}
+	outputPath := outDir
+	if outputPath == "" {
+		outputPath = path + "_unpacked"
+	}
+	if err := service.UnpackArc(path, outputPath); err != nil {
+		return fmt.Errorf("failed to unpack %s: %w", path, err)
+	}
+
+	fmt.Printf("Unpacked %s to %s\n", path, outputPath)
+	return nil
+}
+
+// packArc packs a directory to an ARC file
+func packArc(dirPath string, arcPath string) error {
+	service := &COM3D2Service.ArcService{}
+	if err := service.PackArc(dirPath, arcPath); err != nil {
+		return fmt.Errorf("failed to pack %s: %w", dirPath, err)
+	}
+
+	fmt.Printf("Packed %s to %s\n", dirPath, arcPath)
+	return nil
+}
+
 // convertFile automatically determines the direction of conversion
 func convertFile(path string) error {
 	if !fileTypeFilter(path) {
@@ -390,6 +425,11 @@ func convertFile(path string) error {
 	// If it's a CSV file, convert to NEI
 	if isCsvFile(path) {
 		return convertToNei(path)
+	}
+
+	// If it's an ARC file, unpack it
+	if isArcFile(path) {
+		return unpackArc(path)
 	}
 
 	return fmt.Errorf("unsupported file type for conversion: %s", path)
@@ -462,6 +502,8 @@ func fileTypeFilter(path string) bool {
 		return isCsvFile(path)
 	case "image":
 		return isImageFile(path)
+	case "arc":
+		return isArcFile(path)
 	default:
 		// Fallback: compare directly with the file extension; if it is .json, compare the internal extension
 		ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(path), "."))

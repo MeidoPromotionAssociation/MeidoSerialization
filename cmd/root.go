@@ -62,4 +62,6 @@ func init() {
 	RootCmd.AddCommand(convert2imageCmd)
 	RootCmd.AddCommand(convert2neiCmd)
 	RootCmd.AddCommand(convert2csvCmd)
+	RootCmd.AddCommand(unpackArcCmd)
+	RootCmd.AddCommand(packArcCmd)
 }

@@ -1,0 +1,20 @@
+﻿package arc
+
+import "encoding/binary"
+
+var arcHeader = []byte{
+	0x77, 0x61, 0x72, 0x63, // 'warc'
+	0xFF, 0xAA, 0x45, 0xF1,
+	0xE8, 0x03, 0x00, 0x00, // 1000
+	0x04, 0x00, 0x00, 0x00, // 4
+	0x02, 0x00, 0x00, 0x00, // 2
+}
+
+var dirHeader = []byte{
+	0x20, 0x00, 0x00, 0x00, // 32
+	0x10, 0x00, 0x00, 0x00, // 16
+}
+
+func putU32(b []byte, v uint32) { binary.LittleEndian.PutUint32(b, v) }
+func putU64(b []byte, v uint64) { binary.LittleEndian.PutUint64(b, v) }
+func putI64(b []byte, v int64)  { binary.LittleEndian.PutUint64(b, uint64(v)) }
