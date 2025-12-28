@@ -30,8 +30,8 @@ func (s *PresetService) ReadPresetFile(path string) (*COM3D2.Preset, error) {
 		return presetData, nil
 	}
 
-	br := bufio.NewReaderSize(f, 1024*64) //64KB 缓冲区，3231 个样本中 90% 文件小于 58.80 KB，中位数 50.57 KB，平均 51.32 KB
-	presetData, err := COM3D2.ReadPreset(br)
+	br := bufio.NewReaderSize(f, 1024*64)
+	presetData, err := COM3D2.ReadPreset(br) // 64KB 缓冲区，4574 个样本中 90% 文件小于 58.83 KB，平均 51.33 KB，中位数 50.51 KB，最大值 157.35 KB
 	if err != nil {
 		return nil, fmt.Errorf("parsing the .preset file failed: %w", err)
 	}

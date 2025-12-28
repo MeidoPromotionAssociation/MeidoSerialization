@@ -31,7 +31,8 @@ func (m *ModelService) ReadModelFile(path string) (*COM3D2.Model, error) {
 		return modelData, nil
 	}
 
-	modelData, err := COM3D2.ReadModel(f) // .model need seek
+	br := bufio.NewReaderSize(f, 2*1024*1024) // 需要 Peek 和缓冲
+	modelData, err := COM3D2.ReadModel(br)    // 2MB 缓冲区，30091 个样本中 90% 文件小于: 1.94 MB，平均 929.99 KB，中位数 269.53 KB，最大值 117.46 MB
 	if err != nil {
 		return nil, fmt.Errorf("parsing the .model file failed: %w", err)
 	}
