@@ -1,6 +1,7 @@
 package COM3D2
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -48,5 +49,64 @@ func TestArcService(t *testing.T) {
 	filesRepack := s.GetFileList(arcRepack)
 	if len(files) != len(filesRepack) {
 		t.Errorf("File count mismatch: %d != %d", len(files), len(filesRepack))
+	}
+}
+
+func TestArcServiceLogic(t *testing.T) {
+	s := &ArcService{}
+	fs := s.NewArc("test")
+
+	// Test CreateFile
+	data := []byte("service test data")
+	path := "test/file.bin"
+	err := s.CreateFile(fs, path, data)
+	if err != nil {
+		t.Fatalf("CreateFile failed: %v", err)
+	}
+
+	// Test GetFileList
+	list := s.GetFileList(fs)
+	expectedPath := filepath.FromSlash(path)
+	if len(list) != 1 || list[0] != expectedPath {
+		t.Errorf("unexpected file list: %v, expected: [%s]", list, expectedPath)
+	}
+
+	// Test ExtractFile
+	tempDir := t.TempDir()
+	outPath := filepath.Join(tempDir, "extracted.bin")
+	err = s.ExtractFile(fs, path, outPath)
+	if err != nil {
+		t.Fatalf("ExtractFile failed: %v", err)
+	}
+	readData, _ := os.ReadFile(outPath)
+	if !bytes.Equal(readData, data) {
+		t.Error("extracted data mismatch")
+	}
+
+	// Test CopyFile
+	copyPath := "test/copy.bin"
+	err = s.CopyFile(fs, path, copyPath)
+	if err != nil {
+		t.Fatalf("CopyFile failed: %v", err)
+	}
+	if len(s.GetFileList(fs)) != 2 {
+		t.Error("CopyFile did not increase file count")
+	}
+
+	// Test MergeArc
+	fs2 := s.NewArc("other")
+	s.CreateFile(fs2, "other.txt", []byte("other"))
+	s.MergeArc(fs2, fs, false)
+	if len(s.GetFileList(fs)) != 3 {
+		t.Errorf("MergeArc failed, count: %d", len(s.GetFileList(fs)))
+	}
+
+	// Test DeleteFile
+	err = s.DeleteFile(fs, path)
+	if err != nil {
+		t.Fatalf("DeleteFile failed: %v", err)
+	}
+	if len(s.GetFileList(fs)) != 2 {
+		t.Error("DeleteFile did not decrease file count")
 	}
 }
