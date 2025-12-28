@@ -166,8 +166,14 @@ const (
 
 // ReadModel 从 r 中读取皮肤网格数据
 func ReadModel(r io.Reader) (*Model, error) {
+	rp, ok := r.(stream.Peeker)
+	if !ok {
+		return nil, fmt.Errorf("ReadModel: the reader is not peekable, wrap it with bufio.Reader first")
+	}
+
 	model := &Model{}
-	reader := stream.NewBinaryReader(r)
+
+	reader := stream.NewBinaryReader(rp)
 
 	// 读取文件头
 	var err error
@@ -666,7 +672,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 	return model, nil
 }
 
-// ReadMorphData 从r中读取形态数据
+// ReadMorphData 从 r 中读取形态数据
 func ReadMorphData(reader *stream.BinaryReader, version int32) (*MorphData, error) {
 	md := &MorphData{}
 	var err error
@@ -760,7 +766,7 @@ func ReadMorphData(reader *stream.BinaryReader, version int32) (*MorphData, erro
 	return md, nil
 }
 
-// ReadSkinThickness 从r中读取皮肤厚度数据
+// ReadSkinThickness 从 r 中读取皮肤厚度数据
 func ReadSkinThickness(reader *stream.BinaryReader) (*SkinThickness, error) {
 	skinThickness := &SkinThickness{
 		Groups: make(map[string]*ThickGroup),
@@ -814,7 +820,7 @@ func ReadSkinThickness(reader *stream.BinaryReader) (*SkinThickness, error) {
 	return skinThickness, nil
 }
 
-// readThickGroup 从r中读取皮肤厚度组数据
+// readThickGroup 从 r 中读取皮肤厚度组数据
 func readThickGroup(reader *stream.BinaryReader, group *ThickGroup) error {
 	var err error
 
@@ -862,7 +868,7 @@ func readThickGroup(reader *stream.BinaryReader, group *ThickGroup) error {
 	return nil
 }
 
-// readThickPoint 从r中读取皮肤厚度点数据
+// readThickPoint 从 r 中读取皮肤厚度点数据
 func readThickPoint(reader *stream.BinaryReader, point *ThickPoint) error {
 	var err error
 
@@ -898,7 +904,7 @@ func readThickPoint(reader *stream.BinaryReader, point *ThickPoint) error {
 	return nil
 }
 
-// readThickDefPerAngle 从r中读取每个角度的皮肤厚度定义
+// readThickDefPerAngle 从 r 中读取每个角度的皮肤厚度定义
 func readThickDefPerAngle(reader *stream.BinaryReader, angleDef *ThickDefPerAngle) error {
 	var err error
 
@@ -1318,7 +1324,7 @@ func (m *Model) Dump(writer *stream.BinaryWriter) error {
 	return nil
 }
 
-// writeMorphData 将形态数据写入w
+// writeMorphData 将形态数据写入 w
 func writeMorphData(writer *stream.BinaryWriter, md *MorphData, version int32) error {
 	// 写入形态名称
 	if err := writer.WriteString(md.Name); err != nil {
@@ -1385,7 +1391,7 @@ func writeMorphData(writer *stream.BinaryWriter, md *MorphData, version int32) e
 	return nil
 }
 
-// writeSkinThickness 将皮肤厚度数据写入w
+// writeSkinThickness 将皮肤厚度数据写入 w
 func writeSkinThickness(writer *stream.BinaryWriter, st *SkinThickness) error {
 	// 写入签名
 	if err := writer.WriteString(st.Signature); err != nil {
@@ -1421,7 +1427,7 @@ func writeSkinThickness(writer *stream.BinaryWriter, st *SkinThickness) error {
 	return nil
 }
 
-// writeThickGroup 将皮肤厚度组数据写入w
+// writeThickGroup 将皮肤厚度组数据写入 w
 func writeThickGroup(writer *stream.BinaryWriter, group *ThickGroup) error {
 	// 写入组名
 	if err := writer.WriteString(group.GroupName); err != nil {
@@ -1458,7 +1464,7 @@ func writeThickGroup(writer *stream.BinaryWriter, group *ThickGroup) error {
 	return nil
 }
 
-// writeThickPoint 将皮肤厚度点数据写入w
+// writeThickPoint 将皮肤厚度点数据写入 w
 func writeThickPoint(writer *stream.BinaryWriter, point *ThickPoint) error {
 	// 写入目标骨骼名
 	if err := writer.WriteString(point.TargetBoneName); err != nil {
@@ -1485,7 +1491,7 @@ func writeThickPoint(writer *stream.BinaryWriter, point *ThickPoint) error {
 	return nil
 }
 
-// writeThickDefPerAngle 将每个角度的皮肤厚度定义写入w
+// writeThickDefPerAngle 将每个角度的皮肤厚度定义写入 w
 func writeThickDefPerAngle(writer *stream.BinaryWriter, angleDef *ThickDefPerAngle) error {
 	// 写入角度
 	if err := writer.WriteInt32(angleDef.AngleDegree); err != nil {

@@ -32,7 +32,12 @@ type Command struct {
 }
 
 // ReadMenu 从 r 中读取一个 .menu 文件结构
-func ReadMenu(r io.Reader) (*Menu, error) {
+func ReadMenu(reader io.Reader) (*Menu, error) {
+	r, ok := reader.(binaryio.Peeker)
+	if !ok {
+		return nil, fmt.Errorf("ReadMenu: the reader is not peekable, wrap it with bufio.Reader first")
+	}
+
 	m := &Menu{}
 
 	// 1. Signature

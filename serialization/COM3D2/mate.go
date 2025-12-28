@@ -1,7 +1,6 @@
 package COM3D2
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,7 +23,12 @@ type Mate struct {
 }
 
 // ReadMate 从 r 中读取一个 .mate 文件，返回 Mate 结构
-func ReadMate(r io.Reader) (*Mate, error) {
+func ReadMate(reader io.Reader) (*Mate, error) {
+	r, ok := reader.(binaryio.Peeker)
+	if !ok {
+		return nil, fmt.Errorf("ReadMate: the reader is not peekable, wrap it with bufio.Reader first")
+	}
+
 	m := &Mate{}
 
 	// 1. signature (string)
@@ -98,16 +102,9 @@ type Material struct {
 
 // readMaterial 用于解析 Material 结构。
 func readMaterial(r io.Reader) (*Material, error) {
-	// 确保我们有一个 io.ReadSeeker
-	rs, ok := r.(io.ReadSeeker)
+	rs, ok := r.(binaryio.Peeker)
 	if !ok {
-		fmt.Printf("Warning: r is not io.ReadSeeker, reading to memory...\n")
-		// 如果不是可寻址流，就把它全部读到内存
-		allBytes, err := io.ReadAll(r)
-		if err != nil {
-			return nil, fmt.Errorf("readAll for readMaterial failed: %w", err)
-		}
-		rs = bytes.NewReader(allBytes)
+		return nil, fmt.Errorf("readMaterial: the reader is not peekable, wrap it with bufio.Reader first")
 	}
 
 	m := &Material{}
