@@ -26,3 +26,4 @@ go.work.sum
 /.idea
 MeidoSerialization
 MeidoSerialization_linux_amd64
+/testdata

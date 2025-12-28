@@ -250,7 +250,7 @@ func ReadPreset(r io.Reader) (*Preset, error) {
 	}
 
 	// 7. MultiColor
-	if version >= 2 && (version < 2000) {
+	if version >= 2 && (version < 2000 || 10000 <= version) {
 		mc, err := readMultiColor(r)
 		if err != nil {
 			return nil, fmt.Errorf("read .Preset MultiColor failed: %w", err)
@@ -259,7 +259,7 @@ func ReadPreset(r io.Reader) (*Preset, error) {
 	}
 
 	// 8. Body
-	if version >= 200 && (version < 2000) {
+	if version >= 200 && (version < 2000 || 10000 <= version) {
 		bp, err := readBodyProperty(r)
 		if err != nil {
 			return nil, fmt.Errorf("read .Preset Body failed: %w", err)

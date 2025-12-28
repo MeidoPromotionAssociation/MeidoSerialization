@@ -9,9 +9,9 @@ import (
 )
 
 func TestHashConsistency(t *testing.T) {
-	arcPath := "../../../bg_cw005.arc"
+	arcPath := "../../../testdata/test.arc"
 	if _, err := os.Stat(arcPath); os.IsNotExist(err) {
-		t.Skip("bg_cw005.arc not found, skipping consistency test")
+		t.Skip("test.arc not found, skipping consistency test")
 	}
 
 	// 1. 读取 ARC 并提取 Name Table
@@ -99,11 +99,6 @@ func TestHashConsistency(t *testing.T) {
 }
 
 func TestManualHash(t *testing.T) {
-	// "a" 的哈希推导 (假设修正后): 0xD0146D69162F12D5
-	// 注意：NameHashUTF16 会对 "a" 进行 utf16le 编码
-	// "a" as utf16le is [0x61, 0x00]
-
 	h := NameHashUTF16("a")
-	// 我们在这里只打印结果，先不加断言，因为我们还没修复
 	t.Logf("Hash of 'a': %x", h)
 }
