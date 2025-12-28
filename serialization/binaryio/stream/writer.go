@@ -6,7 +6,8 @@ import (
 	"math"
 )
 
-// BinaryWriter 提供向流中写入基本类型的功能
+// BinaryWriter 提供向流中写入 C# 基本类型的功能
+// 共享缓冲，性能更高，不支持并发
 type BinaryWriter struct {
 	W      io.Writer
 	buffer [64]byte // 用于写入基本类型的临时缓冲区

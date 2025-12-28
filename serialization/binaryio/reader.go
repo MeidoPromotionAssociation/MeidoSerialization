@@ -1,6 +1,7 @@
 package binaryio
 
 import (
+	"bufio"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -213,45 +214,87 @@ func ReadFloat4x4(r io.Reader) ([16]float32, error) {
 
 // -------------------- Peek --------------------
 
+// Peeker 定义了实现了 Peek 方法的接口，bufio.Reader 实现了该接口。
+type Peeker interface {
+	Peek(n int) ([]byte, error)
+	io.Reader
+}
+
 // PeekByte 偷看下一个字节，不移动读取指针。
-// 这里需要一个带缓冲、可 Peek 的包装，如 bufio.Reader。
+// 要求 reader 实现 Peeker 接口，例如 bufio.Reader。
 func PeekByte(r io.Reader) (byte, error) {
-	br, ok := r.(interface {
-		Peek(int) ([]byte, error)
-	})
+	br, ok := r.(Peeker)
 	if !ok {
-		// 如果没有实现 Peek，需要自己封装一个 bufio.Reader
-		return 0, fmt.Errorf("PeekByte: the reader is not peekable, wrap it with bufio.Reader first")
+		return 0, fmt.Errorf("peekByte: the reader is not peekable, wrap it with bufio.Reader first")
 	}
-	bytes, err := br.Peek(1)
+
+	b, err := br.Peek(1)
 	if err != nil {
 		return 0, err
 	}
-	return bytes[0], nil
+	return b[0], nil
 }
 
-// PeekString 读取下一个字符串（LEB128 + UTF-8），但不消耗它。
-// 因此下次再从同一个 reader 中读取时，会得到相同的数据。
-func PeekString(rs io.ReadSeeker) (string, error) {
-	// 记录当前指针
-	startPos, err := rs.Seek(0, io.SeekCurrent)
+// PeekString 读取下一个字符串（7BitEncode + UTF-8），但不消耗它。
+// 要求 reader 实现 Peeker 接口，例如 bufio.Reader。
+//
+// 注意：如果字符串长度超过了 bufio.Reader 的缓冲区大小（默认 4KB），
+// Peek 操作会返回 bufio.ErrBufferFull。
+// 如果需要处理超大字符串，请在创建 bufio.Reader 时指定更大的缓冲区大小
+func PeekString(r io.Reader) (string, error) {
+	br, ok := r.(Peeker)
+	if !ok {
+		return "", fmt.Errorf("peekString: the reader is not peekable, wrap it with bufio.Reader first")
+	}
+
+	var stringLength int // 解析出的字符串长度
+	var shift int        // 当前位偏移量
+	var prefixLen int    // 长度前缀占用了多少个字节
+
+	for {
+		// Peek 字节直到找到 7-bit 整数的结尾
+		// 每次多 Peek 一个字节来检查
+		bSlice, err := br.Peek(prefixLen + 1)
+		if err != nil {
+			return "", err
+		}
+
+		b := bSlice[prefixLen]
+		prefixLen++
+
+		// 7-Bit 解码逻辑
+		stringLength |= (int(b) & 0x7F) << shift
+		shift += 7
+
+		// 如果最高位是 0，说明整数结束
+		if (b & 0x80) == 0 {
+			break
+		}
+
+		if prefixLen >= 5 {
+			return "", fmt.Errorf("peekString: string length prefix too large")
+		}
+	}
+
+	// 2. 检查长度有效性
+	if stringLength < 0 {
+		return "", fmt.Errorf("peekString: invalid string length: %d", stringLength)
+	}
+	if stringLength == 0 {
+		return "", nil
+	}
+
+	totalLen := prefixLen + stringLength
+
+	// 尝试 Peek 所有数据
+	data, err := br.Peek(totalLen)
 	if err != nil {
+		if errors.Is(err, bufio.ErrBufferFull) {
+			return "", fmt.Errorf("peekString: string length (%d) exceeds buffer size (increase buffer size)", totalLen)
+		}
 		return "", err
 	}
 
-	// 尝试读取字符串
-	str, err := ReadString(rs)
-	if err != nil {
-		// 如果出错了也回退
-		_, _ = rs.Seek(startPos, io.SeekStart)
-		return "", err
-	}
-
-	// 读完后回退到之前的位置
-	_, err = rs.Seek(startPos, io.SeekStart)
-	if err != nil {
-		return "", err
-	}
-
-	return str, nil
+	// 拷贝一次，确保后续读取不影响结果
+	return string(data[prefixLen:]), nil
 }
