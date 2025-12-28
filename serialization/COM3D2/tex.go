@@ -619,6 +619,9 @@ func ConvertTexToImage(tex *Tex, forcePNG bool) (imgData []byte, format string, 
 			cmd := exec.Command("magick", inputFormat+":-", "png:-")
 			tools.SetHideWindow(cmd)
 
+			var stderrBuf bytes.Buffer
+			cmd.Stderr = &stderrBuf
+
 			d := tex.Data
 			if tex.TextureFormat == DXT1 || tex.TextureFormat == DXT5 {
 				d = ensureDDSHeader(d, tex.Width, tex.Height, tex.TextureFormat)
@@ -636,10 +639,11 @@ func ConvertTexToImage(tex *Tex, forcePNG bool) (imgData []byte, format string, 
 
 			convertedBytes, err := io.ReadAll(outPipe)
 			if err != nil {
-				return nil, "", nil, fmt.Errorf("failed to read converted data: %w", err)
+				_ = cmd.Wait()
+				return nil, "", nil, fmt.Errorf("failed to read converted data: %w, stderr: %s", err, stderrBuf.String())
 			}
 			if err = cmd.Wait(); err != nil {
-				return nil, "", nil, fmt.Errorf("magick command error: %w", err)
+				return nil, "", nil, fmt.Errorf("magick command error: %w, stderr: %s", err, stderrBuf.String())
 			}
 
 			return convertedBytes, "png", rects, nil
@@ -657,6 +661,9 @@ func ConvertTexToImage(tex *Tex, forcePNG bool) (imgData []byte, format string, 
 			cmd := exec.Command("magick", args...)
 			tools.SetHideWindow(cmd)
 
+			var stderrBuf bytes.Buffer
+			cmd.Stderr = &stderrBuf
+
 			d := tex.Data
 			if tex.TextureFormat == DXT1 || tex.TextureFormat == DXT5 {
 				d = ensureDDSHeader(d, tex.Width, tex.Height, tex.TextureFormat)
@@ -673,10 +680,11 @@ func ConvertTexToImage(tex *Tex, forcePNG bool) (imgData []byte, format string, 
 
 			convertedBytes, err := io.ReadAll(outPipe)
 			if err != nil {
-				return nil, "", nil, fmt.Errorf("failed to read converted data: %w", err)
+				_ = cmd.Wait()
+				return nil, "", nil, fmt.Errorf("failed to read converted data: %w, stderr: %s", err, stderrBuf.String())
 			}
 			if err = cmd.Wait(); err != nil {
-				return nil, "", nil, fmt.Errorf("magick command error: %w", err)
+				return nil, "", nil, fmt.Errorf("magick command error: %w, stderr: %s", err, stderrBuf.String())
 			}
 
 			return convertedBytes, format, rects, nil
