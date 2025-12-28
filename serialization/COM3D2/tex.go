@@ -29,6 +29,7 @@ import (
 // 1010 版本
 // 增加显式的宽高和纹理格式字段
 // 支持 DXT5/DXT1
+// 格式为 DXT5/DXT1 时不含 DDS 文件头，而只包含原始像素块
 //
 // 1011 版本
 // 新增矩形数组（用于纹理图集）
@@ -36,6 +37,7 @@ import (
 //
 // 注意，TextureFormat 为 ARGB32、RGB24 时数据位是 PNG 或 JPG 格式，为 DXT5、DXT1 时数据位是 DDS 格式
 // 本序列化不支持写出 1000 版本
+// 部分错误的 .tex 文件虽然使用 RGB24 格式，但嵌入的却是 PNG 数据。因此本程序会在格式为 RGB24 和 ARGB32 时尝试解析数据魔数以确定真实格式
 
 // From unity 5.6.4
 // COM3D2 supported only
@@ -395,6 +397,13 @@ func ConvertImageToTex(inputPath string, texName string, compress bool, forcePNG
 		if err != nil {
 			return nil, err
 		}
+
+		// 如果是 DXT 压缩，则剥离 DDS 头部 (128 字节)
+		if (textureFormat == DXT1 || textureFormat == DXT5) && len(data) > 128 {
+			if string(data[:4]) == "DDS " {
+				data = data[128:]
+			}
+		}
 	} else {
 		// forcePNG 为 true 时，强制转换为 PNG
 		if forcePNG {
@@ -568,18 +577,24 @@ func ConvertTexToImage(tex *Tex, forcePNG bool) (imgData []byte, format string, 
 	case DXT5:
 		inputFormat = "dds"
 		hasAlpha = true
-	case ARGB32:
-		// 内部数据已经是 PNG
-		inputFormat = "png"
-		hasAlpha = true
-	case RGB24:
-		// 内部数据已经是 JPG
-		inputFormat = "jpg"
-		hasAlpha = false
-	case 0:
-		// 1000 版本的 tex 没有 TextureFormat，所以 go 会默认赋值为 0
-		inputFormat = "png"
-		hasAlpha = true
+	case ARGB32, RGB24, 0:
+		// 尝试从数据中检测格式
+		if len(tex.Data) >= 8 && bytes.Equal(tex.Data[:8], []byte("\x89PNG\r\n\x1a\n")) {
+			inputFormat = "png"
+			hasAlpha = true
+		} else if len(tex.Data) >= 3 && bytes.Equal(tex.Data[:3], []byte("\xff\xd8\xff")) {
+			inputFormat = "jpg"
+			hasAlpha = false
+		} else {
+			// 如果检测失败，回退到原始逻辑
+			if tex.TextureFormat == RGB24 {
+				inputFormat = "jpg"
+				hasAlpha = false
+			} else {
+				inputFormat = "png"
+				hasAlpha = true
+			}
+		}
 	default:
 		return nil, inputFormat, nil, fmt.Errorf("unsupported texture format: %d", tex.TextureFormat)
 	}
@@ -603,7 +618,12 @@ func ConvertTexToImage(tex *Tex, forcePNG bool) (imgData []byte, format string, 
 			// 输出肯定是 PNG
 			cmd := exec.Command("magick", inputFormat+":-", "png:-")
 			tools.SetHideWindow(cmd)
-			cmd.Stdin = bytes.NewReader(tex.Data)
+
+			d := tex.Data
+			if tex.TextureFormat == DXT1 || tex.TextureFormat == DXT5 {
+				d = ensureDDSHeader(d, tex.Width, tex.Height, tex.TextureFormat)
+			}
+			cmd.Stdin = bytes.NewReader(d)
 
 			// 从 stdout 读取转换后的 PNG 数据
 			outPipe, err := cmd.StdoutPipe()
@@ -636,7 +656,12 @@ func ConvertTexToImage(tex *Tex, forcePNG bool) (imgData []byte, format string, 
 			// 输出 JPEG
 			cmd := exec.Command("magick", args...)
 			tools.SetHideWindow(cmd)
-			cmd.Stdin = bytes.NewReader(tex.Data)
+
+			d := tex.Data
+			if tex.TextureFormat == DXT1 || tex.TextureFormat == DXT5 {
+				d = ensureDDSHeader(d, tex.Width, tex.Height, tex.TextureFormat)
+			}
+			cmd.Stdin = bytes.NewReader(d)
 
 			outPipe, err := cmd.StdoutPipe()
 			if err != nil {
@@ -698,18 +723,24 @@ func ConvertTexToImageAndWrite(tex *Tex, outputPath string, forcePNG bool) error
 	case DXT5:
 		inputFormat = "dds"
 		hasAlpha = true
-	case ARGB32:
-		// 内部数据已经是 PNG
-		inputFormat = "png"
-		hasAlpha = true
-	case RGB24:
-		// 内部数据已经是 JPG
-		inputFormat = "jpg"
-		hasAlpha = false
-	case 0:
-		// 1000 版本的 tex 没有 TextureFormat，所以 go 会默认赋值为 0
-		inputFormat = "png"
-		hasAlpha = true
+	case ARGB32, RGB24, 0:
+		// 尝试从数据中检测格式
+		if len(tex.Data) >= 8 && bytes.Equal(tex.Data[:8], []byte("\x89PNG\r\n\x1a\n")) {
+			inputFormat = "png"
+			hasAlpha = true
+		} else if len(tex.Data) >= 3 && bytes.Equal(tex.Data[:3], []byte("\xff\xd8\xff")) {
+			inputFormat = "jpg"
+			hasAlpha = false
+		} else {
+			// 如果检测失败，回退到原始逻辑
+			if tex.TextureFormat == RGB24 {
+				inputFormat = "jpg"
+				hasAlpha = false
+			} else {
+				inputFormat = "png"
+				hasAlpha = true
+			}
+		}
 	default:
 		return fmt.Errorf("unsupported texture format: %d", tex.TextureFormat)
 	}
@@ -770,7 +801,12 @@ func ConvertTexToImageAndWrite(tex *Tex, outputPath string, forcePNG bool) error
 		// 否则使用 ImageMagick 进行转换成用户想要的格式
 		cmd := exec.Command("magick", inputFormat+":-", outputPath)
 		tools.SetHideWindow(cmd)
-		cmd.Stdin = bytes.NewReader(tex.Data)
+
+		d := tex.Data
+		if tex.TextureFormat == DXT1 || tex.TextureFormat == DXT5 {
+			d = ensureDDSHeader(d, tex.Width, tex.Height, tex.TextureFormat)
+		}
+		cmd.Stdin = bytes.NewReader(d)
 
 		output, err := cmd.CombinedOutput()
 		if err != nil {
@@ -787,7 +823,12 @@ func ConvertTexToImageAndWrite(tex *Tex, outputPath string, forcePNG bool) error
 
 		cmd := exec.Command("magick", args...)
 		tools.SetHideWindow(cmd)
-		cmd.Stdin = bytes.NewReader(tex.Data)
+
+		d := tex.Data
+		if tex.TextureFormat == DXT1 || tex.TextureFormat == DXT5 {
+			d = ensureDDSHeader(d, tex.Width, tex.Height, tex.TextureFormat)
+		}
+		cmd.Stdin = bytes.NewReader(d)
 
 		output, err := cmd.CombinedOutput()
 		if err != nil {
@@ -819,6 +860,57 @@ func ConvertTexToImageAndWrite(tex *Tex, outputPath string, forcePNG bool) error
 		}
 	}
 	return nil
+}
+
+// createDDSHeader 为 DXT1/DXT5 创建一个基本的 128 字节 DDS 头部。
+func createDDSHeader(width, height int32, format int32) []byte {
+	buf := make([]byte, 128)
+	copy(buf[0:4], "DDS ")
+	binary.LittleEndian.PutUint32(buf[4:8], 124) // Header Size
+
+	// Flags: DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH | DDSD_PIXELFORMAT | DDSD_LINEARSIZE
+	flags := uint32(0x1 | 0x2 | 0x4 | 0x1000 | 0x80000)
+	binary.LittleEndian.PutUint32(buf[8:12], flags)
+
+	binary.LittleEndian.PutUint32(buf[12:16], uint32(height))
+	binary.LittleEndian.PutUint32(buf[16:20], uint32(width))
+
+	// PitchOrLinearSize
+	var blockSize uint32 = 8
+	if format == DXT5 {
+		blockSize = 16
+	}
+	linearSize := uint32((width+3)/4) * uint32((height+3)/4) * blockSize
+	binary.LittleEndian.PutUint32(buf[20:24], linearSize)
+
+	binary.LittleEndian.PutUint32(buf[24:28], 0) // Depth
+	binary.LittleEndian.PutUint32(buf[28:32], 1) // MipMapCount
+
+	// Pixel Format
+	pfOff := 76
+	binary.LittleEndian.PutUint32(buf[pfOff:pfOff+4], 32)    // PF Size
+	binary.LittleEndian.PutUint32(buf[pfOff+4:pfOff+8], 0x4) // DDPF_FOURCC
+	if format == DXT1 {
+		copy(buf[pfOff+8:pfOff+12], "DXT1")
+	} else {
+		copy(buf[pfOff+8:pfOff+12], "DXT5")
+	}
+
+	// Caps
+	binary.LittleEndian.PutUint32(buf[108:112], 0x1000) // DDSCAPS_TEXTURE
+
+	return buf
+}
+
+// ensureDDSHeader 确保 DXT 数据具有 DDS 头部。
+// 如果数据已经有 "DDS " 签名，则按原样返回。
+// 否则，它会根据提供的宽度、高度和格式合成一个头部。
+func ensureDDSHeader(data []byte, width, height int32, format int32) []byte {
+	if len(data) >= 4 && string(data[:4]) == "DDS " {
+		return data
+	}
+	header := createDDSHeader(width, height, format)
+	return append(header, data...)
 }
 
 // isLossyCompression 检查是否为有损压缩格式
