@@ -336,38 +336,46 @@ func (fs *Arc) writeHashTable(w io.Writer, dirOffsets map[uint64]int64, uuidToHa
 }
 
 func (fs *Arc) writeNameTable(w io.Writer, utf16 bool) error {
-	// gather files, dirs, and root, distinct by name
-	names := map[string]struct{}{}
-	add := func(n string) { names[n] = struct{}{} }
-	add(fs.Root.Name)
-	for _, d := range AllDirs(fs) {
-		add(d.Name)
+	// gather files, dirs, and root, distinct by name, preserving order for determinism
+	var names []string
+	seen := make(map[string]bool)
+	add := func(n string) {
+		if !seen[n] {
+			seen[n] = true
+			names = append(names, n)
+		}
 	}
+
+	// Follow C# order: Files, then Dirs, then Root
 	for _, f := range AllFiles(fs) {
 		add(f.Name)
 	}
+	for _, d := range AllDirs(fs) {
+		add(d.Name)
+	}
+	add(fs.Root.Name)
+
 	// write pairs
-	for n := range names {
+	for _, n := range names {
 		var h uint64
+		// In C#, Bytes and Size are always UTF-16LE and character count
+		// only the Hash depends on the utf16 parameter
 		if utf16 {
 			h = NameHashUTF16(n)
 		} else {
 			h = NameHashUTF8(n)
 		}
+		b := utf16le(n)
+		sz := int32(len(b) / 2)
+
 		if err := binaryio.WriteUInt64(w, h); err != nil {
 			return err
 		}
-		if err := binaryio.WriteInt32(w, int32(len(n))); err != nil {
+		if err := binaryio.WriteInt32(w, sz); err != nil {
 			return err
 		}
-		if utf16 {
-			if _, err := w.Write(utf16le(n)); err != nil {
-				return err
-			}
-		} else {
-			if _, err := w.Write([]byte(n)); err != nil {
-				return err
-			}
+		if _, err := w.Write(b); err != nil {
+			return err
 		}
 	}
 	return nil
