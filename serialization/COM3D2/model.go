@@ -164,6 +164,227 @@ const (
 	ShadowCastingModeShadowsOnly = "ShadowsOnly" // 只投射阴影
 )
 
+func ReadModelMetadata(r io.Reader) (*ModelMetadata, error) {
+	rp, ok := r.(stream.Peeker)
+	if !ok {
+		return nil, fmt.Errorf("ReadModelMetadata: the reader is not peekable, wrap it with bufio.Reader first")
+	}
+
+	metadata := &ModelMetadata{}
+	reader := stream.NewBinaryReader(rp)
+
+	// 读取签名
+	var err error
+	metadata.Signature, err = reader.ReadString()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read signature: %w", err)
+	}
+
+	// 读取版本号
+	metadata.Version, err = reader.ReadInt32()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read version: %w", err)
+	}
+
+	// 读取模型名称
+	metadata.Name, err = reader.ReadString()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read name: %w", err)
+	}
+
+	// 读取根骨骼名称
+	metadata.RootBoneName, err = reader.ReadString()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read root bone name: %w", err)
+	}
+
+	// 读取骨骼数量 (用于后续循环)
+	boneCount, err := reader.ReadInt32()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read bone count: %w", err)
+	}
+
+	// 读取阴影投射方式
+	if metadata.Version >= 2104 && metadata.Version < 2200 {
+		shadowCastingMode, err := reader.ReadString()
+		if err != nil {
+			return nil, fmt.Errorf("failed to read shadow casting mode: %w", err)
+		}
+		metadata.ShadowCastingMode = &shadowCastingMode
+	}
+
+	// 骨骼信息 (不得不读，因为有变长的 Name)
+	for i := int32(0); i < boneCount; i++ {
+		_, err = reader.ReadString() // Bone Name
+		if err != nil {
+			return nil, fmt.Errorf("failed to read bone name: %w", err)
+		}
+
+		_, err = reader.ReadByte() // HasScale
+		if err != nil {
+			return nil, fmt.Errorf("failed to read bone scaling flags: %w", err)
+		}
+	}
+
+	// 跳过骨骼父子关系 (boneCount * 4 字节)
+	if _, err := io.CopyN(io.Discard, r, int64(boneCount)*4); err != nil {
+		return nil, fmt.Errorf("failed to skip bone parent indices: %w", err)
+	}
+
+	// 跳过骨骼变换信息
+	for i := int32(0); i < boneCount; i++ {
+		// Position(12) + Rotation(16) = 28
+		skipLen := int64(28)
+		if _, err := io.CopyN(io.Discard, r, skipLen); err != nil {
+			return nil, fmt.Errorf("failed to skip bone transform: %w", err)
+		}
+
+		if metadata.Version >= 2001 {
+			hasScale, err := reader.ReadBool()
+			if err != nil {
+				return nil, fmt.Errorf("failed to read bone scaling flag: %w", err)
+			}
+			if hasScale {
+				if _, err := io.CopyN(io.Discard, r, 12); err != nil { // Scale(12)
+					return nil, fmt.Errorf("failed to skip bone scale: %w", err)
+				}
+			}
+		}
+	}
+
+	// 读取网格基本信息
+	vertCount, err := reader.ReadInt32()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the number of vertices: %w", err)
+	}
+
+	subMeshCount, err := reader.ReadInt32()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the number of subgrids: %w", err)
+	}
+
+	meshBoneCount, err := reader.ReadInt32()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the number of bones: %w", err)
+	}
+
+	// 读取网格关联的骨骼名称 (不得不读)
+	for i := int32(0); i < meshBoneCount; i++ {
+		_, err := reader.ReadString()
+		if err != nil {
+			return nil, fmt.Errorf("failed to read bone name (at bone index): %w", err)
+		}
+	}
+
+	// 跳过骨骼绑定姿势 (meshBoneCount * 16 * 4)
+	if _, err := io.CopyN(io.Discard, r, int64(meshBoneCount)*64); err != nil {
+		return nil, fmt.Errorf("failed to skip bind poses: %w", err)
+	}
+
+	// UV 标志
+	hasUV2 := false
+	hasUV3 := false
+	hasUV4 := false
+	hasUnknownFlag1 := false
+	hasUnknownFlag2 := false
+	hasUnknownFlag3 := false
+	hasUnknownFlag4 := false
+
+	if metadata.Version >= 2101 {
+		if hasUV2, err = reader.ReadBool(); err != nil {
+			return nil, err
+		}
+		if hasUV3, err = reader.ReadBool(); err != nil {
+			return nil, err
+		}
+		if hasUV4, err = reader.ReadBool(); err != nil {
+			return nil, err
+		}
+		if hasUnknownFlag1, err = reader.ReadBool(); err != nil {
+			return nil, err
+		}
+		if hasUnknownFlag2, err = reader.ReadBool(); err != nil {
+			return nil, err
+		}
+		if hasUnknownFlag3, err = reader.ReadBool(); err != nil {
+			return nil, err
+		}
+		if hasUnknownFlag4, err = reader.ReadBool(); err != nil {
+			return nil, err
+		}
+	}
+
+	// 计算单个顶点的长度
+	vertLen := int64(12 + 12 + 8) // Pos(12) + Norm(12) + UV(8)
+	if hasUV2 {
+		vertLen += 8
+	}
+	if hasUV3 {
+		vertLen += 8
+	}
+	if hasUV4 {
+		vertLen += 8
+	}
+	if hasUnknownFlag1 {
+		vertLen += 8
+	}
+	if hasUnknownFlag2 {
+		vertLen += 8
+	}
+	if hasUnknownFlag3 {
+		vertLen += 8
+	}
+	if hasUnknownFlag4 {
+		vertLen += 8
+	}
+
+	// 跳过所有顶点
+	if _, err := io.CopyN(io.Discard, r, int64(vertCount)*vertLen); err != nil {
+		return nil, fmt.Errorf("failed to skip vertices: %w", err)
+	}
+
+	// 跳过切线数据
+	tangentCount, err := reader.ReadInt32()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read tangent count: %w", err)
+	}
+	if _, err := io.CopyN(io.Discard, r, int64(tangentCount)*16); err != nil {
+		return nil, fmt.Errorf("failed to skip tangents: %w", err)
+	}
+
+	// 跳过骨骼权重 (每个顶点 24 字节: 4*uint16 + 4*float32 = 8 + 16 = 24)
+	if _, err := io.CopyN(io.Discard, r, int64(vertCount)*24); err != nil {
+		return nil, fmt.Errorf("failed to skip bone weights: %w", err)
+	}
+
+	// 跳过子网格数据
+	for i := int32(0); i < subMeshCount; i++ {
+		triCount, err := reader.ReadInt32()
+		if err != nil {
+			return nil, err
+		}
+		if _, err := io.CopyN(io.Discard, r, int64(triCount)*2); err != nil { // uint16 indices
+			return nil, fmt.Errorf("failed to skip submesh triangles: %w", err)
+		}
+	}
+
+	// 读取材质
+	materialCount, err := reader.ReadInt32()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read material count: %w", err)
+	}
+
+	metadata.Materials = make([]*Material, materialCount)
+	for i := int32(0); i < materialCount; i++ {
+		metadata.Materials[i], err = readMaterial(r)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read material %d: %w", i, err)
+		}
+	}
+
+	return metadata, nil
+}
+
 // ReadModel 从 r 中读取皮肤网格数据
 func ReadModel(r io.Reader) (*Model, error) {
 	rp, ok := r.(stream.Peeker)
