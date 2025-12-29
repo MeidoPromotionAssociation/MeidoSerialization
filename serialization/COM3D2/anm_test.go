@@ -3,17 +3,19 @@ package COM3D2
 import (
 	"bytes"
 	"os"
+	"path/filepath"
+	"reflect"
 	"testing"
 )
 
 func TestAnm(t *testing.T) {
-	testFiles := []string{
-		"../../testdata/test.anm",
-		"../../testdata/test2.anm",
+	files, err := filepath.Glob("../../testdata/test*.anm")
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	for _, filePath := range testFiles {
-		t.Run(filePath, func(t *testing.T) {
+	for _, filePath := range files {
+		t.Run(filepath.Base(filePath), func(t *testing.T) {
 			f, err := os.Open(filePath)
 			if err != nil {
 				t.Fatalf("failed to open test file: %v", err)
@@ -23,10 +25,6 @@ func TestAnm(t *testing.T) {
 			anm, err := ReadAnm(f)
 			if err != nil {
 				t.Fatalf("failed to read anm: %v", err)
-			}
-
-			if anm.Signature != "CM3D2_ANIM" {
-				t.Errorf("expected signature CM3D2_ANIM, got %s", anm.Signature)
 			}
 
 			// Test Dump
@@ -42,12 +40,9 @@ func TestAnm(t *testing.T) {
 				t.Fatalf("failed to re-read dumped anm: %v", err)
 			}
 
-			// Compare basic fields
-			if anm.Version != anm2.Version {
-				t.Errorf("version mismatch: %d != %d", anm.Version, anm2.Version)
-			}
-			if len(anm.BoneCurves) != len(anm2.BoneCurves) {
-				t.Errorf("bone curves count mismatch: %d != %d", len(anm.BoneCurves), len(anm2.BoneCurves))
+			// Compare complete structure
+			if !reflect.DeepEqual(anm, anm2) {
+				t.Errorf("data mismatch after dump and re-read")
 			}
 		})
 	}

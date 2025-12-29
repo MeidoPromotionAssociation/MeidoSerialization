@@ -2,7 +2,6 @@ package arc
 
 import (
 	"bytes"
-	"os"
 	"path/filepath"
 	"testing"
 )
@@ -98,56 +97,56 @@ func TestMerge(t *testing.T) {
 }
 
 func TestArc(t *testing.T) {
-	filePath := "../../../testdata/test.arc"
-
-	// Skip if test file doesn't exist
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		t.Skip("test.arc not found")
+	files, err := filepath.Glob("../../../testdata/test*.arc")
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	t.Run("ReadAndDump", func(t *testing.T) {
-		arc, err := ReadArc(filePath)
-		if err != nil {
-			t.Fatalf("failed to read arc: %v", err)
-		}
-
-		if arc == nil || arc.Root == nil {
-			t.Fatal("arc or root is nil")
-		}
-
-		// Test Dump
-		tempArc := filepath.Join(t.TempDir(), "test_output.arc")
-		err = arc.Dump(tempArc)
-		if err != nil {
-			t.Fatalf("failed to dump arc: %v", err)
-		}
-
-		// Re-read
-		arc2, err := ReadArc(tempArc)
-		if err != nil {
-			t.Fatalf("failed to re-read dumped arc: %v", err)
-		}
-
-		files1 := arc.GetFileList()
-		files2 := arc2.GetFileList()
-
-		if len(files1) != len(files2) {
-			t.Errorf("file count mismatch: %d != %d", len(files1), len(files2))
-		}
-
-		// Compare content of first few files
-		for i := 0; i < len(files1) && i < 5; i++ {
-			f1 := arc.GetFile(files1[i])
-			f2 := arc2.GetFile(files1[i])
-			if f2 == nil {
-				t.Errorf("file %s missing in re-read arc", files1[i])
-				continue
+	for _, filePath := range files {
+		t.Run(filepath.Base(filePath), func(t *testing.T) {
+			arc, err := ReadArc(filePath)
+			if err != nil {
+				t.Fatalf("failed to read arc: %v", err)
 			}
-			d1, _ := f1.Ptr.Data()
-			d2, _ := f2.Ptr.Data()
-			if !bytes.Equal(d1, d2) {
-				t.Errorf("content mismatch for file %s", files1[i])
+
+			if arc == nil || arc.Root == nil {
+				t.Fatal("arc or root is nil")
 			}
-		}
-	})
+
+			// Test Dump
+			tempArc := filepath.Join(t.TempDir(), "test_output.arc")
+			err = arc.Dump(tempArc)
+			if err != nil {
+				t.Fatalf("failed to dump arc: %v", err)
+			}
+
+			// Re-read
+			arc2, err := ReadArc(tempArc)
+			if err != nil {
+				t.Fatalf("failed to re-read dumped arc: %v", err)
+			}
+
+			files1 := arc.GetFileList()
+			files2 := arc2.GetFileList()
+
+			if len(files1) != len(files2) {
+				t.Errorf("file count mismatch: %d != %d", len(files1), len(files2))
+			}
+
+			// Compare content of first few files
+			for i := 0; i < len(files1) && i < 5; i++ {
+				f1 := arc.GetFile(files1[i])
+				f2 := arc2.GetFile(files1[i])
+				if f2 == nil {
+					t.Errorf("file %s missing in re-read arc", files1[i])
+					continue
+				}
+				d1, _ := f1.Ptr.Data()
+				d2, _ := f2.Ptr.Data()
+				if !bytes.Equal(d1, d2) {
+					t.Errorf("content mismatch for file %s", files1[i])
+				}
+			}
+		})
+	}
 }
