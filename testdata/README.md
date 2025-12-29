@@ -1,4 +1,8 @@
-Place test file here, and run `go.exe- test- -json- ./...`
+Place test file here, and run `go test -v ./...`
+
+The testing program automatically searches for and tests all files named `test*.<ext>`
+
+Such as
 
 - test.anm
 - test.arc
@@ -14,3 +18,4 @@ Place test file here, and run `go.exe- test- -json- ./...`
 - test.tex
 - test2.anm
 - test2.tex
+- test231.menu
