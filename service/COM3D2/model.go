@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
 )
 
 // ModelService 专门处理 .model 文件的读写
@@ -60,7 +59,7 @@ func (m *ModelService) WriteModelFile(outputPath string, modelData *COM3D2.Model
 		return nil
 	}
 
-	bw := stream.NewBinaryWriter(bufio.NewWriter(f))
+	bw := bufio.NewWriter(f)
 	if err := modelData.Dump(bw); err != nil {
 		return fmt.Errorf("failed to write to .model file: %w", err)
 	}

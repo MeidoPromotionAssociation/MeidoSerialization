@@ -624,7 +624,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 	}
 	model.Materials = make([]*Material, materialCount)
 	for i := int32(0); i < materialCount; i++ {
-		model.Materials[i], err = readMaterial(r)
+		model.Materials[i], err = readMaterial(reader)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read material: %w", err)
 		}
@@ -1142,7 +1142,7 @@ func ReadModelMetadata(r io.Reader) (*ModelMetadata, error) {
 
 	metadata.Materials = make([]*Material, materialCount)
 	for i := int32(0); i < materialCount; i++ {
-		metadata.Materials[i], err = readMaterial(r)
+		metadata.Materials[i], err = readMaterial(reader)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read material %d: %w", i, err)
 		}
@@ -1151,8 +1151,9 @@ func ReadModelMetadata(r io.Reader) (*ModelMetadata, error) {
 	return metadata, nil
 }
 
-func (m *Model) Dump(writer *stream.BinaryWriter) error {
-	// 写入文件头
+func (m *Model) Dump(w io.Writer) error {
+	writer := stream.NewBinaryWriter(w)
+
 	// 写入签名
 	if err := writer.WriteString(m.Signature); err != nil {
 		return fmt.Errorf("failed to write signature: %w", err)
@@ -1506,7 +1507,7 @@ func (m *Model) Dump(writer *stream.BinaryWriter) error {
 		return fmt.Errorf("failed to write the number of materials: %w", err)
 	}
 	for _, material := range m.Materials {
-		if err := material.Dump(writer.W); err != nil {
+		if err := material.Dump(writer); err != nil {
 			return fmt.Errorf("failed to write material: %w", err)
 		}
 	}

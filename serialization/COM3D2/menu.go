@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
 )
 
 // CM3D2_MENU
@@ -32,16 +33,18 @@ type Command struct {
 }
 
 // ReadMenu 从 r 中读取一个 .menu 文件结构
-func ReadMenu(reader io.Reader) (*Menu, error) {
-	r, ok := reader.(binaryio.Peeker)
+func ReadMenu(r io.Reader) (*Menu, error) {
+	rp, ok := r.(binaryio.Peeker)
 	if !ok {
 		return nil, fmt.Errorf("ReadMenu: the reader is not peekable, wrap it with bufio.Reader first")
 	}
 
 	m := &Menu{}
 
+	reader := stream.NewBinaryReader(rp)
+
 	// 1. Signature
-	sig, err := binaryio.ReadString(r)
+	sig, err := reader.ReadString()
 	if err != nil {
 		return nil, err
 	}
@@ -51,42 +54,42 @@ func ReadMenu(reader io.Reader) (*Menu, error) {
 	m.Signature = sig
 
 	// 2. Version (4 bytes little-endian)
-	ver, err := binaryio.ReadInt32(r)
+	ver, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read version failed: %w", err)
 	}
 	m.Version = ver
 
 	// 3. SrcFileName (string)
-	src, err := binaryio.ReadString(r)
+	src, err := reader.ReadString()
 	if err != nil {
 		return nil, fmt.Errorf("read srcFileName failed: %w", err)
 	}
 	m.SrcFileName = src
 
 	// 4. ItemName
-	itemName, err := binaryio.ReadString(r)
+	itemName, err := reader.ReadString()
 	if err != nil {
 		return nil, fmt.Errorf("read itemName failed: %w", err)
 	}
 	m.ItemName = itemName
 
 	// 5. Category
-	cat, err := binaryio.ReadString(r)
+	cat, err := reader.ReadString()
 	if err != nil {
 		return nil, fmt.Errorf("read category failed: %w", err)
 	}
 	m.Category = cat
 
 	// 6. InfoText
-	infoText, err := binaryio.ReadString(r)
+	infoText, err := reader.ReadString()
 	if err != nil {
 		return nil, fmt.Errorf("read infoText failed: %w", err)
 	}
 	m.InfoText = infoText
 
 	// 7. BodySize
-	bodySize, err := binaryio.ReadInt32(r)
+	bodySize, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read bodySize failed: %w", err)
 	}
@@ -94,7 +97,7 @@ func ReadMenu(reader io.Reader) (*Menu, error) {
 
 	// 8. Commands, until we see a 0 byte
 	for {
-		peek, err := binaryio.PeekByte(r)
+		peek, err := reader.PeekByte()
 		if err != nil {
 			return nil, fmt.Errorf("peek command argCount failed: %w", err)
 		}
@@ -104,7 +107,7 @@ func ReadMenu(reader io.Reader) (*Menu, error) {
 		}
 		// read a new Command
 		var cmd Command
-		ac, err := binaryio.ReadByte(r)
+		ac, err := reader.ReadByte()
 		if err != nil {
 			return nil, fmt.Errorf("read command.argCount failed: %w", err)
 		}
@@ -114,7 +117,7 @@ func ReadMenu(reader io.Reader) (*Menu, error) {
 			cmd.Args = nil
 		} else {
 			// 第一个字符串为命令，其余为参数
-			first, err := binaryio.ReadString(r)
+			first, err := reader.ReadString()
 			if err != nil {
 				return nil, fmt.Errorf("read command failed: %w", err)
 			}
@@ -122,7 +125,7 @@ func ReadMenu(reader io.Reader) (*Menu, error) {
 			if ac > 1 {
 				cmd.Args = make([]string, 0, int(ac)-1)
 				for i := 1; i < int(ac); i++ {
-					arg, err := binaryio.ReadString(r)
+					arg, err := reader.ReadString()
 					if err != nil {
 						return nil, fmt.Errorf("read command arg failed: %w", err)
 					}
@@ -134,7 +137,7 @@ func ReadMenu(reader io.Reader) (*Menu, error) {
 	}
 
 	// 9. endByte = 0
-	endB, err := binaryio.ReadByte(r)
+	endB, err := reader.ReadByte()
 	if err != nil {
 		return nil, fmt.Errorf("read endByte failed: %w", err)
 	}
@@ -147,43 +150,45 @@ func ReadMenu(reader io.Reader) (*Menu, error) {
 
 // Dump 把 Menu 写出到 w 中
 func (m *Menu) Dump(w io.Writer) error {
+	writer := stream.NewBinaryWriter(w)
+
 	err := m.UpdateBodySize()
 	if err != nil {
 		return fmt.Errorf("update bodySize failed: %w", err)
 	}
 
 	// 1. Signature
-	if err := binaryio.WriteString(w, m.Signature); err != nil {
+	if err := writer.WriteString(m.Signature); err != nil {
 		return fmt.Errorf("write signature failed: %w", err)
 	}
 
 	// 2. Version
-	if err := binaryio.WriteInt32(w, m.Version); err != nil {
+	if err := writer.WriteInt32(m.Version); err != nil {
 		return fmt.Errorf("write version failed: %w", err)
 	}
 
 	// 3. SrcFileName
-	if err := binaryio.WriteString(w, m.SrcFileName); err != nil {
+	if err := writer.WriteString(m.SrcFileName); err != nil {
 		return fmt.Errorf("write srcFileName failed: %w", err)
 	}
 
 	// 4. ItemName
-	if err := binaryio.WriteString(w, m.ItemName); err != nil {
+	if err := writer.WriteString(m.ItemName); err != nil {
 		return fmt.Errorf("write itemName failed: %w", err)
 	}
 
 	// 5. Category
-	if err := binaryio.WriteString(w, m.Category); err != nil {
+	if err := writer.WriteString(m.Category); err != nil {
 		return fmt.Errorf("write category failed: %w", err)
 	}
 
 	// 6. InfoText
-	if err := binaryio.WriteString(w, m.InfoText); err != nil {
+	if err := writer.WriteString(m.InfoText); err != nil {
 		return fmt.Errorf("write infoText failed: %w", err)
 	}
 
 	// 7. BodySize
-	if err := binaryio.WriteInt32(w, m.BodySize); err != nil {
+	if err := writer.WriteInt32(m.BodySize); err != nil {
 		return fmt.Errorf("write bodySize failed: %w", err)
 	}
 
@@ -200,25 +205,25 @@ func (m *Menu) Dump(w io.Writer) error {
 		}
 
 		// 写 ArgCount
-		if err := binaryio.WriteByte(w, byte(len(cmd.Args)+1)); err != nil {
+		if err := writer.WriteByte(byte(len(cmd.Args) + 1)); err != nil {
 			return fmt.Errorf("write command argCount failed: %w", err)
 		}
 
 		// 先写命令名
-		if err := binaryio.WriteString(w, cmd.Command); err != nil {
+		if err := writer.WriteString(cmd.Command); err != nil {
 			return fmt.Errorf("write command name failed: %w", err)
 		}
 
 		// 再写参数
 		for _, arg := range cmd.Args {
-			if err := binaryio.WriteString(w, arg); err != nil {
+			if err := writer.WriteString(arg); err != nil {
 				return fmt.Errorf("write command arg failed: %w", err)
 			}
 		}
 	}
 
 	// 9. 写一个 0 byte 结束
-	if err := binaryio.WriteByte(w, endByte); err != nil {
+	if err := writer.WriteByte(endByte); err != nil {
 		return fmt.Errorf("write endByte=0 failed: %w", err)
 	}
 	return nil

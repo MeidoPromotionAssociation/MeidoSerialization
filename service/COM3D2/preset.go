@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
 )
 
 // PresetService 专门处理 .preset 文件的读写
@@ -57,7 +58,8 @@ func (s *PresetService) ReadPresetFileMetadata(path string) (*COM3D2.PresetMetad
 	}
 
 	br := bufio.NewReaderSize(f, 1024*64) //64KB 缓冲区， 3231 个样本中 90% 文件小于 58.80 KB，中位数 50.57 KB
-	presetData, err := COM3D2.ReadPresetMetadata(br)
+	reader := stream.NewBinaryReader(br)
+	presetData, err := COM3D2.ReadPresetMetadata(reader)
 	if err != nil {
 		return nil, fmt.Errorf("parsing the .preset file failed: %w", err)
 	}
