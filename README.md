@@ -13,7 +13,9 @@
 
 ## Introduction
 
-MeidoSerialization is a serialization library written in Golang, designed to handle file formats used in [KISS](https://www.kisskiss.tv/) games. It currently supports [CM3D2](https://www.kisskiss.tv/cm3d2/) and [COM3D2](https://com3d2.jp/) game file formats.
+MeidoSerialization is a serialization library written in Golang, designed to handle file formats used
+in [KISS](https://www.kisskiss.tv/) games. It currently supports [CM3D2](https://www.kisskiss.tv/cm3d2/)
+and [COM3D2](https://com3d2.jp/) game file formats.
 
 <br>
 
@@ -28,11 +30,12 @@ Or you can find me in Discord [Custom Maid Server](https://discord.gg/custommaid
 - Read and write various file formats used in CM3D2 and COM3D2 games
 - Convert binary game files to JSON format for easy editing
 - Convert JSON files back to binary game formats
-- Support for multiple file types including: .menu, .mate, .pmat, .col, .phy, .psk, .tex, .anm, .model, .nei
+- Support for multiple file types including: .menu, .mate, .pmat, .col, .phy, .psk, .tex, .anm, .model, .nei, .preset,
+  .arc
 
 ## Supported File Types
 
-Current Game Version COM3D2 v2.46.3 & COM3D2.5 v3.46.3
+Current Game Version COM3D2 v2.47.0 & COM3D2.5 v3.47.0
 
 | Extension | Description           | Version Support    | Note                                                                                                                                                                              |
 |-----------|-----------------------|--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -45,8 +48,9 @@ Current Game Version COM3D2 v2.46.3 & COM3D2.5 v3.46.3
 | .tex      | Texture files         | All versions       | not support write version 1000, because version 1000 is poorly designed (CM3D2 also supports version 1010,so there is no reason to use)                                           |
 | .anm      | Animation files       | All versions       |                                                                                                                                                                                   |
 | .model    | Model files           | Versions 1000-2200 |                                                                                                                                                                                   |
-| .nei      | Encrypted CSV File    | All Versions       | .nei files use Shift-JIS encoding internally, but we use UTF-8-BOM encoding when reading and writing CSV files. Using characters not supported by Shift-JIS may result in errors. |
+| .nei      | Encrypted CSV files   | All Versions       | .nei files use Shift-JIS encoding internally, but we use UTF-8-BOM encoding when reading and writing CSV files. Using characters not supported by Shift-JIS may result in errors. |
 | .preset   | Preset files          | All versions       |                                                                                                                                                                                   |
+| .arc      | archive files         | All versions       | not support _2.arc                                                                                                                                                                |
 
 Each file corresponds to a .go
 file：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2)
@@ -56,7 +60,9 @@ file：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/mai
 - This library was originally developed for the [COM3D2_MOD_EDITOR](https://github.com/90135/COM3D2_MOD_EDITOR) project
   and was later made independent for easier use. You can also refer to that project for usage examples.
 -
+
 pkg.go.dev: [https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
+
 - DeepWiki (Note: May contain AI
   hallucinations): [https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
 
@@ -132,13 +138,12 @@ The library provides two main packages:
 package main
 
 import (
+	"bufio"
+	"fmt"
+	"os"
 
-"bufio"
-"fmt"
-"os"
-
-serialcom "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
-COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
+	serialcom "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
+	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
 )
 
 func main() {
@@ -225,25 +230,29 @@ If you encounter errors when working with texture (.tex) files:
 
 ### About version 1011 of the .tex file
 
--  New fields:
-	- Version 1011 adds a `Rects` (texture atlas) array to the binary structure. Its elements are four `float32` values: `x, y, w, h`, representing rectangles in normalized UV space.
+- New fields:
+    - Version 1011 adds a `Rects` (texture atlas) array to the binary structure. Its elements are four `float32` values:
+      `x, y, w, h`, representing rectangles in normalized UV space.
 - When converting an image to `.tex`:
-	- If a `.uv.csv` file with the same name exists in the same directory (e.g., `foo.png.uv.csv`), the rectangles in it will be read and the 1011 version of the tex file will be generated.
-	- If no `.uv.csv` file exists, the 1010 version (without `Rects`) will be generated.
+    - If a `.uv.csv` file with the same name exists in the same directory (e.g., `foo.png.uv.csv`), the rectangles in it
+      will be read and the 1011 version of the tex file will be generated.
+    - If no `.uv.csv` file exists, the 1010 version (without `Rects`) will be generated.
 - When converting `.tex` to an image:
-	- If the source `.tex` is 1011 and contains `Rects`, a `.uv.csv` file with the same name will be generated next to the output image (e.g., `output.png.uv.csv`).
+    - If the source `.tex` is 1011 and contains `Rects`, a `.uv.csv` file with the same name will be generated next to
+      the output image (e.g., `output.png.uv.csv`).
 - .uv.csv format:
-	- Encoding must be: UTF-8 with BOM.
-	- Delimiter: English comma `,`.
-	- Number of columns: 4 columns per row, in the order `x, y, w, h` (x, y, width, height); values are typically in the range `[0, 1]` (normalized UVs). It is recommended to retain up to 6 decimal places and use `float32` precision.
-	Example:
-	
-	```csv
-	x,y,w,h
-	0.000000,0.000000,0.500000,0.500000
-	0.500000,0.000000,0.500000,0.500000
-	0.000000,0.500000,0.500000,0.500000
-	```
+    - Encoding must be: UTF-8 with BOM.
+    - Delimiter: English comma `,`.
+    - Number of columns: 4 columns per row, in the order `x, y, w, h` (x, y, width, height); values are typically in the
+      range `[0, 1]` (normalized UVs). It is recommended to retain up to 6 decimal places and use `float32` precision.
+      Example:
+
+  ```csv
+  x,y,w,h
+  0.000000,0.000000,0.500000,0.500000
+  0.500000,0.000000,0.500000,0.500000
+  0.000000,0.500000,0.500000,0.500000
+  ```
 
 ### Unable to save when using certain characters in `.nei` file
 
@@ -295,7 +304,8 @@ This project is licensed under the BSD-3-Clause License - see the LICENSE file f
 
 ## 简介
 
-MeidoSerialization 是一个用 Golang 编写的序列化库，专为处理 [KISS](https://www.kisskiss.tv) 游戏中使用的文件格式而设计。目前支持 [CM3D2](https://www.kisskiss.tv/cm3d2/) 和 [COM3D2](https://com3d2.jp/) 的游戏文件格式。
+MeidoSerialization 是一个用 Golang 编写的序列化库，专为处理 [KISS](https://www.kisskiss.tv)
+游戏中使用的文件格式而设计。目前支持 [CM3D2](https://www.kisskiss.tv/cm3d2/) 和 [COM3D2](https://com3d2.jp/) 的游戏文件格式。
 
 <br>
 
@@ -312,7 +322,7 @@ MeidoSerialization 是一个用 Golang 编写的序列化库，专为处理 [KIS
 - 读取和写入 CM3D2 和 COM3D2 游戏中使用的各种文件格式
 - 将二进制游戏文件转换为 JSON 格式以便于编辑
 - 将 JSON 文件转换回二进制游戏格式
-- 支持多种文件类型，包括：.menu、.mate、.pmat、.col、.phy、.psk、.tex、.anm, .model, .nei
+- 支持多种文件类型，包括：.menu、.mate、.pmat、.col、.phy、.psk、.tex、.anm, .model, .nei, .preset, .arc
 
 ## 支持的文件类型
 
@@ -331,6 +341,7 @@ MeidoSerialization 是一个用 Golang 编写的序列化库，专为处理 [KIS
 | .model  | 模型文件      | 1000-2200 版本 |                                                                                  |
 | .nei    | 加密 CSV 文件 | 所有版本         | .nei 内部使用 Shift-JIS 编码，但我们在读写时 CSV 时会使用 UTF-8-BOM 编码，如果使用了 Shift-JIS 不支持字符则可能会出错 |
 | .preset | 角色预设文件    | 所有版本         |                                                                                  |
+| .arc    | 归档文件      | 所有版本         | 不支持 _2.arc                                                                       |
 
 每种文件都对应一个 .go
 文件：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2)
@@ -339,7 +350,9 @@ MeidoSerialization 是一个用 Golang 编写的序列化库，专为处理 [KIS
 
 - 本库最初是为了 [COM3D2_MOD_EDITOR](https://github.com/90135/COM3D2_MOD_EDITOR) 项目开发的，后来独立出来以方便各位使用，您也可以参考该项目的使用方法。
 -
+
 pkg.go.dev：[https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
+
 - DeepWiki（请注意 AI
   幻觉，有很多内容是它瞎编的）：[https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
 
@@ -503,23 +516,24 @@ func main() {
 ### 关于 1011 版本的 .tex
 
 - 新增字段：
-	- 1011 版本在二进制结构中新增 `Rects`（纹理图集）数组，元素为 `x, y, w, h` 四个 `float32`，表示归一化 UV 空间内的矩形。
+    - 1011 版本在二进制结构中新增 `Rects`（纹理图集）数组，元素为 `x, y, w, h` 四个 `float32`，表示归一化 UV 空间内的矩形。
 - 将图片转换为 `.tex` 时：
-	- 若同目录存在同名的 `.uv.csv`（如 `foo.png.uv.csv`），会读取其中的矩形并生成 1011 版本的 tex。
-	- 若不存在 `.uv.csv`，则生成 1010 版本（不含 `Rects`）。
+    - 若同目录存在同名的 `.uv.csv`（如 `foo.png.uv.csv`），会读取其中的矩形并生成 1011 版本的 tex。
+    - 若不存在 `.uv.csv`，则生成 1010 版本（不含 `Rects`）。
 - 将 `.tex` 转换为图片时:
-	- 若源 `.tex` 为 1011 且包含 `Rects`，在输出图片旁会生成同名 `.uv.csv`（如 `output.png.uv.csv`）
+    - 若源 `.tex` 为 1011 且包含 `Rects`，在输出图片旁会生成同名 `.uv.csv`（如 `output.png.uv.csv`）
 - .uv.csv 格式：
-	- 编码必须为：UTF-8-BOM。
-	- 分隔符：英文逗号`,`。
-	- 列数：每行 4 列，依次为 `x, y, w, h` (x, y, width, heigh)；取值通常位于区间 `[0,1]`（归一化 UV），建议保留最多 6 位小数，精度为 `float32`。
-	- 示例：
-	```csv
-	x,y,w,h
-	0.000000,0.000000,0.500000,0.500000
-	0.500000,0.000000,0.500000,0.500000
-	0.000000,0.500000,0.500000,0.500000
-	```
+    - 编码必须为：UTF-8-BOM。
+    - 分隔符：英文逗号`,`。
+    - 列数：每行 4 列，依次为 `x, y, w, h` (x, y, width, heigh)；取值通常位于区间 `[0,1]`（归一化 UV），建议保留最多 6 位小数，精度为
+      `float32`。
+    - 示例：
+  ```csv
+  x,y,w,h
+  0.000000,0.000000,0.500000,0.500000
+  0.500000,0.000000,0.500000,0.500000
+  0.000000,0.500000,0.500000,0.500000
+  ```
 
 ### 在 `.nei` 文件中使用某些字符时无法保存
 
@@ -531,7 +545,8 @@ func main() {
 
 ### 关于 CSV 格式
 
-本程序中使用的所有 CSV 文件均采用 UTF-8-BOM 编码，以 `,` 分隔，并遵循 [RFC4180](https://datatracker.ietf.org/doc/html/rfc4180) 标准。
+本程序中使用的所有 CSV 文件均采用 UTF-8-BOM 编码，以 `,`
+分隔，并遵循 [RFC4180](https://datatracker.ietf.org/doc/html/rfc4180) 标准。
 
 ## 许可证
 

@@ -186,6 +186,31 @@ MeidoSerialization.exe determine --type menu ./mods_directory
 MeidoSerialization.exe determine --type menu.json ./mods_directory
 ```
 
+
+### unpackArc
+
+Unpack a .arc file into a folder
+
+Examples:
+
+```bash
+MeidoSerialization.exe unpackArc example.arc
+MeidoSerialization.exe unpackArc example.arc -o ./output_dir
+MeidoSerialization.exe unpackArc ./arc_directory
+```
+
+
+### packArc
+
+Pack a directory into a .arc file
+
+Examples:
+
+```bash
+MeidoSerialization packArc ./my_folder
+MeidoSerialization packArc ./my_folder -o custom.arc
+```
+
 ### Global Flags
 
 - `--strict` or `-s`: Use strict mode for file type determination (based on content rather than file extension)
@@ -409,6 +434,33 @@ MeidoSerialization.exe determine --strict ./mods_directory
 MeidoSerialization.exe determine --type menu ./mods_directory
 MeidoSerialization.exe determine --type menu.json ./mods_directory
 ```
+
+### unpackArc
+
+将 .arc 文件解压到指定文件夹。
+
+示例：
+
+```bash
+
+MeidoSerialization.exe unpackArc example.arc
+MeidoSerialization.exe unpackArc example.arc -o ./output_dir
+MeidoSerialization.exe unpackArc ./arc_directory
+
+```
+
+### packArc
+
+将目录打包成 .arc 文件。
+
+示例：
+
+```bash
+
+MeidoSerialization packArc ./my_folder
+MeidoSerialization packArc ./my_folder -o custom.arc
+```
+
 
 ### 全局参数
 
