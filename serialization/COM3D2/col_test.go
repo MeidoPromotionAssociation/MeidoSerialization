@@ -9,7 +9,7 @@ import (
 )
 
 func TestCol(t *testing.T) {
-	files, err := filepath.Glob("../../testdata/test*.col")
+	files, err := filepath.Glob("../../testdata/*.col")
 	if err != nil {
 		t.Fatal(err)
 	}

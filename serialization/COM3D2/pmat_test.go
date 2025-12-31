@@ -9,7 +9,7 @@ import (
 )
 
 func TestPmat(t *testing.T) {
-	files, err := filepath.Glob("../../testdata/test*.pmat")
+	files, err := filepath.Glob("../../testdata/*.pmat")
 	if err != nil {
 		t.Fatal(err)
 	}

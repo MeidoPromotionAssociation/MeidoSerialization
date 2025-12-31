@@ -7,7 +7,7 @@ import (
 )
 
 func TestModelService(t *testing.T) {
-	files, err := filepath.Glob("../../testdata/test*.model")
+	files, err := filepath.Glob("../../testdata/*.model")
 	if err != nil {
 		t.Fatal(err)
 	}

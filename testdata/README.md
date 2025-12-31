@@ -1,21 +1,21 @@
 Place test file here, and run `go test -v ./...`
 
-The testing program automatically searches for and tests all files named `test*.<ext>`
+The testing program automatically searches for and tests all files named `*.<ext>`
 
 Such as
 
-- test.anm
-- test.arc
-- test.col
-- test.mate
-- test.menu
-- test.model
-- test.nei
-- test.phy
-- test.pmat
-- test.preset
-- test.psk
-- test.tex
-- test2.anm
-- test2.tex
+- 211321.anm
+- sadascxz.arc
+- sadasd.col
+- 3421rfdszf.mate
+- 213214.menu
+- dsad123.model
+- vsdfge478.nei
+- 123safd.phy
+- cxzfqwr.pmat
+- 7jyn.preset
+- 2132151.psk
+- 4q2tfea.tex
+- 21edfv.anm
+- 123esad.tex
 - test231.menu

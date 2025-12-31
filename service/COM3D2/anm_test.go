@@ -7,7 +7,7 @@ import (
 )
 
 func TestAnmService(t *testing.T) {
-	files, err := filepath.Glob("../../testdata/test*.anm")
+	files, err := filepath.Glob("../../testdata/*.anm")
 	if err != nil {
 		t.Fatal(err)
 	}

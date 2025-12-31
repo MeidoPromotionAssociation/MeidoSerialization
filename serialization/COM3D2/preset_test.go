@@ -9,7 +9,7 @@ import (
 )
 
 func TestPreset(t *testing.T) {
-	files, err := filepath.Glob("../../testdata/test*.preset")
+	files, err := filepath.Glob("../../testdata/*.preset")
 	if err != nil {
 		t.Fatal(err)
 	}

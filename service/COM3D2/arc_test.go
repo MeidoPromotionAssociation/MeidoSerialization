@@ -8,7 +8,7 @@ import (
 )
 
 func TestArcService(t *testing.T) {
-	files, err := filepath.Glob("../../testdata/test*.arc")
+	files, err := filepath.Glob("../../testdata/*.arc")
 	if err != nil {
 		t.Fatal(err)
 	}

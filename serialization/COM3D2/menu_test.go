@@ -10,7 +10,7 @@ import (
 )
 
 func TestMenu(t *testing.T) {
-	files, err := filepath.Glob("../../testdata/test*.menu")
+	files, err := filepath.Glob("../../testdata/*.menu")
 	if err != nil {
 		t.Fatal(err)
 	}

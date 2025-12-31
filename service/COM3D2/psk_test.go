@@ -7,7 +7,7 @@ import (
 )
 
 func TestPskService(t *testing.T) {
-	files, err := filepath.Glob("../../testdata/test*.psk")
+	files, err := filepath.Glob("../../testdata/*.psk")
 	if err != nil {
 		t.Fatal(err)
 	}

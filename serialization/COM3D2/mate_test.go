@@ -10,7 +10,7 @@ import (
 )
 
 func TestMate(t *testing.T) {
-	files, err := filepath.Glob("../../testdata/test*.mate")
+	files, err := filepath.Glob("../../testdata/*.mate")
 	if err != nil {
 		t.Fatal(err)
 	}

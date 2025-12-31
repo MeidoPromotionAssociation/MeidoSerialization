@@ -7,7 +7,7 @@ import (
 )
 
 func TestPhyService(t *testing.T) {
-	files, err := filepath.Glob("../../testdata/test*.phy")
+	files, err := filepath.Glob("../../testdata/*.phy")
 	if err != nil {
 		t.Fatal(err)
 	}

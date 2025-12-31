@@ -9,7 +9,7 @@ import (
 )
 
 func TestTex(t *testing.T) {
-	files, err := filepath.Glob("../../testdata/test*.tex")
+	files, err := filepath.Glob("../../testdata/*.tex")
 	if err != nil {
 		t.Fatal(err)
 	}

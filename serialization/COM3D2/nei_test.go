@@ -9,7 +9,7 @@ import (
 )
 
 func TestNei(t *testing.T) {
-	files, err := filepath.Glob("../../testdata/test*.nei")
+	files, err := filepath.Glob("../../testdata/*.nei")
 	if err != nil {
 		t.Fatal(err)
 	}
