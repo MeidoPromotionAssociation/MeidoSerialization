@@ -37,20 +37,20 @@ Or you can find me in Discord [Custom Maid Server](https://discord.gg/custommaid
 
 Current Game Version COM3D2 v2.47.0 & COM3D2.5 v3.47.0
 
-| Extension | Description           | Version Support    | Note                                                                                                                                                                              |
-|-----------|-----------------------|--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| .menu     | Menu files            | All versions       | No structural changes so far, so version numbers are irrelevant                                                                                                                   |
-| .mate     | Material files        | All versions       | No structural changes so far, but there are some 2.5-only features                                                                                                                |
-| .pmat     | Rendering order files | All versions       | No structural changes so far, so version numbers are irrelevant                                                                                                                   |
-| .col      | Collider files        | All versions       | No structural changes so far, so version numbers are irrelevant                                                                                                                   |
-| .phy      | Physics files         | All versions       | No structural changes so far, so version numbers are irrelevant                                                                                                                   |
-| .psk      | Panier skirt files    | All versions       | No structural change since version 217                                                                                                                                            |
-| .tex      | Texture files         | All versions       | not support write version 1000, because version 1000 is poorly designed (CM3D2 also supports version 1010,so there is no reason to use)                                           |
-| .anm      | Animation files       | All versions       |                                                                                                                                                                                   |
-| .model    | Model files           | Versions 1000-2200 |                                                                                                                                                                                   |
-| .nei      | Encrypted CSV files   | All Versions       | .nei files use Shift-JIS encoding internally, but we use UTF-8-BOM encoding when reading and writing CSV files. Using characters not supported by Shift-JIS may result in errors. |
-| .preset   | Preset files          | All versions       |                                                                                                                                                                                   |
-| .arc      | archive files         | All versions       | not support _2.arc                                                                                                                                                                |
+| Extension | Description           | Version Support    | Note                                                                                                                                                                                     |
+|-----------|-----------------------|--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| .menu     | Menu files            | All versions       | No structural changes so far, so version numbers are irrelevant                                                                                                                          |
+| .mate     | Material files        | All versions       | No structural changes so far, but there are some 2.5-only features                                                                                                                       |
+| .pmat     | Rendering order files | All versions       | No structural changes so far, so version numbers are irrelevant                                                                                                                          |
+| .col      | Collider files        | All versions       | No structural changes so far, so version numbers are irrelevant                                                                                                                          |
+| .phy      | Physics files         | All versions       | No structural changes so far, so version numbers are irrelevant                                                                                                                          |
+| .psk      | Panier skirt files    | All versions       | No structural change since version 217                                                                                                                                                   |
+| .tex      | Texture files         | All versions       | not support write version 1000, because version 1000 is poorly designed (CM3D2 also supports version 1010,so there is no reason to use)                                                  |
+| .anm      | Animation files       | All versions       |                                                                                                                                                                                          |
+| .model    | Model files           | Versions 1000-2200 |                                                                                                                                                                                          |
+| .nei      | Encrypted CSV files   | All Versions       | .nei files use Shift-JIS encoding internally, but we use UTF-8-BOM encoding when reading and writing CSV files. Using characters not supported by Shift-JIS may result in errors.        |
+| .preset   | Preset files          | All versions       |                                                                                                                                                                                          |
+| .arc      | archive files         | All versions       | Encrypted .arc files are not supported. If you own the corresponding original DLC(dlc.arc and dlc_2.arc), _2.arc will be decrypted upon game launch. Therefore, decryption is pointless. |
 
 Each file corresponds to a .go
 file：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2)
@@ -328,20 +328,20 @@ MeidoSerialization 是一个用 Golang 编写的序列化库，专为处理 [KIS
 
 当前游戏版本 COM3D2 v2.47.0 和 COM3D2.5 v3.47.0
 
-| 扩展名     | 描述        | 版本支持         | 备注                                                                               |
-|---------|-----------|--------------|----------------------------------------------------------------------------------|
-| .menu   | 菜单文件      | 所有版本         | 目前为止未发生过结构更改，因此版本号无关紧要                                                           |
-| .mate   | 材质文件      | 所有版本         | 目前为止未发生过结构更改，但有一些属性只在 2.5 有效                                                     |
-| .pmat   | 渲染顺序文件    | 所有版本         | 目前为止未发生过结构更改，因此版本号无关紧要                                                           |
-| .col    | 碰撞体文件     | 所有版本         | 目前为止未发生过结构更改，因此版本号无关紧要                                                           |
-| .phy    | 物理文件      | 所有版本         | 目前为止未发生过结构更改，因此版本号无关紧要                                                           |
-| .psk    | 裙撑文件      | 所有版本         | 自版本 217 以后没有发生结构变化                                                               |
-| .tex    | 纹理文件      | 所有版本         | 不支持写出版本 1000，因为版本 1000 设计不佳（CM3D2 也支持版本 1010，因此没有理由使用）                           |
-| .anm    | 动画文件      | 所有版本         |                                                                                  |
-| .model  | 模型文件      | 1000-2200 版本 |                                                                                  |
-| .nei    | 加密 CSV 文件 | 所有版本         | .nei 内部使用 Shift-JIS 编码，但我们在读写时 CSV 时会使用 UTF-8-BOM 编码，如果使用了 Shift-JIS 不支持字符则可能会出错 |
-| .preset | 角色预设文件    | 所有版本         |                                                                                  |
-| .arc    | 归档文件      | 所有版本         | 不支持 _2.arc                                                                       |
+| 扩展名     | 描述        | 版本支持         | 备注                                                                                   |
+|---------|-----------|--------------|--------------------------------------------------------------------------------------|
+| .menu   | 菜单文件      | 所有版本         | 目前为止未发生过结构更改，因此版本号无关紧要                                                               |
+| .mate   | 材质文件      | 所有版本         | 目前为止未发生过结构更改，但有一些属性只在 2.5 有效                                                         |
+| .pmat   | 渲染顺序文件    | 所有版本         | 目前为止未发生过结构更改，因此版本号无关紧要                                                               |
+| .col    | 碰撞体文件     | 所有版本         | 目前为止未发生过结构更改，因此版本号无关紧要                                                               |
+| .phy    | 物理文件      | 所有版本         | 目前为止未发生过结构更改，因此版本号无关紧要                                                               |
+| .psk    | 裙撑文件      | 所有版本         | 自版本 217 以后没有发生结构变化                                                                   |
+| .tex    | 纹理文件      | 所有版本         | 不支持写出版本 1000，因为版本 1000 设计不佳（CM3D2 也支持版本 1010，因此没有理由使用）                               |
+| .anm    | 动画文件      | 所有版本         |                                                                                      |
+| .model  | 模型文件      | 1000-2200 版本 |                                                                                      |
+| .nei    | 加密 CSV 文件 | 所有版本         | .nei 内部使用 Shift-JIS 编码，但我们在读写时 CSV 时会使用 UTF-8-BOM 编码，如果使用了 Shift-JIS 不支持字符则可能会出错     |
+| .preset | 角色预设文件    | 所有版本         |                                                                                      |
+| .arc    | 归档文件      | 所有版本         | 不支持加密的 .arc 文件。如果您拥有相应的原版 DLC（dlc.arc 和 dlc_2.arc），则 _2.arc 将在游戏启动时自动解密。因此，解密是没有意义的。 |
 
 每种文件都对应一个 .go
 文件：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2)
