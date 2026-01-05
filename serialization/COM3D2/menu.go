@@ -5,7 +5,6 @@ import (
 	"io"
 	"math"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
 )
 
@@ -34,7 +33,7 @@ type Command struct {
 
 // ReadMenu 从 r 中读取一个 .menu 文件结构
 func ReadMenu(r io.Reader) (*Menu, error) {
-	rp, ok := r.(binaryio.Peeker)
+	rp, ok := r.(stream.Peeker)
 	if !ok {
 		return nil, fmt.Errorf("ReadMenu: the reader is not peekable, wrap it with bufio.Reader first")
 	}
@@ -247,7 +246,7 @@ func (m *Menu) UpdateBodySize() error {
 			if encodedLength > math.MaxInt32 {
 				return fmt.Errorf("string parameter length (%d) exceeds the maximum value of int32", encodedLength)
 			}
-			lebSize := binaryio.Get7BitEncodedIntSize(int32(encodedLength))
+			lebSize := stream.Get7BitEncodedIntSize(int32(encodedLength))
 			sum += int32(lebSize)
 			sum += int32(encodedLength)
 		}
@@ -258,7 +257,7 @@ func (m *Menu) UpdateBodySize() error {
 			if encodedLength > math.MaxInt32 {
 				return fmt.Errorf("string parameter length (%d) exceeds the maximum value of int32", encodedLength)
 			}
-			lebSize := binaryio.Get7BitEncodedIntSize(int32(encodedLength))
+			lebSize := stream.Get7BitEncodedIntSize(int32(encodedLength))
 			sum += int32(lebSize)
 			sum += int32(encodedLength)
 		}
