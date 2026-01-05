@@ -59,10 +59,7 @@ file：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/mai
 
 - This library was originally developed for the [COM3D2_MOD_EDITOR](https://github.com/90135/COM3D2_MOD_EDITOR) project
   and was later made independent for easier use. You can also refer to that project for usage examples.
--
-
-pkg.go.dev: [https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
-
+- pkg.go.dev: [https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
 - DeepWiki (Note: May contain AI
   hallucinations): [https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
 
@@ -349,12 +346,8 @@ MeidoSerialization 是一个用 Golang 编写的序列化库，专为处理 [KIS
 ## 参考
 
 - 本库最初是为了 [COM3D2_MOD_EDITOR](https://github.com/90135/COM3D2_MOD_EDITOR) 项目开发的，后来独立出来以方便各位使用，您也可以参考该项目的使用方法。
--
-
-pkg.go.dev：[https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
-
-- DeepWiki（请注意 AI
-  幻觉，有很多内容是它瞎编的）：[https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
+- pkg.go.dev：[https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
+- DeepWiki（请注意 AI 幻觉，有很多内容是它瞎编的）：[https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
 
 ## 外部依赖
 
