@@ -206,7 +206,7 @@ func (arc *Arc) CopyFile(srcPath string, dstPath string) error {
 
 	data, err := srcFile.Ptr.Data()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read source file data: %w", err)
 	}
 
 	dstFile := arc.CreateFile(dstPath, data)

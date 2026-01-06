@@ -22,7 +22,7 @@
 // 这是一个递归结构，代表了整个目录树：
 // Header (8 字节)：目录标识。
 // ID (8 字节, uint64)：当前目录名称的哈希值。
-// Counts (各 4 字节)：子目录数量 (Dirs)、文件数量 (Files)。
+// Counts (各 4 字节)：子目录数量 (DirCount)、文件数量 (FileCount)。
 // Depth (4 字节)：当前目录在树中的深度（根目录为 0）。
 // Dir Entries (每个 16 字节)：每个条目包含子目录的 Hash (uint64) 和在哈希块内的相对偏移量 Offset (int64)。
 // File Entries (每个 16 字节)：每个条目包含文件名的 Hash (uint64) 和在 ARC 文件数据区中的绝对偏移量 Offset (int64)。
@@ -78,12 +78,20 @@ type fileEntryRec struct {
 type hashTable struct {
 	Header        int64
 	ID            uint64
-	Dirs          int32
-	Files         int32
+	DirCount      int32
+	FileCount     int32
 	Depth         int32
 	Padding       int32
 	DirEntries    []fileEntryRec
 	FileEntries   []fileEntryRec
-	Parents       []uint64
+	ParentsID     []uint64
 	SubDirEntries []*hashTable
+}
+
+// File represents a file node with data pointer
+type File struct {
+	arc    *Arc
+	Name   string
+	Parent *Dir
+	Ptr    FilePointer
 }

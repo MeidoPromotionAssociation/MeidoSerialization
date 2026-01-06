@@ -141,63 +141,63 @@ func (arc *Arc) Dump(path string) error {
 	var buf bytes.Buffer
 	bufWriter := stream.NewBinaryWriter(&buf)
 	if err := arc.writeHashTable(bufWriter, dirOff16, uuidToHash16, fileOffsets, arc.Root); err != nil {
-		return err
+		return fmt.Errorf("failed to write UTF16 hash table: %w", err)
 	}
 	if err := writer.WriteInt32(0); err != nil {
-		return err
+		return fmt.Errorf("failed to write metadata block count: %w", err)
 	}
 	if err := writer.WriteInt64(int64(buf.Len())); err != nil {
-		return err
+		return fmt.Errorf("failed to write metadata block size: %w", err)
 	}
 	if err := writer.WriteBytes(buf.Bytes()); err != nil {
-		return err
+		return fmt.Errorf("failed to write metadata block: %w", err)
 	}
 	buf.Reset()
 
 	// metadata block 1 (UTF8)
 	if err := arc.writeHashTable(bufWriter, dirOff8, uuidToHash8, fileOffsets, arc.Root); err != nil {
-		return err
+		return fmt.Errorf("failed to write UTF8 hash table: %w", err)
 	}
 	if err := writer.WriteInt32(1); err != nil {
-		return err
+		return fmt.Errorf("failed to write metadata block count: %w", err)
 	}
 	if err := writer.WriteInt64(int64(buf.Len())); err != nil {
-		return err
+		return fmt.Errorf("failed to write metadata block size: %w", err)
 	}
 	if err := writer.WriteBytes(buf.Bytes()); err != nil {
-		return err
+		return fmt.Errorf("failed to write metadata block: %w", err)
 	}
 	buf.Reset()
 
 	// metadata block 3 (UTF16 name table, compressed)
 	if err := arc.writeNameTable(bufWriter, true); err != nil {
-		return err
+		return fmt.Errorf("failed to write UTF16 name table: %w", err)
 	}
 	nameRaw := buf.Bytes()
 	nameEnc, err := deflateCompress(nameRaw)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to compress UTF16 name table: %w", err)
 	}
 	if err := writer.WriteInt32(3); err != nil {
-		return err
+		return fmt.Errorf("failed to write metadata block count: %w", err)
 	}
 	if err := writer.WriteInt64(int64(len(nameEnc) + 16)); err != nil {
-		return err
+		return fmt.Errorf("failed to write metadata block size: %w", err)
 	}
 	if err := writer.WriteUInt32(1); err != nil {
-		return err
+		return fmt.Errorf("failed to write metadata block type: %w", err)
 	}
 	if err := writer.WriteUInt32(0); err != nil {
-		return err
+		return fmt.Errorf("failed to write metadata block flags: %w", err)
 	}
 	if err := writer.WriteUInt32(uint32(len(nameRaw))); err != nil {
-		return err
+		return fmt.Errorf("failed to write UTF16 name table raw size: %w", err)
 	}
 	if err := writer.WriteUInt32(uint32(len(nameEnc))); err != nil {
-		return err
+		return fmt.Errorf("failed to write UTF16 name table compressed size: %w", err)
 	}
 	if err := writer.WriteBytes(nameEnc); err != nil {
-		return err
+		return fmt.Errorf("failed to write UTF16 name table compressed data: %w", err)
 	}
 
 	return nil

@@ -90,14 +90,6 @@ func (d *Dir) sortedFiles() []*File {
 	return out
 }
 
-// File represents a file node with data pointer
-type File struct {
-	arc    *Arc
-	Name   string
-	Parent *Dir
-	Ptr    FilePointer
-}
-
 // FullName returns full path including parent dirs
 func (f *File) FullName() string {
 	if f.Parent == nil {

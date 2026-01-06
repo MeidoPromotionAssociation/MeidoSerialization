@@ -15,81 +15,88 @@ import (
 // readHashTable reads a hash table from a binary stream and returns a pointer to the constructed hashTable or an error.
 func readHashTable(reader *stream.BinaryReader) (*hashTable, error) {
 	var ht hashTable
-	v, err := reader.ReadInt64()
+	header, err := reader.ReadInt64()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read header failed: %w", err)
 	}
-	ht.Header = v
+	ht.Header = header
+
 	uid, err := reader.ReadUInt64()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read uid failed: %w", err)
 	}
 	ht.ID = uid
-	dv, err := reader.ReadInt32()
+
+	dirCount, err := reader.ReadInt32()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read dir count failed: %w", err)
 	}
-	ht.Dirs = dv
+	ht.DirCount = dirCount
+
 	fv, err := reader.ReadInt32()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read file count failed: %w", err)
 	}
-	ht.Files = fv
-	dep, err := reader.ReadInt32()
+	ht.FileCount = fv
+
+	depth, err := reader.ReadInt32()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read depth failed: %w", err)
 	}
-	ht.Depth = dep
+	ht.Depth = depth
+
 	padding, err := reader.ReadInt32()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read padding failed: %w", err)
 	}
 	ht.Padding = padding
-	ht.DirEntries = make([]fileEntryRec, ht.Dirs)
-	for i := 0; i < int(ht.Dirs); i++ {
+
+	ht.DirEntries = make([]fileEntryRec, ht.DirCount)
+	for i := 0; i < int(ht.DirCount); i++ {
 		var e fileEntryRec
-		h, err := reader.ReadUInt64()
+		hash, err := reader.ReadUInt64()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read dir entry hash failed: %w", err)
 		}
-		off, err := reader.ReadInt64()
+		offset, err := reader.ReadInt64()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read dir entry offset failed: %w", err)
 		}
-		e.Hash = h
-		e.Offset = off
+		e.Hash = hash
+		e.Offset = offset
 		ht.DirEntries[i] = e
 	}
-	ht.FileEntries = make([]fileEntryRec, ht.Files)
-	for i := 0; i < int(ht.Files); i++ {
+
+	ht.FileEntries = make([]fileEntryRec, ht.FileCount)
+	for i := 0; i < int(ht.FileCount); i++ {
 		var e fileEntryRec
-		h, err := reader.ReadUInt64()
+		hash, err := reader.ReadUInt64()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read file entry hash failed: %w", err)
 		}
-		off, err := reader.ReadInt64()
+		offset, err := reader.ReadInt64()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read file entry offset failed: %w", err)
 		}
-		e.Hash = h
-		e.Offset = off
+		e.Hash = hash
+		e.Offset = offset
 		ht.FileEntries[i] = e
 	}
-	ht.Parents = make([]uint64, ht.Depth)
+	ht.ParentsID = make([]uint64, ht.Depth)
 	for i := 0; i < int(ht.Depth); i++ {
-		val, err := reader.ReadUInt64()
+		parentHash, err := reader.ReadUInt64()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read parent hash failed: %w", err)
 		}
-		ht.Parents[i] = val
+		ht.ParentsID[i] = parentHash
 	}
-	ht.SubDirEntries = make([]*hashTable, ht.Dirs)
-	for i := 0; i < int(ht.Dirs); i++ {
-		sub, err := readHashTable(reader)
+	ht.SubDirEntries = make([]*hashTable, ht.DirCount)
+	for i := 0; i < int(ht.DirCount); i++ {
+		subDir, err := readHashTable(reader)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read subDir entry failed: %w", err)
 		}
-		ht.SubDirEntries[i] = sub
+		ht.SubDirEntries[i] = subDir
 	}
 	return &ht, nil
 }
@@ -99,28 +106,31 @@ func readHashTable(reader *stream.BinaryReader) (*hashTable, error) {
 func readNameTable(reader *stream.BinaryReader) (map[uint64]string, error) {
 	lut := make(map[uint64]string)
 	for {
-		h, err := reader.ReadUInt64()
+		nameHash, err := reader.ReadUInt64()
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
-			return nil, err
+			return nil, fmt.Errorf("read name hash failed: %w", err)
 		}
-		sz, err := reader.ReadInt32()
+
+		nameSize, err := reader.ReadInt32()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read name size failed: %w", err)
 		}
-		if sz < 0 {
+		if nameSize < 0 {
 			return nil, fmt.Errorf("invalid name size")
 		}
-		utf16leString, err := reader.ReadBytes(int(sz) * 2)
+
+		utf16leString, err := reader.ReadBytes(int(nameSize) * 2)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read name bytes failed: %w", err)
 		}
+
 		// UTF-16LE to string
 		name := utf16leToString(utf16leString)
-		if _, exists := lut[h]; !exists {
-			lut[h] = name
+		if _, exists := lut[nameHash]; !exists {
+			lut[nameHash] = name
 		}
 	}
 	return lut, nil
@@ -129,22 +139,27 @@ func readNameTable(reader *stream.BinaryReader) (map[uint64]string, error) {
 // writeHashTable writes the hash table for the current directory and its subdirectories to the provided BinaryWriter.
 func (arc *Arc) writeHashTable(bw *stream.BinaryWriter, dirOffsets map[uint64]int64, uuidToHash map[uint64]uint64, fileOffsets map[uint64]int64, cur *Dir) error {
 	if err := bw.WriteBytes(dirHeader); err != nil {
-		return err
+		return fmt.Errorf("write dir header failed: %w", err)
 	}
+
 	if err := bw.WriteUInt64(uuidToHash[cur.UniqueID()]); err != nil {
-		return err
+		return fmt.Errorf("write dir hash failed: %w", err)
 	}
+
 	if err := bw.WriteUInt32(uint32(len(cur.Dirs))); err != nil {
-		return err
+		return fmt.Errorf("write dir count failed: %w", err)
 	}
+
 	if err := bw.WriteUInt32(uint32(len(cur.Files))); err != nil {
-		return err
+		return fmt.Errorf("write file count failed: %w", err)
 	}
+
 	if err := bw.WriteUInt32(uint32(cur.Depth())); err != nil {
-		return err
+		return fmt.Errorf("write depth failed: %w", err)
 	}
+
 	if err := bw.WriteUInt32(0); err != nil {
-		return err
+		return fmt.Errorf("write padding failed: %w", err)
 	}
 
 	// Directory entries ordered by dirOffsets
@@ -152,10 +167,10 @@ func (arc *Arc) writeHashTable(bw *stream.BinaryWriter, dirOffsets map[uint64]in
 	sort.Slice(dirs, func(i, j int) bool { return dirOffsets[dirs[i].UniqueID()] < dirOffsets[dirs[j].UniqueID()] })
 	for _, d := range dirs {
 		if err := bw.WriteUInt64(uuidToHash[d.UniqueID()]); err != nil {
-			return err
+			return fmt.Errorf("write dir entry hash failed: %w", err)
 		}
 		if err := bw.WriteInt64(dirOffsets[d.UniqueID()]); err != nil {
-			return err
+			return fmt.Errorf("write dir entry offset failed: %w", err)
 		}
 	}
 
@@ -164,10 +179,10 @@ func (arc *Arc) writeHashTable(bw *stream.BinaryWriter, dirOffsets map[uint64]in
 	sort.Slice(files, func(i, j int) bool { return uuidToHash[files[i].UniqueID()] < uuidToHash[files[j].UniqueID()] })
 	for _, f := range files {
 		if err := bw.WriteUInt64(uuidToHash[f.UniqueID()]); err != nil {
-			return err
+			return fmt.Errorf("write file entry hash failed: %w", err)
 		}
 		if err := bw.WriteInt64(fileOffsets[f.UniqueID()]); err != nil {
-			return err
+			return fmt.Errorf("write file entry offset failed: %w", err)
 		}
 	}
 
@@ -182,14 +197,14 @@ func (arc *Arc) writeHashTable(bw *stream.BinaryWriter, dirOffsets map[uint64]in
 	// write reversed
 	for i := len(parents) - 1; i >= 0; i-- {
 		if err := bw.WriteUInt64(parents[i]); err != nil {
-			return err
+			return fmt.Errorf("write parent hash failed: %w", err)
 		}
 	}
 
 	// Subtables
 	for _, d := range dirs {
 		if err := arc.writeHashTable(bw, dirOffsets, uuidToHash, fileOffsets, d); err != nil {
-			return err
+			return fmt.Errorf("write subDir entry failed: %w", err)
 		}
 	}
 	return nil
@@ -207,7 +222,7 @@ func (arc *Arc) writeNameTable(bw *stream.BinaryWriter, utf16 bool) error {
 		}
 	}
 
-	// Follow C# order: Files, then Dirs, then Root
+	// Follow C# order: FileCount, then DirCount, then Root
 	for _, f := range AllFiles(arc) {
 		add(f.Name)
 	}
@@ -230,13 +245,13 @@ func (arc *Arc) writeNameTable(bw *stream.BinaryWriter, utf16 bool) error {
 		sz := int32(len(b) / 2)
 
 		if err := bw.WriteUInt64(h); err != nil {
-			return err
+			return fmt.Errorf("write name hash failed: %w", err)
 		}
 		if err := bw.WriteInt32(sz); err != nil {
-			return err
+			return fmt.Errorf("write name size failed: %w", err)
 		}
 		if err := bw.WriteBytes(b); err != nil {
-			return err
+			return fmt.Errorf("write name bytes failed: %w", err)
 		}
 	}
 	return nil

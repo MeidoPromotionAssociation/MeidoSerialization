@@ -1,6 +1,7 @@
 package arc
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -9,7 +10,7 @@ import (
 func Pack(dirPath string, arcPath string) error {
 	absDir, err := filepath.Abs(dirPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to getting absolute path for %q: %w", dirPath, err)
 	}
 
 	// Create a new Arc
@@ -19,7 +20,7 @@ func Pack(dirPath string, arcPath string) error {
 
 	err = filepath.Walk(absDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to walking %q: %w", path, err)
 		}
 		if info.IsDir() {
 			return nil
@@ -28,13 +29,13 @@ func Pack(dirPath string, arcPath string) error {
 		// Calculate relative path for use within the ARC
 		rel, err := filepath.Rel(absDir, path)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to calculating relative path for %q: %w", path, err)
 		}
 
 		// Read file data
 		data, err := os.ReadFile(path)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to reading file %q: %w", path, err)
 		}
 
 		// Add to Arc
@@ -46,7 +47,7 @@ func Pack(dirPath string, arcPath string) error {
 	})
 
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to walk directory %q: %w", absDir, err)
 	}
 
 	// Dump to arcPath

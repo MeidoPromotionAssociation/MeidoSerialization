@@ -63,30 +63,30 @@ func ReadArc(rs io.ReadSeeker) (*Arc, error) {
 			// read inline file header
 			compressedFlag, err := reader.ReadUInt32()
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to read compressed flag: %w", err)
 			}
 			_, err = reader.ReadUInt32() // padding
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to read padding: %w", err)
 			}
 			_, err = reader.ReadUInt32() // Decompressed Size
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to read decompressed size: %w", err)
 			}
 			compressedSize, err := reader.ReadUInt32() // Compressed Size
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to read compressed size: %w", err)
 			}
 
 			data, err := reader.ReadBytes(int(compressedSize))
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to read compressed data: %w", err)
 			}
 
 			if compressedFlag == 1 {
 				dec, err := deflateDecompress(data)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to decompress data: %w", err)
 				}
 				utf16NameData = dec
 			} else {
@@ -100,15 +100,15 @@ func ReadArc(rs io.ReadSeeker) (*Arc, error) {
 	// parse tables
 	_, err = readHashTable(stream.NewBinaryReader(bytes.NewReader(utf8HashData)))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read utf8 hash table: %w", err)
 	}
 	utf16HT, err := readHashTable(stream.NewBinaryReader(bytes.NewReader(utf16HashData)))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read utf16 hash table: %w", err)
 	}
 	nameLUT, err := readNameTable(stream.NewBinaryReader(bytes.NewReader(utf16NameData)))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read utf16 name table: %w", err)
 	}
 
 	// Setup Arc
@@ -125,7 +125,7 @@ func ReadArc(rs io.ReadSeeker) (*Arc, error) {
 
 	// populate structure using UTF16 table
 	if err := populate(arc, utf16HT, nameLUT, reader, headerEndPosition); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to populate arc structure: %w", err)
 	}
 
 	// optional consistency check using utf8 table/name LUT omitted for brevity

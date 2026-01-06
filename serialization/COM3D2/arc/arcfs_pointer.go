@@ -107,10 +107,10 @@ func (a *ArcPointer) Size() uint32     { _ = a.ensure(); return a.size }
 
 func (a *ArcPointer) Data() ([]byte, error) {
 	if err := a.ensure(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to ensure pointer: %w", err)
 	}
 	if _, err := a.reader.Seek(a.dataOff, io.SeekStart); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to seek to data offset: %w", err)
 	}
 	return a.reader.ReadBytes(int(a.size))
 }
@@ -122,13 +122,13 @@ func deflateCompress(data []byte) ([]byte, error) {
 	out.WriteByte(0x5E)
 	w, err := flate.NewWriter(&out, flate.DefaultCompression)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create deflate writer: %w", err)
 	}
 	if _, err := w.Write(data); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to write data: %w", err)
 	}
 	if err := w.Close(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to close deflate writer: %w", err)
 	}
 	return out.Bytes(), nil
 }
@@ -142,7 +142,7 @@ func deflateDecompress(in []byte) ([]byte, error) {
 	defer r.Close()
 	var out bytes.Buffer
 	if _, err := io.Copy(&out, r); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decompress deflate stream: %w", err)
 	}
 	return out.Bytes(), nil
 }
