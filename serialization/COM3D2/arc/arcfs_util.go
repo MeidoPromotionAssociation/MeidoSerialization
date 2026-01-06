@@ -24,8 +24,14 @@ func walkDirs(root *Dir, list *[]*Dir, excludeRoot bool) {
 	}
 }
 
-func AllDirs(fs *Arc) []*Dir { out := []*Dir{}; walkDirs(fs.Root, &out, false); return out }
+// AllDirs returns a list of all directories in the given Arc file system in depth-first order, excluding duplicates.
+func AllDirs(fs *Arc) []*Dir {
+	out := []*Dir{}
+	walkDirs(fs.Root, &out, false)
+	return out
+}
 
+// AllFiles returns a slice of all files in the provided Arc file system in a recursive traversal from the root directory.
 func AllFiles(fs *Arc) []*File {
 	var out []*File
 	var walk func(*Dir)
@@ -60,6 +66,7 @@ func pathSplit(p string) []string {
 	return out
 }
 
+// GetOrCreateDirByPath navigates through or creates directories along the specified path starting from the given parent directory.
 func GetOrCreateDirByPath(parent *Dir, path string) *Dir {
 	cur := parent
 	for _, seg := range pathSplit(path) {
@@ -77,6 +84,7 @@ func GetOrCreateDirByPath(parent *Dir, path string) *Dir {
 	return cur
 }
 
+// AddFileByPath creates a file node in the directory tree at the specified path relative to the given parent directory.
 func AddFileByPath(parent *Dir, path string) *File {
 	parts := pathSplit(path)
 	if len(parts) == 0 {
@@ -91,6 +99,7 @@ func AddFileByPath(parent *Dir, path string) *File {
 	return f
 }
 
+// FindFileByPath retrieves a file by its path relative to the given parent directory or returns nil if not found.
 func FindFileByPath(parent *Dir, path string) *File {
 	parts := pathSplit(path)
 	if len(parts) == 0 {
@@ -127,6 +136,7 @@ func FindFileByPath(parent *Dir, path string) *File {
 	return nil
 }
 
+// DeleteFileByPath removes a file identified by its relative path from the specified parent directory and returns success status.
 func DeleteFileByPath(parent *Dir, path string) bool {
 	f := FindFileByPath(parent, path)
 	if f == nil {
@@ -157,6 +167,7 @@ func (f *File) RelativePath() string {
 	return filepath.Join(parts...)
 }
 
+// GetFileList retrieves a list of all files in the Arc file system with their relative paths.
 func (arc *Arc) GetFileList() []string {
 	files := AllFiles(arc)
 	out := make([]string, len(files))
@@ -166,14 +177,18 @@ func (arc *Arc) GetFileList() []string {
 	return out
 }
 
+// GetFile retrieves a file within the Arc file system by its relative path or returns nil if the file is not found.
 func (arc *Arc) GetFile(path string) *File {
 	return FindFileByPath(arc.Root, path)
 }
 
+// DeleteFile removes a file identified by its relative path within the Arc file system. Returns true if the file was deleted.
 func (arc *Arc) DeleteFile(path string) bool {
 	return DeleteFileByPath(arc.Root, path)
 }
 
+// CreateFile creates a new file at the specified path within the Arc file system and sets its data.
+// creates a file node in the directory tree at the specified path relative to the given parent directory.
 func (arc *Arc) CreateFile(path string, data []byte) *File {
 	f := AddFileByPath(arc.Root, path)
 	if f != nil {
@@ -182,7 +197,8 @@ func (arc *Arc) CreateFile(path string, data []byte) *File {
 	return f
 }
 
-func (arc *Arc) CopyFile(srcPath, dstPath string) error {
+// CopyFile copies a file from the specified source path to the destination path within the Arc file system.
+func (arc *Arc) CopyFile(srcPath string, dstPath string) error {
 	srcFile := arc.GetFile(srcPath)
 	if srcFile == nil {
 		return fmt.Errorf("source file not found: %s", srcPath)

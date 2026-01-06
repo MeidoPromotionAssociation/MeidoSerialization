@@ -66,12 +66,12 @@ func (a *ArcService) GetFileList(fs *arc.Arc) []string {
 }
 
 // CopyFile 在 Arc 内部复制文件
-func (a *ArcService) CopyFile(fs *arc.Arc, srcPath, dstPath string) error {
+func (a *ArcService) CopyFile(fs *arc.Arc, srcPath string, dstPath string) error {
 	return fs.CopyFile(srcPath, dstPath)
 }
 
 // ExtractFile 从 Arc 中提取单个文件
-func (a *ArcService) ExtractFile(fs *arc.Arc, path, outPath string) error {
+func (a *ArcService) ExtractFile(fs *arc.Arc, path string, outPath string) error {
 	f := fs.GetFile(path)
 	if f == nil {
 		return fmt.Errorf("file not found: %s", path)
@@ -95,6 +95,7 @@ func (a *ArcService) ExtractFiles(fs *arc.Arc, paths []string, outDir string) er
 }
 
 // CreateFile 在 Arc 中创建或更新文件
+// 在目录树中，相对于给定的父目录，在指定路径处创建一个文件节点。
 func (a *ArcService) CreateFile(fs *arc.Arc, path string, data []byte) error {
 	f := fs.CreateFile(path, data)
 	if f == nil {
