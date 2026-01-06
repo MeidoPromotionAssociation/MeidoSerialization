@@ -99,6 +99,12 @@ func ReadTex(r io.Reader) (*Tex, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read .tex rectCount failed: %w", err)
 		}
+		if rectCount < 0 {
+			return nil, fmt.Errorf("invalid .tex rectCount: %d", rectCount)
+		}
+		if rectCount > 100000 {
+			return nil, fmt.Errorf("too many rects in .tex: %d", rectCount)
+		}
 		if rectCount > 0 {
 			rects = make([]TexRect, rectCount)
 			for i := 0; i < int(rectCount); i++ {
@@ -146,10 +152,13 @@ func ReadTex(r io.Reader) (*Tex, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read .tex dataLength failed: %w", err)
 	}
+	if dataLen < 0 {
+		return nil, fmt.Errorf("invalid .tex dataLength: %d", dataLen)
+	}
 
 	// 7. 读取数据块
-	data := make([]byte, dataLen)
-	if _, err := io.ReadFull(r, data); err != nil {
+	data, _ := reader.ReadBytes(int(dataLen))
+	if err != nil {
 		return nil, fmt.Errorf("read .tex raw data failed: %w", err)
 	}
 
