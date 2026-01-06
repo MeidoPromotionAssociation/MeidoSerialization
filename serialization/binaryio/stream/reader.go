@@ -135,6 +135,10 @@ func (br *BinaryReader) ReadString() (string, error) {
 		return "", nil
 	}
 
+	if length > 10*1024*1024 {
+		return "", fmt.Errorf("string length too large: %d", length)
+	}
+
 	// 读取字符串字节
 	buf := make([]byte, length)
 	_, err = io.ReadFull(br.R, buf)
@@ -179,6 +183,10 @@ func (br *BinaryReader) ReadBytes(count int) ([]byte, error) {
 
 	if count == 0 {
 		return []byte{}, nil
+	}
+
+	if count > 512*1024*1024 {
+		return nil, fmt.Errorf("byte count too large: %d", count)
 	}
 
 	buf := make([]byte, count)
@@ -325,4 +333,24 @@ func (br *BinaryReader) PeekString() (string, error) {
 
 	// 拷贝一次，确保后续读取不影响结果
 	return string(data[prefixLen:]), nil
+}
+
+// Seek 移动读取指针。
+// 要求底层 reader 实现 io.Seeker 接口。
+func (br *BinaryReader) Seek(offset int64, whence int) (int64, error) {
+	seeker, ok := br.R.(io.ReadSeeker)
+	if !ok {
+		return 0, errors.New("seek: underlying reader does not support Seek")
+	}
+	return seeker.Seek(offset, whence)
+}
+
+// Tell 返回当前读取位置。
+// 要求底层 reader 实现 io.Seeker 接口。
+func (br *BinaryReader) Tell() (int64, error) {
+	seeker, ok := br.R.(io.ReadSeeker)
+	if !ok {
+		return 0, errors.New("tell: underlying reader does not support seeking")
+	}
+	return seeker.Seek(0, io.SeekCurrent)
 }

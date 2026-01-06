@@ -21,6 +21,12 @@ func ReadByte(r io.Reader) (byte, error) {
 
 // ReadBytes 读取 n 个字节
 func ReadBytes(r io.Reader, n int) ([]byte, error) {
+	if n < 0 {
+		return nil, fmt.Errorf("negative byte count: %d", n)
+	}
+	if n > 512*1024*1024 {
+		return nil, fmt.Errorf("byte count too large: %d", n)
+	}
 	buf := make([]byte, n)
 	_, err := io.ReadFull(r, buf)
 	return buf, err
@@ -146,6 +152,10 @@ func ReadString(r io.Reader) (string, error) {
 
 	if stringLength == 0 {
 		return "", nil
+	}
+
+	if stringLength > 10*1024*1024 {
+		return "", fmt.Errorf("string length too large: %d", stringLength)
 	}
 
 	// 对于 Go 来说，由于 string 本身就是 UTF-8，我们可以简化处理
