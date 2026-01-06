@@ -84,8 +84,7 @@ func processDirectoryConcurrent(dirPath string, processor func(string) error, fi
 		go func() {
 			defer wg.Done()
 			for p := range pathsCh {
-				err = processor(p)
-				if err != nil {
+				if err := processor(p); err != nil {
 					fmt.Printf("Error processing file %s: %v\n", p, err)
 					// continue other files
 				}
