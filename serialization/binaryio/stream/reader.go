@@ -336,7 +336,7 @@ func (br *BinaryReader) PeekString() (string, error) {
 }
 
 // Seek 移动读取指针。
-// 要求底层 reader 实现 io.Seeker 接口。
+// 要求底层 reader 实现 io.ReadSeeker 接口。
 func (br *BinaryReader) Seek(offset int64, whence int) (int64, error) {
 	seeker, ok := br.R.(io.ReadSeeker)
 	if !ok {
@@ -346,7 +346,7 @@ func (br *BinaryReader) Seek(offset int64, whence int) (int64, error) {
 }
 
 // Tell 返回当前读取位置。
-// 要求底层 reader 实现 io.Seeker 接口。
+// 要求底层 reader 实现 io.ReadSeeker 接口。
 func (br *BinaryReader) Tell() (int64, error) {
 	seeker, ok := br.R.(io.ReadSeeker)
 	if !ok {

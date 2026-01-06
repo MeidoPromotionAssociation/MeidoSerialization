@@ -2,6 +2,7 @@ package stream
 
 import (
 	"encoding/binary"
+	"errors"
 	"io"
 	"math"
 )
@@ -180,4 +181,24 @@ func (bw *BinaryWriter) Flush() error {
 		return flusher.Flush()
 	}
 	return nil
+}
+
+// Seek 移动读取指针。
+// 要求底层 writer 实现 io.WriteSeeker 接口。
+func (bw *BinaryWriter) Seek(offset int64, whence int) (int64, error) {
+	seeker, ok := bw.W.(io.WriteSeeker)
+	if !ok {
+		return 0, errors.New("seek: underlying writer does not support Seek")
+	}
+	return seeker.Seek(offset, whence)
+}
+
+// Tell 返回当前读取位置。
+// 要求底层 writer 实现 io.WriteSeeker)
+func (bw *BinaryWriter) Tell() (int64, error) {
+	seeker, ok := bw.W.(io.WriteSeeker)
+	if !ok {
+		return 0, errors.New("tell: underlying writer does not support seeking")
+	}
+	return seeker.Seek(0, io.SeekCurrent)
 }
