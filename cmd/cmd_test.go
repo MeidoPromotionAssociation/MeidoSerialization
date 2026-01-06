@@ -22,17 +22,26 @@ func executeCommand(root *cobra.Command, args ...string) (output string, err err
 
 	// Also capture stdout as many parts of the code use fmt.Printf
 	old := os.Stdout
-	r, w, _ := os.Pipe()
+	r, w, errPipe := os.Pipe()
+	if errPipe != nil {
+		return "", errPipe
+	}
 	os.Stdout = w
+
+	outChan := make(chan string)
+	go func() {
+		var outBuf bytes.Buffer
+		outBuf.ReadFrom(r)
+		outChan <- outBuf.String()
+	}()
 
 	err = root.Execute()
 
 	w.Close()
+	stdoutStr := <-outChan
 	os.Stdout = old
-	var outBuf bytes.Buffer
-	outBuf.ReadFrom(r)
 
-	return buf.String() + outBuf.String(), err
+	return buf.String() + stdoutStr, err
 }
 
 func TestVersionCommand(t *testing.T) {
