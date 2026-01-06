@@ -2,6 +2,7 @@ package COM3D2
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2/arc"
@@ -11,17 +12,41 @@ type ArcService struct{}
 
 // NewArc 创建一个空的 Arc 结构体
 func (a *ArcService) NewArc(name string) *arc.Arc {
-	return arc.New(name)
+	if name == "" {
+		name = "root"
+	}
+	return arc.NewArc(name)
 }
 
 // ReadArc 读取 .arc 文件并返回对应结构体
 func (a *ArcService) ReadArc(path string) (*arc.Arc, error) {
-	return arc.ReadArc(path)
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("cannot open .arc file: %w", err)
+	}
+	defer f.Close()
+
+	arc, err := arc.ReadArc(f)
+	if err != nil {
+		return nil, fmt.Errorf("parsing the .arc file failed: %w", err)
+	}
+
+	return arc, nil
 }
 
 // UnpackArc 将 .arc 文件解压到指定文件夹
 func (a *ArcService) UnpackArc(path string, outDir string) error {
-	return arc.UnpackArc(path, outDir)
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	fs, err := arc.ReadArc(f)
+	if err != nil {
+		return err
+	}
+	return fs.Unpack(outDir)
 }
 
 // PackArc 将文件夹打包为 .arc 文件

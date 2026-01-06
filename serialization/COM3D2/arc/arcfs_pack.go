@@ -15,7 +15,7 @@ func Pack(dirPath string, arcPath string) error {
 	// Create a new Arc
 	// Use the directory name as the Arc name
 	name := filepath.Base(absDir)
-	fs := New(name)
+	fs := NewArc(name)
 
 	err = filepath.Walk(absDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -39,7 +39,7 @@ func Pack(dirPath string, arcPath string) error {
 
 		// Add to Arc
 		f := AddFileByPath(fs.Root, rel)
-		f.fs = fs
+		f.arc = fs
 		f.Ptr = NewMemoryPointer(data)
 
 		return nil

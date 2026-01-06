@@ -5,9 +5,8 @@ import (
 	"compress/flate"
 	"fmt"
 	"io"
-	"os"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
 )
 
 type FilePointer interface {
@@ -55,10 +54,10 @@ func (m *MemoryPointerCompressed) Size() uint32          { return uint32(len(m.d
 
 // ArcPointer lazily reads from an .arc file at a given offset
 // The offset points to the start of the 16-byte per-file header
-// [u32 compressed][u32 junk][u32 rawSize][u32 size] followed by data
+// [u32 compressed][u32 padding][u32 rawSize][u32 size] followed by data
 
 type ArcPointer struct {
-	path        string
+	reader      *stream.BinaryReader
 	offset      int64
 	initialized bool
 	compressed  bool
@@ -67,41 +66,36 @@ type ArcPointer struct {
 	dataOff     int64
 }
 
-func NewArcPointer(path string, offset int64) *ArcPointer {
-	return &ArcPointer{path: path, offset: offset}
+func NewArcPointer(reader *stream.BinaryReader, offset int64) *ArcPointer {
+	return &ArcPointer{reader: reader, offset: offset}
 }
 
 func (a *ArcPointer) ensure() error {
 	if a.initialized {
 		return nil
 	}
-	f, err := os.Open(a.path)
+	if _, err := a.reader.Seek(a.offset, io.SeekStart); err != nil {
+		return fmt.Errorf("failed to seek to offset %d: %w", a.offset, err)
+	}
+	flag, err := a.reader.ReadUInt32()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read compressed flag: %w", err)
 	}
-	defer f.Close()
-	if _, err = f.Seek(a.offset, io.SeekStart); err != nil {
-		return err
+	if _, err := a.reader.ReadUInt32(); err != nil { // padding
+		return fmt.Errorf("failed to read padding: %w", err)
 	}
-	flag, err := binaryio.ReadUInt32(f)
+	raw, err := a.reader.ReadUInt32()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read raw size: %w", err)
 	}
-	if _, err := binaryio.ReadUInt32(f); err != nil { // junk
-		return err
-	}
-	raw, err := binaryio.ReadUInt32(f)
+	sz, err := a.reader.ReadUInt32()
 	if err != nil {
-		return err
-	}
-	sz, err := binaryio.ReadUInt32(f)
-	if err != nil {
-		return err
+		return fmt.Errorf("failed to read compressed size: %w", err)
 	}
 	a.raw = raw
 	a.size = sz
 	a.compressed = flag == 1
-	pos, _ := f.Seek(0, io.SeekCurrent)
+	pos, _ := a.reader.Seek(0, io.SeekCurrent)
 	a.dataOff = pos
 	a.initialized = true
 	return nil
@@ -115,19 +109,10 @@ func (a *ArcPointer) Data() ([]byte, error) {
 	if err := a.ensure(); err != nil {
 		return nil, err
 	}
-	f, err := os.Open(a.path)
-	if err != nil {
+	if _, err := a.reader.Seek(a.dataOff, io.SeekStart); err != nil {
 		return nil, err
 	}
-	defer f.Close()
-	if _, err = f.Seek(a.dataOff, io.SeekStart); err != nil {
-		return nil, err
-	}
-	buf := make([]byte, a.size)
-	if _, err := io.ReadFull(f, buf); err != nil {
-		return nil, err
-	}
-	return buf, nil
+	return a.reader.ReadBytes(int(a.size))
 }
 
 // deflateCompress produces 0x78 0x5E header + raw DEFLATE stream (no trailer)

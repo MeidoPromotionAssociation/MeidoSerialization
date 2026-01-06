@@ -86,7 +86,7 @@ func AddFileByPath(parent *Dir, path string) *File {
 	if len(parts) > 1 {
 		dir = GetOrCreateDirByPath(parent, strings.Join(parts[:len(parts)-1], string(filepath.Separator)))
 	}
-	f := &File{fs: parent.fs, Name: parts[len(parts)-1]}
+	f := &File{arc: parent.arc, Name: parts[len(parts)-1]}
 	dir.AddFile(f)
 	return f
 }
@@ -117,7 +117,7 @@ func FindFileByPath(parent *Dir, path string) *File {
 
 	fileName := parts[len(parts)-1]
 	key := fileName
-	if cur.fs.KeepDupes {
+	if cur.arc.KeepDupes {
 		key = cur.FullName() + string(filepath.Separator) + fileName
 	}
 
@@ -134,7 +134,7 @@ func DeleteFileByPath(parent *Dir, path string) bool {
 	}
 	dir := f.Parent
 	key := f.Name
-	if dir.fs.KeepDupes {
+	if dir.arc.KeepDupes {
 		key = dir.FullName() + string(filepath.Separator) + f.Name
 	}
 	delete(dir.Files, key)
@@ -157,8 +157,8 @@ func (f *File) RelativePath() string {
 	return filepath.Join(parts...)
 }
 
-func (fs *Arc) GetFileList() []string {
-	files := AllFiles(fs)
+func (arc *Arc) GetFileList() []string {
+	files := AllFiles(arc)
 	out := make([]string, len(files))
 	for i, f := range files {
 		out[i] = f.RelativePath()
@@ -166,24 +166,24 @@ func (fs *Arc) GetFileList() []string {
 	return out
 }
 
-func (fs *Arc) GetFile(path string) *File {
-	return FindFileByPath(fs.Root, path)
+func (arc *Arc) GetFile(path string) *File {
+	return FindFileByPath(arc.Root, path)
 }
 
-func (fs *Arc) DeleteFile(path string) bool {
-	return DeleteFileByPath(fs.Root, path)
+func (arc *Arc) DeleteFile(path string) bool {
+	return DeleteFileByPath(arc.Root, path)
 }
 
-func (fs *Arc) CreateFile(path string, data []byte) *File {
-	f := AddFileByPath(fs.Root, path)
+func (arc *Arc) CreateFile(path string, data []byte) *File {
+	f := AddFileByPath(arc.Root, path)
 	if f != nil {
 		f.SetData(data, false)
 	}
 	return f
 }
 
-func (fs *Arc) CopyFile(srcPath, dstPath string) error {
-	srcFile := fs.GetFile(srcPath)
+func (arc *Arc) CopyFile(srcPath, dstPath string) error {
+	srcFile := arc.GetFile(srcPath)
 	if srcFile == nil {
 		return fmt.Errorf("source file not found: %s", srcPath)
 	}
@@ -193,7 +193,7 @@ func (fs *Arc) CopyFile(srcPath, dstPath string) error {
 		return err
 	}
 
-	dstFile := fs.CreateFile(dstPath, data)
+	dstFile := arc.CreateFile(dstPath, data)
 	if dstFile == nil {
 		return fmt.Errorf("failed to create destination file: %s", dstPath)
 	}

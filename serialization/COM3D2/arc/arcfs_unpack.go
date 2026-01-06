@@ -6,8 +6,8 @@ import (
 )
 
 // Unpack extracts the entire Arc file system to the specified directory.
-func (fs *Arc) Unpack(outDir string) error {
-	for _, f := range AllFiles(fs) {
+func (arc *Arc) Unpack(outDir string) error {
+	for _, f := range AllFiles(arc) {
 		relPath := f.RelativePath()
 		targetPath := filepath.Join(outDir, relPath)
 		if err := f.Extract(targetPath); err != nil {
@@ -36,13 +36,4 @@ func (f *File) Extract(outPath string) error {
 	}
 
 	return os.WriteFile(outPath, data, 0644)
-}
-
-// UnpackArc is a helper to read an ARC file and unpack it to a directory.
-func UnpackArc(arcPath, outDir string) error {
-	fs, err := ReadArc(arcPath)
-	if err != nil {
-		return err
-	}
-	return fs.Unpack(outDir)
 }

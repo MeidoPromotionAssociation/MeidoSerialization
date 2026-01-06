@@ -46,7 +46,7 @@ func hashBytes(data []byte, _seedA uint32, _seedB uint32, _keyA uint32, _keyB ui
 	return (uint64(sb) << 32) | uint64(sa)
 }
 
-// utf16le encodes string to UTF-16LE bytes
+// utf16le encodes string (UTF-8) to UTF-16LE bytes
 func utf16le(s string) []byte {
 	r := []rune(s)
 	u := utf16.Encode(r)

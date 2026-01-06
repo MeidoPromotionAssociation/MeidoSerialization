@@ -6,17 +6,8 @@ import (
 	"strings"
 )
 
-// Arc represents an ARC file system in memory
-// It mirrors the structure used by the original C# ArcFileSystem.
-type Arc struct {
-	Name          string
-	Root          *Dir
-	KeepDupes     bool
-	CompressGlobs []string
-}
-
-// New creates a new empty ARC file system
-func New(name string) *Arc {
+// NewArc creates a new empty ARC file system
+func NewArc(name string) *Arc {
 	if name == "" {
 		name = "root"
 	}
@@ -24,18 +15,9 @@ func New(name string) *Arc {
 		Name:          name,
 		CompressGlobs: []string{"*.ks", "*.menu", "*.tjs"},
 	}
-	root := &Dir{fs: fs, Name: "MeidoSerialization:" + string(filepath.Separator) + string(filepath.Separator) + name}
+	root := &Dir{arc: fs, Name: "MeidoSerialization:" + string(filepath.Separator) + string(filepath.Separator) + name}
 	fs.Root = root
 	return fs
-}
-
-// Dir represents a directory node
-type Dir struct {
-	fs     *Arc
-	Name   string
-	Parent *Dir
-	Dirs   map[string]*Dir
-	Files  map[string]*File
 }
 
 // FullName returns full path with OS separator
@@ -70,7 +52,7 @@ func (d *Dir) GetOrCreateDir(name string) *Dir {
 	if x, ok := d.Dirs[name]; ok {
 		return x
 	}
-	nd := &Dir{fs: d.fs, Name: name, Parent: d}
+	nd := &Dir{arc: d.arc, Name: name, Parent: d}
 	d.Dirs[name] = nd
 	return nd
 }
@@ -79,7 +61,7 @@ func (d *Dir) GetOrCreateDir(name string) *Dir {
 func (d *Dir) AddFile(f *File) {
 	d.ensure()
 	key := f.Name
-	if d.fs.KeepDupes {
+	if d.arc.KeepDupes {
 		key = d.FullName() + string(filepath.Separator) + f.Name
 	}
 	d.Files[key] = f
@@ -110,7 +92,7 @@ func (d *Dir) sortedFiles() []*File {
 
 // File represents a file node with data pointer
 type File struct {
-	fs     *Arc
+	arc    *Arc
 	Name   string
 	Parent *Dir
 	Ptr    FilePointer
