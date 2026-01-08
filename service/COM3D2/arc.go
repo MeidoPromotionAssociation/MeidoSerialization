@@ -26,12 +26,12 @@ func (a *ArcService) ReadArc(path string) (*arc.Arc, error) {
 	}
 	defer f.Close()
 
-	arc, err := arc.ReadArc(f)
+	arcFs, err := arc.ReadArc(f)
 	if err != nil {
 		return nil, fmt.Errorf("parsing the .arc file failed: %w", err)
 	}
 
-	return arc, nil
+	return arcFs, nil
 }
 
 // UnpackArc 将 .arc 文件解压到指定文件夹

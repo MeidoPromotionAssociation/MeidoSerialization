@@ -102,7 +102,7 @@ func ReadTex(r io.Reader) (*Tex, error) {
 		if rectCount < 0 {
 			return nil, fmt.Errorf("invalid .tex rectCount: %d", rectCount)
 		}
-		if rectCount > 100000 {
+		if rectCount > 100000 { // Preventing corrupted files
 			return nil, fmt.Errorf("too many rects in .tex: %d", rectCount)
 		}
 		if rectCount > 0 {
@@ -110,19 +110,19 @@ func ReadTex(r io.Reader) (*Tex, error) {
 			for i := 0; i < int(rectCount); i++ {
 				x, err := reader.ReadFloat32()
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("read .tex rects[%d].x failed: %w", i, err)
 				}
 				y, err := reader.ReadFloat32()
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("read .tex rects[%d].y failed: %w", i, err)
 				}
 				w, err := reader.ReadFloat32()
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("read .tex rects[%d].w failed: %w", i, err)
 				}
 				h, err := reader.ReadFloat32()
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("read .tex rects[%d].h failed: %w", i, err)
 				}
 				rects[i] = TexRect{x, y, w, h}
 			}
@@ -134,15 +134,15 @@ func ReadTex(r io.Reader) (*Tex, error) {
 	if ver >= 1010 {
 		w, err := reader.ReadInt32()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read .tex width failed: %w", err)
 		}
 		h, err := reader.ReadInt32()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read .tex height failed: %w", err)
 		}
 		f, err := reader.ReadInt32()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read .tex textureFormat failed: %w", err)
 		}
 		width, height, texFmt = w, h, f
 	}
@@ -157,7 +157,7 @@ func ReadTex(r io.Reader) (*Tex, error) {
 	}
 
 	// 7. 读取数据块
-	data, _ := reader.ReadBytes(int(dataLen))
+	data, err := reader.ReadBytes(int(dataLen))
 	if err != nil {
 		return nil, fmt.Errorf("read .tex raw data failed: %w", err)
 	}
@@ -216,16 +216,16 @@ func (t *Tex) Dump(w io.Writer) error {
 		}
 		for _, rect := range t.Rects {
 			if err := writer.WriteFloat32(rect.X); err != nil {
-				return err
+				return fmt.Errorf("write rect.X failed: %w", err)
 			}
 			if err := writer.WriteFloat32(rect.Y); err != nil {
-				return err
+				return fmt.Errorf("write rect.Y failed: %w", err)
 			}
 			if err := writer.WriteFloat32(rect.W); err != nil {
-				return err
+				return fmt.Errorf("write rect.W failed: %w", err)
 			}
 			if err := writer.WriteFloat32(rect.H); err != nil {
-				return err
+				return fmt.Errorf("write rect.H failed: %w", err)
 			}
 		}
 	}
@@ -442,7 +442,10 @@ func ConvertImageToTex(inputPath string, texName string, compress bool, forcePNG
 					cmd.Stdout = pw
 					err := cmd.Run()
 					if err != nil {
-						pw.CloseWithError(fmt.Errorf("failed to convert image to PNG: %w", err))
+						err := pw.CloseWithError(fmt.Errorf("failed to convert image to PNG: %w", err))
+						if err != nil {
+							return
+						}
 						return
 					}
 					pw.Close()
@@ -545,7 +548,7 @@ func ConvertImageToTex(inputPath string, texName string, compress bool, forcePNG
 func ConvertImageToTexAndWrite(inputPath string, texName string, compress bool, forcePNG bool, outputPath string) error {
 	tex, err := ConvertImageToTex(inputPath, texName, compress, forcePNG)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to convert image to tex: %w", err)
 	}
 
 	f, err := os.Create(outputPath)
@@ -622,87 +625,86 @@ func ConvertTexToImage(tex *Tex, forcePNG bool) (imgData []byte, format string, 
 
 	if skipConversion {
 		return tex.Data, inputFormat, rects, nil
-	} else {
-		// 4. 使用 ImageMagick 进行内存转换
-		//       - forcePNG：强制输出 PNG
-		//       - 否则直接写到 outputPath
-
-		if forcePNG {
-			// 输出肯定是 PNG
-			cmd := exec.Command("magick", inputFormat+":-", "png:-")
-			tools.SetHideWindow(cmd)
-
-			var stderrBuf bytes.Buffer
-			cmd.Stderr = &stderrBuf
-
-			d := tex.Data
-			if tex.TextureFormat == DXT1 || tex.TextureFormat == DXT5 {
-				d = ensureDDSHeader(d, tex.Width, tex.Height, tex.TextureFormat)
-			}
-			cmd.Stdin = bytes.NewReader(d)
-
-			// 从 stdout 读取转换后的 PNG 数据
-			outPipe, err := cmd.StdoutPipe()
-			if err != nil {
-				return nil, "", nil, fmt.Errorf("failed to get stdout pipe: %w", err)
-			}
-			if err = cmd.Start(); err != nil {
-				return nil, "", nil, fmt.Errorf("failed to start magick command: %w", err)
-			}
-
-			convertedBytes, err := io.ReadAll(outPipe)
-			if err != nil {
-				_ = cmd.Wait()
-				return nil, "", nil, fmt.Errorf("failed to read converted data: %w, stderr: %s", err, stderrBuf.String())
-			}
-			if err = cmd.Wait(); err != nil {
-				return nil, "", nil, fmt.Errorf("magick command error: %w, stderr: %s", err, stderrBuf.String())
-			}
-
-			return convertedBytes, "png", rects, nil
-		} else {
-			var args []string
-			if hasAlpha {
-				args = []string{inputFormat + ":-", "png:-"}
-				format = "png"
-			} else {
-				args = []string{inputFormat + ":-", "jpg:-", "-quality", "90"}
-				format = "jpg"
-			}
-
-			// 输出 JPEG
-			cmd := exec.Command("magick", args...)
-			tools.SetHideWindow(cmd)
-
-			var stderrBuf bytes.Buffer
-			cmd.Stderr = &stderrBuf
-
-			d := tex.Data
-			if tex.TextureFormat == DXT1 || tex.TextureFormat == DXT5 {
-				d = ensureDDSHeader(d, tex.Width, tex.Height, tex.TextureFormat)
-			}
-			cmd.Stdin = bytes.NewReader(d)
-
-			outPipe, err := cmd.StdoutPipe()
-			if err != nil {
-				return nil, "", nil, fmt.Errorf("failed to get stdout pipe: %w", err)
-			}
-			if err = cmd.Start(); err != nil {
-				return nil, "", nil, fmt.Errorf("failed to start magick command: %w", err)
-			}
-
-			convertedBytes, err := io.ReadAll(outPipe)
-			if err != nil {
-				_ = cmd.Wait()
-				return nil, "", nil, fmt.Errorf("failed to read converted data: %w, stderr: %s", err, stderrBuf.String())
-			}
-			if err = cmd.Wait(); err != nil {
-				return nil, "", nil, fmt.Errorf("magick command error: %w, stderr: %s", err, stderrBuf.String())
-			}
-
-			return convertedBytes, format, rects, nil
-		}
 	}
+	// 4. 使用 ImageMagick 进行内存转换
+	//       - forcePNG：强制输出 PNG
+	//       - 否则直接写到 outputPath
+
+	if forcePNG {
+		// 输出肯定是 PNG
+		cmd := exec.Command("magick", inputFormat+":-", "png:-")
+		tools.SetHideWindow(cmd)
+
+		var stderrBuf bytes.Buffer
+		cmd.Stderr = &stderrBuf
+
+		d := tex.Data
+		if tex.TextureFormat == DXT1 || tex.TextureFormat == DXT5 {
+			d = ensureDDSHeader(d, tex.Width, tex.Height, tex.TextureFormat)
+		}
+		cmd.Stdin = bytes.NewReader(d)
+
+		// 从 stdout 读取转换后的 PNG 数据
+		outPipe, err := cmd.StdoutPipe()
+		if err != nil {
+			return nil, "", nil, fmt.Errorf("failed to get stdout pipe: %w", err)
+		}
+		if err = cmd.Start(); err != nil {
+			return nil, "", nil, fmt.Errorf("failed to start magick command: %w", err)
+		}
+
+		convertedBytes, err := io.ReadAll(outPipe)
+		if err != nil {
+			_ = cmd.Wait()
+			return nil, "", nil, fmt.Errorf("failed to read converted data: %w, stderr: %s", err, stderrBuf.String())
+		}
+		if err = cmd.Wait(); err != nil {
+			return nil, "", nil, fmt.Errorf("magick command error: %w, stderr: %s", err, stderrBuf.String())
+		}
+
+		return convertedBytes, "png", rects, nil
+	}
+
+	var args []string
+	if hasAlpha {
+		args = []string{inputFormat + ":-", "png:-"}
+		format = "png"
+	} else {
+		args = []string{inputFormat + ":-", "jpg:-", "-quality", "90"}
+		format = "jpg"
+	}
+
+	// 输出 JPEG
+	cmd := exec.Command("magick", args...)
+	tools.SetHideWindow(cmd)
+
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+
+	d := tex.Data
+	if tex.TextureFormat == DXT1 || tex.TextureFormat == DXT5 {
+		d = ensureDDSHeader(d, tex.Width, tex.Height, tex.TextureFormat)
+	}
+	cmd.Stdin = bytes.NewReader(d)
+
+	outPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("failed to get stdout pipe: %w", err)
+	}
+	if err = cmd.Start(); err != nil {
+		return nil, "", nil, fmt.Errorf("failed to start magick command: %w", err)
+	}
+
+	convertedBytes, err := io.ReadAll(outPipe)
+	if err != nil {
+		_ = cmd.Wait()
+		return nil, "", nil, fmt.Errorf("failed to read converted data: %w, stderr: %s", err, stderrBuf.String())
+	}
+	if err = cmd.Wait(); err != nil {
+		return nil, "", nil, fmt.Errorf("magick command error: %w, stderr: %s", err, stderrBuf.String())
+	}
+
+	return convertedBytes, format, rects, nil
 }
 
 // ConvertTexToImageAndWrite 将 .tex 文件转换为图像文件，并写出

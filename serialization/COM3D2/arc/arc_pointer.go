@@ -128,11 +128,9 @@ func deflateCompress(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create deflate writer: %w", err)
 	}
+	defer w.Close()
 	if _, err := w.Write(data); err != nil {
 		return nil, fmt.Errorf("failed to write data: %w", err)
-	}
-	if err := w.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close deflate writer: %w", err)
 	}
 	return out.Bytes(), nil
 }

@@ -104,6 +104,10 @@ func TestMerge(t *testing.T) {
 
 	// common.txt should be overwritten by default if not keeping dupes
 	f := fs1.GetFile("common.txt")
+	if f == nil {
+		t.Errorf("common.txt not found")
+		return
+	}
 	d, _ := f.Ptr.Data()
 	if !bytes.Equal(d, []byte("v2")) {
 		t.Errorf("expected common.txt to be v2, got %s", string(d))
