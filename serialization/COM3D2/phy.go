@@ -73,17 +73,17 @@ type Phy struct {
 
 // PartialMode 枚举
 const (
-	PartialMode_StaticOrCurve int32 = 0 // C#里的 StaticOrCurve，静态或曲线模式
-	PartialMode_Partial       int32 = 1 // C#里的 Partial，按骨骼设置模式
-	PartialMode_FromBoneName  int32 = 2 // C#里的 FromBoneName，旧自动按骨骼名设置模式
+	PartialModeStaticOrCurve int32 = 0 // C#里的 StaticOrCurve，静态或曲线模式
+	PartialModePartial       int32 = 1 // C#里的 Partial，按骨骼设置模式
+	PartialModeFromBoneName  int32 = 2 // C#里的 FromBoneName，旧自动按骨骼名设置模式
 )
 
 // FreezeAxis 枚举
 const (
-	FreezeAxis_None int32 = 0
-	FreezeAxis_X    int32 = 1
-	FreezeAxis_Y    int32 = 2
-	FreezeAxis_Z    int32 = 3
+	FreezeAxisNone int32 = 0
+	FreezeAxisX    int32 = 1
+	FreezeAxisY    int32 = 2
+	FreezeAxisZ    int32 = 3
 )
 
 // BoneValue 存储一个骨骼名称与对应 float 值
@@ -386,14 +386,14 @@ func (p *Phy) Dump(w io.Writer) error {
 
 // readPartial 读取：
 //
-//	int(PartialMode) -> 如果 != PartialMode_Partial, 结束；
+//	int(PartialMode) -> 如果 != PartialModePartial, 结束；
 //	int(boneCount) -> 循环读取 boneName + floatValue
 func readPartial(reader *stream.BinaryReader) (int32, []BoneValue, error) {
 	mode, err := reader.ReadInt32() // 读取 PartialMode，对应 PartialMode 枚举
 	if err != nil {
 		return 0, nil, fmt.Errorf("read partialMode failed: %w", err)
 	}
-	if mode != PartialMode_Partial { // 如果不是 PartialMode_Partial 部位模式，直接返回
+	if mode != PartialModePartial { // 如果不是 PartialModePartial 部位模式，直接返回
 		return mode, nil, nil
 	}
 
@@ -419,12 +419,12 @@ func readPartial(reader *stream.BinaryReader) (int32, []BoneValue, error) {
 
 // writePartial 写出：
 //
-//	int(PartialMode) -> 如果 == PartialMode_Partial 再写 (count + boneName + floatValue * count)
+//	int(PartialMode) -> 如果 == PartialModePartial 再写 (count + boneName + floatValue * count)
 func writePartial(writer *stream.BinaryWriter, mode int32, values []BoneValue) error {
 	if err := writer.WriteInt32(mode); err != nil {
 		return fmt.Errorf("write partialMode failed: %w", err)
 	}
-	if mode != PartialMode_Partial {
+	if mode != PartialModePartial {
 		return nil
 	}
 
