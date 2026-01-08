@@ -3,16 +3,129 @@
 import (
 	"fmt"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 )
 
-func (d *Dir) UTF8Hash() uint64  { return NameHashUTF8(d.Name) }
-func (d *Dir) UTF16Hash() uint64 { return NameHashUTF16(d.Name) }
-func (d *Dir) UniqueID() uint64  { return UniqueIDHash(d.FullName()) }
+// UTF8Hash computes a hash for the directory name using UTF-8 encoding and case-insensitive comparison.
+func (d *Dir) UTF8Hash() uint64 { return NameHashUTF8(d.Name) }
 
-func (f *File) UTF8Hash() uint64  { return NameHashUTF8(f.Name) }
+// UTF16Hash computes a hash for the directory name using UTF-16LE encoding and case-insensitive comparison.
+func (d *Dir) UTF16Hash() uint64 { return NameHashUTF16(d.Name) }
+
+// UniqueID computes a unique identifier for the directory based on its full path using UTF-16LE encoding.
+func (d *Dir) UniqueID() uint64 { return UniqueIDHash(d.FullName()) }
+
+// UTF8Hash computes and returns a hash value for the file name using UTF-8 encoding and case-insensitive comparison.
+func (f *File) UTF8Hash() uint64 { return NameHashUTF8(f.Name) }
+
+// UTF16Hash computes and returns a hash value for the file name using UTF-16 encoding and case-insensitive comparison.
 func (f *File) UTF16Hash() uint64 { return NameHashUTF16(f.Name) }
-func (f *File) UniqueID() uint64  { return UniqueIDHash(f.FullName()) }
+
+// UniqueID computes and returns a unique identifier for the file based on its full path encoded as UTF-16LE without lowercasing.
+func (f *File) UniqueID() uint64 { return UniqueIDHash(f.FullName()) }
+
+// NewArc creates a new empty ARC file system
+func NewArc(name string) *Arc {
+	if name == "" {
+		name = "root"
+	}
+	fs := &Arc{
+		Name:          name,
+		CompressGlobs: []string{"*.ks", "*.menu", "*.tjs"},
+	}
+	root := &Dir{Arc: fs, Name: "MeidoSerialization:" + string(filepath.Separator) + string(filepath.Separator) + name}
+	fs.Root = root
+	return fs
+}
+
+// FullName returns full path with OS separator
+func (d *Dir) FullName() string {
+	if d.Parent == nil {
+		return d.Name
+	}
+	return d.Parent.FullName() + string(filepath.Separator) + d.Name
+}
+
+// Depth returns the depth in the tree
+func (d *Dir) Depth() int {
+	if d.Parent == nil {
+		return 0
+	}
+	return d.Parent.Depth() + 1
+}
+
+// ensure maps exist
+func (d *Dir) ensure() {
+	if d.Dirs == nil {
+		d.Dirs = map[string]*Dir{}
+	}
+	if d.Files == nil {
+		d.Files = map[string]*File{}
+	}
+}
+
+// GetOrCreateDir finds or creates a directory by name under this dir
+func (d *Dir) GetOrCreateDir(name string) *Dir {
+	d.ensure()
+	if x, ok := d.Dirs[name]; ok {
+		return x
+	}
+	nd := &Dir{Arc: d.Arc, Name: name, Parent: d}
+	d.Dirs[name] = nd
+	return nd
+}
+
+// AddFile adds or replaces a file entry under this dir
+func (d *Dir) AddFile(f *File) {
+	d.ensure()
+	key := f.Name
+	if d.Arc.KeepDupes {
+		key = d.FullName() + string(filepath.Separator) + f.Name
+	}
+	d.Files[key] = f
+	f.Parent = d
+}
+
+// Sorted subDirs by name
+func (d *Dir) sortedDirs() []*Dir {
+	d.ensure()
+	out := make([]*Dir, 0, len(d.Dirs))
+	for _, v := range d.Dirs {
+		out = append(out, v)
+	}
+	sort.Slice(out, func(i, j int) bool { return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name) })
+	return out
+}
+
+// Sorted files by name key
+func (d *Dir) sortedFiles() []*File {
+	d.ensure()
+	out := make([]*File, 0, len(d.Files))
+	for _, v := range d.Files {
+		out = append(out, v)
+	}
+	sort.Slice(out, func(i, j int) bool { return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name) })
+	return out
+}
+
+// FullName returns full path including parent dirs
+func (f *File) FullName() string {
+	if f.Parent == nil {
+		return f.Name
+	}
+	return f.Parent.FullName() + string(filepath.Separator) + f.Name
+}
+
+// SetData sets file data using a memory pointer
+func (f *File) SetData(b []byte, compressed bool) {
+	if compressed {
+		f.Ptr = NewMemoryPointerCompressedAuto(b)
+	} else {
+		f.Ptr = NewMemoryPointer(b)
+	}
+}
 
 // walkDirs returns all directories depth-first (excluding root if excludeRoot)
 func walkDirs(root *Dir, list *[]*Dir, excludeRoot bool) {
@@ -26,7 +139,7 @@ func walkDirs(root *Dir, list *[]*Dir, excludeRoot bool) {
 
 // AllDirs returns a list of all directories in the given Arc file system in depth-first order, excluding duplicates.
 func AllDirs(fs *Arc) []*Dir {
-	out := []*Dir{}
+	var out []*Dir
 	walkDirs(fs.Root, &out, false)
 	return out
 }
@@ -94,7 +207,7 @@ func AddFileByPath(parent *Dir, path string) *File {
 	if len(parts) > 1 {
 		dir = GetOrCreateDirByPath(parent, strings.Join(parts[:len(parts)-1], string(filepath.Separator)))
 	}
-	f := &File{arc: parent.arc, Name: parts[len(parts)-1]}
+	f := &File{Arc: parent.Arc, Name: parts[len(parts)-1]}
 	dir.AddFile(f)
 	return f
 }
@@ -126,7 +239,7 @@ func FindFileByPath(parent *Dir, path string) *File {
 
 	fileName := parts[len(parts)-1]
 	key := fileName
-	if cur.arc.KeepDupes {
+	if cur.Arc.KeepDupes {
 		key = cur.FullName() + string(filepath.Separator) + fileName
 	}
 
@@ -144,7 +257,7 @@ func DeleteFileByPath(parent *Dir, path string) bool {
 	}
 	dir := f.Parent
 	key := f.Name
-	if dir.arc.KeepDupes {
+	if dir.Arc.KeepDupes {
 		key = dir.FullName() + string(filepath.Separator) + f.Name
 	}
 	delete(dir.Files, key)
@@ -216,4 +329,30 @@ func (arc *Arc) CopyFile(srcPath string, dstPath string) error {
 	// Match compression of source
 	dstFile.SetData(data, srcFile.Ptr.Compressed())
 	return nil
+}
+
+// globToRegex converts a shell-style glob pattern (e.g., "*", "?") into a corresponding regular expression.
+func globToRegex(glob string) (*regexp.Regexp, error) {
+	// very simple translation: * -> .*, ? -> .
+	// escape regex meta
+	rx := "^"
+	for i := 0; i < len(glob); i++ {
+		c := glob[i]
+		switch c {
+		case '*':
+			rx += ".*"
+		case '?':
+			rx += "."
+		case '.', '+', '(', ')', '[', ']', '{', '}', '^', '$', '|', '\\':
+			rx += "\\" + string(c)
+		default:
+			rx += string(c)
+		}
+	}
+	rx += "$"
+	r, err := regexp.Compile(rx)
+	if err != nil {
+		return nil, fmt.Errorf("invalid glob pattern: %s", glob)
+	}
+	return r, nil
 }

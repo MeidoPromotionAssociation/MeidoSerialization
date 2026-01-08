@@ -186,7 +186,6 @@ MeidoSerialization.exe determine --type menu ./mods_directory
 MeidoSerialization.exe determine --type menu.json ./mods_directory
 ```
 
-
 ### unpackArc
 
 Unpack a .arc file into a folder
@@ -198,7 +197,6 @@ MeidoSerialization.exe unpackArc example.arc
 MeidoSerialization.exe unpackArc example.arc -o ./output_dir
 MeidoSerialization.exe unpackArc ./arc_directory
 ```
-
 
 ### packArc
 
@@ -460,7 +458,6 @@ MeidoSerialization.exe unpackArc ./arc_directory
 MeidoSerialization packArc ./my_folder
 MeidoSerialization packArc ./my_folder -o custom.arc
 ```
-
 
 ### 全局参数
 

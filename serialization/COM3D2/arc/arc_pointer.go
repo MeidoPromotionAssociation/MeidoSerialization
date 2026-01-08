@@ -9,17 +9,20 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
 )
 
+// FilePointer represents an interface for managing file data within an ARC file system.
 type FilePointer interface {
-	Compressed() bool
-	Data() ([]byte, error)
-	RawSize() uint32
-	Size() uint32
+	Compressed() bool      // Compressed indicates if the file data is compressed.
+	Data() ([]byte, error) // Data retrieves the file data as a byte slice.
+	RawSize() uint32       // RawSize returns the uncompressed file size in bytes.
+	Size() uint32          // Size returns the file size in bytes, respecting compression if applied.
 }
 
+// MemoryPointer represents a structure that encapsulates a memory buffer as a slice of bytes.
 type MemoryPointer struct {
 	data []byte
 }
 
+// NewMemoryPointer creates a new MemoryPointer instance with a copy of the provided byte slice.
 func NewMemoryPointer(data []byte) *MemoryPointer {
 	return &MemoryPointer{data: append([]byte(nil), data...)}
 }
@@ -29,6 +32,7 @@ func (m *MemoryPointer) Data() ([]byte, error) { return append([]byte(nil), m.da
 func (m *MemoryPointer) RawSize() uint32       { return uint32(len(m.data)) }
 func (m *MemoryPointer) Size() uint32          { return uint32(len(m.data)) }
 
+// MemoryPointerCompressed represents a data structure for managing compressed data and its raw size.
 type MemoryPointerCompressed struct {
 	data []byte
 	raw  uint32
@@ -55,21 +59,21 @@ func (m *MemoryPointerCompressed) Size() uint32          { return uint32(len(m.d
 // ArcPointer lazily reads from an .arc file at a given offset
 // The offset points to the start of the 16-byte per-file header
 // [u32 compressed][u32 padding][u32 rawSize][u32 size] followed by data
-
 type ArcPointer struct {
-	reader      *stream.BinaryReader
-	offset      int64
-	initialized bool
-	compressed  bool
-	raw         uint32
-	size        uint32
-	dataOff     int64
+	reader      *stream.BinaryReader // reader is a binary stream reader used to lazily load file data from an .arc file.
+	offset      int64                // offset specifies the byte offset within the .arc file where the file's data starts.
+	initialized bool                 // initialized indicates whether the ArcPointer has read and cached the required metadata from the .arc file.
+	compressed  bool                 // compressed indicates whether the file data is stored in a compressed format within the .arc file.
+	raw         uint32               // raw represents the uncompressed size of the file data in bytes as read from the .arc file header.
+	size        uint32               // size represents the size of the file data in bytes, as specified in the .arc file header.
+	dataOff     int64                // dataOff specifies the byte offset within the file where the actual file data begins after the header has been parsed.
 }
 
 func NewArcPointer(reader *stream.BinaryReader, offset int64) *ArcPointer {
 	return &ArcPointer{reader: reader, offset: offset}
 }
 
+// ensure initializes the ArcPointer by loading data from the underlying binary stream if it is not already initialized.
 func (a *ArcPointer) ensure() error {
 	if a.initialized {
 		return nil
