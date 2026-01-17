@@ -109,6 +109,8 @@ The CLI provides the following main commands:
 - `convert2image`: Converts .tex files to regular image formats.
 - `convert2csv`: Converts .nei files to .csv format.
 - `convert2nei`: Converts .csv files to .nei format.
+- `packArc`: Packs a folder into a .arc file.
+- `unparkArc`: Unpacks .arc files into a folder.
 - `determine`: Determines the type of files in a directory or a single file.
 - `version`: Gets the version information of MeidoSerialization.
 
@@ -390,6 +392,8 @@ CLI 提供以下主要命令：
 - `convert2image`：将 .tex 文件转换为普通图片格式。
 - `convert2csv`：将 .nei 文件转换为 .csv 格式。
 - `convert2nei`：将 .csv 文件转换为 .nei 格式。
+- `packArc`: 将文件夹打包为 .arc 格式。
+- `unparkArc`: 将 .arc 文件解包到文件夹。
 - `determine`：确定目录中的文件或单个文件的类型。
 - `version`：获取 MeidoSerialization 的版本信息。
 
