@@ -576,6 +576,8 @@ func main() {
 
 # KISS Rule
 
+[KISS](https://www.kisskiss.tv/) is the company/brand that makes these games.
+
 *This Project is not owned or endorsed by KISS.
 
 *MODs are not supported by KISS.
@@ -583,7 +585,6 @@ func main() {
 *KISS cannot be held responsible for any problems that may arise when using MODs.
 
 *If any problem occurs, please do not contact KISS.
-
 ```
 KISS 規約
 
