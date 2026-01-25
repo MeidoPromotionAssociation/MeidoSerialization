@@ -14,6 +14,6 @@ jobs:
         with:
           source_repo: "https://github.com/${{ github.repository }}.git"
           source_branch: "refs/heads/*"
-          destination_repo: "git@codeberg.org/MeidoPromotionAssociation/MeidoSerialization.git"
+          destination_repo: "ssh://git@codeberg.org/MeidoPromotionAssociation/MeidoSerialization.git"
           destination_branch: "refs/heads/*"
           ssh_private_key: ${{ secrets.CODEBERG_SSH_KEY }}
