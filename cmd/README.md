@@ -1,4 +1,4 @@
-[English](#english) | [简体中文](#简体中文)
+[English](#english) | [简体中文](#简体中文) | [日本語](#日本語)
 
 # English
 
@@ -213,7 +213,7 @@ MeidoSerialization packArc ./my_folder -o custom.arc
 
 - `--strict` or `-s`: Use strict mode for file type determination (based on content rather than file extension)
 - `--type` or `-t`: Filter by file type. Supported values:
-    - `menu, mate, pmat, col, phy, psk, anm, model, tex, preset, nei, csv, image`
+    - `menu, mate, pmat, col, phy, psk, anm, model, tex, preset, nei, csv, image, arc`
     - image refers to any image format supported by ImageMagick (such as .png, .jpg, .gif, .webp, etc.)
     - or `'<type>.json'` for MOD JSON files (e.g., `menu.json`)
     - Note: `<type>` (without `.json`) matches binary only; `<type>.json` matches JSON only.
@@ -463,7 +463,7 @@ MeidoSerialization packArc ./my_folder -o custom.arc
 
 - `--strict` 或 `-s`：使用严格模式进行文件类型判断（基于文件内容而非扩展名）
 - `--type` 或 `-t`：按类型过滤。支持：
-    - `menu, mate, pmat, col, phy, psk, anm, model, tex, preset, nei, csv, image`
+    - `menu, mate, pmat, col, phy, psk, anm, model, tex, preset, nei, csv, image, arc`
     - image 指任意被 ImageMagick 支持的图片格式（如 .png, .jpg, .gif, .webp 等）
     - 或使用 `'<type>.json'` 过滤 MOD 的 JSON 文件（如 `menu.json`）
     - 注意：不带 `.json` 的 `<type>` 仅匹配二进制；带 `.json` 的 `<type>.json` 仅匹配 JSON。
@@ -480,6 +480,254 @@ MeidoSerialization packArc ./my_folder -o custom.arc
    git clone https://github.com/MeidoPromotionAssociation/MeidoSerialization.git
    ```
 3. 构建 CLI：
+   ```bash
+   cd MeidoSerialization
+   go build -o MeidoSerialization.exe
+   ```
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+------
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+# 日本語
+
+# MeidoSerialization CLI
+
+AI Translated
+
+MeidoSerialization CLI は MeidoSerialization ライブラリのコマンドラインインターフェースで、コマンドラインから直接 COM3D2 MOD ファイルと JSON 形式間の変換が可能です。
+
+.tex ファイルについては、一般的な画像形式と .tex 形式間の変換を行います。
+
+[COM3D2 MOD EDITOR V2](https://github.com/90135/COM3D2_MOD_EDITOR) を使用して、変換された JSON ファイルまたは未変換のファイルを開くこともできます。
+
+JSON テキストに変換した後、キーワード置換などのバッチ処理ツールをより便利に使用できます。
+
+変換された JSON には改行が含まれていないことに注意してください。Visual Studio Code などのツールを使用してフォーマットする必要があるかもしれません。
+
+キーワード置換やリネームなどのバッチ処理には、このシンプルな GUI ツールを使用できます。差分作成に便利です（中国語のみ）：[https://github.com/90135/COM3D2_Tools_901](https://github.com/90135/COM3D2_Tools_901)
+
+## ダウンロード
+
+[Release](https://github.com/MeidoPromotionAssociation/MeidoSerialization/releases) からダウンロード
+
+## 使用方法
+
+CLI は8つの主要コマンドを提供します：
+
+### convert2json
+
+MOD ファイルを JSON 形式に変換します。
+
+.tex 変換には対応していません。
+
+```bash
+MeidoSerialization.exe convert2json [ファイル/ディレクトリ]
+```
+
+例：
+
+```bash
+MeidoSerialization.exe convert2json example.menu
+MeidoSerialization.exe convert2json ./mods_directory
+MeidoSerialization.exe convert2json --type menu ./mods_directory  # .menu ファイルのみ変換
+```
+
+### convert2mod
+
+JSON ファイルを MOD 形式に変換します。
+
+.tex.json 変換には対応していません。
+
+```bash
+MeidoSerialization.exe convert2mod [ファイル/ディレクトリ]
+```
+
+例：
+
+```bash
+MeidoSerialization.exe convert2mod example.menu.json
+MeidoSerialization.exe convert2mod ./json_directory
+MeidoSerialization.exe convert2mod --type mate.json ./json_directory  # .mate.json ファイルのみ変換
+```
+
+### convert2image
+
+.tex ファイルを画像形式に変換します。
+
+```bash
+MeidoSerialization.exe convert2image [ファイル/ディレクトリ]
+```
+
+例：
+
+```bash
+MeidoSerialization.exe convert2image example.tex
+MeidoSerialization.exe convert2image example.tex --format jpg  # JPG 形式に変換
+MeidoSerialization.exe convert2image ./textures_directory
+MeidoSerialization.exe convert2image ./textures_directory --format webp # WebP 形式に変換
+# ディレクトリモードでもタイプでフィルタリング可能
+MeidoSerialization.exe convert2image ./textures_directory --type tex
+```
+
+### convert2tex
+
+画像ファイルを .tex 形式に変換します。
+
+```bash
+MeidoSerialization.exe convert2tex [ファイル/ディレクトリ]
+```
+
+例：
+
+```bash
+MeidoSerialization.exe convert2tex example.png
+MeidoSerialization.exe convert2tex example.jpg --compress # DXT 圧縮を使用
+MeidoSerialization.exe convert2tex example.png --forcePng false
+MeidoSerialization.exe convert2tex example.png --forcePng true # .tex ファイルのデータ部分に PNG 形式（ロスレス）を強制使用
+MeidoSerialization.exe convert2tex ./images_directory
+MeidoSerialization.exe convert2tex ./images_directory --compress --forcePng false
+# ディレクトリモードで画像のみフィルタリング
+MeidoSerialization.exe convert2tex ./images_directory --type image
+```
+
+### convert2csv
+
+.nei ファイル（暗号化された Shift-JIS CSV）を .csv 形式に変換します。
+
+```bash
+MeidoSerialization.exe convert2csv [ファイル/ディレクトリ]
+```
+
+例：
+
+```bash
+MeidoSerialization.exe convert2csv example.nei
+MeidoSerialization.exe convert2csv ./nei_directory
+# ディレクトリモードで .nei のみフィルタリング
+MeidoSerialization.exe convert2csv ./nei_directory --type nei
+```
+
+### convert2nei
+
+.csv ファイルを .nei 形式（暗号化された Shift-JIS CSV）に変換します。
+
+```bash
+MeidoSerialization.exe convert2nei [ファイル/ディレクトリ]
+```
+
+例：
+
+```bash
+MeidoSerialization.exe convert2nei example.csv
+MeidoSerialization.exe convert2nei ./csv_directory
+# ディレクトリモードで .csv のみフィルタリング
+MeidoSerialization.exe convert2nei ./csv_directory --type csv
+```
+
+### convert
+
+自動検出して変換：
+
+- MOD <-> JSON
+- TEX <-> 画像
+- NEI <-> CSV
+
+```bash
+MeidoSerialization.exe convert [ファイル/ディレクトリ]
+```
+
+例：
+
+```bash
+MeidoSerialization.exe convert example.menu
+MeidoSerialization.exe convert example.menu.json
+MeidoSerialization.exe convert example.tex
+MeidoSerialization.exe convert example.nei
+MeidoSerialization.exe convert ./mixed_directory
+# ディレクトリモードでタイプでフィルタリング可能
+MeidoSerialization.exe convert --type pmat ./mixed_directory      # .pmat（バイナリ）のみ変換
+MeidoSerialization.exe convert --type pmat.json ./mixed_directory # .pmat.json のみ変換
+MeidoSerialization.exe convert --type tex ./mixed_directory       # .tex を画像に変換のみ
+MeidoSerialization.exe convert --type image ./mixed_directory     # 画像ファイルを .tex に変換のみ
+MeidoSerialization.exe convert --type nei ./mixed_directory       # .nei を .csv に変換のみ
+MeidoSerialization.exe convert --type csv ./mixed_directory       # .csv を .nei に変換のみ
+```
+
+### determine
+
+ディレクトリ内のファイルまたは単一ファイルのタイプを判定します。
+
+```bash
+MeidoSerialization.exe determine [ファイル/ディレクトリ]
+```
+
+例：
+
+```bash
+MeidoSerialization.exe determine example.menu
+MeidoSerialization.exe determine --strict ./mods_directory
+# タイプフィルタリングも対応（'<type>.json' を含む）
+MeidoSerialization.exe determine --type menu ./mods_directory
+MeidoSerialization.exe determine --type menu.json ./mods_directory
+```
+
+### unpackArc
+
+.arc ファイルをフォルダに展開します
+
+例：
+
+```bash
+MeidoSerialization.exe unpackArc example.arc
+MeidoSerialization.exe unpackArc example.arc -o ./output_dir
+MeidoSerialization.exe unpackArc ./arc_directory
+```
+
+### packArc
+
+ディレクトリを .arc ファイルにパックします
+
+例：
+
+```bash
+MeidoSerialization packArc ./my_folder
+MeidoSerialization packArc ./my_folder -o custom.arc
+```
+
+### グローバルフラグ
+
+- `--strict` または `-s`：厳密モードでファイルタイプを判定（拡張子ではなくファイル内容に基づく）
+- `--type` または `-t`：タイプでフィルタリング。対応値：
+    - `menu, mate, pmat, col, phy, psk, anm, model, tex, preset, nei, csv, image, arc`
+    - image は ImageMagick でサポートされている任意の画像形式を指します（.png, .jpg, .gif, .webp など）
+    - または `'<type>.json'` で MOD の JSON ファイルをフィルタリング（例：`menu.json`）
+    - 注意：`.json` なしの `<type>` はバイナリのみにマッチ、`.json` 付きの `<type>.json` は JSON のみにマッチ
+
+## 対応ファイル形式
+
+メインの [README](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/README.md) を参照
+
+## ビルド
+
+1. Go がインストールされていることを確認（バージョン 1.25 以上）
+2. リポジトリをクローン：
+   ```bash
+   git clone https://github.com/MeidoPromotionAssociation/MeidoSerialization.git
+   ```
+3. CLI をビルド：
    ```bash
    cd MeidoSerialization
    go build -o MeidoSerialization.exe

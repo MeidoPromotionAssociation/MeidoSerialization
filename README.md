@@ -1,6 +1,6 @@
-[English](#english) | [简体中文](#简体中文)
+[English](#english) | [简体中文](#简体中文) | [日本語](#日本語)
 
-[Disclaimer/Credit/KISS Rule](#kiss-rule)
+[Disclaimer/How to Dev/Credit/KISS Rule](#how-to-dev)
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/MeidoPromotionAssociation/MeidoSerialization)](https://goreportcard.com/report/github.com/MeidoPromotionAssociation/MeidoSerialization)
 [![Github All Releases](https://img.shields.io/github/downloads/MeidoPromotionAssociation/MeidoSerialization/total.svg)]()
@@ -276,27 +276,21 @@ the [RFC4180](https://datatracker.ietf.org/doc/html/rfc4180) standard.
 
 This project is licensed under the BSD-3-Clause License - see the LICENSE file for details.
 
-## Also check out my other repositories
+## Also check out other repositories
 
-- [COM3D2 Simple MOD Guide Chinese](https://github.com/90135/COM3D2_Simple_MOD_Guide_Chinese)
 - [COM3D2 MOD Editor](https://github.com/90135/COM3D2_MOD_EDITOR)
-- [COM3D2 Plugin Chinese Translation](https://github.com/90135/COM3D2_Plugin_Translate_Chinese)
+- [COM3D2 Simple MOD Guide Chinese](https://github.com/90135/COM3D2_Simple_MOD_Guide_Chinese)
 - [90135's COM3D2 Chinese Guide](https://github.com/90135/COM3D2_GUIDE_CHINESE)
 - [90135's COM3D2 Script Collection](https://github.com/90135/COM3D2_Scripts_901)
 - [90135's COM3D2 Tools](https://github.com/90135/COM3D2_Tools_901)
+- [COM3D2.JustAnotherTranslator.Plugin](https://github.com/MeidoPromotionAssociation/COM3D2.JustAnotherTranslator.Plugin)
 
-<br>
-<br>
-<br>
-<br>
+- <br>
 <br>
 <br>
 
 --------
 
-<br>
-<br>
-<br>
 <br>
 <br>
 <br>
@@ -558,14 +552,15 @@ func main() {
 
 本项目采用 BSD-3-Clause License 许可 - 详情请参阅 LICENSE 文件。
 
-## 也可以看看我的其他仓库
+## 也可以看看其他仓库
 
-- [COM3D2 简明 MOD 教程中文](https://github.com/90135/COM3D2_Simple_MOD_Guide_Chinese)
 - [COM3D2 MOD 编辑器](https://github.com/90135/COM3D2_MOD_EDITOR)
-- [COM3D2 插件中文翻译](https://github.com/90135/COM3D2_Plugin_Translate_Chinese)
+- [COM3D2 简明 MOD 教程中文](https://github.com/90135/COM3D2_Simple_MOD_Guide_Chinese)
 - [90135 的 COM3D2 中文指北](https://github.com/90135/COM3D2_GUIDE_CHINESE)
 - [90135 的 COM3D2 脚本收藏集](https://github.com/90135/COM3D2_Scripts_901)
 - [90135 的 COM3D2 工具](https://github.com/90135/COM3D2_Tools_901)
+- [另一个 COM3D2 翻译插件 JustAnotherTranslator](https://github.com/MeidoPromotionAssociation/COM3D2.JustAnotherTranslator.Plugin)
+
 
 <br>
 <br>
@@ -581,6 +576,290 @@ func main() {
 <br>
 <br>
 <br>
+<br>
+
+# 日本語
+
+# MeidoSerialization
+
+## はじめに
+
+AI Translated
+
+MeidoSerialization は、[KISS](https://www.kisskiss.tv) ゲームで使用されるファイル形式を処理するために設計された、Golang で書かれたシリアライゼーションライブラリです。現在、[CM3D2](https://www.kisskiss.tv/cm3d2/) と [COM3D2](https://com3d2.jp/) のゲームファイル形式に対応しています。
+
+<br>
+
+気に入ったら、Starをお願いします〜
+
+バグや要望は、Issues または Discussions をご利用ください
+
+Discord [Custom Maid Server](https://discord.gg/custommaid) でも私を見つけることができます
+
+## 機能
+
+- CM3D2 および COM3D2 ゲームで使用される様々なファイル形式の読み書き
+- バイナリゲームファイルを編集しやすい JSON 形式に変換
+- JSON ファイルをバイナリゲーム形式に変換
+- 対応ファイル形式：.menu、.mate、.pmat、.col、.phy、.psk、.tex、.anm、.model、.nei、.preset、.arc
+
+## 対応ファイル形式
+
+現在のゲームバージョン COM3D2 v2.47.0 および COM3D2.5 v3.47.0
+
+| 拡張子     | 説明           | バージョン対応             | 変換              | 備考                                                                                                                             |
+|---------|--------------|---------------------|-----------------|--------------------------------------------------------------------------------------------------------------------------------|
+| .menu   | メニューファイル     | 全バージョン[¹](#note1ja) | .menu ↔ .json   |                                                                                                                                |
+| .mate   | マテリアルファイル    | 全バージョン[²](#note2ja) | .mate ↔ .json   |                                                                                                                                |
+| .pmat   | レンダリング順序ファイル | 全バージョン[¹](#note1ja) | .pmat ↔ .json   |                                                                                                                                |
+| .col    | コライダーファイル    | 全バージョン[¹](#note1ja) | .col ↔ .json    |                                                                                                                                |
+| .phy    | 物理ファイル       | 全バージョン[¹](#note1ja) | .phy ↔ .json    |                                                                                                                                |
+| .psk    | パニエスカートファイル  | 全バージョン[³](#note3ja) | .psk ↔ .json    |                                                                                                                                |
+| .tex    | テクスチャファイル    | 全バージョン[¹](#note1ja) | .tex ↔ 画像       | バージョン 1000 の書き出しは非対応（設計が不十分なため。CM3D2 もバージョン 1010 に対応しているため使用する理由がありません）、DXT1/DXT5 圧縮に対応                                        |
+| .anm    | アニメーションファイル  | 全バージョン              | .anm ↔ .json    |                                                                                                                                |
+| .model  | モデルファイル      | バージョン 1000-2200     | .model ↔ .json  |                                                                                                                                |
+| .nei    | 暗号化 CSV ファイル | 全バージョン[¹](#note1ja) | .nei ↔ .csv     | .nei ファイルは内部的に Shift-JIS エンコーディングを使用していますが、CSV の読み書き時には UTF-8-BOM エンコーディングを使用します。Shift-JIS でサポートされていない文字を使用するとエラーが発生する可能性があります |
+| .preset | プリセットファイル    | 全バージョン[¹](#note1ja) | .preset ↔ .json |                                                                                                                                |
+| .arc    | アーカイブファイル    | 全バージョン[¹](#note1ja) | .arc ↔ ディレクトリ   | 暗号化された .arc ファイルは非対応。対応するオリジナル DLC（dlc.arc および dlc_2.arc）をお持ちの場合、_2.arc はゲーム起動時に自動的に復号化されます。そのため、復号化は意味がありません。                 |
+
+<div id="note1ja">¹ これまで構造的な変更はないため、バージョン番号は関係ありません</div>
+<div id="note2ja">² これまで構造的な変更はありませんが、COM3D2.5 専用の機能がいくつかあります</div>
+<div id="note3ja">³ バージョン 217 以降、構造的な変更はありません</div>
+
+各ファイルには対応する .go ファイルがあります：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2)
+
+## 参考資料
+
+- このライブラリは当初 [COM3D2_MOD_EDITOR](https://github.com/90135/COM3D2_MOD_EDITOR) プロジェクト用に開発され、後に独立して使いやすくなりました。そのプロジェクトの使用方法も参考にできます。
+- pkg.go.dev：[https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
+- DeepWiki（注意：AI ハルシネーションが含まれる可能性があります）：[https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
+
+## 外部依存関係
+
+- テクスチャファイル（.tex）の変換には、ImageMagick バージョン 7 以上が必要で、システム PATH に追加されており、`magick` コマンドが使用可能である必要があります。
+
+## 使用方法
+
+### Go パッケージとして使用
+
+1. このリポジトリは [Go パッケージ](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization) として公開されています
+2. go get コマンドでインストール：
+   ```bash
+   go get github.com/MeidoPromotionAssociation/MeidoSerialization
+   ```
+3. テクスチャ（.tex）ファイルの処理には、ImageMagick 7.0 以上がインストールされ、システム PATH に追加されていることを確認してください
+
+### コマンドラインインターフェースとして使用
+
+MeidoSerialization CLI は MeidoSerialization ライブラリのコマンドラインインターフェースです
+
+コマンドラインを使用して COM3D2 MOD ファイルと JSON 形式間の変換、.tex と画像間、または .nei と .csv 間の単一またはバッチ変換が可能です。
+
+このツールで変換された JSON ファイルは [COM3D2 MOD EDITOR V2](https://github.com/MeidoPromotionAssociation/COM3D2_MOD_EDITOR) でも読み込めます。
+
+詳細は別途説明をご覧ください：[cmd 説明](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
+
+### 使用例
+
+#### コマンドラインインターフェースとして使用
+
+詳細は別途説明をご覧ください：[cmd 説明](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
+
+CLI は以下の主要コマンドを提供します：
+
+- `convert`：MOD と JSON 形式、TEX と画像形式、NEI と CSV 形式間でファイルを自動検出して変換
+- `convert2json`：MOD ファイルを JSON 形式に変換
+- `convert2mod`：JSON ファイルを MOD 形式に変換
+- `convert2tex`：通常の画像ファイルをテクスチャファイル（.tex）に変換
+- `convert2image`：.tex ファイルを通常の画像形式に変換
+- `convert2csv`：.nei ファイルを .csv 形式に変換
+- `convert2nei`：.csv ファイルを .nei 形式に変換
+- `packArc`：フォルダを .arc 形式にパック
+- `unparkArc`：.arc ファイルをフォルダに展開
+- `determine`：ディレクトリ内のファイルまたは単一ファイルのタイプを判定
+- `version`：MeidoSerialization のバージョン情報を取得
+
+#### グローバルフラグ
+
+- `--strict` または `-s`：厳密モードでファイルタイプを判定（拡張子ではなくファイル内容に基づく）
+- `--type` または `-t`：タイプでフィルタリング。対応値：
+    - `menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image`
+    - または `'<type>.json'` で MOD の JSON ファイルをフィルタリング（例：`menu.json`）
+    - 注意：`.json` なしの `<type>` はバイナリのみにマッチ、`.json` 付きの `<type>.json` は JSON のみにマッチ
+
+### Go プロジェクトでの使用
+
+本ライブラリは2つの主要パッケージを提供します：
+
+- `service` パッケージ：ファイルを直接読み書きするメソッドを提供
+- `serialization` パッケージ：構造体のシリアライズとデシリアライズのメソッドを提供
+
+<details>
+
+<summary>使用例</summary>
+
+```go
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+
+	serialcom "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
+	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
+)
+
+func main() {
+	// 例1：service パッケージを使用してファイルを直接処理
+	// マテリアルファイルを処理するサービスを作成
+	mateService := &COM3D2Service.MateService{}
+
+	// バイナリマテリアルファイルを JSON に変換
+	err := mateService.ConvertMateToJson("example.mate", "example.mate.json")
+	if err != nil {
+		fmt.Printf("マテリアルファイルの変換中にエラー：%v\n", err)
+		return
+	}
+
+	// JSON ファイルをバイナリマテリアル形式に変換
+	err = mateService.ConvertJsonToMate("example.mate.json", "new_example.mate")
+	if err != nil {
+		fmt.Printf("JSON をマテリアルファイルに変換中にエラー：%v\n", err)
+	}
+
+	// 例2：serialization パッケージを使用して構造体を直接操作
+	// .phy ファイルを読み込む
+	// service パッケージのサンプルコードを参照して、ファイル読み込みを正しく処理してください
+	f, err := os.Open("example.phy")
+	if err != nil {
+		fmt.Printf("ファイルを開けません：%v\n", err)
+		return
+	}
+	defer f.Close()
+
+	// バッファ付きリーダーを使用
+	br := bufio.NewReader(f)
+
+	// serialization パッケージの関数を使用してファイル内容を構造体に読み込む
+	phyData, err := serialcom.ReadPhy(br)
+	if err != nil {
+		fmt.Printf(".phy ファイルの解析に失敗：%v\n", err)
+		return
+	}
+
+	// 構造体のデータを変更
+	phyData.Damping = 0.8
+
+	// 新しいファイルを作成し、変更したデータを書き込む
+	newFile, err := os.Create("modified.phy")
+	if err != nil {
+		fmt.Printf("新しいファイルの作成に失敗：%v\n", err)
+		return
+	}
+	defer newFile.Close()
+
+	// バッファ付きライターを使用
+	bw := bufio.NewWriter(newFile)
+
+	// Dump メソッドを使用して構造体をファイルに書き込む
+	err = phyData.Dump(bw)
+	if err != nil {
+		fmt.Printf(".phy ファイルの書き込みに失敗：%v\n", err)
+		return
+	}
+
+	// バッファをフラッシュ
+	err = bw.Flush()
+	if err != nil {
+		fmt.Printf("バッファのフラッシュ中にエラー：%v\n", err)
+		return
+	}
+
+	fmt.Println("すべての操作が正常に完了しました！")
+}
+```
+
+</details>
+
+## よくある質問
+
+### ImageMagick の問題
+
+テクスチャ（.tex）ファイルの処理中にエラーが発生した場合：
+
+- ImageMagick 7.0 以上がインストールされていることを確認
+- ImageMagick がシステム PATH に含まれていることを確認（任意のターミナルから 'magick' コマンドを実行できる必要があります）
+- ImageMagick インストール後にアプリケーションを再起動
+
+### .tex ファイルのバージョン 1011 について
+
+- 新しいフィールド：
+    - バージョン 1011 では、バイナリ構造に `Rects`（テクスチャアトラス）配列が追加されました。要素は `x, y, w, h` の4つの `float32` で、正規化された UV 空間内の矩形を表します。
+- 画像を `.tex` に変換する場合：
+    - 同じディレクトリに同名の `.uv.csv` ファイルが存在する場合（例：`foo.png.uv.csv`）、その中の矩形を読み込み、バージョン 1011 の tex ファイルを生成します。
+    - `.uv.csv` ファイルが存在しない場合は、バージョン 1010（`Rects` なし）を生成します。
+- `.tex` を画像に変換する場合：
+    - ソースの `.tex` がバージョン 1011 で `Rects` を含む場合、出力画像の横に同名の `.uv.csv` ファイルが生成されます（例：`output.png.uv.csv`）
+- .uv.csv 形式：
+    - エンコーディング：UTF-8-BOM 必須
+    - 区切り文字：英語のカンマ `,`
+    - 列数：各行 4 列、順番は `x, y, w, h`（x, y, 幅, 高さ）。値は通常 `[0, 1]` の範囲（正規化された UV）。小数点以下最大 6 桁、精度は `float32` を推奨。
+    - 例：
+  ```csv
+  x,y,w,h
+  0.000000,0.000000,0.500000,0.500000
+  0.500000,0.000000,0.500000,0.500000
+  0.000000,0.500000,0.500000,0.500000
+  ```
+
+### `.nei` ファイルで特定の文字を使用すると保存できない
+
+以下のエラーが発生した場合、Shift-JIS エンコーディングでサポートされていない文字を使用しています。
+.nei ファイルは内部的に Shift-JIS エンコーディングを使用しており、これについては対処できません。サポートされていない文字を削除してください。
+
+- `failed to write to .neiData file: failed to encode string: encoding: rune not supported by encoding.`
+- `failed to write to .nei file: failed to encode string: encoding: rune not supported by encoding.`
+
+### CSV 形式について
+
+本プログラムで使用されるすべての CSV ファイルは、UTF-8-BOM エンコーディングで、`,` で区切られ、[RFC4180](https://datatracker.ietf.org/doc/html/rfc4180) 標準に準拠しています。
+
+## ライセンス
+
+このプロジェクトは BSD-3-Clause License の下でライセンスされています - 詳細は LICENSE ファイルを参照してください。
+
+## 他のリポジトリもチェック
+
+- [COM3D2 MOD エディタ](https://github.com/90135/COM3D2_MOD_EDITOR)
+- [COM3D2 シンプル MOD ガイド（中国語）](https://github.com/90135/COM3D2_Simple_MOD_Guide_Chinese)
+- [90135 の COM3D2 中国語ガイド](https://github.com/90135/COM3D2_GUIDE_CHINESE)
+- [90135 の COM3D2 スクリプトコレクション](https://github.com/90135/COM3D2_Scripts_901)
+- [90135 の COM3D2 ツール](https://github.com/90135/COM3D2_Tools_901)
+- [COM3D2.JustAnotherTranslator.Plugin](https://github.com/MeidoPromotionAssociation/COM3D2.JustAnotherTranslator.Plugin)
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+--------
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+# How to Dev
+
+1. Clone this repo, and cd to the project root
+2. Install [Golang](https://go.dev/)  1.25+
+3. `go build`
+
 <br>
 
 # KISS Rule
