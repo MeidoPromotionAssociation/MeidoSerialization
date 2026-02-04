@@ -122,7 +122,7 @@ The CLI provides the following main commands:
 
 - `--strict` or `-s`: Use strict mode for file type determination (based on content rather than file extension)
 - `--type` or `-t`: Filter by file type. Supported values:
-    - `menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image`
+    - `menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image, arc`
     - or `'<type>.json'` for MOD JSON files (e.g., `menu.json`)
     - Note: `<type>` (without `.json`) matches binary only; `<type>.json` matches JSON only.
 
@@ -278,13 +278,14 @@ This project is licensed under the BSD-3-Clause License - see the LICENSE file f
 
 ## Also check out other repositories
 
-- [COM3D2 MOD Editor](https://github.com/90135/COM3D2_MOD_EDITOR)
-- [COM3D2 Simple MOD Guide Chinese](https://github.com/90135/COM3D2_Simple_MOD_Guide_Chinese)
+- [COM3D2 MOD Editor](https://github.com/MeidoPromotionAssociation/COM3D2_MOD_EDITOR)
+- [COM3D2 Batch File Converter tool and Serialization Library](https://github.com/MeidoPromotionAssociation/MeidoSerialization)
+- [COM3D2 Simple Chinese MOD Tutorial](https://github.com/MeidoPromotionAssociation/COM3D2_Simple_MOD_Guide_Chinese)
+- [Another COM3D2 Translation Plugin JAT](https://github.com/MeidoPromotionAssociation/COM3D2.JustAnotherTranslator.Plugin)
 - [90135's COM3D2 Chinese Guide](https://github.com/90135/COM3D2_GUIDE_CHINESE)
 - [90135's COM3D2 Script Collection](https://github.com/90135/COM3D2_Scripts_901)
 - [90135's COM3D2 Tools](https://github.com/90135/COM3D2_Tools_901)
-- [COM3D2.JustAnotherTranslator.Plugin](https://github.com/MeidoPromotionAssociation/COM3D2.JustAnotherTranslator.Plugin)
-
+- 
 - <br>
 <br>
 <br>
@@ -404,7 +405,7 @@ CLI 提供以下主要命令：
 
 - `--strict` 或 `-s`：使用严格模式进行文件类型判断（基于文件内容而非扩展名）
 - `--type` 或 `-t`：按类型过滤。支持：
-    - `menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image`
+    - `menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image, arc`
     - 或使用 `'<type>.json'` 过滤 MOD 的 JSON 文件（如 `menu.json`）
     - 注意：不带 `.json` 的 `<type>` 仅匹配二进制；带 `.json` 的 `<type>.json` 仅匹配 JSON。
 
@@ -554,12 +555,13 @@ func main() {
 
 ## 也可以看看其他仓库
 
-- [COM3D2 MOD 编辑器](https://github.com/90135/COM3D2_MOD_EDITOR)
-- [COM3D2 简明 MOD 教程中文](https://github.com/90135/COM3D2_Simple_MOD_Guide_Chinese)
+- [COM3D2 MOD 编辑器](https://github.com/MeidoPromotionAssociation/COM3D2_MOD_EDITOR)
+- [COM3D2 文件批量转换器及序列化库](https://github.com/MeidoPromotionAssociation/MeidoSerialization)
+- [COM3D2 简明中文 MOD 教程](https://github.com/MeidoPromotionAssociation/COM3D2_Simple_MOD_Guide_Chinese)
+- [另一个 COM3D2 翻译插件 JAT](https://github.com/MeidoPromotionAssociation/COM3D2.JustAnotherTranslator.Plugin)
 - [90135 的 COM3D2 中文指北](https://github.com/90135/COM3D2_GUIDE_CHINESE)
 - [90135 的 COM3D2 脚本收藏集](https://github.com/90135/COM3D2_Scripts_901)
 - [90135 的 COM3D2 工具](https://github.com/90135/COM3D2_Tools_901)
-- [另一个 COM3D2 翻译插件 JustAnotherTranslator](https://github.com/MeidoPromotionAssociation/COM3D2.JustAnotherTranslator.Plugin)
 
 
 <br>
@@ -683,7 +685,7 @@ CLI は以下の主要コマンドを提供します：
 
 - `--strict` または `-s`：厳密モードでファイルタイプを判定（拡張子ではなくファイル内容に基づく）
 - `--type` または `-t`：タイプでフィルタリング。対応値：
-    - `menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image`
+    - `menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image, arc`
     - または `'<type>.json'` で MOD の JSON ファイルをフィルタリング（例：`menu.json`）
     - 注意：`.json` なしの `<type>` はバイナリのみにマッチ、`.json` 付きの `<type>.json` は JSON のみにマッチ
 
@@ -831,12 +833,14 @@ func main() {
 
 ## 他のリポジトリもチェック
 
-- [COM3D2 MOD エディタ](https://github.com/90135/COM3D2_MOD_EDITOR)
-- [COM3D2 シンプル MOD ガイド（中国語）](https://github.com/90135/COM3D2_Simple_MOD_Guide_Chinese)
+- [COM3D2 MODエディタ](https://github.com/MeidoPromotionAssociation/COM3D2_MOD_EDITOR)
+- [COM3D2 バッチファイルコンバータツールおよびシリアル化ライブラリ](https://github.com/MeidoPromotionAssociation/MeidoSerialization)
+- [COM3D2 中国語 MOD チュートリアル](https://github.com/MeidoPromotionAssociation/COM3D2_Simple_MOD_Guide_Chinese)
+- [COM3D2 翻訳プラグイン JAT](https://github.com/MeidoPromotionAssociation/COM3D2.JustAnotherTranslator.Plugin)
 - [90135 の COM3D2 中国語ガイド](https://github.com/90135/COM3D2_GUIDE_CHINESE)
 - [90135 の COM3D2 スクリプトコレクション](https://github.com/90135/COM3D2_Scripts_901)
 - [90135 の COM3D2 ツール](https://github.com/90135/COM3D2_Tools_901)
-- [COM3D2.JustAnotherTranslator.Plugin](https://github.com/MeidoPromotionAssociation/COM3D2.JustAnotherTranslator.Plugin)
+
 
 <br>
 <br>
