@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2/arc"
 	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
 )
@@ -376,6 +377,130 @@ func unpackArcTo(path string, outDir string) error {
 
 	fmt.Printf("Unpacked %s to %s\n", path, outputPath)
 	return nil
+}
+
+// listArcFiles reads an ARC file and prints all file paths it contains
+func listArcFiles(path string) error {
+	service := &COM3D2Service.ArcService{}
+	arcFs, err := service.ReadArc(path)
+	if err != nil {
+		return fmt.Errorf("failed to read %s: %w", path, err)
+	}
+
+	files := service.GetFileList(arcFs)
+	for _, f := range files {
+		fmt.Println(f)
+	}
+	fmt.Printf("\nTotal: %d files\n", len(files))
+	return nil
+}
+
+// extractArcByExt reads an ARC file and extracts all files matching the given extension.
+// The file handle is kept open during extraction so that lazy ArcPointers can read data.
+func extractArcByExt(path string, ext string, outDir string) error {
+	// Normalize extension: ensure leading dot, lowercase
+	ext = strings.ToLower(strings.TrimSpace(ext))
+	if !strings.HasPrefix(ext, ".") {
+		ext = "." + ext
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("failed to open %s: %w", path, err)
+	}
+	defer f.Close()
+
+	arcFs, err := arc.ReadArc(f)
+	if err != nil {
+		return fmt.Errorf("failed to read %s: %w", path, err)
+	}
+
+	allFiles := arcFs.GetFileList()
+	var matched []string
+	for _, fp := range allFiles {
+		if strings.ToLower(filepath.Ext(fp)) == ext {
+			matched = append(matched, fp)
+		}
+	}
+
+	if len(matched) == 0 {
+		fmt.Printf("No files with extension '%s' found in %s\n", ext, path)
+		return nil
+	}
+
+	service := &COM3D2Service.ArcService{}
+	if err := service.ExtractFiles(arcFs, matched, outDir); err != nil {
+		return fmt.Errorf("failed to extract files from %s: %w", path, err)
+	}
+
+	for _, fp := range matched {
+		fmt.Printf("Extracted %s\n", fp)
+	}
+	fmt.Printf("\nExtracted %d files to %s\n", len(matched), outDir)
+	return nil
+}
+
+// extractArcFile reads an ARC file and extracts a single file by its path or name within the archive.
+// If filePath is not an exact match, it searches for entries whose filename matches.
+// The file handle is kept open during extraction so that lazy ArcPointers can read data.
+func extractArcFile(path string, filePath string, outDir string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("failed to open %s: %w", path, err)
+	}
+	defer f.Close()
+
+	arcFs, err := arc.ReadArc(f)
+	if err != nil {
+		return fmt.Errorf("failed to read %s: %w", path, err)
+	}
+
+	// Resolve filePath: try exact match first, then fall back to filename matching
+	resolvedPath, err := resolveArcFilePath(arcFs, filePath)
+	if err != nil {
+		return fmt.Errorf("%w (archive: %s)", err, path)
+	}
+
+	service := &COM3D2Service.ArcService{}
+	outPath := filepath.Join(outDir, resolvedPath)
+	if err := service.ExtractFile(arcFs, resolvedPath, outPath); err != nil {
+		return fmt.Errorf("failed to extract %s from %s: %w", resolvedPath, path, err)
+	}
+
+	fmt.Printf("Extracted %s to %s\n", resolvedPath, outPath)
+	return nil
+}
+
+// resolveArcFilePath resolves a file path or name to the actual path in the archive.
+// It first tries an exact match, then falls back to matching by filename.
+func resolveArcFilePath(arcFs *arc.Arc, filePath string) (string, error) {
+	allFiles := arcFs.GetFileList()
+
+	// Try exact match first
+	for _, fp := range allFiles {
+		if fp == filePath {
+			return filePath, nil
+		}
+	}
+
+	// Fall back to filename matching (case-insensitive)
+	target := strings.ToLower(filepath.Base(filePath))
+	var matched []string
+	for _, fp := range allFiles {
+		if strings.ToLower(filepath.Base(fp)) == target {
+			matched = append(matched, fp)
+		}
+	}
+
+	switch len(matched) {
+	case 0:
+		return "", fmt.Errorf("file '%s' not found in archive", filePath)
+	case 1:
+		return matched[0], nil
+	default:
+		return "", fmt.Errorf("multiple files match '%s', please specify the full path:\n  %s",
+			filePath, strings.Join(matched, "\n  "))
+	}
 }
 
 // packArc packs a directory to an ARC file

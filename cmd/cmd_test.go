@@ -19,6 +19,9 @@ func executeCommand(root *cobra.Command, args ...string) (output string, err err
 	// Reset global flags before each execution
 	strictMode = false
 	fileType = ""
+	extractExt = ""
+	extractFile = ""
+	extractOutputFlag = ""
 
 	// Also capture stdout as many parts of the code use fmt.Printf
 	old := os.Stdout
@@ -261,5 +264,150 @@ func TestArcCommands(t *testing.T) {
 	}
 	if _, err := os.Stat(repackPath); os.IsNotExist(err) {
 		t.Errorf("expected repacked ARC file %s to be created", repackPath)
+	}
+}
+
+func TestListArcCommand(t *testing.T) {
+	tempDir := t.TempDir()
+	testFile := "test.arc"
+	inputPath := filepath.Join("../testdata", testFile)
+	tempInputPath := filepath.Join(tempDir, testFile)
+
+	data, err := os.ReadFile(inputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.WriteFile(tempInputPath, data, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Test listArc
+	output, err := executeCommand(RootCmd, "listArc", tempInputPath)
+	if err != nil {
+		t.Fatalf("listArc failed: %v", err)
+	}
+
+	// Should contain file listings
+	if !strings.Contains(output, ".tex") {
+		t.Errorf("expected output to contain '.tex' files, got %q", output)
+	}
+
+	// Should contain the total count
+	if !strings.Contains(output, "Total:") {
+		t.Errorf("expected output to contain 'Total:', got %q", output)
+	}
+	if !strings.Contains(output, "1137 files") {
+		t.Errorf("expected output to contain '1137 files', got %q", output)
+	}
+}
+
+func TestExtractArcCommand(t *testing.T) {
+	tempDir := t.TempDir()
+	testFile := "test.arc"
+	inputPath := filepath.Join("../testdata", testFile)
+	tempInputPath := filepath.Join(tempDir, testFile)
+
+	data, err := os.ReadFile(inputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.WriteFile(tempInputPath, data, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. Test extractArc --ext (extract by extension)
+	extOutDir := filepath.Join(tempDir, "ext_output")
+	output, err := executeCommand(RootCmd, "extractArc", tempInputPath, "--ext", ".preset", "-o", extOutDir)
+	if err != nil {
+		t.Fatalf("extractArc --ext failed: %v", err)
+	}
+	if !strings.Contains(output, "Extracted") {
+		t.Errorf("expected output to contain 'Extracted', got %q", output)
+	}
+	// test.arc contains 4 .preset files
+	if !strings.Contains(output, "4 files") {
+		t.Errorf("expected output to contain '4 files', got %q", output)
+	}
+	if _, err := os.Stat(extOutDir); os.IsNotExist(err) {
+		t.Errorf("expected output directory %s to be created", extOutDir)
+	}
+
+	// 2. Test extractArc --ext without leading dot
+	extOutDir2 := filepath.Join(tempDir, "ext_output2")
+	output, err = executeCommand(RootCmd, "extractArc", tempInputPath, "--ext", "xml", "-o", extOutDir2)
+	if err != nil {
+		t.Fatalf("extractArc --ext (no dot) failed: %v", err)
+	}
+	// test.arc contains 5 .xml files
+	if !strings.Contains(output, "5 files") {
+		t.Errorf("expected output to contain '5 files', got %q", output)
+	}
+
+	// 3. Test extractArc --file (extract single file)
+	fileOutDir := filepath.Join(tempDir, "file_output")
+	targetFile := "system\\facilitycostume\\com3d2_facility_costume_bar_lounge.tex"
+	_, err = executeCommand(RootCmd, "extractArc", tempInputPath, "--file", targetFile, "-o", fileOutDir)
+	if err != nil {
+		t.Fatalf("extractArc --file failed: %v", err)
+	}
+	extractedPath := filepath.Join(fileOutDir, targetFile)
+	if _, err := os.Stat(extractedPath); os.IsNotExist(err) {
+		t.Errorf("expected extracted file %s to exist", extractedPath)
+	}
+
+	// 4. Test error: neither --ext nor --file
+	_, err = executeCommand(RootCmd, "extractArc", tempInputPath)
+	if err == nil {
+		t.Error("expected error when neither --ext nor --file is provided")
+	}
+
+	// 5. Test error: both --ext and --file
+	_, err = executeCommand(RootCmd, "extractArc", tempInputPath, "--ext", ".tex", "--file", "some/file.tex")
+	if err == nil {
+		t.Error("expected error when both --ext and --file are provided")
+	}
+}
+
+func TestExtractArcDirectoryCommand(t *testing.T) {
+	tempDir := t.TempDir()
+	testFile := "test.arc"
+	inputPath := filepath.Join("../testdata", testFile)
+
+	// Create a subdirectory with two copies of the arc
+	arcDir := filepath.Join(tempDir, "arcs")
+	os.MkdirAll(arcDir, 0755)
+
+	data, err := os.ReadFile(inputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.WriteFile(filepath.Join(arcDir, "a.arc"), data, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.WriteFile(filepath.Join(arcDir, "b.arc"), data, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Test extractArc on a directory
+	output, err := executeCommand(RootCmd, "extractArc", arcDir, "--ext", "preset")
+	if err != nil {
+		t.Fatalf("extractArc directory failed: %v", err)
+	}
+	if !strings.Contains(output, "Extracted") {
+		t.Errorf("expected output to contain 'Extracted', got %q", output)
+	}
+
+	// Both arc files should have been processed — check output dirs exist
+	aOut := filepath.Join(arcDir, "a.arc_extracted")
+	bOut := filepath.Join(arcDir, "b.arc_extracted")
+	if _, err := os.Stat(aOut); os.IsNotExist(err) {
+		t.Errorf("expected output directory %s to be created", aOut)
+	}
+	if _, err := os.Stat(bOut); os.IsNotExist(err) {
+		t.Errorf("expected output directory %s to be created", bOut)
 	}
 }

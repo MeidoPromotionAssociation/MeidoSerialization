@@ -115,6 +115,8 @@ The CLI provides the following main commands:
 - `convert2nei`: Converts .csv files to .nei format.
 - `packArc`: Packs a folder into a .arc file.
 - `unparkArc`: Unpacks .arc files into a folder.
+- `listArc`: Lists all files inside a .arc archive.
+- `extractArc`: Extracts files from a .arc archive by extension or file path/name.
 - `determine`: Determines the type of files in a directory or a single file.
 - `version`: Gets the version information of MeidoSerialization.
 
@@ -399,6 +401,8 @@ CLI 提供以下主要命令：
 - `convert2nei`：将 .csv 文件转换为 .nei 格式。
 - `packArc`: 将文件夹打包为 .arc 格式。
 - `unparkArc`: 将 .arc 文件解包到文件夹。
+- `listArc`：列出 .arc 存档中的所有文件。
+- `extractArc`：按扩展名或文件路径/名称从 .arc 存档中提取文件。
 - `determine`：确定目录中的文件或单个文件的类型。
 - `version`：获取 MeidoSerialization 的版本信息。
 
@@ -679,6 +683,8 @@ CLI は以下の主要コマンドを提供します：
 - `convert2nei`：.csv ファイルを .nei 形式に変換
 - `packArc`：フォルダを .arc 形式にパック
 - `unparkArc`：.arc ファイルをフォルダに展開
+- `listArc`：.arc アーカイブ内のすべてのファイルを一覧表示
+- `extractArc`：拡張子またはファイルパス/名前で .arc アーカイブからファイルを抽出
 - `determine`：ディレクトリ内のファイルまたは単一ファイルのタイプを判定
 - `version`：MeidoSerialization のバージョン情報を取得
 
