@@ -1,4 +1,4 @@
-﻿package arc
+package arc
 
 import (
 	"bytes"
@@ -113,7 +113,25 @@ type File struct {
 	Ptr    FilePointer // Ptr represents a memory or compressed pointer to the file data.
 }
 
-// ReadArc parses an ARC file and returns an in-memory Arc representation
+// ReadArcBytes parses an ARC payload from memory.
+// The returned Arc lazily reads from the in-memory buffer and does not depend on an open file handle.
+func ReadArcBytes(data []byte) (*Arc, error) {
+	return ReadArc(bytes.NewReader(data))
+}
+
+// ReadArcFile loads an ARC file into memory before parsing it.
+// Use this when the returned Arc must remain usable after the source file is closed.
+func ReadArcFile(path string) (*Arc, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read .arc file: %w", err)
+	}
+	return ReadArcBytes(data)
+}
+
+// ReadArc parses ARC metadata from rs.
+// File payloads remain lazily backed by rs, so callers must keep rs readable for later Data/Extract calls.
+// Use ReadArcFile or ReadArcBytes when a detached Arc is required.
 func ReadArc(rs io.ReadSeeker) (*Arc, error) {
 	reader := stream.NewBinaryReader(rs)
 

@@ -404,16 +404,12 @@ func extractArcByExt(path string, ext string, outDir string) error {
 		ext = "." + ext
 	}
 
-	f, err := os.Open(path)
-	if err != nil {
-		return fmt.Errorf("failed to open %s: %w", path, err)
-	}
-	defer f.Close()
-
-	arcFs, err := arc.ReadArc(f)
+	service := &COM3D2Service.ArcService{}
+	arcFs, closer, err := service.ReadArcLazy(path)
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", path, err)
 	}
+	defer closer.Close()
 
 	allFiles := arcFs.GetFileList()
 	var matched []string
@@ -428,7 +424,6 @@ func extractArcByExt(path string, ext string, outDir string) error {
 		return nil
 	}
 
-	service := &COM3D2Service.ArcService{}
 	if err := service.ExtractFiles(arcFs, matched, outDir); err != nil {
 		return fmt.Errorf("failed to extract files from %s: %w", path, err)
 	}
@@ -444,16 +439,12 @@ func extractArcByExt(path string, ext string, outDir string) error {
 // If filePath is not an exact match, it searches for entries whose filename matches.
 // The file handle is kept open during extraction so that lazy ArcPointers can read data.
 func extractArcFile(path string, filePath string, outDir string) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return fmt.Errorf("failed to open %s: %w", path, err)
-	}
-	defer f.Close()
-
-	arcFs, err := arc.ReadArc(f)
+	service := &COM3D2Service.ArcService{}
+	arcFs, closer, err := service.ReadArcLazy(path)
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", path, err)
 	}
+	defer closer.Close()
 
 	// Resolve filePath: try exact match first, then fall back to filename matching
 	resolvedPath, err := resolveArcFilePath(arcFs, filePath)
@@ -461,7 +452,6 @@ func extractArcFile(path string, filePath string, outDir string) error {
 		return fmt.Errorf("%w (archive: %s)", err, path)
 	}
 
-	service := &COM3D2Service.ArcService{}
 	outPath := filepath.Join(outDir, resolvedPath)
 	if err := service.ExtractFile(arcFs, resolvedPath, outPath); err != nil {
 		return fmt.Errorf("failed to extract %s from %s: %w", resolvedPath, path, err)

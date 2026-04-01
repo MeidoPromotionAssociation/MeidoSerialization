@@ -2,6 +2,7 @@ package COM3D2
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -19,14 +20,9 @@ func (a *ArcService) NewArc(name string) *arc.Arc {
 }
 
 // ReadArc 读取 .arc 文件并返回对应结构体
+// arc 数据将被完整读入内存，请注意占用
 func (a *ArcService) ReadArc(path string) (*arc.Arc, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("cannot open .arc file: %w", err)
-	}
-	defer f.Close()
-
-	arcFs, err := arc.ReadArc(f)
+	arcFs, err := arc.ReadArcFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("parsing the .arc file failed: %w", err)
 	}
@@ -34,18 +30,31 @@ func (a *ArcService) ReadArc(path string) (*arc.Arc, error) {
 	return arcFs, nil
 }
 
-// UnpackArc 将 .arc 文件解压到指定文件夹
-func (a *ArcService) UnpackArc(path string, outDir string) error {
+// ReadArcLazy 读取 .arc 文件并返回对应结构体
+// 不会将所有数据都读入内存，而是在需要时从文件读取
+// 因此读取完成后，调用者必须关闭返回的 io.Closer
+func (a *ArcService) ReadArcLazy(path string) (*arc.Arc, io.Closer, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return err
+		return nil, nil, fmt.Errorf("cannot open .arc file: %w", err)
 	}
-	defer f.Close()
 
-	fs, err := arc.ReadArc(f)
+	arcFs, err := arc.ReadArc(f)
+	if err != nil {
+		_ = f.Close()
+		return nil, nil, fmt.Errorf("parsing the .arc file failed: %w", err)
+	}
+
+	return arcFs, f, nil
+}
+
+// UnpackArc 将 .arc 文件解压到指定文件夹
+func (a *ArcService) UnpackArc(path string, outDir string) error {
+	fs, closer, err := a.ReadArcLazy(path)
 	if err != nil {
 		return err
 	}
+	defer closer.Close()
 	return fs.Unpack(outDir)
 }
 
