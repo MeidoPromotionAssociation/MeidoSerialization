@@ -38,6 +38,12 @@ import (
 // 注意，TextureFormat 为 ARGB32、RGB24 时数据位是 PNG 或 JPG 格式，为 DXT5、DXT1 时数据位是 DDS 格式
 // 本序列化不支持写出 1000 版本
 // 部分错误的 .tex 文件虽然使用 RGB24 格式，但嵌入的却是 PNG 数据。因此本程序会在格式为 RGB24 和 ARGB32 时尝试解析数据魔数以确定真实格式
+//
+// 关于 DDS 格式
+// Unity (基于 OpenGL 习惯): 它的 UV 坐标原点 (0,0) 在图像的 左下角 (Bottom-Left)。V 轴是从下往上增长的
+// DDS (DirectX 标准): DDS 是为 Direct3D 设计的格式，而 DirectX 的纹理坐标原点 (0,0) 在图像的 左上角 (Top-Left)。V 轴是从上往下增长的
+// 因为标准 DDS 格式和 Unity 使用的 DDS 格式在垂直方向上存在翻转，因此在读取或储存 DXT1/DXT5 格式时需要进行垂直翻转操作
+// 本库在转换时会进行反转以确保写入 TEX 格式的数据是 Unity 标准的，在转换为图片时确保格式是 DirectX 标准（看起来是正的）
 
 // From unity 5.6.4
 // COM3D2 supported only
@@ -416,6 +422,10 @@ func ConvertImageToTex(inputPath string, texName string, compress bool, forcePNG
 			if string(data[:4]) == "DDS " {
 				data = data[128:]
 			}
+			data, err = flipBlockCompressedTextureVertically(data, int32(width), int32(height), textureFormat)
+			if err != nil {
+				return nil, err
+			}
 		}
 	} else {
 		// forcePNG 为 true 时，强制转换为 PNG
@@ -640,6 +650,10 @@ func ConvertTexToImage(tex *Tex, forcePNG bool) (imgData []byte, format string, 
 
 		d := tex.Data
 		if tex.TextureFormat == DXT1 || tex.TextureFormat == DXT5 {
+			d, err = flipBlockCompressedTextureVertically(d, tex.Width, tex.Height, tex.TextureFormat)
+			if err != nil {
+				return nil, "", nil, err
+			}
 			d = ensureDDSHeader(d, tex.Width, tex.Height, tex.TextureFormat)
 		}
 		cmd.Stdin = bytes.NewReader(d)
@@ -683,6 +697,10 @@ func ConvertTexToImage(tex *Tex, forcePNG bool) (imgData []byte, format string, 
 
 	d := tex.Data
 	if tex.TextureFormat == DXT1 || tex.TextureFormat == DXT5 {
+		d, err = flipBlockCompressedTextureVertically(d, tex.Width, tex.Height, tex.TextureFormat)
+		if err != nil {
+			return nil, "", nil, err
+		}
 		d = ensureDDSHeader(d, tex.Width, tex.Height, tex.TextureFormat)
 	}
 	cmd.Stdin = bytes.NewReader(d)
@@ -827,6 +845,11 @@ func ConvertTexToImageAndWrite(tex *Tex, outputPath string, forcePNG bool) error
 
 		d := tex.Data
 		if tex.TextureFormat == DXT1 || tex.TextureFormat == DXT5 {
+			flipped, err := flipBlockCompressedTextureVertically(d, tex.Width, tex.Height, tex.TextureFormat)
+			if err != nil {
+				return err
+			}
+			d = flipped
 			d = ensureDDSHeader(d, tex.Width, tex.Height, tex.TextureFormat)
 		}
 		cmd.Stdin = bytes.NewReader(d)
@@ -849,6 +872,11 @@ func ConvertTexToImageAndWrite(tex *Tex, outputPath string, forcePNG bool) error
 
 		d := tex.Data
 		if tex.TextureFormat == DXT1 || tex.TextureFormat == DXT5 {
+			flipped, err := flipBlockCompressedTextureVertically(d, tex.Width, tex.Height, tex.TextureFormat)
+			if err != nil {
+				return err
+			}
+			d = flipped
 			d = ensureDDSHeader(d, tex.Width, tex.Height, tex.TextureFormat)
 		}
 		cmd.Stdin = bytes.NewReader(d)
@@ -934,6 +962,87 @@ func ensureDDSHeader(data []byte, width, height int32, format int32) []byte {
 	}
 	header := createDDSHeader(width, height, format)
 	return append(header, data...)
+}
+
+// flipBlockCompressedTextureVertically converts between COM3D2 raw DXT payload
+// ordering and standard DDS ordering. The transform is its own inverse, so the
+// same function is used for both tex->image and image->tex conversion.
+// Tex.Data for DXT1/DXT5 is stored in COM3D2 vertical-flipped raw block order relative to standard DDS payload
+func flipBlockCompressedTextureVertically(data []byte, width, height int32, format int32) ([]byte, error) {
+	if format != DXT1 && format != DXT5 {
+		return data, nil
+	}
+	if width <= 0 || height <= 0 {
+		return nil, fmt.Errorf("invalid DXT dimensions: %dx%d", width, height)
+	}
+
+	blockSize := 8
+	if format == DXT5 {
+		blockSize = 16
+	}
+
+	blocksWide := int((width + 3) / 4)
+	blocksHigh := int((height + 3) / 4)
+	expectedLen := blocksWide * blocksHigh * blockSize
+	if len(data) != expectedLen {
+		return nil, fmt.Errorf("unexpected DXT data size: got %d bytes, want %d for %dx%d format %d", len(data), expectedLen, width, height, format)
+	}
+
+	flipped := make([]byte, len(data))
+	rowStride := blocksWide * blockSize
+	for blockY := 0; blockY < blocksHigh; blockY++ {
+		srcRowOffset := blockY * rowStride
+		dstRowOffset := (blocksHigh - 1 - blockY) * rowStride
+		for blockX := 0; blockX < blocksWide; blockX++ {
+			srcBlockStart := srcRowOffset + blockX*blockSize
+			dstBlockStart := dstRowOffset + blockX*blockSize
+			srcBlock := data[srcBlockStart : srcBlockStart+blockSize]
+			dstBlock := flipped[dstBlockStart : dstBlockStart+blockSize]
+			if format == DXT1 {
+				flipDXT1Block(dstBlock, srcBlock)
+			} else {
+				flipDXT5Block(dstBlock, srcBlock)
+			}
+		}
+	}
+
+	return flipped, nil
+}
+
+func flipDXT1Block(dst []byte, src []byte) {
+	copy(dst[:4], src[:4])
+	dst[4] = src[7]
+	dst[5] = src[6]
+	dst[6] = src[5]
+	dst[7] = src[4]
+}
+
+func flipDXT5Block(dst []byte, src []byte) {
+	copy(dst[:2], src[:2])
+
+	var alphaBits uint64
+	for i := 0; i < 6; i++ {
+		alphaBits |= uint64(src[2+i]) << (8 * i)
+	}
+
+	var rows [4]uint16
+	for row := 0; row < 4; row++ {
+		rows[row] = uint16((alphaBits >> (12 * row)) & 0x0FFF)
+	}
+
+	flippedAlphaBits := uint64(rows[3]) |
+		(uint64(rows[2]) << 12) |
+		(uint64(rows[1]) << 24) |
+		(uint64(rows[0]) << 36)
+	for i := 0; i < 6; i++ {
+		dst[2+i] = byte(flippedAlphaBits >> (8 * i))
+	}
+
+	copy(dst[8:12], src[8:12])
+	dst[12] = src[15]
+	dst[13] = src[14]
+	dst[14] = src[13]
+	dst[15] = src[12]
 }
 
 // isLossyCompression 检查是否为有损压缩格式
