@@ -9,7 +9,7 @@ import (
 )
 
 // ============================================================================
-// DanceObjectData —  / item_data.bytes / event_data.bytes 共用格式
+// DanceObjectData — maid_data.bytes / item_data.bytes / event_data.bytes 共用格式
 // ============================================================================
 
 // DanceObjectData 舞蹈对象数据，用于描述舞蹈场景中的物体引用关系
