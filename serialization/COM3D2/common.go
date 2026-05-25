@@ -84,6 +84,36 @@ type PositionRotationScale struct {
 	Scale    Vector3    `json:"Scale"`    // 缩放
 }
 
+// Vector4 表示四维向量
+type Vector4 struct {
+	X float32 `json:"X"`
+	Y float32 `json:"Y"`
+	Z float32 `json:"Z"`
+	W float32 `json:"W"`
+}
+
+// Color 表示颜色（ARGB 顺序，与 Unity 序列化一致）
+type Color struct {
+	A float32 `json:"A"`
+	R float32 `json:"R"`
+	G float32 `json:"G"`
+	B float32 `json:"B"`
+}
+
+// Rect 表示矩形区域
+type Rect struct {
+	XMin float32 `json:"XMin"`
+	XMax float32 `json:"XMax"`
+	YMin float32 `json:"YMin"`
+	YMax float32 `json:"YMax"`
+}
+
+// KeyValuePairInt 表示 int32 键值对
+type KeyValuePairInt struct {
+	Key   int32 `json:"Key"`
+	Value int32 `json:"Value"`
+}
+
 // Matrix4x4 表示4x4矩阵
 type Matrix4x4 [16]float32
 

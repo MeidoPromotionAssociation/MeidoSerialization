@@ -57,7 +57,8 @@ var fileTypeSet = map[string]struct{}{
 
 // SpecialFileTypeSet 特殊文件类型集合，用于判断文件类型
 var SpecialFileTypeSet = map[string]struct{}{
-	"nei": {},
+	"nei":   {},
+	"bytes": {},
 }
 
 var NoneGameFileTypeSet = map[string]struct{}{

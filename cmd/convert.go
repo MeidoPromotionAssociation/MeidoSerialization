@@ -40,7 +40,7 @@ Examples:
 				if !fileTypeFilter(p) {
 					return false
 				}
-				return isModJsonFile(p) || isModFile(p) || isTexFile(p) || isImageFile(p) || isNeiFile(p) || isCsvFile(p)
+				return isModJsonFile(p) || isBytesJsonFile(p) || isModFile(p) || isBytesFile(p) || isTexFile(p) || isImageFile(p) || isNeiFile(p) || isCsvFile(p)
 			})
 		}
 

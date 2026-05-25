@@ -135,7 +135,7 @@ func isModJsonFile(path string) bool {
 	// Otherwise check if it's any supported MOD file
 	// We need to check directly without using isModFile because it also considers fileType
 	switch strings.ToLower(ext) {
-	case ".menu", ".mate", ".pmat", ".col", ".phy", ".psk", ".anm", ".model", ".preset":
+	case ".menu", ".mate", ".pmat", ".col", ".phy", ".psk", ".anm", ".model", ".preset", ".bytes":
 		return true
 	default:
 		return false
@@ -191,6 +191,8 @@ func convertToJson(path string) error {
 	case ".preset":
 		service := &COM3D2Service.PresetService{}
 		err = service.ConvertPresetToJson(path, outputPath)
+	case ".bytes":
+		err = convertBytesToJson(path, outputPath)
 	default:
 		return fmt.Errorf("unsupported file type: %s", ext)
 	}
@@ -243,6 +245,8 @@ func convertToMod(path string) error {
 	case ".preset":
 		service := &COM3D2Service.PresetService{}
 		err = service.ConvertJsonToPreset(path, outputPath)
+	case ".bytes":
+		err = convertJsonToBytes(path, outputPath)
 	default:
 		return fmt.Errorf("unsupported file type: %s", ext)
 	}
@@ -321,6 +325,17 @@ func determineFileType(path string) error {
 // isNeiFile checks if the file has a .nei extension
 func isNeiFile(path string) bool {
 	return strings.HasSuffix(strings.ToLower(path), ".nei")
+}
+
+// isBytesFile checks if the file has a .bytes extension
+func isBytesFile(path string) bool {
+	return strings.HasSuffix(strings.ToLower(path), ".bytes")
+}
+
+// isBytesJsonFile checks if the file is a .bytes.json file
+func isBytesJsonFile(path string) bool {
+	lower := strings.ToLower(path)
+	return strings.HasSuffix(lower, ".bytes.json")
 }
 
 // isCsvFile checks if the file has a .csv extension
@@ -504,6 +519,46 @@ func packArc(dirPath string, arcPath string) error {
 	return nil
 }
 
+// convertBytesToJson converts a .bytes file to JSON using content sniffing
+func convertBytesToJson(path string, outputPath string) error {
+	service := &COM3D2Service.DanceService{}
+	bytesType, err := service.SniffDanceBytesType(path)
+	if err != nil {
+		return fmt.Errorf("failed to sniff .bytes file type: %w", err)
+	}
+
+	switch bytesType {
+	case COM3D2Service.DanceBytesTimeline:
+		return service.ConvertTimelineDataToJson(path, outputPath)
+	case COM3D2Service.DanceBytesObjectData:
+		return service.ConvertDanceObjectDataToJson(path, outputPath)
+	default:
+		return fmt.Errorf("unrecognized .bytes file content")
+	}
+}
+
+// convertJsonToBytes converts a .bytes.json file back to .bytes
+// It determines the type by checking if the JSON contains a "TotalFrame" field (timeline) or "Entries" field (object data)
+func convertJsonToBytes(path string, outputPath string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("cannot open json file: %w", err)
+	}
+	defer f.Close()
+
+	headerBytes := make([]byte, 4096)
+	n, _ := f.Read(headerBytes)
+	headerBytes = headerBytes[:n]
+	f.Close()
+
+	service := &COM3D2Service.DanceService{}
+	header := string(headerBytes)
+	if strings.Contains(header, "\"TotalFrame\"") && strings.Contains(header, "\"FrameRate\"") {
+		return service.ConvertJsonToTimelineData(path, outputPath)
+	}
+	return service.ConvertJsonToDanceObjectData(path, outputPath)
+}
+
 // convertFile automatically determines the direction of conversion
 func convertFile(path string) error {
 	if !fileTypeFilter(path) {
@@ -512,12 +567,17 @@ func convertFile(path string) error {
 	}
 
 	// If it's a JSON file, convert to MOD
-	if isJsonFile(path) && isModJsonFile(path) {
+	if isJsonFile(path) && (isModJsonFile(path) || isBytesJsonFile(path)) {
 		return convertToMod(path)
 	}
 
 	// If it's a MOD file, convert to JSON
 	if isModFile(path) {
+		return convertToJson(path)
+	}
+
+	// If it's a .bytes file, convert to JSON
+	if isBytesFile(path) {
 		return convertToJson(path)
 	}
 
@@ -618,6 +678,11 @@ func fileTypeFilter(path string) bool {
 		return isImageFile(path)
 	case "arc":
 		return isArcFile(path)
+	case "bytes":
+		if isJsonFile(path) {
+			return false
+		}
+		return isBytesFile(path)
 	default:
 		// Fallback: compare directly with the file extension; if it is .json, compare the internal extension
 		ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(path), "."))
