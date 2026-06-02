@@ -66,4 +66,12 @@ func init() {
 	RootCmd.AddCommand(packArcCmd)
 	RootCmd.AddCommand(listArcCmd)
 	RootCmd.AddCommand(extractArcCmd)
+	RootCmd.AddCommand(listAbaCmd)
+	RootCmd.AddCommand(unpackAbaCmd)
+	RootCmd.AddCommand(packAbaCmd)
+	RootCmd.AddCommand(listCtCmd)
+	RootCmd.AddCommand(unpackCtCmd)
+	RootCmd.AddCommand(packCtCmd)
+	RootCmd.AddCommand(inspectKcesCatalogCmd)
+	RootCmd.AddCommand(packKcesModCmd)
 }

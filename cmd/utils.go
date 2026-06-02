@@ -10,6 +10,7 @@ import (
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2/arc"
 	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
+	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
 )
 
@@ -106,9 +107,21 @@ func processDirectoryConcurrent(dirPath string, processor func(string) error, fi
 // isModFile checks if the file has a supported MOD file extension
 // In addition to .tex and .nei
 func isModFile(path string) bool {
+	if KCESService.IsKCESPayloadFile(path) {
+		return true
+	}
+	if KCESService.IsKCESMiscFile(path) {
+		return true
+	}
+	if KCESService.IsKCESRawUnityBytesFile(path) {
+		return true
+	}
+	if KCESService.IsKCESCtFile(path) {
+		return true
+	}
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
-	case ".menu", ".mate", ".pmat", ".col", ".phy", ".psk", ".anm", ".model", ".preset":
+	case ".menu", ".mate", ".pmat", ".col", ".phy", ".psk", ".anm", ".model", ".preset", ".menuassets", ".materialassets", ".pmatassets":
 		return true
 	default:
 		return false
@@ -126,6 +139,18 @@ func isModJsonFile(path string) bool {
 	if !isJsonFile(path) {
 		return false
 	}
+	if KCESService.IsKCESPayloadJSONFile(path) {
+		return true
+	}
+	if KCESService.IsKCESMiscJSONFile(path) {
+		return true
+	}
+	if KCESService.IsKCESRawUnityBytesJSONFile(path) {
+		return true
+	}
+	if KCESService.IsKCESCtJSONFile(path) {
+		return true
+	}
 
 	// Check if it has a pattern like .menu.json, .mate.json, etc.
 	baseName := filepath.Base(path)
@@ -135,7 +160,7 @@ func isModJsonFile(path string) bool {
 	// Otherwise check if it's any supported MOD file
 	// We need to check directly without using isModFile because it also considers fileType
 	switch strings.ToLower(ext) {
-	case ".menu", ".mate", ".pmat", ".col", ".phy", ".psk", ".anm", ".model", ".preset", ".bytes":
+	case ".menu", ".mate", ".pmat", ".col", ".phy", ".psk", ".anm", ".model", ".preset", ".bytes", ".ct", ".menuassets", ".materialassets", ".pmatassets":
 		return true
 	default:
 		return false
@@ -157,12 +182,76 @@ func isArcFile(path string) bool {
 	return strings.HasSuffix(strings.ToLower(path), ".arc")
 }
 
+// isAbaFile checks if the file has a .aba extension.
+func isAbaFile(path string) bool {
+	return strings.HasSuffix(strings.ToLower(path), ".aba")
+}
+
+// isCtFile checks if the file has a .ct extension.
+func isCtFile(path string) bool {
+	return strings.HasSuffix(strings.ToLower(path), ".ct")
+}
+
 // convertToJson converts a MOD file to JSON
 func convertToJson(path string) error {
 	ext := strings.ToLower(filepath.Ext(path))
 	outputPath := path + ".json"
 
 	var err error
+	if KCESService.IsKCESPayloadFile(path) {
+		service := &KCESService.PayloadService{}
+		err = service.ConvertPayloadToJson(path, outputPath)
+		if err != nil {
+			return fmt.Errorf("failed to convert %s to KCES payload JSON: %w", path, err)
+		}
+		fmt.Printf("Converted %s to %s\n", path, outputPath)
+		return nil
+	}
+	if KCESService.IsKCESPartsFile(path) {
+		service := &KCESService.PartsService{}
+		err = service.ConvertPartsToJson(path, outputPath)
+		if err != nil {
+			return fmt.Errorf("failed to convert %s to KCES parts JSON: %w", path, err)
+		}
+		fmt.Printf("Converted %s to %s\n", path, outputPath)
+		return nil
+	}
+	if KCESService.IsKCESMiscFile(path) {
+		service := &KCESService.MiscService{}
+		err = service.ConvertMiscToJson(path, outputPath)
+		if err != nil {
+			return fmt.Errorf("failed to convert %s to KCES misc JSON: %w", path, err)
+		}
+		fmt.Printf("Converted %s to %s\n", path, outputPath)
+		return nil
+	}
+	if KCESService.IsKCESRawUnityBytesFile(path) {
+		service := &KCESService.RawUnityObjectService{}
+		err = service.ConvertRawUnityObjectToJson(path, outputPath)
+		if err != nil {
+			return fmt.Errorf("failed to convert %s to KCES raw Unity JSON: %w", path, err)
+		}
+		fmt.Printf("Converted %s to %s\n", path, outputPath)
+		return nil
+	}
+	if KCESService.IsKCESCtFile(path) {
+		service := &KCESService.CtService{}
+		err = service.ConvertCtToJson(path, outputPath)
+		if err != nil {
+			return fmt.Errorf("failed to convert %s to KCES ct JSON: %w", path, err)
+		}
+		fmt.Printf("Converted %s to %s\n", path, outputPath)
+		return nil
+	}
+	if KCESService.IsKCESDataFile(path) {
+		service := &KCESService.DataService{}
+		err = service.ConvertDataToJson(path, outputPath)
+		if err != nil {
+			return fmt.Errorf("failed to convert %s to KCES data JSON: %w", path, err)
+		}
+		fmt.Printf("Converted %s to %s\n", path, outputPath)
+		return nil
+	}
 	switch ext {
 	case ".menu":
 		service := &COM3D2Service.MenuService{}
@@ -217,6 +306,60 @@ func convertToMod(path string) error {
 	outputPath := strings.TrimSuffix(path, ".json")
 
 	var err error
+	if KCESService.IsKCESPayloadJSONFile(path) {
+		service := &KCESService.PayloadService{}
+		err = service.ConvertJsonToPayload(path, outputPath)
+		if err != nil {
+			return fmt.Errorf("failed to convert %s to KCES payload: %w", path, err)
+		}
+		fmt.Printf("Converted %s to %s\n", path, outputPath)
+		return nil
+	}
+	if KCESService.IsKCESPartsJSONFile(path) {
+		service := &KCESService.PartsService{}
+		err = service.ConvertJsonToParts(path, outputPath)
+		if err != nil {
+			return fmt.Errorf("failed to convert %s to KCES parts payload: %w", path, err)
+		}
+		fmt.Printf("Converted %s to %s\n", path, outputPath)
+		return nil
+	}
+	if KCESService.IsKCESMiscJSONFile(path) {
+		service := &KCESService.MiscService{}
+		err = service.ConvertJsonToMisc(path, outputPath)
+		if err != nil {
+			return fmt.Errorf("failed to convert %s to KCES misc payload: %w", path, err)
+		}
+		fmt.Printf("Converted %s to %s\n", path, outputPath)
+		return nil
+	}
+	if KCESService.IsKCESRawUnityBytesJSONFile(path) {
+		service := &KCESService.RawUnityObjectService{}
+		err = service.ConvertJsonToRawUnityObject(path, outputPath)
+		if err != nil {
+			return fmt.Errorf("failed to convert %s to KCES raw Unity payload: %w", path, err)
+		}
+		fmt.Printf("Converted %s to %s\n", path, outputPath)
+		return nil
+	}
+	if KCESService.IsKCESCtJSONFile(path) {
+		service := &KCESService.CtService{}
+		err = service.ConvertJsonToCt(path, outputPath)
+		if err != nil {
+			return fmt.Errorf("failed to convert %s to KCES ct: %w", path, err)
+		}
+		fmt.Printf("Converted %s to %s\n", path, outputPath)
+		return nil
+	}
+	if KCESService.IsKCESDataJSONFile(path) {
+		service := &KCESService.DataService{}
+		err = service.ConvertJsonToData(path, outputPath)
+		if err != nil {
+			return fmt.Errorf("failed to convert %s to KCES data: %w", path, err)
+		}
+		fmt.Printf("Converted %s to %s\n", path, outputPath)
+		return nil
+	}
 	switch strings.ToLower(ext) {
 	case ".menu":
 		service := &COM3D2Service.MenuService{}
@@ -567,12 +710,12 @@ func convertFile(path string) error {
 	}
 
 	// If it's a JSON file, convert to MOD
-	if isJsonFile(path) && (isModJsonFile(path) || isBytesJsonFile(path)) {
+	if isJsonFile(path) && (isModJsonFile(path) || isBytesJsonFile(path) || KCESService.IsKCESPartsJSONFile(path) || KCESService.IsKCESPayloadJSONFile(path) || KCESService.IsKCESMiscJSONFile(path) || KCESService.IsKCESDataJSONFile(path) || KCESService.IsKCESCtJSONFile(path)) {
 		return convertToMod(path)
 	}
 
 	// If it's a MOD file, convert to JSON
-	if isModFile(path) {
+	if isModFile(path) || KCESService.IsKCESPartsFile(path) || KCESService.IsKCESPayloadFile(path) || KCESService.IsKCESMiscFile(path) || KCESService.IsKCESDataFile(path) || KCESService.IsKCESCtFile(path) {
 		return convertToJson(path)
 	}
 
@@ -661,10 +804,13 @@ func fileTypeFilter(path string) bool {
 
 	// General type matching
 	switch ft {
-	case "menu", "mate", "pmat", "col", "phy", "psk", "anm", "model", "preset":
+	case "menu", "mate", "pmat", "col", "phy", "psk", "anm", "model", "preset", "ct", "menuassets", "materialassets", "pmatassets", "dbconf", "dbcol", "db2conf", "dsbconf", "dsb2conf", "dslconf", "dsl2conf", "dslcol", "ikcol", "limbcol", "ikcol.bytes", "hitcheck", "undressdat", "undresspdat":
 		// Pure type: only matches binary .<type>, not .<type>.json
 		if isJsonFile(path) {
 			return false
+		}
+		if ft == "ikcol.bytes" {
+			return strings.HasSuffix(strings.ToLower(path), ".ikcol.bytes")
 		}
 		ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(path), "."))
 		return ext == ft

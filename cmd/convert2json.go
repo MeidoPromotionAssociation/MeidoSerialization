@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
 )
 
 // convert2jsonCmd represents the convert2json command
@@ -13,6 +15,8 @@ var convert2jsonCmd = &cobra.Command{
 	Long: `Convert MOD files to JSON format.
 This command can process a single file or all files in a directory.
 Supported file types include: .menu, .mate, .pmat, .col, .phy, .psk, .anm, .model and .preset.
+KCES parts payloads are also supported: .menuassets, .materialassets, .pmatassets,
+and KCES MessagePack .model files.
 
 Not supported: .tex
   please use convert2image instead
@@ -27,7 +31,7 @@ Examples:
 		if isDirectory(path) {
 			fmt.Printf("Processing directory: %s\n", path)
 			return processDirectoryConcurrent(path, convertToJson, func(p string) bool {
-				return fileTypeFilter(p) && isModFile(p)
+				return fileTypeFilter(p) && (isModFile(p) || KCESService.IsKCESPartsFile(p) || KCESService.IsKCESPayloadFile(p) || KCESService.IsKCESMiscFile(p) || KCESService.IsKCESDataFile(p) || KCESService.IsKCESRawUnityBytesFile(p) || KCESService.IsKCESCtFile(p))
 			})
 		}
 

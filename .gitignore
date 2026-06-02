@@ -29,3 +29,4 @@ MeidoSerialization_linux_amd64
 /testdata
 .output.txt
 /game/
+/.gocache/

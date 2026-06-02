@@ -141,7 +141,8 @@ MeidoSerialization.exe convert2nei ./csv_directory --type csv
 
 ### convert
 
-Auto-detect and convert files (does not use concurrency when processing directories, so it is slower than dedicated commands like `convert2json` or `convert2mod` which process directories concurrently).
+Auto-detect and convert files (does not use concurrency when processing directories, so it is slower than dedicated
+commands like `convert2json` or `convert2mod` which process directories concurrently).
 
 - MOD <-> JSON
 - TEX <-> Image
@@ -264,6 +265,7 @@ MeidoSerialization.exe extractArc ./arc_directory --ext .tex
 - `--strict` or `-s`: Use strict mode for file type determination (based on content rather than file extension)
 - `--type` or `-t`: Filter by file type. Supported values:
     - `menu, mate, pmat, col, phy, psk, anm, model, tex, preset, nei, csv, image, arc, bytes`
+    - KCES payload filters: `menuassets, materialassets, pmatassets, dbconf, dbcol, db2conf, dsbconf, dsb2conf, dslconf, dsl2conf, dslcol, ikcol, limbcol, ikcol.bytes`
     - image refers to any image format supported by ImageMagick (such as .png, .jpg, .gif, .webp, etc.)
     - bytes refers to dance binary data files (timeline_data.bytes, maid_data.bytes, item_data.bytes, event_data.bytes)
     - or `'<type>.json'` for MOD JSON files (e.g., `menu.json`)
@@ -538,6 +540,7 @@ MeidoSerialization.exe listArc example.arc
 如果仅提供文件名，将在存档中搜索匹配的条目。
 
 执行顺序
+
 1. 先尝试精确匹配完整路径
 2. 若未匹配到，退回到按文件名匹配（大小写不敏感）
 3. 如果匹配到唯一文件，直接返回其完整路径
@@ -608,7 +611,8 @@ MeidoSerialization.exe extractArc ./arc_directory --ext .tex
 
 AI Translated
 
-MeidoSerialization CLI は MeidoSerialization ライブラリのコマンドラインインターフェースで、コマンドラインから直接 COM3D2 MOD ファイルと JSON 形式間の変換が可能です。
+MeidoSerialization CLI は MeidoSerialization ライブラリのコマンドラインインターフェースで、コマンドラインから直接 COM3D2
+MOD ファイルと JSON 形式間の変換が可能です。
 
 .tex ファイルについては、一般的な画像形式と .tex 形式間の変換を行います。
 
@@ -618,7 +622,8 @@ JSON テキストに変換した後、キーワード置換などのバッチ処
 
 変換された JSON には改行が含まれていないことに注意してください。Visual Studio Code などのツールを使用してフォーマットする必要があるかもしれません。
 
-キーワード置換やリネームなどのバッチ処理には、このシンプルな GUI ツールを使用できます。差分作成に便利です（中国語のみ）：[https://github.com/90135/COM3D2_Tools_901](https://github.com/90135/COM3D2_Tools_901)
+キーワード置換やリネームなどのバッチ処理には、このシンプルな GUI
+ツールを使用できます。差分作成に便利です（中国語のみ）：[https://github.com/90135/COM3D2_Tools_901](https://github.com/90135/COM3D2_Tools_901)
 
 ## ダウンロード
 

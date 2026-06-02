@@ -14,34 +14,34 @@ import (
 // 新增 PanierRadiusDistribGroup
 // 推测对应 COM3D2 2.17 版本
 
-// Psk 整体描述一个 .psk 文件的结构
+// Psk 整体描述一个 .psk 文件的结构 / Psk describes the full structure of a .psk file
 type Psk struct {
-	Signature                    string              `json:"Signature"`                    // CM3D21_PSK
-	Version                      int32               `json:"Version"`                      // 24301 这个版本每次更新都会更改，但无结构更改
-	PanierRadius                 float32             `json:"PanierRadius"`                 // 裙撑半径
-	PanierRadiusDistrib          AnimationCurve      `json:"PanierRadiusDistrib"`          // 裙撑半径分布曲线
-	PanierRadiusDistribGroups    []PanierRadiusGroup `json:"PanierRadiusDistribGroups"`    // 裙撑半径分布组
-	PanierForce                  float32             `json:"PanierForce"`                  // 裙撑力度
-	PanierForceDistrib           AnimationCurve      `json:"PanierForceDistrib"`           // 裙撑力度分布曲线
-	PanierStressForce            float32             `json:"PanierStressForce"`            // 裙撑应力
-	StressDegreeMin              float32             `json:"StressDegreeMin"`              // 最小应力度
-	StressDegreeMax              float32             `json:"StressDegreeMax"`              // 最大应力度
-	StressMinScale               float32             `json:"StressMinScale"`               // 最小应力缩放
-	ScaleEaseSpeed               float32             `json:"ScaleEaseSpeed"`               // 缩放平滑速度
-	PanierForceDistanceThreshold float32             `json:"PanierForceDistanceThreshold"` // 裙撑力度距离阈值
-	CalcTime                     int32               `json:"CalcTime"`                     // 计算时间
-	VelocityForceRate            float32             `json:"VelocityForceRate"`            // 速度力率
-	VelocityForceRateDistrib     AnimationCurve      `json:"VelocityForceRateDistrib"`     // 速度力率分布曲线
-	Gravity                      Vector3             `json:"Gravity"`                      // 重力向量
-	GravityDistrib               AnimationCurve      `json:"GravityDistrib"`               // 重力分布曲线
-	HardValues                   [4]float32          `json:"HardValues"`                   // 硬度值数组
+	Signature                    string              `json:"Signature"`                    // 文件签名，通常为 CM3D21_PSK / File signature, usually CM3D21_PSK
+	Version                      int32               `json:"Version"`                      // 文件版本号，可能随游戏更新变化但结构不一定变化 / File version, may change with game updates without structural changes
+	PanierRadius                 float32             `json:"PanierRadius"`                 // 裙撑半径 / Panier radius
+	PanierRadiusDistrib          AnimationCurve      `json:"PanierRadiusDistrib"`          // 裙撑半径分布曲线 / Panier radius distribution curve
+	PanierRadiusDistribGroups    []PanierRadiusGroup `json:"PanierRadiusDistribGroups"`    // 裙撑半径分布组 / Panier radius distribution groups
+	PanierForce                  float32             `json:"PanierForce"`                  // 裙撑力度 / Panier force
+	PanierForceDistrib           AnimationCurve      `json:"PanierForceDistrib"`           // 裙撑力度分布曲线 / Panier force distribution curve
+	PanierStressForce            float32             `json:"PanierStressForce"`            // 裙撑应力 / Panier stress force
+	StressDegreeMin              float32             `json:"StressDegreeMin"`              // 最小应力度 / Minimum stress degree
+	StressDegreeMax              float32             `json:"StressDegreeMax"`              // 最大应力度 / Maximum stress degree
+	StressMinScale               float32             `json:"StressMinScale"`               // 最小应力缩放 / Minimum stress scale
+	ScaleEaseSpeed               float32             `json:"ScaleEaseSpeed"`               // 缩放平滑速度 / Scale easing speed
+	PanierForceDistanceThreshold float32             `json:"PanierForceDistanceThreshold"` // 裙撑力度距离阈值 / Panier force distance threshold
+	CalcTime                     int32               `json:"CalcTime"`                     // 计算时间 / Calculation time
+	VelocityForceRate            float32             `json:"VelocityForceRate"`            // 速度力率 / Velocity force rate
+	VelocityForceRateDistrib     AnimationCurve      `json:"VelocityForceRateDistrib"`     // 速度力率分布曲线 / Velocity force rate distribution curve
+	Gravity                      Vector3             `json:"Gravity"`                      // 重力向量 / Gravity vector
+	GravityDistrib               AnimationCurve      `json:"GravityDistrib"`               // 重力分布曲线 / Gravity distribution curve
+	HardValues                   [4]float32          `json:"HardValues"`                   // 硬度值数组 / Hardness value array
 }
 
-// PanierRadiusGroup 存储骨骼特定的半径信息
+// PanierRadiusGroup 存储骨骼特定的半径信息 / PanierRadiusGroup stores bone-specific radius information
 type PanierRadiusGroup struct {
-	BoneName string         `json:"BoneName"`
-	Radius   float32        `json:"Radius"`
-	Curve    AnimationCurve `json:"Curve"`
+	BoneName string         `json:"BoneName"` // 骨骼名称 / Bone name
+	Radius   float32        `json:"Radius"`   // 该骨骼的裙撑半径 / Panier radius for this bone
+	Curve    AnimationCurve `json:"Curve"`    // 半径分布曲线 / Radius distribution curve
 }
 
 // ReadPsk 读取并解析一个 .psk 文件，返回 Psk 结构。
@@ -250,25 +250,29 @@ func (p Psk) Dump(w io.Writer) error {
 		return fmt.Errorf("write panier radius distribution curve failed: %w", err)
 	}
 
-	// 5. 写裙撑半径分布组
-	groupCount := int32(len(p.PanierRadiusDistribGroups))
-	if err := writer.WriteInt32(groupCount); err != nil { //先写裙撑半径分布组数量
-		return fmt.Errorf("write panier radius group count failed: %w", err)
-	}
-
-	for i := 0; i < int(groupCount); i++ {
-		group := p.PanierRadiusDistribGroups[i]
-		if err := writer.WriteString(group.BoneName); err != nil {
-			return fmt.Errorf("write bone name failed: %w", err)
+	// 5. 写裙撑半径分布组（版本 217 起才存在）
+	if p.Version >= 217 {
+		groupCount := int32(len(p.PanierRadiusDistribGroups))
+		if err := writer.WriteInt32(groupCount); err != nil {
+			return fmt.Errorf("write panier radius group count failed: %w", err)
 		}
 
-		if err := writer.WriteFloat32(group.Radius); err != nil {
-			return fmt.Errorf("write radius failed: %w", err)
-		}
+		for i := 0; i < int(groupCount); i++ {
+			group := p.PanierRadiusDistribGroups[i]
+			if err := writer.WriteString(group.BoneName); err != nil {
+				return fmt.Errorf("write bone name failed: %w", err)
+			}
 
-		if err := WriteAnimationCurve(writer, group.Curve); err != nil {
-			return fmt.Errorf("write curve failed: %w", err)
+			if err := writer.WriteFloat32(group.Radius); err != nil {
+				return fmt.Errorf("write radius failed: %w", err)
+			}
+
+			if err := WriteAnimationCurve(writer, group.Curve); err != nil {
+				return fmt.Errorf("write curve failed: %w", err)
+			}
 		}
+	} else if len(p.PanierRadiusDistribGroups) > 0 {
+		return fmt.Errorf("panier radius distrib groups require psk version >= 217, got %d", p.Version)
 	}
 
 	// 6. 写裙撑力度

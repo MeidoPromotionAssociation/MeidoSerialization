@@ -4,7 +4,9 @@ go 1.26.3
 
 require (
 	github.com/emmansun/base64 v0.9.0
+	github.com/pierrec/lz4/v4 v4.1.26
 	github.com/spf13/cobra v1.10.2
+	github.com/ugorji/go/codec v1.3.1
 	golang.org/x/text v0.37.0
 )
 

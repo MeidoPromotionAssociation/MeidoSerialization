@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
 	"github.com/spf13/cobra"
 )
 
@@ -40,7 +41,9 @@ Examples:
 				if !fileTypeFilter(p) {
 					return false
 				}
-				return isModJsonFile(p) || isBytesJsonFile(p) || isModFile(p) || isBytesFile(p) || isTexFile(p) || isImageFile(p) || isNeiFile(p) || isCsvFile(p)
+				return isModJsonFile(p) || isBytesJsonFile(p) || KCESService.IsKCESPartsJSONFile(p) || KCESService.IsKCESPayloadJSONFile(p) || KCESService.IsKCESMiscJSONFile(p) || KCESService.IsKCESDataJSONFile(p) ||
+					isModFile(p) || KCESService.IsKCESPartsFile(p) || KCESService.IsKCESPayloadFile(p) || KCESService.IsKCESMiscFile(p) || KCESService.IsKCESDataFile(p) ||
+					isBytesFile(p) || isTexFile(p) || isImageFile(p) || isNeiFile(p) || isCsvFile(p)
 			})
 		}
 

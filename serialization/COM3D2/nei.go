@@ -22,10 +22,11 @@ import (
 // 感谢 @usagirei 和 @JustAGuest4168 完整的实现了加解密与转换
 // Under MIT License
 
+// Nei 表示解密后的 .nei CSV 表格数据 / Nei represents decrypted .nei CSV table data
 type Nei struct {
-	Rows uint32     `json:"Rows"` // CSV 的行数
-	Cols uint32     `json:"Cols"` // CSV 的列数
-	Data [][]string `json:"Data"` // CSV 的数据 [行][列]
+	Rows uint32     `json:"Rows"` // CSV 的行数 / Number of CSV rows
+	Cols uint32     `json:"Cols"` // CSV 的列数 / Number of CSV columns
+	Data [][]string `json:"Data"` // CSV 的数据 [行][列] / CSV cell data indexed as [row][column]
 }
 
 var (
@@ -155,7 +156,7 @@ func (nei *Nei) Dump(w io.Writer) error {
 			if colIndex < len(row) && row[colIndex] != "" {
 				encoded, err := stringToShiftJIS(row[colIndex])
 				if err != nil {
-					return fmt.Errorf("failed to encode string: %w", err)
+					return fmt.Errorf("failed to encode string at row=%d col=%d value=%q: %w", rowIndex, colIndex, row[colIndex], err)
 				}
 				encodedValues[cellIndex] = encoded
 			} else {
@@ -245,8 +246,23 @@ func (nei *Nei) Dump(w io.Writer) error {
 
 // stringToShiftJIS 将UTF-8字符串转换为Shift-JIS字节数组
 func stringToShiftJIS(s string) ([]byte, error) {
-	result, _, err := transform.Bytes(japanese.ShiftJIS.NewEncoder(), []byte(s))
-	return result, err
+	var out []byte
+	for _, r := range s {
+		if r == '\ufffd' {
+			out = append(out, 0xfd)
+			continue
+		}
+		if 0x80 <= r && r <= 0x9f {
+			out = append(out, byte(r))
+			continue
+		}
+		encoded, _, err := transform.Bytes(japanese.ShiftJIS.NewEncoder(), []byte(string(r)))
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, encoded...)
+	}
+	return out, nil
 }
 
 // shiftJISToString 将Shift-JIS字节数组转换为UTF-8字符串

@@ -47,3 +47,29 @@ func TestPsk(t *testing.T) {
 		})
 	}
 }
+
+func TestPskDump_KCESLegacyVersionSample(t *testing.T) {
+	data, err := os.ReadFile("../../testdata/kces_assets/default_skirt.psk")
+	if err != nil {
+		t.Fatalf("read KCES psk sample: %v", err)
+	}
+	psk, err := ReadPsk(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("ReadPsk: %v", err)
+	}
+	if psk.Version >= 217 {
+		t.Fatalf("expected legacy version sample, got %d", psk.Version)
+	}
+
+	var buf bytes.Buffer
+	if err := psk.Dump(&buf); err != nil {
+		t.Fatalf("Dump: %v", err)
+	}
+	roundTrip, err := ReadPsk(&buf)
+	if err != nil {
+		t.Fatalf("ReadPsk dumped sample: %v", err)
+	}
+	if !reflect.DeepEqual(psk, roundTrip) {
+		t.Fatalf("legacy psk changed after dump and re-read")
+	}
+}
