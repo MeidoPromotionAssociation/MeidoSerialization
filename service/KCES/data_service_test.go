@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"testing"
 
-	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
 	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
+	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
 )
 
 func TestDataService_PskUsesFixedKCESSample(t *testing.T) {
