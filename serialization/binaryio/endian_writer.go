@@ -16,7 +16,7 @@ type EndianWriter struct {
 	scratch [8]byte
 }
 
-// NewEndianWriter 使用指定字节序创建 EndianWriter / NewEndianWriter creates a EndianWriter using the requested byte order.
+// NewEndianWriter 使用指定字节序创建 EndianWriter / NewEndianWriter creates an EndianWriter using the requested byte order.
 func NewEndianWriter(w io.Writer, order binary.ByteOrder) *EndianWriter {
 	if order == nil {
 		order = binary.LittleEndian
@@ -163,7 +163,6 @@ func AlignOffset(n int, alignment int) int {
 }
 
 // writeFull 写入完整字节切片并更新偏移 / writeFull writes the whole byte slice and updates the offset.
-// 它会返回 nil writer、底层写入错误或短写错误 / It returns a nil-writer error, the underlying write error, or a short-write error.
 func (w *EndianWriter) writeFull(p []byte) error {
 	if w.W == nil {
 		return errors.New("binaryio.EndianWriter: nil writer")
