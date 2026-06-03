@@ -1,4 +1,4 @@
-﻿package arc
+package arc
 
 import (
 	"fmt"

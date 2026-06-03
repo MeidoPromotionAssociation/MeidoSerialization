@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"math"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
 // TypeTreeValue 是根据内嵌 TypeTree 解码出的 Unity 序列化值 / TypeTreeValue is a decoded Unity serialized value built from an embedded TypeTree
@@ -31,7 +33,7 @@ func (af *AssetsFile) ReadAssetValue(info *AssetInfo) (*TypeTreeValue, error) {
 	}
 
 	order := af.byteOrder()
-	r := &bufReader{data: data, pos: 0, order: order}
+	r := binaryio.NewEndianReader(data, order)
 	root, next, err := readTypeTreeValue(tt, r, 0)
 	if err != nil {
 		return nil, err
@@ -68,7 +70,7 @@ func (af *AssetsFile) byteOrder() binary.ByteOrder {
 	return binary.LittleEndian
 }
 
-func readTypeTreeValue(tt *TypeTreeType, r *bufReader, idx int) (*TypeTreeValue, int, error) {
+func readTypeTreeValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int) (*TypeTreeValue, int, error) {
 	if idx < 0 || idx >= len(tt.Nodes) {
 		return nil, idx, io.ErrUnexpectedEOF
 	}
@@ -83,7 +85,7 @@ func readTypeTreeValue(tt *TypeTreeType, r *bufReader, idx int) (*TypeTreeValue,
 			return nil, idx + 1, fmt.Errorf("read %s %s: %w", v.TypeName, v.Name, err)
 		}
 		if node.MetaFlags&0x4000 != 0 {
-			r.align4()
+			r.Align4()
 		}
 		return v, skipSubtree(tt, idx), nil
 	}
@@ -113,12 +115,12 @@ func readTypeTreeValue(tt *TypeTreeType, r *bufReader, idx int) (*TypeTreeValue,
 	}
 
 	if node.MetaFlags&0x4000 != 0 {
-		r.align4()
+		r.Align4()
 	}
 	return v, next, nil
 }
 
-func readArrayValue(tt *TypeTreeType, r *bufReader, idx int, v *TypeTreeValue) (*TypeTreeValue, int, error) {
+func readArrayValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int, v *TypeTreeValue) (*TypeTreeValue, int, error) {
 	node := &tt.Nodes[idx]
 	next := idx + 1
 	if next >= len(tt.Nodes) {
@@ -150,7 +152,7 @@ func readArrayValue(tt *TypeTreeType, r *bufReader, idx int, v *TypeTreeValue) (
 		}
 	}
 
-	sizeRaw, err := r.readInt32()
+	sizeRaw, err := r.ReadInt32()
 	if err != nil {
 		return nil, sizeNodeIdx + 1, err
 	}
@@ -178,12 +180,10 @@ func readArrayValue(tt *TypeTreeType, r *bufReader, idx int, v *TypeTreeValue) (
 	}
 
 	if isByteElement(elemType) && elemNext == dataNodeIdx+1 {
-		if r.pos+size > len(r.data) {
-			return nil, elemNext, io.ErrUnexpectedEOF
+		buf, err := r.ReadBytes(size)
+		if err != nil {
+			return nil, elemNext, err
 		}
-		buf := make([]byte, size)
-		copy(buf, r.data[r.pos:r.pos+size])
-		r.pos += size
 		v.Value = buf
 		return v, skipSubtree(tt, idx), nil
 	}
@@ -205,67 +205,68 @@ func readArrayValue(tt *TypeTreeType, r *bufReader, idx int, v *TypeTreeValue) (
 	return v, skipSubtree(tt, idx), nil
 }
 
-func readPrimitiveValue(r *bufReader, v *TypeTreeValue) error {
+func readPrimitiveValue(r *binaryio.EndianReader, v *TypeTreeValue) error {
 	switch v.TypeName {
 	case "string":
-		s, err := r.readAlignedString()
+		s, err := r.ReadAlignedString()
 		v.Value = s
 		return err
 	case "TypelessData":
-		size, err := r.readInt32()
+		size, err := r.ReadInt32()
 		if err != nil {
 			return err
 		}
-		if size < 0 || r.pos+int(size) > len(r.data) {
+		if size < 0 || int(size) > r.Remaining() {
 			return fmt.Errorf("invalid TypelessData size %d", size)
 		}
-		buf := make([]byte, size)
-		copy(buf, r.data[r.pos:r.pos+int(size)])
-		r.pos += int(size)
+		buf, err := r.ReadBytes(int(size))
+		if err != nil {
+			return err
+		}
 		v.Value = buf
 		return nil
 	case "bool":
-		b, err := r.readByte()
+		b, err := r.ReadByte()
 		v.Value = b != 0
 		return err
 	case "char", "SInt8":
-		b, err := r.readByte()
+		b, err := r.ReadByte()
 		v.Value = int64(int8(b))
 		return err
 	case "UInt8", "unsigned char":
-		b, err := r.readByte()
+		b, err := r.ReadByte()
 		v.Value = int64(b)
 		return err
 	case "short", "SInt16":
-		u, err := r.readUint16()
+		u, err := r.ReadUInt16()
 		v.Value = int64(int16(u))
 		return err
 	case "unsigned short", "UInt16":
-		u, err := r.readUint16()
+		u, err := r.ReadUInt16()
 		v.Value = int64(u)
 		return err
 	case "int", "SInt32":
-		i, err := r.readInt32()
+		i, err := r.ReadInt32()
 		v.Value = int64(i)
 		return err
 	case "unsigned int", "UInt32", "Type*":
-		u, err := r.readUint32()
+		u, err := r.ReadUInt32()
 		v.Value = int64(u)
 		return err
 	case "long long", "SInt64":
-		i, err := r.readInt64()
+		i, err := r.ReadInt64()
 		v.Value = i
 		return err
 	case "unsigned long long", "UInt64":
-		u, err := r.readUint64()
+		u, err := r.ReadUInt64()
 		v.Value = int64(u)
 		return err
 	case "float":
-		f, err := r.readFloat32()
+		f, err := r.ReadFloat32()
 		v.Value = f
 		return err
 	case "double":
-		u, err := r.readUint64()
+		u, err := r.ReadUInt64()
 		v.Value = math.Float64frombits(u)
 		return err
 	default:

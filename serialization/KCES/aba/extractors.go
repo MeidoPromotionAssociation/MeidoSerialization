@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"strings"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
 // 常用 Unity 类型 ID / Common Unity class IDs
@@ -75,24 +77,24 @@ func (af *AssetsFile) GetTextAssetData(info *AssetInfo) (name string, script []b
 		order = binary.LittleEndian
 	}
 
-	r := &bufReader{data: data, pos: 0, order: order}
+	r := binaryio.NewEndianReader(data, order)
 
 	// 1. m_Name (AlignedString: int32 length + bytes + align4)
-	name, err = r.readAlignedString()
+	name, err = r.ReadAlignedString()
 	if err != nil {
 		return "", nil, fmt.Errorf("read m_Name failed: %w", err)
 	}
 
 	// 2. m_Script (byte[]: int32 length + bytes)
-	scriptLen, err := r.readInt32()
+	scriptLen, err := r.ReadInt32()
 	if err != nil {
 		return name, nil, fmt.Errorf("read m_Script length failed: %w", err)
 	}
-	if scriptLen < 0 || r.pos+int(scriptLen) > len(data) {
+	if scriptLen < 0 || int(scriptLen) > r.Remaining() {
 		return name, nil, fmt.Errorf("invalid m_Script length: %d", scriptLen)
 	}
 	script = make([]byte, scriptLen)
-	if err := r.readFull(script); err != nil {
+	if err := r.ReadFull(script); err != nil {
 		return name, nil, fmt.Errorf("read m_Script data failed: %w", err)
 	}
 

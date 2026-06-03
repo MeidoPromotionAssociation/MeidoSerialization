@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 	"github.com/pierrec/lz4/v4"
 )
 
@@ -107,7 +108,10 @@ func WriteBundle(w io.Writer, entries []BundleFileEntry, opts *BundleWriteOption
 	}
 
 	// 3. 序列化 BlockAndDirInfo
-	blockAndDirBytes := serializeBlockAndDirInfo(blockInfos, dirInfos)
+	blockAndDirBytes, err := serializeBlockAndDirInfo(blockInfos, dirInfos)
+	if err != nil {
+		return fmt.Errorf("serialize block and dir info: %w", err)
+	}
 
 	// 4. LZ4 压缩 BlockAndDirInfo
 	blockAndDirCompressed := make([]byte, lz4.CompressBlockBound(len(blockAndDirBytes)))
@@ -130,7 +134,7 @@ func WriteBundle(w io.Writer, entries []BundleFileEntry, opts *BundleWriteOption
 	// version >= 7 需要 16 字节对齐
 	alignedHeaderSize := headerSize
 	if opts.Version >= 7 {
-		alignedHeaderSize = (headerSize + 15) & ^15
+		alignedHeaderSize = binaryio.AlignOffset(headerSize, 16)
 	}
 
 	totalFileSize := int64(alignedHeaderSize) + int64(n) + int64(len(compressedData))
@@ -143,40 +147,58 @@ func WriteBundle(w io.Writer, entries []BundleFileEntry, opts *BundleWriteOption
 
 	// 7. 写入 Header
 	var buf bytes.Buffer
+	bw := binaryio.NewEndianWriter(&buf, binary.BigEndian)
 
 	// Signature (null-terminated)
-	buf.WriteString(signatureUnityFS)
-	buf.WriteByte(0)
+	if err := bw.WriteNullString(signatureUnityFS); err != nil {
+		return fmt.Errorf("write UnityFS signature: %w", err)
+	}
 
 	// Version
-	binary.Write(&buf, binary.BigEndian, opts.Version)
+	if err := bw.WriteUInt32(opts.Version); err != nil {
+		return fmt.Errorf("write UnityFS version: %w", err)
+	}
 
 	// GenerationVersion (null-terminated)
-	buf.WriteString(opts.GenerationVersion)
-	buf.WriteByte(0)
+	if err := bw.WriteNullString(opts.GenerationVersion); err != nil {
+		return fmt.Errorf("write UnityFS generation version: %w", err)
+	}
 
 	// EngineVersion (null-terminated)
-	buf.WriteString(opts.EngineVersion)
-	buf.WriteByte(0)
+	if err := bw.WriteNullString(opts.EngineVersion); err != nil {
+		return fmt.Errorf("write UnityFS engine version: %w", err)
+	}
 
 	// FSHeader
-	binary.Write(&buf, binary.BigEndian, totalFileSize)
-	binary.Write(&buf, binary.BigEndian, uint32(n))
-	binary.Write(&buf, binary.BigEndian, uint32(len(blockAndDirBytes)))
-	binary.Write(&buf, binary.BigEndian, flags)
+	if err := bw.WriteInt64(totalFileSize); err != nil {
+		return fmt.Errorf("write UnityFS total file size: %w", err)
+	}
+	if err := bw.WriteUInt32(uint32(n)); err != nil {
+		return fmt.Errorf("write UnityFS block info compressed size: %w", err)
+	}
+	if err := bw.WriteUInt32(uint32(len(blockAndDirBytes))); err != nil {
+		return fmt.Errorf("write UnityFS block info decompressed size: %w", err)
+	}
+	if err := bw.WriteUInt32(flags); err != nil {
+		return fmt.Errorf("write UnityFS flags: %w", err)
+	}
 
 	// Align to 16 bytes (version >= 7)
 	if opts.Version >= 7 {
-		for buf.Len() < alignedHeaderSize {
-			buf.WriteByte(0)
+		if err := bw.WriteZeroes(alignedHeaderSize - bw.Len()); err != nil {
+			return fmt.Errorf("write UnityFS header padding: %w", err)
 		}
 	}
 
 	// 8. 写入 BlockAndDirInfo
-	buf.Write(blockAndDirCompressed)
+	if err := bw.WriteBytes(blockAndDirCompressed); err != nil {
+		return fmt.Errorf("write block and dir info: %w", err)
+	}
 
 	// 9. 写入数据块
-	buf.Write(compressedData)
+	if err := bw.WriteBytes(compressedData); err != nil {
+		return fmt.Errorf("write data blocks: %w", err)
+	}
 
 	// 10. 输出
 	_, err = w.Write(buf.Bytes())
@@ -184,29 +206,49 @@ func WriteBundle(w io.Writer, entries []BundleFileEntry, opts *BundleWriteOption
 }
 
 // serializeBlockAndDirInfo 将 BlockInfos 和 DirectoryInfos 序列化为二进制格式
-func serializeBlockAndDirInfo(blocks []BlockInfo, dirs []DirectoryInfo) []byte {
+func serializeBlockAndDirInfo(blocks []BlockInfo, dirs []DirectoryInfo) ([]byte, error) {
 	var buf bytes.Buffer
+	bw := binaryio.NewEndianWriter(&buf, binary.BigEndian)
 
 	// Hash (16 bytes, all zeros)
-	buf.Write(make([]byte, 16))
+	if err := bw.WriteZeroes(16); err != nil {
+		return nil, fmt.Errorf("write hash: %w", err)
+	}
 
 	// BlockCount + BlockInfos
-	binary.Write(&buf, binary.BigEndian, int32(len(blocks)))
-	for _, b := range blocks {
-		binary.Write(&buf, binary.BigEndian, b.DecompressedSize)
-		binary.Write(&buf, binary.BigEndian, b.CompressedSize)
-		binary.Write(&buf, binary.BigEndian, b.Flags)
+	if err := bw.WriteInt32(int32(len(blocks))); err != nil {
+		return nil, fmt.Errorf("write block count: %w", err)
+	}
+	for i, b := range blocks {
+		if err := bw.WriteUInt32(b.DecompressedSize); err != nil {
+			return nil, fmt.Errorf("write block[%d] decompressed size: %w", i, err)
+		}
+		if err := bw.WriteUInt32(b.CompressedSize); err != nil {
+			return nil, fmt.Errorf("write block[%d] compressed size: %w", i, err)
+		}
+		if err := bw.WriteUInt16(b.Flags); err != nil {
+			return nil, fmt.Errorf("write block[%d] flags: %w", i, err)
+		}
 	}
 
 	// DirectoryCount + DirectoryInfos
-	binary.Write(&buf, binary.BigEndian, int32(len(dirs)))
-	for _, d := range dirs {
-		binary.Write(&buf, binary.BigEndian, d.Offset)
-		binary.Write(&buf, binary.BigEndian, d.DecompressedSize)
-		binary.Write(&buf, binary.BigEndian, d.Flags)
-		buf.WriteString(d.Name)
-		buf.WriteByte(0)
+	if err := bw.WriteInt32(int32(len(dirs))); err != nil {
+		return nil, fmt.Errorf("write directory count: %w", err)
+	}
+	for i, d := range dirs {
+		if err := bw.WriteInt64(d.Offset); err != nil {
+			return nil, fmt.Errorf("write directory[%d] offset: %w", i, err)
+		}
+		if err := bw.WriteInt64(d.DecompressedSize); err != nil {
+			return nil, fmt.Errorf("write directory[%d] decompressed size: %w", i, err)
+		}
+		if err := bw.WriteUInt32(d.Flags); err != nil {
+			return nil, fmt.Errorf("write directory[%d] flags: %w", i, err)
+		}
+		if err := bw.WriteNullString(d.Name); err != nil {
+			return nil, fmt.Errorf("write directory[%d] name: %w", i, err)
+		}
 	}
 
-	return buf.Bytes()
+	return buf.Bytes(), nil
 }

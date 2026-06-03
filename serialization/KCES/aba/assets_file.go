@@ -3,8 +3,8 @@ package aba
 import (
 	"encoding/binary"
 	"fmt"
-	"io"
-	"math"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
 // AssetsFile 表示 Unity 序列化文件 .assets / AssetsFile represents a Unity serialized .assets file
@@ -102,27 +102,54 @@ func ReadAssetsFile(data []byte) (*AssetsFile, error) {
 	}
 
 	// 1. 读取 header（始终 Big-Endian）
-	pos := 0
-	af.Header.MetadataSize = binary.BigEndian.Uint32(data[pos:])
-	pos += 4
-	af.Header.FileSize = int64(binary.BigEndian.Uint32(data[pos:]))
-	pos += 4
-	af.Header.Version = binary.BigEndian.Uint32(data[pos:])
-	pos += 4
-	af.Header.DataOffset = int64(binary.BigEndian.Uint32(data[pos:]))
-	pos += 4
-	af.Header.Endianness = data[pos] != 0
-	pos += 4 // 1 byte endianness + 3 padding
+	headerReader := binaryio.NewEndianReader(data, binary.BigEndian)
+	metadataSize, err := headerReader.ReadUInt32()
+	if err != nil {
+		return nil, fmt.Errorf("read metadata size failed: %w", err)
+	}
+	fileSize, err := headerReader.ReadUInt32()
+	if err != nil {
+		return nil, fmt.Errorf("read file size failed: %w", err)
+	}
+	version, err := headerReader.ReadUInt32()
+	if err != nil {
+		return nil, fmt.Errorf("read version failed: %w", err)
+	}
+	dataOffset, err := headerReader.ReadUInt32()
+	if err != nil {
+		return nil, fmt.Errorf("read data offset failed: %w", err)
+	}
+	endianness, err := headerReader.ReadByte()
+	if err != nil {
+		return nil, fmt.Errorf("read endianness failed: %w", err)
+	}
+	headerReader.Skip(3) // padding
+
+	af.Header.MetadataSize = metadataSize
+	af.Header.FileSize = int64(fileSize)
+	af.Header.Version = version
+	af.Header.DataOffset = int64(dataOffset)
+	af.Header.Endianness = endianness != 0
 
 	// v22+ 有扩展 header
 	if af.Header.Version >= 22 {
-		af.Header.MetadataSize = binary.BigEndian.Uint32(data[pos:])
-		pos += 4
-		af.Header.FileSize = int64(binary.BigEndian.Uint64(data[pos:]))
-		pos += 8
-		af.Header.DataOffset = int64(binary.BigEndian.Uint64(data[pos:]))
-		pos += 8
-		pos += 8 // unused
+		af.Header.MetadataSize, err = headerReader.ReadUInt32()
+		if err != nil {
+			return nil, fmt.Errorf("read extended metadata size failed: %w", err)
+		}
+		fileSize64, err := headerReader.ReadUInt64()
+		if err != nil {
+			return nil, fmt.Errorf("read extended file size failed: %w", err)
+		}
+		dataOffset64, err := headerReader.ReadUInt64()
+		if err != nil {
+			return nil, fmt.Errorf("read extended data offset failed: %w", err)
+		}
+		if _, err := headerReader.ReadUInt64(); err != nil {
+			return nil, fmt.Errorf("read extended header unused field failed: %w", err)
+		}
+		af.Header.FileSize = int64(fileSize64)
+		af.Header.DataOffset = int64(dataOffset64)
 	}
 
 	// 2. 确定字节序
@@ -134,7 +161,7 @@ func ReadAssetsFile(data []byte) (*AssetsFile, error) {
 	}
 
 	// 3. 读取 Metadata
-	if err := af.readMetadata(data, pos, order); err != nil {
+	if err := af.readMetadata(data, headerReader.Pos(), order); err != nil {
 		return nil, fmt.Errorf("read metadata failed: %w", err)
 	}
 
@@ -174,30 +201,30 @@ func (af *AssetsFile) GetAssetInfoByPathID(pathID int64) *AssetInfo {
 
 // readMetadata 读取元数据部分
 func (af *AssetsFile) readMetadata(data []byte, pos int, order binary.ByteOrder) error {
-	r := &bufReader{data: data, pos: pos, order: order}
+	r := binaryio.NewEndianReaderAt(data, pos, order)
 
 	// 1. UnityVersion (null-terminated)
-	ver, err := r.readNullStr()
+	ver, err := r.ReadNullString()
 	if err != nil {
 		return fmt.Errorf("read unity version failed: %w", err)
 	}
 	af.Metadata.UnityVersion = ver
 
 	// 2. TargetPlatform
-	af.Metadata.TargetPlatform, err = r.readUint32()
+	af.Metadata.TargetPlatform, err = r.ReadUInt32()
 	if err != nil {
 		return fmt.Errorf("read target platform failed: %w", err)
 	}
 
 	// 3. TypeTreeEnabled
-	b, err := r.readByte()
+	b, err := r.ReadByte()
 	if err != nil {
 		return fmt.Errorf("read type tree enabled failed: %w", err)
 	}
 	af.Metadata.TypeTreeEnabled = b != 0
 
 	// 4. TypeTreeTypes
-	typeCount, err := r.readInt32()
+	typeCount, err := r.ReadInt32()
 	if err != nil {
 		return fmt.Errorf("read type count failed: %w", err)
 	}
@@ -209,7 +236,7 @@ func (af *AssetsFile) readMetadata(data []byte, pos int, order binary.ByteOrder)
 	}
 
 	// 5. AssetInfos
-	assetCount, err := r.readInt32()
+	assetCount, err := r.ReadInt32()
 	if err != nil {
 		return fmt.Errorf("read asset count failed: %w", err)
 	}
@@ -221,7 +248,7 @@ func (af *AssetsFile) readMetadata(data []byte, pos int, order binary.ByteOrder)
 	}
 
 	// 6. ExternalFiles
-	extCount, err := r.readInt32()
+	extCount, err := r.ReadInt32()
 	if err != nil {
 		return fmt.Errorf("read external count failed: %w", err)
 	}
@@ -236,12 +263,12 @@ func (af *AssetsFile) readMetadata(data []byte, pos int, order binary.ByteOrder)
 }
 
 // readTypeTreeType 读取单个类型树类型定义
-func (af *AssetsFile) readTypeTreeType(r *bufReader, tt *TypeTreeType) error {
+func (af *AssetsFile) readTypeTreeType(r *binaryio.EndianReader, tt *TypeTreeType) error {
 	var err error
 	v := af.Header.Version
 
 	// TypeId
-	typeId, err := r.readInt32()
+	typeId, err := r.ReadInt32()
 	if err != nil {
 		return err
 	}
@@ -249,7 +276,7 @@ func (af *AssetsFile) readTypeTreeType(r *bufReader, tt *TypeTreeType) error {
 
 	// IsStrippedType (v13+)
 	if v >= 13 {
-		b, err := r.readByte()
+		b, err := r.ReadByte()
 		if err != nil {
 			return err
 		}
@@ -258,7 +285,7 @@ func (af *AssetsFile) readTypeTreeType(r *bufReader, tt *TypeTreeType) error {
 
 	// ScriptTypeIndex (v17+)
 	if v >= 17 {
-		idx, err := r.readUint16()
+		idx, err := r.ReadUInt16()
 		if err != nil {
 			return err
 		}
@@ -268,7 +295,7 @@ func (af *AssetsFile) readTypeTreeType(r *bufReader, tt *TypeTreeType) error {
 	// ScriptIdHash (v13+, 仅 MonoBehaviour typeId=114 或 typeId<0)
 	if v >= 13 {
 		if (v < 17 && typeId < 0) || (v >= 17 && typeId == 114) {
-			if err := r.readFull(tt.ScriptIdHash[:]); err != nil {
+			if err := r.ReadFull(tt.ScriptIdHash[:]); err != nil {
 				return err
 			}
 		}
@@ -276,7 +303,7 @@ func (af *AssetsFile) readTypeTreeType(r *bufReader, tt *TypeTreeType) error {
 
 	// TypeHash
 	if v >= 13 {
-		if err := r.readFull(tt.TypeHash[:]); err != nil {
+		if err := r.ReadFull(tt.TypeHash[:]); err != nil {
 			return err
 		}
 	}
@@ -285,11 +312,11 @@ func (af *AssetsFile) readTypeTreeType(r *bufReader, tt *TypeTreeType) error {
 	if af.Metadata.TypeTreeEnabled {
 		if v >= 12 {
 			// Blob format: nodeCount + stringBufferSize + nodes + stringBuffer
-			nodeCount, err := r.readInt32()
+			nodeCount, err := r.ReadInt32()
 			if err != nil {
 				return err
 			}
-			strBufSize, err := r.readInt32()
+			strBufSize, err := r.ReadInt32()
 			if err != nil {
 				return err
 			}
@@ -302,7 +329,7 @@ func (af *AssetsFile) readTypeTreeType(r *bufReader, tt *TypeTreeType) error {
 			}
 
 			tt.StringBuffer = make([]byte, strBufSize)
-			if err := r.readFull(tt.StringBuffer); err != nil {
+			if err := r.ReadFull(tt.StringBuffer); err != nil {
 				return err
 			}
 		}
@@ -310,74 +337,74 @@ func (af *AssetsFile) readTypeTreeType(r *bufReader, tt *TypeTreeType) error {
 
 	// TypeDependencies (v21+)
 	if v >= 21 {
-		depCount, err := r.readInt32()
+		depCount, err := r.ReadInt32()
 		if err != nil {
 			return err
 		}
-		r.skip(int(depCount) * 4) // int32 array
+		r.Skip(int(depCount) * 4) // int32 array
 	}
 
 	return nil
 }
 
 // readTypeTreeNodeBlob 读取 blob 格式的类型树节点
-func (af *AssetsFile) readTypeTreeNodeBlob(r *bufReader, node *TypeTreeNode) error {
+func (af *AssetsFile) readTypeTreeNodeBlob(r *binaryio.EndianReader, node *TypeTreeNode) error {
 	var err error
-	node.Version, err = r.readUint16()
+	node.Version, err = r.ReadUInt16()
 	if err != nil {
 		return err
 	}
-	node.Level, err = r.readByte()
+	node.Level, err = r.ReadByte()
 	if err != nil {
 		return err
 	}
-	node.TypeFlags, err = r.readByte()
+	node.TypeFlags, err = r.ReadByte()
 	if err != nil {
 		return err
 	}
-	node.TypeStrOff, err = r.readUint32()
+	node.TypeStrOff, err = r.ReadUInt32()
 	if err != nil {
 		return err
 	}
-	node.NameStrOff, err = r.readUint32()
+	node.NameStrOff, err = r.ReadUInt32()
 	if err != nil {
 		return err
 	}
-	node.ByteSize, err = r.readInt32()
+	node.ByteSize, err = r.ReadInt32()
 	if err != nil {
 		return err
 	}
-	node.Index, err = r.readInt32()
+	node.Index, err = r.ReadInt32()
 	if err != nil {
 		return err
 	}
-	node.MetaFlags, err = r.readUint32()
+	node.MetaFlags, err = r.ReadUInt32()
 	if err != nil {
 		return err
 	}
 	// v19+ 有额外的 8 字节（RefTypeHash）
 	if af.Header.Version >= 19 {
-		r.skip(8)
+		r.Skip(8)
 	}
 	return nil
 }
 
 // readAssetInfo 读取单个资源信息
-func (af *AssetsFile) readAssetInfo(r *bufReader, info *AssetInfo) error {
+func (af *AssetsFile) readAssetInfo(r *binaryio.EndianReader, info *AssetInfo) error {
 	v := af.Header.Version
 
 	// Align before each entry
-	r.align4()
+	r.Align4()
 
 	// PathId
 	if v >= 14 {
-		pid, err := r.readInt64()
+		pid, err := r.ReadInt64()
 		if err != nil {
 			return err
 		}
 		info.PathId = pid
 	} else {
-		pid, err := r.readUint32()
+		pid, err := r.ReadUInt32()
 		if err != nil {
 			return err
 		}
@@ -386,13 +413,13 @@ func (af *AssetsFile) readAssetInfo(r *bufReader, info *AssetInfo) error {
 
 	// ByteOffset
 	if v >= 22 {
-		off, err := r.readInt64()
+		off, err := r.ReadInt64()
 		if err != nil {
 			return err
 		}
 		info.ByteOffset = off
 	} else {
-		off, err := r.readUint32()
+		off, err := r.ReadUInt32()
 		if err != nil {
 			return err
 		}
@@ -400,14 +427,14 @@ func (af *AssetsFile) readAssetInfo(r *bufReader, info *AssetInfo) error {
 	}
 
 	// ByteSize
-	size, err := r.readUint32()
+	size, err := r.ReadUInt32()
 	if err != nil {
 		return err
 	}
 	info.ByteSize = size
 
 	// TypeIdOrIndex
-	typeIdx, err := r.readInt32()
+	typeIdx, err := r.ReadInt32()
 	if err != nil {
 		return err
 	}
@@ -424,151 +451,49 @@ func (af *AssetsFile) readAssetInfo(r *bufReader, info *AssetInfo) error {
 
 	// OldTypeId (v15-)
 	if v <= 15 {
-		r.skip(2) // uint16
+		r.Skip(2) // uint16
 	}
 
 	// ScriptTypeIndex (v16-)
 	if v <= 16 {
-		r.skip(2) // uint16
+		r.Skip(2) // uint16
 	}
 
 	// Stripped (v15-v16)
 	if v >= 15 && v <= 16 {
-		r.skip(1) // byte
+		r.Skip(1) // byte
 	}
 
 	return nil
 }
 
 // readExternalFile 读取外部文件引用
-func (af *AssetsFile) readExternalFile(r *bufReader, ext *ExternalFile) error {
+func (af *AssetsFile) readExternalFile(r *binaryio.EndianReader, ext *ExternalFile) error {
 	// Empty string (v6+)
 	if af.Header.Version >= 6 {
-		_, _ = r.readNullStr()
+		if _, err := r.ReadNullString(); err != nil {
+			return err
+		}
 	}
 
 	// GUID
-	_ = r.readFull(ext.Guid[:])
+	if err := r.ReadFull(ext.Guid[:]); err != nil {
+		return err
+	}
 
 	// Type
-	t, _ := r.readInt32()
+	t, err := r.ReadInt32()
+	if err != nil {
+		return err
+	}
 	ext.Type = t
 
 	// PathName
-	path, _ := r.readNullStr()
+	path, err := r.ReadNullString()
+	if err != nil {
+		return err
+	}
 	ext.PathName = path
 
 	return nil
-}
-
-// ============================================================================
-// bufReader: 简单的字节缓冲区读取器，支持指定字节序
-// ============================================================================
-
-type bufReader struct {
-	data  []byte           // 读取源字节 / Source bytes being read
-	pos   int              // 当前读取偏移 / Current read offset
-	order binary.ByteOrder // 当前字节序 / Current byte order
-}
-
-func (r *bufReader) readByte() (byte, error) {
-	if r.pos >= len(r.data) {
-		return 0, io.ErrUnexpectedEOF
-	}
-	b := r.data[r.pos]
-	r.pos++
-	return b, nil
-}
-
-func (r *bufReader) readUint16() (uint16, error) {
-	if r.pos+2 > len(r.data) {
-		return 0, io.ErrUnexpectedEOF
-	}
-	v := r.order.Uint16(r.data[r.pos:])
-	r.pos += 2
-	return v, nil
-}
-
-func (r *bufReader) readUint32() (uint32, error) {
-	if r.pos+4 > len(r.data) {
-		return 0, io.ErrUnexpectedEOF
-	}
-	v := r.order.Uint32(r.data[r.pos:])
-	r.pos += 4
-	return v, nil
-}
-
-func (r *bufReader) readUint64() (uint64, error) {
-	if r.pos+8 > len(r.data) {
-		return 0, io.ErrUnexpectedEOF
-	}
-	v := r.order.Uint64(r.data[r.pos:])
-	r.pos += 8
-	return v, nil
-}
-
-func (r *bufReader) readInt32() (int32, error) {
-	v, err := r.readUint32()
-	return int32(v), err
-}
-
-func (r *bufReader) readInt64() (int64, error) {
-	v, err := r.readUint64()
-	return int64(v), err
-}
-
-func (r *bufReader) readFull(buf []byte) error {
-	if r.pos+len(buf) > len(r.data) {
-		return io.ErrUnexpectedEOF
-	}
-	copy(buf, r.data[r.pos:])
-	r.pos += len(buf)
-	return nil
-}
-
-func (r *bufReader) readFloat32() (float32, error) {
-	v, err := r.readUint32()
-	return math.Float32frombits(v), err
-}
-
-func (r *bufReader) readNullStr() (string, error) {
-	start := r.pos
-	for r.pos < len(r.data) {
-		if r.data[r.pos] == 0 {
-			s := string(r.data[start:r.pos])
-			r.pos++ // skip null
-			return s, nil
-		}
-		r.pos++
-	}
-	return string(r.data[start:]), io.ErrUnexpectedEOF
-}
-
-func (r *bufReader) readAlignedString() (string, error) {
-	length, err := r.readInt32()
-	if err != nil {
-		return "", err
-	}
-	if length <= 0 {
-		r.align4()
-		return "", nil
-	}
-	if r.pos+int(length) > len(r.data) {
-		return "", io.ErrUnexpectedEOF
-	}
-	s := string(r.data[r.pos : r.pos+int(length)])
-	r.pos += int(length)
-	r.align4()
-	return s, nil
-}
-
-func (r *bufReader) skip(n int) {
-	r.pos += n
-	if r.pos > len(r.data) {
-		r.pos = len(r.data)
-	}
-}
-
-func (r *bufReader) align4() {
-	r.pos = (r.pos + 3) & ^3
 }

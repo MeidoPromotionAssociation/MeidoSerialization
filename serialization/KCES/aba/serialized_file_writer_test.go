@@ -142,8 +142,14 @@ func TestSerializedFileWriter_MonoBehaviourTypeMetadata(t *testing.T) {
 }
 
 func TestSerializedFileWriter_RawObjectNameRewriteOnlyForNamedClasses(t *testing.T) {
-	oldData := encodeTextAssetData("old_name", []byte("payload"))
-	rewritten := rewriteLeadingAlignedName(oldData, "new_name")
+	oldData, err := encodeTextAssetData("old_name", []byte("payload"))
+	if err != nil {
+		t.Fatalf("encodeTextAssetData: %v", err)
+	}
+	rewritten, err := rewriteLeadingAlignedName(oldData, "new_name")
+	if err != nil {
+		t.Fatalf("rewriteLeadingAlignedName: %v", err)
+	}
 	if bytes.Equal(rewritten, oldData) {
 		t.Fatalf("expected leading name rewrite for valid named object data")
 	}
@@ -188,7 +194,10 @@ func TestSerializedFileWriter_RawObjectNameRewriteOnlyForNamedClasses(t *testing
 }
 
 func TestSerializedFileWriter_AssetBundleContainerKeepsLoadNames(t *testing.T) {
-	raw := encodeTextAssetData("internal_name", []byte("payload"))
+	raw, err := encodeTextAssetData("internal_name", []byte("payload"))
+	if err != nil {
+		t.Fatalf("encodeTextAssetData: %v", err)
+	}
 
 	w := NewSerializedFileWriter("2021.3.37f1")
 	pathID := w.AddRawObject(ClassIDTransform, "load_name", raw)

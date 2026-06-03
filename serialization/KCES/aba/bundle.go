@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 	"github.com/pierrec/lz4/v4"
 )
 
@@ -209,7 +210,7 @@ func (b *Bundle) GetFileDataRangeByName(name string, offset int64, size int64) (
 // readHeader 读取 UnityFS 文件头
 func (b *Bundle) readHeader(r io.ReadSeeker) error {
 	// 1. Signature (null-terminated string)
-	sig, err := readNullTerminated(r)
+	sig, err := binaryio.ReadNullString(r)
 	if err != nil {
 		return fmt.Errorf("read signature failed: %w", err)
 	}
@@ -221,14 +222,14 @@ func (b *Bundle) readHeader(r io.ReadSeeker) error {
 	}
 
 	// 3. GenerationVersion (null-terminated string)
-	genVer, err := readNullTerminated(r)
+	genVer, err := binaryio.ReadNullString(r)
 	if err != nil {
 		return fmt.Errorf("read generation version failed: %w", err)
 	}
 	b.Header.GenerationVersion = genVer
 
 	// 4. EngineVersion (null-terminated string)
-	engVer, err := readNullTerminated(r)
+	engVer, err := binaryio.ReadNullString(r)
 	if err != nil {
 		return fmt.Errorf("read engine version failed: %w", err)
 	}
@@ -288,59 +289,74 @@ func (b *Bundle) readBlockAndDirInfo(r io.ReadSeeker) error {
 
 // parseBlockAndDirInfo 从解压后的字节中解析 BlockAndDirInfo
 func (b *Bundle) parseBlockAndDirInfo(data []byte) error {
-	pos := 0
+	r := binaryio.NewEndianReader(data, binary.BigEndian)
 
 	// 1. Hash (16 bytes)
-	if len(data) < 16 {
-		return fmt.Errorf("data too short for hash")
+	if err := r.ReadFull(b.BlockInfo.Hash[:]); err != nil {
+		return fmt.Errorf("read hash: %w", err)
 	}
-	copy(b.BlockInfo.Hash[:], data[:16])
-	pos += 16
 
 	// 2. BlockCount + BlockInfos
-	if pos+4 > len(data) {
-		return fmt.Errorf("data too short for block count")
+	blockCountRaw, err := r.ReadInt32()
+	if err != nil {
+		return fmt.Errorf("read block count: %w", err)
 	}
-	blockCount := int(binary.BigEndian.Uint32(data[pos:]))
-	pos += 4
+	if blockCountRaw < 0 {
+		return fmt.Errorf("negative block count %d", blockCountRaw)
+	}
+	blockCount := int(blockCountRaw)
 
 	b.BlockInfo.BlockInfos = make([]BlockInfo, blockCount)
 	for i := 0; i < blockCount; i++ {
-		if pos+10 > len(data) {
-			return fmt.Errorf("data too short for block info %d", i)
+		decompressedSize, err := r.ReadUInt32()
+		if err != nil {
+			return fmt.Errorf("read block info %d decompressed size: %w", i, err)
+		}
+		compressedSize, err := r.ReadUInt32()
+		if err != nil {
+			return fmt.Errorf("read block info %d compressed size: %w", i, err)
+		}
+		flags, err := r.ReadUInt16()
+		if err != nil {
+			return fmt.Errorf("read block info %d flags: %w", i, err)
 		}
 		b.BlockInfo.BlockInfos[i] = BlockInfo{
-			DecompressedSize: binary.BigEndian.Uint32(data[pos:]),
-			CompressedSize:   binary.BigEndian.Uint32(data[pos+4:]),
-			Flags:            binary.BigEndian.Uint16(data[pos+8:]),
+			DecompressedSize: decompressedSize,
+			CompressedSize:   compressedSize,
+			Flags:            flags,
 		}
-		pos += 10
 	}
 
 	// 3. DirectoryCount + DirectoryInfos
-	if pos+4 > len(data) {
-		return fmt.Errorf("data too short for directory count")
+	dirCountRaw, err := r.ReadInt32()
+	if err != nil {
+		return fmt.Errorf("read directory count: %w", err)
 	}
-	dirCount := int(binary.BigEndian.Uint32(data[pos:]))
-	pos += 4
+	if dirCountRaw < 0 {
+		return fmt.Errorf("negative directory count %d", dirCountRaw)
+	}
+	dirCount := int(dirCountRaw)
 
 	b.BlockInfo.DirectoryInfos = make([]DirectoryInfo, dirCount)
 	for i := 0; i < dirCount; i++ {
-		if pos+20 > len(data) {
-			return fmt.Errorf("data too short for directory info %d", i)
+		offset, err := r.ReadInt64()
+		if err != nil {
+			return fmt.Errorf("read directory info %d offset: %w", i, err)
 		}
-		offset := int64(binary.BigEndian.Uint64(data[pos:]))
-		decompSize := int64(binary.BigEndian.Uint64(data[pos+8:]))
-		flags := binary.BigEndian.Uint32(data[pos+16:])
-		pos += 20
+		decompSize, err := r.ReadInt64()
+		if err != nil {
+			return fmt.Errorf("read directory info %d decompressed size: %w", i, err)
+		}
+		flags, err := r.ReadUInt32()
+		if err != nil {
+			return fmt.Errorf("read directory info %d flags: %w", i, err)
+		}
 
 		// Name (null-terminated)
-		nameEnd := pos
-		for nameEnd < len(data) && data[nameEnd] != 0 {
-			nameEnd++
+		name, err := r.ReadNullString()
+		if err != nil {
+			return fmt.Errorf("read directory info %d name: %w", i, err)
 		}
-		name := string(data[pos:nameEnd])
-		pos = nameEnd + 1 // skip null terminator
 
 		b.BlockInfo.DirectoryInfos[i] = DirectoryInfo{
 			Offset:           offset,
@@ -473,24 +489,4 @@ func (b *Bundle) getFileDataOffset() int64 {
 	}
 
 	return offset
-}
-
-// ============================================================================
-// 辅助函数
-// ============================================================================
-
-// readNullTerminated 从 reader 中读取 null 结尾的字符串
-func readNullTerminated(r io.Reader) (string, error) {
-	var buf []byte
-	b := make([]byte, 1)
-	for {
-		if _, err := io.ReadFull(r, b); err != nil {
-			return "", err
-		}
-		if b[0] == 0 {
-			break
-		}
-		buf = append(buf, b[0])
-	}
-	return string(buf), nil
 }

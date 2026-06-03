@@ -1,6 +1,10 @@
 package aba
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
+)
 
 // AssetBundleContainerEntry 表示 AssetBundle 对象中的一个 m_Container 记录 / AssetBundleContainerEntry is one m_Container record from an AssetBundle object
 // Name 是 AssetBundle.LoadAsset 使用的 key，可能与目标对象内部 m_Name 不同，尤其是原生对象 / Name is the key used by AssetBundle.LoadAsset and may differ from the target object's internal m_Name, especially for raw/native objects
@@ -43,12 +47,12 @@ func (af *AssetsFile) GetAssetBundleContainerEntries(info *AssetInfo) ([]AssetBu
 		return nil, err
 	}
 
-	r := &bufReader{data: data, order: af.byteOrder()}
-	if _, err := r.readAlignedString(); err != nil {
+	r := binaryio.NewEndianReader(data, af.byteOrder())
+	if _, err := r.ReadAlignedString(); err != nil {
 		return nil, fmt.Errorf("read AssetBundle m_Name: %w", err)
 	}
 
-	preloadCount, err := r.readInt32()
+	preloadCount, err := r.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read AssetBundle m_PreloadTable size: %w", err)
 	}
@@ -61,7 +65,7 @@ func (af *AssetsFile) GetAssetBundleContainerEntries(info *AssetInfo) ([]AssetBu
 		}
 	}
 
-	containerCount, err := r.readInt32()
+	containerCount, err := r.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read AssetBundle m_Container size: %w", err)
 	}
@@ -71,15 +75,15 @@ func (af *AssetsFile) GetAssetBundleContainerEntries(info *AssetInfo) ([]AssetBu
 
 	entries := make([]AssetBundleContainerEntry, 0, containerCount)
 	for i := 0; i < int(containerCount); i++ {
-		name, err := r.readAlignedString()
+		name, err := r.ReadAlignedString()
 		if err != nil {
 			return nil, fmt.Errorf("read AssetBundle m_Container[%d] key: %w", i, err)
 		}
-		preloadIndex, err := r.readInt32()
+		preloadIndex, err := r.ReadInt32()
 		if err != nil {
 			return nil, fmt.Errorf("read AssetBundle m_Container[%d].preloadIndex: %w", i, err)
 		}
-		preloadSize, err := r.readInt32()
+		preloadSize, err := r.ReadInt32()
 		if err != nil {
 			return nil, fmt.Errorf("read AssetBundle m_Container[%d].preloadSize: %w", i, err)
 		}
@@ -98,15 +102,15 @@ func (af *AssetsFile) GetAssetBundleContainerEntries(info *AssetInfo) ([]AssetBu
 	return entries, nil
 }
 
-func readSerializedPPtr(r *bufReader, version uint32) (int32, int64, error) {
-	fileID, err := r.readInt32()
+func readSerializedPPtr(r *binaryio.EndianReader, version uint32) (int32, int64, error) {
+	fileID, err := r.ReadInt32()
 	if err != nil {
 		return 0, 0, err
 	}
 	if version >= 14 {
-		pathID, err := r.readInt64()
+		pathID, err := r.ReadInt64()
 		return fileID, pathID, err
 	}
-	pathID, err := r.readInt32()
+	pathID, err := r.ReadInt32()
 	return fileID, int64(pathID), err
 }
