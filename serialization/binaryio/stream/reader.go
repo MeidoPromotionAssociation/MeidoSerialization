@@ -139,13 +139,20 @@ func (br *BinaryReader) ReadString() (string, error) {
 		return "", fmt.Errorf("string length too large: %d", length)
 	}
 
-	// 读取字符串字节
-	buf := make([]byte, length)
+	// 如果长度小于 64 字节，直接复用内部 buffer
+	var buf []byte
+	if length <= len(br.buffer) {
+		buf = br.buffer[:length]
+	} else {
+		// 超出 64 字节才分配堆内存
+		buf = make([]byte, length)
+	}
 	_, err = io.ReadFull(br.R, buf)
 	if err != nil {
 		return "", err
 	}
 
+	// 此时 string(buf) 会发生一次拷贝，这是不可避免的（因为 string 是不可变的）
 	return string(buf), nil
 }
 
