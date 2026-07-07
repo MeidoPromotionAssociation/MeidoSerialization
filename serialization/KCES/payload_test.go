@@ -358,7 +358,7 @@ func TestColliderMaidPropVersionEncodingLayout(t *testing.T) {
 			Bound:         ColliderBoundOutside,
 		},
 		Direction:          VectorTypeX,
-		IsDirectionInverse:  false,
+		IsDirectionInverse: false,
 		StartRadius:        0.12,
 		EndRadius:          0.24,
 		Height:             0.36,
@@ -376,6 +376,9 @@ func TestColliderMaidPropVersionEncodingLayout(t *testing.T) {
 	if raw1001[13] != nil || raw1001[14] != nil || raw1001[15] != nil {
 		t.Fatalf("1001 layout expected placeholders at 13~15, got %#v %#v %#v", raw1001[13], raw1001[14], raw1001[15])
 	}
+	if raw1001[16] == nil || raw1001[17] == nil || raw1001[18] == nil || raw1001[19] == nil || raw1001[20] == nil || raw1001[21] == nil {
+		t.Fatalf("1001 layout should carry MaidProp fields at 16~21")
+	}
 
 	env1001 := &KCESPayloadEnvelope{
 		Format:         PayloadFormatKCESMessagePack,
@@ -385,8 +388,8 @@ func TestColliderMaidPropVersionEncodingLayout(t *testing.T) {
 		LimbCollider: &LimbColliderPackage{
 			Version: 1000,
 			Items: []LimbColliderItem{{
-				Version: 1000,
-				Target:  0,
+				Version:  1000,
+				Target:   0,
 				Collider: cmp,
 			}},
 		},
@@ -420,7 +423,7 @@ func TestColliderMaidPropVersionEncodingLayout(t *testing.T) {
 			Bound:         ColliderBoundOutside,
 		},
 		Direction:          VectorTypeX,
-		IsDirectionInverse:  false,
+		IsDirectionInverse: false,
 		StartRadius:        0.12,
 		EndRadius:          0.24,
 		Height:             0.36,
@@ -433,14 +436,14 @@ func TestColliderMaidPropVersionEncodingLayout(t *testing.T) {
 		CenterMpnNameList:  []string{"cName"},
 	}
 	raw1002 := colliderStatusToRaw(cmp2)
-	if len(raw1002) != 22 {
-		t.Fatalf("1002 should produce 22 fields, got %d", len(raw1002))
+	if len(raw1002) != 25 {
+		t.Fatalf("1002 should produce 25 fields, got %d", len(raw1002))
 	}
-	if raw1002[13] == nil || raw1002[14] == nil || raw1002[15] == nil {
-		t.Fatalf("1002 layout should not contain nil placeholders at 13~15")
+	if raw1002[13] != nil || raw1002[14] != nil || raw1002[15] != nil {
+		t.Fatalf("1002 layout expected placeholders at 13~15, got %#v %#v %#v", raw1002[13], raw1002[14], raw1002[15])
 	}
-	if raw1002[19] == nil || raw1002[20] == nil || raw1002[21] == nil {
-		t.Fatalf("1002 layout should carry extra name-lists at 19~21")
+	if raw1002[22] == nil || raw1002[23] == nil || raw1002[24] == nil {
+		t.Fatalf("1002 layout should carry extra name-lists at 22~24")
 	}
 
 	env1002 := &KCESPayloadEnvelope{
@@ -449,10 +452,10 @@ func TestColliderMaidPropVersionEncodingLayout(t *testing.T) {
 		LengthPrefixed: true,
 		Kind:           PayloadKindLimbCollider,
 		LimbCollider: &LimbColliderPackage{
-		Version: 1000,
-				Items: []LimbColliderItem{{
 			Version: 1000,
-				Target:  0,
+			Items: []LimbColliderItem{{
+				Version:  1000,
+				Target:   0,
 				Collider: cmp2,
 			}},
 		},

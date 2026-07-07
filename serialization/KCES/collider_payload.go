@@ -523,9 +523,9 @@ func decodeColliderObjectRaw(arr []interface{}, typ int, name string) (ColliderS
 			ColliderObject: base,
 			Radius:         radius,
 		}, nil
-case ColliderTypeMaidProp:
-		if len(arr) < 19 {
-			return nil, fmt.Errorf("%s: expected array(19+), got %d for MaidProp", name, len(arr))
+	case ColliderTypeMaidProp:
+		if len(arr) < 22 {
+			return nil, fmt.Errorf("%s: expected array(22+), got %d for MaidProp", name, len(arr))
 		}
 		direction, err := rawInt(arr[8], name+".direction")
 		if err != nil {
@@ -547,10 +547,8 @@ case ColliderTypeMaidProp:
 		if err != nil {
 			return nil, err
 		}
-		fieldOffset := 13
-		if looksLikeMaidPropColliderStatusAt(arr, 16) {
-			fieldOffset = 16
-		} else if !looksLikeMaidPropColliderStatusAt(arr, 13) {
+		fieldOffset := 16
+		if !looksLikeMaidPropColliderStatusAt(arr, fieldOffset) {
 			return nil, fmt.Errorf("%s: invalid MaidProp collider payload", name)
 		}
 
@@ -659,9 +657,7 @@ func colliderMaidPropToRaw(v *ColliderMaidProp) []interface{} {
 		EndRadius:          v.EndRadius,
 		Height:             v.Height,
 	})
-	if v.Version == 1001 {
-		out = append(out, nil, nil, nil)
-	}
+	out = append(out, nil, nil, nil)
 	out = append(
 		out,
 		stringSliceToRaw(v.CenterMpnList),
@@ -897,7 +893,7 @@ func inferColliderTypeFromArray(arr []interface{}) int {
 	case 10:
 		return ColliderTypePlane
 	default:
-		if len(arr) >= 19 && (looksLikeMaidPropColliderStatusAt(arr, 13) || looksLikeMaidPropColliderStatusAt(arr, 16)) {
+		if len(arr) >= 22 && looksLikeMaidPropColliderStatusAt(arr, 16) {
 			return ColliderTypeMaidProp
 		}
 		if len(arr) >= 13 {
@@ -964,9 +960,6 @@ func decodeColliderObjectAsType(raw json.RawMessage, typ int) (ColliderStatusUni
 		var status ColliderPlane
 		if err := json.Unmarshal(raw, &status); err != nil {
 			return nil, err
-		}
-		if status.Direction == 0 && status.IsDirectionInverse == false && status.Bound == 0 && status.LocalPosition == (Vector3{}) {
-			return nil, fmt.Errorf("invalid Plane collider JSON")
 		}
 		return &status, nil
 	case ColliderTypeCapsule:
