@@ -123,7 +123,7 @@ func (m *CommonService) FileTypeDetermine(path string, strictMode bool) (fileInf
 	// 非严格模式下，优先根据文件后缀判断文件类型
 	ext := strings.ToLower(filepath.Ext(path))
 	// 去掉开头的点
-	ext = ext[1:]
+	ext = strings.TrimPrefix(ext, ".")
 	if !strictMode {
 		if ext != "" {
 			if ext == "json" {
