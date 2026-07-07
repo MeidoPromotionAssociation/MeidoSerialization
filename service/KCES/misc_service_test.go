@@ -17,19 +17,17 @@ func TestMiscService_HitCheckRoundTrip(t *testing.T) {
 	jsonPath := inputPath + ".json"
 	outputPath := filepath.Join(tmpDir, "out.hitcheck")
 
-	zero := int32(0)
 	encoded, err := serializationKCES.EncodeHitCheck(&serializationKCES.HitCheck{
-		Header: 1,
 		Entries: []serializationKCES.HitCheckEntry{
 			{
-				Radius:     0.5,
-				RadiusSqr:  0.25,
-				ShapeName:  "Sphere",
-				BoneName:   "Bip01 Head",
-				Position:   serializationKCES.Vector3{X: 1, Y: 2, Z: 3},
-				TargetType: 0,
-				Side:       1,
-				Tail:       &zero,
+				Type:      1,
+				Radius:    0.5,
+				RadiusSqr: 0.25,
+				Name:      "Sphere",
+				Parent:    "Bip01 Head",
+				Position:  serializationKCES.Vector3{X: 1, Y: 2, Z: 3},
+				SKRT:      0,
+				RL:        1,
 			},
 		},
 	})
@@ -51,7 +49,7 @@ func TestMiscService_HitCheckRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeHitCheck output: %v", err)
 	}
-	if decoded.Header != 1 || len(decoded.Entries) != 1 || decoded.Entries[0].BoneName != "Bip01 Head" {
+	if len(decoded.Entries) != 1 || decoded.Entries[0].Parent != "Bip01 Head" || decoded.Entries[0].Type != 1 {
 		t.Fatalf("unexpected decoded hitcheck: %+v", decoded)
 	}
 }

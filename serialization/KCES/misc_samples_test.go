@@ -68,6 +68,7 @@ func assertMiscSampleRoundTripDeepEqual(t *testing.T, path string) {
 		if len(hitCheck.Entries) == 0 {
 			t.Fatalf("expected hitcheck entries")
 		}
+		assertHitCheckSampleFields(t, name, hitCheck)
 		encoded, err := EncodeHitCheck(hitCheck)
 		if err != nil {
 			t.Fatalf("EncodeHitCheck: %v", err)
@@ -106,6 +107,26 @@ func assertMiscSampleRoundTripDeepEqual(t *testing.T, path string) {
 		}
 	default:
 		t.Fatalf("unexpected misc sample %q", name)
+	}
+}
+
+func assertHitCheckSampleFields(t *testing.T, name string, hitCheck *HitCheck) {
+	t.Helper()
+	if name != "IK.hitcheck" {
+		return
+	}
+	if len(hitCheck.Entries) != 3 {
+		t.Fatalf("IK.hitcheck entry count got %d, want 3", len(hitCheck.Entries))
+	}
+	first := hitCheck.Entries[0]
+	if first.Type != 0 {
+		t.Fatalf("IK.hitcheck[0].type got %d, want 0", first.Type)
+	}
+	if first.Name != "Sphere" || first.Parent != "Bip01 Spine0a" {
+		t.Fatalf("IK.hitcheck[0] names got name=%q parent=%q, want Sphere/Bip01 Spine0a", first.Name, first.Parent)
+	}
+	if first.SKRT != 0 || first.RL != 1 {
+		t.Fatalf("IK.hitcheck[0] flags got skrt=%d rl=%d, want 0/1", first.SKRT, first.RL)
 	}
 }
 

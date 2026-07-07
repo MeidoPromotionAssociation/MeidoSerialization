@@ -129,11 +129,11 @@ type ColliderMaidProp struct {
 	StartRadius            float32  `json:"startRadius"`            // 起点半径 / Start radius
 	EndRadius              float32  `json:"endRadius"`              // 终点半径 / End radius
 	Height                 float32  `json:"height"`                 // 长度 / Height
-	CenterMpnList          []string `json:"centerMpnList"`          // 中心MPN列表（当前文件序列化通常已兼容到字符串）/ Center MPN list (string-oriented)
+	CenterMpnList          []int    `json:"centerMpnList"`          // 中心MPN枚举列表，对应 C# List<MPN> / Center MPN enum list, matching C# List<MPN>
 	CenterRateMax          Vector3  `json:"centerRateMax"`          // 中心最大比率 / Max center rate
-	StartRadiusMpnList     []string `json:"startRadiusMpnList"`     // 起点半径MPN列表 / Start-radius MPN list
+	StartRadiusMpnList     []int    `json:"startRadiusMpnList"`     // 起点半径MPN枚举列表 / Start-radius MPN enum list
 	MaxStartRadius         float32  `json:"maxStartRadius"`         // 起点半径最大值 / Max start radius
-	EndRadiusMpnList       []string `json:"endRadiusMpnList"`       // 终点半径MPN列表 / End-radius MPN list
+	EndRadiusMpnList       []int    `json:"endRadiusMpnList"`       // 终点半径MPN枚举列表 / End-radius MPN enum list
 	MaxEndRadius           float32  `json:"maxEndRadius"`           // 终点半径最大值 / Max end radius
 	CenterMpnNameList      []string `json:"centerMpnNameList"`      // 中心MPN名 / Center MPN names
 	StartRadiusMpnNameList []string `json:"startRadiusMpnNameList"` // 起点半径MPN名 / Start-radius MPN names
@@ -552,7 +552,7 @@ func decodeColliderObjectRaw(arr []interface{}, typ int, name string) (ColliderS
 			return nil, fmt.Errorf("%s: invalid MaidProp collider payload", name)
 		}
 
-		centerMpnList, err := rawStringArrayAt(arr, fieldOffset, name+".centerMpnList")
+		centerMpnList, err := rawIntArrayAt(arr, fieldOffset, name+".centerMpnList")
 		if err != nil {
 			return nil, err
 		}
@@ -560,7 +560,7 @@ func decodeColliderObjectRaw(arr []interface{}, typ int, name string) (ColliderS
 		if err != nil {
 			return nil, err
 		}
-		startRadiusMpnList, err := rawStringArrayAt(arr, fieldOffset+2, name+".startRadiusMpnList")
+		startRadiusMpnList, err := rawIntArrayAt(arr, fieldOffset+2, name+".startRadiusMpnList")
 		if err != nil {
 			return nil, err
 		}
@@ -568,7 +568,7 @@ func decodeColliderObjectRaw(arr []interface{}, typ int, name string) (ColliderS
 		if err != nil {
 			return nil, err
 		}
-		endRadiusMpnList, err := rawStringArrayAt(arr, fieldOffset+4, name+".endRadiusMpnList")
+		endRadiusMpnList, err := rawIntArrayAt(arr, fieldOffset+4, name+".endRadiusMpnList")
 		if err != nil {
 			return nil, err
 		}
@@ -660,11 +660,11 @@ func colliderMaidPropToRaw(v *ColliderMaidProp) []interface{} {
 	out = append(out, nil, nil, nil)
 	out = append(
 		out,
-		stringSliceToRaw(v.CenterMpnList),
+		intSliceToRaw(v.CenterMpnList),
 		vector3ToRaw(v.CenterRateMax),
-		stringSliceToRaw(v.StartRadiusMpnList),
+		intSliceToRaw(v.StartRadiusMpnList),
 		v.MaxStartRadius,
-		stringSliceToRaw(v.EndRadiusMpnList),
+		intSliceToRaw(v.EndRadiusMpnList),
 		v.MaxEndRadius,
 	)
 	if v.Version >= 1002 {
@@ -796,6 +796,32 @@ func rawStringArrayAt(arr []interface{}, index int, name string) ([]string, erro
 	return rawStringArray(arr[index], name)
 }
 
+func rawIntArray(v interface{}, name string) ([]int, error) {
+	if v == nil {
+		return []int{}, nil
+	}
+	arr, err := asRawArray(v, name)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]int, 0, len(arr))
+	for i, item := range arr {
+		n, ok := toIntVal(item)
+		if !ok {
+			return nil, fmt.Errorf("%s[%d]: expected int, got %T", name, i, item)
+		}
+		out = append(out, n)
+	}
+	return out, nil
+}
+
+func rawIntArrayAt(arr []interface{}, index int, name string) ([]int, error) {
+	if index >= len(arr) {
+		return []int{}, nil
+	}
+	return rawIntArray(arr[index], name)
+}
+
 func rawVector3At(arr []interface{}, index int, name string) (Vector3, error) {
 	if index >= len(arr) {
 		return Vector3{}, nil
@@ -883,6 +909,14 @@ func stringSliceToRaw(values []string) []interface{} {
 	return out
 }
 
+func intSliceToRaw(values []int) []interface{} {
+	out := make([]interface{}, 0, len(values))
+	for _, v := range values {
+		out = append(out, int64(v))
+	}
+	return out
+}
+
 func inferColliderTypeFromArray(arr []interface{}) int {
 	if len(arr) < 1 {
 		return -1
@@ -907,19 +941,19 @@ func looksLikeMaidPropColliderStatusAt(arr []interface{}, fieldOffset int) bool 
 	if len(arr) < fieldOffset+6 {
 		return false
 	}
-	if _, err := rawStringArray(arr[fieldOffset], "infer."+strconv.Itoa(fieldOffset)); err != nil {
+	if _, err := rawIntArray(arr[fieldOffset], "infer."+strconv.Itoa(fieldOffset)); err != nil {
 		return false
 	}
 	if _, err := rawVector3(arr[fieldOffset+1], "infer."+strconv.Itoa(fieldOffset+1)); err != nil {
 		return false
 	}
-	if _, err := rawStringArray(arr[fieldOffset+2], "infer."+strconv.Itoa(fieldOffset+2)); err != nil {
+	if _, err := rawIntArray(arr[fieldOffset+2], "infer."+strconv.Itoa(fieldOffset+2)); err != nil {
 		return false
 	}
 	if _, err := rawFloat32(arr[fieldOffset+3], "infer."+strconv.Itoa(fieldOffset+3)); err != nil {
 		return false
 	}
-	if _, err := rawStringArray(arr[fieldOffset+4], "infer."+strconv.Itoa(fieldOffset+4)); err != nil {
+	if _, err := rawIntArray(arr[fieldOffset+4], "infer."+strconv.Itoa(fieldOffset+4)); err != nil {
 		return false
 	}
 	if _, err := rawFloat32(arr[fieldOffset+5], "infer."+strconv.Itoa(fieldOffset+5)); err != nil {

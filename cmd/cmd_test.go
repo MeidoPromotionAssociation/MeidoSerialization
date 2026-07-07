@@ -542,19 +542,17 @@ func readCatalogFromCtForCommandTest(t *testing.T, path string) *ct.AssetBundleC
 func TestKCESMiscConvertCommands(t *testing.T) {
 	t.Run("hitcheck", func(t *testing.T) {
 		tempDir := t.TempDir()
-		tail := int32(0)
 		encoded, err := serializationKCES.EncodeHitCheck(&serializationKCES.HitCheck{
-			Header: 1,
 			Entries: []serializationKCES.HitCheckEntry{
 				{
-					Radius:     0.2,
-					RadiusSqr:  0.04,
-					ShapeName:  "Sphere",
-					BoneName:   "Bip01 Head",
-					Position:   serializationKCES.Vector3{Y: 0.1},
-					TargetType: 0,
-					Side:       1,
-					Tail:       &tail,
+					Type:      0,
+					Radius:    0.2,
+					RadiusSqr: 0.04,
+					Name:      "Sphere",
+					Parent:    "Bip01 Head",
+					Position:  serializationKCES.Vector3{Y: 0.1},
+					SKRT:      0,
+					RL:        1,
 				},
 			},
 		})

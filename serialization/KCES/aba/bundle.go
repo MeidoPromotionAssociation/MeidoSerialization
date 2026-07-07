@@ -147,8 +147,12 @@ func ReadBundle(r io.ReadSeeker) (*Bundle, error) {
 	}
 
 	// 4. 设置数据区 reader
+	readerAt, ok := r.(io.ReaderAt)
+	if !ok {
+		return nil, fmt.Errorf("bundle reader must implement io.ReaderAt")
+	}
 	dataOffset := bundle.getFileDataOffset()
-	bundle.DataReader = io.NewSectionReader(r.(io.ReaderAt), dataOffset, bundle.Header.FSHeader.TotalFileSize-dataOffset)
+	bundle.DataReader = io.NewSectionReader(readerAt, dataOffset, bundle.Header.FSHeader.TotalFileSize-dataOffset)
 
 	return bundle, nil
 }
