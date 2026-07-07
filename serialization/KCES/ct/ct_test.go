@@ -141,3 +141,76 @@ func TestWriteContentTable_RoundTrip(t *testing.T) {
 		})
 	}
 }
+
+func TestDecodeVirtualDirectoryNestedFiles(t *testing.T) {
+	table := &ContentTable{
+		Raw: make([]byte, HeaderSize+8),
+	}
+	dirArray := []interface{}{
+		int64(ctVersion),
+		map[string]interface{}{
+			"nested": []interface{}{
+				int64(ctVersion),
+				map[string]interface{}{},
+				map[string]interface{}{
+					"child.bin": []interface{}{int64(HeaderSize), int64(3)},
+				},
+			},
+		},
+		map[string]interface{}{
+			"root.bin": []interface{}{int64(HeaderSize + 3), int64(5)},
+		},
+	}
+	data, err := EncodeMsgpack(dirArray)
+	if err != nil {
+		t.Fatalf("EncodeMsgpack: %v", err)
+	}
+
+	if err := table.decodeVirtualDirectory(data); err != nil {
+		t.Fatalf("decodeVirtualDirectory: %v", err)
+	}
+	if len(table.Files) != 2 {
+		t.Fatalf("file count got %d, want 2: %#v", len(table.Files), table.Files)
+	}
+	if vf := table.Files["nested/child.bin"]; vf.Position != HeaderSize || vf.Size != 3 {
+		t.Fatalf("nested file got %+v, want position=%d size=3", vf, HeaderSize)
+	}
+	if vf := table.Files["root.bin"]; vf.Position != HeaderSize+3 || vf.Size != 5 {
+		t.Fatalf("root file got %+v, want position=%d size=5", vf, HeaderSize+3)
+	}
+}
+
+func TestWriteContentTable_NestedFilesRoundTrip(t *testing.T) {
+	raw := append(make([]byte, HeaderSize), []byte("abcdef")...)
+	copy(raw[:7], FileSignature)
+	raw[7] = SerializeTypeMsgPack
+	table := &ContentTable{
+		Version: ctVersion,
+		Raw:     raw,
+		Files: map[string]VirtualFile{
+			"catalog":         {Position: HeaderSize, Size: 3},
+			"nested/file.bin": {Position: HeaderSize + 3, Size: 3},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := WriteContentTable(&buf, table); err != nil {
+		t.Fatalf("WriteContentTable: %v", err)
+	}
+	decoded, err := ReadContentTable(bytes.NewReader(buf.Bytes()))
+	if err != nil {
+		t.Fatalf("ReadContentTable: %v", err)
+	}
+	for name, want := range map[string][]byte{
+		"catalog":         []byte("abc"),
+		"nested/file.bin": []byte("def"),
+	} {
+		got, err := decoded.GetFileData(name)
+		if err != nil {
+			t.Fatalf("GetFileData(%q): %v", name, err)
+		}
+		if !bytes.Equal(got, want) {
+			t.Fatalf("GetFileData(%q) got %q, want %q", name, got, want)
+		}
+	}
+}

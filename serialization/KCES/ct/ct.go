@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/ugorji/go/codec"
 )
@@ -138,11 +139,7 @@ func WriteContentTable(w io.Writer, ct *ContentTable) error {
 	if version == 0 {
 		version = ctVersion
 	}
-	dirArray := []interface{}{
-		int64(version),
-		map[string]interface{}{},
-		encodeFilesMap(updatedFiles),
-	}
+	dirArray := encodeVirtualDirectoryTree(version, updatedFiles)
 
 	h := &codec.MsgpackHandle{}
 	var msgpackData []byte
@@ -273,6 +270,7 @@ func (ct *ContentTable) DecodeMsgpackFile(name string, out interface{}) error {
 // decodeVirtualDirectory 解码 MessagePack 格式的 VirtualDirectory。
 // 标准结构为 indexed array [version, allDirectorys, allFiles]，
 // 部分文件省略空 allDirectorys 字段，呈现为 [version, allFiles] 或 [allDirectorys, allFiles]。
+// 对外仍暴露扁平 Files 表；嵌套 VirtualDirectory 会以 slash 分隔路径展开。
 func (ct *ContentTable) decodeVirtualDirectory(data []byte) error {
 	h := &codec.MsgpackHandle{}
 	h.RawToString = true
@@ -295,25 +293,28 @@ func (ct *ContentTable) decodeVirtualDirectory(data []byte) error {
 		if v, ok := toInt(arr[0]); ok {
 			ct.Version = v
 		}
-		ct.extractFiles(arr[2])
+		ct.extractDirectoryFiles(arr, "")
 	case 2:
 		if v, ok := toInt(arr[0]); ok && v >= 100 && v <= 10000 {
 			ct.Version = v
-			ct.extractFiles(arr[1])
+			ct.extractFiles(arr[1], "")
 		} else {
 			ct.Version = ctVersion
-			ct.extractFiles(arr[1])
+			ct.extractDirectoryFiles(arr, "")
 		}
 	default:
 		if v, ok := toInt(arr[0]); ok {
 			ct.Version = v
 		}
-		ct.extractFiles(arr[len(arr)-1])
+		ct.extractDirectoryFiles(arr, "")
 	}
 
 	if len(ct.Files) == 0 {
 		for _, elem := range arr {
-			ct.extractFiles(elem)
+			ct.extractDirectoryFiles(elem, "")
+			if len(ct.Files) == 0 {
+				ct.extractFiles(elem, "")
+			}
 			if len(ct.Files) > 0 {
 				break
 			}
@@ -323,13 +324,32 @@ func (ct *ContentTable) decodeVirtualDirectory(data []byte) error {
 	return nil
 }
 
+// extractDirectoryFiles 从 VirtualDirectory indexed array 中递归提取 VirtualFile 条目。
+func (ct *ContentTable) extractDirectoryFiles(val interface{}, prefix string) {
+	arr, ok := val.([]interface{})
+	if !ok {
+		return
+	}
+	switch {
+	case len(arr) >= 3:
+		dirs := toStringMap(arr[1])
+		for name, child := range dirs {
+			ct.extractDirectoryFiles(child, joinVirtualPath(prefix, name))
+		}
+		ct.extractFiles(arr[2], prefix)
+	case len(arr) == 2:
+		// Historical or hand-authored data may omit the empty directory map.
+		ct.extractFiles(arr[1], prefix)
+	}
+}
+
 // extractFiles 从 MessagePack map 值中提取 VirtualFile 条目并填充到 ct.Files
-func (ct *ContentTable) extractFiles(val interface{}) {
+func (ct *ContentTable) extractFiles(val interface{}, prefix string) {
 	filesMap := toStringMap(val)
 	for name, v := range filesMap {
 		vf, err := decodeVirtualFile(v)
 		if err == nil {
-			ct.Files[name] = vf
+			ct.Files[joinVirtualPath(prefix, name)] = vf
 		}
 	}
 }
@@ -356,6 +376,67 @@ func encodeFilesMap(files map[string]VirtualFile) map[string]interface{} {
 		result[name] = []interface{}{vf.Position, int64(vf.Size)}
 	}
 	return result
+}
+
+type virtualDirNode struct {
+	dirs  map[string]*virtualDirNode
+	files map[string]VirtualFile
+}
+
+func encodeVirtualDirectoryTree(version int, files map[string]VirtualFile) []interface{} {
+	root := &virtualDirNode{
+		dirs:  map[string]*virtualDirNode{},
+		files: map[string]VirtualFile{},
+	}
+	for name, vf := range files {
+		parts := splitVirtualPath(name)
+		if len(parts) == 0 {
+			continue
+		}
+		node := root
+		for _, part := range parts[:len(parts)-1] {
+			child := node.dirs[part]
+			if child == nil {
+				child = &virtualDirNode{
+					dirs:  map[string]*virtualDirNode{},
+					files: map[string]VirtualFile{},
+				}
+				node.dirs[part] = child
+			}
+			node = child
+		}
+		node.files[parts[len(parts)-1]] = vf
+	}
+	return encodeVirtualDirNode(root, version)
+}
+
+func encodeVirtualDirNode(node *virtualDirNode, version int) []interface{} {
+	dirs := make(map[string]interface{}, len(node.dirs))
+	for name, child := range node.dirs {
+		dirs[name] = encodeVirtualDirNode(child, version)
+	}
+	return []interface{}{
+		int64(version),
+		dirs,
+		encodeFilesMap(node.files),
+	}
+}
+
+func splitVirtualPath(name string) []string {
+	cleaned := strings.ReplaceAll(filepath.ToSlash(name), "\\", "/")
+	raw := strings.Split(cleaned, "/")
+	parts := raw[:0]
+	for _, part := range raw {
+		if part != "" && part != "." {
+			parts = append(parts, part)
+		}
+	}
+	return parts
+}
+
+func joinVirtualPath(prefix string, name string) string {
+	parts := append(splitVirtualPath(prefix), splitVirtualPath(name)...)
+	return strings.Join(parts, "/")
 }
 
 func toStringMap(v interface{}) map[string]interface{} {
