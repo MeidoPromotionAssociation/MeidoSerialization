@@ -195,7 +195,7 @@ func TestClothParamsPayloadRoundTrip(t *testing.T) {
 }
 
 func TestColliderPackagePayloadRoundTrip(t *testing.T) {
-	tail0 := int64(0)
+	height0 := float32(0.333)
 	env := &KCESPayloadEnvelope{
 		Format:         PayloadFormatKCESMessagePack,
 		Extension:      ".dbcol",
@@ -206,15 +206,21 @@ func TestColliderPackagePayloadRoundTrip(t *testing.T) {
 			Colliders: []ColliderRef{
 				{
 					Type: 1,
-					Collider: ColliderObject{
-						Version:       1000,
-						ParentName:    "Bip01 Head",
-						SelfName:      "Collider",
-						LocalPosition: Vector3{X: 1},
-						LocalRotation: Vector4{W: 1},
-						LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
-						Center:        Vector3{Y: 0.5},
-						Tail:          []interface{}{int64(0), int64(0), false, 0.1, 0.1, 0.2},
+					Collider: &ColliderCapsule{
+						ColliderObject: ColliderObject{
+							Version:       1000,
+							ParentName:    "Bip01 Head",
+							SelfName:      "Collider",
+							LocalPosition: Vector3{X: 1},
+							LocalRotation: Vector4{W: 1},
+							LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
+							Center:        Vector3{Y: 0.5},
+							Bound:         ColliderBoundOutside,
+						},
+						Direction:   VectorTypeY,
+						StartRadius: 0.1,
+						EndRadius:   0.1,
+						Height:      0.2,
 					},
 				},
 			},
@@ -232,7 +238,11 @@ func TestColliderPackagePayloadRoundTrip(t *testing.T) {
 	if decoded.Kind != PayloadKindColliderPackage || decoded.ColliderPackage == nil {
 		t.Fatalf("unexpected decoded collider package: %+v", decoded)
 	}
-	if decoded.ColliderPackage.Colliders[0].Collider.ParentName != "Bip01 Head" {
+	collider, ok := decoded.ColliderPackage.Colliders[0].Collider.(*ColliderCapsule)
+	if !ok {
+		t.Fatalf("unexpected collider type: %T", decoded.ColliderPackage.Colliders[0].Collider)
+	}
+	if collider.ParentName != "Bip01 Head" {
 		t.Fatalf("unexpected collider: %+v", decoded.ColliderPackage.Colliders[0])
 	}
 
@@ -244,7 +254,11 @@ func TestColliderPackagePayloadRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(jsonData, &fromJSON); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	fromJSON.ColliderPackage.Colliders[0].Collider.Tail = append(fromJSON.ColliderPackage.Colliders[0].Collider.Tail, tail0)
+	if fromCollider, ok := fromJSON.ColliderPackage.Colliders[0].Collider.(*ColliderCapsule); ok {
+		fromCollider.Height = height0
+	} else {
+		t.Fatalf("unexpected collider type: %T", fromJSON.ColliderPackage.Colliders[0].Collider)
+	}
 	if _, err := EncodeKCESPayload(&fromJSON); err != nil {
 		t.Fatalf("EncodeKCESPayload from JSON envelope: %v", err)
 	}
@@ -267,13 +281,19 @@ func TestGroupedColliderPayloadRoundTrip(t *testing.T) {
 					Items: []LimbColliderItem{{
 						Version: 1000,
 						Target:  0,
-						Collider: ColliderObject{
-							Version:       1001,
-							ParentName:    "Bip01 L UpperArm",
-							SelfName:      "Arm",
-							LocalRotation: Vector4{W: 1},
-							LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
-							Tail:          []interface{}{int64(0), int64(0), true, 0.1, 0.05, 0.2},
+						Collider: &ColliderCapsule{
+							ColliderObject: ColliderObject{
+								Version:       1001,
+								ParentName:    "Bip01 L UpperArm",
+								SelfName:      "Arm",
+								LocalRotation: Vector4{W: 1},
+								LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
+								Bound:         ColliderBoundOutside,
+							},
+							Direction:   VectorTypeX,
+							StartRadius: 0.1,
+							EndRadius:   0.05,
+							Height:      0.2,
 						},
 					}},
 				},
@@ -293,13 +313,16 @@ func TestGroupedColliderPayloadRoundTrip(t *testing.T) {
 						Target:  1,
 						Colliders: []ColliderRef{{
 							Type: 2,
-							Collider: ColliderObject{
-								Version:       1000,
-								ParentName:    "Bip01 R Hand",
-								SelfName:      "ColliderObject",
-								LocalRotation: Vector4{W: 1},
-								LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
-								Tail:          []interface{}{int64(0), 0.02},
+							Collider: &ColliderSphere{
+								ColliderObject: ColliderObject{
+									Version:       1000,
+									ParentName:    "Bip01 R Hand",
+									SelfName:      "ColliderObject",
+									LocalRotation: Vector4{W: 1},
+									LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
+									Bound:         ColliderBoundInside,
+								},
+								Radius: 0.02,
 							},
 						}},
 					}},
@@ -321,6 +344,135 @@ func TestGroupedColliderPayloadRoundTrip(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestColliderMaidPropVersionEncodingLayout(t *testing.T) {
+	cmp := &ColliderMaidProp{
+		ColliderObject: ColliderObject{
+			Version:       1001,
+			ParentName:    "Bip01 L UpperArm",
+			SelfName:      "MaidPropCollider",
+			LocalRotation: Vector4{W: 1},
+			LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
+			Center:        Vector3{X: 0.1},
+			Bound:         ColliderBoundOutside,
+		},
+		Direction:          VectorTypeX,
+		IsDirectionInverse:  false,
+		StartRadius:        0.12,
+		EndRadius:          0.24,
+		Height:             0.36,
+		CenterMpnList:      []string{"center1"},
+		CenterRateMax:      Vector3{X: 1, Y: 2, Z: 3},
+		StartRadiusMpnList: []string{"start1"},
+		MaxStartRadius:     0.11,
+		EndRadiusMpnList:   []string{"end1"},
+		MaxEndRadius:       0.22,
+	}
+	raw1001 := colliderStatusToRaw(cmp)
+	if len(raw1001) != 22 {
+		t.Fatalf("1001 should produce 22 fields, got %d", len(raw1001))
+	}
+	if raw1001[13] != nil || raw1001[14] != nil || raw1001[15] != nil {
+		t.Fatalf("1001 layout expected placeholders at 13~15, got %#v %#v %#v", raw1001[13], raw1001[14], raw1001[15])
+	}
+
+	env1001 := &KCESPayloadEnvelope{
+		Format:         PayloadFormatKCESMessagePack,
+		Extension:      ".limbcol",
+		LengthPrefixed: true,
+		Kind:           PayloadKindLimbCollider,
+		LimbCollider: &LimbColliderPackage{
+			Version: 1000,
+			Items: []LimbColliderItem{{
+				Version: 1000,
+				Target:  0,
+				Collider: cmp,
+			}},
+		},
+	}
+	payload1001, err := EncodeKCESPayload(env1001)
+	if err != nil {
+		t.Fatalf("EncodeKCESPayload 1001: %v", err)
+	}
+	decoded1001, err := DecodeKCESPayload(payload1001, ".limbcol")
+	if err != nil {
+		t.Fatalf("DecodeKCESPayload 1001: %v", err)
+	}
+	maid1001, ok := decoded1001.LimbCollider.Items[0].Collider.(*ColliderMaidProp)
+	if !ok {
+		t.Fatalf("expected maidprop type: %T", decoded1001.LimbCollider.Items[0].Collider)
+	}
+	if maid1001.Version != 1001 {
+		t.Fatalf("expected version 1001 in decoded, got %d", maid1001.Version)
+	}
+	if len(maid1001.CenterMpnNameList) != 0 || len(maid1001.StartRadiusMpnNameList) != 0 || len(maid1001.EndRadiusMpnNameList) != 0 {
+		t.Fatalf("1001 decode should not populate name-lists, got %+v", maid1001.CenterMpnNameList)
+	}
+
+	cmp2 := &ColliderMaidProp{
+		ColliderObject: ColliderObject{
+			Version:       1002,
+			ParentName:    "Bip01 L UpperArm",
+			SelfName:      "MaidPropCollider",
+			LocalRotation: Vector4{W: 1},
+			LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
+			Bound:         ColliderBoundOutside,
+		},
+		Direction:          VectorTypeX,
+		IsDirectionInverse:  false,
+		StartRadius:        0.12,
+		EndRadius:          0.24,
+		Height:             0.36,
+		CenterMpnList:      []string{"center1"},
+		CenterRateMax:      Vector3{X: 1, Y: 2, Z: 3},
+		StartRadiusMpnList: []string{"start1"},
+		MaxStartRadius:     0.11,
+		EndRadiusMpnList:   []string{"end1"},
+		MaxEndRadius:       0.22,
+		CenterMpnNameList:  []string{"cName"},
+	}
+	raw1002 := colliderStatusToRaw(cmp2)
+	if len(raw1002) != 22 {
+		t.Fatalf("1002 should produce 22 fields, got %d", len(raw1002))
+	}
+	if raw1002[13] == nil || raw1002[14] == nil || raw1002[15] == nil {
+		t.Fatalf("1002 layout should not contain nil placeholders at 13~15")
+	}
+	if raw1002[19] == nil || raw1002[20] == nil || raw1002[21] == nil {
+		t.Fatalf("1002 layout should carry extra name-lists at 19~21")
+	}
+
+	env1002 := &KCESPayloadEnvelope{
+		Format:         PayloadFormatKCESMessagePack,
+		Extension:      ".limbcol",
+		LengthPrefixed: true,
+		Kind:           PayloadKindLimbCollider,
+		LimbCollider: &LimbColliderPackage{
+		Version: 1000,
+				Items: []LimbColliderItem{{
+			Version: 1000,
+				Target:  0,
+				Collider: cmp2,
+			}},
+		},
+	}
+	raw1002Payload, err := EncodeKCESPayload(env1002)
+	if err != nil {
+		t.Fatalf("EncodeKCESPayload 1002: %v", err)
+	}
+	decoded1002, err := DecodeKCESPayload(raw1002Payload, ".limbcol")
+	if err != nil {
+		t.Fatalf("DecodeKCESPayload 1002: %v", err)
+	}
+	maid1002, ok := decoded1002.LimbCollider.Items[0].Collider.(*ColliderMaidProp)
+	if !ok {
+		t.Fatalf("expected maidprop type: %T", decoded1002.LimbCollider.Items[0].Collider)
+	}
+	if maid1002.Version != 1002 {
+		t.Fatalf("expected version 1002 in decoded, got %d", maid1002.Version)
+	}
+	_ = raw1002Payload
 }
 
 func TestNormalizeKCESPayloadExtension(t *testing.T) {

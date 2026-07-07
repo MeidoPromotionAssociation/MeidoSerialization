@@ -85,13 +85,16 @@ func TestPayloadService_ColliderPackageRoundTrip(t *testing.T) {
 			Version: 1000,
 			Colliders: []serializationKCES.ColliderRef{{
 				Type: 2,
-				Collider: serializationKCES.ColliderObject{
-					Version:       1000,
-					ParentName:    "Bip01 Neck",
-					SelfName:      "Collider",
-					LocalRotation: serializationKCES.Vector4{W: 1},
-					LocalScale:    serializationKCES.Vector3{X: 1, Y: 1, Z: 1},
-					Tail:          []interface{}{int64(0), 0.05},
+				Collider: &serializationKCES.ColliderSphere{
+					ColliderObject: serializationKCES.ColliderObject{
+						Version:       1000,
+						ParentName:    "Bip01 Neck",
+						SelfName:      "Collider",
+						LocalRotation: serializationKCES.Vector4{W: 1},
+						LocalScale:    serializationKCES.Vector3{X: 1, Y: 1, Z: 1},
+						Bound:         serializationKCES.ColliderBoundOutside,
+					},
+					Radius: 0.05,
 				},
 			}},
 			States: []serializationKCES.ColliderState{{Version: 1000, Index: 0, Enabled: true}},
@@ -124,7 +127,8 @@ func TestPayloadService_ColliderPackageRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload output: %v", err)
 	}
-	if roundTrip.ColliderPackage == nil || roundTrip.ColliderPackage.Colliders[0].Collider.ParentName != "Bip01 Neck" {
+	c0, ok := roundTrip.ColliderPackage.Colliders[0].Collider.(*serializationKCES.ColliderSphere)
+	if !ok || c0 == nil || c0.ParentName != "Bip01 Neck" {
 		t.Fatalf("unexpected round-trip collider package: %+v", roundTrip)
 	}
 }
