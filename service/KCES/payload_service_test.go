@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
@@ -97,7 +98,7 @@ func TestPayloadService_ColliderPackageRoundTrip(t *testing.T) {
 					Radius: 0.05,
 				},
 			}},
-			States: []serializationKCES.ColliderState{{Version: 1000, Index: 0, Enabled: true}},
+			LimbEnableList: []serializationKCES.ColliderState{{Version: 1000, LimbType: 0, IsEnable: true}},
 		},
 	}
 	encoded, err := serializationKCES.EncodeKCESPayload(env)
@@ -112,12 +113,19 @@ func TestPayloadService_ColliderPackageRoundTrip(t *testing.T) {
 	if err := service.ConvertPayloadToJson(inputPath, jsonPath); err != nil {
 		t.Fatalf("ConvertPayloadToJson: %v", err)
 	}
+	jsonBytes := mustReadServiceTestFile(t, jsonPath)
+	if !strings.Contains(string(jsonBytes), `"limbEnableList"`) || strings.Contains(string(jsonBytes), `"states"`) {
+		t.Fatalf("collider JSON should use limbEnableList, got %s", string(jsonBytes))
+	}
 	var decodedJSON serializationKCES.KCESPayloadEnvelope
-	if err := json.Unmarshal(mustReadServiceTestFile(t, jsonPath), &decodedJSON); err != nil {
+	if err := json.Unmarshal(jsonBytes, &decodedJSON); err != nil {
 		t.Fatalf("unmarshal payload json: %v", err)
 	}
 	if decodedJSON.Kind != serializationKCES.PayloadKindColliderPackage || decodedJSON.ColliderPackage == nil {
 		t.Fatalf("unexpected JSON envelope: %+v", decodedJSON)
+	}
+	if len(decodedJSON.ColliderPackage.LimbEnableList) != 1 {
+		t.Fatalf("limb enable list not populated from JSON: %+v", decodedJSON.ColliderPackage)
 	}
 
 	if err := service.ConvertJsonToPayload(jsonPath, outputPath); err != nil {
@@ -134,14 +142,23 @@ func TestPayloadService_ColliderPackageRoundTrip(t *testing.T) {
 }
 
 func TestPayloadService_ClothParamsRoundTrip(t *testing.T) {
+	for _, ext := range []string{".dsbconf", ".dslconf"} {
+		ext := ext
+		t.Run(ext, func(t *testing.T) {
+			testPayloadServiceClothParamsRoundTrip(t, ext)
+		})
+	}
+}
+
+func testPayloadServiceClothParamsRoundTrip(t *testing.T, ext string) {
 	tmpDir := t.TempDir()
-	inputPath := filepath.Join(tmpDir, "sample.dsbconf")
+	inputPath := filepath.Join(tmpDir, "sample"+ext)
 	jsonPath := inputPath + ".json"
-	outputPath := filepath.Join(tmpDir, "out.dsbconf")
+	outputPath := filepath.Join(tmpDir, "out"+ext)
 
 	env := &serializationKCES.KCESPayloadEnvelope{
 		Format:         serializationKCES.PayloadFormatKCESMessagePack,
-		Extension:      ".dsbconf",
+		Extension:      ext,
 		LengthPrefixed: true,
 		Kind:           serializationKCES.PayloadKindClothParams,
 		ClothParams: &serializationKCES.ClothParams{
@@ -206,7 +223,7 @@ func TestPayloadService_ClothParamsRoundTrip(t *testing.T) {
 	if err := service.ConvertJsonToPayload(jsonPath, outputPath); err != nil {
 		t.Fatalf("ConvertJsonToPayload: %v", err)
 	}
-	roundTrip, err := serializationKCES.DecodeKCESPayload(mustReadServiceTestFile(t, outputPath), ".dsbconf")
+	roundTrip, err := serializationKCES.DecodeKCESPayload(mustReadServiceTestFile(t, outputPath), ext)
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload output: %v", err)
 	}
@@ -270,7 +287,22 @@ func fixedPayloadServiceSamplesByExt(t *testing.T) map[string][]string {
 		}
 		pathsByExt[ext] = append(pathsByExt[ext], path)
 	}
-	for _, ext := range []string{".dbconf", ".dbcol", ".db2conf", ".dsbconf", ".dsb2conf", ".dsl2conf", ".dslcol", ".ikcol", ".limbcol"} {
+	if len(pathsByExt[".dslconf"]) == 0 {
+		source := pathsByExt[".dsbconf"]
+		if len(source) == 0 {
+			t.Fatalf("cannot synthesize .dslconf sample without a .dsbconf ClothParams sample")
+		}
+		data, err := os.ReadFile(source[0])
+		if err != nil {
+			t.Fatalf("read .dsbconf sample for .dslconf coverage: %v", err)
+		}
+		dslconfPath := filepath.Join(t.TempDir(), "default_sleeve.dslconf")
+		if err := os.WriteFile(dslconfPath, data, 0644); err != nil {
+			t.Fatalf("write synthesized .dslconf coverage sample: %v", err)
+		}
+		pathsByExt[".dslconf"] = append(pathsByExt[".dslconf"], dslconfPath)
+	}
+	for _, ext := range []string{".dbconf", ".dbcol", ".db2conf", ".dsbconf", ".dsb2conf", ".dslconf", ".dsl2conf", ".dslcol", ".ikcol", ".limbcol"} {
 		if len(pathsByExt[ext]) == 0 {
 			t.Fatalf("no fixed payload samples with suffix %s", ext)
 		}

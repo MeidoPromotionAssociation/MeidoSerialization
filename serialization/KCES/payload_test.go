@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
@@ -224,7 +225,7 @@ func TestColliderPackagePayloadRoundTrip(t *testing.T) {
 					},
 				},
 			},
-			States: []ColliderState{{Version: 1000, Index: 0, Enabled: true}},
+			LimbEnableList: []ColliderState{{Version: 1000, LimbType: 0, IsEnable: true}},
 		},
 	}
 	encoded, err := EncodeKCESPayload(env)
@@ -250,14 +251,26 @@ func TestColliderPackagePayloadRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
+	if !strings.Contains(string(jsonData), `"limbEnableList"`) || strings.Contains(string(jsonData), `"states"`) {
+		t.Fatalf("collider package JSON should use limbEnableList, got %s", string(jsonData))
+	}
 	var fromJSON KCESPayloadEnvelope
 	if err := json.Unmarshal(jsonData, &fromJSON); err != nil {
 		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(fromJSON.ColliderPackage.LimbEnableList) != 1 {
+		t.Fatalf("limb enable list was not preserved after JSON round-trip: %+v", fromJSON.ColliderPackage)
 	}
 	if fromCollider, ok := fromJSON.ColliderPackage.Colliders[0].Collider.(*ColliderCapsule); ok {
 		fromCollider.Height = height0
 	} else {
 		t.Fatalf("unexpected collider type: %T", fromJSON.ColliderPackage.Colliders[0].Collider)
+	}
+
+	legacyJSON := []byte(`{"version":1000,"colliders":[],"states":[{"version":1000,"index":7,"enabled":true}]}`)
+	var legacy ColliderPackage
+	if err := json.Unmarshal(legacyJSON, &legacy); err == nil {
+		t.Fatalf("legacy states JSON should be rejected: %+v", legacy)
 	}
 	if _, err := EncodeKCESPayload(&fromJSON); err != nil {
 		t.Fatalf("EncodeKCESPayload from JSON envelope: %v", err)

@@ -141,8 +141,8 @@ func assertColliderPackageSampleFields(t *testing.T, name string, pkg *ColliderP
 	if name != "default_accmimi_col.dbcol" {
 		return
 	}
-	if len(pkg.Colliders) != 12 || len(pkg.States) != 8 {
-		t.Fatalf("%s counts got colliders=%d states=%d, want 12/8", name, len(pkg.Colliders), len(pkg.States))
+	if len(pkg.Colliders) != 12 || len(pkg.LimbEnableList) != 8 {
+		t.Fatalf("%s counts got colliders=%d limbEnableList=%d, want 12/8", name, len(pkg.Colliders), len(pkg.LimbEnableList))
 	}
 	for _, ref := range pkg.Colliders {
 		maidProp, ok := ref.Collider.(*ColliderMaidProp)

@@ -8,9 +8,40 @@ import (
 
 // ColliderPackage 表示通用碰撞体包 / ColliderPackage represents a generic collider package
 type ColliderPackage struct {
-	Version   int             `json:"version"`          // 版本号 / Version value
-	Colliders []ColliderRef   `json:"colliders"`        // 碰撞体引用列表 / Collider reference list
-	States    []ColliderState `json:"states,omitempty"` // 可选启用状态列表 / Optional enabled-state list
+	Version        int             `json:"version"`                  // 版本号 / Version value
+	Colliders      []ColliderRef   `json:"colliders"`                // 碰撞体引用列表 / Collider reference list
+	LimbEnableList []ColliderState `json:"limbEnableList,omitempty"` // DynamicYureBone.LimbColliderInfo 列表 / DynamicYureBone.LimbColliderInfo list
+}
+
+type colliderPackageJSON struct {
+	Version        int             `json:"version"`
+	Colliders      []ColliderRef   `json:"colliders"`
+	LimbEnableList []ColliderState `json:"limbEnableList,omitempty"`
+	States         json.RawMessage `json:"states,omitempty"`
+}
+
+func (p ColliderPackage) MarshalJSON() ([]byte, error) {
+	return json.Marshal(colliderPackageJSON{
+		Version:        p.Version,
+		Colliders:      p.Colliders,
+		LimbEnableList: p.LimbEnableList,
+	})
+}
+
+func (p *ColliderPackage) UnmarshalJSON(data []byte) error {
+	var raw colliderPackageJSON
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if len(raw.States) > 0 {
+		return fmt.Errorf(`colliderPackage.states is no longer supported; use "limbEnableList"`)
+	}
+	*p = ColliderPackage{
+		Version:        raw.Version,
+		Colliders:      raw.Colliders,
+		LimbEnableList: raw.LimbEnableList,
+	}
+	return nil
 }
 
 // ColliderType 映射（与 C# 的 ANativeColliderStatus.ColliderType 一致）
@@ -142,11 +173,41 @@ type ColliderMaidProp struct {
 
 func (*ColliderMaidProp) toColliderType() int { return ColliderTypeMaidProp }
 
-// ColliderState 表示碰撞体启用状态 / Collider state
+// ColliderState 表示 DynamicYureBone.LimbColliderInfo。
+// ColliderState represents DynamicYureBone.LimbColliderInfo.
 type ColliderState struct {
-	Version int  `json:"version"` // 版本号 / Version value
-	Index   int  `json:"index"`   // 对应碰撞体索引 / Referenced collider index
-	Enabled bool `json:"enabled"` // 是否启用 / Enabled
+	Version  int  `json:"version"`  // 版本号 / Version value
+	LimbType int  `json:"limbType"` // limbType 枚举值 / LimbType enum value
+	IsEnable bool `json:"isEnable"` // 是否启用 / Enabled
+}
+
+type colliderStateJSON struct {
+	Version  int             `json:"version"`
+	LimbType *int            `json:"limbType,omitempty"`
+	IsEnable *bool           `json:"isEnable,omitempty"`
+	Index    json.RawMessage `json:"index,omitempty"`
+	Enabled  json.RawMessage `json:"enabled,omitempty"`
+}
+
+func (s *ColliderState) UnmarshalJSON(data []byte) error {
+	var raw colliderStateJSON
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if len(raw.Index) > 0 {
+		return fmt.Errorf(`collider state "index" is no longer supported; use "limbType"`)
+	}
+	if len(raw.Enabled) > 0 {
+		return fmt.Errorf(`collider state "enabled" is no longer supported; use "isEnable"`)
+	}
+	if raw.LimbType == nil {
+		return fmt.Errorf(`collider state "limbType" is required`)
+	}
+	if raw.IsEnable == nil {
+		return fmt.Errorf(`collider state "isEnable" is required`)
+	}
+	*s = ColliderState{Version: raw.Version, LimbType: *raw.LimbType, IsEnable: *raw.IsEnable}
+	return nil
 }
 
 // LimbColliderPackage 对应 LimbColliderMgr 保存的 limb collider 包 / LimbColliderPackage maps the package saved by LimbColliderMgr
@@ -223,16 +284,16 @@ func decodeColliderPackageRaw(raw interface{}) (*ColliderPackage, error) {
 
 	var states []ColliderState
 	if len(arr) > 2 && arr[2] != nil {
-		states, err = decodeColliderStatesRaw(arr[2], "ColliderPackage.states")
+		states, err = decodeColliderStatesRaw(arr[2], "ColliderPackage.limbEnableList")
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return &ColliderPackage{
-		Version:   version,
-		Colliders: colliders,
-		States:    states,
+		Version:        version,
+		Colliders:      colliders,
+		LimbEnableList: states,
 	}, nil
 }
 
@@ -243,7 +304,7 @@ func (p *ColliderPackage) toRaw() []interface{} {
 	return []interface{}{
 		int64(p.Version),
 		colliderRefsToRaw(p.Colliders),
-		colliderStatesToRaw(p.States),
+		colliderStatesToRaw(p.LimbEnableList),
 	}
 }
 
@@ -709,15 +770,15 @@ func decodeColliderStatesRaw(raw interface{}, name string) ([]ColliderState, err
 		if err != nil {
 			return nil, err
 		}
-		index, err := rawInt(stateArr[1], fmt.Sprintf("%s[%d].index", name, i))
+		limbType, err := rawInt(stateArr[1], fmt.Sprintf("%s[%d].limbType", name, i))
 		if err != nil {
 			return nil, err
 		}
-		enabled, err := rawBool(stateArr[2], fmt.Sprintf("%s[%d].enabled", name, i))
+		isEnable, err := rawBool(stateArr[2], fmt.Sprintf("%s[%d].isEnable", name, i))
 		if err != nil {
 			return nil, err
 		}
-		states = append(states, ColliderState{Version: version, Index: index, Enabled: enabled})
+		states = append(states, ColliderState{Version: version, LimbType: limbType, IsEnable: isEnable})
 	}
 	return states, nil
 }
@@ -726,7 +787,7 @@ func colliderStatesToRaw(states []ColliderState) []interface{} {
 	out := make([]interface{}, 0, len(states))
 	for i := range states {
 		state := &states[i]
-		out = append(out, []interface{}{int64(state.Version), int64(state.Index), state.Enabled})
+		out = append(out, []interface{}{int64(state.Version), int64(state.LimbType), state.IsEnable})
 	}
 	return out
 }
