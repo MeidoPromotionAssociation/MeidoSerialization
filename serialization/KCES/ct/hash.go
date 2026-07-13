@@ -2,6 +2,7 @@ package ct
 
 import (
 	"unicode"
+	"unicode/utf16"
 )
 
 // FNV-1a 64-bit 算法常量。
@@ -43,12 +44,8 @@ func HashString(text string) uint64 {
 // HashStringIgnoreCase 计算字符串的 FNV-1a 64-bit 哈希（忽略大小写）。
 // 对应 C# AssetManager.GetHashIgnoreCase(string)。
 //
-// 算法：逐 char 处理（C# 中 char 是 UTF-16 code unit），ASCII 大写转小写后按 UTF-8 编码哈希。
-// 非 ASCII 字符使用 ToLowerInvariant 转小写后再 UTF-8 编码。
-//
-// 注意：本实现按 rune 迭代而非 UTF-16 code unit 迭代，
-// 对 BMP 内字符（包括 KCES 资源名中常见的日文）行为与 C# 一致；
-// 仅在出现 surrogate pair 字符（U+10000 及以上）时才会与 C# 实现存在差异。
+// 算法：逐 UTF-16 code unit 处理（C# 中 char 是 UTF-16 code unit），ASCII 大写转小写后哈希。
+// 非 ASCII code unit 使用 ToLowerInvariant 转小写后按 C# 代码的 UTF-8 分支写入 2 或 3 字节。
 //
 //	空字符串返回 0
 func HashStringIgnoreCase(text string) uint64 {
@@ -56,10 +53,10 @@ func HashStringIgnoreCase(text string) uint64 {
 		return 0
 	}
 	hash := fnv1aOffsetBasis
-	for _, r := range text {
+	for _, codeUnit := range utf16.Encode([]rune(text)) {
 		// ASCII：使用快速小写映射
-		if r < 0x80 {
-			b := byte(r)
+		if codeUnit < 0x80 {
+			b := byte(codeUnit)
 			if b >= 'A' && b <= 'Z' {
 				b += 32
 			}
@@ -68,34 +65,23 @@ func HashStringIgnoreCase(text string) uint64 {
 			continue
 		}
 
-		lower := unicode.ToLower(r)
+		lower := uint16(unicode.ToLower(rune(codeUnit)))
 
-		// 按 UTF-8 编码逐字节哈希。
-		// C# 实现仅处理到 BMP（U+0000..U+FFFF），对应 1~3 字节 UTF-8；
-		// 我们额外处理 4 字节 UTF-8 以覆盖 supplementary 字符。
-		switch {
-		case lower < 0x800:
+		// 这里刻意不合并 surrogate pair。游戏按 char 逐个 code unit 处理，
+		// 因此 U+10000 以上字符会作为两个 surrogate 分别进入 3 字节分支。
+		if lower < 0x800 {
 			hash ^= uint64(byte(0xC0 | (lower >> 6)))
 			hash *= fnv1aPrime
 			hash ^= uint64(byte(0x80 | (lower & 0x3F)))
 			hash *= fnv1aPrime
-		case lower < 0x10000:
-			hash ^= uint64(byte(0xE0 | (lower >> 12)))
-			hash *= fnv1aPrime
-			hash ^= uint64(byte(0x80 | ((lower >> 6) & 0x3F)))
-			hash *= fnv1aPrime
-			hash ^= uint64(byte(0x80 | (lower & 0x3F)))
-			hash *= fnv1aPrime
-		default:
-			hash ^= uint64(byte(0xF0 | (lower >> 18)))
-			hash *= fnv1aPrime
-			hash ^= uint64(byte(0x80 | ((lower >> 12) & 0x3F)))
-			hash *= fnv1aPrime
-			hash ^= uint64(byte(0x80 | ((lower >> 6) & 0x3F)))
-			hash *= fnv1aPrime
-			hash ^= uint64(byte(0x80 | (lower & 0x3F)))
-			hash *= fnv1aPrime
+			continue
 		}
+		hash ^= uint64(byte(0xE0 | (lower >> 12)))
+		hash *= fnv1aPrime
+		hash ^= uint64(byte(0x80 | ((lower >> 6) & 0x3F)))
+		hash *= fnv1aPrime
+		hash ^= uint64(byte(0x80 | (lower & 0x3F)))
+		hash *= fnv1aPrime
 	}
 	return hash
 }

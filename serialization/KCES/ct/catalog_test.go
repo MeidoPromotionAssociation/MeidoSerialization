@@ -89,4 +89,19 @@ func TestHashStringIgnoreCase(t *testing.T) {
 	if ha == hb {
 		t.Error("different strings should have different hashes")
 	}
+
+	// 与游戏 AssetManager.GetHashIgnoreCase 的 C# UTF-16 char 级实现对齐。
+	// U+10000 以上字符必须按 surrogate pair 分别哈希，而不是按 Go rune 哈希。
+	tests := map[string]uint64{
+		"Test.menuassets":             8940223126534978995,
+		"テスト.MENUASSETS":              17235742038489382243,
+		"emoji_\U0001F600.menuassets": 6603427074542052611,
+		"\U0001F600":                  5757361395789847182,
+		"cjk_\U0002000B":              6750224190941313974,
+	}
+	for text, want := range tests {
+		if got := HashStringIgnoreCase(text); got != want {
+			t.Errorf("HashStringIgnoreCase(%q) got=%d want=%d", text, got, want)
+		}
+	}
 }
