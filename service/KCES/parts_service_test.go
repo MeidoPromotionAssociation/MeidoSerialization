@@ -157,12 +157,50 @@ func TestPartsService_FixedSamplesJSONRoundTrip(t *testing.T) {
 					if err != nil {
 						t.Fatalf("ReadPartsFile output: %v", err)
 					}
+					want, err = canonicalizeExpectedParts(want)
+					if err != nil {
+						t.Fatalf("canonicalize expected parts: %v", err)
+					}
 					if !reflect.DeepEqual(got, want) {
 						t.Fatalf("service parts JSON round-trip changed %s: got %#v, want %#v", name, got, want)
 					}
 				})
 			}
 		})
+	}
+}
+
+// Compare the service's JSON route against a direct encoder route so both
+// sides undergo the same known-field MessagePack canonicalization. Neither
+// route invokes the game's version callback or rewrites stored versions.
+func canonicalizeExpectedParts(value interface{}) (interface{}, error) {
+	switch typed := value.(type) {
+	case *serializationKCES.MenuAssets:
+		encoded, err := serializationKCES.EncodeMenuAssets(typed)
+		if err != nil {
+			return nil, err
+		}
+		return serializationKCES.DecodeMenuAssets(encoded)
+	case *serializationKCES.MaterialAssets:
+		encoded, err := serializationKCES.EncodeMaterialAssets(typed)
+		if err != nil {
+			return nil, err
+		}
+		return serializationKCES.DecodeMaterialAssets(encoded)
+	case *serializationKCES.PriorityMaterialAssets:
+		encoded, err := serializationKCES.EncodePriorityMaterialAssets(typed)
+		if err != nil {
+			return nil, err
+		}
+		return serializationKCES.DecodePriorityMaterialAssets(encoded)
+	case *serializationKCES.Model:
+		encoded, err := serializationKCES.EncodeModel(typed)
+		if err != nil {
+			return nil, err
+		}
+		return serializationKCES.DecodeModel(encoded)
+	default:
+		return value, nil
 	}
 }
 

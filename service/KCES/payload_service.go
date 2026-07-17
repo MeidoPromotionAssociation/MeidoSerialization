@@ -32,7 +32,8 @@ func IsKCESPayloadJSONFile(path string) bool {
 	return serializationKCES.NormalizeKCESPayloadExtension(base) != ""
 }
 
-// PayloadService 在 KCES MessagePack/LZ4 载荷文件和 JSON 之间转换 / PayloadService converts KCES MessagePack/LZ4 payload files to and from JSON
+// PayloadService converts native KCES MessagePack/LZ4 payloads and ExportCM
+// JSON sidecars to and from their explicitly tagged editing envelopes.
 type PayloadService struct{}
 
 func (s *PayloadService) ConvertPayloadToJson(inputPath string, outputPath string) error {
@@ -62,19 +63,17 @@ func (s *PayloadService) ConvertJsonToPayload(inputPath string, outputPath strin
 		return fmt.Errorf("read %q: %w", inputPath, err)
 	}
 
-	var envelope serializationKCES.KCESPayloadEnvelope
-	if err := json.Unmarshal(data, &envelope); err != nil {
+	base := strings.TrimSuffix(inputPath, filepath.Ext(inputPath))
+	expectedExtension := serializationKCES.NormalizeKCESPayloadExtension(base)
+	if expectedExtension == "" {
+		expectedExtension = serializationKCES.NormalizeKCESPayloadExtension(outputPath)
+	}
+	envelope, err := decodeKCESPayloadEditingJSON(data, expectedExtension)
+	if err != nil {
 		return fmt.Errorf("parse KCES payload json: %w", err)
 	}
-	if envelope.Extension == "" {
-		envelope.Extension = serializationKCES.NormalizeKCESPayloadExtension(outputPath)
-	}
-	if envelope.Extension == "" {
-		base := strings.TrimSuffix(inputPath, filepath.Ext(inputPath))
-		envelope.Extension = serializationKCES.NormalizeKCESPayloadExtension(base)
-	}
 
-	encoded, err := serializationKCES.EncodeKCESPayload(&envelope)
+	encoded, err := serializationKCES.EncodeKCESPayload(envelope)
 	if err != nil {
 		return err
 	}
@@ -82,4 +81,31 @@ func (s *PayloadService) ConvertJsonToPayload(inputPath string, outputPath strin
 		return fmt.Errorf("write %q: %w", outputPath, err)
 	}
 	return nil
+}
+
+func decodeKCESPayloadEditingJSON(data []byte, expectedExtension string) (*serializationKCES.KCESPayloadEnvelope, error) {
+	var envelope serializationKCES.KCESPayloadEnvelope
+	if err := decodeStrictJSON(data, &envelope, "KCES payload JSON"); err != nil {
+		return nil, err
+	}
+	if envelope.Format != serializationKCES.PayloadFormatKCESMessagePack && envelope.Format != serializationKCES.PayloadFormatKCESExportCM {
+		return nil, fmt.Errorf("unsupported KCES payload JSON format %q", envelope.Format)
+	}
+	expected := serializationKCES.NormalizeKCESPayloadExtension(expectedExtension)
+	actual := serializationKCES.NormalizeKCESPayloadExtension(envelope.Extension)
+	if actual == "" {
+		actual = expected
+		envelope.Extension = expected
+	}
+	if actual == "" {
+		return nil, fmt.Errorf("unsupported or missing KCES payload extension %q", envelope.Extension)
+	}
+	if expected != "" && actual != expected {
+		return nil, fmt.Errorf("KCES payload envelope extension %q does not match file extension %q", actual, expected)
+	}
+	envelope.Extension = actual
+	if _, err := serializationKCES.EncodeKCESPayload(&envelope); err != nil {
+		return nil, err
+	}
+	return &envelope, nil
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -87,6 +88,147 @@ func TestDetermineCommand(t *testing.T) {
 	}
 	if !strings.Contains(output, "Analyzing directory") {
 		t.Errorf("expected output to contain 'Analyzing directory', got %q", output)
+	}
+}
+
+func TestDetermineCommandPrefersCOM3D2AndFallsBackToKCES(t *testing.T) {
+	tests := []struct {
+		name   string
+		path   string
+		typeID string
+		format string
+		game   string
+	}{
+		{name: "content_table", path: "../testdata/aba/cm3d2_eyes.ct", typeID: "ct", format: "binary", game: "KCES"},
+		{name: "unityfs", path: "../testdata/aba/cm3d2_eyes.aba", typeID: "aba", format: "binary", game: "KCES"},
+		{name: "model", path: "../testdata/kces_parts/cm3d2_megane002.model", typeID: "model", format: "binary", game: "KCES"},
+		{name: "menuassets", path: "../testdata/kces_parts/cm3d2_eyes.menuassets", typeID: "menuassets", format: "binary", game: "KCES"},
+		{name: "payload", path: "../testdata/kces_payload/default_hairf.dbconf", typeID: "dbconf", format: "binary", game: "KCES"},
+		{name: "hitcheck", path: "../testdata/kces_misc/IK.hitcheck", typeID: "hitcheck", format: "binary", game: "KCES"},
+		{name: "native_json", path: "../testdata/kces_misc/crc2_Underwear038_pants.undressdat", typeID: "undressdat", format: "json", game: "KCES"},
+		{name: "legacy_model", path: "../testdata/test.model", typeID: "model", format: "binary", game: "COM3D2"},
+		{name: "legacy_preset", path: "../testdata/test.preset", typeID: "preset", format: "binary", game: "COM3D2"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			output, err := executeCommand(RootCmd, "determine", "--strict", test.path)
+			if err != nil {
+				t.Fatalf("determine --strict %q: %v\n%s", test.path, err, output)
+			}
+			for _, want := range []string{
+				"Type: " + test.typeID,
+				"Format: " + test.format,
+				"Game: " + test.game,
+			} {
+				if !strings.Contains(output, want) {
+					t.Fatalf("output for %q does not contain %q:\n%s", test.path, want, output)
+				}
+			}
+		})
+	}
+}
+
+func TestStrictFileTypeFilterIncludesKCESModelAndNativeJSON(t *testing.T) {
+	oldStrict, oldType := strictMode, fileType
+	t.Cleanup(func() {
+		strictMode = oldStrict
+		fileType = oldType
+	})
+	strictMode = true
+
+	fileType = "model"
+	if !fileTypeFilter("../testdata/kces_parts/cm3d2_megane002.model") {
+		t.Fatal("strict model filter rejected a decoded KCES model")
+	}
+	if fileTypeFilter("../testdata/kces_parts/cm3d2_eyes.menuassets") {
+		t.Fatal("strict model filter accepted menuassets")
+	}
+
+	// A native .undressdat is JSON text on the wire, but it is not an editing
+	// .json envelope. The non-.json selector must still include it.
+	fileType = "undressdat"
+	if !fileTypeFilter("../testdata/kces_misc/crc2_Underwear038_pants.undressdat") {
+		t.Fatal("strict undressdat filter rejected native JSON-text payload")
+	}
+	fileType = "undressdat.json"
+	if fileTypeFilter("../testdata/kces_misc/crc2_Underwear038_pants.undressdat") {
+		t.Fatal("strict undressdat.json filter accepted the native non-envelope path")
+	}
+}
+
+func TestConcurrentDeterminePrintsAtomicFileBlocks(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"cm3d2_megane002.model", "crc_acchead003.model", "hair_aho007.model"} {
+		data, err := os.ReadFile(filepath.Join("..", "testdata", "kces_parts", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), data, 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	output, err := executeCommand(RootCmd, "determine", "--strict", "--type", "model", dir)
+	if err != nil {
+		t.Fatalf("concurrent determine: %v\n%s", err, output)
+	}
+	sections := strings.Split(output, "File: ")
+	if len(sections)-1 != 3 {
+		t.Fatalf("got %d file blocks, want 3:\n%s", len(sections)-1, output)
+	}
+	for i, section := range sections[1:] {
+		for _, field := range []string{"\n  Type: ", "\n  Format: ", "\n  Game: ", "\n  Signature: ", "\n  Version: ", "\n  Size: "} {
+			if strings.Count(section, field) != 1 {
+				t.Fatalf("file block %d has %d occurrences of %q; output was interleaved:\n%s", i, strings.Count(section, field), field, output)
+			}
+		}
+	}
+}
+
+func TestKCESPathsCommandRoutes(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "paths.dat")
+	paths := serializationKCES.NewKCESPathsFile()
+	paths.Paths = []string{"system", "parts"}
+	data, err := serializationKCES.EncodeKCESPaths(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	output, err := executeCommand(RootCmd, "determine", "--strict", path)
+	if err != nil {
+		t.Fatalf("determine paths.dat: %v\n%s", err, output)
+	}
+	for _, want := range []string{"Type: paths", "Game: KCES", "Signature: CM3D2_PATHS"} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("paths.dat determine output lacks %q:\n%s", want, output)
+		}
+	}
+
+	if output, err = executeCommand(RootCmd, "convert2json", path); err != nil {
+		t.Fatalf("convert2json paths.dat: %v\n%s", err, output)
+	}
+	jsonPath := path + ".json"
+	if _, err := os.Stat(jsonPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if output, err = executeCommand(RootCmd, "convert2mod", jsonPath); err != nil {
+		t.Fatalf("convert2mod paths.dat JSON: %v\n%s", err, output)
+	}
+	back, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := serializationKCES.DecodeKCESPaths(back)
+	if err != nil || !reflect.DeepEqual(decoded.Paths, []string{"system", "parts"}) {
+		t.Fatalf("paths.dat command round trip: value=%+v err=%v", decoded, err)
 	}
 }
 
@@ -542,20 +684,20 @@ func readCatalogFromCtForCommandTest(t *testing.T, path string) *ct.AssetBundleC
 func TestKCESMiscConvertCommands(t *testing.T) {
 	t.Run("hitcheck", func(t *testing.T) {
 		tempDir := t.TempDir()
-		encoded, err := serializationKCES.EncodeHitCheck(&serializationKCES.HitCheck{
-			Entries: []serializationKCES.HitCheckEntry{
-				{
-					Type:      0,
-					Radius:    0.2,
-					RadiusSqr: 0.04,
-					Name:      "Sphere",
-					Parent:    "Bip01 Head",
-					Position:  serializationKCES.Vector3{Y: 0.1},
-					SKRT:      0,
-					RL:        1,
-				},
+		hitCheck := serializationKCES.NewHitCheck()
+		hitCheck.Entries = []serializationKCES.HitCheckEntry{
+			{
+				Type:      0,
+				Radius:    0.2,
+				RadiusSqr: 0.04,
+				Name:      "Sphere",
+				Parent:    "Bip01 Head",
+				Position:  serializationKCES.Vector3{Y: 0.1},
+				SKRT:      0,
+				RL:        1,
 			},
-		})
+		}
+		encoded, err := serializationKCES.EncodeHitCheck(hitCheck)
 		if err != nil {
 			t.Fatalf("EncodeHitCheck failed: %v", err)
 		}
@@ -607,6 +749,36 @@ func TestKCESMiscConvertCommands(t *testing.T) {
 		}
 		if _, err := serializationKCES.DecodeKCESJSONText(mustReadFile(t, inputPath), ".undressdat"); err != nil {
 			t.Fatalf("converted undressdat is invalid: %v", err)
+		}
+	})
+
+	t.Run("nson", func(t *testing.T) {
+		tempDir := t.TempDir()
+		inputPath := filepath.Join(tempDir, "dance_enabled_list.nson")
+		if err := os.WriteFile(inputPath, []byte(`{"version":1000,"_ids":[1,2,3]}`), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := executeCommand(RootCmd, "convert", inputPath); err != nil {
+			t.Fatalf("auto convert nson failed: %v", err)
+		}
+		jsonPath := inputPath + ".json"
+		if _, err := os.Stat(jsonPath); err != nil {
+			t.Fatalf("expected JSON file %s: %v", jsonPath, err)
+		}
+
+		if err := os.Remove(inputPath); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := executeCommand(RootCmd, "convert", jsonPath); err != nil {
+			t.Fatalf("auto convert nson JSON failed: %v", err)
+		}
+		value, err := serializationKCES.DecodeKCESJSONText(mustReadFile(t, inputPath), ".nson")
+		if err != nil {
+			t.Fatalf("converted nson is invalid: %v", err)
+		}
+		if string(value.JSON) != `{"version":1000,"_ids":[1,2,3]}` {
+			t.Fatalf("unexpected nson payload: %s", value.JSON)
 		}
 	})
 }

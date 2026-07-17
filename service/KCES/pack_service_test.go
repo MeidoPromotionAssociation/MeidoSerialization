@@ -7,11 +7,105 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
+
+func TestPackServiceRepackAbaPreservesBundleHeaderContext(t *testing.T) {
+	var source bytes.Buffer
+	wantOptions := &aba.BundleWriteOptions{
+		EngineVersion:     "2022.3.62f2",
+		GenerationVersion: "custom-generation",
+		Version:           8,
+		Compress:          true,
+	}
+	if err := aba.WriteBundle(&source, []aba.BundleFileEntry{{
+		Name: "resources/sample.resource",
+		Data: []byte("resource-data"),
+	}}, wantOptions); err != nil {
+		t.Fatalf("write source bundle: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	sourcePath := filepath.Join(tmpDir, "source.aba")
+	if err := os.WriteFile(sourcePath, source.Bytes(), 0644); err != nil {
+		t.Fatal(err)
+	}
+	unpackedDir := filepath.Join(tmpDir, "unpacked")
+	if err := (&AbaService{}).UnpackAba(sourcePath, unpackedDir); err != nil {
+		t.Fatalf("UnpackAba: %v", err)
+	}
+	metaData, err := os.ReadFile(filepath.Join(unpackedDir, abaBundleMetaFileName))
+	if err != nil {
+		t.Fatalf("read bundle metadata sidecar: %v", err)
+	}
+	if !bytes.Contains(metaData, []byte(`"bundleVersion": 8`)) || !bytes.Contains(metaData, []byte(`"engineVersion": "2022.3.62f2"`)) {
+		t.Fatalf("bundle metadata sidecar lacks source context: %s", metaData)
+	}
+
+	outPath := filepath.Join(tmpDir, "repacked.aba")
+	if err := (&PackService{}).RepackAba(unpackedDir, outPath); err != nil {
+		t.Fatalf("RepackAba: %v", err)
+	}
+	repackedData, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repacked, err := aba.ReadBundle(bytes.NewReader(repackedData))
+	if err != nil {
+		t.Fatalf("read repacked bundle: %v", err)
+	}
+	if repacked.Header.Version != wantOptions.Version || repacked.Header.EngineVersion != wantOptions.EngineVersion || repacked.Header.GenerationVersion != wantOptions.GenerationVersion {
+		t.Fatalf("repacked header got %+v, want version=%d engine=%q generation=%q", repacked.Header, wantOptions.Version, wantOptions.EngineVersion, wantOptions.GenerationVersion)
+	}
+	if len(repacked.BlockInfo.DirectoryInfos) != 1 || repacked.BlockInfo.DirectoryInfos[0].Name != "resources/sample.resource" {
+		t.Fatalf("repacked directories include metadata sidecar or lost payload: %+v", repacked.BlockInfo.DirectoryInfos)
+	}
+	payload, err := repacked.GetFileData(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(payload) != "resource-data" {
+		t.Fatalf("repacked payload = %q", payload)
+	}
+}
+
+func TestPackServiceRepackAbaUsesExistingAssetMetaContext(t *testing.T) {
+	dir := t.TempDir()
+	assetPath := filepath.Join(dir, "sample.resource")
+	if err := os.WriteFile(assetPath, []byte("resource-data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeRawAssetMeta(assetPath, rawAssetMeta{
+		EngineVersion:     "2022.3.35f1",
+		BundleVersion:     8,
+		GenerationVersion: "legacy-sidecar-generation",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	outPath := filepath.Join(t.TempDir(), "repacked.aba")
+	if err := (&PackService{}).RepackAba(dir, outPath); err != nil {
+		t.Fatalf("RepackAba: %v", err)
+	}
+	data, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := aba.ReadBundle(bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bundle.Header.Version != 8 || bundle.Header.EngineVersion != "2022.3.35f1" || bundle.Header.GenerationVersion != "legacy-sidecar-generation" {
+		t.Fatalf("repacked header did not use existing asset metadata: %+v", bundle.Header)
+	}
+	if len(bundle.BlockInfo.DirectoryInfos) != 1 || bundle.BlockInfo.DirectoryInfos[0].Name != "sample.resource" {
+		t.Fatalf("asset metadata sidecar was packed as a bundle entry: %+v", bundle.BlockInfo.DirectoryInfos)
+	}
+}
 
 func TestPackService_PackToAbaAndCtProducesCatalogedBundle(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -52,7 +146,10 @@ func TestPackService_PackToAbaAndCtProducesCatalogedBundle(t *testing.T) {
 	if err := os.WriteFile(monoBehaviourPath, monoBehaviourData, 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := writeAssetMeta(monoBehaviourPath, -1466831684398908746, "DepthLUT"); err != nil {
+	// MonoScript and MonoBehaviour are distinct m_Container entries. Reusing
+	// "DepthLUT" for both made the fixture ambiguous to AssetBundle.LoadAsset;
+	// the extracted sidecar must preserve a unique load key per object.
+	if err := writeAssetMeta(monoBehaviourPath, -1466831684398908746, "DepthLUT.behaviour"); err != nil {
 		t.Fatal(err)
 	}
 	type95Dir := filepath.Join(inputDir, "Type_95")
@@ -209,11 +306,186 @@ func TestPackService_PackToAbaAndCtProducesCatalogedBundle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetAssetBundleContainerMap: %v", err)
 	}
-	if containerNames[-1466831684398908746] != "DepthLUT" {
-		t.Fatalf("MonoBehaviour load name got %q, want DepthLUT", containerNames[-1466831684398908746])
+	if containerNames[-1466831684398908746] != "DepthLUT.behaviour" {
+		t.Fatalf("MonoBehaviour load name got %q, want DepthLUT.behaviour", containerNames[-1466831684398908746])
 	}
 	if assetTypes["type95_internal"] != 95 {
 		t.Fatalf("type95_internal type got %d, want Type_95", assetTypes["type95_internal"])
+	}
+}
+
+func TestPackServicePreservesStreamingSidecarAsRawBundleEntry(t *testing.T) {
+	tmpDir := t.TempDir()
+	inputDir := filepath.Join(tmpDir, "stream_pack")
+	if err := os.MkdirAll(inputDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(inputDir, "asset.menuassets"), []byte("menu"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	sidecarName := "CAB-original.resS"
+	sidecarData := []byte{1, 2, 3, 4, 5}
+	if err := os.WriteFile(filepath.Join(inputDir, sidecarName), sidecarData, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := (&PackService{}).PackToAbaAndCt(inputDir, "stream_pack"); err != nil {
+		t.Fatalf("PackToAbaAndCt: %v", err)
+	}
+	bundleData, err := os.ReadFile(filepath.Join(tmpDir, "stream_pack.aba"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := aba.ReadBundle(bytes.NewReader(bundleData))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bundle.BlockInfo.DirectoryInfos) != 2 {
+		t.Fatalf("bundle directory count = %d, want CAB + sidecar", len(bundle.BlockInfo.DirectoryInfos))
+	}
+	var found bool
+	for i, dir := range bundle.BlockInfo.DirectoryInfos {
+		if dir.Name != sidecarName {
+			continue
+		}
+		found = true
+		if dir.IsSerialized() {
+			t.Fatalf("sidecar %q was incorrectly marked as SerializedFile", dir.Name)
+		}
+		got, err := bundle.GetFileData(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(got, sidecarData) {
+			t.Fatalf("sidecar bytes = %v, want %v", got, sidecarData)
+		}
+	}
+	if !found {
+		t.Fatalf("sidecar %q missing from bundle directories", sidecarName)
+	}
+
+	ctFile, err := os.Open(filepath.Join(tmpDir, "stream_pack.ct"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctFile.Close()
+	table, err := ct.ReadContentTable(ctFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := ct.DecodeCatalogFromCt(table)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range catalog.Items {
+		if item.Name == sidecarName {
+			t.Fatalf("raw sidecar was incorrectly inserted into Catalog.Items: %+v", item)
+		}
+	}
+	for _, ext := range catalog.ExtensionList {
+		if strings.EqualFold(ext, ".resS") {
+			t.Fatalf("raw sidecar extension was incorrectly cataloged: %q", ext)
+		}
+	}
+}
+
+func TestUnpackThenPackPreservesRealStreamedTextureData(t *testing.T) {
+	sample := filepath.Join("..", "..", "testdata", "aba", "nt008_chignon.aba")
+	if _, err := os.Stat(sample); err != nil {
+		t.Skipf("streamed-texture sample unavailable: %v", err)
+	}
+	originalFile, err := os.Open(sample)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalBundle, err := aba.ReadBundle(originalFile)
+	if err != nil {
+		originalFile.Close()
+		t.Fatal(err)
+	}
+	var sidecarName string
+	var originalSidecar []byte
+	for i, dir := range originalBundle.BlockInfo.DirectoryInfos {
+		if dir.IsSerialized() || !strings.EqualFold(filepath.Ext(dir.Name), ".resS") {
+			continue
+		}
+		sidecarName = dir.Name
+		originalSidecar, err = originalBundle.GetFileData(i)
+		if err != nil {
+			originalFile.Close()
+			t.Fatal(err)
+		}
+		break
+	}
+	originalFile.Close()
+	if sidecarName == "" {
+		t.Fatal("sample does not contain the expected .resS sidecar")
+	}
+	tmpDir := t.TempDir()
+	unpacked := filepath.Join(tmpDir, "stream_roundtrip")
+	if err := (&AbaService{}).UnpackAba(sample, unpacked); err != nil {
+		t.Fatalf("UnpackAba: %v", err)
+	}
+	if err := (&PackService{}).PackToAbaAndCt(unpacked, "stream_roundtrip"); err != nil {
+		t.Fatalf("PackToAbaAndCt: %v", err)
+	}
+
+	bundleFile, err := os.Open(filepath.Join(tmpDir, "stream_roundtrip.aba"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer bundleFile.Close()
+	bundle, err := aba.ReadBundle(bundleFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var assetsFile *aba.AssetsFile
+	var repackedSidecar []byte
+	for i, dir := range bundle.BlockInfo.DirectoryInfos {
+		if !dir.IsSerialized() {
+			if dir.Name == sidecarName {
+				repackedSidecar, err = bundle.GetFileData(i)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			continue
+		}
+		data, err := bundle.GetFileData(i)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assetsFile, err = aba.ReadAssetsFile(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if repackedSidecar == nil || assetsFile == nil {
+		t.Fatalf("repacked bundle missing SerializedFile or .resS sidecar")
+	}
+	if !bytes.Equal(repackedSidecar, originalSidecar) {
+		t.Fatalf("repacked .resS bytes differ: got %d bytes, want %d", len(repackedSidecar), len(originalSidecar))
+	}
+
+	streamedTextures := 0
+	for i := range assetsFile.Metadata.AssetInfos {
+		info := &assetsFile.Metadata.AssetInfos[i]
+		if info.TypeId != aba.ClassIDTexture2D {
+			continue
+		}
+		raw, err := assetsFile.GetAssetData(info)
+		if err != nil {
+			t.Fatalf("read repacked Texture2D PathID %d: %v", info.PathId, err)
+		}
+		// The generated SerializedFile intentionally has no embedded TypeTree,
+		// so verify the preserved raw object reference directly. Unity's stream
+		// path contains the exact sidecar basename as an aligned string.
+		if bytes.Contains(raw, []byte(sidecarName)) {
+			streamedTextures++
+		}
+	}
+	if streamedTextures == 0 {
+		t.Fatal("sample round-trip did not exercise any streamed Texture2D")
 	}
 }
 

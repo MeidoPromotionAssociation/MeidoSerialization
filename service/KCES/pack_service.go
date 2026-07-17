@@ -1,10 +1,12 @@
 package KCES
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	pathpkg "path"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
@@ -32,8 +34,17 @@ func (s *PackService) PackToAbaAndCt(dirPath string, outputBaseName string) erro
 	}
 
 	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
+		if err != nil {
 			return err
+		}
+		if isLinkOrReparse(info) {
+			return fmt.Errorf("refusing symlink or reparse point input %q", path)
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("refusing non-regular input %q", path)
 		}
 		if shouldSkipPackInput(path, outputBaseName) {
 			return nil
@@ -44,12 +55,10 @@ func (s *PackService) PackToAbaAndCt(dirPath string, outputBaseName string) erro
 		}
 		relPath = filepath.ToSlash(relPath)
 		name := inferAssetNameForPack(relPath)
-		loadName := readAssetMeta(path).LoadName
 		manifest.Assets = append(manifest.Assets, ModAsset{
-			Name:     name,
-			LoadName: loadName,
-			Path:     relPath,
-			Kind:     inferKindForPack(name, relPath),
+			Name: name,
+			Path: relPath,
+			Kind: inferKindForPack(name, relPath),
 		})
 		return nil
 	})
@@ -66,21 +75,71 @@ func (s *PackService) PackToAbaAndCt(dirPath string, outputBaseName string) erro
 // RepackAba 将已解压的 .aba 目录重新打包为 .aba 文件
 func (s *PackService) RepackAba(dirPath string, outPath string) error {
 	var entries []aba.BundleFileEntry
+	inputRoot, err := os.OpenRoot(dirPath)
+	if err != nil {
+		return fmt.Errorf("open input directory failed: %w", err)
+	}
+	defer inputRoot.Close()
 
-	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
+	var versionMetas []rawAssetMeta
+	var versionSources []string
+	if meta, ok, err := readRepackBundleMeta(inputRoot); err != nil {
+		return err
+	} else if ok {
+		versionMetas = append(versionMetas, meta)
+		versionSources = append(versionSources, abaBundleMetaFileName)
+	}
+
+	err = filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
 			return err
 		}
-		relPath, _ := filepath.Rel(dirPath, path)
-		relPath = filepath.ToSlash(relPath)
-		data, err := os.ReadFile(path)
+		if isLinkOrReparse(info) {
+			return fmt.Errorf("refusing symlink or reparse point input %q", path)
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("refusing non-regular input %q", path)
+		}
+		relPath, err := filepath.Rel(dirPath, path)
 		if err != nil {
-			return fmt.Errorf("read file %q failed: %w", relPath, err)
+			return fmt.Errorf("get relative path for %q: %w", path, err)
+		}
+		slashPath := filepath.ToSlash(relPath)
+		if strings.EqualFold(slashPath, abaBundleMetaFileName) {
+			return nil
+		}
+		const assetMetaSuffix = ".meta.json"
+		if strings.HasSuffix(strings.ToLower(relPath), assetMetaSuffix) {
+			assetRelPath := relPath[:len(relPath)-len(assetMetaSuffix)]
+			assetInfo, assetErr := inputRoot.Lstat(assetRelPath)
+			switch {
+			case assetErr == nil && assetInfo.Mode().IsRegular() && !isLinkOrReparse(assetInfo):
+				data, readErr := readPackRootRegularFile(inputRoot, relPath)
+				if readErr != nil {
+					return fmt.Errorf("read asset metadata %q failed: %w", slashPath, readErr)
+				}
+				var meta rawAssetMeta
+				if jsonErr := json.Unmarshal(trimJSONUTF8BOM(data), &meta); jsonErr != nil {
+					return fmt.Errorf("parse asset metadata %q failed: %w", slashPath, jsonErr)
+				}
+				versionMetas = append(versionMetas, meta)
+				versionSources = append(versionSources, slashPath)
+				return nil
+			case assetErr != nil && !os.IsNotExist(assetErr):
+				return fmt.Errorf("inspect asset for metadata %q failed: %w", slashPath, assetErr)
+			}
+		}
+		data, err := readPackRootRegularFile(inputRoot, relPath)
+		if err != nil {
+			return fmt.Errorf("read file %q failed: %w", filepath.ToSlash(relPath), err)
 		}
 		entries = append(entries, aba.BundleFileEntry{
-			Name:         relPath,
+			Name:         slashPath,
 			Data:         data,
-			IsSerialized: isSerializedFile(relPath),
+			IsSerialized: isSerializedFile(slashPath),
 		})
 		return nil
 	})
@@ -91,6 +150,10 @@ func (s *PackService) RepackAba(dirPath string, outPath string) error {
 	if len(entries) == 0 {
 		return fmt.Errorf("no files found in directory")
 	}
+	opts, err := resolveRepackBundleWriteOptions(versionMetas, versionSources)
+	if err != nil {
+		return fmt.Errorf("resolve UnityFS bundle context: %w", err)
+	}
 
 	f, err := os.Create(outPath)
 	if err != nil {
@@ -98,8 +161,140 @@ func (s *PackService) RepackAba(dirPath string, outPath string) error {
 	}
 	defer f.Close()
 
-	opts := &aba.BundleWriteOptions{Compress: true}
 	return aba.WriteBundle(f, entries, opts)
+}
+
+func readRepackBundleMeta(root *os.Root) (rawAssetMeta, bool, error) {
+	info, err := root.Lstat(abaBundleMetaFileName)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return rawAssetMeta{}, false, nil
+		}
+		return rawAssetMeta{}, false, fmt.Errorf("inspect UnityFS bundle metadata %q: %w", abaBundleMetaFileName, err)
+	}
+	if isLinkOrReparse(info) || !info.Mode().IsRegular() {
+		return rawAssetMeta{}, false, fmt.Errorf("UnityFS bundle metadata %q is not a regular non-reparse file", abaBundleMetaFileName)
+	}
+	data, err := readPackRootRegularFile(root, abaBundleMetaFileName)
+	if err != nil {
+		return rawAssetMeta{}, false, fmt.Errorf("read UnityFS bundle metadata %q: %w", abaBundleMetaFileName, err)
+	}
+	var meta abaBundleMeta
+	if err := json.Unmarshal(trimJSONUTF8BOM(data), &meta); err != nil {
+		return rawAssetMeta{}, false, fmt.Errorf("parse UnityFS bundle metadata %q: %w", abaBundleMetaFileName, err)
+	}
+	if meta.Format != abaBundleMetaFormat {
+		return rawAssetMeta{}, false, fmt.Errorf("unsupported UnityFS bundle metadata format %q", meta.Format)
+	}
+	return rawAssetMeta{
+		EngineVersion:     meta.EngineVersion,
+		BundleVersion:     meta.BundleVersion,
+		GenerationVersion: meta.GenerationVersion,
+	}, true, nil
+}
+
+func resolveRepackBundleWriteOptions(metas []rawAssetMeta, sources []string) (*aba.BundleWriteOptions, error) {
+	opts := &aba.BundleWriteOptions{Compress: true}
+	var engineSource, unitySource, generationSource, bundleSource string
+	var fallbackUnityVersion string
+	var bundleSet bool
+	hasExactEngineVersion := false
+	for _, meta := range metas {
+		if meta.EngineVersion != "" {
+			hasExactEngineVersion = true
+			break
+		}
+	}
+
+	for i, meta := range metas {
+		source := fmt.Sprintf("metadata[%d]", i)
+		if i < len(sources) && sources[i] != "" {
+			source = sources[i]
+		}
+		if err := mergeRepackStringSetting("engineVersion", &opts.EngineVersion, &engineSource, meta.EngineVersion, source); err != nil {
+			return nil, err
+		}
+		if !hasExactEngineVersion {
+			if err := mergeRepackStringSetting("unityVersion", &fallbackUnityVersion, &unitySource, meta.UnityVersion, source); err != nil {
+				return nil, err
+			}
+		}
+		if err := mergeRepackStringSetting("generationVersion", &opts.GenerationVersion, &generationSource, meta.GenerationVersion, source); err != nil {
+			return nil, err
+		}
+		if meta.BundleVersion != 0 {
+			if err := mergeUint32Setting("bundleVersion", &opts.Version, &bundleSet, &bundleSource, meta.BundleVersion, source); err != nil {
+				return nil, err
+			}
+		}
+	}
+	// Per-asset SerializedFile Unity versions are only a fallback for old
+	// sidecars which did not store the UnityFS engine header. If an exact engine
+	// version is present, RepackAba preserves it without imposing the game-side
+	// assumption that both version strings must be identical.
+	if opts.EngineVersion == "" {
+		opts.EngineVersion = fallbackUnityVersion
+		engineSource = unitySource
+	}
+
+	// Older sidecars may only contain the SerializedFile Unity version. Derive
+	// the observed KCES UnityFS family in that case; an explicit bundleVersion
+	// always wins and is preserved exactly.
+	if !bundleSet && opts.EngineVersion != "" {
+		major, minor, err := parseUnityMajorMinor(opts.EngineVersion)
+		if err != nil {
+			return nil, fmt.Errorf("derive bundleVersion from engineVersion %q from %s: %w", opts.EngineVersion, settingSource(engineSource), err)
+		}
+		opts.Version = bundleVersionForUnity(major, minor)
+	}
+	return opts, nil
+}
+
+func mergeRepackStringSetting(field string, dst *string, dstSource *string, candidate string, source string) error {
+	if candidate == "" {
+		return nil
+	}
+	if strings.IndexByte(candidate, 0) >= 0 {
+		return fmt.Errorf("invalid %s from %s: contains NUL", field, source)
+	}
+	if *dst == "" {
+		*dst = candidate
+		*dstSource = source
+		return nil
+	}
+	if *dst != candidate {
+		return fmt.Errorf("conflicting %s sidecars: %q from %s, %q from %s", field, *dst, *dstSource, candidate, source)
+	}
+	return nil
+}
+
+// isLinkOrReparse recognizes ordinary symlinks on every platform and also
+// checks the FileAttributes field exposed by Windows FileInfo.Sys. Reflection
+// keeps this package buildable on non-Windows hosts without splitting the
+// otherwise platform-neutral packing service into build-tagged files.
+func isLinkOrReparse(info os.FileInfo) bool {
+	if info == nil {
+		return false
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return true
+	}
+	v := reflect.ValueOf(info.Sys())
+	for v.IsValid() && v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			return false
+		}
+		v = v.Elem()
+	}
+	if !v.IsValid() || v.Kind() != reflect.Struct {
+		return false
+	}
+	field := v.FieldByName("FileAttributes")
+	if !field.IsValid() || !field.CanUint() {
+		return false
+	}
+	const fileAttributeReparsePoint = uint64(0x00000400)
+	return field.Uint()&fileAttributeReparsePoint != 0
 }
 
 // isSerializedFile 判断文件是否为 Unity 序列化文件（AssetsFile）
@@ -160,6 +355,10 @@ func inferAssetNameForPack(path string) string {
 
 func inferKindForPack(name string, path string) string {
 	lowerPath := strings.ToLower(path)
+	switch strings.ToLower(filepath.Ext(lowerPath)) {
+	case ".ress", ".resource", ".resources":
+		return "bundleraw"
+	}
 	if _, kind, ok := rawUnityRootByteSuffixForPackName(strings.ToLower(filepath.Base(path))); ok {
 		return kind
 	}

@@ -16,11 +16,19 @@ const CtEnvelopeFormat = "kces-content-table"
 // CtEnvelope 是 KCES .ct 文件的 JSON 可编辑封套 / CtEnvelope is the JSON-editable wrapper for KCES .ct files
 // catalog 和 ExtensionNameList 会解码为类型化结构，其他虚拟文件以 base64 保留 / catalog and ExtensionNameList entries are decoded into typed structures while other virtual files are preserved as base64 payloads
 type CtEnvelope struct {
-	Format             string                           `json:"format"`                       // 封套格式标识，固定为 kces-content-table / Envelope format marker, fixed to kces-content-table
-	Version            int                              `json:"version"`                      // VirtualDirectory 版本号 / VirtualDirectory version
-	Catalog            *ct.AssetBundleCatalog           `json:"catalog,omitempty"`            // catalog 虚拟文件内容 / Decoded catalog virtual file content
-	ExtensionNameLists map[string]*ct.ExtensionNameList `json:"extensionNameLists,omitempty"` // 按扩展名索引的 ExtensionNameList / ExtensionNameList values keyed by extension
-	Files              []CtEnvelopeFile                 `json:"files,omitempty"`              // 未识别或非 catalog 虚拟文件 / Unrecognized or non-catalog virtual files
+	Format             string                                 `json:"format"`                       // 封套格式标识，固定为 kces-content-table / Envelope format marker, fixed to kces-content-table
+	Version            int                                    `json:"version"`                      // VirtualDirectory 版本号 / VirtualDirectory version
+	Versionless        bool                                   `json:"versionless,omitempty"`        // Historical root [directories, files] layout / 历史根 [目录, 文件] 布局
+	FilesOnly          bool                                   `json:"filesOnly,omitempty"`          // Historical root [version, files] layout / 历史根 [版本, 文件] 布局
+	DirectoriesNil     bool                                   `json:"directoriesNil,omitempty"`     // Root allDirectorys was nil / 根 allDirectorys 为 nil
+	FilesNil           bool                                   `json:"filesNil,omitempty"`           // Root allFiles was nil / 根 allFiles 为 nil
+	FieldCount         *int                                   `json:"fieldCount,omitempty"`         // Non-canonical root indexed-array width / 非标准根槽数
+	FutureSlots        [][]byte                               `json:"futureSlots,omitempty"`        // Verbatim future root MessagePack values / 根未来 MessagePack 值
+	Directories        map[string]ct.VirtualDirectoryMetadata `json:"directories,omitempty"`        // Per-child layout metadata, including empty directories / 子目录布局元数据（含空目录）
+	VirtualFiles       map[string]ct.VirtualFileMetadata      `json:"virtualFiles,omitempty"`       // Position-independent VirtualFile short/future slots / 与偏移无关的 VirtualFile 短/未来槽位
+	Catalog            *ct.AssetBundleCatalog                 `json:"catalog,omitempty"`            // catalog 虚拟文件内容 / Decoded catalog virtual file content
+	ExtensionNameLists map[string]*ct.ExtensionNameList       `json:"extensionNameLists,omitempty"` // 按扩展名索引的 ExtensionNameList / ExtensionNameList values keyed by extension
+	Files              []CtEnvelopeFile                       `json:"files,omitempty"`              // 未识别或非 catalog 虚拟文件 / Unrecognized or non-catalog virtual files
 }
 
 // CtEnvelopeFile 保留 .ct 包中的非 catalog 虚拟文件 / CtEnvelopeFile preserves a non-catalog virtual file from a .ct bundle
@@ -47,7 +55,7 @@ func IsKCESCtJSONFile(path string) bool {
 	var header struct {
 		Format string `json:"format"`
 	}
-	if err := json.Unmarshal(data, &header); err != nil {
+	if err := json.Unmarshal(trimJSONUTF8BOM(data), &header); err != nil {
 		return false
 	}
 	return header.Format == CtEnvelopeFormat
@@ -78,10 +86,10 @@ func (s *CtService) ConvertJsonToCt(inputPath string, outputPath string) error {
 	}
 
 	var envelope CtEnvelope
-	if err := json.Unmarshal(data, &envelope); err != nil {
+	if err := decodeStrictJSON(data, &envelope, "KCES content-table JSON"); err != nil {
 		return fmt.Errorf("parse KCES ct json: %w", err)
 	}
-	if envelope.Format != "" && envelope.Format != CtEnvelopeFormat {
+	if envelope.Format != CtEnvelopeFormat {
 		return fmt.Errorf("unsupported ct JSON format %q", envelope.Format)
 	}
 
@@ -120,6 +128,14 @@ func readCtEnvelopeFromTable(table *ct.ContentTable) (*CtEnvelope, error) {
 	envelope := &CtEnvelope{
 		Format:             CtEnvelopeFormat,
 		Version:            table.Version,
+		Versionless:        table.Versionless,
+		FilesOnly:          table.FilesOnly,
+		DirectoriesNil:     table.DirectoriesNil,
+		FilesNil:           table.FilesNil,
+		FieldCount:         table.FieldCount,
+		FutureSlots:        table.FutureSlots,
+		Directories:        table.GetVirtualDirectoryMetadata(),
+		VirtualFiles:       table.GetVirtualFileMetadata(),
 		Catalog:            catalog,
 		ExtensionNameLists: make(map[string]*ct.ExtensionNameList, len(catalog.ExtensionList)),
 	}
@@ -194,10 +210,14 @@ func buildContentTableFromCtEnvelope(envelope *CtEnvelope) (*ct.ContentTable, er
 	}
 
 	table := &ct.ContentTable{
-		Version: envelope.Version,
-	}
-	if table.Version == 0 {
-		table.Version = 1000
+		Version:        envelope.Version,
+		Versionless:    envelope.Versionless,
+		FilesOnly:      envelope.FilesOnly,
+		DirectoriesNil: envelope.DirectoriesNil,
+		FilesNil:       envelope.FilesNil,
+		FieldCount:     envelope.FieldCount,
+		FutureSlots:    envelope.FutureSlots,
+		Directories:    envelope.Directories,
 	}
 
 	rawFiles := make(map[string][]byte, len(envelope.Files))
@@ -282,6 +302,9 @@ func buildContentTableFromCtEnvelope(envelope *CtEnvelope) (*ct.ContentTable, er
 		for _, name := range names {
 			table.AddFile(name, rawFiles[name])
 		}
+	}
+	if err := table.ApplyVirtualFileMetadata(envelope.VirtualFiles); err != nil {
+		return nil, err
 	}
 
 	return table, nil

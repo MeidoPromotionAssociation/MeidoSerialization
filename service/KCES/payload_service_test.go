@@ -71,6 +71,63 @@ func TestPayloadService_DynamicBoneJSONRoundTrip(t *testing.T) {
 	}
 }
 
+func TestPayloadService_ExportCMJSONVariantsRoundTrip(t *testing.T) {
+	dynamicJSON := []byte(`{"version":1000,"damping":0.6,"DampingKeyFrames":[],"elasticity":0.1,"ElasticityKeyFrames":[],"stiffness":0.1,"StiffnessKeyFrames":[],"inert":0,"InertKeyFrames":[],"radius":0,"RadiusKeyFrames":[],"endLength":0,"endOffset":{"x":0,"y":0,"z":0},"gravity":{"x":0,"y":-0.05,"z":0},"force":{"x":0,"y":0,"z":0},"freezeAxis":0}`)
+	colliderJSON := []byte(`{"version":1000,"StatusJsonStrList":[],"limbEnableList":[]}`)
+	tests := []struct {
+		name        string
+		extension   string
+		wire        []byte
+		wantStorage string
+	}{
+		{name: "dbconf", extension: ".dbconf", wire: dynamicJSON, wantStorage: serializationKCES.PayloadStorageExportCMUnityJSON},
+		{name: "dbcol", extension: ".dbcol", wire: colliderJSON, wantStorage: serializationKCES.PayloadStorageExportCMUnityJSON},
+		{name: "dslcol", extension: ".dslcol", wire: appendServiceDotNetString(nil, colliderJSON), wantStorage: serializationKCES.PayloadStorageExportCMDotNetStringJSON},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			dir := t.TempDir()
+			input := filepath.Join(dir, "input"+test.extension)
+			jsonPath := input + ".json"
+			output := filepath.Join(dir, "output"+test.extension)
+			if err := os.WriteFile(input, test.wire, 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			service := &PayloadService{}
+			if err := service.ConvertPayloadToJson(input, jsonPath); err != nil {
+				t.Fatalf("ConvertPayloadToJson() error = %v", err)
+			}
+			var envelope serializationKCES.KCESPayloadEnvelope
+			if err := json.Unmarshal(mustReadServiceTestFile(t, jsonPath), &envelope); err != nil {
+				t.Fatalf("unmarshal editing JSON: %v", err)
+			}
+			if envelope.Format != serializationKCES.PayloadFormatKCESExportCM || envelope.StorageVariant != test.wantStorage {
+				t.Fatalf("editing envelope format/storage = %q/%q", envelope.Format, envelope.StorageVariant)
+			}
+
+			if err := service.ConvertJsonToPayload(jsonPath, output); err != nil {
+				t.Fatalf("ConvertJsonToPayload() error = %v", err)
+			}
+			if got := mustReadServiceTestFile(t, output); !reflect.DeepEqual(got, test.wire) {
+				t.Fatalf("service round trip changed ExportCM wire:\n got  %x\n want %x", got, test.wire)
+			}
+		})
+	}
+}
+
+func appendServiceDotNetString(dst, value []byte) []byte {
+	length := len(value)
+	for length >= 0x80 {
+		dst = append(dst, byte(length)|0x80)
+		length >>= 7
+	}
+	dst = append(dst, byte(length))
+	return append(dst, value...)
+}
+
 func TestPayloadService_ColliderPackageRoundTrip(t *testing.T) {
 	tmpDir := t.TempDir()
 	inputPath := filepath.Join(tmpDir, "sample.dbcol")

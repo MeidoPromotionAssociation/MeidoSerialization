@@ -17,20 +17,20 @@ func TestMiscService_HitCheckRoundTrip(t *testing.T) {
 	jsonPath := inputPath + ".json"
 	outputPath := filepath.Join(tmpDir, "out.hitcheck")
 
-	encoded, err := serializationKCES.EncodeHitCheck(&serializationKCES.HitCheck{
-		Entries: []serializationKCES.HitCheckEntry{
-			{
-				Type:      1,
-				Radius:    0.5,
-				RadiusSqr: 0.25,
-				Name:      "Sphere",
-				Parent:    "Bip01 Head",
-				Position:  serializationKCES.Vector3{X: 1, Y: 2, Z: 3},
-				SKRT:      0,
-				RL:        1,
-			},
+	hitCheck := serializationKCES.NewHitCheck()
+	hitCheck.Entries = []serializationKCES.HitCheckEntry{
+		{
+			Type:      1,
+			Radius:    0.5,
+			RadiusSqr: 0.25,
+			Name:      "Sphere",
+			Parent:    "Bip01 Head",
+			Position:  serializationKCES.Vector3{X: 1, Y: 2, Z: 3},
+			SKRT:      0,
+			RL:        1,
 		},
-	})
+	}
+	encoded, err := serializationKCES.EncodeHitCheck(hitCheck)
 	if err != nil {
 		t.Fatalf("EncodeHitCheck: %v", err)
 	}
@@ -86,6 +86,51 @@ func TestMiscService_JSONTextRoundTrip(t *testing.T) {
 	}
 	if string(decoded.JSON) != `{"editVer":13,"items":["a","b"]}` {
 		t.Fatalf("unexpected JSON payload: %s", decoded.JSON)
+	}
+}
+
+func TestMiscService_NSONRoundTrip(t *testing.T) {
+	tmpDir := t.TempDir()
+	inputPath := filepath.Join(tmpDir, "dance_enabled_list.nson")
+	jsonPath := inputPath + ".json"
+	outputPath := filepath.Join(tmpDir, "out.nson")
+
+	// CsvManager.CreateCsvIdManager feeds .nson TextAssets to
+	// JsonUtility.FromJson<CsvIdManager>. Keep the real game-side field names in
+	// this probe while preserving support for other JSON-shaped .nson TextAssets.
+	input := []byte(`{"version":1000,"_ids":[1,2,2147483647]}`)
+	if err := os.WriteFile(inputPath, input, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	service := &MiscService{}
+	if err := service.ConvertMiscToJson(inputPath, jsonPath); err != nil {
+		t.Fatalf("ConvertMiscToJson: %v", err)
+	}
+	var envelope serializationKCES.KCESJSONText
+	if err := json.Unmarshal(mustReadTestFile(t, jsonPath), &envelope); err != nil {
+		t.Fatalf("unmarshal envelope: %v", err)
+	}
+	var gotPayload, wantPayload interface{}
+	if err := json.Unmarshal(envelope.JSON, &gotPayload); err != nil {
+		t.Fatalf("unmarshal envelope payload: %v", err)
+	}
+	if err := json.Unmarshal(input, &wantPayload); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Extension != ".nson" || !reflect.DeepEqual(gotPayload, wantPayload) {
+		t.Fatalf("unexpected NSON envelope: extension=%q json=%s", envelope.Extension, envelope.JSON)
+	}
+
+	if err := service.ConvertJsonToMisc(jsonPath, outputPath); err != nil {
+		t.Fatalf("ConvertJsonToMisc: %v", err)
+	}
+	decoded, err := serializationKCES.DecodeKCESJSONText(mustReadTestFile(t, outputPath), ".nson")
+	if err != nil {
+		t.Fatalf("DecodeKCESJSONText output: %v", err)
+	}
+	if string(decoded.JSON) != string(input) {
+		t.Fatalf("unexpected NSON payload: %s", decoded.JSON)
 	}
 }
 

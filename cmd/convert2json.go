@@ -14,7 +14,7 @@ var convert2jsonCmd = &cobra.Command{
 	Short: "Convert MOD files to JSON",
 	Long: `Convert MOD files to JSON format.
 This command can process a single file or all files in a directory.
-Supported file types include: .menu, .mate, .pmat, .col, .phy, .psk, .anm, .model and .preset.
+Supported file types include: .menu, .mate/.mat, .pmat, .col, .phy, .psk, .anm, .model and .preset.
 KCES parts payloads are also supported: .menuassets, .materialassets, .pmatassets,
 and KCES MessagePack .model files.
 

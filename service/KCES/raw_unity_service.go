@@ -15,17 +15,23 @@ import (
 const RawUnityObjectFormat = "kces-unity-raw-object"
 
 // RawUnityObjectEnvelope 是从 .aba 提取的原始 Unity 序列化对象字节的 JSON 可编辑封套 / RawUnityObjectEnvelope is the JSON-editable wrapper for raw Unity serialized object bytes extracted from .aba bundles
-// 对象数据本身无损保存，sidecar 元数据保留 PathID 和 AssetBundle 加载名 / Object data is preserved losslessly while sidecar metadata keeps PathID and AssetBundle load name
+// 对象数据本身无损保存，sidecar 元数据保留 PathID、加载名以及解释原始对象布局所需的 Unity 版本上下文 / Object data is preserved losslessly while sidecar metadata keeps PathID, load name, and the Unity version context needed to interpret the original object layout
 type RawUnityObjectEnvelope struct {
-	Format     string                    `json:"format"`             // 封套格式标识，固定为 kces-unity-raw-object / Envelope format marker, fixed to kces-unity-raw-object
-	ClassID    int32                     `json:"classId"`            // Unity ClassID / Unity ClassID
-	TypeName   string                    `json:"typeName,omitempty"` // Unity 类型名 / Unity type name
-	Kind       string                    `json:"kind,omitempty"`     // 打包时使用的资源 kind / Asset kind used during packing
-	Name       string                    `json:"name,omitempty"`     // 对象内部名称 / Internal object name
-	PathID     int64                     `json:"pathId,omitempty"`   // Unity PathID / Unity PathID
-	LoadName   string                    `json:"loadName,omitempty"` // AssetBundle 加载名 / AssetBundle load name
-	DataBase64 string                    `json:"dataBase64"`         // 原始序列化对象数据 base64 / Base64 of raw serialized object data
-	TypeTree   *RawUnityTypeTreeEnvelope `json:"typeTree,omitempty"` // 可选 TypeTree 只读视图 / Optional read-only TypeTree view
+	Format                string                    `json:"format"`                          // 封套格式标识，固定为 kces-unity-raw-object / Envelope format marker, fixed to kces-unity-raw-object
+	ClassID               int32                     `json:"classId"`                         // Unity ClassID / Unity ClassID
+	TypeName              string                    `json:"typeName,omitempty"`              // Unity 类型名 / Unity type name
+	Kind                  string                    `json:"kind,omitempty"`                  // 打包时使用的资源 kind / Asset kind used during packing
+	Name                  string                    `json:"name,omitempty"`                  // 对象内部名称 / Internal object name
+	PathID                int64                     `json:"pathId,omitempty"`                // Unity PathID / Unity PathID
+	LoadName              string                    `json:"loadName,omitempty"`              // AssetBundle 加载名 / AssetBundle load name
+	UnityVersion          string                    `json:"unityVersion,omitempty"`          // SerializedFile Unity 版本 / SerializedFile Unity version
+	EngineVersion         string                    `json:"engineVersion,omitempty"`         // UnityFS header 引擎版本 / UnityFS header engine version
+	TargetPlatform        *uint32                   `json:"targetPlatform,omitempty"`        // SerializedFile 目标平台 / SerializedFile target platform
+	BundleVersion         uint32                    `json:"bundleVersion,omitempty"`         // UnityFS 格式版本 / UnityFS format version
+	GenerationVersion     string                    `json:"generationVersion,omitempty"`     // UnityFS generation version / UnityFS generation version
+	SerializedFileVersion uint32                    `json:"serializedFileVersion,omitempty"` // SerializedFile 格式版本 / SerializedFile format version
+	DataBase64            string                    `json:"dataBase64"`                      // 原始序列化对象数据 base64 / Base64 of raw serialized object data
+	TypeTree              *RawUnityTypeTreeEnvelope `json:"typeTree,omitempty"`              // 可选 TypeTree 只读视图 / Optional read-only TypeTree view
 }
 
 // RawUnityObjectService 提供原始 Unity 对象字节与 JSON 封套的转换服务 / RawUnityObjectService converts raw Unity object bytes to and from JSON envelopes
@@ -51,7 +57,7 @@ func IsKCESRawUnityBytesJSONFile(path string) bool {
 	var header struct {
 		Format string `json:"format"`
 	}
-	if err := json.Unmarshal(data, &header); err != nil {
+	if err := json.Unmarshal(trimJSONUTF8BOM(data), &header); err != nil {
 		return false
 	}
 	return header.Format == RawUnityObjectFormat
@@ -78,25 +84,25 @@ func (s *RawUnityObjectService) ConvertJsonToRawUnityObject(inputPath string, ou
 	if err != nil {
 		return fmt.Errorf("read %q: %w", inputPath, err)
 	}
-	var envelope RawUnityObjectEnvelope
-	if err := json.Unmarshal(data, &envelope); err != nil {
-		return fmt.Errorf("parse KCES raw Unity object json: %w", err)
-	}
-	if envelope.Format != RawUnityObjectFormat {
-		return fmt.Errorf("unsupported raw Unity object JSON format %q", envelope.Format)
-	}
-	raw, err := base64.StdEncoding.DecodeString(envelope.DataBase64)
+	envelope, raw, err := decodeRawUnityObjectEditingJSON(data)
 	if err != nil {
-		return fmt.Errorf("decode dataBase64: %w", err)
-	}
-	if len(raw) == 0 {
-		return fmt.Errorf("raw Unity object data is empty")
+		return fmt.Errorf("parse KCES raw Unity object json: %w", err)
 	}
 	if err := os.WriteFile(outputPath, raw, 0644); err != nil {
 		return fmt.Errorf("write %q: %w", outputPath, err)
 	}
-	if envelope.PathID != 0 || envelope.LoadName != "" {
-		if err := writeAssetMeta(outputPath, envelope.PathID, envelope.LoadName); err != nil {
+	meta := rawAssetMeta{
+		PathID:                envelope.PathID,
+		LoadName:              envelope.LoadName,
+		UnityVersion:          envelope.UnityVersion,
+		EngineVersion:         envelope.EngineVersion,
+		TargetPlatform:        envelope.TargetPlatform,
+		BundleVersion:         envelope.BundleVersion,
+		GenerationVersion:     envelope.GenerationVersion,
+		SerializedFileVersion: envelope.SerializedFileVersion,
+	}
+	if hasRawAssetMeta(meta) {
+		if err := writeRawAssetMeta(outputPath, meta); err != nil {
 			return fmt.Errorf("write %q: %w", assetMetaPath(outputPath), err)
 		}
 	}
@@ -106,6 +112,27 @@ func (s *RawUnityObjectService) ConvertJsonToRawUnityObject(inputPath string, ou
 		}
 	}
 	return nil
+}
+
+func decodeRawUnityObjectEditingJSON(data []byte) (*RawUnityObjectEnvelope, []byte, error) {
+	var envelope RawUnityObjectEnvelope
+	if err := decodeStrictJSON(data, &envelope, "KCES raw Unity object JSON"); err != nil {
+		return nil, nil, err
+	}
+	if envelope.Format != RawUnityObjectFormat {
+		return nil, nil, fmt.Errorf("unsupported raw Unity object JSON format %q", envelope.Format)
+	}
+	raw, err := base64.StdEncoding.DecodeString(envelope.DataBase64)
+	if err != nil {
+		return nil, nil, fmt.Errorf("decode dataBase64: %w", err)
+	}
+	if len(raw) == 0 {
+		return nil, nil, fmt.Errorf("raw Unity object data is empty")
+	}
+	if envelope.TypeTree != nil && envelope.TypeTree.Format != "" && envelope.TypeTree.Format != RawUnityTypeTreeFormat {
+		return nil, nil, fmt.Errorf("unsupported TypeTree sidecar format %q", envelope.TypeTree.Format)
+	}
+	return &envelope, raw, nil
 }
 
 func (s *RawUnityObjectService) ReadRawUnityObjectFile(path string) (*RawUnityObjectEnvelope, error) {
@@ -121,20 +148,34 @@ func (s *RawUnityObjectService) ReadRawUnityObjectFile(path string) (*RawUnityOb
 		return nil, fmt.Errorf("raw Unity object %q is empty", path)
 	}
 
-	meta := readAssetMeta(path)
+	meta, err := readAssetMetaStrict(path)
+	if err != nil {
+		return nil, err
+	}
 	name := inferRawUnityObjectName(path, data, meta)
 	typeTree, _ := readRawUnityTypeTreeSidecar(path)
 	return &RawUnityObjectEnvelope{
-		Format:     RawUnityObjectFormat,
-		ClassID:    classID,
-		TypeName:   unityClassName(classID),
-		Kind:       kind,
-		Name:       name,
-		PathID:     meta.PathID,
-		LoadName:   meta.LoadName,
-		DataBase64: base64.StdEncoding.EncodeToString(data),
-		TypeTree:   typeTree,
+		Format:                RawUnityObjectFormat,
+		ClassID:               classID,
+		TypeName:              unityClassName(classID),
+		Kind:                  kind,
+		Name:                  name,
+		PathID:                meta.PathID,
+		LoadName:              meta.LoadName,
+		UnityVersion:          meta.UnityVersion,
+		EngineVersion:         meta.EngineVersion,
+		TargetPlatform:        meta.TargetPlatform,
+		BundleVersion:         meta.BundleVersion,
+		GenerationVersion:     meta.GenerationVersion,
+		SerializedFileVersion: meta.SerializedFileVersion,
+		DataBase64:            base64.StdEncoding.EncodeToString(data),
+		TypeTree:              typeTree,
 	}, nil
+}
+
+func hasRawAssetMeta(meta rawAssetMeta) bool {
+	return meta.PathID != 0 || meta.LoadName != "" || meta.UnityVersion != "" || meta.EngineVersion != "" ||
+		meta.TargetPlatform != nil || meta.BundleVersion != 0 || meta.GenerationVersion != "" || meta.SerializedFileVersion != 0
 }
 
 func inferRawUnityObjectKind(path string) (string, int32, bool) {

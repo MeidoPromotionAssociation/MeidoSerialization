@@ -2,6 +2,7 @@ package KCES
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -9,6 +10,115 @@ import (
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
+
+func TestCtEnvelopeVirtualAssetCatalogRoundTrip(t *testing.T) {
+	itemName := "local_test.menuassets"
+	catalog := &ct.AssetBundleCatalog{
+		Kind:          ct.CatalogKindVirtualAsset,
+		Version:       1000,
+		CatalogType:   ct.CatalogTypeParts,
+		PackageType:   ct.PackageTypePlugin,
+		Priority:      5,
+		Name:          "local_test",
+		Hash:          ct.HashStringIgnoreCase("local_test"),
+		CreateTime:    123456789,
+		ExtensionList: []string{".menuassets"},
+		VirtualItems: []ct.VirtualCatalogItem{{
+			AssetPath: "Assets/GameData/parts/local_test/local_test.menuassets",
+			Name:      itemName,
+			Hash:      ct.HashStringIgnoreCase(itemName),
+		}},
+	}
+	catalogData, err := ct.EncodeCatalog(catalog)
+	if err != nil {
+		t.Fatalf("EncodeCatalog: %v", err)
+	}
+	extensionList := &ct.ExtensionNameList{
+		Extension: ".menuassets",
+		Data:      []ct.ExtensionNamePack{{Name: itemName, Hash: ct.HashStringIgnoreCase(itemName)}},
+	}
+	extensionData, err := ct.EncodeExtensionNameList(extensionList)
+	if err != nil {
+		t.Fatalf("EncodeExtensionNameList: %v", err)
+	}
+	compressedCatalog, err := ct.CompressLz4BlockArray(catalogData)
+	if err != nil {
+		t.Fatalf("Compress catalog: %v", err)
+	}
+	compressedExtension, err := ct.CompressLz4BlockArray(extensionData)
+	if err != nil {
+		t.Fatalf("Compress extension list: %v", err)
+	}
+	rootFieldCount := 4
+	childFieldCount := 3
+	table := &ct.ContentTable{
+		Version:     -9,
+		FieldCount:  &rootFieldCount,
+		FutureSlots: [][]byte{{0xd4, 0x2a, 0x7f}},
+		Directories: map[string]ct.VirtualDirectoryMetadata{
+			"empty": {
+				Versionless: true,
+				FilesNil:    true,
+				FieldCount:  &childFieldCount,
+				FutureSlots: [][]byte{{0xc0}},
+			},
+		},
+	}
+	table.AddFile("catalog", compressedCatalog)
+	table.AddFile(".menuassets", compressedExtension)
+	virtualFileFieldCount := 3
+	catalogFile := table.Files["catalog"]
+	catalogFile.FieldCount = &virtualFileFieldCount
+	catalogFile.FutureSlots = [][]byte{{0xcc, 0x02}}
+	table.Files["catalog"] = catalogFile
+
+	envelope, err := readCtEnvelopeFromTable(table)
+	if err != nil {
+		t.Fatalf("readCtEnvelopeFromTable: %v", err)
+	}
+	if envelope.Catalog.Kind != ct.CatalogKindVirtualAsset {
+		t.Fatalf("envelope catalog kind = %q", envelope.Catalog.Kind)
+	}
+	if envelope.Version != -9 || envelope.FieldCount == nil || *envelope.FieldCount != 4 || !reflect.DeepEqual(envelope.FutureSlots, table.FutureSlots) || !reflect.DeepEqual(envelope.Directories, table.Directories) || !reflect.DeepEqual(envelope.VirtualFiles, table.GetVirtualFileMetadata()) {
+		t.Fatalf("content-table wire metadata missing from envelope: %+v", envelope)
+	}
+	jsonData, err := json.Marshal(envelope)
+	if err != nil {
+		t.Fatalf("Marshal envelope: %v", err)
+	}
+	if !bytes.Contains(jsonData, []byte(`"kind":"virtualAsset"`)) {
+		t.Fatalf("envelope JSON lacks explicit virtual catalog kind: %s", jsonData)
+	}
+	var fromJSON CtEnvelope
+	if err := json.Unmarshal(jsonData, &fromJSON); err != nil {
+		t.Fatalf("Unmarshal envelope: %v", err)
+	}
+	roundTripTable, err := buildContentTableFromCtEnvelope(&fromJSON)
+	if err != nil {
+		t.Fatalf("buildContentTableFromCtEnvelope: %v", err)
+	}
+	decoded, err := ct.DecodeCatalogFromCt(roundTripTable)
+	if err != nil {
+		t.Fatalf("DecodeCatalogFromCt: %v", err)
+	}
+	if !reflect.DeepEqual(decoded, catalog) {
+		t.Fatalf("virtual catalog changed after envelope round-trip\ngot:  %+v\nwant: %+v", decoded, catalog)
+	}
+	if roundTripTable.Version != table.Version || !reflect.DeepEqual(roundTripTable.FieldCount, table.FieldCount) || !reflect.DeepEqual(roundTripTable.FutureSlots, table.FutureSlots) || !reflect.DeepEqual(roundTripTable.Directories, table.Directories) || !reflect.DeepEqual(roundTripTable.GetVirtualFileMetadata(), table.GetVirtualFileMetadata()) {
+		t.Fatalf("content-table metadata changed after envelope round-trip:\n got  %+v\n want %+v", roundTripTable, table)
+	}
+	var container bytes.Buffer
+	if err := ct.WriteContentTable(&container, roundTripTable); err != nil {
+		t.Fatalf("WriteContentTable: %v", err)
+	}
+	redecodedTable, err := ct.ReadContentTable(bytes.NewReader(container.Bytes()))
+	if err != nil {
+		t.Fatalf("ReadContentTable: %v", err)
+	}
+	if redecodedTable.Version != table.Version || !reflect.DeepEqual(redecodedTable.FieldCount, table.FieldCount) || !reflect.DeepEqual(redecodedTable.FutureSlots, table.FutureSlots) || !reflect.DeepEqual(redecodedTable.Directories, table.Directories) || !reflect.DeepEqual(redecodedTable.GetVirtualFileMetadata(), table.GetVirtualFileMetadata()) {
+		t.Fatalf("content-table metadata changed on final wire:\n got  %+v\n want %+v", redecodedTable, table)
+	}
+}
 
 func TestCtService_FixedSamplesJSONRoundTrip(t *testing.T) {
 	samples := []struct {

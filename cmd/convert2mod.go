@@ -14,7 +14,7 @@ var convert2modCmd = &cobra.Command{
 	Short: "Convert JSON files to MOD",
 	Long: `Convert JSON files back to MOD format.
 This command can process a single file or all files in a directory.
-It will convert files like .menu.json back to .menu, .mate.json back to .mate, etc.
+It will convert files like .menu.json back to .menu, .mate.json/.mat.json back to their original extension, etc.
 KCES parts JSON files are also supported: .menuassets.json, .materialassets.json,
 .pmatassets.json, and KCES .model.json.
 

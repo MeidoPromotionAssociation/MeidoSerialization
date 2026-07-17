@@ -48,9 +48,17 @@ type TypeTreeJSONBytes struct {
 }
 
 func writeRawUnityTypeTreeSidecar(assetPath string, af *aba.AssetsFile, info *aba.AssetInfo, entry aba.AssetEntry, loadName string) error {
-	root, err := af.ReadAssetValue(info)
+	data, err := marshalRawUnityTypeTreeSidecar(af, info, entry, loadName)
 	if err != nil {
 		return err
+	}
+	return os.WriteFile(typeTreeSidecarPath(assetPath), data, 0644)
+}
+
+func marshalRawUnityTypeTreeSidecar(af *aba.AssetsFile, info *aba.AssetInfo, entry aba.AssetEntry, loadName string) ([]byte, error) {
+	root, err := af.ReadAssetValue(info)
+	if err != nil {
+		return nil, err
 	}
 	envelope := &RawUnityTypeTreeEnvelope{
 		Format:   RawUnityTypeTreeFormat,
@@ -63,10 +71,10 @@ func writeRawUnityTypeTreeSidecar(assetPath string, af *aba.AssetsFile, info *ab
 	}
 	data, err := json.MarshalIndent(envelope, "", "  ")
 	if err != nil {
-		return fmt.Errorf("marshal TypeTree sidecar: %w", err)
+		return nil, fmt.Errorf("marshal TypeTree sidecar: %w", err)
 	}
 	data = append(data, '\n')
-	return os.WriteFile(typeTreeSidecarPath(assetPath), data, 0644)
+	return data, nil
 }
 
 func typeTreeSidecarPath(assetPath string) string {
@@ -79,7 +87,7 @@ func readRawUnityTypeTreeSidecar(assetPath string) (*RawUnityTypeTreeEnvelope, e
 		return nil, err
 	}
 	var envelope RawUnityTypeTreeEnvelope
-	if err := json.Unmarshal(data, &envelope); err != nil {
+	if err := json.Unmarshal(trimJSONUTF8BOM(data), &envelope); err != nil {
 		return nil, err
 	}
 	if envelope.Format != RawUnityTypeTreeFormat {

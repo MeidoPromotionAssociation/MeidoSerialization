@@ -17,7 +17,7 @@ var RootCmd = &cobra.Command{
 This tool can convert MOD files to JSON, JSON files to MOD files, and determine file types.
 (For .tex, it is converted to image, for .nei, it is converted to .csv)
 
-Supported file types include: .menu, .mate, .pmat, .col, .phy, .psk, .tex, .anm, .model, .nei
+Supported file types include: .menu, .mate/.mat, .pmat, .col, .phy, .psk, .tex, .anm, .model, .nei
 
 Github: https://github.com/MeidoPromotionAssociation/MeidoSerialization
 
@@ -27,7 +27,7 @@ MeidoSerialization CLI 工具，用于在 COM3D2 MOD 文件和 JSON 之间进行
 此工具可以将 MOD 文件转换为 JSON，也可以将 JSON 文件转换为 MOD 文件，并可识别文件类型。
 （对于 .tex 则是转换为图片，对于 .nei 则是转换为 .csv)
 
-支持的文件类型包括：.menu、.mate、.pmat、.col、.phy、.psk、.tex、.anm、.model、.nei
+支持的文件类型包括：.menu、.mate/.mat、.pmat、.col、.phy、.psk、.tex、.anm、.model、.nei
 
 中文说明请查看在线文档：
 Github：https://github.com/MeidoPromotionAssociation/MeidoSerialization

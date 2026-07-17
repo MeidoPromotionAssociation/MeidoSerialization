@@ -59,6 +59,12 @@ func TestPackMod_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeCatalogFromCt: %v", err)
 	}
+	if want := ct.HashStringIgnoreCase("integration_test.aba"); catalog.Hash != want {
+		t.Fatalf("catalog hash=%d, want resource bundle hash %d", catalog.Hash, want)
+	}
+	if !sort.StringsAreSorted(catalog.ExtensionList) {
+		t.Fatalf("catalog extension list is not sorted: %v", catalog.ExtensionList)
+	}
 
 	// 验证 catalog items 按 hash 升序排序
 	for i := 1; i < len(catalog.Items); i++ {
@@ -121,6 +127,66 @@ func TestPackMod_Integration(t *testing.T) {
 		}) {
 			t.Errorf("ExtensionNameList %q not sorted by hash", ext)
 		}
+	}
+}
+
+func TestPackModCatalogsExtensionlessTextAssetsUnderNullGroup(t *testing.T) {
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, "maid_collider.bin"), []byte("extensionless TextAsset payload"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "dependency.bin"), []byte("raw dependency"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	manifest := ModManifest{
+		Name:        "extensionless_test",
+		CatalogType: "System",
+		PackageType: "Plugin",
+		Assets: []ModAsset{
+			{Name: "maid_collider", Path: "maid_collider.bin", Kind: "textasset"},
+			// Extensionless raw Unity objects remain m_Container-only by default.
+			{Name: "dependency", Path: "dependency.bin", Kind: "material"},
+		},
+	}
+	manifestData, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestPath := filepath.Join(tmpDir, "manifest.json")
+	if err := os.WriteFile(manifestPath, manifestData, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := (&ModPackService{}).PackMod(manifestPath, tmpDir); err != nil {
+		t.Fatalf("PackMod: %v", err)
+	}
+
+	ctFile, err := os.Open(filepath.Join(tmpDir, "extensionless_test.ct"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctFile.Close()
+	table, err := ct.ReadContentTable(ctFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := ct.DecodeCatalogFromCt(table)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(catalog.ExtensionList) != 1 || catalog.ExtensionList[0] != "null" {
+		t.Fatalf("extensionList = %v, want official extensionless group [null]", catalog.ExtensionList)
+	}
+	if len(catalog.Items) != 1 || catalog.Items[0].Name != "maid_collider" || catalog.Items[0].Hash != ct.HashStringIgnoreCase("maid_collider") {
+		t.Fatalf("catalog items = %+v, want extensionless maid_collider only", catalog.Items)
+	}
+
+	enl, err := ct.DecodeExtensionNameListFromCt(table, "null")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if enl.Extension != "null" || len(enl.Data) != 1 || enl.Data[0].Name != "maid_collider" || enl.Data[0].Hash != ct.HashStringIgnoreCase("maid_collider") {
+		t.Fatalf("null ExtensionNameList = %+v", enl)
 	}
 }
 
