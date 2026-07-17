@@ -1,7 +1,26 @@
 package ct
 
-// AssetBundleCatalog 表示 .ct 文件中 "catalog" 虚拟文件的反序列化结构 / AssetBundleCatalog represents the deserialized "catalog" virtual file inside a .ct file
-// 对应 C# WfSystem.Catalog.AssetBundleCatalog，使用 MessagePack indexed array 序列化 / Matches C# WfSystem.Catalog.AssetBundleCatalog serialized as a MessagePack indexed array
+import (
+	"fmt"
+	"unicode/utf8"
+
+	"github.com/ugorji/go/codec"
+)
+
+// CatalogKind identifies the two concrete catalog layouts used by KCES.
+// The empty value is accepted only when reading legacy JSON and means the
+// historical 12-slot AssetBundleCatalog layout.
+type CatalogKind string
+
+const (
+	CatalogKindAssetBundle  CatalogKind = "assetBundle"
+	CatalogKindVirtualAsset CatalogKind = "virtualAsset"
+)
+
+// AssetBundleCatalog is the backward-compatible Go catalog envelope. Kind
+// selects either C# AssetBundleCatalog's 12-slot layout or VirtualAssetCatalog's
+// 10-slot local-mode layout; the historical type name and bundle JSON fields
+// are retained so existing callers and JSON remain readable.
 //
 // MessagePack 布局（[Key(N)] 对应数组下标）：
 //
@@ -18,18 +37,28 @@ package ct
 //	[10] extensionList     []string     扩展名列表（如 ".menuassets", ".tex"）
 //	[11] items             []Item       资源索引条目
 type AssetBundleCatalog struct {
-	Version           int                `json:"version"`           // 固定为 1000，对应 C# FixVersion / Fixed to 1000, matching the C# FixVersion
-	CatalogType       CatalogType        `json:"catalogType"`       // 资源分类标志位 Flags 枚举，如 Parts=4096 / Resource category flag enum such as Parts=4096
-	PackageType       CatalogPackageType `json:"packageType"`       // 包类型枚举，如 Base=0, Plugin=1 / Package type enum such as Base=0, Plugin=1
-	Priority          int                `json:"priority"`          // 加载优先级，数值越大优先级越高 / Load priority, higher values load earlier
-	Name              string             `json:"name"`              // catalog 名称，通常与 .ct 文件名一致且不含扩展名 / Catalog name, usually matching the .ct file name without extension
-	SubName           string             `json:"subName"`           // 子名称，通常为空 / Sub name, usually empty
-	Hash              uint64             `json:"hash"`              // catalog 自身的 FNV-1a hash / FNV-1a hash of the catalog itself
-	CreateTime        int64              `json:"createTime"`        // 创建时间戳 / Creation timestamp
-	IsEncrypted       bool               `json:"isEncrypted"`       // 是否为加密包 abap 格式 / Whether this is an encrypted abap package
-	ResourceFileNames []string           `json:"resourceFileNames"` // 关联的资源文件名列表，如 name.aba / Related resource file-name list such as name.aba
-	ExtensionList     []string           `json:"extensionList"`     // 扩展名列表，每个扩展名对应 .ct 中一个同名 ExtensionNameList 文件 / Extension list, each extension maps to a same-name ExtensionNameList virtual file
-	Items             []CatalogItem      `json:"items"`             // 资源索引条目数组，按 hash 排序用于二分查找 / Resource index item array, sorted by hash for binary search
+	MessagePackRootMetadata
+	IndexedObjectMetadata
+	Kind                  CatalogKind          `json:"kind,omitempty"`                  // catalog wire variant; empty is legacy JSON for assetBundle / catalog 线格式；空值表示旧 JSON 的 assetBundle
+	Version               int                  `json:"version"`                         // 当前游戏通常写 1000；解码和重编码时原样保留 / The current game normally writes 1000; decoding and re-encoding preserve the stored value
+	CatalogType           CatalogType          `json:"catalogType"`                     // 资源分类标志位 Flags 枚举，如 Parts=4096 / Resource category flag enum such as Parts=4096
+	PackageType           CatalogPackageType   `json:"packageType"`                     // 包类型枚举，如 Base=0, Plugin=1 / Package type enum such as Base=0, Plugin=1
+	Priority              int                  `json:"priority"`                        // 加载优先级，数值越大优先级越高 / Load priority, higher values load earlier
+	Name                  string               `json:"name"`                            // catalog 名称，通常与 .ct 文件名一致且不含扩展名 / Catalog name, usually matching the .ct file name without extension
+	NameIsNil             bool                 `json:"nameIsNil,omitempty"`             // Key(4) was MessagePack nil / Key(4) 为 MessagePack nil
+	SubName               string               `json:"subName"`                         // 子名称，通常为空 / Sub name, usually empty
+	SubNameIsNil          bool                 `json:"subNameIsNil,omitempty"`          // Key(5) was MessagePack nil / Key(5) 为 MessagePack nil
+	Hash                  uint64               `json:"hash"`                            // catalog 稳定标识；bundle 通常使用 name.aba 的忽略大小写 hash / Stable catalog identifier; bundles commonly hash name.aba
+	CreateTime            int64                `json:"createTime"`                      // 创建时间戳 / Creation timestamp
+	IsEncrypted           bool                 `json:"isEncrypted"`                     // 是否为加密包 abap 格式 / Whether this is an encrypted abap package
+	ResourceFileNames     []string             `json:"resourceFileNames"`               // 关联的资源文件名列表，如 name.aba / Related resource file-name list such as name.aba
+	ResourceFileNameNulls []bool               `json:"resourceFileNameNulls,omitempty"` // nil string elements in resourceFileNames / resourceFileNames 中的 nil 字符串
+	ExtensionList         []string             `json:"extensionList"`                   // 扩展名列表，每个扩展名对应 .ct 中一个同名 ExtensionNameList 文件 / Extension list, each extension maps to a same-name ExtensionNameList virtual file
+	ExtensionListNulls    []bool               `json:"extensionListNulls,omitempty"`    // nil string elements in extensionList / extensionList 中的 nil 字符串
+	Items                 []CatalogItem        `json:"items"`                           // 资源索引条目数组；游戏通常按 hash 排序，序列化器保留原顺序 / Resource index item array; the game normally sorts by hash, while this serializer preserves stored order
+	ItemNulls             []bool               `json:"itemNulls,omitempty"`             // nil class elements in items / items 中的 nil 类元素
+	VirtualItems          []VirtualCatalogItem `json:"virtualItems,omitempty"`          // local-mode 资源条目；仅 virtualAsset kind 可用 / Local-mode items, valid only for virtualAsset kind
+	VirtualItemNulls      []bool               `json:"virtualItemNulls,omitempty"`      // nil class elements in virtualItems / virtualItems 中的 nil 类元素
 }
 
 // CatalogItem 表示 catalog 中的单个资源索引条目 / CatalogItem represents one resource index item in the catalog
@@ -39,9 +68,22 @@ type AssetBundleCatalog struct {
 //	[1] name           string  资源名称（如 "xxx.menuassets"）
 //	[2] hash           uint64  资源名称的 FNV-1a ignore-case hash
 type CatalogItem struct {
+	IndexedObjectMetadata
 	ResourceIndex int    `json:"resourceIndex"` // 指向 AssetBundleCatalog.ResourceFileNames 的索引 / Index into AssetBundleCatalog.ResourceFileNames
 	Name          string `json:"name"`          // 资源名称，游戏通过此名称加载资源 / Resource name used by the game to load the asset
-	Hash          uint64 `json:"hash"`          // 资源名称的 FNV-1a 64-bit ignore-case hash，用于快速查找 / FNV-1a 64-bit ignore-case hash of the resource name for fast lookup
+	NameIsNil     bool   `json:"nameIsNil,omitempty"`
+	Hash          uint64 `json:"hash"` // 资源名称的 FNV-1a 64-bit ignore-case hash，用于快速查找 / FNV-1a 64-bit ignore-case hash of the resource name for fast lookup
+}
+
+// VirtualCatalogItem maps WfSystem.Catalog.VirtualAssetCatalog.Item.
+// MessagePack indexed-array layout: [assetPath, name, hash].
+type VirtualCatalogItem struct {
+	IndexedObjectMetadata
+	AssetPath      string `json:"assetPath"` // Unity project-local asset path / Unity 工程内资源路径
+	AssetPathIsNil bool   `json:"assetPathIsNil,omitempty"`
+	Name           string `json:"name"` // resource lookup name / 资源查找名称
+	NameIsNil      bool   `json:"nameIsNil,omitempty"`
+	Hash           uint64 `json:"hash"` // case-insensitive hash of Name / Name 的忽略大小写哈希
 }
 
 // ExtensionNameList 表示 .ct 中按扩展名分组的资源名称列表 / ExtensionNameList represents resource names grouped by extension inside a .ct file
@@ -52,8 +94,12 @@ type CatalogItem struct {
 //
 // 游戏通过 GetFileNameListFromExtension 获取某扩展名下的所有资源名 / The game uses GetFileNameListFromExtension to enumerate resource names for an extension
 type ExtensionNameList struct {
-	Extension string              `json:"extention"` // 扩展名，如 .menuassets、.tex、.model，字段名保留游戏 extention 拼写 / Extension such as .menuassets, .tex, or .model, keeping the game's extention spelling
-	Data      []ExtensionNamePack `json:"data"`      // 该扩展名下的所有资源名称及其 hash / Resource names and hashes under this extension
+	MessagePackRootMetadata
+	IndexedObjectMetadata
+	Extension      string              `json:"extention"` // 扩展名，如 .menuassets、.tex、.model，字段名保留游戏 extention 拼写 / Extension such as .menuassets, .tex, or .model, keeping the game's extention spelling
+	ExtensionIsNil bool                `json:"extensionIsNil,omitempty"`
+	Data           []ExtensionNamePack `json:"data"` // 该扩展名下的所有资源名称及其 hash / Resource names and hashes under this extension
+	DataNulls      []bool              `json:"dataNulls,omitempty"`
 }
 
 // ExtensionNamePack 表示 ExtensionNameList 中的单个条目 / ExtensionNamePack represents one item in ExtensionNameList
@@ -62,8 +108,10 @@ type ExtensionNameList struct {
 //	[0] name  string  资源名称（不含扩展名）
 //	[1] hash  uint64  名称的 FNV-1a ignore-case hash
 type ExtensionNamePack struct {
-	Name string `json:"name"` // 资源名称 / Resource name
-	Hash uint64 `json:"hash"` // 名称的 FNV-1a 64-bit ignore-case hash / FNV-1a 64-bit ignore-case hash of the name
+	IndexedObjectMetadata
+	Name      string `json:"name"` // 资源名称 / Resource name
+	NameIsNil bool   `json:"nameIsNil,omitempty"`
+	Hash      uint64 `json:"hash"` // 名称的 FNV-1a 64-bit ignore-case hash / FNV-1a 64-bit ignore-case hash of the name
 }
 
 // CatalogType 资源分类标志位枚举（Flags）。
@@ -99,173 +147,788 @@ const (
 	PackageTypeExtraPatch  CatalogPackageType = 5
 )
 
-// DecodeCatalog 从 MessagePack indexed array 解码 AssetBundleCatalog。
-// 输入应为 DecompressLz4BlockArray 解压后的原始 MessagePack 数据。
+// DecodeCatalog decodes one uncompressed catalog root. The concrete class is
+// inferred from Key(8), whose wire type is disjoint: bool for
+// AssetBundleCatalog and string[]/nil for VirtualAssetCatalog. Arrays shorter
+// than nine slots are genuinely ambiguous and require DecodeCatalogWithKind.
 func DecodeCatalog(data []byte) (*AssetBundleCatalog, error) {
-	var raw []interface{}
-	if err := DecodeMsgpack(data, &raw); err != nil {
-		return nil, err
-	}
-	return decodeCatalogFromArray(raw)
+	return decodeCatalog(data, nil)
 }
 
-// DecodeCatalogFromCt 从 ContentTable 中读取 "catalog" 文件并解码。
-// 自动处理 Lz4BlockArray 解压。
+// DecodeCatalogWithKind decodes a catalog using the concrete C# class chosen
+// by the caller. This is required for short indexed arrays and is also the
+// lossless route for future arrays whose width alone cannot identify a type.
+func DecodeCatalogWithKind(data []byte, kind CatalogKind) (*AssetBundleCatalog, error) {
+	normalized, err := normalizedCatalogKind(kind)
+	if err != nil {
+		return nil, err
+	}
+	return decodeCatalog(data, &normalized)
+}
+
+func decodeCatalog(data []byte, forcedKind *CatalogKind) (*AssetBundleCatalog, error) {
+	root, trailing, err := SplitFirstMsgpackValue(data)
+	if err != nil {
+		return nil, fmt.Errorf("catalog: %w", err)
+	}
+	if isRawMsgpackNil(root) {
+		if len(trailing) == 0 {
+			return nil, nil
+		}
+		value := &AssetBundleCatalog{MessagePackRootMetadata: MessagePackRootMetadata{RootNil: true, TrailingData: trailing}}
+		if forcedKind != nil {
+			value.Kind = *forcedKind
+		}
+		return value, nil
+	}
+	fields, err := decodeRawMsgpackArray(root, "catalog")
+	if err != nil {
+		return nil, err
+	}
+	kind := CatalogKind("")
+	if forcedKind != nil {
+		kind = *forcedKind
+	} else {
+		kind, err = inferCatalogKind(fields)
+		if err != nil {
+			return nil, err
+		}
+	}
+	value, err := decodeCatalogFields(fields, kind)
+	if err != nil {
+		return nil, err
+	}
+	value.TrailingData = trailing
+	return value, nil
+}
+
+func inferCatalogKind(fields []codec.Raw) (CatalogKind, error) {
+	if len(fields) < 9 {
+		return "", fmt.Errorf("catalog array(%d) does not contain Key(8); concrete kind is ambiguous, use DecodeCatalogWithKind", len(fields))
+	}
+	value := fields[8]
+	if isRawMsgpackNil(value) || (len(value) != 0 && isArrayMarker(value[0])) {
+		return CatalogKindVirtualAsset, nil
+	}
+	if len(value) == 1 && (value[0] == 0xc2 || value[0] == 0xc3) {
+		return CatalogKindAssetBundle, nil
+	}
+	return "", fmt.Errorf("catalog Key(8) marker cannot identify a concrete kind")
+}
+
 func DecodeCatalogFromCt(table *ContentTable) (*AssetBundleCatalog, error) {
-	var raw []interface{}
-	if err := table.DecodeMsgpackFile("catalog", &raw); err != nil {
+	data, err := decodeContentTableMessagePackFile(table, "catalog")
+	if err != nil {
 		return nil, err
 	}
-	return decodeCatalogFromArray(raw)
+	return DecodeCatalog(data)
 }
 
-func decodeCatalogFromArray(arr []interface{}) (*AssetBundleCatalog, error) {
-	if len(arr) < 12 {
-		arr = padArray(arr, 12)
+func DecodeCatalogFromCtWithKind(table *ContentTable, kind CatalogKind) (*AssetBundleCatalog, error) {
+	data, err := decodeContentTableMessagePackFile(table, "catalog")
+	if err != nil {
+		return nil, err
 	}
-
-	cat := &AssetBundleCatalog{}
-	if v, ok := toInt(arr[0]); ok {
-		cat.Version = v
-	}
-	if v, ok := toInt(arr[1]); ok {
-		cat.CatalogType = CatalogType(v)
-	}
-	if v, ok := toInt(arr[2]); ok {
-		cat.PackageType = CatalogPackageType(v)
-	}
-	if v, ok := toInt(arr[3]); ok {
-		cat.Priority = v
-	}
-	if v, ok := arr[4].(string); ok {
-		cat.Name = v
-	}
-	if v, ok := arr[5].(string); ok {
-		cat.SubName = v
-	}
-	if v, ok := toUint64(arr[6]); ok {
-		cat.Hash = v
-	}
-	if v, ok := toInt64(arr[7]); ok {
-		cat.CreateTime = v
-	}
-	if v, ok := arr[8].(bool); ok {
-		cat.IsEncrypted = v
-	}
-	if v, ok := arr[9].([]interface{}); ok {
-		cat.ResourceFileNames = toStringSlice(v)
-	}
-	if v, ok := arr[10].([]interface{}); ok {
-		cat.ExtensionList = toStringSlice(v)
-	}
-	if v, ok := arr[11].([]interface{}); ok {
-		cat.Items = decodeCatalogItems(v)
-	}
-
-	return cat, nil
+	return DecodeCatalogWithKind(data, kind)
 }
 
-// EncodeCatalog 将 AssetBundleCatalog 编码为 MessagePack indexed array 字节。
+func decodeCatalogFields(fields []codec.Raw, kind CatalogKind) (*AssetBundleCatalog, error) {
+	known := 12
+	if kind == CatalogKindVirtualAsset {
+		known = 10
+	}
+	value := &AssetBundleCatalog{Kind: kind}
+	setIndexedObjectMetadata(&value.IndexedObjectMetadata, fields, known)
+	var err error
+	if len(fields) >= 1 {
+		value.Version, err = decodeRawInt32(fields[0], "catalog[0] version")
+	}
+	if err == nil && len(fields) >= 2 {
+		var decoded int
+		decoded, err = decodeRawInt32(fields[1], "catalog[1] catalogType")
+		value.CatalogType = CatalogType(decoded)
+	}
+	if err == nil && len(fields) >= 3 {
+		var decoded int
+		decoded, err = decodeRawInt32(fields[2], "catalog[2] packageType")
+		value.PackageType = CatalogPackageType(decoded)
+	}
+	if err == nil && len(fields) >= 4 {
+		value.Priority, err = decodeRawInt32(fields[3], "catalog[3] priority")
+	}
+	if err == nil && len(fields) >= 5 {
+		value.Name, value.NameIsNil, err = decodeRawNullableString(fields[4], "catalog[4] name")
+	}
+	if err == nil && len(fields) >= 6 {
+		value.SubName, value.SubNameIsNil, err = decodeRawNullableString(fields[5], "catalog[5] subName")
+	}
+	if err == nil && len(fields) >= 7 {
+		value.Hash, err = decodeRawUint64(fields[6], "catalog[6] hash")
+	}
+	if err == nil && len(fields) >= 8 {
+		value.CreateTime, err = decodeRawInt64(fields[7], "catalog[7] createTime")
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if kind == CatalogKindVirtualAsset {
+		if len(fields) >= 9 {
+			value.ExtensionList, value.ExtensionListNulls, err = decodeRawNullableStringSlice(fields[8], "virtual catalog[8] extensionList")
+		}
+		if err == nil && len(fields) >= 10 {
+			value.VirtualItems, value.VirtualItemNulls, err = decodeVirtualCatalogItemsRaw(fields[9])
+		}
+	} else {
+		if len(fields) >= 9 {
+			value.IsEncrypted, err = decodeRawBool(fields[8], "catalog[8] isEncrypted")
+		}
+		if err == nil && len(fields) >= 10 {
+			value.ResourceFileNames, value.ResourceFileNameNulls, err = decodeRawNullableStringSlice(fields[9], "catalog[9] resourceFileNames")
+		}
+		if err == nil && len(fields) >= 11 {
+			value.ExtensionList, value.ExtensionListNulls, err = decodeRawNullableStringSlice(fields[10], "catalog[10] extensionList")
+		}
+		if err == nil && len(fields) >= 12 {
+			value.Items, value.ItemNulls, err = decodeCatalogItemsRaw(fields[11])
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := ValidateCatalog(value); err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
+// EncodeCatalog preserves the selected indexed-object width, future slots,
+// nullable class/string elements, and bytes after the root value. It never
+// invokes OnBeforeSerialize or rewrites version.
 func EncodeCatalog(cat *AssetBundleCatalog) ([]byte, error) {
-	arr := make([]interface{}, 12)
-	arr[0] = int64(cat.Version)
-	arr[1] = int64(cat.CatalogType)
-	arr[2] = int64(cat.PackageType)
-	arr[3] = int64(cat.Priority)
-	arr[4] = cat.Name
-	arr[5] = cat.SubName
-	arr[6] = cat.Hash
-	arr[7] = cat.CreateTime
-	arr[8] = cat.IsEncrypted
-	arr[9] = toInterfaceSlice(cat.ResourceFileNames)
-	arr[10] = toInterfaceSlice(cat.ExtensionList)
-	arr[11] = encodeCatalogItems(cat.Items)
-	return EncodeMsgpack(arr)
+	if cat == nil {
+		return []byte{0xc0}, nil
+	}
+	if cat.RootNil {
+		if catalogHasWirePayload(cat) {
+			return nil, fmt.Errorf("catalog rootNil would discard populated wire fields")
+		}
+		return append([]byte{0xc0}, cat.TrailingData...), nil
+	}
+	kind, err := normalizedCatalogKind(cat.Kind)
+	if err != nil {
+		return nil, err
+	}
+	canonical := *cat
+	canonical.Kind = kind
+	if err := ValidateCatalog(&canonical); err != nil {
+		return nil, err
+	}
+	fields, err := encodeCatalogFields(&canonical)
+	if err != nil {
+		return nil, err
+	}
+	encoded, err := encodeMsgpackAllowRaw(fields)
+	if err != nil {
+		return nil, fmt.Errorf("encode catalog MessagePack: %w", err)
+	}
+	return append(encoded, canonical.TrailingData...), nil
 }
 
-// DecodeExtensionNameList 从 MessagePack indexed array 解码 ExtensionNameList。
+func encodeCatalogFields(cat *AssetBundleCatalog) ([]interface{}, error) {
+	common := []indexedKnownField{
+		{name: "version", value: int64(cat.Version), populated: cat.Version != 0},
+		{name: "catalogType", value: int64(cat.CatalogType), populated: cat.CatalogType != 0},
+		{name: "packageType", value: int64(cat.PackageType), populated: cat.PackageType != 0},
+		{name: "priority", value: int64(cat.Priority), populated: cat.Priority != 0},
+		{name: "name", value: nullableStringValue(cat.Name, cat.NameIsNil), populated: cat.Name != "" || cat.NameIsNil},
+		{name: "subName", value: nullableStringValue(cat.SubName, cat.SubNameIsNil), populated: cat.SubName != "" || cat.SubNameIsNil},
+		{name: "hash", value: cat.Hash, populated: cat.Hash != 0},
+		{name: "createTime", value: cat.CreateTime, populated: cat.CreateTime != 0},
+	}
+	if cat.Kind == CatalogKindVirtualAsset {
+		extensions, err := encodeNullableStringSlice(cat.ExtensionList, cat.ExtensionListNulls, "virtual catalog extensionList")
+		if err != nil {
+			return nil, err
+		}
+		items, err := encodeVirtualCatalogItemsValue(cat.VirtualItems, cat.VirtualItemNulls)
+		if err != nil {
+			return nil, err
+		}
+		known := append(common,
+			indexedKnownField{name: "extensionList", value: extensions, populated: cat.ExtensionList != nil || len(cat.ExtensionListNulls) != 0},
+			indexedKnownField{name: "virtualItems", value: items, populated: cat.VirtualItems != nil || len(cat.VirtualItemNulls) != 0},
+		)
+		return buildIndexedObject(known, cat.IndexedObjectMetadata, "VirtualAssetCatalog")
+	}
+	resources, err := encodeNullableStringSlice(cat.ResourceFileNames, cat.ResourceFileNameNulls, "catalog resourceFileNames")
+	if err != nil {
+		return nil, err
+	}
+	extensions, err := encodeNullableStringSlice(cat.ExtensionList, cat.ExtensionListNulls, "catalog extensionList")
+	if err != nil {
+		return nil, err
+	}
+	items, err := encodeCatalogItemsValue(cat.Items, cat.ItemNulls)
+	if err != nil {
+		return nil, err
+	}
+	known := append(common,
+		indexedKnownField{name: "isEncrypted", value: cat.IsEncrypted, populated: cat.IsEncrypted},
+		indexedKnownField{name: "resourceFileNames", value: resources, populated: cat.ResourceFileNames != nil || len(cat.ResourceFileNameNulls) != 0},
+		indexedKnownField{name: "extensionList", value: extensions, populated: cat.ExtensionList != nil || len(cat.ExtensionListNulls) != 0},
+		indexedKnownField{name: "items", value: items, populated: cat.Items != nil || len(cat.ItemNulls) != 0},
+	)
+	return buildIndexedObject(known, cat.IndexedObjectMetadata, "AssetBundleCatalog")
+}
+
 func DecodeExtensionNameList(data []byte) (*ExtensionNameList, error) {
-	var raw []interface{}
-	if err := DecodeMsgpack(data, &raw); err != nil {
+	root, trailing, err := SplitFirstMsgpackValue(data)
+	if err != nil {
+		return nil, fmt.Errorf("ExtensionNameList: %w", err)
+	}
+	if isRawMsgpackNil(root) {
+		if len(trailing) == 0 {
+			return nil, nil
+		}
+		return &ExtensionNameList{MessagePackRootMetadata: MessagePackRootMetadata{RootNil: true, TrailingData: trailing}}, nil
+	}
+	fields, err := decodeRawMsgpackArray(root, "ExtensionNameList")
+	if err != nil {
 		return nil, err
 	}
-	return decodeExtNameListFromArray(raw), nil
+	value := &ExtensionNameList{}
+	setIndexedObjectMetadata(&value.IndexedObjectMetadata, fields, 2)
+	if len(fields) >= 1 {
+		value.Extension, value.ExtensionIsNil, err = decodeRawNullableString(fields[0], "ExtensionNameList[0] extention")
+	}
+	if err == nil && len(fields) >= 2 {
+		value.Data, value.DataNulls, err = decodeExtensionNamePacksRaw(fields[1])
+	}
+	if err != nil {
+		return nil, err
+	}
+	value.TrailingData = trailing
+	if err := ValidateExtensionNameList(value); err != nil {
+		return nil, err
+	}
+	return value, nil
 }
 
-// DecodeExtensionNameListFromCt 从 ContentTable 中读取指定扩展名文件并解码。
 func DecodeExtensionNameListFromCt(table *ContentTable, extension string) (*ExtensionNameList, error) {
-	var raw []interface{}
-	if err := table.DecodeMsgpackFile(extension, &raw); err != nil {
+	data, err := decodeContentTableMessagePackFile(table, extension)
+	if err != nil {
 		return nil, err
 	}
-	return decodeExtNameListFromArray(raw), nil
+	return DecodeExtensionNameList(data)
 }
 
-// EncodeExtensionNameList 将 ExtensionNameList 编码为 MessagePack indexed array 字节。
 func EncodeExtensionNameList(enl *ExtensionNameList) ([]byte, error) {
-	packs := make([]interface{}, len(enl.Data))
-	for i, p := range enl.Data {
-		packs[i] = []interface{}{p.Name, p.Hash}
+	if enl == nil {
+		return []byte{0xc0}, nil
 	}
-	arr := []interface{}{enl.Extension, packs}
-	return EncodeMsgpack(arr)
+	if enl.RootNil {
+		if extensionNameListHasWirePayload(enl) {
+			return nil, fmt.Errorf("ExtensionNameList rootNil would discard populated wire fields")
+		}
+		return append([]byte{0xc0}, enl.TrailingData...), nil
+	}
+	if err := ValidateExtensionNameList(enl); err != nil {
+		return nil, err
+	}
+	data, err := encodeExtensionNamePacksValue(enl.Data, enl.DataNulls)
+	if err != nil {
+		return nil, err
+	}
+	known := []indexedKnownField{
+		{name: "extention", value: nullableStringValue(enl.Extension, enl.ExtensionIsNil), populated: enl.Extension != "" || enl.ExtensionIsNil},
+		{name: "data", value: data, populated: enl.Data != nil || len(enl.DataNulls) != 0},
+	}
+	fields, err := buildIndexedObject(known, enl.IndexedObjectMetadata, "ExtensionNameList")
+	if err != nil {
+		return nil, err
+	}
+	encoded, err := encodeMsgpackAllowRaw(fields)
+	if err != nil {
+		return nil, fmt.Errorf("encode ExtensionNameList MessagePack: %w", err)
+	}
+	return append(encoded, enl.TrailingData...), nil
 }
 
-func decodeExtNameListFromArray(arr []interface{}) *ExtensionNameList {
-	enl := &ExtensionNameList{}
-	if len(arr) >= 1 {
-		if v, ok := arr[0].(string); ok {
-			enl.Extension = v
-		}
+func decodeContentTableMessagePackFile(table *ContentTable, name string) ([]byte, error) {
+	if table == nil {
+		return nil, fmt.Errorf("nil ContentTable")
 	}
-	if len(arr) >= 2 {
-		if v, ok := arr[1].([]interface{}); ok {
-			enl.Data = make([]ExtensionNamePack, 0, len(v))
-			for _, item := range v {
-				if packArr, ok := item.([]interface{}); ok && len(packArr) >= 2 {
-					pack := ExtensionNamePack{}
-					if name, ok := packArr[0].(string); ok {
-						pack.Name = name
-					}
-					if h, ok := toUint64(packArr[1]); ok {
-						pack.Hash = h
-					}
-					enl.Data = append(enl.Data, pack)
-				}
-			}
-		}
+	raw, err := table.GetFileData(name)
+	if err != nil {
+		return nil, err
 	}
-	return enl
+	decoded, err := DecompressLz4BlockArray(raw)
+	if err != nil {
+		return nil, fmt.Errorf("decompress content table file %q: %w", name, err)
+	}
+	return decoded, nil
 }
 
-func decodeCatalogItems(arr []interface{}) []CatalogItem {
-	items := make([]CatalogItem, 0, len(arr))
-	for _, elem := range arr {
-		itemArr, ok := elem.([]interface{})
-		if !ok || len(itemArr) < 3 {
+func decodeCatalogItemsRaw(raw codec.Raw) ([]CatalogItem, []bool, error) {
+	values, isNil, err := decodeRawArrayOrNil(raw, "catalog items")
+	if err != nil || isNil {
+		return nil, nil, err
+	}
+	items := make([]CatalogItem, len(values))
+	nulls := make([]bool, len(values))
+	for i, value := range values {
+		if isRawMsgpackNil(value) {
+			nulls[i] = true
 			continue
 		}
-		item := CatalogItem{}
-		if v, ok := toInt(itemArr[0]); ok {
-			item.ResourceIndex = v
+		fields, err := decodeRawMsgpackArray(value, fmt.Sprintf("catalog items[%d]", i))
+		if err != nil {
+			return nil, nil, err
 		}
-		if v, ok := itemArr[1].(string); ok {
-			item.Name = v
+		setIndexedObjectMetadata(&items[i].IndexedObjectMetadata, fields, 3)
+		if len(fields) >= 1 {
+			items[i].ResourceIndex, err = decodeRawInt32(fields[0], fmt.Sprintf("catalog items[%d][0] resourceIndex", i))
 		}
-		if v, ok := toUint64(itemArr[2]); ok {
-			item.Hash = v
+		if err == nil && len(fields) >= 2 {
+			items[i].Name, items[i].NameIsNil, err = decodeRawNullableString(fields[1], fmt.Sprintf("catalog items[%d][1] name", i))
 		}
-		items = append(items, item)
+		if err == nil && len(fields) >= 3 {
+			items[i].Hash, err = decodeRawUint64(fields[2], fmt.Sprintf("catalog items[%d][2] hash", i))
+		}
+		if err != nil {
+			return nil, nil, err
+		}
 	}
-	return items
+	return items, trimFalseNullFlags(nulls), nil
 }
 
-func encodeCatalogItems(items []CatalogItem) []interface{} {
-	arr := make([]interface{}, len(items))
-	for i, item := range items {
-		arr[i] = []interface{}{int64(item.ResourceIndex), item.Name, item.Hash}
+func decodeVirtualCatalogItemsRaw(raw codec.Raw) ([]VirtualCatalogItem, []bool, error) {
+	values, isNil, err := decodeRawArrayOrNil(raw, "virtual catalog items")
+	if err != nil || isNil {
+		return nil, nil, err
 	}
-	return arr
+	items := make([]VirtualCatalogItem, len(values))
+	nulls := make([]bool, len(values))
+	for i, value := range values {
+		if isRawMsgpackNil(value) {
+			nulls[i] = true
+			continue
+		}
+		fields, err := decodeRawMsgpackArray(value, fmt.Sprintf("virtual catalog items[%d]", i))
+		if err != nil {
+			return nil, nil, err
+		}
+		setIndexedObjectMetadata(&items[i].IndexedObjectMetadata, fields, 3)
+		if len(fields) >= 1 {
+			items[i].AssetPath, items[i].AssetPathIsNil, err = decodeRawNullableString(fields[0], fmt.Sprintf("virtual catalog items[%d][0] assetPath", i))
+		}
+		if err == nil && len(fields) >= 2 {
+			items[i].Name, items[i].NameIsNil, err = decodeRawNullableString(fields[1], fmt.Sprintf("virtual catalog items[%d][1] name", i))
+		}
+		if err == nil && len(fields) >= 3 {
+			items[i].Hash, err = decodeRawUint64(fields[2], fmt.Sprintf("virtual catalog items[%d][2] hash", i))
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	return items, trimFalseNullFlags(nulls), nil
+}
+
+func decodeExtensionNamePacksRaw(raw codec.Raw) ([]ExtensionNamePack, []bool, error) {
+	values, isNil, err := decodeRawArrayOrNil(raw, "ExtensionNameList data")
+	if err != nil || isNil {
+		return nil, nil, err
+	}
+	packs := make([]ExtensionNamePack, len(values))
+	nulls := make([]bool, len(values))
+	for i, value := range values {
+		if isRawMsgpackNil(value) {
+			nulls[i] = true
+			continue
+		}
+		fields, err := decodeRawMsgpackArray(value, fmt.Sprintf("ExtensionNameList data[%d]", i))
+		if err != nil {
+			return nil, nil, err
+		}
+		setIndexedObjectMetadata(&packs[i].IndexedObjectMetadata, fields, 2)
+		if len(fields) >= 1 {
+			packs[i].Name, packs[i].NameIsNil, err = decodeRawNullableString(fields[0], fmt.Sprintf("ExtensionNameList data[%d][0] name", i))
+		}
+		if err == nil && len(fields) >= 2 {
+			packs[i].Hash, err = decodeRawUint64(fields[1], fmt.Sprintf("ExtensionNameList data[%d][1] hash", i))
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	return packs, trimFalseNullFlags(nulls), nil
+}
+
+func encodeCatalogItemsValue(items []CatalogItem, nulls []bool) (interface{}, error) {
+	if items == nil {
+		if len(nulls) != 0 {
+			return nil, fmt.Errorf("catalog itemNulls cannot describe a nil items array")
+		}
+		return nil, nil
+	}
+	if err := validateNullFlags(nulls, len(items), "catalog itemNulls"); err != nil {
+		return nil, err
+	}
+	result := make([]interface{}, len(items))
+	for i := range items {
+		if nullFlagAt(nulls, i) {
+			if catalogItemHasWirePayload(&items[i]) {
+				return nil, fmt.Errorf("catalog items[%d] is marked nil but has populated fields", i)
+			}
+			continue
+		}
+		fields, err := encodeCatalogItem(&items[i], fmt.Sprintf("catalog items[%d]", i))
+		if err != nil {
+			return nil, err
+		}
+		result[i] = fields
+	}
+	return result, nil
+}
+
+func encodeVirtualCatalogItemsValue(items []VirtualCatalogItem, nulls []bool) (interface{}, error) {
+	if items == nil {
+		if len(nulls) != 0 {
+			return nil, fmt.Errorf("virtualItemNulls cannot describe a nil virtualItems array")
+		}
+		return nil, nil
+	}
+	if err := validateNullFlags(nulls, len(items), "virtualItemNulls"); err != nil {
+		return nil, err
+	}
+	result := make([]interface{}, len(items))
+	for i := range items {
+		if nullFlagAt(nulls, i) {
+			if virtualCatalogItemHasWirePayload(&items[i]) {
+				return nil, fmt.Errorf("virtualItems[%d] is marked nil but has populated fields", i)
+			}
+			continue
+		}
+		fields, err := encodeVirtualCatalogItem(&items[i], fmt.Sprintf("virtualItems[%d]", i))
+		if err != nil {
+			return nil, err
+		}
+		result[i] = fields
+	}
+	return result, nil
+}
+
+func encodeExtensionNamePacksValue(packs []ExtensionNamePack, nulls []bool) (interface{}, error) {
+	if packs == nil {
+		if len(nulls) != 0 {
+			return nil, fmt.Errorf("ExtensionNameList dataNulls cannot describe a nil data array")
+		}
+		return nil, nil
+	}
+	if err := validateNullFlags(nulls, len(packs), "ExtensionNameList dataNulls"); err != nil {
+		return nil, err
+	}
+	result := make([]interface{}, len(packs))
+	for i := range packs {
+		if nullFlagAt(nulls, i) {
+			if extensionNamePackHasWirePayload(&packs[i]) {
+				return nil, fmt.Errorf("ExtensionNameList data[%d] is marked nil but has populated fields", i)
+			}
+			continue
+		}
+		fields, err := encodeExtensionNamePack(&packs[i], fmt.Sprintf("ExtensionNameList data[%d]", i))
+		if err != nil {
+			return nil, err
+		}
+		result[i] = fields
+	}
+	return result, nil
+}
+
+func encodeCatalogItem(item *CatalogItem, label string) ([]interface{}, error) {
+	if err := validateInt32Field(item.ResourceIndex, label+" resourceIndex"); err != nil {
+		return nil, err
+	}
+	if err := validateNullableString(item.Name, item.NameIsNil, label+" name"); err != nil {
+		return nil, err
+	}
+	known := []indexedKnownField{
+		{name: "resourceIndex", value: int64(item.ResourceIndex), populated: item.ResourceIndex != 0},
+		{name: "name", value: nullableStringValue(item.Name, item.NameIsNil), populated: item.Name != "" || item.NameIsNil},
+		{name: "hash", value: item.Hash, populated: item.Hash != 0},
+	}
+	return buildIndexedObject(known, item.IndexedObjectMetadata, label)
+}
+
+func encodeVirtualCatalogItem(item *VirtualCatalogItem, label string) ([]interface{}, error) {
+	if err := validateNullableString(item.AssetPath, item.AssetPathIsNil, label+" assetPath"); err != nil {
+		return nil, err
+	}
+	if err := validateNullableString(item.Name, item.NameIsNil, label+" name"); err != nil {
+		return nil, err
+	}
+	known := []indexedKnownField{
+		{name: "assetPath", value: nullableStringValue(item.AssetPath, item.AssetPathIsNil), populated: item.AssetPath != "" || item.AssetPathIsNil},
+		{name: "name", value: nullableStringValue(item.Name, item.NameIsNil), populated: item.Name != "" || item.NameIsNil},
+		{name: "hash", value: item.Hash, populated: item.Hash != 0},
+	}
+	return buildIndexedObject(known, item.IndexedObjectMetadata, label)
+}
+
+func encodeExtensionNamePack(pack *ExtensionNamePack, label string) ([]interface{}, error) {
+	if err := validateNullableString(pack.Name, pack.NameIsNil, label+" name"); err != nil {
+		return nil, err
+	}
+	known := []indexedKnownField{
+		{name: "name", value: nullableStringValue(pack.Name, pack.NameIsNil), populated: pack.Name != "" || pack.NameIsNil},
+		{name: "hash", value: pack.Hash, populated: pack.Hash != 0},
+	}
+	return buildIndexedObject(known, pack.IndexedObjectMetadata, label)
+}
+
+type indexedKnownField struct {
+	name      string
+	value     interface{}
+	populated bool
+}
+
+func buildIndexedObject(known []indexedKnownField, metadata IndexedObjectMetadata, label string) ([]interface{}, error) {
+	count, err := resolveIndexedObjectFieldCount(metadata.FieldCount, len(known), metadata.FutureSlots, label)
+	if err != nil {
+		return nil, err
+	}
+	for i := count; i < len(known); i++ {
+		if known[i].populated {
+			return nil, fmt.Errorf("%s fieldCount %d would discard %s", label, count, known[i].name)
+		}
+	}
+	result := make([]interface{}, 0, count)
+	for i := 0; i < count && i < len(known); i++ {
+		result = append(result, known[i].value)
+	}
+	for _, raw := range metadata.FutureSlots {
+		result = append(result, codec.Raw(append([]byte(nil), raw...)))
+	}
+	return result, nil
+}
+
+func setIndexedObjectMetadata(metadata *IndexedObjectMetadata, fields []codec.Raw, known int) {
+	if len(fields) != known {
+		count := len(fields)
+		metadata.FieldCount = &count
+	}
+	if len(fields) > known {
+		metadata.FutureSlots = cloneCodecRawSlots(fields[known:])
+	}
+}
+
+func decodeRawArrayOrNil(raw codec.Raw, label string) ([]codec.Raw, bool, error) {
+	if isRawMsgpackNil(raw) {
+		return nil, true, nil
+	}
+	values, err := decodeRawMsgpackArray(raw, label)
+	return values, false, err
+}
+
+func decodeRawInt32(raw codec.Raw, label string) (int, error) {
+	value, err := decodeRawInterface(raw, label)
+	if err != nil {
+		return 0, err
+	}
+	decoded, ok := toInt(value)
+	if !ok {
+		return 0, fmt.Errorf("%s: expected Int32 integer, got %T", label, value)
+	}
+	return decoded, nil
+}
+
+func decodeRawInt64(raw codec.Raw, label string) (int64, error) {
+	value, err := decodeRawInterface(raw, label)
+	if err != nil {
+		return 0, err
+	}
+	decoded, ok := toInt64(value)
+	if !ok {
+		return 0, fmt.Errorf("%s: expected Int64 integer, got %T", label, value)
+	}
+	return decoded, nil
+}
+
+func decodeRawUint64(raw codec.Raw, label string) (uint64, error) {
+	value, err := decodeRawInterface(raw, label)
+	if err != nil {
+		return 0, err
+	}
+	decoded, ok := toUint64(value)
+	if !ok {
+		return 0, fmt.Errorf("%s: expected UInt64 integer, got %T", label, value)
+	}
+	return decoded, nil
+}
+
+func decodeRawBool(raw codec.Raw, label string) (bool, error) {
+	value, err := decodeRawInterface(raw, label)
+	if err != nil {
+		return false, err
+	}
+	decoded, ok := value.(bool)
+	if !ok {
+		return false, fmt.Errorf("%s: expected bool, got %T", label, value)
+	}
+	return decoded, nil
+}
+
+func decodeRawNullableString(raw codec.Raw, label string) (string, bool, error) {
+	if isRawMsgpackNil(raw) {
+		return "", true, nil
+	}
+	if len(raw) == 0 || !isMsgpackStringMarker(raw[0]) {
+		return "", false, fmt.Errorf("%s: expected string or nil", label)
+	}
+	var value string
+	if err := decodeSingleRawMsgpackValue(raw, &value, label); err != nil {
+		return "", false, err
+	}
+	return value, false, nil
+}
+
+func decodeRawNullableStringSlice(raw codec.Raw, label string) ([]string, []bool, error) {
+	values, isNil, err := decodeRawArrayOrNil(raw, label)
+	if err != nil || isNil {
+		return nil, nil, err
+	}
+	strings := make([]string, len(values))
+	nulls := make([]bool, len(values))
+	for i := range values {
+		strings[i], nulls[i], err = decodeRawNullableString(values[i], fmt.Sprintf("%s[%d]", label, i))
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	return strings, trimFalseNullFlags(nulls), nil
+}
+
+func decodeRawInterface(raw codec.Raw, label string) (interface{}, error) {
+	var value interface{}
+	if err := decodeSingleRawMsgpackValue(raw, &value, label); err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
+func encodeNullableStringSlice(values []string, nulls []bool, label string) (interface{}, error) {
+	if values == nil {
+		if len(nulls) != 0 {
+			return nil, fmt.Errorf("%s null flags cannot describe a nil array", label)
+		}
+		return nil, nil
+	}
+	if err := validateNullFlags(nulls, len(values), label+" null flags"); err != nil {
+		return nil, err
+	}
+	result := make([]interface{}, len(values))
+	for i := range values {
+		if nullFlagAt(nulls, i) {
+			if values[i] != "" {
+				return nil, fmt.Errorf("%s[%d] is marked nil but has non-empty text", label, i)
+			}
+			continue
+		}
+		if !utf8.ValidString(values[i]) {
+			return nil, fmt.Errorf("%s[%d] is not valid UTF-8", label, i)
+		}
+		result[i] = values[i]
+	}
+	return result, nil
+}
+
+func validateNullableString(value string, isNil bool, label string) error {
+	if isNil {
+		if value != "" {
+			return fmt.Errorf("%s is marked nil but has non-empty text", label)
+		}
+		return nil
+	}
+	if !utf8.ValidString(value) {
+		return fmt.Errorf("%s is not valid UTF-8", label)
+	}
+	return nil
+}
+
+func nullableStringValue(value string, isNil bool) interface{} {
+	if isNil {
+		return nil
+	}
+	return value
+}
+
+func validateNullFlags(flags []bool, count int, label string) error {
+	if len(flags) > count {
+		return fmt.Errorf("%s has %d entries for %d values", label, len(flags), count)
+	}
+	return nil
+}
+
+func nullFlagAt(flags []bool, index int) bool {
+	return index < len(flags) && flags[index]
+}
+
+func trimFalseNullFlags(flags []bool) []bool {
+	last := -1
+	for i, value := range flags {
+		if value {
+			last = i
+		}
+	}
+	if last < 0 {
+		return nil
+	}
+	return flags[:last+1]
+}
+
+func isRawMsgpackNil(raw []byte) bool {
+	return len(raw) == 0 || (len(raw) == 1 && raw[0] == 0xc0)
+}
+
+func isMsgpackStringMarker(marker byte) bool {
+	return marker >= 0xa0 && marker <= 0xbf || marker == 0xd9 || marker == 0xda || marker == 0xdb
+}
+
+func indexedObjectMetadataHasWirePayload(metadata IndexedObjectMetadata) bool {
+	return metadata.FieldCount != nil || len(metadata.FutureSlots) != 0
+}
+
+func catalogHasWirePayload(cat *AssetBundleCatalog) bool {
+	return indexedObjectMetadataHasWirePayload(cat.IndexedObjectMetadata) ||
+		cat.Version != 0 || cat.CatalogType != 0 || cat.PackageType != 0 || cat.Priority != 0 ||
+		cat.Name != "" || cat.NameIsNil || cat.SubName != "" || cat.SubNameIsNil ||
+		cat.Hash != 0 || cat.CreateTime != 0 || cat.IsEncrypted ||
+		cat.ResourceFileNames != nil || len(cat.ResourceFileNameNulls) != 0 ||
+		cat.ExtensionList != nil || len(cat.ExtensionListNulls) != 0 ||
+		cat.Items != nil || len(cat.ItemNulls) != 0 ||
+		cat.VirtualItems != nil || len(cat.VirtualItemNulls) != 0
+}
+
+func catalogItemHasWirePayload(item *CatalogItem) bool {
+	return indexedObjectMetadataHasWirePayload(item.IndexedObjectMetadata) ||
+		item.ResourceIndex != 0 || item.Name != "" || item.NameIsNil || item.Hash != 0
+}
+
+func virtualCatalogItemHasWirePayload(item *VirtualCatalogItem) bool {
+	return indexedObjectMetadataHasWirePayload(item.IndexedObjectMetadata) ||
+		item.AssetPath != "" || item.AssetPathIsNil || item.Name != "" || item.NameIsNil || item.Hash != 0
+}
+
+func extensionNameListHasWirePayload(value *ExtensionNameList) bool {
+	return indexedObjectMetadataHasWirePayload(value.IndexedObjectMetadata) ||
+		value.Extension != "" || value.ExtensionIsNil || value.Data != nil || len(value.DataNulls) != 0
+}
+
+func extensionNamePackHasWirePayload(value *ExtensionNamePack) bool {
+	return indexedObjectMetadataHasWirePayload(value.IndexedObjectMetadata) ||
+		value.Name != "" || value.NameIsNil || value.Hash != 0
 }
 
 func toUint64(v interface{}) (uint64, bool) {
@@ -273,8 +936,14 @@ func toUint64(v interface{}) (uint64, bool) {
 	case uint64:
 		return n, true
 	case int64:
+		if n < 0 {
+			return 0, false
+		}
 		return uint64(n), true
 	case int:
+		if n < 0 {
+			return 0, false
+		}
 		return uint64(n), true
 	case uint:
 		return uint64(n), true
@@ -282,29 +951,99 @@ func toUint64(v interface{}) (uint64, bool) {
 	return 0, false
 }
 
-func toStringSlice(arr []interface{}) []string {
-	result := make([]string, 0, len(arr))
-	for _, v := range arr {
-		if s, ok := v.(string); ok {
-			result = append(result, s)
+// ValidateCatalog checks only wire representability and fields that would be
+// silently discarded by the selected concrete layout. Runtime lookup rules,
+// enum membership, hashes, sorting, and resource-index validity belong to the
+// game and are deliberately not enforced here.
+func ValidateCatalog(cat *AssetBundleCatalog) error {
+	if cat == nil {
+		return nil
+	}
+	if cat.RootNil {
+		if catalogHasWirePayload(cat) {
+			return fmt.Errorf("catalog rootNil would discard populated wire fields")
 		}
+		return nil
 	}
-	return result
+	kind, err := normalizedCatalogKind(cat.Kind)
+	if err != nil {
+		return err
+	}
+	if err := validateInt32Field(cat.Version, "catalog version"); err != nil {
+		return err
+	}
+	if err := validateInt32Field(cat.Priority, "catalog priority"); err != nil {
+		return err
+	}
+	if err := validateInt32Field(int(cat.CatalogType), "catalog type"); err != nil {
+		return err
+	}
+	if err := validateInt32Field(int(cat.PackageType), "catalog package type"); err != nil {
+		return err
+	}
+	if err := validateNullableString(cat.Name, cat.NameIsNil, "catalog name"); err != nil {
+		return err
+	}
+	if err := validateNullableString(cat.SubName, cat.SubNameIsNil, "catalog subName"); err != nil {
+		return err
+	}
+
+	switch kind {
+	case CatalogKindAssetBundle:
+		if cat.VirtualItems != nil || len(cat.VirtualItemNulls) != 0 {
+			return fmt.Errorf("assetBundle catalog cannot contain virtualItems")
+		}
+	case CatalogKindVirtualAsset:
+		if cat.IsEncrypted {
+			return fmt.Errorf("virtualAsset catalog cannot set isEncrypted")
+		}
+		if cat.ResourceFileNames != nil || len(cat.ResourceFileNameNulls) != 0 {
+			return fmt.Errorf("virtualAsset catalog cannot contain resourceFileNames")
+		}
+		if cat.Items != nil || len(cat.ItemNulls) != 0 {
+			return fmt.Errorf("virtualAsset catalog cannot contain assetBundle items")
+		}
+	default:
+		return fmt.Errorf("unsupported catalog kind %q", kind)
+	}
+	canonical := *cat
+	canonical.Kind = kind
+	_, err = encodeCatalogFields(&canonical)
+	return err
 }
 
-func toInterfaceSlice(ss []string) []interface{} {
-	arr := make([]interface{}, len(ss))
-	for i, s := range ss {
-		arr[i] = s
+func normalizedCatalogKind(kind CatalogKind) (CatalogKind, error) {
+	switch kind {
+	case "", CatalogKindAssetBundle:
+		return CatalogKindAssetBundle, nil
+	case CatalogKindVirtualAsset:
+		return CatalogKindVirtualAsset, nil
+	default:
+		return "", fmt.Errorf("unsupported catalog kind %q", kind)
 	}
-	return arr
 }
 
-func padArray(arr []interface{}, size int) []interface{} {
-	if len(arr) >= size {
-		return arr
+func ValidateExtensionNameList(enl *ExtensionNameList) error {
+	if enl == nil {
+		return nil
 	}
-	padded := make([]interface{}, size)
-	copy(padded, arr)
-	return padded
+	if enl.RootNil {
+		if extensionNameListHasWirePayload(enl) {
+			return fmt.Errorf("ExtensionNameList rootNil would discard populated wire fields")
+		}
+		return nil
+	}
+	if err := validateNullableString(enl.Extension, enl.ExtensionIsNil, "ExtensionNameList extention"); err != nil {
+		return err
+	}
+	data, err := encodeExtensionNamePacksValue(enl.Data, enl.DataNulls)
+	if err != nil {
+		return err
+	}
+	known := []indexedKnownField{
+		{name: "extention", value: nullableStringValue(enl.Extension, enl.ExtensionIsNil), populated: enl.Extension != "" || enl.ExtensionIsNil},
+		{name: "data", value: data, populated: enl.Data != nil || len(enl.DataNulls) != 0},
+	}
+	_, err = buildIndexedObject(known, enl.IndexedObjectMetadata, "ExtensionNameList")
+	return err
 }
