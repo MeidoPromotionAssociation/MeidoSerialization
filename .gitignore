@@ -30,3 +30,6 @@ MeidoSerialization_linux_amd64
 .output.txt
 /game/
 /.gocache/
+
+
+/.audit_*/
