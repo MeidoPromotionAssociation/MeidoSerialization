@@ -11,12 +11,14 @@ import (
 var jsonTextExts = map[string]struct{}{
 	".undressdat":  {},
 	".undresspdat": {},
+	".nson":        {},
 }
 
 // KCESJSONText 表示 KCES 明文 JSON 资源的封套 / KCESJSONText represents an envelope for KCES plain JSON resources
 type KCESJSONText struct {
-	Extension string          `json:"extension"` // 原始扩展名，如 .undressdat / Original extension such as .undressdat
-	JSON      json.RawMessage `json:"json"`      // 规范化后的 JSON 内容 / Normalized JSON content
+	Extension string          `json:"extension"`      // 原始扩展名，如 .undressdat / Original extension such as .undressdat
+	Text      string          `json:"text,omitempty"` // 原始 JSON 文本；未编辑 json 时逐字节重用 / Original JSON text, reused byte-for-byte while json is unchanged
+	JSON      json.RawMessage `json:"json"`           // 规范化后的 JSON 内容 / Normalized JSON content
 }
 
 func DecodeKCESJSONText(data []byte, extension string) (*KCESJSONText, error) {
@@ -25,7 +27,7 @@ func DecodeKCESJSONText(data []byte, extension string) (*KCESJSONText, error) {
 		return nil, fmt.Errorf("unsupported KCES JSON text extension %q", extension)
 	}
 
-	trimmed := bytes.TrimSpace(data)
+	trimmed := bytes.TrimSpace(bytes.TrimPrefix(data, []byte{0xef, 0xbb, 0xbf}))
 	if !json.Valid(trimmed) {
 		return nil, fmt.Errorf("%s is not valid JSON", ext)
 	}
@@ -37,6 +39,7 @@ func DecodeKCESJSONText(data []byte, extension string) (*KCESJSONText, error) {
 
 	return &KCESJSONText{
 		Extension: ext,
+		Text:      string(data),
 		JSON:      append(json.RawMessage(nil), compact.Bytes()...),
 	}, nil
 }
@@ -55,9 +58,21 @@ func EncodeKCESJSONText(value *KCESJSONText) ([]byte, error) {
 	if !json.Valid(value.JSON) {
 		return nil, fmt.Errorf("%s JSON payload is invalid", ext)
 	}
+	var compactJSON bytes.Buffer
+	if err := json.Compact(&compactJSON, value.JSON); err != nil {
+		return nil, fmt.Errorf("compact %s JSON payload: %w", ext, err)
+	}
+	if value.Text != "" {
+		textBytes := []byte(value.Text)
+		trimmedText := bytes.TrimSpace(bytes.TrimPrefix(textBytes, []byte{0xef, 0xbb, 0xbf}))
+		var compactText bytes.Buffer
+		if json.Compact(&compactText, trimmedText) == nil && bytes.Equal(compactText.Bytes(), compactJSON.Bytes()) {
+			return append([]byte(nil), textBytes...), nil
+		}
+	}
 
 	var indented bytes.Buffer
-	if err := json.Indent(&indented, value.JSON, "", "  "); err != nil {
+	if err := json.Indent(&indented, compactJSON.Bytes(), "", "  "); err != nil {
 		return nil, fmt.Errorf("indent %s JSON: %w", ext, err)
 	}
 	indented.WriteByte('\n')

@@ -1,5 +1,7 @@
 package KCES
 
+import "fmt"
+
 // PriorityMaterial 表示优先级材质数据 / PriorityMaterial represents KCES Parts.PriorityMaterial data
 // 对应 C# Parts.PriorityMaterial，继承自 AMessagePackSerializationVersionControlIntKey / Matches C# Parts.PriorityMaterial, derived from AMessagePackSerializationVersionControlIntKey
 // MessagePack indexed array 布局 / MessagePack indexed-array layout:
@@ -10,12 +12,13 @@ package KCES
 //	[Key(3)] renderQueue  float32 渲染队列值
 //	[Key(4)] targetId     uint64  目标材质 ID
 type PriorityMaterial struct {
-	_struct     struct{} `codec:",toarray"`   // 强制按数组编码 / Forces array encoding
-	Version     int      `json:"version"`     // 版本号，固定为 1000 / Version value, fixed to 1000
-	ID          uint64   `json:"id"`          // 材质 ID，通常为 fileName 去扩展名后小写的 FNV hash / Material ID, usually lowercase extensionless fileName FNV hash
-	FileName    string   `json:"fileName"`    // 材质文件名，如 xxx.pmat / Material file name such as xxx.pmat
-	RenderQueue float32  `json:"renderQueue"` // 渲染队列值，控制渲染顺序 / Render queue value controlling draw order
-	TargetID    uint64   `json:"targetId"`    // 目标材质 ID，指向被覆盖的材质 / Target material ID pointing to the overridden material
+	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	*IndexedObjectMetadata `codec:"-"`
+	Version                int     `json:"version"`     // 版本号，固定为 1000 / Version value, fixed to 1000
+	ID                     uint64  `json:"id"`          // 材质 ID，通常为 fileName 去扩展名后小写的 FNV hash / Material ID, usually lowercase extensionless fileName FNV hash
+	FileName               string  `json:"fileName"`    // 材质文件名，如 xxx.pmat / Material file name such as xxx.pmat
+	RenderQueue            float32 `json:"renderQueue"` // 渲染队列值，控制渲染顺序 / Render queue value controlling draw order
+	TargetID               uint64  `json:"targetId"`    // 目标材质 ID，指向被覆盖的材质 / Target material ID pointing to the overridden material
 }
 
 // PriorityMaterialAssets 表示优先级材质资源容器 / PriorityMaterialAssets represents a priority-material asset container
@@ -27,10 +30,18 @@ type PriorityMaterial struct {
 //
 // 存储在 .aba TextAsset 的 m_Script 中，使用 Lz4Block 压缩 / Stored in TextAsset m_Script inside .aba, compressed with Lz4Block
 type PriorityMaterialAssets struct {
-	_struct  struct{}           `codec:",toarray"`  // 强制按数组编码 / Forces array encoding
-	FileName string             `json:"fileName"`   // 容器文件名，如 xxx.pmatassets / Container file name such as xxx.pmatassets
-	Assets   []PriorityMaterial `json:"assetArray"` // 优先级材质数组 / Priority-material array
+	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	*IndexedObjectMetadata `codec:"-"`
+	FileName               string             `json:"fileName"`                         // 容器文件名，如 xxx.pmatassets / Container file name such as xxx.pmatassets
+	Assets                 []PriorityMaterial `json:"assetArray"`                       // 优先级材质数组 / Priority-material array
+	RootNil                bool               `codec:"-" json:"rootNil,omitempty"`      // 根 MessagePack 值是否为 nil / Whether the root MessagePack value was nil
+	TrailingData           []byte             `codec:"-" json:"trailingData,omitempty"` // 根 MessagePack 值之后游戏未读取的字节 / Bytes left unread after the root MessagePack value
 }
+
+func (a *PriorityMaterialAssets) getMessagePackTrailing() []byte     { return a.TrailingData }
+func (a *PriorityMaterialAssets) setMessagePackTrailing(data []byte) { a.TrailingData = data }
+func (a *PriorityMaterialAssets) getMessagePackRootNil() bool        { return a.RootNil }
+func (a *PriorityMaterialAssets) setMessagePackRootNil(value bool)   { a.RootNil = value }
 
 const priorityMaterialFixVersion = 1000
 
@@ -40,17 +51,21 @@ func DecodePriorityMaterial(arr []interface{}) (*PriorityMaterial, error) {
 	if err := decodeRawMsgpackArray(arr, pm, "PriorityMaterial"); err != nil {
 		return nil, err
 	}
+	if err := validateGameInt32Fields(pm); err != nil {
+		return nil, fmt.Errorf("decode PriorityMaterial integer field: %w", err)
+	}
 	return pm, nil
 }
 
 // EncodePriorityMaterial 将 PriorityMaterial 编码为 MessagePack indexed array
+// This compatibility helper has no error return and therefore cannot report an
+// out-of-Int32 Version. Use EncodePriorityMaterialAssets for checked game wire.
 func EncodePriorityMaterial(pm *PriorityMaterial) []interface{} {
-	version := pm.Version
-	if version == 0 {
-		version = priorityMaterialFixVersion
+	if pm == nil {
+		return nil
 	}
 	return []interface{}{
-		int64(version),
+		int64(pm.Version),
 		pm.ID,
 		pm.FileName,
 		float64(pm.RenderQueue),
@@ -65,17 +80,25 @@ func DecodePriorityMaterialAssets(data []byte) (*PriorityMaterialAssets, error) 
 	if err := decodeCompressedMsgpack(data, assets, "PriorityMaterialAssets"); err != nil {
 		return nil, err
 	}
+	if err := validateGameInt32Fields(assets); err != nil {
+		return nil, fmt.Errorf("decode PriorityMaterialAssets integer field: %w", err)
+	}
 	return assets, nil
 }
 
 // EncodePriorityMaterialAssets 将 PriorityMaterialAssets 编码为 Lz4Block 压缩的 MessagePack 数据
 func EncodePriorityMaterialAssets(assets *PriorityMaterialAssets) ([]byte, error) {
+	if assets == nil {
+		return nil, fmt.Errorf("PriorityMaterialAssets is nil")
+	}
 	normalized := *assets
-	normalized.Assets = append([]PriorityMaterial(nil), assets.Assets...)
-	for i := range normalized.Assets {
-		if normalized.Assets[i].Version == 0 {
-			normalized.Assets[i].Version = priorityMaterialFixVersion
-		}
+	normalized.Assets = cloneSlicePreserveNil(assets.Assets)
+	if err := validateGameInt32Fields(&normalized); err != nil {
+		return nil, fmt.Errorf("encode PriorityMaterialAssets integer field: %w", err)
 	}
 	return encodeCompressedMsgpack(&normalized, "PriorityMaterialAssets")
+}
+
+func NewPriorityMaterial() *PriorityMaterial {
+	return &PriorityMaterial{Version: priorityMaterialFixVersion}
 }

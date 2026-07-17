@@ -268,14 +268,7 @@ func TestPartsColorGradaBytes_JSONRoundTrip(t *testing.T) {
 	}
 
 	original.GradaBytes.Value = false
-	encoded, err = encodeCompressedMsgpack(original, "PartsColor")
-	if err != nil {
-		t.Fatalf("msgpack encode bool failed: %v", err)
-	}
-	if err := decodeCompressedMsgpack(encoded, &msgpackDecoded, "PartsColor"); err != nil {
-		t.Fatalf("msgpack decode bool failed: %v", err)
-	}
-	if msgpackDecoded.GradaBytes.Value != false {
-		t.Fatalf("grada bool placeholder mismatch: %#v", msgpackDecoded.GradaBytes.Value)
+	if _, err = encodeCompressedMsgpack(original, "PartsColor"); err == nil {
+		t.Fatal("msgpack encoder accepted bool for the game's byte[] m_gradaBytes field")
 	}
 }

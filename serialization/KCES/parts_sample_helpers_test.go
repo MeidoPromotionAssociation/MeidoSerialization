@@ -28,12 +28,13 @@ func assertPartsSamplesForSuffixRoundTrip[T any](
 	suffix string,
 	decode func([]byte) (*T, error),
 	encode func(*T) ([]byte, error),
+	normalizeExpected ...func(*T),
 ) {
 	t.Helper()
 	for _, path := range partsSamplePathsBySuffix(t, suffix) {
 		path := path
 		t.Run(filepath.Base(path), func(t *testing.T) {
-			assertPartsSampleRoundTripDeepEqual(t, path, decode, encode)
+			assertPartsSampleRoundTripDeepEqual(t, path, decode, encode, normalizeExpected...)
 		})
 	}
 }
@@ -69,6 +70,7 @@ func assertPartsSampleRoundTripDeepEqual[T any](
 	path string,
 	decode func([]byte) (*T, error),
 	encode func(*T) ([]byte, error),
+	normalizeExpected ...func(*T),
 ) {
 	t.Helper()
 	data, err := os.ReadFile(path)
@@ -82,6 +84,9 @@ func assertPartsSampleRoundTripDeepEqual[T any](
 	encoded, err := encode(original)
 	if err != nil {
 		t.Fatalf("encode %s: %v", filepath.Base(path), err)
+	}
+	for _, normalize := range normalizeExpected {
+		normalize(original)
 	}
 	decoded, err := decode(encoded)
 	if err != nil {

@@ -150,7 +150,7 @@ func assertColliderPackageSampleFields(t *testing.T, name string, pkg *ColliderP
 			continue
 		}
 		if ref.Type != ColliderTypeMaidProp || maidProp.Version != 1001 {
-			t.Fatalf("%s maidProp metadata got type=%d version=%d, want 3/1001", name, ref.Type, maidProp.Version)
+			t.Fatalf("%s maidProp metadata got type=%d version=%d, want stored 3/1001", name, ref.Type, maidProp.Version)
 		}
 		assertIntSliceEqual(t, name+" centerMpnList", maidProp.CenterMpnList, []int{7})
 		assertIntSliceEqual(t, name+" startRadiusMpnList", maidProp.StartRadiusMpnList, []int{7})

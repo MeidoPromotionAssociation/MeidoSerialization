@@ -4,11 +4,108 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"math"
+	"os"
+	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
+
+func TestDecodeKCESPayloadRequiresGameLengthPrefix(t *testing.T) {
+	path := filepath.Join("..", "..", "testdata", "kces_payload", "default_hairf.dbconf")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeKCESPayload(data, path); err != nil {
+		t.Fatalf("real prefixed payload was rejected: %v", err)
+	}
+	if len(data) <= 4 {
+		t.Fatalf("real payload is unexpectedly short: %d", len(data))
+	}
+	if _, err := DecodeKCESPayload(data[4:], path); err == nil || !strings.Contains(err.Error(), "length prefix") {
+		t.Fatalf("unprefixed game payload error = %v, want required length-prefix rejection", err)
+	}
+
+	badLength := append([]byte(nil), data...)
+	badLength[0]++
+	if _, err := DecodeKCESPayload(badLength, path); err == nil || !strings.Contains(err.Error(), "declared") {
+		t.Fatalf("mismatched game payload length error = %v, want declared/actual rejection", err)
+	}
+}
+
+func TestRecognizedKCESPayloadNilRootRoundTrip(t *testing.T) {
+	tail := []byte{0xde, 0xad, 0xc1}
+	compressed, err := ct.CompressLz4BlockArray(append([]byte{0xc0}, tail...))
+	if err != nil {
+		t.Fatalf("compress nil payload root: %v", err)
+	}
+	wire := AddLengthPrefix(compressed)
+	tests := []struct {
+		extension string
+		kind      string
+	}{
+		{extension: ".dbconf", kind: PayloadKindDynamicBoneStatus},
+		{extension: ".db2conf", kind: PayloadKindJSONString},
+		{extension: ".dbcol", kind: PayloadKindColliderPackage},
+		{extension: ".limbcol", kind: PayloadKindLimbCollider},
+		{extension: ".ikcol", kind: PayloadKindIKCollider},
+		{extension: ".dsbconf", kind: PayloadKindClothParams},
+	}
+	for _, test := range tests {
+		t.Run(test.extension, func(t *testing.T) {
+			env, err := DecodeKCESPayload(wire, test.extension)
+			if err != nil {
+				t.Fatalf("DecodeKCESPayload: %v", err)
+			}
+			if env.Kind != test.kind || !env.MsgpackRootNil {
+				t.Fatalf("decoded nil root kind/rootNil = %q/%v, want %q/true", env.Kind, env.MsgpackRootNil, test.kind)
+			}
+			if !bytes.Equal(env.MsgpackTrailingData, tail) {
+				t.Fatalf("decoded trailing = % x, want % x", env.MsgpackTrailingData, tail)
+			}
+			reencoded, err := EncodeKCESPayload(env)
+			if err != nil {
+				t.Fatalf("EncodeKCESPayload: %v", err)
+			}
+			payload, _, err := StripLengthPrefix(reencoded)
+			if err != nil {
+				t.Fatalf("StripLengthPrefix: %v", err)
+			}
+			decompressed, err := ct.DecompressLz4BlockArray(payload)
+			if err != nil {
+				t.Fatalf("DecompressLz4BlockArray: %v", err)
+			}
+			want := append([]byte{0xc0}, tail...)
+			if !bytes.Equal(decompressed, want) {
+				t.Fatalf("re-encoded nil root = % x, want % x", decompressed, want)
+			}
+		})
+	}
+}
+
+func TestKCESPayloadNilRootRejectsDiscardedTypedData(t *testing.T) {
+	env := &KCESPayloadEnvelope{
+		Format:         PayloadFormatKCESMessagePack,
+		Extension:      ".dbconf",
+		StorageVariant: PayloadStorageInt32LZ4MessagePack,
+		Kind:           PayloadKindDynamicBoneStatus,
+		MsgpackRootNil: true,
+		DynamicBone:    &DynamicBoneStatus{},
+	}
+	if _, err := EncodeKCESPayload(env); err == nil {
+		t.Fatal("msgpackRootNil silently discarded dynamicBoneStatus")
+	}
+	env.DynamicBone = nil
+	env.Kind = PayloadKindRawMsgpack
+	env.MsgpackBase64 = "wA=="
+	if _, err := EncodeKCESPayload(env); err == nil {
+		t.Fatal("raw-msgpack accepted ambiguous msgpackRootNil")
+	}
+}
 
 func TestDynamicBoneStatusPayloadRoundTrip(t *testing.T) {
 	status := &DynamicBoneStatus{
@@ -42,6 +139,25 @@ func TestDynamicBoneStatusPayloadRoundTrip(t *testing.T) {
 	}
 }
 
+func TestDynamicBoneStatusEncodingDoesNotMutateInput(t *testing.T) {
+	status := &DynamicBoneStatus{}
+	encoded, err := EncodeDynamicBoneStatusFile(status)
+	if err != nil {
+		t.Fatalf("EncodeDynamicBoneStatusFile: %v", err)
+	}
+	if status.Version != 0 || status.DampingKeyFrames != nil || status.ElasticityKeyFrames != nil ||
+		status.StiffnessKeyFrames != nil || status.InertKeyFrames != nil || status.RadiusKeyFrames != nil {
+		t.Fatalf("encoding mutated input: %+v", status)
+	}
+	decoded, err := DecodeDynamicBoneStatusFile(encoded)
+	if err != nil {
+		t.Fatalf("DecodeDynamicBoneStatusFile: %v", err)
+	}
+	if !reflect.DeepEqual(decoded, status) {
+		t.Fatalf("zero values were changed by serialization:\n got  %#v\n want %#v", decoded, status)
+	}
+}
+
 func TestJSONStringPayloadRoundTrip(t *testing.T) {
 	env := &KCESPayloadEnvelope{
 		Format:         PayloadFormatKCESMessagePack,
@@ -63,6 +179,128 @@ func TestJSONStringPayloadRoundTrip(t *testing.T) {
 	}
 	if !bytes.Equal(decoded.JSON, []byte(`{"clothType":1,"rootRotation":0.5}`)) {
 		t.Fatalf("unexpected compact json: %s", decoded.JSON)
+	}
+}
+
+func TestJSONStringPayloadPreservesOriginalTextUntilEdited(t *testing.T) {
+	original := "{\r\n  \"clothType\" : 1,\r\n  \"future\" : [ 1, 2 ]\r\n}\r\n"
+	msgpack, err := ct.EncodeMsgpack(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compressed, err := ct.CompressLz4BlockArray(msgpack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wire := AddLengthPrefix(compressed)
+
+	envelope, err := DecodeKCESPayload(wire, ".db2conf")
+	if err != nil {
+		t.Fatalf("DecodeKCESPayload() error = %v", err)
+	}
+	if envelope.Text != original || !bytes.Equal(envelope.JSON, []byte(`{"clothType":1,"future":[1,2]}`)) {
+		t.Fatalf("decoded text/json = %q / %s", envelope.Text, envelope.JSON)
+	}
+
+	unchanged, err := EncodeKCESPayload(envelope)
+	if err != nil {
+		t.Fatalf("EncodeKCESPayload(unchanged) error = %v", err)
+	}
+	if !bytes.Equal(unchanged, wire) {
+		t.Fatalf("unchanged JSON string was rebuilt:\n got  %x\n want %x", unchanged, wire)
+	}
+
+	envelope.JSON = json.RawMessage(` { "clothType" : 2, "future" : null } `)
+	edited, err := EncodeKCESPayload(envelope)
+	if err != nil {
+		t.Fatalf("EncodeKCESPayload(edited) error = %v", err)
+	}
+	redecoded, err := DecodeKCESPayload(edited, ".db2conf")
+	if err != nil {
+		t.Fatalf("DecodeKCESPayload(edited) error = %v", err)
+	}
+	if redecoded.Text != `{"clothType":2,"future":null}` {
+		t.Fatalf("edited JSON string = %q", redecoded.Text)
+	}
+}
+
+func TestJSONStringPayloadCanExplicitlyStoreJSONNull(t *testing.T) {
+	envelope := &KCESPayloadEnvelope{
+		Extension: ".dsl2conf",
+		Kind:      PayloadKindJSONString,
+		JSON:      json.RawMessage(`null`),
+	}
+	wire, err := EncodeKCESPayload(envelope)
+	if err != nil {
+		t.Fatalf("EncodeKCESPayload() error = %v", err)
+	}
+	decoded, err := DecodeKCESPayload(wire, ".dsl2conf")
+	if err != nil {
+		t.Fatalf("DecodeKCESPayload() error = %v", err)
+	}
+	if decoded.Text != "null" || !bytes.Equal(decoded.JSON, []byte("null")) {
+		t.Fatalf("decoded null payload = text %q, json %s", decoded.Text, decoded.JSON)
+	}
+}
+
+func TestRecognizedMessagePackPayloadPreservesTrailingBytes(t *testing.T) {
+	root, err := ct.EncodeMsgpack(`{"clothType":1}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tail := []byte{0xde, 0xad, 0xbe, 0xef, 0xc1}
+	decompressed := append(append([]byte(nil), root...), tail...)
+	compressed, err := ct.CompressLz4BlockArray(decompressed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wire := AddLengthPrefix(compressed)
+
+	envelope, err := DecodeKCESPayload(wire, ".db2conf")
+	if err != nil {
+		t.Fatalf("DecodeKCESPayload: %v", err)
+	}
+	if !bytes.Equal(envelope.MsgpackTrailingData, tail) {
+		t.Fatalf("msgpackTrailingData = % x, want % x", envelope.MsgpackTrailingData, tail)
+	}
+
+	reencoded, err := EncodeKCESPayload(envelope)
+	if err != nil {
+		t.Fatalf("EncodeKCESPayload: %v", err)
+	}
+	reencodedPayload, prefixed, err := StripLengthPrefix(reencoded)
+	if err != nil || !prefixed {
+		t.Fatalf("StripLengthPrefix: prefixed=%v err=%v", prefixed, err)
+	}
+	reencodedDecompressed, err := ct.DecompressLz4BlockArray(reencodedPayload)
+	if err != nil {
+		t.Fatalf("DecompressLz4BlockArray: %v", err)
+	}
+	if !bytes.Equal(reencodedDecompressed, decompressed) {
+		t.Fatalf("recognized payload stream changed:\n got  % x\n want % x", reencodedDecompressed, decompressed)
+	}
+}
+
+func TestJSONStringPayloadRejectsInvalidInnerJSON(t *testing.T) {
+	env := &KCESPayloadEnvelope{
+		Extension: ".db2conf",
+		Kind:      PayloadKindJSONString,
+		Text:      `{not-json}`,
+	}
+	if _, err := EncodeKCESPayload(env); err == nil || !strings.Contains(err.Error(), "Magica JSON") {
+		t.Fatalf("EncodeKCESPayload error = %v, want invalid inner JSON rejection", err)
+	}
+
+	msgpack, err := ct.EncodeMsgpack(`{not-json}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compressed, err := ct.CompressLz4BlockArray(msgpack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeKCESPayload(AddLengthPrefix(compressed), ".db2conf"); err == nil || !strings.Contains(err.Error(), "Magica JSON") {
+		t.Fatalf("DecodeKCESPayload error = %v, want invalid inner JSON rejection", err)
 	}
 }
 
@@ -108,6 +346,29 @@ func TestRawMsgpackPayloadRoundTrip(t *testing.T) {
 	}
 	if !bytes.Equal(decodedMsgpack, msgpackData) {
 		t.Fatalf("msgpack changed after raw round-trip")
+	}
+}
+
+func TestRawMsgpackPayloadDoesNotDuplicateTrailingAnnotation(t *testing.T) {
+	completeStream := []byte{0x01, 0xde, 0xad, 0xbe, 0xef}
+	compressed, err := ct.CompressLz4BlockArray(completeStream)
+	if err != nil {
+		t.Fatal(err)
+	}
+	envelope, err := DecodeKCESPayload(compressed, ".unknown")
+	if err != nil {
+		t.Fatalf("DecodeKCESPayload: %v", err)
+	}
+	if envelope.MsgpackTrailingData != nil {
+		t.Fatalf("raw payload unexpectedly split trailing bytes: % x", envelope.MsgpackTrailingData)
+	}
+	if got, err := base64.StdEncoding.DecodeString(envelope.MsgpackBase64); err != nil || !bytes.Equal(got, completeStream) {
+		t.Fatalf("raw msgpackBase64 = % x, err=%v", got, err)
+	}
+
+	envelope.MsgpackTrailingData = []byte{1}
+	if _, err := EncodeKCESPayload(envelope); err == nil || !strings.Contains(err.Error(), "already stores the complete") {
+		t.Fatalf("ambiguous raw trailing annotation error = %v", err)
 	}
 }
 
@@ -277,6 +538,54 @@ func TestColliderPackagePayloadRoundTrip(t *testing.T) {
 	}
 }
 
+func TestColliderPayloadPreservesCLRNonFiniteSingleConversions(t *testing.T) {
+	collider := colliderCapsuleIndexedTestValue(0)
+	// MessagePackReader.ReadSingle converts all numeric markers through CLR
+	// Single semantics: a finite double can overflow to infinity, while NaN and
+	// explicit infinities remain valid floating results.
+	collider[10] = math.MaxFloat64
+	collider[11] = math.NaN()
+	collider[12] = math.Inf(-1)
+	raw := []interface{}{
+		int64(0),
+		[]interface{}{[]interface{}{int64(ColliderTypeCapsule), collider}},
+		nil,
+	}
+	msgpack, err := ct.EncodeMsgpack(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compressed, err := ct.CompressLz4BlockArray(msgpack)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	envelope, err := DecodeKCESPayload(AddLengthPrefix(compressed), ".dbcol")
+	if err != nil {
+		t.Fatalf("DecodeKCESPayload: %v", err)
+	}
+	decoded, ok := envelope.ColliderPackage.Colliders[0].Collider.(*ColliderCapsule)
+	if !ok {
+		t.Fatalf("decoded collider type = %T", envelope.ColliderPackage.Colliders[0].Collider)
+	}
+	if !math.IsInf(float64(decoded.StartRadius), 1) || !math.IsNaN(float64(decoded.EndRadius)) || !math.IsInf(float64(decoded.Height), -1) {
+		t.Fatalf("non-finite conversions changed: start=%v end=%v height=%v", decoded.StartRadius, decoded.EndRadius, decoded.Height)
+	}
+
+	reencoded, err := EncodeKCESPayload(envelope)
+	if err != nil {
+		t.Fatalf("EncodeKCESPayload: %v", err)
+	}
+	again, err := DecodeKCESPayload(reencoded, ".dbcol")
+	if err != nil {
+		t.Fatalf("DecodeKCESPayload(re-encoded): %v", err)
+	}
+	againCollider := again.ColliderPackage.Colliders[0].Collider.(*ColliderCapsule)
+	if !math.IsInf(float64(againCollider.StartRadius), 1) || !math.IsNaN(float64(againCollider.EndRadius)) || !math.IsInf(float64(againCollider.Height), -1) {
+		t.Fatalf("non-finite values changed after re-encode: %+v", againCollider)
+	}
+}
+
 func TestGroupedColliderPayloadRoundTrip(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -294,9 +603,9 @@ func TestGroupedColliderPayloadRoundTrip(t *testing.T) {
 					Items: []LimbColliderItem{{
 						Version: 1000,
 						Target:  0,
-						Collider: &ColliderCapsule{
+						Collider: &ColliderMaidProp{
 							ColliderObject: ColliderObject{
-								Version:       1001,
+								Version:       1002,
 								ParentName:    "Bip01 L UpperArm",
 								SelfName:      "Arm",
 								LocalRotation: Vector4{W: 1},
@@ -360,135 +669,48 @@ func TestGroupedColliderPayloadRoundTrip(t *testing.T) {
 }
 
 func TestColliderMaidPropVersionEncodingLayout(t *testing.T) {
-	cmp := &ColliderMaidProp{
-		ColliderObject: ColliderObject{
-			Version:       1001,
-			ParentName:    "Bip01 L UpperArm",
-			SelfName:      "MaidPropCollider",
-			LocalRotation: Vector4{W: 1},
-			LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
-			Center:        Vector3{X: 0.1},
-			Bound:         ColliderBoundOutside,
-		},
-		Direction:          VectorTypeX,
-		IsDirectionInverse: false,
-		StartRadius:        0.12,
-		EndRadius:          0.24,
-		Height:             0.36,
-		CenterMpnList:      []int{7},
-		CenterRateMax:      Vector3{X: 1, Y: 2, Z: 3},
-		StartRadiusMpnList: []int{40, 41},
-		MaxStartRadius:     0.11,
-		EndRadiusMpnList:   []int{42, 43},
-		MaxEndRadius:       0.22,
+	// A newly constructed object uses the current declared Key(0)..Key(24)
+	// shape regardless of the opaque stored version value.
+	value := &ColliderMaidProp{
+		ColliderObject:         ColliderObject{Version: 1001},
+		CenterMpnList:          []int{7},
+		StartRadiusMpnList:     []int{40, 41},
+		EndRadiusMpnList:       []int{42, 43},
+		CenterMpnNameList:      []string{"center"},
+		StartRadiusMpnNameList: []string{"start"},
+		EndRadiusMpnNameList:   []string{"end"},
 	}
-	raw1001 := colliderStatusToRaw(cmp)
-	if len(raw1001) != 22 {
-		t.Fatalf("1001 should produce 22 fields, got %d", len(raw1001))
+	envelope := &KCESPayloadEnvelope{
+		Extension: ".limbcol",
+		Kind:      PayloadKindLimbCollider,
+		LimbCollider: &LimbColliderPackage{Items: []LimbColliderItem{{
+			Collider: value,
+		}}},
 	}
-	if raw1001[13] != nil || raw1001[14] != nil || raw1001[15] != nil {
-		t.Fatalf("1001 layout expected placeholders at 13~15, got %#v %#v %#v", raw1001[13], raw1001[14], raw1001[15])
-	}
-	if raw1001[16] == nil || raw1001[17] == nil || raw1001[18] == nil || raw1001[19] == nil || raw1001[20] == nil || raw1001[21] == nil {
-		t.Fatalf("1001 layout should carry MaidProp fields at 16~21")
-	}
-
-	env1001 := &KCESPayloadEnvelope{
-		Format:         PayloadFormatKCESMessagePack,
-		Extension:      ".limbcol",
-		LengthPrefixed: true,
-		Kind:           PayloadKindLimbCollider,
-		LimbCollider: &LimbColliderPackage{
-			Version: 1000,
-			Items: []LimbColliderItem{{
-				Version:  1000,
-				Target:   0,
-				Collider: cmp,
-			}},
-		},
-	}
-	payload1001, err := EncodeKCESPayload(env1001)
+	wire, err := EncodeKCESPayload(envelope)
 	if err != nil {
-		t.Fatalf("EncodeKCESPayload 1001: %v", err)
+		t.Fatalf("EncodeKCESPayload: %v", err)
 	}
-	decoded1001, err := DecodeKCESPayload(payload1001, ".limbcol")
+	root := decodeLengthPrefixedIndexedTestArray(t, wire)
+	items := decodeIndexedTestArray(t, root[1])
+	item := decodeIndexedTestArray(t, items[0])
+	status := decodeIndexedTestArray(t, item[2])
+	if len(status) != 25 {
+		t.Fatalf("stored version 1001 selected width %d, want declared width 25", len(status))
+	}
+	for _, slot := range []int{13, 14, 15} {
+		assertRawNil(t, status[slot], "MaidProp sparse slot")
+	}
+	decoded, err := DecodeKCESPayload(wire, ".limbcol")
 	if err != nil {
-		t.Fatalf("DecodeKCESPayload 1001: %v", err)
+		t.Fatalf("DecodeKCESPayload: %v", err)
 	}
-	maid1001, ok := decoded1001.LimbCollider.Items[0].Collider.(*ColliderMaidProp)
-	if !ok {
-		t.Fatalf("expected maidprop type: %T", decoded1001.LimbCollider.Items[0].Collider)
+	got := decoded.LimbCollider.Items[0].Collider.(*ColliderMaidProp)
+	if got.Version != 1001 || !reflect.DeepEqual(got.CenterMpnNameList, value.CenterMpnNameList) ||
+		!reflect.DeepEqual(got.StartRadiusMpnNameList, value.StartRadiusMpnNameList) ||
+		!reflect.DeepEqual(got.EndRadiusMpnNameList, value.EndRadiusMpnNameList) {
+		t.Fatalf("version-driven field migration occurred: %+v", got)
 	}
-	if maid1001.Version != 1001 {
-		t.Fatalf("expected version 1001 in decoded, got %d", maid1001.Version)
-	}
-	if len(maid1001.CenterMpnNameList) != 0 || len(maid1001.StartRadiusMpnNameList) != 0 || len(maid1001.EndRadiusMpnNameList) != 0 {
-		t.Fatalf("1001 decode should not populate name-lists, got %+v", maid1001.CenterMpnNameList)
-	}
-
-	cmp2 := &ColliderMaidProp{
-		ColliderObject: ColliderObject{
-			Version:       1002,
-			ParentName:    "Bip01 L UpperArm",
-			SelfName:      "MaidPropCollider",
-			LocalRotation: Vector4{W: 1},
-			LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
-			Bound:         ColliderBoundOutside,
-		},
-		Direction:          VectorTypeX,
-		IsDirectionInverse: false,
-		StartRadius:        0.12,
-		EndRadius:          0.24,
-		Height:             0.36,
-		CenterMpnList:      []int{7},
-		CenterRateMax:      Vector3{X: 1, Y: 2, Z: 3},
-		StartRadiusMpnList: []int{40, 41},
-		MaxStartRadius:     0.11,
-		EndRadiusMpnList:   []int{42, 43},
-		MaxEndRadius:       0.22,
-		CenterMpnNameList:  []string{"cName"},
-	}
-	raw1002 := colliderStatusToRaw(cmp2)
-	if len(raw1002) != 25 {
-		t.Fatalf("1002 should produce 25 fields, got %d", len(raw1002))
-	}
-	if raw1002[13] != nil || raw1002[14] != nil || raw1002[15] != nil {
-		t.Fatalf("1002 layout expected placeholders at 13~15, got %#v %#v %#v", raw1002[13], raw1002[14], raw1002[15])
-	}
-	if raw1002[22] == nil || raw1002[23] == nil || raw1002[24] == nil {
-		t.Fatalf("1002 layout should carry extra name-lists at 22~24")
-	}
-
-	env1002 := &KCESPayloadEnvelope{
-		Format:         PayloadFormatKCESMessagePack,
-		Extension:      ".limbcol",
-		LengthPrefixed: true,
-		Kind:           PayloadKindLimbCollider,
-		LimbCollider: &LimbColliderPackage{
-			Version: 1000,
-			Items: []LimbColliderItem{{
-				Version:  1000,
-				Target:   0,
-				Collider: cmp2,
-			}},
-		},
-	}
-	raw1002Payload, err := EncodeKCESPayload(env1002)
-	if err != nil {
-		t.Fatalf("EncodeKCESPayload 1002: %v", err)
-	}
-	decoded1002, err := DecodeKCESPayload(raw1002Payload, ".limbcol")
-	if err != nil {
-		t.Fatalf("DecodeKCESPayload 1002: %v", err)
-	}
-	maid1002, ok := decoded1002.LimbCollider.Items[0].Collider.(*ColliderMaidProp)
-	if !ok {
-		t.Fatalf("expected maidprop type: %T", decoded1002.LimbCollider.Items[0].Collider)
-	}
-	if maid1002.Version != 1002 {
-		t.Fatalf("expected version 1002 in decoded, got %d", maid1002.Version)
-	}
-	_ = raw1002Payload
 }
 
 func TestNormalizeKCESPayloadExtension(t *testing.T) {
@@ -511,6 +733,7 @@ func TestNormalizeKCESJSONTextExtension(t *testing.T) {
 	tests := map[string]string{
 		"crc2_Underwear.undressdat":  ".undressdat",
 		"crc2_Underwear.undresspdat": ".undresspdat",
+		"dance_enabled_list.NSON":    ".nson",
 		"Uwagi.hitcheck":             "",
 		"default_hairf.db2conf":      "",
 	}

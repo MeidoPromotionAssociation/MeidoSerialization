@@ -3,7 +3,7 @@ package KCES
 import (
 	"bytes"
 	"fmt"
-	"io"
+	"math"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
 )
@@ -12,8 +12,9 @@ const HitCheckSignature = "HitCheck"
 
 // HitCheck 表示 KCES hitcheck 二进制文件 / HitCheck represents a KCES hitcheck binary file
 type HitCheck struct {
-	Signature string          `json:"signature"` // 文件签名，通常为 HitCheck / File signature, usually HitCheck
-	Entries   []HitCheckEntry `json:"entries"`   // hitcheck 条目列表 / Hitcheck entry list
+	Signature    string          `json:"signature"`              // 文件签名，通常为 HitCheck / File signature, usually HitCheck
+	Entries      []HitCheckEntry `json:"entries"`                // hitcheck 条目列表 / Hitcheck entry list
+	TrailingData []byte          `json:"trailingData,omitempty"` // Bytes ignored by the game after count entries / 游戏读取 count 项后忽略的字节
 }
 
 // HitCheckEntry 表示一个 hitcheck 球形检测条目 / HitCheckEntry represents one spherical hitcheck entry
@@ -45,7 +46,13 @@ func DecodeHitCheck(data []byte) (*HitCheck, error) {
 		return nil, fmt.Errorf("read hitcheck entry count: %w", err)
 	}
 	if count < 0 {
-		return nil, fmt.Errorf("invalid hitcheck entry count %d", count)
+		return nil, fmt.Errorf("negative hitcheck entry count %d", count)
+	}
+	// Even with two empty strings, one entry needs 34 bytes. Bound the
+	// attacker-controlled count before allocating the output slice.
+	const minimumHitCheckEntrySize = 34
+	if int64(count) > int64(reader.Len()/minimumHitCheckEntrySize) {
+		return nil, fmt.Errorf("hitcheck entry count %d exceeds remaining data capacity %d", count, reader.Len()/minimumHitCheckEntrySize)
 	}
 
 	out := &HitCheck{
@@ -60,12 +67,11 @@ func DecodeHitCheck(data []byte) (*HitCheck, error) {
 		out.Entries = append(out.Entries, entry)
 	}
 
-	pos, err := reader.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return nil, fmt.Errorf("inspect hitcheck tail: %w", err)
-	}
-	if pos != int64(len(data)) {
-		return nil, fmt.Errorf("hitcheck has %d unread bytes", len(data)-int(pos))
+	if reader.Len() != 0 {
+		out.TrailingData = make([]byte, reader.Len())
+		if _, err := reader.Read(out.TrailingData); err != nil {
+			return nil, fmt.Errorf("read hitcheck trailing data: %w", err)
+		}
 	}
 
 	return out, nil
@@ -75,18 +81,22 @@ func EncodeHitCheck(value *HitCheck) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil hitcheck")
 	}
+	if uint64(len(value.Entries)) > uint64(math.MaxInt32) {
+		return nil, fmt.Errorf("hitcheck entry count %d exceeds int32 capacity", len(value.Entries))
+	}
+	count := int32(len(value.Entries))
 
 	var buf bytes.Buffer
 	bw := stream.NewBinaryWriter(&buf)
 
 	signature := value.Signature
-	if signature == "" {
-		signature = HitCheckSignature
+	if signature != HitCheckSignature {
+		return nil, fmt.Errorf("invalid hitcheck signature %q", signature)
 	}
 	if err := bw.WriteString(signature); err != nil {
 		return nil, fmt.Errorf("write hitcheck signature: %w", err)
 	}
-	if err := bw.WriteInt32(int32(len(value.Entries))); err != nil {
+	if err := bw.WriteInt32(count); err != nil {
 		return nil, fmt.Errorf("write hitcheck entry count: %w", err)
 	}
 
@@ -95,8 +105,19 @@ func EncodeHitCheck(value *HitCheck) ([]byte, error) {
 			return nil, err
 		}
 	}
+	if len(value.TrailingData) != 0 {
+		if _, err := buf.Write(value.TrailingData); err != nil {
+			return nil, fmt.Errorf("write hitcheck trailing data: %w", err)
+		}
+	}
 
 	return buf.Bytes(), nil
+}
+
+// NewHitCheck explicitly creates the current recognized file header. Existing
+// decoded values are never defaulted or upgraded during encoding.
+func NewHitCheck() *HitCheck {
+	return &HitCheck{Signature: HitCheckSignature}
 }
 
 func readHitCheckEntry(br *stream.BinaryReader, index int) (HitCheckEntry, error) {

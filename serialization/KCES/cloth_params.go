@@ -1,13 +1,26 @@
 package KCES
 
+import "encoding/json"
+
 // BezierParam 对应 MagicaCloth.BezierParam / BezierParam corresponds to MagicaCloth.BezierParam
 type BezierParam struct {
-	_struct       struct{} `codec:",toarray"`     // 强制按数组编码 / Forces array encoding
-	StartValue    float32  `json:"startValue"`    // 起始值 / Start value
-	EndValue      float32  `json:"endValue"`      // 结束值 / End value
-	UseEndValue   bool     `json:"useEndValue"`   // 是否使用结束值 / Whether the end value is used
-	CurveValue    float32  `json:"curveValue"`    // 曲线值 / Curve value
-	UseCurveValue bool     `json:"useCurveValue"` // 是否使用曲线值 / Whether the curve value is used
+	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	*IndexedObjectMetadata `codec:"-"`
+	StartValue             float32 `json:"startValue"`    // 起始值 / Start value
+	EndValue               float32 `json:"endValue"`      // 结束值 / End value
+	UseEndValue            bool    `json:"useEndValue"`   // 是否使用结束值 / Whether the end value is used
+	CurveValue             float32 `json:"curveValue"`    // 曲线值 / Curve value
+	UseCurveValue          bool    `json:"useCurveValue"` // 是否使用曲线值 / Whether the curve value is used
+}
+
+func newBezierParam(start, end float32, useEnd bool, curve float32, useCurve bool) BezierParam {
+	return BezierParam{
+		StartValue:    start,
+		EndValue:      end,
+		UseEndValue:   useEnd,
+		CurveValue:    curve,
+		UseCurveValue: useCurve,
+	}
 }
 
 type ClothTeleportMode int
@@ -47,13 +60,14 @@ const (
 // ClothParams 对应 MagicaCloth.ClothParams / ClothParams corresponds to MagicaCloth.ClothParams
 // MessagePack-CSharp 以 Key(0)..Key(82) 的 indexed array 写入，Key(4)、Key(5)、Key(56) 是当前游戏类型中的空洞并需要保留 / MessagePack-CSharp writes keys 0..82 as an indexed array, with sparse holes at Key(4), Key(5), and Key(56)
 type ClothParams struct {
-	_struct                          struct{}             `codec:",toarray"`                        // 强制按数组编码 / Forces array encoding
+	_struct                          struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	*IndexedObjectMetadata           `codec:"-"`
 	Radius                           BezierParam          `json:"radius"`                           // 粒子半径曲线参数 / Particle radius curve parameter
 	Mass                             BezierParam          `json:"mass"`                             // 质量曲线参数 / Mass curve parameter
 	UseGravity                       bool                 `json:"useGravity"`                       // 是否使用重力 / Whether gravity is enabled
 	Gravity                          BezierParam          `json:"gravity"`                          // 重力强度曲线参数 / Gravity strength curve parameter
-	Reserved04                       interface{}          `json:"reserved04,omitempty"`             // 当前游戏未使用的 Key(4) 占位 / Placeholder for currently unused game Key(4)
-	Reserved05                       interface{}          `json:"reserved05,omitempty"`             // 当前游戏未使用的 Key(5) 占位 / Placeholder for currently unused game Key(5)
+	Reserved04                       RawMessagePackSlot   `json:"reserved04,omitempty"`             // C# 无 Key(4)；原始稀疏槽位 / C# has no Key(4); raw sparse slot
+	Reserved05                       RawMessagePackSlot   `json:"reserved05,omitempty"`             // C# 无 Key(5)；原始稀疏槽位 / C# has no Key(5); raw sparse slot
 	UseDrag                          bool                 `json:"useDrag"`                          // 是否使用阻力 / Whether drag is enabled
 	Drag                             BezierParam          `json:"drag"`                             // 阻力曲线参数 / Drag curve parameter
 	UseMaxVelocity                   bool                 `json:"useMaxVelocity"`                   // 是否限制最大速度 / Whether maximum velocity is limited
@@ -104,7 +118,7 @@ type ClothParams struct {
 	SpringIntensity                  float32              `json:"springIntensity"`                  // 弹簧强度 / Spring intensity
 	SpringDirectionAtten             BezierParam          `json:"springDirectionAtten"`             // 弹簧方向衰减曲线参数 / Spring direction attenuation curve parameter
 	SpringDistanceAtten              BezierParam          `json:"springDistanceAtten"`              // 弹簧距离衰减曲线参数 / Spring distance attenuation curve parameter
-	Reserved56                       interface{}          `json:"reserved56,omitempty"`             // 当前游戏未使用的 Key(56) 占位 / Placeholder for currently unused game Key(56)
+	Reserved56                       RawMessagePackSlot   `json:"reserved56,omitempty"`             // C# 无 Key(56)；原始稀疏槽位 / C# has no Key(56); raw sparse slot
 	AdjustMode                       ClothAdjustMode      `json:"adjustMode"`                       // 调整模式枚举 / Adjustment mode enum
 	AdjustRotationPower              float32              `json:"adjustRotationPower"`              // 调整旋转力度 / Adjustment rotation power
 	UseTriangleBend                  bool                 `json:"useTriangleBend"`                  // 是否启用三角形弯曲 / Whether triangle bend is enabled
@@ -131,4 +145,108 @@ type ClothParams struct {
 	TeleportMode                     ClothTeleportMode    `json:"teleportMode"`                     // 传送处理模式枚举 / Teleport handling mode enum
 	ResetStabilizationTime           float32              `json:"resetStabilizationTime"`           // 重置后稳定时间 / Stabilization time after reset
 	ClampRotationVelocityLimit       float32              `json:"clampRotationVelocityLimit"`       // 旋转约束速度上限 / Rotation clamp velocity limit
+}
+
+// NewClothParams returns the same field defaults as MagicaCloth.ClothParams's
+// C# field initializers. Use this when constructing a configuration directly
+// in Go. MessagePack decoding and JSON unmarshalling deliberately retain only
+// supplied wire/editing fields and do not run this constructor.
+func NewClothParams() *ClothParams {
+	return &ClothParams{
+		Radius:                           newBezierParam(0.02, 0.02, true, 0, false),
+		Mass:                             newBezierParam(1, 1, true, 0, false),
+		UseGravity:                       true,
+		Gravity:                          newBezierParam(-9.8, -9.8, false, 0, false),
+		UseDrag:                          true,
+		Drag:                             newBezierParam(0.02, 0.02, true, 0, false),
+		UseMaxVelocity:                   true,
+		MaxVelocity:                      newBezierParam(3, 3, false, 0, false),
+		WorldMoveInfluence:               newBezierParam(0.5, 0.5, false, 0, false),
+		WorldRotationInfluence:           newBezierParam(0.5, 0.5, false, 0, false),
+		MassInfluence:                    0.3,
+		WindInfluence:                    1,
+		WindRandomScale:                  0.7,
+		DisableDistance:                  20,
+		DisableFadeDistance:              5,
+		TeleportDistance:                 0.2,
+		TeleportRotation:                 45,
+		UseClampDistanceRatio:            true,
+		ClampDistanceMinRatio:            0.7,
+		ClampDistanceMaxRatio:            1.1,
+		ClampDistanceVelocityInfluence:   0.2,
+		ClampPositionLength:              newBezierParam(0.03, 0.2, true, 0, false),
+		ClampPositionRatioX:              1,
+		ClampPositionRatioY:              1,
+		ClampPositionRatioZ:              1,
+		ClampPositionVelocityInfluence:   0.2,
+		ClampRotationAngle:               newBezierParam(30, 30, true, 0, false),
+		ClampRotationVelocityInfluence:   0.2,
+		RestoreDistanceVelocityInfluence: 1,
+		StructDistanceStiffness:          newBezierParam(1, 1, false, 0, false),
+		BendDistanceMaxCount:             2,
+		BendDistanceStiffness:            newBezierParam(0.5, 0.5, false, 0, false),
+		NearDistanceMaxCount:             3,
+		NearDistanceMaxDepth:             1,
+		NearDistanceLength:               newBezierParam(0.1, 0.1, true, 0, false),
+		NearDistanceStiffness:            newBezierParam(0.3, 0.3, false, 0, false),
+		RestoreRotation:                  newBezierParam(0.3, 0.1, true, 0, false),
+		RestoreRotationVelocityInfluence: 0.2,
+		SpringPower:                      0.017,
+		SpringRadius:                     0.1,
+		SpringScaleX:                     1,
+		SpringScaleY:                     1,
+		SpringScaleZ:                     1,
+		SpringIntensity:                  1,
+		SpringDirectionAtten:             newBezierParam(1, 0, true, 0.234, true),
+		SpringDistanceAtten:              newBezierParam(1, 0, true, 0.395, true),
+		AdjustRotationPower:              5,
+		TriangleBend:                     newBezierParam(0.5, 0.5, true, 0, false),
+		MaxVolumeLength:                  0.1,
+		VolumeStretchStiffness:           newBezierParam(0.5, 0.5, true, 0, false),
+		VolumeShearStiffness:             newBezierParam(0.5, 0.5, true, 0, false),
+		Friction:                         0.2,
+		PenetrationAxis:                  ClothPenetrationAxisInverseZ,
+		PenetrationMaxDepth:              1,
+		PenetrationConnectDistance:       newBezierParam(0.2, 0.3, true, 0, false),
+		PenetrationDistance:              newBezierParam(0.1, 0.2, true, 0, false),
+		PenetrationRadius:                newBezierParam(0.3, 1, true, 0, false),
+		UseLineAvarageRotation:           true,
+		GravityDirection:                 Vector3{Y: 1},
+		MaxMoveSpeed:                     10,
+		MaxRotationSpeed:                 360,
+		ResetStabilizationTime:           0.1,
+		ClampRotationVelocityLimit:       1,
+	}
+}
+
+// UnmarshalJSON keeps omitted editing fields at their wire-model zero values.
+// Call NewClothParams explicitly when creating a new current-game object.
+func (p *ClothParams) UnmarshalJSON(data []byte) error {
+	type plainClothParams ClothParams
+	var value plainClothParams
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*p = ClothParams(value)
+	return nil
+}
+
+func validateClothParamsForEncoding(params *ClothParams) error {
+	fields := []struct {
+		path  string
+		value int
+	}{
+		{path: "clothParams.bendDistanceMaxCount", value: params.BendDistanceMaxCount},
+		{path: "clothParams.nearDistanceMaxCount", value: params.NearDistanceMaxCount},
+		{path: "clothParams.adjustMode", value: int(params.AdjustMode)},
+		{path: "clothParams.penetrationMode", value: int(params.PenetrationMode)},
+		{path: "clothParams.penetrationAxis", value: int(params.PenetrationAxis)},
+		{path: "clothParams.teleportMode", value: int(params.TeleportMode)},
+	}
+	for _, field := range fields {
+		if err := requireInt32(field.path, field.value); err != nil {
+			return err
+		}
+	}
+	return nil
 }

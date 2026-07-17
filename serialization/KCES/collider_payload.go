@@ -1,19 +1,25 @@
 package KCES
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"strconv"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/ugorji/go/codec"
 )
 
 // ColliderPackage 表示通用碰撞体包 / ColliderPackage represents a generic collider package
 type ColliderPackage struct {
-	Version        int             `json:"version"`                  // 版本号 / Version value
-	Colliders      []ColliderRef   `json:"colliders"`                // 碰撞体引用列表 / Collider reference list
-	LimbEnableList []ColliderState `json:"limbEnableList,omitempty"` // DynamicYureBone.LimbColliderInfo 列表 / DynamicYureBone.LimbColliderInfo list
+	_struct                struct{} `codec:",toarray"`
+	*IndexedObjectMetadata `codec:"-"`
+	Version                int             `json:"version"`                  // 版本号 / Version value
+	Colliders              []ColliderRef   `json:"colliders"`                // 碰撞体引用列表 / Collider reference list
+	LimbEnableList         []ColliderState `json:"limbEnableList,omitempty"` // DynamicYureBone.LimbColliderInfo 列表 / DynamicYureBone.LimbColliderInfo list
 }
 
 type colliderPackageJSON struct {
+	*IndexedObjectMetadata
 	Version        int             `json:"version"`
 	Colliders      []ColliderRef   `json:"colliders"`
 	LimbEnableList []ColliderState `json:"limbEnableList,omitempty"`
@@ -22,9 +28,10 @@ type colliderPackageJSON struct {
 
 func (p ColliderPackage) MarshalJSON() ([]byte, error) {
 	return json.Marshal(colliderPackageJSON{
-		Version:        p.Version,
-		Colliders:      p.Colliders,
-		LimbEnableList: p.LimbEnableList,
+		IndexedObjectMetadata: p.IndexedObjectMetadata,
+		Version:               p.Version,
+		Colliders:             p.Colliders,
+		LimbEnableList:        p.LimbEnableList,
 	})
 }
 
@@ -37,9 +44,10 @@ func (p *ColliderPackage) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf(`colliderPackage.states is no longer supported; use "limbEnableList"`)
 	}
 	*p = ColliderPackage{
-		Version:        raw.Version,
-		Colliders:      raw.Colliders,
-		LimbEnableList: raw.LimbEnableList,
+		IndexedObjectMetadata: raw.IndexedObjectMetadata,
+		Version:               raw.Version,
+		Colliders:             raw.Colliders,
+		LimbEnableList:        raw.LimbEnableList,
 	}
 	return nil
 }
@@ -68,14 +76,21 @@ const (
 
 // ColliderRef 表示带类型枚举的碰撞体引用 / ColliderRef represents a collider reference with its type enum
 type ColliderRef struct {
-	Type     int                 `json:"type"`     // 碰撞体类型枚举 / Collider type enum
-	Collider ColliderStatusUnion `json:"collider"` // 碰撞体对象数据 / Collider object data
+	*IndexedObjectMetadata `codec:"-"`
+	Type                   int                 `json:"type"`     // 碰撞体类型枚举 / Collider type enum
+	Collider               ColliderStatusUnion `json:"collider"` // 碰撞体对象数据 / Collider object data
+	// ColliderRaw preserves the concrete union payload when Type is newer than
+	// this library. It is one complete MessagePack value encoded as base64 in
+	// JSON. Known colliders use Collider and leave this field empty.
+	ColliderRaw RawMessagePackSlot `json:"colliderRaw,omitempty" codec:"-"`
 }
 
 type colliderRefAlias ColliderRef
 type colliderRefJSON struct {
-	Type     int             `json:"type"`
-	Collider json.RawMessage `json:"collider"`
+	*IndexedObjectMetadata
+	Type        int                `json:"type"`
+	Collider    json.RawMessage    `json:"collider"`
+	ColliderRaw RawMessagePackSlot `json:"colliderRaw,omitempty"`
 }
 
 func (c *ColliderRef) UnmarshalJSON(data []byte) error {
@@ -83,25 +98,22 @@ func (c *ColliderRef) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
-	var collider ColliderStatusUnion
-	switch raw.Type {
-	case ColliderTypePlane:
-		collider = &ColliderPlane{}
-	case ColliderTypeCapsule:
-		collider = &ColliderCapsule{}
-	case ColliderTypeSphere:
-		collider = &ColliderSphere{}
-	case ColliderTypeMaidProp:
-		collider = &ColliderMaidProp{}
-	default:
-		return fmt.Errorf("unknown collider type: %d", raw.Type)
+	if len(raw.ColliderRaw) != 0 && !jsonMessageIsNullOrMissing(raw.Collider) {
+		return fmt.Errorf("collider and colliderRaw cannot both be populated")
 	}
-	if err := json.Unmarshal(raw.Collider, collider); err != nil {
-		return err
+	var collider ColliderStatusUnion
+	if len(raw.ColliderRaw) == 0 && !jsonMessageIsNullOrMissing(raw.Collider) {
+		var err error
+		collider, err = decodeColliderObjectAsType(raw.Collider, raw.Type)
+		if err != nil {
+			return err
+		}
 	}
 	*c = ColliderRef{
-		Type:     raw.Type,
-		Collider: collider,
+		IndexedObjectMetadata: raw.IndexedObjectMetadata,
+		Type:                  raw.Type,
+		Collider:              collider,
+		ColliderRaw:           cloneRawMessagePackSlot(raw.ColliderRaw),
 	}
 	return nil
 }
@@ -128,60 +140,166 @@ type ColliderObject struct {
 }
 
 type ColliderPlane struct {
-	ColliderObject
-	Direction          int  `json:"direction"`          // 平面法线方向 / Plane normal direction
-	IsDirectionInverse bool `json:"isDirectionInverse"` // 法线方向反转 / Reverse normal direction
+	_struct                struct{} `codec:",toarray"`
+	*IndexedObjectMetadata `codec:"-"`
+	ColliderObject         `codec:",inline"`
+	Direction              int  `json:"direction"`          // 平面法线方向 / Plane normal direction
+	IsDirectionInverse     bool `json:"isDirectionInverse"` // 法线方向反转 / Reverse normal direction
 }
 
 func (*ColliderPlane) toColliderType() int { return ColliderTypePlane }
 
 type ColliderCapsule struct {
-	ColliderObject
-	Direction          int     `json:"direction"`          // 胶囊主轴方向 / Capsule axis direction
-	IsDirectionInverse bool    `json:"isDirectionInverse"` // 方向反转 / Direction reversed
-	StartRadius        float32 `json:"startRadius"`        // 起点半径 / Start radius
-	EndRadius          float32 `json:"endRadius"`          // 终点半径 / End radius
-	Height             float32 `json:"height"`             // 长度 / Height
+	_struct                struct{} `codec:",toarray"`
+	*IndexedObjectMetadata `codec:"-"`
+	ColliderObject         `codec:",inline"`
+	Direction              int     `json:"direction"`          // 胶囊主轴方向 / Capsule axis direction
+	IsDirectionInverse     bool    `json:"isDirectionInverse"` // 方向反转 / Direction reversed
+	StartRadius            float32 `json:"startRadius"`        // 起点半径 / Start radius
+	EndRadius              float32 `json:"endRadius"`          // 终点半径 / End radius
+	Height                 float32 `json:"height"`             // 长度 / Height
 }
 
 func (*ColliderCapsule) toColliderType() int { return ColliderTypeCapsule }
 
 type ColliderSphere struct {
-	ColliderObject
-	Radius float32 `json:"radius"` // 半径 / Radius
+	_struct                struct{} `codec:",toarray"`
+	*IndexedObjectMetadata `codec:"-"`
+	ColliderObject         `codec:",inline"`
+	Radius                 float32 `json:"radius"` // 半径 / Radius
 }
 
 func (*ColliderSphere) toColliderType() int { return ColliderTypeSphere }
 
 type ColliderMaidProp struct {
-	ColliderObject
-	Direction              int      `json:"direction"`              // 胶囊主轴方向 / Capsule axis direction
-	IsDirectionInverse     bool     `json:"isDirectionInverse"`     // 方向反转 / Direction reversed
-	StartRadius            float32  `json:"startRadius"`            // 起点半径 / Start radius
-	EndRadius              float32  `json:"endRadius"`              // 终点半径 / End radius
-	Height                 float32  `json:"height"`                 // 长度 / Height
-	CenterMpnList          []int    `json:"centerMpnList"`          // 中心MPN枚举列表，对应 C# List<MPN> / Center MPN enum list, matching C# List<MPN>
-	CenterRateMax          Vector3  `json:"centerRateMax"`          // 中心最大比率 / Max center rate
-	StartRadiusMpnList     []int    `json:"startRadiusMpnList"`     // 起点半径MPN枚举列表 / Start-radius MPN enum list
-	MaxStartRadius         float32  `json:"maxStartRadius"`         // 起点半径最大值 / Max start radius
-	EndRadiusMpnList       []int    `json:"endRadiusMpnList"`       // 终点半径MPN枚举列表 / End-radius MPN enum list
-	MaxEndRadius           float32  `json:"maxEndRadius"`           // 终点半径最大值 / Max end radius
-	CenterMpnNameList      []string `json:"centerMpnNameList"`      // 中心MPN名 / Center MPN names
-	StartRadiusMpnNameList []string `json:"startRadiusMpnNameList"` // 起点半径MPN名 / Start-radius MPN names
-	EndRadiusMpnNameList   []string `json:"endRadiusMpnNameList"`   // 终点半径MPN名 / End-radius MPN names
+	_struct                struct{} `codec:",toarray"`
+	*IndexedObjectMetadata `codec:"-"`
+	ColliderObject         `codec:",inline"`
+	Direction              int                `json:"direction"`              // 胶囊主轴方向 / Capsule axis direction
+	IsDirectionInverse     bool               `json:"isDirectionInverse"`     // 方向反转 / Direction reversed
+	StartRadius            float32            `json:"startRadius"`            // 起点半径 / Start radius
+	EndRadius              float32            `json:"endRadius"`              // 终点半径 / End radius
+	Height                 float32            `json:"height"`                 // 长度 / Height
+	Reserved13             RawMessagePackSlot `json:"reserved13,omitempty"`   // C# has no Key(13); normally MessagePack nil
+	Reserved14             RawMessagePackSlot `json:"reserved14,omitempty"`   // C# has no Key(14); normally MessagePack nil
+	Reserved15             RawMessagePackSlot `json:"reserved15,omitempty"`   // C# has no Key(15); normally MessagePack nil
+	CenterMpnList          []int              `json:"centerMpnList"`          // 中心MPN枚举列表，对应 C# List<MPN> / Center MPN enum list, matching C# List<MPN>
+	CenterRateMax          Vector3            `json:"centerRateMax"`          // 中心最大比率 / Max center rate
+	StartRadiusMpnList     []int              `json:"startRadiusMpnList"`     // 起点半径MPN枚举列表 / Start-radius MPN enum list
+	MaxStartRadius         float32            `json:"maxStartRadius"`         // 起点半径最大值 / Max start radius
+	EndRadiusMpnList       []int              `json:"endRadiusMpnList"`       // 终点半径MPN枚举列表 / End-radius MPN enum list
+	MaxEndRadius           float32            `json:"maxEndRadius"`           // 终点半径最大值 / Max end radius
+	CenterMpnNameList      []string           `json:"centerMpnNameList"`      // 中心MPN名 / Center MPN names
+	StartRadiusMpnNameList []string           `json:"startRadiusMpnNameList"` // 起点半径MPN名 / Start-radius MPN names
+	EndRadiusMpnNameList   []string           `json:"endRadiusMpnNameList"`   // 终点半径MPN名 / End-radius MPN names
 }
 
 func (*ColliderMaidProp) toColliderType() int { return ColliderTypeMaidProp }
 
+func newColliderObject(version int) ColliderObject {
+	return ColliderObject{
+		Version:       version,
+		LocalRotation: Vector4{W: 1},
+		LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
+	}
+}
+
+// NewColliderPlane, NewColliderCapsule, NewColliderSphere and
+// NewColliderMaidProp reproduce the current C# constructors/field
+// initializers for callers explicitly creating a new object. Wire and JSON
+// decoding always start from zero values and never run game migrations.
+func NewColliderPlane() *ColliderPlane {
+	return &ColliderPlane{
+		ColliderObject: newColliderObject(colliderStatusFixVersion),
+		Direction:      VectorTypeY,
+	}
+}
+
+func NewColliderCapsule() *ColliderCapsule {
+	return &ColliderCapsule{
+		ColliderObject: newColliderObject(colliderStatusFixVersion),
+		Direction:      VectorTypeY,
+		StartRadius:    0.5,
+		EndRadius:      0.5,
+	}
+}
+
+func NewColliderSphere() *ColliderSphere {
+	return &ColliderSphere{
+		ColliderObject: newColliderObject(colliderStatusFixVersion),
+		Radius:         0.5,
+	}
+}
+
+func NewColliderMaidProp() *ColliderMaidProp {
+	return &ColliderMaidProp{
+		ColliderObject:         newColliderObject(colliderMaidPropFixVersion),
+		Direction:              VectorTypeY,
+		StartRadius:            0.5,
+		EndRadius:              0.5,
+		CenterMpnList:          []int{},
+		StartRadiusMpnList:     []int{},
+		MaxStartRadius:         1,
+		EndRadiusMpnList:       []int{},
+		MaxEndRadius:           1,
+		CenterMpnNameList:      []string{},
+		StartRadiusMpnNameList: []string{},
+		EndRadiusMpnNameList:   []string{},
+	}
+}
+
+func (v *ColliderPlane) UnmarshalJSON(data []byte) error {
+	type colliderPlaneJSON ColliderPlane
+	var value colliderPlaneJSON
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*v = ColliderPlane(value)
+	return nil
+}
+
+func (v *ColliderCapsule) UnmarshalJSON(data []byte) error {
+	type colliderCapsuleJSON ColliderCapsule
+	var value colliderCapsuleJSON
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*v = ColliderCapsule(value)
+	return nil
+}
+
+func (v *ColliderSphere) UnmarshalJSON(data []byte) error {
+	type colliderSphereJSON ColliderSphere
+	var value colliderSphereJSON
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*v = ColliderSphere(value)
+	return nil
+}
+
+func (v *ColliderMaidProp) UnmarshalJSON(data []byte) error {
+	type colliderMaidPropJSON ColliderMaidProp
+	var value colliderMaidPropJSON
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	*v = ColliderMaidProp(value)
+	return nil
+}
+
 // ColliderState 表示 DynamicYureBone.LimbColliderInfo。
 // ColliderState represents DynamicYureBone.LimbColliderInfo.
 type ColliderState struct {
-	Version  int  `json:"version"`  // 版本号 / Version value
-	LimbType int  `json:"limbType"` // limbType 枚举值 / LimbType enum value
-	IsEnable bool `json:"isEnable"` // 是否启用 / Enabled
+	_struct                struct{} `codec:",toarray"`
+	*IndexedObjectMetadata `codec:"-"`
+	Version                int  `json:"version"`  // 版本号 / Version value
+	LimbType               int  `json:"limbType"` // limbType 枚举值 / LimbType enum value
+	IsEnable               bool `json:"isEnable"` // 是否启用 / Enabled
 }
 
 type colliderStateJSON struct {
+	*IndexedObjectMetadata
 	Version  int             `json:"version"`
 	LimbType *int            `json:"limbType,omitempty"`
 	IsEnable *bool           `json:"isEnable,omitempty"`
@@ -200,34 +318,41 @@ func (s *ColliderState) UnmarshalJSON(data []byte) error {
 	if len(raw.Enabled) > 0 {
 		return fmt.Errorf(`collider state "enabled" is no longer supported; use "isEnable"`)
 	}
-	if raw.LimbType == nil {
-		return fmt.Errorf(`collider state "limbType" is required`)
+	value := ColliderState{IndexedObjectMetadata: raw.IndexedObjectMetadata, Version: raw.Version}
+	if raw.LimbType != nil {
+		value.LimbType = *raw.LimbType
 	}
-	if raw.IsEnable == nil {
-		return fmt.Errorf(`collider state "isEnable" is required`)
+	if raw.IsEnable != nil {
+		value.IsEnable = *raw.IsEnable
 	}
-	*s = ColliderState{Version: raw.Version, LimbType: *raw.LimbType, IsEnable: *raw.IsEnable}
+	*s = value
 	return nil
 }
 
 // LimbColliderPackage 对应 LimbColliderMgr 保存的 limb collider 包 / LimbColliderPackage maps the package saved by LimbColliderMgr
 type LimbColliderPackage struct {
-	Version int                `json:"version"` // 版本号 / Version value
-	Items   []LimbColliderItem `json:"items"`   // limb 碰撞体条目列表 / limb collider item list
+	_struct                struct{} `codec:",toarray"`
+	*IndexedObjectMetadata `codec:"-"`
+	Version                int                `json:"version"` // 版本号 / Version value
+	Items                  []LimbColliderItem `json:"items"`   // limb 碰撞体条目列表 / limb collider item list
 }
 
 // LimbColliderItem 表示一个 limb 类型和碰撞体状态 / LimbColliderItem represents one limb type and collider status
 type LimbColliderItem struct {
-	Version  int                 `json:"version"`  // 版本号 / Version value
-	Target   int                 `json:"target"`   // limbType 枚举值 / LimbType enum value
-	Collider ColliderStatusUnion `json:"collider"` // 碰撞体状态 / Collider status
+	*IndexedObjectMetadata `codec:"-"`
+	Version                int                 `json:"version"`  // 版本号 / Version value
+	Target                 int                 `json:"target"`   // limbType 枚举值 / LimbType enum value
+	Collider               ColliderStatusUnion `json:"collider"` // 碰撞体状态 / Collider status
+	ColliderRaw            RawMessagePackSlot  `json:"colliderRaw,omitempty" codec:"-"`
 }
 
 type limbColliderItemAlias LimbColliderItem
 type limbColliderItemJSON struct {
-	Version  int             `json:"version"`
-	Target   int             `json:"target"`
-	Collider json.RawMessage `json:"collider"`
+	*IndexedObjectMetadata
+	Version     int                `json:"version"`
+	Target      int                `json:"target"`
+	Collider    json.RawMessage    `json:"collider"`
+	ColliderRaw RawMessagePackSlot `json:"colliderRaw,omitempty"`
 }
 
 func (item *LimbColliderItem) UnmarshalJSON(data []byte) error {
@@ -235,14 +360,25 @@ func (item *LimbColliderItem) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
-	collider, err := decodeColliderObjectAsType(raw.Collider, inferColliderTypeFromJSON(raw.Collider))
-	if err != nil {
-		return err
+	if len(raw.ColliderRaw) != 0 && !jsonMessageIsNullOrMissing(raw.Collider) {
+		return fmt.Errorf("limb collider item collider and colliderRaw cannot both be populated")
+	}
+	var collider ColliderStatusUnion
+	if len(raw.ColliderRaw) == 0 && !jsonMessageIsNullOrMissing(raw.Collider) {
+		// C# LimbColliderMgr.LimbColliderData.Key(2) is a concrete
+		// NativeMaidPropColliderStatus, not ANativeColliderStatus's union.
+		var err error
+		collider, err = decodeColliderObjectAsType(raw.Collider, ColliderTypeMaidProp)
+		if err != nil {
+			return fmt.Errorf("limb collider item collider: %w", err)
+		}
 	}
 	*item = LimbColliderItem{
-		Version:  raw.Version,
-		Target:   raw.Target,
-		Collider: collider,
+		IndexedObjectMetadata: raw.IndexedObjectMetadata,
+		Version:               raw.Version,
+		Target:                raw.Target,
+		Collider:              collider,
+		ColliderRaw:           cloneRawMessagePackSlot(raw.ColliderRaw),
 	}
 	return nil
 }
@@ -253,803 +389,503 @@ func (item LimbColliderItem) MarshalJSON() ([]byte, error) {
 
 // IKColliderPackage 对应 IKColliderSaveLoader 保存的 IK collider 包 / IKColliderPackage maps the package saved by IKColliderSaveLoader
 type IKColliderPackage struct {
-	Version int               `json:"version"` // 版本号 / Version value
-	Groups  []IKColliderGroup `json:"groups"`  // IK 效果器分组列表 / IK effector group list
+	_struct                struct{} `codec:",toarray"`
+	*IndexedObjectMetadata `codec:"-"`
+	Version                int               `json:"version"` // 版本号 / Version value
+	Groups                 []IKColliderGroup `json:"groups"`  // IK 效果器分组列表 / IK effector group list
 }
 
 // IKColliderGroup 表示一个 IK 效果器的碰撞体列表 / IKColliderGroup represents colliders for one IK effector
 type IKColliderGroup struct {
-	Version   int           `json:"version"`   // 版本号 / Version value
-	Target    int           `json:"target"`    // effectorType 枚举值 / Effector type enum
-	Colliders []ColliderRef `json:"colliders"` // 该效果器关联的碰撞体引用列表 / Collider references associated with effector
+	_struct                struct{} `codec:",toarray"`
+	*IndexedObjectMetadata `codec:"-"`
+	Version                int           `json:"version"`   // 版本号 / Version value
+	Target                 int           `json:"target"`    // effectorType 枚举值 / Effector type enum
+	Colliders              []ColliderRef `json:"colliders"` // 该效果器关联的碰撞体引用列表 / Collider references associated with effector
 }
 
-func decodeColliderPackageRaw(raw interface{}) (*ColliderPackage, error) {
-	arr, err := asRawArray(raw, "ColliderPackage")
-	if err != nil {
-		return nil, err
-	}
-	if len(arr) < 2 {
-		return nil, fmt.Errorf("ColliderPackage: expected array(2+), got %d", len(arr))
-	}
-
-	version, err := rawInt(arr[0], "ColliderPackage.version")
-	if err != nil {
-		return nil, err
-	}
-	colliders, err := decodeColliderRefsRaw(arr[1], "ColliderPackage.colliders")
-	if err != nil {
-		return nil, err
-	}
-
-	var states []ColliderState
-	if len(arr) > 2 && arr[2] != nil {
-		states, err = decodeColliderStatesRaw(arr[2], "ColliderPackage.limbEnableList")
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &ColliderPackage{
-		Version:        version,
-		Colliders:      colliders,
-		LimbEnableList: states,
-	}, nil
+// colliderRefWire is the MessagePack-CSharp union wrapper
+// [unionTag, concreteObject]. The concrete object stays raw only long enough
+// to select its formatter; all array framing and metadata handling remains in
+// the shared indexed-object codec.
+type colliderRefWire struct {
+	_struct                struct{} `codec:",toarray"`
+	*IndexedObjectMetadata `codec:"-"`
+	Type                   int                `json:"type"`
+	Collider               RawMessagePackSlot `json:"collider"`
 }
 
-func (p *ColliderPackage) toRaw() []interface{} {
-	if p == nil {
-		return nil
-	}
-	return []interface{}{
-		int64(p.Version),
-		colliderRefsToRaw(p.Colliders),
-		colliderStatesToRaw(p.LimbEnableList),
-	}
+func (v colliderRefWire) CodecEncodeSelf(e *codec.Encoder) {
+	ct.EncodeIndexedObjectSelf(e, &v)
 }
 
-func decodeLimbColliderPackageRaw(raw interface{}) (*LimbColliderPackage, error) {
-	arr, err := asRawArray(raw, "LimbColliderPackage")
-	if err != nil {
-		return nil, err
-	}
-	if len(arr) < 2 {
-		return nil, fmt.Errorf("LimbColliderPackage: expected array(2+), got %d", len(arr))
-	}
-	version, err := rawInt(arr[0], "LimbColliderPackage.version")
-	if err != nil {
-		return nil, err
-	}
-	itemsArr, err := asRawArray(arr[1], "LimbColliderPackage.items")
-	if err != nil {
-		return nil, err
-	}
-
-	items := make([]LimbColliderItem, 0, len(itemsArr))
-	for i, itemRaw := range itemsArr {
-		itemArr, err := asRawArray(itemRaw, fmt.Sprintf("LimbColliderPackage.items[%d]", i))
-		if err != nil {
-			return nil, err
-		}
-		if len(itemArr) < 3 {
-			return nil, fmt.Errorf("LimbColliderPackage.items[%d]: expected array(3+), got %d", i, len(itemArr))
-		}
-		itemVersion, err := rawInt(itemArr[0], fmt.Sprintf("LimbColliderPackage.items[%d].version", i))
-		if err != nil {
-			return nil, err
-		}
-		target, err := rawInt(itemArr[1], fmt.Sprintf("LimbColliderPackage.items[%d].target", i))
-		if err != nil {
-			return nil, err
-		}
-		colliderArr, err := asRawArray(itemArr[2], fmt.Sprintf("LimbColliderPackage.items[%d].collider", i))
-		if err != nil {
-			return nil, err
-		}
-		collider, err := decodeColliderObjectRaw(colliderArr, inferColliderTypeFromArray(colliderArr), fmt.Sprintf("LimbColliderPackage.items[%d].collider", i))
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, LimbColliderItem{Version: itemVersion, Target: target, Collider: collider})
-	}
-
-	return &LimbColliderPackage{Version: version, Items: items}, nil
+func (v *colliderRefWire) CodecDecodeSelf(d *codec.Decoder) {
+	ct.DecodeIndexedObjectSelf(d, v)
 }
 
-func (p *LimbColliderPackage) toRaw() []interface{} {
-	if p == nil {
-		return nil
-	}
-	items := make([]interface{}, 0, len(p.Items))
-	for i := range p.Items {
-		item := &p.Items[i]
-		items = append(items, []interface{}{
-			int64(item.Version),
-			int64(item.Target),
-			colliderStatusToRaw(item.Collider),
-		})
-	}
-	return []interface{}{int64(p.Version), items}
+type limbColliderItemWire struct {
+	_struct                struct{} `codec:",toarray"`
+	*IndexedObjectMetadata `codec:"-"`
+	Version                int                `json:"version"`
+	Target                 int                `json:"target"`
+	Collider               RawMessagePackSlot `json:"collider"`
 }
 
-func decodeIKColliderPackageRaw(raw interface{}) (*IKColliderPackage, error) {
-	arr, err := asRawArray(raw, "IKColliderPackage")
-	if err != nil {
-		return nil, err
-	}
-	if len(arr) < 2 {
-		return nil, fmt.Errorf("IKColliderPackage: expected array(2+), got %d", len(arr))
-	}
-	version, err := rawInt(arr[0], "IKColliderPackage.version")
-	if err != nil {
-		return nil, err
-	}
-	groupsArr, err := asRawArray(arr[1], "IKColliderPackage.groups")
-	if err != nil {
-		return nil, err
-	}
-
-	groups := make([]IKColliderGroup, 0, len(groupsArr))
-	for i, groupRaw := range groupsArr {
-		groupArr, err := asRawArray(groupRaw, fmt.Sprintf("IKColliderPackage.groups[%d]", i))
-		if err != nil {
-			return nil, err
-		}
-		if len(groupArr) < 3 {
-			return nil, fmt.Errorf("IKColliderPackage.groups[%d]: expected array(3+), got %d", i, len(groupArr))
-		}
-		groupVersion, err := rawInt(groupArr[0], fmt.Sprintf("IKColliderPackage.groups[%d].version", i))
-		if err != nil {
-			return nil, err
-		}
-		target, err := rawInt(groupArr[1], fmt.Sprintf("IKColliderPackage.groups[%d].target", i))
-		if err != nil {
-			return nil, err
-		}
-		colliders, err := decodeColliderRefsRaw(groupArr[2], fmt.Sprintf("IKColliderPackage.groups[%d].colliders", i))
-		if err != nil {
-			return nil, err
-		}
-		groups = append(groups, IKColliderGroup{Version: groupVersion, Target: target, Colliders: colliders})
-	}
-
-	return &IKColliderPackage{Version: version, Groups: groups}, nil
+func (v limbColliderItemWire) CodecEncodeSelf(e *codec.Encoder) {
+	ct.EncodeIndexedObjectSelf(e, &v)
 }
 
-func (p *IKColliderPackage) toRaw() []interface{} {
-	if p == nil {
-		return nil
-	}
-	groups := make([]interface{}, 0, len(p.Groups))
-	for i := range p.Groups {
-		group := &p.Groups[i]
-		groups = append(groups, []interface{}{
-			int64(group.Version),
-			int64(group.Target),
-			colliderRefsToRaw(group.Colliders),
-		})
-	}
-	return []interface{}{int64(p.Version), groups}
+func (v *limbColliderItemWire) CodecDecodeSelf(d *codec.Decoder) {
+	ct.DecodeIndexedObjectSelf(d, v)
 }
 
-func decodeColliderRefsRaw(raw interface{}, name string) ([]ColliderRef, error) {
-	refsArr, err := asRawArray(raw, name)
+func (c ColliderRef) CodecEncodeSelf(e *codec.Encoder) {
+	raw, err := encodeColliderStatusSlot(c.Collider, c.ColliderRaw, "ColliderRef.collider")
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	refs := make([]ColliderRef, 0, len(refsArr))
-	for i, refRaw := range refsArr {
-		refArr, err := asRawArray(refRaw, fmt.Sprintf("%s[%d]", name, i))
-		if err != nil {
-			return nil, err
-		}
-		if len(refArr) < 2 {
-			return nil, fmt.Errorf("%s[%d]: expected array(2+), got %d", name, i, len(refArr))
-		}
-		typ, err := rawInt(refArr[0], fmt.Sprintf("%s[%d].type", name, i))
-		if err != nil {
-			return nil, err
-		}
-		colliderArr, err := asRawArray(refArr[1], fmt.Sprintf("%s[%d].collider", name, i))
-		if err != nil {
-			return nil, err
-		}
-		collider, err := decodeColliderObjectRaw(colliderArr, typ, fmt.Sprintf("%s[%d].collider", name, i))
-		if err != nil {
-			return nil, err
-		}
-		refs = append(refs, ColliderRef{Type: typ, Collider: collider})
+	wire := colliderRefWire{
+		IndexedObjectMetadata: c.IndexedObjectMetadata,
+		Type:                  c.Type,
+		Collider:              raw,
 	}
-	return refs, nil
+	ct.EncodeIndexedObjectSelf(e, &wire)
 }
 
-func colliderRefsToRaw(refs []ColliderRef) []interface{} {
-	out := make([]interface{}, 0, len(refs))
-	for i := range refs {
-		ref := &refs[i]
-		out = append(out, []interface{}{int64(ref.Type), colliderStatusToRaw(ref.Collider)})
+func (c *ColliderRef) CodecDecodeSelf(d *codec.Decoder) {
+	var root codec.Raw
+	d.MustDecode(&root)
+	if len(root) == 0 { // null ANativeColliderStatus list element
+		*c = ColliderRef{}
+		return
 	}
-	return out
+	var wire colliderRefWire
+	if err := ct.DecodeMsgpack(root, &wire); err != nil {
+		panic(fmt.Errorf("decode ColliderRef union wrapper: %w", err))
+	}
+	result := ColliderRef{
+		IndexedObjectMetadata: wire.IndexedObjectMetadata,
+		Type:                  wire.Type,
+	}
+	if indexedObjectSlotPresent(wire.IndexedObjectMetadata, 1, 2) && len(wire.Collider) != 0 {
+		if indexedObjectSlotIsNil(wire.IndexedObjectMetadata, 0) {
+			// A nil union tag cannot select a known formatter. Preserve the second
+			// slot instead of guessing that the zero Go int meant Plane.
+			result.ColliderRaw = cloneRawMessagePackSlot(wire.Collider)
+		} else if status, known := newColliderStatusForType(wire.Type); known {
+			if err := ct.DecodeMsgpack(wire.Collider, status); err != nil {
+				panic(fmt.Errorf("decode ColliderRef type %d payload: %w", wire.Type, err))
+			}
+			result.Collider = status
+		} else {
+			result.ColliderRaw = cloneRawMessagePackSlot(wire.Collider)
+		}
+	}
+	*c = result
 }
 
-func decodeColliderObjectRaw(arr []interface{}, typ int, name string) (ColliderStatusUnion, error) {
-	if arr == nil {
-		return nil, fmt.Errorf("%s: collider raw array is nil", name)
-	}
-	if len(arr) < 8 {
-		return nil, fmt.Errorf("%s: expected array(8+), got %d", name, len(arr))
-	}
-	version, err := rawInt(arr[0], name+".version")
+func (item LimbColliderItem) CodecEncodeSelf(e *codec.Encoder) {
+	raw, err := encodeColliderStatusSlot(item.Collider, item.ColliderRaw, "LimbColliderItem.collider")
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	parentName, err := rawString(arr[1], name+".parentName")
-	if err != nil {
-		return nil, err
+	wire := limbColliderItemWire{
+		IndexedObjectMetadata: item.IndexedObjectMetadata,
+		Version:               item.Version,
+		Target:                item.Target,
+		Collider:              raw,
 	}
-	selfName, err := rawString(arr[2], name+".selfName")
-	if err != nil {
-		return nil, err
-	}
-	localPosition, err := rawVector3(arr[3], name+".localPosition")
-	if err != nil {
-		return nil, err
-	}
-	localRotation, err := rawVector4(arr[4], name+".localRotation")
-	if err != nil {
-		return nil, err
-	}
-	localScale, err := rawVector3(arr[5], name+".localScale")
-	if err != nil {
-		return nil, err
-	}
-	center, err := rawVector3(arr[6], name+".center")
-	if err != nil {
-		return nil, err
-	}
-	bound, err := rawInt(arr[7], name+".bound")
-	if err != nil {
-		return nil, err
-	}
-	base := ColliderObject{
-		Version:       version,
-		ParentName:    parentName,
-		SelfName:      selfName,
-		LocalPosition: localPosition,
-		LocalRotation: localRotation,
-		LocalScale:    localScale,
-		Center:        center,
-		Bound:         bound,
-	}
+	ct.EncodeIndexedObjectSelf(e, &wire)
+}
 
+func (item *LimbColliderItem) CodecDecodeSelf(d *codec.Decoder) {
+	var root codec.Raw
+	d.MustDecode(&root)
+	if len(root) == 0 { // null LimbColliderData list element
+		*item = LimbColliderItem{}
+		return
+	}
+	var wire limbColliderItemWire
+	if err := ct.DecodeMsgpack(root, &wire); err != nil {
+		panic(fmt.Errorf("decode LimbColliderItem: %w", err))
+	}
+	result := LimbColliderItem{
+		IndexedObjectMetadata: wire.IndexedObjectMetadata,
+		Version:               wire.Version,
+		Target:                wire.Target,
+	}
+	if indexedObjectSlotPresent(wire.IndexedObjectMetadata, 2, 3) && len(wire.Collider) != 0 {
+		status := &ColliderMaidProp{}
+		if err := ct.DecodeMsgpack(wire.Collider, status); err != nil {
+			panic(fmt.Errorf("decode LimbColliderItem.collider as NativeMaidPropColliderStatus: %w", err))
+		}
+		result.Collider = status
+	}
+	*item = result
+}
+
+func encodeColliderStatusSlot(status ColliderStatusUnion, raw RawMessagePackSlot, name string) (RawMessagePackSlot, error) {
+	if status != nil && len(raw) != 0 {
+		return nil, fmt.Errorf("%s and colliderRaw cannot both be populated", name)
+	}
+	if len(raw) != 0 {
+		if err := validateRawMessagePackSlot(raw, name+"Raw"); err != nil {
+			return nil, err
+		}
+		return cloneRawMessagePackSlot(raw), nil
+	}
+	if status == nil {
+		return nil, nil // normal MessagePack nil
+	}
+	selfer, ok := status.(codec.Selfer)
+	if !ok {
+		return nil, fmt.Errorf("%s type %T does not implement the indexed MessagePack codec", name, status)
+	}
+	encoded, err := ct.EncodeIndexedMsgpack(selfer)
+	if err != nil {
+		return nil, fmt.Errorf("encode %s: %w", name, err)
+	}
+	return RawMessagePackSlot(encoded), nil
+}
+
+func validateRawMessagePackSlot(raw RawMessagePackSlot, name string) error {
+	root, trailing, err := ct.SplitFirstMsgpackValue(raw)
+	if err != nil {
+		return fmt.Errorf("%s: %w", name, err)
+	}
+	if len(root) != len(raw) || len(trailing) != 0 {
+		return fmt.Errorf("%s contains %d trailing bytes", name, len(trailing))
+	}
+	return nil
+}
+
+func newColliderStatusForType(typ int) (ColliderStatusUnion, bool) {
 	switch typ {
 	case ColliderTypePlane:
-		if len(arr) < 10 {
-			return nil, fmt.Errorf("%s: expected array(10), got %d for Plane", name, len(arr))
-		}
-		direction, err := rawInt(arr[8], name+".direction")
-		if err != nil {
-			return nil, err
-		}
-		isDirectionInverse, err := rawBool(arr[9], name+".isDirectionInverse")
-		if err != nil {
-			return nil, err
-		}
-		return &ColliderPlane{
-			ColliderObject:     base,
-			Direction:          direction,
-			IsDirectionInverse: isDirectionInverse,
-		}, nil
+		return &ColliderPlane{}, true
 	case ColliderTypeCapsule:
-		if len(arr) < 13 {
-			return nil, fmt.Errorf("%s: expected array(13), got %d for Capsule", name, len(arr))
-		}
-		direction, err := rawInt(arr[8], name+".direction")
-		if err != nil {
-			return nil, err
-		}
-		isDirectionInverse, err := rawBool(arr[9], name+".isDirectionInverse")
-		if err != nil {
-			return nil, err
-		}
-		startRadius, err := rawFloat32(arr[10], name+".startRadius")
-		if err != nil {
-			return nil, err
-		}
-		endRadius, err := rawFloat32(arr[11], name+".endRadius")
-		if err != nil {
-			return nil, err
-		}
-		height, err := rawFloat32(arr[12], name+".height")
-		if err != nil {
-			return nil, err
-		}
-		return &ColliderCapsule{
-			ColliderObject:     base,
-			Direction:          direction,
-			IsDirectionInverse: isDirectionInverse,
-			StartRadius:        startRadius,
-			EndRadius:          endRadius,
-			Height:             height,
-		}, nil
+		return &ColliderCapsule{}, true
 	case ColliderTypeSphere:
-		if len(arr) < 9 {
-			return nil, fmt.Errorf("%s: expected array(9), got %d for Sphere", name, len(arr))
-		}
-		radius, err := rawFloat32(arr[8], name+".radius")
-		if err != nil {
-			return nil, err
-		}
-		return &ColliderSphere{
-			ColliderObject: base,
-			Radius:         radius,
-		}, nil
+		return &ColliderSphere{}, true
 	case ColliderTypeMaidProp:
-		if len(arr) < 22 {
-			return nil, fmt.Errorf("%s: expected array(22+), got %d for MaidProp", name, len(arr))
-		}
-		direction, err := rawInt(arr[8], name+".direction")
-		if err != nil {
-			return nil, err
-		}
-		isDirectionInverse, err := rawBool(arr[9], name+".isDirectionInverse")
-		if err != nil {
-			return nil, err
-		}
-		startRadius, err := rawFloat32(arr[10], name+".startRadius")
-		if err != nil {
-			return nil, err
-		}
-		endRadius, err := rawFloat32(arr[11], name+".endRadius")
-		if err != nil {
-			return nil, err
-		}
-		height, err := rawFloat32(arr[12], name+".height")
-		if err != nil {
-			return nil, err
-		}
-		fieldOffset := 16
-		if !looksLikeMaidPropColliderStatusAt(arr, fieldOffset) {
-			return nil, fmt.Errorf("%s: invalid MaidProp collider payload", name)
-		}
-
-		centerMpnList, err := rawIntArrayAt(arr, fieldOffset, name+".centerMpnList")
-		if err != nil {
-			return nil, err
-		}
-		centerRateMax, err := rawVector3At(arr, fieldOffset+1, name+".centerRateMax")
-		if err != nil {
-			return nil, err
-		}
-		startRadiusMpnList, err := rawIntArrayAt(arr, fieldOffset+2, name+".startRadiusMpnList")
-		if err != nil {
-			return nil, err
-		}
-		maxStartRadius, err := rawFloat32At(arr, fieldOffset+3, name+".maxStartRadius")
-		if err != nil {
-			return nil, err
-		}
-		endRadiusMpnList, err := rawIntArrayAt(arr, fieldOffset+4, name+".endRadiusMpnList")
-		if err != nil {
-			return nil, err
-		}
-		maxEndRadius, err := rawFloat32At(arr, fieldOffset+5, name+".maxEndRadius")
-		if err != nil {
-			return nil, err
-		}
-		centerMpnNameList := []string{}
-		startRadiusMpnNameList := []string{}
-		endRadiusMpnNameList := []string{}
-		if version >= 1002 {
-			centerMpnNameList, err = rawStringArrayAt(arr, fieldOffset+6, name+".centerMpnNameList")
-			if err != nil {
-				return nil, err
-			}
-			startRadiusMpnNameList, err = rawStringArrayAt(arr, fieldOffset+7, name+".startRadiusMpnNameList")
-			if err != nil {
-				return nil, err
-			}
-			endRadiusMpnNameList, err = rawStringArrayAt(arr, fieldOffset+8, name+".endRadiusMpnNameList")
-			if err != nil {
-				return nil, err
-			}
-		}
-		return &ColliderMaidProp{
-			ColliderObject:         base,
-			Direction:              direction,
-			IsDirectionInverse:     isDirectionInverse,
-			StartRadius:            startRadius,
-			EndRadius:              endRadius,
-			Height:                 height,
-			CenterMpnList:          centerMpnList,
-			CenterRateMax:          centerRateMax,
-			StartRadiusMpnList:     startRadiusMpnList,
-			MaxStartRadius:         maxStartRadius,
-			EndRadiusMpnList:       endRadiusMpnList,
-			MaxEndRadius:           maxEndRadius,
-			CenterMpnNameList:      centerMpnNameList,
-			StartRadiusMpnNameList: startRadiusMpnNameList,
-			EndRadiusMpnNameList:   endRadiusMpnNameList,
-		}, nil
+		return &ColliderMaidProp{}, true
 	default:
-		return nil, fmt.Errorf("%s: unknown collider type %d", name, typ)
+		return nil, false
 	}
 }
 
-func colliderStatusToRaw(status ColliderStatusUnion) []interface{} {
+func indexedObjectSlotPresent(metadata *IndexedObjectMetadata, slot, known int) bool {
+	count := known
+	if metadata != nil && metadata.FieldCount != nil {
+		count = *metadata.FieldCount
+	}
+	return slot >= 0 && slot < count
+}
+
+func indexedObjectSlotIsNil(metadata *IndexedObjectMetadata, slot int) bool {
+	if metadata == nil {
+		return false
+	}
+	for _, candidate := range metadata.NilSlots {
+		if candidate == slot {
+			return true
+		}
+	}
+	return false
+}
+
+func cloneRawMessagePackSlot(raw RawMessagePackSlot) RawMessagePackSlot {
+	if raw == nil {
+		return nil
+	}
+	return append(RawMessagePackSlot(nil), raw...)
+}
+
+func jsonMessageIsNullOrMissing(raw json.RawMessage) bool {
+	trimmed := bytes.TrimSpace(raw)
+	return len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null"))
+}
+
+const (
+	colliderPackageFixVersion     = 1000
+	colliderStatusFixVersion      = 1000
+	colliderMaidPropFixVersion    = 1002
+	colliderStateFixVersion       = 1000
+	limbColliderPackageFixVersion = 1000
+	limbColliderItemFixVersion    = 1000
+	ikColliderPackageFixVersion   = 1000
+	ikColliderGroupFixVersion     = 1000
+)
+
+func validateColliderStatusForEncoding(status ColliderStatusUnion, name string) (int, error) {
 	switch v := status.(type) {
 	case *ColliderPlane:
-		return colliderPlaneToRaw(v)
+		if v == nil {
+			return -1, fmt.Errorf("%s is nil (*ColliderPlane)", name)
+		}
+		if err := validateColliderObjectInt32(&v.ColliderObject, name); err != nil {
+			return -1, err
+		}
+		if err := requireInt32(name+".direction", v.Direction); err != nil {
+			return -1, err
+		}
+		return ColliderTypePlane, nil
 	case *ColliderCapsule:
-		return colliderCapsuleToRaw(v)
+		if v == nil {
+			return -1, fmt.Errorf("%s is nil (*ColliderCapsule)", name)
+		}
+		if err := validateColliderObjectInt32(&v.ColliderObject, name); err != nil {
+			return -1, err
+		}
+		if err := requireInt32(name+".direction", v.Direction); err != nil {
+			return -1, err
+		}
+		return ColliderTypeCapsule, nil
 	case *ColliderSphere:
-		return colliderSphereToRaw(v)
+		if v == nil {
+			return -1, fmt.Errorf("%s is nil (*ColliderSphere)", name)
+		}
+		if err := validateColliderObjectInt32(&v.ColliderObject, name); err != nil {
+			return -1, err
+		}
+		return ColliderTypeSphere, nil
 	case *ColliderMaidProp:
-		return colliderMaidPropToRaw(v)
+		if v == nil {
+			return -1, fmt.Errorf("%s is nil (*ColliderMaidProp)", name)
+		}
+		if err := validateColliderObjectInt32(&v.ColliderObject, name); err != nil {
+			return -1, err
+		}
+		if err := requireInt32(name+".direction", v.Direction); err != nil {
+			return -1, err
+		}
+		if err := validateMaidPropMPNList(v.CenterMpnList, name+".centerMpnList"); err != nil {
+			return -1, err
+		}
+		if err := validateMaidPropMPNList(v.StartRadiusMpnList, name+".startRadiusMpnList"); err != nil {
+			return -1, err
+		}
+		if err := validateMaidPropMPNList(v.EndRadiusMpnList, name+".endRadiusMpnList"); err != nil {
+			return -1, err
+		}
+		return ColliderTypeMaidProp, nil
 	default:
-		panic(fmt.Sprintf("unsupported collider status type: %T", status))
+		return -1, fmt.Errorf("%s has unsupported type %T", name, status)
 	}
 }
 
-func colliderPlaneToRaw(v *ColliderPlane) []interface{} {
-	out := colliderBaseToRaw(&v.ColliderObject)
-	out = append(out, int64(v.Direction), v.IsDirectionInverse)
-	return out
-}
-
-func colliderCapsuleToRaw(v *ColliderCapsule) []interface{} {
-	out := colliderBaseToRaw(&v.ColliderObject)
-	out = append(out, int64(v.Direction), v.IsDirectionInverse, v.StartRadius, v.EndRadius, v.Height)
-	return out
-}
-
-func colliderSphereToRaw(v *ColliderSphere) []interface{} {
-	out := colliderBaseToRaw(&v.ColliderObject)
-	out = append(out, v.Radius)
-	return out
-}
-
-func colliderMaidPropToRaw(v *ColliderMaidProp) []interface{} {
-	out := colliderCapsuleToRaw(&ColliderCapsule{
-		ColliderObject:     v.ColliderObject,
-		Direction:          v.Direction,
-		IsDirectionInverse: v.IsDirectionInverse,
-		StartRadius:        v.StartRadius,
-		EndRadius:          v.EndRadius,
-		Height:             v.Height,
-	})
-	out = append(out, nil, nil, nil)
-	out = append(
-		out,
-		intSliceToRaw(v.CenterMpnList),
-		vector3ToRaw(v.CenterRateMax),
-		intSliceToRaw(v.StartRadiusMpnList),
-		v.MaxStartRadius,
-		intSliceToRaw(v.EndRadiusMpnList),
-		v.MaxEndRadius,
-	)
-	if v.Version >= 1002 {
-		out = append(
-			out,
-			stringSliceToRaw(v.CenterMpnNameList),
-			stringSliceToRaw(v.StartRadiusMpnNameList),
-			stringSliceToRaw(v.EndRadiusMpnNameList),
-		)
+func validateColliderObjectInt32(value *ColliderObject, name string) error {
+	if err := requireInt32(name+".version", value.Version); err != nil {
+		return err
 	}
-	return out
+	return requireInt32(name+".bound", value.Bound)
 }
 
-func colliderBaseToRaw(base *ColliderObject) []interface{} {
-	return []interface{}{
-		int64(base.Version),
-		base.ParentName,
-		base.SelfName,
-		vector3ToRaw(base.LocalPosition),
-		vector4ToRaw(base.LocalRotation),
-		vector3ToRaw(base.LocalScale),
-		vector3ToRaw(base.Center),
-		base.Bound,
-	}
-}
-
-func decodeColliderStatesRaw(raw interface{}, name string) ([]ColliderState, error) {
-	statesArr, err := asRawArray(raw, name)
-	if err != nil {
-		return nil, err
-	}
-	states := make([]ColliderState, 0, len(statesArr))
-	for i, stateRaw := range statesArr {
-		stateArr, err := asRawArray(stateRaw, fmt.Sprintf("%s[%d]", name, i))
-		if err != nil {
-			return nil, err
+func validateColliderRefsForEncoding(refs []ColliderRef, metadata *IndexedObjectMetadata, slot int, name string) error {
+	for i := range refs {
+		if indexedObjectNullElementAt(metadata, slot, i) {
+			continue
 		}
-		if len(stateArr) < 3 {
-			return nil, fmt.Errorf("%s[%d]: expected array(3+), got %d", name, i, len(stateArr))
+		refName := fmt.Sprintf("%s[%d]", name, i)
+		if err := requireInt32(refName+".type", refs[i].Type); err != nil {
+			return err
 		}
-		version, err := rawInt(stateArr[0], fmt.Sprintf("%s[%d].version", name, i))
-		if err != nil {
-			return nil, err
+		if refs[i].Collider != nil && len(refs[i].ColliderRaw) != 0 {
+			return fmt.Errorf("%s.collider and colliderRaw cannot both be populated", refName)
 		}
-		limbType, err := rawInt(stateArr[1], fmt.Sprintf("%s[%d].limbType", name, i))
-		if err != nil {
-			return nil, err
-		}
-		isEnable, err := rawBool(stateArr[2], fmt.Sprintf("%s[%d].isEnable", name, i))
-		if err != nil {
-			return nil, err
-		}
-		states = append(states, ColliderState{Version: version, LimbType: limbType, IsEnable: isEnable})
-	}
-	return states, nil
-}
-
-func colliderStatesToRaw(states []ColliderState) []interface{} {
-	out := make([]interface{}, 0, len(states))
-	for i := range states {
-		state := &states[i]
-		out = append(out, []interface{}{int64(state.Version), int64(state.LimbType), state.IsEnable})
-	}
-	return out
-}
-
-func asRawArray(v interface{}, name string) ([]interface{}, error) {
-	arr, ok := v.([]interface{})
-	if !ok {
-		return nil, fmt.Errorf("%s: expected array, got %T", name, v)
-	}
-	return arr, nil
-}
-
-func rawInt(v interface{}, name string) (int, error) {
-	if n, ok := toIntVal(v); ok {
-		return n, nil
-	}
-	return 0, fmt.Errorf("%s: expected int, got %T", name, v)
-}
-
-func rawFloat32(v interface{}, name string) (float32, error) {
-	f, ok := toFloat32(v)
-	if !ok {
-		return 0, fmt.Errorf("%s: expected float, got %T", name, v)
-	}
-	return f, nil
-}
-
-func rawString(v interface{}, name string) (string, error) {
-	if s, ok := toStringVal(v); ok {
-		return s, nil
-	}
-	return "", fmt.Errorf("%s: expected string, got %T", name, v)
-}
-
-func rawStringArray(v interface{}, name string) ([]string, error) {
-	if v == nil {
-		return []string{}, nil
-	}
-	arr, err := asRawArray(v, name)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]string, 0, len(arr))
-	for i, item := range arr {
-		s := ""
-		switch x := item.(type) {
-		case string:
-			s = x
-		case int64, uint64, int, uint, float64, float32, json.Number:
-			str, err := toJSONNumberString(item)
-			if err != nil {
-				return nil, fmt.Errorf("%s[%d]: expected string/number, got %T", name, i, item)
+		if len(refs[i].ColliderRaw) != 0 {
+			if err := validateRawMessagePackSlot(refs[i].ColliderRaw, refName+".colliderRaw"); err != nil {
+				return err
 			}
-			s = str
-		default:
-			return nil, fmt.Errorf("%s[%d]: expected string/number, got %T", name, i, item)
+			continue
 		}
-		out = append(out, s)
-	}
-	return out, nil
-}
-
-func rawStringArrayAt(arr []interface{}, index int, name string) ([]string, error) {
-	if index >= len(arr) {
-		return []string{}, nil
-	}
-	return rawStringArray(arr[index], name)
-}
-
-func rawIntArray(v interface{}, name string) ([]int, error) {
-	if v == nil {
-		return []int{}, nil
-	}
-	arr, err := asRawArray(v, name)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]int, 0, len(arr))
-	for i, item := range arr {
-		n, ok := toIntVal(item)
-		if !ok {
-			return nil, fmt.Errorf("%s[%d]: expected int, got %T", name, i, item)
+		// MessagePack-CSharp unions can carry nil. A short wrapper can also omit
+		// the concrete slot; its FieldCount metadata distinguishes the cases.
+		if refs[i].Collider == nil {
+			continue
 		}
-		out = append(out, n)
-	}
-	return out, nil
-}
-
-func rawIntArrayAt(arr []interface{}, index int, name string) ([]int, error) {
-	if index >= len(arr) {
-		return []int{}, nil
-	}
-	return rawIntArray(arr[index], name)
-}
-
-func rawVector3At(arr []interface{}, index int, name string) (Vector3, error) {
-	if index >= len(arr) {
-		return Vector3{}, nil
-	}
-	return rawVector3(arr[index], name)
-}
-
-func rawFloat32At(arr []interface{}, index int, name string) (float32, error) {
-	if index >= len(arr) {
-		return 0, nil
-	}
-	return rawFloat32(arr[index], name)
-}
-
-func rawBool(v interface{}, name string) (bool, error) {
-	if b, ok := toBool(v); ok {
-		return b, nil
-	}
-	return false, fmt.Errorf("%s: expected bool, got %T", name, v)
-}
-
-func rawVector3(v interface{}, name string) (Vector3, error) {
-	arr, err := asRawArray(v, name)
-	if err != nil {
-		return Vector3{}, err
-	}
-	if len(arr) < 3 {
-		return Vector3{}, fmt.Errorf("%s: expected array(3+), got %d", name, len(arr))
-	}
-	x, ok := toFloat32(arr[0])
-	if !ok {
-		return Vector3{}, fmt.Errorf("%s.x: expected float, got %T", name, arr[0])
-	}
-	y, ok := toFloat32(arr[1])
-	if !ok {
-		return Vector3{}, fmt.Errorf("%s.y: expected float, got %T", name, arr[1])
-	}
-	z, ok := toFloat32(arr[2])
-	if !ok {
-		return Vector3{}, fmt.Errorf("%s.z: expected float, got %T", name, arr[2])
-	}
-	return Vector3{X: x, Y: y, Z: z}, nil
-}
-
-func rawVector4(v interface{}, name string) (Vector4, error) {
-	arr, err := asRawArray(v, name)
-	if err != nil {
-		return Vector4{}, err
-	}
-	if len(arr) < 4 {
-		return Vector4{}, fmt.Errorf("%s: expected array(4+), got %d", name, len(arr))
-	}
-	x, ok := toFloat32(arr[0])
-	if !ok {
-		return Vector4{}, fmt.Errorf("%s.x: expected float, got %T", name, arr[0])
-	}
-	y, ok := toFloat32(arr[1])
-	if !ok {
-		return Vector4{}, fmt.Errorf("%s.y: expected float, got %T", name, arr[1])
-	}
-	z, ok := toFloat32(arr[2])
-	if !ok {
-		return Vector4{}, fmt.Errorf("%s.z: expected float, got %T", name, arr[2])
-	}
-	w, ok := toFloat32(arr[3])
-	if !ok {
-		return Vector4{}, fmt.Errorf("%s.w: expected float, got %T", name, arr[3])
-	}
-	return Vector4{X: x, Y: y, Z: z, W: w}, nil
-}
-
-func vector3ToRaw(v Vector3) []interface{} {
-	return []interface{}{v.X, v.Y, v.Z}
-}
-
-func vector4ToRaw(v Vector4) []interface{} {
-	return []interface{}{v.X, v.Y, v.Z, v.W}
-}
-
-func stringSliceToRaw(values []string) []interface{} {
-	out := make([]interface{}, 0, len(values))
-	for _, s := range values {
-		out = append(out, s)
-	}
-	return out
-}
-
-func intSliceToRaw(values []int) []interface{} {
-	out := make([]interface{}, 0, len(values))
-	for _, v := range values {
-		out = append(out, int64(v))
-	}
-	return out
-}
-
-func inferColliderTypeFromArray(arr []interface{}) int {
-	if len(arr) < 1 {
-		return -1
-	}
-	switch len(arr) {
-	case 9:
-		return ColliderTypeSphere
-	case 10:
-		return ColliderTypePlane
-	default:
-		if len(arr) >= 22 && looksLikeMaidPropColliderStatusAt(arr, 16) {
-			return ColliderTypeMaidProp
+		actualType, err := validateColliderStatusForEncoding(refs[i].Collider, refName+".collider")
+		if err != nil {
+			return err
 		}
-		if len(arr) >= 13 {
-			return ColliderTypeCapsule
+		if refs[i].Type != actualType {
+			return fmt.Errorf("%s.type is %d, but collider concrete type requires %d", refName, refs[i].Type, actualType)
 		}
-		return -1
 	}
+	return nil
 }
 
-func looksLikeMaidPropColliderStatusAt(arr []interface{}, fieldOffset int) bool {
-	if len(arr) < fieldOffset+6 {
-		return false
+func validateColliderPackageForEncoding(p *ColliderPackage) error {
+	if err := requireInt32("colliderPackage.version", p.Version); err != nil {
+		return err
 	}
-	if _, err := rawIntArray(arr[fieldOffset], "infer."+strconv.Itoa(fieldOffset)); err != nil {
-		return false
+	if err := validateColliderRefsForEncoding(p.Colliders, p.IndexedObjectMetadata, 1, "colliderPackage.colliders"); err != nil {
+		return err
 	}
-	if _, err := rawVector3(arr[fieldOffset+1], "infer."+strconv.Itoa(fieldOffset+1)); err != nil {
-		return false
+	for i := range p.LimbEnableList {
+		if indexedObjectNullElementAt(p.IndexedObjectMetadata, 2, i) {
+			continue
+		}
+		name := fmt.Sprintf("colliderPackage.limbEnableList[%d]", i)
+		if err := requireInt32(name+".version", p.LimbEnableList[i].Version); err != nil {
+			return err
+		}
+		if err := requireInt32(name+".limbType", p.LimbEnableList[i].LimbType); err != nil {
+			return err
+		}
 	}
-	if _, err := rawIntArray(arr[fieldOffset+2], "infer."+strconv.Itoa(fieldOffset+2)); err != nil {
-		return false
-	}
-	if _, err := rawFloat32(arr[fieldOffset+3], "infer."+strconv.Itoa(fieldOffset+3)); err != nil {
-		return false
-	}
-	if _, err := rawIntArray(arr[fieldOffset+4], "infer."+strconv.Itoa(fieldOffset+4)); err != nil {
-		return false
-	}
-	if _, err := rawFloat32(arr[fieldOffset+5], "infer."+strconv.Itoa(fieldOffset+5)); err != nil {
-		return false
-	}
-	return true
+	return nil
 }
 
-func inferColliderTypeFromJSON(raw json.RawMessage) int {
-	var tmp map[string]interface{}
-	if err := json.Unmarshal(raw, &tmp); err != nil {
-		return -1
+func validateLimbColliderPackageForEncoding(p *LimbColliderPackage) error {
+	if err := requireInt32("limbColliderPackage.version", p.Version); err != nil {
+		return err
 	}
-	if tmp == nil {
-		return -1
-	}
-	if _, ok := tmp["centerMpnList"]; ok {
-		return ColliderTypeMaidProp
-	}
-	if _, ok := tmp["radius"]; ok {
-		return ColliderTypeSphere
-	}
-	if _, ok := tmp["startRadius"]; ok {
-		if _, ok2 := tmp["centerMpnNameList"]; ok2 {
-			return ColliderTypeMaidProp
+	for i := range p.Items {
+		if indexedObjectNullElementAt(p.IndexedObjectMetadata, 1, i) {
+			continue
 		}
-		return ColliderTypeCapsule
+		itemName := fmt.Sprintf("limbColliderPackage.items[%d]", i)
+		if err := requireInt32(itemName+".version", p.Items[i].Version); err != nil {
+			return err
+		}
+		if err := requireInt32(itemName+".target", p.Items[i].Target); err != nil {
+			return err
+		}
+		if p.Items[i].Collider != nil && len(p.Items[i].ColliderRaw) != 0 {
+			return fmt.Errorf("%s.collider and colliderRaw cannot both be populated", itemName)
+		}
+		if len(p.Items[i].ColliderRaw) != 0 {
+			if err := validateRawMessagePackSlot(p.Items[i].ColliderRaw, itemName+".colliderRaw"); err != nil {
+				return err
+			}
+			continue
+		}
+		if p.Items[i].Collider == nil {
+			continue
+		}
+		colliderName := itemName + ".collider"
+		actualType, err := validateColliderStatusForEncoding(p.Items[i].Collider, colliderName)
+		if err != nil {
+			return err
+		}
+		if actualType != ColliderTypeMaidProp {
+			return fmt.Errorf("%s must be *ColliderMaidProp; got collider type %d", colliderName, actualType)
+		}
 	}
-	if _, ok := tmp["direction"]; ok {
-		return ColliderTypePlane
+	return nil
+}
+
+func validateIKColliderPackageForEncoding(p *IKColliderPackage) error {
+	if err := requireInt32("ikColliderPackage.version", p.Version); err != nil {
+		return err
 	}
-	return -1
+	for i := range p.Groups {
+		if indexedObjectNullElementAt(p.IndexedObjectMetadata, 1, i) {
+			continue
+		}
+		groupName := fmt.Sprintf("ikColliderPackage.groups[%d]", i)
+		if err := requireInt32(groupName+".version", p.Groups[i].Version); err != nil {
+			return err
+		}
+		if err := requireInt32(groupName+".target", p.Groups[i].Target); err != nil {
+			return err
+		}
+		if err := validateColliderRefsForEncoding(p.Groups[i].Colliders, p.Groups[i].IndexedObjectMetadata, 2, groupName+".colliders"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func cloneColliderStatusForEncoding(status ColliderStatusUnion) ColliderStatusUnion {
+	switch v := status.(type) {
+	case *ColliderPlane:
+		cloned := *v
+		return &cloned
+	case *ColliderCapsule:
+		cloned := *v
+		return &cloned
+	case *ColliderSphere:
+		cloned := *v
+		return &cloned
+	case *ColliderMaidProp:
+		cloned := *v
+		cloned.Reserved13 = cloneRawMessagePackSlot(v.Reserved13)
+		cloned.Reserved14 = cloneRawMessagePackSlot(v.Reserved14)
+		cloned.Reserved15 = cloneRawMessagePackSlot(v.Reserved15)
+		cloned.CenterMpnList = cloneSlicePreserveNil(v.CenterMpnList)
+		cloned.StartRadiusMpnList = cloneSlicePreserveNil(v.StartRadiusMpnList)
+		cloned.EndRadiusMpnList = cloneSlicePreserveNil(v.EndRadiusMpnList)
+		cloned.CenterMpnNameList = cloneSlicePreserveNil(v.CenterMpnNameList)
+		cloned.StartRadiusMpnNameList = cloneSlicePreserveNil(v.StartRadiusMpnNameList)
+		cloned.EndRadiusMpnNameList = cloneSlicePreserveNil(v.EndRadiusMpnNameList)
+		return &cloned
+	}
+	return status
+}
+
+func validateMaidPropMPNList(values []int, name string) error {
+	const (
+		minMPN = int64(-1 << 31)
+		maxMPN = int64(1<<31 - 1)
+	)
+	for i, value := range values {
+		if int64(value) < minMPN || int64(value) > maxMPN {
+			return fmt.Errorf("%s[%d]=%d is outside the Int32 range used by the game's MPN enum", name, i, value)
+		}
+	}
+	return nil
+}
+
+func cloneColliderRefsForEncoding(refs []ColliderRef) []ColliderRef {
+	cloned := cloneSlicePreserveNil(refs)
+	for i := range cloned {
+		cloned[i].Collider = cloneColliderStatusForEncoding(cloned[i].Collider)
+		cloned[i].ColliderRaw = cloneRawMessagePackSlot(cloned[i].ColliderRaw)
+	}
+	return cloned
+}
+
+func normalizeColliderPackageForEncoding(p *ColliderPackage) *ColliderPackage {
+	cloned := *p
+	cloned.Colliders = cloneColliderRefsForEncoding(p.Colliders)
+	cloned.LimbEnableList = cloneSlicePreserveNil(p.LimbEnableList)
+	return &cloned
+}
+
+func normalizeLimbColliderPackageForEncoding(p *LimbColliderPackage) *LimbColliderPackage {
+	cloned := *p
+	cloned.Items = cloneSlicePreserveNil(p.Items)
+	for i := range cloned.Items {
+		cloned.Items[i].Collider = cloneColliderStatusForEncoding(cloned.Items[i].Collider)
+		cloned.Items[i].ColliderRaw = cloneRawMessagePackSlot(cloned.Items[i].ColliderRaw)
+	}
+	return &cloned
+}
+
+func indexedObjectNullElementAt(metadata *IndexedObjectMetadata, slot, element int) bool {
+	if metadata == nil || metadata.NullElements == nil {
+		return false
+	}
+	flags := metadata.NullElements[slot]
+	return element >= 0 && element < len(flags) && flags[element]
+}
+
+func normalizeIKColliderPackageForEncoding(p *IKColliderPackage) *IKColliderPackage {
+	cloned := *p
+	cloned.Groups = cloneSlicePreserveNil(p.Groups)
+	for i := range cloned.Groups {
+		cloned.Groups[i].Colliders = cloneColliderRefsForEncoding(p.Groups[i].Colliders)
+	}
+	return &cloned
 }
 
 func decodeColliderObjectAsType(raw json.RawMessage, typ int) (ColliderStatusUnion, error) {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
+		return nil, fmt.Errorf("collider is required")
+	}
 	switch typ {
 	case ColliderTypePlane:
 		var status ColliderPlane
@@ -1077,26 +913,5 @@ func decodeColliderObjectAsType(raw json.RawMessage, typ int) (ColliderStatusUni
 		return &status, nil
 	default:
 		return nil, fmt.Errorf("unknown collider type %d", typ)
-	}
-}
-
-func toJSONNumberString(v interface{}) (string, error) {
-	switch x := v.(type) {
-	case json.Number:
-		return x.String(), nil
-	case int64:
-		return strconv.FormatInt(x, 10), nil
-	case uint64:
-		return strconv.FormatUint(x, 10), nil
-	case int:
-		return strconv.Itoa(x), nil
-	case uint:
-		return strconv.FormatUint(uint64(x), 10), nil
-	case float64:
-		return strconv.FormatFloat(x, 'f', -1, 64), nil
-	case float32:
-		return strconv.FormatFloat(float64(x), 'f', -1, 32), nil
-	default:
-		return "", fmt.Errorf("not a number: %T", v)
 	}
 }
