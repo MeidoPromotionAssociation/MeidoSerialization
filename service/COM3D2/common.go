@@ -3,12 +3,14 @@ package COM3D2
 import (
 	"bytes"
 	"crypto/aes"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
@@ -37,7 +39,8 @@ const (
 )
 
 const (
-	SignatureNone = "None"
+	SignatureNone   = "None"
+	maxCSVProbeSize = 64 << 20
 )
 
 // 文件类型集合，用于判断文件类型
@@ -100,6 +103,76 @@ type FileHeader struct {
 	Version   int32  `json:"Version"`
 }
 
+// TryFileTypeDetermine performs a cheap, exact COM3D2 signature probe. Unlike
+// FileTypeDetermine in strict mode it does not try image, NEI, CSV, or extension
+// heuristics, so CLI callers can put the common COM3D2 path first without
+// reading an entire unrelated KCES bundle before falling back to KCES probes.
+func (m *CommonService) TryFileTypeDetermine(path string) (fileInfo FileInfo, matched bool, err error) {
+	fileInfo = FileInfo{
+		Path:          path,
+		FileType:      UnknownFileType,
+		StorageFormat: FormatUnknown,
+		Game:          UnknowGame,
+		Signature:     UnknownSignature,
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return fileInfo, false, err
+	}
+	defer f.Close()
+	stat, err := f.Stat()
+	if err != nil {
+		return fileInfo, false, err
+	}
+	if stat.IsDir() {
+		return fileInfo, false, fmt.Errorf("%q is a directory", path)
+	}
+	fileInfo.Size = stat.Size()
+
+	var prefix [4096]byte
+	n, readErr := f.Read(prefix[:])
+	if readErr != nil && readErr != io.EOF {
+		return fileInfo, false, readErr
+	}
+	probeData := bytes.TrimPrefix(prefix[:n], []byte{0xef, 0xbb, 0xbf})
+	trimmed := bytes.TrimSpace(probeData)
+
+	if bytes.HasPrefix(trimmed, []byte{'{'}) {
+		parsed, parseErr := parseJSONFileType(bytes.NewReader(probeData), fileInfo)
+		typeName, known := fileSignatureMap[parsed.Signature]
+		if !known {
+			return fileInfo, false, nil
+		}
+		parsed.FileType = typeName
+		parsed.StorageFormat = FormatJSON
+		parsed.Game = GameCOM3D2
+		if parseErr != nil {
+			return parsed, true, parseErr
+		}
+		return parsed, true, nil
+	}
+
+	probe := bytes.NewReader(prefix[:n])
+	signature, err := binaryio.ReadString(probe)
+	if err != nil {
+		return fileInfo, false, nil
+	}
+	typeName, known := fileSignatureMap[signature]
+	if !known {
+		return fileInfo, false, nil
+	}
+	fileInfo.Signature = signature
+	fileInfo.FileType = typeName
+	fileInfo.StorageFormat = FormatBinary
+	fileInfo.Game = GameCOM3D2
+	fileInfo.Version, err = binaryio.ReadInt32(probe)
+	if err != nil {
+		return fileInfo, true, fmt.Errorf("read version after COM3D2 signature %q: %w", signature, err)
+	}
+	return fileInfo, true, nil
+}
+
 // FileTypeDetermine 判断文件类型，支持二进制和 JSON 格式
 // strictMode 为 true 时，严格按照文件内容判断文件类型
 // strictMode 为 false 时，优先根据文件后缀判断文件类型，如果无法判断再根据文件内容判断
@@ -124,6 +197,11 @@ func (m *CommonService) FileTypeDetermine(path string, strictMode bool) (fileInf
 	ext := strings.ToLower(filepath.Ext(path))
 	// 去掉开头的点
 	ext = strings.TrimPrefix(ext, ".")
+	// KCES ExportCM uses .mat for the regular CM3D2_MATERIAL wire format.
+	// Report the canonical parser type so .mat and .mate behave identically.
+	if ext == "mat" {
+		ext = "mate"
+	}
 	if !strictMode {
 		if ext != "" {
 			if ext == "json" {
@@ -229,19 +307,15 @@ func (m *CommonService) FileTypeDetermine(path string, strictMode bool) (fileInf
 		return ft, nil
 	}
 
-	// 二进制签名读取失败，尝试按文本/CSV 进行内容识别；若仍无法识别，则返回 unknown 而非报错
-	if _, _ = f.Seek(0, 0); true {
-		csvReader := tools.NewCSVReaderSkipUTF8BOM(f, 0)
-		if csvReader != nil {
-			_, err = csvReader.Read()
-			if err == nil {
-				fileInfo.FileType = "csv"
-				fileInfo.Game = NoneGame
-				fileInfo.StorageFormat = FormatCSV
-				fileInfo.Signature = SignatureNone
-				return fileInfo, nil
-			}
-		}
+	// 二进制签名读取失败后只把完整、有效的 UTF-8 逗号分隔文本认作
+	// CSV。encoding/csv.Read() 对几乎任意二进制前缀都能返回一个单字段
+	// record，旧逻辑因此会把 UnityFS、MessagePack 和 HitCheck 误报为 CSV。
+	if _, seekErr := f.Seek(0, 0); seekErr == nil && isStrictCSV(f) {
+		fileInfo.FileType = "csv"
+		fileInfo.Game = NoneGame
+		fileInfo.StorageFormat = FormatCSV
+		fileInfo.Signature = SignatureNone
+		return fileInfo, nil
 	}
 
 	fileInfo.FileType = UnknownFileType
@@ -249,6 +323,41 @@ func (m *CommonService) FileTypeDetermine(path string, strictMode bool) (fileInf
 	fileInfo.StorageFormat = FormatUnknown
 	fileInfo.Signature = UnknownSignature
 	return fileInfo, nil
+}
+
+// isStrictCSV validates the complete candidate with a bounded read. Strict
+// file-type detection deliberately requires an actual comma and at least two
+// fields: otherwise any ordinary one-line text file is indistinguishable from
+// a one-column CSV and should remain Unknown.
+func isStrictCSV(r io.Reader) bool {
+	data, err := io.ReadAll(io.LimitReader(r, maxCSVProbeSize+1))
+	if err != nil || len(data) == 0 || len(data) > maxCSVProbeSize {
+		return false
+	}
+	data = bytes.TrimPrefix(data, []byte{0xef, 0xbb, 0xbf})
+	if len(data) == 0 || !utf8.Valid(data) || !bytes.Contains(data, []byte{','}) {
+		return false
+	}
+	for _, b := range data {
+		if b == 0 || (b < 0x20 && b != '\t' && b != '\r' && b != '\n') {
+			return false
+		}
+	}
+
+	reader := csv.NewReader(bytes.NewReader(data))
+	reader.FieldsPerRecord = 0
+	recordCount := 0
+	for {
+		record, readErr := reader.Read()
+		if readErr == io.EOF {
+			break
+		}
+		if readErr != nil || len(record) < 2 {
+			return false
+		}
+		recordCount++
+	}
+	return recordCount > 0
 }
 
 // readBinaryFileType 从二进制文件读取类型信息的辅助函数

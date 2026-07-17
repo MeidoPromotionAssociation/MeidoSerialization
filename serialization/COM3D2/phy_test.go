@@ -47,3 +47,30 @@ func TestPhy(t *testing.T) {
 		})
 	}
 }
+
+func TestPhyDumpRejectsContradictoryCountsBeforeWriting(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*Phy)
+	}{
+		{name: "negative collider count", mutate: func(value *Phy) { value.CollidersCount = -1 }},
+		{name: "negative exclusion count", mutate: func(value *Phy) { value.ExclusionsCount = -1 }},
+		{name: "partial values in non-partial mode", mutate: func(value *Phy) {
+			value.EnablePartialDamping = PartialModeStaticOrCurve
+			value.PartialDamping = []BoneValue{{BoneName: "bone", Value: 1}}
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			value := &Phy{}
+			test.mutate(value)
+			var output bytes.Buffer
+			if err := value.Dump(&output); err == nil {
+				t.Fatal("Dump accepted contradictory PHY data")
+			}
+			if output.Len() != 0 {
+				t.Fatalf("rejected PHY wrote %d bytes", output.Len())
+			}
+		})
+	}
+}

@@ -79,58 +79,69 @@ func ReadNei(r io.Reader, neiKey []byte) (*Nei, error) {
 		return nil, fmt.Errorf("failed to read row: %w", err)
 	}
 
-	totalCells := int(cols * rows)
+	totalCells, err := checkedNEICellCount(rows, cols)
+	if err != nil {
+		return nil, err
+	}
+	// Every cell has an offset/length pair. Check the physical lower bound
+	// before allocating from attacker-controlled dimensions.
+	if uint64(totalCells) > uint64(buf.Len()/8) {
+		return nil, fmt.Errorf("NEI dimensions %d x %d require %d index entries, but only %d bytes remain", rows, cols, totalCells, buf.Len())
+	}
 
 	// 读取每个单元格的偏移量和长度
-	lengths := make([]int, totalCells)
+	offsets := make([]uint32, totalCells)
+	lengths := make([]uint32, totalCells)
 	for i := 0; i < totalCells; i++ {
 
 		// 该单元格内容在“字符串数据区”中的起始偏移（以 0 为该数据区起点）
 		// 应该是用于随机访问使用的，对我们来说没有用
-		_, err := reader.ReadUInt32()
+		offset, err := reader.ReadUInt32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read offset: %w", err)
 		}
+		offsets[i] = offset
 
 		length, err := reader.ReadUInt32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read length: %w", err)
 		}
 
-		lengths[i] = int(length)
+		lengths[i] = length
+	}
+	stringData, err := io.ReadAll(buf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read NEI string data: %w", err)
 	}
 
 	// 准备单元格二维数组
-	data2D := make([][]string, int(rows))
-	for i := range data2D {
-		data2D[i] = make([]string, int(cols))
+	var data2D [][]string
+	if cols != 0 {
+		data2D = make([][]string, int(rows))
+		for i := range data2D {
+			data2D[i] = make([]string, int(cols))
+		}
 	}
 
-	// 读取每个单元格的数据
-	currentRow, currentCol := 0, 0
+	// 按索引表读取每个单元格。偏移是相对字符串数据区的；不能假设
+	// 单元格按索引顺序连续存放。
 	for i := 0; i < totalCells; i++ {
-		length := lengths[i]
+		offset := uint64(offsets[i])
+		length := uint64(lengths[i])
 
 		if length > 0 {
-			cellData, err := reader.ReadBytes(length)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read cellData: %w", err)
+			end := offset + length
+			if end < offset || end > uint64(len(stringData)) {
+				return nil, fmt.Errorf("NEI cell[%d] byte range [%d,%d) exceeds string data length %d", i, offset, end, len(stringData))
 			}
-
+			cellData := stringData[int(offset):int(end)]
 			cellValue, err := shiftJISToString(cellData)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode string: %w", err)
 			}
-
-			if currentRow < len(data2D) && currentCol < len(data2D[currentRow]) {
-				data2D[currentRow][currentCol] = strings.TrimRight(cellValue, "\x00")
-			}
-		}
-
-		currentCol++
-		if currentCol >= int(cols) {
-			currentCol = 0
-			currentRow++
+			row := i / int(cols)
+			column := i % int(cols)
+			data2D[row][column] = strings.TrimRight(cellValue, "\x00")
 		}
 	}
 
@@ -143,7 +154,10 @@ func ReadNei(r io.Reader, neiKey []byte) (*Nei, error) {
 
 // Dump 将 nei 写出到 w 中，格式与 .Nei 兼容。
 func (nei *Nei) Dump(w io.Writer) error {
-	totalCells := int(nei.Rows * nei.Cols)
+	totalCells, err := validateNEIShape(nei)
+	if err != nil {
+		return err
+	}
 	buf := new(bytes.Buffer)
 	writer := stream.NewBinaryWriter(buf)
 
@@ -153,7 +167,7 @@ func (nei *Nei) Dump(w io.Writer) error {
 		for colIndex := 0; colIndex < int(nei.Cols); colIndex++ {
 			cellIndex := colIndex + rowIndex*int(nei.Cols)
 
-			if colIndex < len(row) && row[colIndex] != "" {
+			if row[colIndex] != "" {
 				encoded, err := stringToShiftJIS(row[colIndex])
 				if err != nil {
 					return fmt.Errorf("failed to encode string at row=%d col=%d value=%q: %w", rowIndex, colIndex, row[colIndex], err)
@@ -165,12 +179,8 @@ func (nei *Nei) Dump(w io.Writer) error {
 		}
 	}
 
-	//重新计算行列数
-	nei.Rows = uint32(len(nei.Data))
-	nei.Cols = uint32(len(nei.Data[0]))
-
 	// 写入文件头
-	err := writer.WriteBytes(NeiSignature)
+	err = writer.WriteBytes(NeiSignature)
 	if err != nil {
 		return fmt.Errorf("failed to write signature: %w", err)
 	}
@@ -188,16 +198,23 @@ func (nei *Nei) Dump(w io.Writer) error {
 	}
 
 	// 写入索引表
-	totalLength := 0
+	var totalLength uint64
+	const maxUint32 = uint64(^uint32(0))
 	for _, encoded := range encodedValues {
-		length := 0
+		var length uint64
 		if encoded != nil {
-			length = len(encoded) + 1
+			length = uint64(len(encoded)) + 1
+			if length > maxUint32 {
+				return fmt.Errorf("NEI encoded cell length %d exceeds UInt32", length)
+			}
 		}
 
-		offset := 0
+		var offset uint64
 		if length > 0 {
 			offset = totalLength
+			if offset > maxUint32 || totalLength+length > maxUint32 {
+				return fmt.Errorf("NEI string data exceeds the UInt32 offset range")
+			}
 		}
 
 		// 索引偏移
@@ -242,6 +259,42 @@ func (nei *Nei) Dump(w io.Writer) error {
 	}
 
 	return nil
+}
+
+func checkedNEICellCount(rows, cols uint32) (int, error) {
+	maxInt := uint64(^uint(0) >> 1)
+	if uint64(rows) > maxInt || uint64(cols) > maxInt {
+		return 0, fmt.Errorf("NEI dimensions %d x %d exceed this platform's slice limits", rows, cols)
+	}
+	cells := uint64(rows) * uint64(cols)
+	if cells > maxInt {
+		return 0, fmt.Errorf("NEI cell count %d x %d exceeds this platform's slice limits", rows, cols)
+	}
+	return int(cells), nil
+}
+
+func validateNEIShape(nei *Nei) (int, error) {
+	if nei == nil {
+		return 0, fmt.Errorf("nil NEI table")
+	}
+	totalCells, err := checkedNEICellCount(nei.Rows, nei.Cols)
+	if err != nil {
+		return 0, err
+	}
+	if nei.Cols == 0 && len(nei.Data) == 0 {
+		// Rows is sufficient to represent a zero-width table on the wire. Avoid
+		// requiring one empty Go slice per row when the count can span UInt32.
+		return totalCells, nil
+	}
+	if uint64(len(nei.Data)) != uint64(nei.Rows) {
+		return 0, fmt.Errorf("NEI Rows=%d does not match Data row count %d", nei.Rows, len(nei.Data))
+	}
+	for rowIndex, row := range nei.Data {
+		if uint64(len(row)) != uint64(nei.Cols) {
+			return 0, fmt.Errorf("NEI Cols=%d does not match Data[%d] column count %d", nei.Cols, rowIndex, len(row))
+		}
+	}
+	return totalCells, nil
 }
 
 // stringToShiftJIS 将UTF-8字符串转换为Shift-JIS字节数组

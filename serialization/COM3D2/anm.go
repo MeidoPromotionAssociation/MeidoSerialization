@@ -110,7 +110,10 @@ func ReadAnm(r io.Reader) (*Anm, error) {
 			if err != nil {
 				return nil, fmt.Errorf("read keyframeCount failed: %w", err)
 			}
-			kfs := make([]Keyframe, keyframeCount)
+			if err := validateNonNegativeCount("animation keyframeCount", keyframeCount); err != nil {
+				return nil, err
+			}
+			kfs := makeCountedSliceForAppend[Keyframe](keyframeCount)
 			for i := 0; i < int(keyframeCount); i++ {
 				t, err := reader.ReadFloat32()
 				if err != nil {
@@ -129,12 +132,12 @@ func ReadAnm(r io.Reader) (*Anm, error) {
 					return nil, fmt.Errorf("read keyframe outTangent failed: %w", err)
 				}
 
-				kfs[i] = Keyframe{
+				kfs = append(kfs, Keyframe{
 					Time:       t,
 					Value:      v,
 					InTangent:  inT,
 					OutTangent: outT,
-				}
+				})
 			}
 			// 把这一组关键帧附加到当前骨骼
 			propertyIndex := int(b - 100) // 例如 100 => 0, 101 => 1, ...
@@ -157,12 +160,12 @@ func ReadAnm(r io.Reader) (*Anm, error) {
 		return clip, nil
 		//return nil, fmt.Errorf("read useBustKeyL failed: %w", err)
 	}
+	clip.BustKeyLeft = bustKeyL != 0
 	bustKeyR, err := reader.ReadByte()
 	if err != nil {
 		return clip, nil
 		//return nil, fmt.Errorf("read useBustKeyR failed: %w", err)
 	}
-	clip.BustKeyLeft = bustKeyL != 0
 	clip.BustKeyRight = bustKeyR != 0
 	//}
 
@@ -171,6 +174,9 @@ func ReadAnm(r io.Reader) (*Anm, error) {
 
 // Dump 将 Anm 结构写到 w 中，生成符合 CM3D2_ANIM 格式的二进制数据。
 func (a Anm) Dump(w io.Writer) error {
+	if err := validateAnmForDump(&a); err != nil {
+		return err
+	}
 	writer := stream.NewBinaryWriter(w)
 
 	// 1. 写签名
@@ -203,7 +209,10 @@ func (a Anm) Dump(w io.Writer) error {
 				return fmt.Errorf("write property mark failed: %w", err)
 			}
 			// keyframe 数量
-			kfCount := int32(len(pc.Keyframes))
+			kfCount, err := collectionCountInt32("animation keyframe count", len(pc.Keyframes))
+			if err != nil {
+				return err
+			}
 			if err := writer.WriteInt32(kfCount); err != nil {
 				return fmt.Errorf("write keyframeCount failed: %w", err)
 			}
@@ -251,5 +260,24 @@ func (a Anm) Dump(w io.Writer) error {
 		}
 	}
 
+	return nil
+}
+
+func validateAnmForDump(animation *Anm) error {
+	if animation.Version < 1001 && (animation.BustKeyLeft || animation.BustKeyRight) {
+		return fmt.Errorf("ANM version %d cannot encode bust-key flags", animation.Version)
+	}
+	for boneIndex := range animation.BoneCurves {
+		bone := &animation.BoneCurves[boneIndex]
+		for propertyIndex := range bone.PropertyCurves {
+			property := &bone.PropertyCurves[propertyIndex]
+			if property.PropertyIndex < 0 || property.PropertyIndex > 255-100 {
+				return fmt.Errorf("BoneCurves[%d].PropertyCurves[%d].PropertyIndex=%d cannot be represented by an ANM chunk byte", boneIndex, propertyIndex, property.PropertyIndex)
+			}
+			if _, err := collectionCountInt32(fmt.Sprintf("BoneCurves[%d].PropertyCurves[%d] keyframe count", boneIndex, propertyIndex), len(property.Keyframes)); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }

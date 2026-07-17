@@ -68,9 +68,8 @@ func ReadPMat(r io.Reader) (*PMat, error) {
 	}
 	p.RenderQueue = rq
 
-	// 6. shader (string)
-	// This field exists in the official files, but it's never read in the code.
-	// Considering that some programs might not write to this field, so no error.
+	// 6. shader (string). This is an official field, but readers tolerate old
+	// or incomplete files that end before it. Writers always emit it below.
 	shaderStr, err := reader.ReadString()
 	if err != nil {
 		shaderStr = ""
@@ -82,6 +81,18 @@ func ReadPMat(r io.Reader) (*PMat, error) {
 
 // Dump 将 p 写出到 w 中，格式与 .PMat 兼容。
 func (p *PMat) Dump(w io.Writer, calculateHash bool) error {
+	if p == nil {
+		return fmt.Errorf("nil .PMat")
+	}
+	hash := p.Hash
+	if calculateHash {
+		var err error
+		hash, err = utilities.GetStringHashFNV1a(p.MaterialName + p.Shader + strconv.FormatFloat(float64(p.RenderQueue), 'f', -1, 32))
+		if err != nil {
+			return fmt.Errorf("calculate .PMat hash failed: %w", err)
+		}
+		p.Hash = hash
+	}
 	writer := stream.NewBinaryWriter(w)
 
 	// 1. signature
@@ -102,18 +113,8 @@ func (p *PMat) Dump(w io.Writer, calculateHash bool) error {
 	//  Furthermore, it's only 32 bits, which means a higher probability of collisions.
 	//  Therefore, we use a standard algorithm to replace it.
 	//  Even so, it's impossible for it to hit the cache.
-	if calculateHash {
-		materialNameHash, err := utilities.GetStringHashFNV1a(p.MaterialName + p.Shader + strconv.FormatFloat(float64(p.RenderQueue), 'f', -1, 32))
-		if err != nil {
-			return fmt.Errorf("write .PMat hash failed: %w", err)
-		}
-		if err := writer.WriteInt32(materialNameHash); err != nil {
-			return fmt.Errorf("write .PMat hash failed: %w", err)
-		}
-	} else {
-		if err := writer.WriteInt32(p.Hash); err != nil {
-			return fmt.Errorf("write .PMat hash failed: %w", err)
-		}
+	if err := writer.WriteInt32(hash); err != nil {
+		return fmt.Errorf("write .PMat hash failed: %w", err)
 	}
 
 	// 4. materialName
@@ -126,9 +127,8 @@ func (p *PMat) Dump(w io.Writer, calculateHash bool) error {
 		return fmt.Errorf("write .PMat renderQueue failed: %w", err)
 	}
 
-	// 6. shader
-	// The official file contains this field, but I didn't see it been read.
-	// Since it's in the official file, we'll write it as well.
+	// 6. shader. Even when a compatible reader accepted a short input, output
+	// is always the complete official layout.
 	if err := writer.WriteString(p.Shader); err != nil {
 		return fmt.Errorf("write .PMat shader failed: %w", err)
 	}

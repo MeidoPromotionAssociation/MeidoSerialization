@@ -113,10 +113,11 @@ type MorphData struct {
 
 // SkinThickness 表示皮肤厚度数据
 type SkinThickness struct {
-	Signature string                 `json:"Signature"` // "SkinThickness"
-	Version   int32                  `json:"Version"`   // 版本号
-	Use       bool                   `json:"Use"`       // 是否使用皮肤厚度
-	Groups    map[string]*ThickGroup `json:"Groups"`    // 皮肤厚度组
+	Signature  string                 `json:"Signature"`            // "SkinThickness"
+	Version    int32                  `json:"Version"`              // 版本号
+	Use        bool                   `json:"Use"`                  // 是否使用皮肤厚度
+	Groups     map[string]*ThickGroup `json:"Groups"`               // 皮肤厚度组
+	GroupOrder []string               `json:"GroupOrder,omitempty"` // wire 中的组顺序
 }
 
 // ThickGroup 表示皮肤厚度组
@@ -209,6 +210,9 @@ func ReadModel(r io.Reader) (*Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read bone count: %w", err)
 	}
+	if err := validateNonNegativeCount("model bone count", boneCount); err != nil {
+		return nil, err
+	}
 
 	// 读取阴影投射方式
 	if model.Version >= 2104 && model.Version < 2200 {
@@ -219,7 +223,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 		model.ShadowCastingMode = &shadowCastingMode
 	}
 
-	model.Bones = make([]*Bone, boneCount)
+	model.Bones = makeCountedSliceForAppend[*Bone](boneCount)
 	for i := int32(0); i < boneCount; i++ {
 		bone := &Bone{}
 
@@ -234,7 +238,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 		}
 		bone.HasScale = hasScale != 0
 
-		model.Bones[i] = bone
+		model.Bones = append(model.Bones, bone)
 	}
 
 	// 读取骨骼父子关系
@@ -314,36 +318,45 @@ func ReadModel(r io.Reader) (*Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the number of vertices: %w", err)
 	}
+	if err := validateNonNegativeCount("model vertex count", model.VertCount); err != nil {
+		return nil, err
+	}
 
 	model.SubMeshCount, err = reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the number of subgrids: %w", err)
+	}
+	if err := validateNonNegativeCount("model submesh count", model.SubMeshCount); err != nil {
+		return nil, err
 	}
 
 	model.BoneCount, err = reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the number of bones: %w", err)
 	}
+	if err := validateNonNegativeCount("model mesh bone count", model.BoneCount); err != nil {
+		return nil, err
+	}
 
 	// 读取骨骼名称
-	boneNames := make([]string, model.BoneCount)
+	boneNames := makeCountedSliceForAppend[string](model.BoneCount)
 	for i := int32(0); i < model.BoneCount; i++ {
 		boneName, err := reader.ReadString()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone name (at bone index): %w", err)
 		}
-		boneNames[i] = boneName
+		boneNames = append(boneNames, boneName)
 	}
 	model.BoneNames = boneNames
 
 	// 读取骨骼绑定姿势
-	bindPoses := make([]Matrix4x4, model.BoneCount)
+	bindPoses := makeCountedSliceForAppend[Matrix4x4](model.BoneCount)
 	for i := int32(0); i < model.BoneCount; i++ {
 		matrix, err := reader.ReadFloat4x4()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read the armature binding pose: %w", err)
 		}
-		bindPoses[i] = matrix
+		bindPoses = append(bindPoses, matrix)
 	}
 	model.BindPoses = bindPoses
 
@@ -394,8 +407,9 @@ func ReadModel(r io.Reader) (*Model, error) {
 	}
 
 	// 读取顶点数据
-	model.Vertices = make([]Vertex, model.VertCount)
+	model.Vertices = makeCountedSliceForAppend[Vertex](model.VertCount)
 	for i := int32(0); i < model.VertCount; i++ {
+		var vertex Vertex
 		// 顶点位置
 		x, err := reader.ReadFloat32()
 		if err != nil {
@@ -409,7 +423,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to read vertex position Z: %w", err)
 		}
-		model.Vertices[i].Position = Vector3{X: x, Y: y, Z: z}
+		vertex.Position = Vector3{X: x, Y: y, Z: z}
 
 		// 法线
 		x, err = reader.ReadFloat32()
@@ -424,7 +438,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to read vertex normal Z: %w", err)
 		}
-		model.Vertices[i].Normal = Vector3{X: x, Y: y, Z: z}
+		vertex.Normal = Vector3{X: x, Y: y, Z: z}
 
 		// UV 坐标
 		uvX, err := reader.ReadFloat32()
@@ -435,7 +449,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to read vertex UV coordinate Y: %w", err)
 		}
-		model.Vertices[i].UV = Vector2{X: uvX, Y: uvY}
+		vertex.UV = Vector2{X: uvX, Y: uvY}
 
 		if hasUV2 {
 			uv2X, err := reader.ReadFloat32()
@@ -446,7 +460,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to read vertex UV2 coordinate Y: %w", err)
 			}
-			model.Vertices[i].UV2 = &Vector2{X: uv2X, Y: uv2Y}
+			vertex.UV2 = &Vector2{X: uv2X, Y: uv2Y}
 		}
 
 		if hasUV3 {
@@ -458,7 +472,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to read vertex UV3 coordinate Y: %w", err)
 			}
-			model.Vertices[i].UV3 = &Vector2{X: uv3X, Y: uv3Y}
+			vertex.UV3 = &Vector2{X: uv3X, Y: uv3Y}
 		}
 
 		if hasUV4 {
@@ -470,7 +484,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to read vertex UV4 coordinate Y: %w", err)
 			}
-			model.Vertices[i].UV4 = &Vector2{X: uv4X, Y: uv4Y}
+			vertex.UV4 = &Vector2{X: uv4X, Y: uv4Y}
 		}
 
 		// 读取未知标志位对应的数据
@@ -483,7 +497,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to read unknown flag 1 data Y: %w", err)
 			}
-			model.Vertices[i].Unknown1 = &Vector2{X: unknownX1, Y: unknownY1}
+			vertex.Unknown1 = &Vector2{X: unknownX1, Y: unknownY1}
 		}
 
 		if hasUnknownFlag2 {
@@ -495,7 +509,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to read unknown flag 2 data Y: %w", err)
 			}
-			model.Vertices[i].Unknown2 = &Vector2{X: unknownX2, Y: unknownY2}
+			vertex.Unknown2 = &Vector2{X: unknownX2, Y: unknownY2}
 		}
 
 		if hasUnknownFlag3 {
@@ -507,7 +521,7 @@ func ReadModel(r io.Reader) (*Model, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to read unknown flag 3 data Y: %w", err)
 			}
-			model.Vertices[i].Unknown3 = &Vector2{X: unknownX3, Y: unknownY3}
+			vertex.Unknown3 = &Vector2{X: unknownX3, Y: unknownY3}
 		}
 
 		if hasUnknownFlag4 {
@@ -519,8 +533,9 @@ func ReadModel(r io.Reader) (*Model, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to read unknown flag 4 data Y: %w", err)
 			}
-			model.Vertices[i].Unknown4 = &Vector2{X: unknownX4, Y: unknownY4}
+			vertex.Unknown4 = &Vector2{X: unknownX4, Y: unknownY4}
 		}
+		model.Vertices = append(model.Vertices, vertex)
 	}
 
 	// 读取切线数据
@@ -528,9 +543,12 @@ func ReadModel(r io.Reader) (*Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the number of tangents: %w", err)
 	}
+	if err := validateNonNegativeCount("model tangent count", tangentCount); err != nil {
+		return nil, err
+	}
 
 	if tangentCount > 0 {
-		model.Tangents = make([]Quaternion, tangentCount)
+		model.Tangents = makeCountedSliceForAppend[Quaternion](tangentCount)
 		for i := int32(0); i < tangentCount; i++ {
 			x, err := reader.ReadFloat32()
 			if err != nil {
@@ -548,14 +566,14 @@ func ReadModel(r io.Reader) (*Model, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to read tangent W: %w", err)
 			}
-			model.Tangents[i] = Quaternion{X: x, Y: y, Z: z, W: w}
+			model.Tangents = append(model.Tangents, Quaternion{X: x, Y: y, Z: z, W: w})
 		}
 	}
 
 	// 读取骨骼权重
-	model.BoneWeights = make([]BoneWeight, model.VertCount)
+	model.BoneWeights = makeCountedSliceForAppend[BoneWeight](model.VertCount)
 	for i := int32(0); i < model.VertCount; i++ {
-		bw := &model.BoneWeights[i]
+		var bw BoneWeight
 
 		bw.BoneIndex0, err = reader.ReadUInt16()
 		if err != nil {
@@ -596,25 +614,29 @@ func ReadModel(r io.Reader) (*Model, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to read bone weight 3: %w", err)
 		}
+		model.BoneWeights = append(model.BoneWeights, bw)
 	}
 
 	// 读取子网格数据
-	model.SubMeshes = make([][]int32, model.SubMeshCount)
+	model.SubMeshes = makeCountedSliceForAppend[[]int32](model.SubMeshCount)
 	for i := int32(0); i < model.SubMeshCount; i++ {
 		triCount, err := reader.ReadInt32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read submesh triangle count: %w", err)
 		}
+		if err := validateNonNegativeCount(fmt.Sprintf("model submesh[%d] triangle count", i), triCount); err != nil {
+			return nil, err
+		}
 
-		triangles := make([]int32, triCount)
+		triangles := makeCountedSliceForAppend[int32](triCount)
 		for j := int32(0); j < triCount; j++ {
 			index, err := reader.ReadUInt16()
 			if err != nil {
 				return nil, fmt.Errorf("failed to read submesh triangle index: %w", err)
 			}
-			triangles[j] = int32(index)
+			triangles = append(triangles, int32(index))
 		}
-		model.SubMeshes[i] = triangles
+		model.SubMeshes = append(model.SubMeshes, triangles)
 	}
 
 	// 读取材质数据
@@ -622,12 +644,16 @@ func ReadModel(r io.Reader) (*Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the number of materials: %w", err)
 	}
-	model.Materials = make([]*Material, materialCount)
+	if err := validateNonNegativeCount("model material count", materialCount); err != nil {
+		return nil, err
+	}
+	model.Materials = makeCountedSliceForAppend[*Material](materialCount)
 	for i := int32(0); i < materialCount; i++ {
-		model.Materials[i], err = readMaterial(reader)
+		material, err := readMaterial(reader)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read material: %w", err)
 		}
+		model.Materials = append(model.Materials, material)
 	}
 
 	// 读取形态数据数据
@@ -686,10 +712,13 @@ func ReadMorphData(reader *stream.BinaryReader, version int32) (*MorphData, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the number of morph vertices: %w", err)
 	}
+	if err := validateNonNegativeCount("morph vertex count", vertCount); err != nil {
+		return nil, err
+	}
 
-	md.Indices = make([]int, vertCount)
-	md.Vertex = make([]Vector3, vertCount)
-	md.Normals = make([]Vector3, vertCount)
+	md.Indices = makeCountedSliceForAppend[int](vertCount)
+	md.Vertex = makeCountedSliceForAppend[Vector3](vertCount)
+	md.Normals = makeCountedSliceForAppend[Vector3](vertCount)
 
 	// 2102 版本支持
 	hasTangents := false
@@ -700,7 +729,7 @@ func ReadMorphData(reader *stream.BinaryReader, version int32) (*MorphData, erro
 		}
 
 		if hasTangents {
-			md.Tangents = make([]Quaternion, vertCount)
+			md.Tangents = makeCountedSliceForAppend[Quaternion](vertCount)
 		}
 	}
 
@@ -709,7 +738,7 @@ func ReadMorphData(reader *stream.BinaryReader, version int32) (*MorphData, erro
 		if err != nil {
 			return nil, fmt.Errorf("failed to read the morph vertex index.: %w", err)
 		}
-		md.Indices[i] = int(index)
+		md.Indices = append(md.Indices, int(index))
 
 		// 读取顶点位移
 		x, err := reader.ReadFloat32()
@@ -724,7 +753,7 @@ func ReadMorphData(reader *stream.BinaryReader, version int32) (*MorphData, erro
 		if err != nil {
 			return nil, fmt.Errorf("failed to read morph vertex displacement Z: %w", err)
 		}
-		md.Vertex[i] = Vector3{X: x, Y: y, Z: z}
+		md.Vertex = append(md.Vertex, Vector3{X: x, Y: y, Z: z})
 
 		// 读取法线位移
 		x, err = reader.ReadFloat32()
@@ -739,7 +768,7 @@ func ReadMorphData(reader *stream.BinaryReader, version int32) (*MorphData, erro
 		if err != nil {
 			return nil, fmt.Errorf("failed to read the morph normal displacement Z: %w", err)
 		}
-		md.Normals[i] = Vector3{X: x, Y: y, Z: z}
+		md.Normals = append(md.Normals, Vector3{X: x, Y: y, Z: z})
 
 		// 如果有切线数据，读取切线
 		if hasTangents {
@@ -759,7 +788,7 @@ func ReadMorphData(reader *stream.BinaryReader, version int32) (*MorphData, erro
 			if err != nil {
 				return nil, fmt.Errorf("failed to read morph tangent W: %w", err)
 			}
-			md.Tangents[i] = Quaternion{X: x, Y: y, Z: z, W: w}
+			md.Tangents = append(md.Tangents, Quaternion{X: x, Y: y, Z: z, W: w})
 		}
 	}
 
@@ -800,6 +829,9 @@ func ReadSkinThickness(reader *stream.BinaryReader) (*SkinThickness, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read skin thickness group count: %w", err)
 	}
+	if err := validateNonNegativeCount("skin thickness group count", groupCount); err != nil {
+		return nil, err
+	}
 
 	// 读取每个组
 	for i := int32(0); i < groupCount; i++ {
@@ -814,7 +846,11 @@ func ReadSkinThickness(reader *stream.BinaryReader) (*SkinThickness, error) {
 			return nil, fmt.Errorf("failed to read skin thickness group: %w", err)
 		}
 
+		if _, exists := skinThickness.Groups[key]; exists {
+			return nil, fmt.Errorf("duplicate skin thickness group key %q", key)
+		}
 		skinThickness.Groups[key] = group
+		skinThickness.GroupOrder = append(skinThickness.GroupOrder, key)
 	}
 
 	return skinThickness, nil
@@ -853,16 +889,19 @@ func readThickGroup(reader *stream.BinaryReader, group *ThickGroup) error {
 	if err != nil {
 		return fmt.Errorf("failed to read point count: %w", err)
 	}
+	if err := validateNonNegativeCount("skin thickness point count", pointCount); err != nil {
+		return err
+	}
 
 	// 读取每个点
-	group.Points = make([]*ThickPoint, pointCount)
+	group.Points = makeCountedSliceForAppend[*ThickPoint](pointCount)
 	for i := int32(0); i < pointCount; i++ {
 		point := &ThickPoint{}
 		err = readThickPoint(reader, point)
 		if err != nil {
 			return fmt.Errorf("failed to read point: %w", err)
 		}
-		group.Points[i] = point
+		group.Points = append(group.Points, point)
 	}
 
 	return nil
@@ -889,16 +928,19 @@ func readThickPoint(reader *stream.BinaryReader, point *ThickPoint) error {
 	if err != nil {
 		return fmt.Errorf("failed to read angle definition count: %w", err)
 	}
+	if err := validateNonNegativeCount("skin thickness angle definition count", angleDefCount); err != nil {
+		return err
+	}
 
 	// 读取每个角度定义
-	point.DistanceParAngle = make([]*ThickDefPerAngle, angleDefCount)
+	point.DistanceParAngle = makeCountedSliceForAppend[*ThickDefPerAngle](angleDefCount)
 	for i := int32(0); i < angleDefCount; i++ {
 		angleDef := &ThickDefPerAngle{}
 		err = readThickDefPerAngle(reader, angleDef)
 		if err != nil {
 			return fmt.Errorf("failed to read angle definition: %w", err)
 		}
-		point.DistanceParAngle[i] = angleDef
+		point.DistanceParAngle = append(point.DistanceParAngle, angleDef)
 	}
 
 	return nil
@@ -969,6 +1011,9 @@ func ReadModelMetadata(r io.Reader) (*ModelMetadata, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read bone count: %w", err)
 	}
+	if err := validateNonNegativeCount("model metadata bone count", boneCount); err != nil {
+		return nil, err
+	}
 
 	// 读取阴影投射方式
 	if metadata.Version >= 2104 && metadata.Version < 2200 {
@@ -1023,15 +1068,24 @@ func ReadModelMetadata(r io.Reader) (*ModelMetadata, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the number of vertices: %w", err)
 	}
+	if err := validateNonNegativeCount("model metadata vertex count", vertCount); err != nil {
+		return nil, err
+	}
 
 	subMeshCount, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the number of subgrids: %w", err)
 	}
+	if err := validateNonNegativeCount("model metadata submesh count", subMeshCount); err != nil {
+		return nil, err
+	}
 
 	meshBoneCount, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the number of bones: %w", err)
+	}
+	if err := validateNonNegativeCount("model metadata mesh bone count", meshBoneCount); err != nil {
+		return nil, err
 	}
 
 	// 读取网格关联的骨骼名称 (不得不读)
@@ -1114,6 +1168,9 @@ func ReadModelMetadata(r io.Reader) (*ModelMetadata, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read tangent count: %w", err)
 	}
+	if err := validateNonNegativeCount("model metadata tangent count", tangentCount); err != nil {
+		return nil, err
+	}
 	if _, err := io.CopyN(io.Discard, r, int64(tangentCount)*16); err != nil {
 		return nil, fmt.Errorf("failed to skip tangents: %w", err)
 	}
@@ -1129,6 +1186,9 @@ func ReadModelMetadata(r io.Reader) (*ModelMetadata, error) {
 		if err != nil {
 			return nil, err
 		}
+		if err := validateNonNegativeCount(fmt.Sprintf("model metadata submesh[%d] triangle count", i), triCount); err != nil {
+			return nil, err
+		}
 		if _, err := io.CopyN(io.Discard, r, int64(triCount)*2); err != nil { // uint16 indices
 			return nil, fmt.Errorf("failed to skip submesh triangles: %w", err)
 		}
@@ -1139,19 +1199,32 @@ func ReadModelMetadata(r io.Reader) (*ModelMetadata, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read material count: %w", err)
 	}
+	if err := validateNonNegativeCount("model metadata material count", materialCount); err != nil {
+		return nil, err
+	}
 
-	metadata.Materials = make([]*Material, materialCount)
+	metadata.Materials = makeCountedSliceForAppend[*Material](materialCount)
 	for i := int32(0); i < materialCount; i++ {
-		metadata.Materials[i], err = readMaterial(reader)
+		material, err := readMaterial(reader)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read material %d: %w", i, err)
 		}
+		metadata.Materials = append(metadata.Materials, material)
 	}
 
 	return metadata, nil
 }
 
 func (m *Model) Dump(w io.Writer) error {
+	if err := validateModelForDump(m); err != nil {
+		return err
+	}
+	// These three fields are wire counts derived from the collections below.
+	// Recompute them just like the game's writer so stale editing metadata
+	// cannot make an otherwise valid model unreadable.
+	m.VertCount = int32(len(m.Vertices))
+	m.SubMeshCount = int32(len(m.SubMeshes))
+	m.BoneCount = int32(len(m.BoneNames))
 	writer := stream.NewBinaryWriter(w)
 
 	// 写入签名
@@ -1366,7 +1439,7 @@ func (m *Model) Dump(w io.Writer) error {
 		}
 
 		// 写入UV2坐标（如果存在）
-		if vertex.UV2 != nil {
+		if m.Version >= 2101 && vertex.UV2 != nil {
 			if err := writer.WriteFloat32(vertex.UV2.X); err != nil {
 				return fmt.Errorf("failed to write vertex UV2 coordinate X: %w", err)
 			}
@@ -1376,7 +1449,7 @@ func (m *Model) Dump(w io.Writer) error {
 		}
 
 		// 写入UV3坐标（如果存在）
-		if vertex.UV3 != nil {
+		if m.Version >= 2101 && vertex.UV3 != nil {
 			if err := writer.WriteFloat32(vertex.UV3.X); err != nil {
 				return fmt.Errorf("failed to write vertex UV3 coordinate X: %w", err)
 			}
@@ -1386,7 +1459,7 @@ func (m *Model) Dump(w io.Writer) error {
 		}
 
 		// 写入UV4坐标（如果存在）
-		if vertex.UV4 != nil {
+		if m.Version >= 2101 && vertex.UV4 != nil {
 			if err := writer.WriteFloat32(vertex.UV4.X); err != nil {
 				return fmt.Errorf("failed to write vertex UV4 coordinate X: %w", err)
 			}
@@ -1396,7 +1469,7 @@ func (m *Model) Dump(w io.Writer) error {
 		}
 
 		// 写入未知标志位对应的数据（如果存在）
-		if vertex.Unknown1 != nil {
+		if m.Version >= 2101 && vertex.Unknown1 != nil {
 			if err := writer.WriteFloat32(vertex.Unknown1.X); err != nil {
 				return fmt.Errorf("failed to write unknown flag 1 data X: %w", err)
 			}
@@ -1405,7 +1478,7 @@ func (m *Model) Dump(w io.Writer) error {
 			}
 		}
 
-		if vertex.Unknown2 != nil {
+		if m.Version >= 2101 && vertex.Unknown2 != nil {
 			if err := writer.WriteFloat32(vertex.Unknown2.X); err != nil {
 				return fmt.Errorf("failed to write unknown flag 2 data X: %w", err)
 			}
@@ -1414,7 +1487,7 @@ func (m *Model) Dump(w io.Writer) error {
 			}
 		}
 
-		if vertex.Unknown3 != nil {
+		if m.Version >= 2101 && vertex.Unknown3 != nil {
 			if err := writer.WriteFloat32(vertex.Unknown3.X); err != nil {
 				return fmt.Errorf("failed to write unknown flag 3 data X: %w", err)
 			}
@@ -1423,7 +1496,7 @@ func (m *Model) Dump(w io.Writer) error {
 			}
 		}
 
-		if vertex.Unknown4 != nil {
+		if m.Version >= 2101 && vertex.Unknown4 != nil {
 			if err := writer.WriteFloat32(vertex.Unknown4.X); err != nil {
 				return fmt.Errorf("failed to write unknown flag 4 data X: %w", err)
 			}
@@ -1547,6 +1620,183 @@ func (m *Model) Dump(w io.Writer) error {
 	return nil
 }
 
+type modelVertexChannels struct {
+	uv2      bool
+	uv3      bool
+	uv4      bool
+	unknown1 bool
+	unknown2 bool
+	unknown3 bool
+	unknown4 bool
+}
+
+func validateModelForDump(model *Model) error {
+	if model == nil {
+		return fmt.Errorf("nil model")
+	}
+	if _, err := collectionCountInt32("model bone count", len(model.Bones)); err != nil {
+		return err
+	}
+	if _, err := collectionCountInt32("model vertex count", len(model.Vertices)); err != nil {
+		return err
+	}
+	if _, err := collectionCountInt32("model submesh count", len(model.SubMeshes)); err != nil {
+		return err
+	}
+	if _, err := collectionCountInt32("model mesh bone count", len(model.BoneNames)); err != nil {
+		return err
+	}
+	if len(model.BoneNames) != len(model.BindPoses) {
+		return fmt.Errorf("model has BoneNames=%d and BindPoses=%d", len(model.BoneNames), len(model.BindPoses))
+	}
+	if _, err := collectionCountInt32("model material count", len(model.Materials)); err != nil {
+		return err
+	}
+	if _, err := collectionCountInt32("model tangent count", len(model.Tangents)); err != nil {
+		return err
+	}
+
+	shadowSupported := model.Version >= 2104 && model.Version < 2200
+	if shadowSupported && model.ShadowCastingMode == nil {
+		return fmt.Errorf("ShadowCastingMode is required for model version %d", model.Version)
+	}
+	if !shadowSupported && model.ShadowCastingMode != nil {
+		return fmt.Errorf("model version %d cannot encode ShadowCastingMode", model.Version)
+	}
+
+	for index, bone := range model.Bones {
+		if bone == nil {
+			return fmt.Errorf("model Bones[%d] is nil", index)
+		}
+		if model.Version < 2001 && bone.Scale != nil {
+			return fmt.Errorf("model version %d cannot encode Bones[%d].Scale", model.Version, index)
+		}
+	}
+
+	if len(model.BoneWeights) != len(model.Vertices) {
+		return fmt.Errorf("model has Vertices=%d but BoneWeights=%d", len(model.Vertices), len(model.BoneWeights))
+	}
+	if err := validateModelVertexChannels(model); err != nil {
+		return err
+	}
+	for submeshIndex, submesh := range model.SubMeshes {
+		if _, err := collectionCountInt32(fmt.Sprintf("model SubMeshes[%d] triangle count", submeshIndex), len(submesh)); err != nil {
+			return err
+		}
+		for indexIndex, index := range submesh {
+			if index < 0 || index > 1<<16-1 {
+				return fmt.Errorf("model SubMeshes[%d][%d]=%d is outside UInt16", submeshIndex, indexIndex, index)
+			}
+		}
+	}
+
+	for index, material := range model.Materials {
+		if err := validateMaterialForDump(fmt.Sprintf("model Materials[%d]", index), material); err != nil {
+			return err
+		}
+	}
+	for index, morph := range model.MorphData {
+		if err := validateMorphDataForDump(fmt.Sprintf("model MorphData[%d]", index), morph, model.Version); err != nil {
+			return err
+		}
+	}
+	if model.Version < 2100 && model.SkinThickness != nil {
+		return fmt.Errorf("model version %d cannot encode SkinThickness", model.Version)
+	}
+	if model.SkinThickness != nil {
+		if err := validateSkinThicknessForDump(model.SkinThickness); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func modelChannelsForVertex(vertex Vertex) modelVertexChannels {
+	return modelVertexChannels{
+		uv2:      vertex.UV2 != nil,
+		uv3:      vertex.UV3 != nil,
+		uv4:      vertex.UV4 != nil,
+		unknown1: vertex.Unknown1 != nil,
+		unknown2: vertex.Unknown2 != nil,
+		unknown3: vertex.Unknown3 != nil,
+		unknown4: vertex.Unknown4 != nil,
+	}
+}
+
+func validateModelVertexChannels(model *Model) error {
+	if len(model.Vertices) == 0 {
+		return nil
+	}
+	want := modelChannelsForVertex(model.Vertices[0])
+	if model.Version < 2101 && want != (modelVertexChannels{}) {
+		return fmt.Errorf("model version %d cannot encode extended vertex channels", model.Version)
+	}
+	for index := 1; index < len(model.Vertices); index++ {
+		if got := modelChannelsForVertex(model.Vertices[index]); got != want {
+			return fmt.Errorf("model Vertices[%d] channel presence differs from Vertices[0]", index)
+		}
+	}
+	return nil
+}
+
+func validateMorphDataForDump(path string, morph *MorphData, version int32) error {
+	if morph == nil {
+		return fmt.Errorf("%s is nil", path)
+	}
+	count, err := collectionCountInt32(path+" vertex count", len(morph.Indices))
+	if err != nil {
+		return err
+	}
+	if int64(count) != int64(len(morph.Vertex)) || int64(count) != int64(len(morph.Normals)) {
+		return fmt.Errorf("%s has Indices=%d, Vertex=%d, Normals=%d", path, len(morph.Indices), len(morph.Vertex), len(morph.Normals))
+	}
+	for index, vertexIndex := range morph.Indices {
+		if vertexIndex < 0 || vertexIndex > 1<<16-1 {
+			return fmt.Errorf("%s.Indices[%d]=%d is outside UInt16", path, index, vertexIndex)
+		}
+	}
+	if version < 2102 {
+		if morph.Tangents != nil {
+			return fmt.Errorf("model version %d cannot encode %s.Tangents", version, path)
+		}
+		return nil
+	}
+	if morph.Tangents != nil && len(morph.Tangents) != len(morph.Indices) {
+		return fmt.Errorf("%s has Indices=%d but Tangents=%d", path, len(morph.Indices), len(morph.Tangents))
+	}
+	return nil
+}
+
+func validateSkinThicknessForDump(thickness *SkinThickness) error {
+	keys, err := orderedSkinThicknessGroupKeys(thickness)
+	if err != nil {
+		return err
+	}
+	if _, err := collectionCountInt32("skin thickness group count", len(thickness.Groups)); err != nil {
+		return err
+	}
+	for _, key := range keys {
+		group := thickness.Groups[key]
+		if _, err := collectionCountInt32(fmt.Sprintf("skin thickness group %q point count", key), len(group.Points)); err != nil {
+			return err
+		}
+		for pointIndex, point := range group.Points {
+			if point == nil {
+				return fmt.Errorf("skin thickness group %q Points[%d] is nil", key, pointIndex)
+			}
+			if _, err := collectionCountInt32(fmt.Sprintf("skin thickness group %q Points[%d] angle count", key, pointIndex), len(point.DistanceParAngle)); err != nil {
+				return err
+			}
+			for angleIndex, angle := range point.DistanceParAngle {
+				if angle == nil {
+					return fmt.Errorf("skin thickness group %q Points[%d].DistanceParAngle[%d] is nil", key, pointIndex, angleIndex)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // writeMorphData 将形态数据写入 w
 func writeMorphData(writer *stream.BinaryWriter, md *MorphData, version int32) error {
 	// 写入形态名称
@@ -1616,6 +1866,11 @@ func writeMorphData(writer *stream.BinaryWriter, md *MorphData, version int32) e
 
 // writeSkinThickness 将皮肤厚度数据写入 w
 func writeSkinThickness(writer *stream.BinaryWriter, st *SkinThickness) error {
+	keys, err := orderedSkinThicknessGroupKeys(st)
+	if err != nil {
+		return err
+	}
+
 	// 写入签名
 	if err := writer.WriteString(st.Signature); err != nil {
 		return fmt.Errorf("failed to write skin thickness signature: %w", err)
@@ -1637,7 +1892,8 @@ func writeSkinThickness(writer *stream.BinaryWriter, st *SkinThickness) error {
 	}
 
 	// 写入每个组
-	for key, group := range st.Groups {
+	for _, key := range keys {
+		group := st.Groups[key]
 		if err := writer.WriteString(key); err != nil {
 			return fmt.Errorf("failed to write skin thickness group key: %w", err)
 		}
@@ -1648,6 +1904,23 @@ func writeSkinThickness(writer *stream.BinaryWriter, st *SkinThickness) error {
 	}
 
 	return nil
+}
+
+func orderedSkinThicknessGroupKeys(st *SkinThickness) ([]string, error) {
+	if st == nil {
+		return nil, fmt.Errorf("nil skin thickness")
+	}
+	keys, err := utilities.MergeOrderedMapKeys(st.Groups, st.GroupOrder, "skin thickness GroupOrder")
+	if err != nil {
+		return nil, err
+	}
+	for _, key := range keys {
+		group := st.Groups[key]
+		if group == nil {
+			return nil, fmt.Errorf("skin thickness group %q is nil", key)
+		}
+	}
+	return keys, nil
 }
 
 // writeThickGroup 将皮肤厚度组数据写入 w

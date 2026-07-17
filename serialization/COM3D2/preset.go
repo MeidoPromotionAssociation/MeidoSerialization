@@ -1,10 +1,12 @@
 package COM3D2
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
 )
 
 // CM3D2_PRESET
@@ -80,36 +82,56 @@ type PresetMetadata struct {
 
 // PresetPropertyList 表示预设属性列表
 type PresetPropertyList struct {
-	Signature        string                    `json:"Signature"`        // "CM3D2_MPROP_LIST"
-	Version          int32                     `json:"Version"`          // 版本号
-	PropertyCount    int32                     `json:"PropertyCount"`    // 属性数量
-	PresetProperties map[string]PresetProperty `json:"PresetProperties"` // 属性映射表
+	Signature          string                    `json:"Signature"`               // "CM3D2_MPROP_LIST"
+	Version            int32                     `json:"Version"`                 // 版本号
+	PropertyCount      int32                     `json:"PropertyCount"`           // 属性数量
+	PresetProperties   map[string]PresetProperty `json:"PresetProperties"`        // 属性映射表
+	PropertyOrder      []string                  `json:"PropertyOrder,omitempty"` // 保留 wire 中主属性的顺序
+	MaidPropOther      []NamedPresetProperty     `json:"MaidPropOther"`           // COM3D2.5 扩展属性
+	PartsColorOtherBin []byte                    `json:"PartsColorOtherBin"`      // COM3D2.5 扩展颜色块（原始字节）
+	CRCPresetBin       []byte                    `json:"CRCPresetBin"`            // COM3D2.5 CRC 预设块（原始字节）
+}
+
+// NamedPresetProperty 保留 MPROP_LIST 中属性前置键及其顺序。
+type NamedPresetProperty struct {
+	Key      string         `json:"Key"`
+	Property PresetProperty `json:"Property"`
 }
 
 // PresetProperty 表示单个属性
 type PresetProperty struct {
-	Signature       string                               `json:"Signature"`       // "CM3D2_MPROP"
-	Version         int32                                `json:"Version"`         // 版本号
-	Index           int32                                `json:"Index"`           // 索引
-	Name            string                               `json:"Name"`            // 名称
-	Type            int32                                `json:"Type"`            // 类型
-	DefaultValue    int32                                `json:"DefaultValue"`    // 默认值
-	Value           int32                                `json:"Value"`           // 当前值
-	TempValue       int32                                `json:"TempValue"`       // 临时值
-	LinkMaxValue    int32                                `json:"LinkMaxValue"`    // 链接最大值
-	FileName        string                               `json:"FileName"`        // 文件名
-	FileNameRID     int32                                `json:"FileNameRID"`     // 文件名哈希值  this.strFileName.ToLower().GetHashCode();
-	IsDut           bool                                 `json:"IsDut"`           // 是否使用
-	Max             int32                                `json:"Max"`             // 最大值
-	Min             int32                                `json:"Min"`             // 最小值
-	SubProps        []SubProp                            `json:"SubProps"`        // 子属性列表
-	SkinPositions   map[int]BoneAttachPosEntry           `json:"SkinPositions"`   // 皮肤位置 slotID -> (RID, BoneAttachPos)
-	AttachPositions map[int]map[string]VtxAttachPosEntry `json:"AttachPositions"` // 附件位置 slotID -> name -> (RID, VtxAttachPos)
-	MaterialProps   map[int]MatPropSaveEntry             `json:"MaterialProps"`   // 材质属性 slotID -> (RID, MatPropSave)
-	BoneLengths     map[int]BoneLengthEntry              `json:"BoneLengths"`     // 骨骼长度 slotID -> (RID, map[name]len)
+	Signature                string                               `json:"Signature"`     // "CM3D2_MPROP"
+	Version                  int32                                `json:"Version"`       // 版本号
+	Index                    int32                                `json:"Index"`         // 索引
+	Name                     string                               `json:"Name"`          // 名称
+	Type                     int32                                `json:"Type"`          // 类型
+	DefaultValue             int32                                `json:"DefaultValue"`  // 默认值
+	Value                    int32                                `json:"Value"`         // 当前值
+	TempValue                int32                                `json:"TempValue"`     // 临时值
+	LinkMaxValue             int32                                `json:"LinkMaxValue"`  // 链接最大值
+	FileName                 string                               `json:"FileName"`      // 文件名
+	FileNameRID              int32                                `json:"FileNameRID"`   // 文件名哈希值  this.strFileName.ToLower().GetHashCode();
+	IsDut                    bool                                 `json:"IsDut"`         // 是否使用
+	Max                      int32                                `json:"Max"`           // 最大值
+	Min                      int32                                `json:"Min"`           // 最小值
+	SubProps                 []*SubProp                           `json:"SubProps"`      // 子属性列表；nil 元素对应 wire 中的 exists=false
+	SkinPositions            map[int]BoneAttachPosEntry           `json:"SkinPositions"` // 皮肤位置 slotID -> (RID, BoneAttachPos)
+	SkinPositionOrder        []int                                `json:"SkinPositionOrder,omitempty"`
+	AttachPositions          map[int]map[string]VtxAttachPosEntry `json:"AttachPositions"` // 附件位置 slotID -> name -> (RID, VtxAttachPos)
+	AttachPositionOrder      []int                                `json:"AttachPositionOrder,omitempty"`
+	AttachPositionNameOrders map[int][]string                     `json:"AttachPositionNameOrders,omitempty"`
+	// AttachPositionSlotNames preserves the COM3D2.5 v2003+ SlotID name
+	// written once per outer AttachPositions entry, including an empty map.
+	AttachPositionSlotNames map[int]string           `json:"AttachPositionSlotNames,omitempty"`
+	MaterialProps           map[int]MatPropSaveEntry `json:"MaterialProps"` // 材质属性 slotID -> (RID, MatPropSave)
+	MaterialPropOrder       []int                    `json:"MaterialPropOrder,omitempty"`
+	BoneLengths             map[int]BoneLengthEntry  `json:"BoneLengths"` // 骨骼长度 slotID -> (RID, map[name]len)
+	BoneLengthOrder         []int                    `json:"BoneLengthOrder,omitempty"`
+	IsCrcParts              bool                     `json:"IsCrcParts"` // CRC/GP03 部件标记
 }
 
 type BoneAttachPosEntry struct {
+	SlotName      string        `json:"SlotName,omitempty"`
 	RID           int32         `json:"RID"`           // C# KeyValuePair<int, BoneAttachPos>.Key
 	BoneAttachPos BoneAttachPos `json:"BoneAttachPos"` // C# ...Value
 }
@@ -120,13 +142,16 @@ type VtxAttachPosEntry struct {
 }
 
 type MatPropSaveEntry struct {
+	SlotName    string      `json:"SlotName,omitempty"`
 	RID         int32       `json:"RID"`
 	MatPropSave MatPropSave `json:"MatPropSave"`
 }
 
 type BoneLengthEntry struct {
-	RID     int32              `json:"RID"`
-	Lengths map[string]float32 `json:"Lengths"`
+	SlotName    string             `json:"SlotName,omitempty"`
+	RID         int32              `json:"RID"`
+	Lengths     map[string]float32 `json:"Lengths"`
+	LengthOrder []string           `json:"LengthOrder,omitempty"`
 }
 
 // SubProp 表示子属性
@@ -163,8 +188,9 @@ type MatPropSave struct {
 type MultiColor struct {
 	Signature   string       `json:"Signature"`   // "CM3D2_MULTI_COL"
 	Version     int32        `json:"Version"`     // 版本号
-	PartCount   int32        `json:"PartCount"`   // 颜色数量
-	PartsColors []PartsColor `json:"PartsColors"` // 颜色列表
+	PartCount   int32        `json:"PartCount"`   // wire 头部颜色数量；新布局读取时游戏忽略该值 / Wire header count; ignored by the new-layout reader
+	PartNames   []string     `json:"PartNames"`   // 新布局中每项的原始名称及顺序；旧布局无名称 / Raw names/order in the new layout; absent in the legacy layout
+	PartsColors []PartsColor `json:"PartsColors"` // wire 上实际存在的颜色，不展开游戏默认值 / Colors physically present on the wire, without game defaults
 }
 
 // PartsColor 表示部件颜色
@@ -188,20 +214,120 @@ type BodyProperty struct {
 	// 是的确实没有别的东西
 }
 
+func validatePresetSignature(field, got, want string) error {
+	if got != want {
+		return fmt.Errorf("invalid %s signature: expected %q, got %q", field, want, got)
+	}
+	return nil
+}
+
+func validatePresetCount(field string, count int32) error {
+	if count < 0 {
+		return fmt.Errorf("invalid %s: %d", field, count)
+	}
+	return nil
+}
+
+func presetPropertyHasIsCrcParts(version int32) bool {
+	return (version >= 2001 && version < 20000) || version >= 30000
+}
+
+func presetPropertyHasSlotNames(version int32) bool {
+	return (version >= 2003 && version < 20000) || version >= 30000
+}
+
+func presetPropertyListHasExtensions(version int32) bool {
+	return (version >= 2001 && version < 20000) || version >= 30000
+}
+
+func readPresetByteBlock(reader *stream.BinaryReader, field string) ([]byte, error) {
+	length, err := reader.ReadInt32()
+	if err != nil {
+		return nil, fmt.Errorf("read %s length failed: %w", field, err)
+	}
+	if err := validatePresetCount(field, length); err != nil {
+		return nil, err
+	}
+	if length == 0 {
+		return nil, nil
+	}
+	data, err := reader.ReadBytes(int(length))
+	if err != nil {
+		return nil, fmt.Errorf("read %s data failed: %w", field, err)
+	}
+	return data, nil
+}
+
+func writePresetByteBlock(writer *stream.BinaryWriter, field string, data []byte) error {
+	length, err := collectionCountInt32(field+" length", len(data))
+	if err != nil {
+		return err
+	}
+	if err := writer.WriteInt32(length); err != nil {
+		return fmt.Errorf("write %s length failed: %w", field, err)
+	}
+	if len(data) != 0 {
+		if err := writer.WriteBytes(data); err != nil {
+			return fmt.Errorf("write %s data failed: %w", field, err)
+		}
+	}
+	return nil
+}
+
+func validatePresetMapLength(field string, length int) error {
+	_, err := collectionCountInt32(field, length)
+	return err
+}
+
+func validatePresetSlotID(field string, slot int) error {
+	if int64(slot) < -1<<31 || int64(slot) > 1<<31-1 {
+		return fmt.Errorf("invalid %s slotID: %d is outside Int32", field, slot)
+	}
+	return nil
+}
+
+func readPresetSlot(reader *stream.BinaryReader, version int32, field string) (int, string, error) {
+	slotID, err := reader.ReadInt32()
+	if err != nil {
+		return 0, "", fmt.Errorf("read %s slotID failed: %w", field, err)
+	}
+	var slotName string
+	if presetPropertyHasSlotNames(version) {
+		slotName, err = reader.ReadString()
+		if err != nil {
+			return 0, "", fmt.Errorf("read %s slotName failed: %w", field, err)
+		}
+	}
+	return int(slotID), slotName, nil
+}
+
 // ReadPreset 从 r 中读取 Preset
 func ReadPreset(r io.Reader) (*Preset, error) {
-	p := &Preset{}
-
 	reader := stream.NewBinaryReader(r)
+	p, err := readPreset(reader)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := reader.ReadByte(); err == nil {
+		return nil, fmt.Errorf("read .Preset failed: unexpected trailing data")
+	} else if !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("verify .Preset trailing data failed: %w", err)
+	}
+	return p, nil
+}
+
+// readPreset 解析一个 preset 对象但不检查 EOF，供有明确外层边界的内部格式复用。
+func readPreset(reader *stream.BinaryReader) (*Preset, error) {
+	p := &Preset{}
 
 	// 1. signature
 	sig, err := reader.ReadString()
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset signature failed: %w", err)
 	}
-	//if sig != "CM3D2_PRESET" {
-	//	return nil, fmt.Errorf("ReadPreset: signature error, expect CM3D2_PRESET, got %s", sig)
-	//}
+	if err := validatePresetSignature(".Preset", sig, PresetSignature); err != nil {
+		return nil, err
+	}
 	p.Signature = sig
 
 	// 2. version
@@ -216,9 +342,6 @@ func ReadPreset(r io.Reader) (*Preset, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset presetType failed: %w", err)
 	}
-	//if presetType < int32(PresetTypeWear) || presetType > int32(PresetTypeAll) {
-	//	return nil, fmt.Errorf("invalid .Preset presetType: %d", presetType)
-	//}
 	p.PresetType = presetType
 
 	// 4. ThumbLength
@@ -226,12 +349,14 @@ func ReadPreset(r io.Reader) (*Preset, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset ThumbLength failed: %w", err)
 	}
+	if err := validatePresetCount(".Preset ThumbLength", thumbLength); err != nil {
+		return nil, err
+	}
 	p.ThumbLength = thumbLength
 
 	// 5. ThumbData
 	if p.ThumbLength > 0 {
-		p.ThumbData = make([]byte, p.ThumbLength)
-		_, err = io.ReadFull(r, p.ThumbData)
+		p.ThumbData, err = reader.ReadBytes(int(p.ThumbLength))
 		if err != nil {
 			return nil, fmt.Errorf("read .Preset ThumbData failed: %w", err)
 		}
@@ -273,9 +398,9 @@ func ReadPresetMetadata(reader *stream.BinaryReader) (*PresetMetadata, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset signature failed: %w", err)
 	}
-	//if sig != "CM3D2_PRESET" {
-	//	return nil, fmt.Errorf("ReadPreset: signature error, expect CM3D2_PRESET, got %s", sig)
-	//}
+	if err := validatePresetSignature(".Preset", sig, PresetSignature); err != nil {
+		return nil, err
+	}
 	p.Signature = sig
 
 	// 2. version
@@ -290,9 +415,6 @@ func ReadPresetMetadata(reader *stream.BinaryReader) (*PresetMetadata, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset presetType failed: %w", err)
 	}
-	//if presetType < int32(PresetTypeWear) || presetType > int32(PresetTypeAll) {
-	//	return nil, fmt.Errorf("invalid .Preset presetType: %d", presetType)
-	//}
 	p.PresetType = presetType
 
 	// 4. ThumbLength
@@ -300,12 +422,14 @@ func ReadPresetMetadata(reader *stream.BinaryReader) (*PresetMetadata, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset ThumbLength failed: %w", err)
 	}
+	if err := validatePresetCount(".Preset ThumbLength", thumbLength); err != nil {
+		return nil, err
+	}
 	p.ThumbLength = thumbLength
 
 	// 5. ThumbData
 	if p.ThumbLength > 0 {
-		p.ThumbData = make([]byte, p.ThumbLength)
-		_, err = io.ReadFull(reader.R, p.ThumbData)
+		p.ThumbData, err = reader.ReadBytes(int(p.ThumbLength))
 		if err != nil {
 			return nil, fmt.Errorf("read .Preset ThumbData failed: %w", err)
 		}
@@ -323,9 +447,9 @@ func readPresetPropertyList(reader *stream.BinaryReader) (*PresetPropertyList, e
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset PresetPropertyList signature failed: %w", err)
 	}
-	//if sig != "CM3D2_MPROP_LIST" {
-	//	return ppl, fmt.Errorf("read .Preset PresetPropertyList signature error, expect CM3D2_MPROP_LIST, got %s", sig)
-	//}
+	if err := validatePresetSignature("PresetPropertyList", sig, PresetPropertyListSignature); err != nil {
+		return nil, err
+	}
 	ppl.Signature = sig
 
 	// 2. version
@@ -340,12 +464,16 @@ func readPresetPropertyList(reader *stream.BinaryReader) (*PresetPropertyList, e
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset PresetPropertyList propertyCount failed: %w", err)
 	}
+	if err := validatePresetCount("PresetPropertyList propertyCount", count); err != nil {
+		return nil, err
+	}
 	ppl.PropertyCount = count
 
 	// 4. PresetProperties
 	for i := 0; i < int(count); i++ {
 		var key string
-		if version >= 4 {
+		hasStoredKey := version >= 4
+		if hasStoredKey {
 			// 新版：SerializeProp 会先写 key（MPN 名称字符串）
 			k, err := reader.ReadString()
 			if err != nil {
@@ -357,11 +485,47 @@ func readPresetPropertyList(reader *stream.BinaryReader) (*PresetPropertyList, e
 		if err != nil {
 			return nil, fmt.Errorf("read Prop[%d] failed: %w", i, err)
 		}
-		if key == "" {
+		if !hasStoredKey {
 			// 旧版未写 key，用 prop.Name 作为 key
 			key = prop.Name
 		}
+		if _, exists := ppl.PresetProperties[key]; exists {
+			return nil, fmt.Errorf("read Prop[%d] failed: duplicate property key %q", i, key)
+		}
 		ppl.PresetProperties[key] = *prop
+		ppl.PropertyOrder = append(ppl.PropertyOrder, key)
+	}
+
+	if presetPropertyListHasExtensions(version) {
+		otherCount, err := reader.ReadInt32()
+		if err != nil {
+			return nil, fmt.Errorf("read MaidPropOther count failed: %w", err)
+		}
+		if err := validatePresetCount("MaidPropOther count", otherCount); err != nil {
+			return nil, err
+		}
+		if otherCount > 0 {
+			ppl.MaidPropOther = makeCountedSliceForAppend[NamedPresetProperty](otherCount)
+		}
+		for i := int32(0); i < otherCount; i++ {
+			key, err := reader.ReadString()
+			if err != nil {
+				return nil, fmt.Errorf("read MaidPropOther[%d] key failed: %w", i, err)
+			}
+			prop, err := readPresetProperty(reader)
+			if err != nil {
+				return nil, fmt.Errorf("read MaidPropOther[%d] failed: %w", i, err)
+			}
+			ppl.MaidPropOther = append(ppl.MaidPropOther, NamedPresetProperty{Key: key, Property: *prop})
+		}
+		ppl.PartsColorOtherBin, err = readPresetByteBlock(reader, "PartsColorOtherBin")
+		if err != nil {
+			return nil, err
+		}
+		ppl.CRCPresetBin, err = readPresetByteBlock(reader, "CRCPresetBin")
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return ppl, nil
@@ -375,6 +539,9 @@ func readPresetProperty(reader *stream.BinaryReader) (*PresetProperty, error) {
 	sig, err := reader.ReadString()
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset PresetProperty signature failed: %w", err)
+	}
+	if err := validatePresetSignature("PresetProperty", sig, PresetPropertySignature); err != nil {
+		return nil, err
 	}
 	prop.Signature = sig
 
@@ -439,8 +606,11 @@ func readPresetProperty(reader *stream.BinaryReader) (*PresetProperty, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read subProp count failed: %w", err)
 		}
+		if err := validatePresetCount("subProp count", cnt); err != nil {
+			return nil, err
+		}
 		if cnt > 0 {
-			prop.SubProps = make([]SubProp, cnt)
+			prop.SubProps = makeCountedSliceForAppend[*SubProp](cnt)
 		}
 		for i := 0; i < int(cnt); i++ {
 			exists, err := reader.ReadBool()
@@ -448,10 +618,10 @@ func readPresetProperty(reader *stream.BinaryReader) (*PresetProperty, error) {
 				return nil, fmt.Errorf("read subProp[%d] exists failed: %w", i, err)
 			}
 			if !exists {
-				// 无法用 nil 表示，跳过但保留默认零值
+				prop.SubProps = append(prop.SubProps, nil)
 				continue
 			}
-			var sp SubProp
+			sp := &SubProp{}
 			if sp.IsDut, err = reader.ReadBool(); err != nil {
 				return nil, fmt.Errorf("read subProp[%d].IsDut failed: %w", i, err)
 			}
@@ -466,7 +636,7 @@ func readPresetProperty(reader *stream.BinaryReader) (*PresetProperty, error) {
 					return nil, fmt.Errorf("read subProp[%d].TexMulAlpha failed: %w", i, err)
 				}
 			}
-			prop.SubProps[i] = sp
+			prop.SubProps = append(prop.SubProps, sp)
 		}
 
 		// 皮肤位置：slotID, RID, BoneAttachPos
@@ -474,13 +644,19 @@ func readPresetProperty(reader *stream.BinaryReader) (*PresetProperty, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read skinPos count failed: %w", err)
 		}
+		if err := validatePresetCount("skinPos count", nSkin); err != nil {
+			return nil, err
+		}
 		if nSkin > 0 {
-			prop.SkinPositions = make(map[int]BoneAttachPosEntry, nSkin)
+			prop.SkinPositions = makeCountedMap[int, BoneAttachPosEntry](nSkin)
 		}
 		for i := 0; i < int(nSkin); i++ {
-			slotID, err := reader.ReadInt32()
+			slotID, slotName, err := readPresetSlot(reader, ver, fmt.Sprintf("skinPos[%d]", i))
 			if err != nil {
-				return nil, fmt.Errorf("read skinPos[%d].slotID failed: %w", i, err)
+				return nil, err
+			}
+			if _, exists := prop.SkinPositions[slotID]; exists {
+				return nil, fmt.Errorf("read skinPos[%d] failed: duplicate slotID %d", i, slotID)
 			}
 			rid, err := reader.ReadInt32()
 			if err != nil {
@@ -521,7 +697,8 @@ func readPresetProperty(reader *stream.BinaryReader) (*PresetProperty, error) {
 				return nil, fmt.Errorf("read skinPos[%d].scale.z failed: %w", i, err)
 			}
 
-			prop.SkinPositions[int(slotID)] = BoneAttachPosEntry{RID: rid, BoneAttachPos: b}
+			prop.SkinPositions[slotID] = BoneAttachPosEntry{SlotName: slotName, RID: rid, BoneAttachPos: b}
+			prop.SkinPositionOrder = append(prop.SkinPositionOrder, slotID)
 		}
 
 		// 附着位置：slotID, count, (name, RID, VtxAttachPos)*
@@ -529,19 +706,33 @@ func readPresetProperty(reader *stream.BinaryReader) (*PresetProperty, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read attachPos count failed: %w", err)
 		}
+		if err := validatePresetCount("attachPos count", nAttach); err != nil {
+			return nil, err
+		}
 		if nAttach > 0 {
-			prop.AttachPositions = make(map[int]map[string]VtxAttachPosEntry, nAttach)
+			prop.AttachPositions = makeCountedMap[int, map[string]VtxAttachPosEntry](nAttach)
+			prop.AttachPositionNameOrders = makeCountedMap[int, []string](nAttach)
+			if presetPropertyHasSlotNames(ver) {
+				prop.AttachPositionSlotNames = makeCountedMap[int, string](nAttach)
+			}
 		}
 		for i := 0; i < int(nAttach); i++ {
-			slotID, err := reader.ReadInt32()
+			slotID, slotName, err := readPresetSlot(reader, ver, fmt.Sprintf("attachPos[%d]", i))
 			if err != nil {
-				return nil, fmt.Errorf("read attachPos[%d].slotID failed: %w", i, err)
+				return nil, err
+			}
+			if _, exists := prop.AttachPositions[slotID]; exists {
+				return nil, fmt.Errorf("read attachPos[%d] failed: duplicate slotID %d", i, slotID)
 			}
 			inner, err := reader.ReadInt32()
 			if err != nil {
 				return nil, fmt.Errorf("read attachPos[%d].innerCount failed: %w", i, err)
 			}
-			mp := make(map[string]VtxAttachPosEntry, inner)
+			if err := validatePresetCount("attachPos inner count", inner); err != nil {
+				return nil, fmt.Errorf("read attachPos[%d] failed: %w", i, err)
+			}
+			mp := makeCountedMap[string, VtxAttachPosEntry](inner)
+			nameOrder := makeCountedSliceForAppend[string](inner)
 			for j := 0; j < int(inner); j++ {
 				key, err := reader.ReadString()
 				if err != nil {
@@ -592,9 +783,18 @@ func readPresetProperty(reader *stream.BinaryReader) (*PresetProperty, error) {
 					return nil, fmt.Errorf("read attachPos[%d][%d].scale.z failed: %w", i, j, err)
 				}
 
+				if _, exists := mp[key]; exists {
+					return nil, fmt.Errorf("read attachPos[%d][%d] failed: duplicate key %q", i, j, key)
+				}
 				mp[key] = VtxAttachPosEntry{RID: rid, VtxAttachPos: v}
+				nameOrder = append(nameOrder, key)
 			}
-			prop.AttachPositions[int(slotID)] = mp
+			prop.AttachPositions[slotID] = mp
+			prop.AttachPositionOrder = append(prop.AttachPositionOrder, slotID)
+			prop.AttachPositionNameOrders[slotID] = nameOrder
+			if presetPropertyHasSlotNames(ver) {
+				prop.AttachPositionSlotNames[slotID] = slotName
+			}
 		}
 
 		// 材质属性：slotID, RID, MatPropSave
@@ -602,13 +802,19 @@ func readPresetProperty(reader *stream.BinaryReader) (*PresetProperty, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read matProp count failed: %w", err)
 		}
+		if err := validatePresetCount("matProp count", nMat); err != nil {
+			return nil, err
+		}
 		if nMat > 0 {
-			prop.MaterialProps = make(map[int]MatPropSaveEntry, nMat)
+			prop.MaterialProps = makeCountedMap[int, MatPropSaveEntry](nMat)
 		}
 		for i := 0; i < int(nMat); i++ {
-			slotID, err := reader.ReadInt32()
+			slotID, slotName, err := readPresetSlot(reader, ver, fmt.Sprintf("matProp[%d]", i))
 			if err != nil {
-				return nil, fmt.Errorf("read matProp[%d].slotID failed: %w", i, err)
+				return nil, err
+			}
+			if _, exists := prop.MaterialProps[slotID]; exists {
+				return nil, fmt.Errorf("read matProp[%d] failed: duplicate slotID %d", i, slotID)
 			}
 			rid, err := reader.ReadInt32()
 			if err != nil {
@@ -627,7 +833,8 @@ func readPresetProperty(reader *stream.BinaryReader) (*PresetProperty, error) {
 			if m.Value, err = reader.ReadString(); err != nil {
 				return nil, fmt.Errorf("read matProp[%d].value failed: %w", i, err)
 			}
-			prop.MaterialProps[int(slotID)] = MatPropSaveEntry{RID: rid, MatPropSave: m}
+			prop.MaterialProps[slotID] = MatPropSaveEntry{SlotName: slotName, RID: rid, MatPropSave: m}
+			prop.MaterialPropOrder = append(prop.MaterialPropOrder, slotID)
 		}
 
 		// 骨骼长度（ver >= 213）：slotID, RID, count, (name,float)*
@@ -636,13 +843,19 @@ func readPresetProperty(reader *stream.BinaryReader) (*PresetProperty, error) {
 			if err != nil {
 				return nil, fmt.Errorf("read boneLen count failed: %w", err)
 			}
+			if err := validatePresetCount("boneLen count", nBone); err != nil {
+				return nil, err
+			}
 			if nBone > 0 {
-				prop.BoneLengths = make(map[int]BoneLengthEntry, nBone)
+				prop.BoneLengths = makeCountedMap[int, BoneLengthEntry](nBone)
 			}
 			for i := 0; i < int(nBone); i++ {
-				slotID, err := reader.ReadInt32()
+				slotID, slotName, err := readPresetSlot(reader, ver, fmt.Sprintf("boneLen[%d]", i))
 				if err != nil {
-					return nil, fmt.Errorf("read boneLen[%d].slotID failed: %w", i, err)
+					return nil, err
+				}
+				if _, exists := prop.BoneLengths[slotID]; exists {
+					return nil, fmt.Errorf("read boneLen[%d] failed: duplicate slotID %d", i, slotID)
 				}
 				rid, err := reader.ReadInt32()
 				if err != nil {
@@ -652,7 +865,11 @@ func readPresetProperty(reader *stream.BinaryReader) (*PresetProperty, error) {
 				if err != nil {
 					return nil, fmt.Errorf("read boneLen[%d].inner failed: %w", i, err)
 				}
-				m := make(map[string]float32, inner)
+				if err := validatePresetCount("boneLen inner count", inner); err != nil {
+					return nil, fmt.Errorf("read boneLen[%d] failed: %w", i, err)
+				}
+				m := makeCountedMap[string, float32](inner)
+				lengthOrder := makeCountedSliceForAppend[string](inner)
 				for j := 0; j < int(inner); j++ {
 					k, err := reader.ReadString()
 					if err != nil {
@@ -662,112 +879,86 @@ func readPresetProperty(reader *stream.BinaryReader) (*PresetProperty, error) {
 					if err != nil {
 						return nil, fmt.Errorf("read boneLen[%d][%d].value failed: %w", i, j, err)
 					}
+					if _, exists := m[k]; exists {
+						return nil, fmt.Errorf("read boneLen[%d][%d] failed: duplicate key %q", i, j, k)
+					}
 					m[k] = v
+					lengthOrder = append(lengthOrder, k)
 				}
-				prop.BoneLengths[int(slotID)] = BoneLengthEntry{RID: rid, Lengths: m}
+				prop.BoneLengths[slotID] = BoneLengthEntry{SlotName: slotName, RID: rid, Lengths: m, LengthOrder: lengthOrder}
+				prop.BoneLengthOrder = append(prop.BoneLengthOrder, slotID)
 			}
+		}
+	}
+
+	if presetPropertyHasIsCrcParts(ver) {
+		if prop.IsCrcParts, err = reader.ReadBool(); err != nil {
+			return nil, fmt.Errorf("read prop.isCrcParts failed: %w", err)
 		}
 	}
 
 	return prop, nil
 }
 
-// 读取多颜色：MaidParts.DeserializePre（兼容旧/新）
+// 读取多颜色 wire，不执行 MaidParts.DeserializePre 的默认色展开。
 func readMultiColor(reader *stream.BinaryReader) (*MultiColor, error) {
 	mc := &MultiColor{}
 
-	sig, err := reader.ReadString()
+	signature, err := reader.ReadString()
 	if err != nil {
 		return nil, fmt.Errorf("read MultiColor signature failed: %w", err)
 	}
-	mc.Signature = sig
+	if err := validatePresetSignature("MultiColor", signature, MultiColorSignature); err != nil {
+		return nil, err
+	}
+	mc.Signature = signature
 
-	ver, err := reader.ReadInt32()
+	version, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read MultiColor version failed: %w", err)
 	}
-	mc.Version = ver
+	mc.Version = version
 
 	count, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read MultiColor count failed: %w", err)
 	}
+	if err := validatePresetCount("MultiColor count", count); err != nil {
+		return nil, err
+	}
 	mc.PartCount = count
 
-	// 统一生成长度 13 的颜色数组（与新版本一致）
-	colors := make([]PartsColor, 13)
-
-	if ver <= 1200 {
-		// 旧布局（前 9 项，固定顺序）
-		// 数量为 7 或 9
-		order := []string{"EYE_L", "EYE_R", "HAIR", "EYE_BROW", "UNDER_HAIR", "SKIN", "NIPPLE", "HAIR_OUTLINE", "SKIN_OUTLINE"}
-		for j := 0; j < int(count); j++ {
-			pc := PartsColor{}
-			if pc.IsUse, err = reader.ReadBool(); err != nil {
-				return nil, fmt.Errorf("read MultiColor[%d].isUse failed: %w", j, err)
-			}
-			if pc.MainHue, err = reader.ReadInt32(); err != nil {
-				return nil, fmt.Errorf("read MultiColor[%d].mainHue failed: %w", j, err)
-			}
-			if pc.MainChroma, err = reader.ReadInt32(); err != nil {
-				return nil, fmt.Errorf("read MultiColor[%d].mainChroma failed: %w", j, err)
-			}
-			if pc.MainBrightness, err = reader.ReadInt32(); err != nil {
-				return nil, fmt.Errorf("read MultiColor[%d].mainBrightness failed: %w", j, err)
-			}
-			if pc.MainContrast, err = reader.ReadInt32(); err != nil {
-				return nil, fmt.Errorf("read MultiColor[%d].mainContrast failed: %w", j, err)
-			}
-			if pc.ShadowRate, err = reader.ReadInt32(); err != nil {
-				return nil, fmt.Errorf("read MultiColor[%d].shadowRate failed: %w", j, err)
-			}
-			if pc.ShadowHue, err = reader.ReadInt32(); err != nil {
-				return nil, fmt.Errorf("read MultiColor[%d].shadowHue failed: %w", j, err)
-			}
-			if pc.ShadowChroma, err = reader.ReadInt32(); err != nil {
-				return nil, fmt.Errorf("read MultiColor[%d].shadowChroma failed: %w", j, err)
-			}
-			if pc.ShadowBrightness, err = reader.ReadInt32(); err != nil {
-				return nil, fmt.Errorf("read MultiColor[%d].shadowBrightness failed: %w", j, err)
-			}
-			if pc.ShadowContrast, err = reader.ReadInt32(); err != nil {
-				return nil, fmt.Errorf("read MultiColor[%d].shadowContrast failed: %w", j, err)
-			}
-			// 仅旧格式前 9 项有固定顺序，多余项只消费不落位，避免越界
-			if j >= len(order) {
-				continue
-			}
-			idx := partsColorIndex(order[j])
-			if idx >= 0 && idx < len(colors) {
-				colors[idx] = pc
-			}
+	if version <= 1200 {
+		if count > 0 {
+			mc.PartsColors = makeCountedSliceForAppend[PartsColor](count)
 		}
-	} else {
-		// 新布局：读字符串直到 "MAX"
-		for {
-			name, err := reader.ReadString()
-			if err != nil {
-				return nil, fmt.Errorf("read MultiColor entry name failed: %w", err)
+		for index := int32(0); index < count; index++ {
+			var color PartsColor
+			if _, err := readPartsColor(reader, &color); err != nil {
+				return nil, fmt.Errorf("read MultiColor[%d] failed: %w", index, err)
 			}
-			if name == "MAX" {
-				break
-			}
-			idx := partsColorIndex(name)
-			if idx < 0 || idx >= len(colors) {
-				// 跳过未知项但消费字段
-				var dummy PartsColor
-				if _, err = readPartsColor(reader, &dummy); err != nil {
-					return nil, fmt.Errorf("read MultiColor[%d] failed: %w", idx, err)
-				}
-				continue
-			}
-			if _, err = readPartsColor(reader, &colors[idx]); err != nil {
-				return nil, fmt.Errorf("read MultiColor[%d] failed: %w", idx, err)
-			}
+			mc.PartsColors = append(mc.PartsColors, color)
 		}
+		return mc, nil
 	}
 
-	mc.PartsColors = colors
+	// The current layout is terminated by MAX and does not use PartCount to
+	// bound this loop. Retain names, duplicates, order, and future enum names.
+	for entry := int32(0); ; entry++ {
+		name, err := reader.ReadString()
+		if err != nil {
+			return nil, fmt.Errorf("read MultiColor entry name failed: %w", err)
+		}
+		if name == "MAX" {
+			break
+		}
+		var color PartsColor
+		if _, err := readPartsColor(reader, &color); err != nil {
+			return nil, fmt.Errorf("read MultiColor[%d] failed: %w", entry, err)
+		}
+		mc.PartNames = append(mc.PartNames, name)
+		mc.PartsColors = append(mc.PartsColors, color)
+	}
 	return mc, nil
 }
 
@@ -813,6 +1004,9 @@ func readBodyProperty(reader *stream.BinaryReader) (*BodyProperty, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read Body signature failed: %w", err)
 	}
+	if err := validatePresetSignature("Body", sig, BodyPropertySignature); err != nil {
+		return nil, err
+	}
 	bp.Signature = sig
 	ver, err := reader.ReadInt32()
 	if err != nil {
@@ -823,43 +1017,235 @@ func readBodyProperty(reader *stream.BinaryReader) (*BodyProperty, error) {
 	return bp, nil
 }
 
-// 多颜色名到索引（与 MaidParts.PARTS_COLOR 对齐）
-func partsColorIndex(name string) int {
-	switch name {
-	case "NONE":
-		return -1
-	case "EYE_L":
-		return 0
-	case "EYE_R":
-		return 1
-	case "HAIR":
-		return 2
-	case "EYE_BROW":
-		return 3
-	case "UNDER_HAIR":
-		return 4
-	case "SKIN":
-		return 5
-	case "NIPPLE":
-		return 6
-	case "HAIR_OUTLINE":
-		return 7
-	case "SKIN_OUTLINE":
-		return 8
-	case "EYE_WHITE":
-		return 9
-	case "MATSUGE_UP":
-		return 10
-	case "MATSUGE_LOW":
-		return 11
-	case "FUTAE":
-		return 12
-	default:
-		return -1
+func orderedPresetPropertyKeys(ppl *PresetPropertyList) ([]string, error) {
+	if err := validatePresetMapLength("PresetPropertyList propertyCount", len(ppl.PresetProperties)); err != nil {
+		return nil, err
 	}
+	return utilities.MergeOrderedMapKeys(ppl.PresetProperties, ppl.PropertyOrder, "PresetPropertyList PropertyOrder")
+}
+
+func orderedPresetIntMapKeys[V any](values map[int]V, order []int, label string) ([]int, error) {
+	return utilities.MergeOrderedMapKeys(values, order, label+" order")
+}
+
+func orderedPresetStringMapKeys[V any](values map[string]V, order []string, label string) ([]string, error) {
+	return utilities.MergeOrderedMapKeys(values, order, label+" order")
+}
+
+func validatePresetPropertyForDump(pp *PresetProperty) error {
+	if pp == nil {
+		return fmt.Errorf("PresetProperty is nil")
+	}
+	if err := validatePresetSignature("PresetProperty", pp.Signature, PresetPropertySignature); err != nil {
+		return err
+	}
+	if pp.Version < 101 && pp.TempValue != 0 {
+		return fmt.Errorf("TempValue cannot be encoded by PresetProperty version %d", pp.Version)
+	}
+	if pp.Version < 200 {
+		if len(pp.SubProps) != 0 || len(pp.SkinPositions) != 0 || len(pp.SkinPositionOrder) != 0 ||
+			len(pp.AttachPositions) != 0 || len(pp.AttachPositionOrder) != 0 || len(pp.AttachPositionNameOrders) != 0 || len(pp.AttachPositionSlotNames) != 0 ||
+			len(pp.MaterialProps) != 0 || len(pp.MaterialPropOrder) != 0 || len(pp.BoneLengths) != 0 || len(pp.BoneLengthOrder) != 0 {
+			return fmt.Errorf("PresetProperty version %d cannot encode version-200 extension data", pp.Version)
+		}
+		if !presetPropertyHasIsCrcParts(pp.Version) && pp.IsCrcParts {
+			return fmt.Errorf("IsCrcParts cannot be encoded by PresetProperty version %d", pp.Version)
+		}
+		return nil
+	}
+	if err := validatePresetMapLength("subProp count", len(pp.SubProps)); err != nil {
+		return err
+	}
+	if err := validatePresetMapLength("skinPos count", len(pp.SkinPositions)); err != nil {
+		return err
+	}
+	if err := validatePresetMapLength("attachPos count", len(pp.AttachPositions)); err != nil {
+		return err
+	}
+	if err := validatePresetMapLength("matProp count", len(pp.MaterialProps)); err != nil {
+		return err
+	}
+	if pp.Version < 213 && len(pp.BoneLengths) != 0 {
+		return fmt.Errorf("BoneLengths requires PresetProperty version >= 213")
+	}
+	for index, subProp := range pp.SubProps {
+		if subProp != nil && pp.Version < 211 && subProp.TexMulAlpha != 0 {
+			return fmt.Errorf("subProp[%d] TexMulAlpha requires PresetProperty version >= 211", index)
+		}
+	}
+	hasSlotNames := presetPropertyHasSlotNames(pp.Version)
+	validateSlot := func(field string, slot int, slotName string) error {
+		if err := validatePresetSlotID(field, slot); err != nil {
+			return err
+		}
+		if !hasSlotNames && slotName != "" {
+			return fmt.Errorf("%s slotName requires PresetProperty version 2003-19999 or >= 30000", field)
+		}
+		return nil
+	}
+	skinSlots, err := orderedPresetIntMapKeys(pp.SkinPositions, pp.SkinPositionOrder, "SkinPositions")
+	if err != nil {
+		return err
+	}
+	for _, slot := range skinSlots {
+		if err := validateSlot("skinPos", slot, pp.SkinPositions[slot].SlotName); err != nil {
+			return err
+		}
+	}
+	attachSlots, err := orderedPresetIntMapKeys(pp.AttachPositions, pp.AttachPositionOrder, "AttachPositions")
+	if err != nil {
+		return err
+	}
+	for _, slot := range attachSlots {
+		if err := validateSlot("attachPos", slot, pp.AttachPositionSlotNames[slot]); err != nil {
+			return err
+		}
+		values := pp.AttachPositions[slot]
+		if err := validatePresetMapLength("attachPos inner count", len(values)); err != nil {
+			return err
+		}
+		if _, err := orderedPresetStringMapKeys(values, pp.AttachPositionNameOrders[slot], fmt.Sprintf("AttachPositions[%d]", slot)); err != nil {
+			return err
+		}
+	}
+	materialSlots, err := orderedPresetIntMapKeys(pp.MaterialProps, pp.MaterialPropOrder, "MaterialProps")
+	if err != nil {
+		return err
+	}
+	for _, slot := range materialSlots {
+		if err := validateSlot("matProp", slot, pp.MaterialProps[slot].SlotName); err != nil {
+			return err
+		}
+	}
+	if pp.Version >= 213 {
+		if err := validatePresetMapLength("boneLen count", len(pp.BoneLengths)); err != nil {
+			return err
+		}
+		boneSlots, err := orderedPresetIntMapKeys(pp.BoneLengths, pp.BoneLengthOrder, "BoneLengths")
+		if err != nil {
+			return err
+		}
+		for _, slot := range boneSlots {
+			entry := pp.BoneLengths[slot]
+			if err := validateSlot("boneLen", slot, entry.SlotName); err != nil {
+				return err
+			}
+			if err := validatePresetMapLength("boneLen inner count", len(entry.Lengths)); err != nil {
+				return err
+			}
+			if _, err := orderedPresetStringMapKeys(entry.Lengths, entry.LengthOrder, fmt.Sprintf("BoneLengths[%d].Lengths", slot)); err != nil {
+				return err
+			}
+		}
+	}
+	if !presetPropertyHasIsCrcParts(pp.Version) && pp.IsCrcParts {
+		return fmt.Errorf("IsCrcParts cannot be encoded by PresetProperty version %d", pp.Version)
+	}
+	return nil
+}
+
+func validatePresetPropertyListForDump(ppl *PresetPropertyList) ([]string, error) {
+	if ppl == nil {
+		return nil, fmt.Errorf("PresetPropertyList is nil")
+	}
+	if err := validatePresetSignature("PresetPropertyList", ppl.Signature, PresetPropertyListSignature); err != nil {
+		return nil, err
+	}
+	keys, err := orderedPresetPropertyKeys(ppl)
+	if err != nil {
+		return nil, err
+	}
+	for _, key := range keys {
+		prop := ppl.PresetProperties[key]
+		if ppl.Version < 4 && key != prop.Name {
+			return nil, fmt.Errorf("PresetPropertyList version %d cannot encode property key %q separately from property name %q", ppl.Version, key, prop.Name)
+		}
+		if err := validatePresetPropertyForDump(&prop); err != nil {
+			return nil, fmt.Errorf("property %q: %w", key, err)
+		}
+	}
+	if presetPropertyListHasExtensions(ppl.Version) {
+		if err := validatePresetMapLength("MaidPropOther count", len(ppl.MaidPropOther)); err != nil {
+			return nil, err
+		}
+		for i := range ppl.MaidPropOther {
+			if err := validatePresetPropertyForDump(&ppl.MaidPropOther[i].Property); err != nil {
+				return nil, fmt.Errorf("MaidPropOther[%d]: %w", i, err)
+			}
+		}
+		if _, err := collectionCountInt32("PartsColorOtherBin length", len(ppl.PartsColorOtherBin)); err != nil {
+			return nil, err
+		}
+		if _, err := collectionCountInt32("CRCPresetBin length", len(ppl.CRCPresetBin)); err != nil {
+			return nil, err
+		}
+	} else if len(ppl.MaidPropOther) != 0 || len(ppl.PartsColorOtherBin) != 0 || len(ppl.CRCPresetBin) != 0 {
+		return nil, fmt.Errorf("PresetPropertyList version %d cannot encode COM3D2.5 extension data", ppl.Version)
+	}
+	return keys, nil
+}
+
+func validatePresetForDump(p *Preset) error {
+	if p == nil {
+		return fmt.Errorf("Preset is nil")
+	}
+	if err := validatePresetSignature(".Preset", p.Signature, PresetSignature); err != nil {
+		return err
+	}
+	if _, err := collectionCountInt32(".Preset ThumbLength", len(p.ThumbData)); err != nil {
+		return err
+	}
+	if _, err := validatePresetPropertyListForDump(p.PresetPropertyList); err != nil {
+		return err
+	}
+	hasMultiColor := p.Version >= 2 && (p.Version < 2000 || 10000 <= p.Version)
+	if hasMultiColor {
+		if p.MultiColor == nil {
+			return fmt.Errorf("MultiColor is nil for .Preset version %d", p.Version)
+		}
+		if err := validatePresetSignature("MultiColor", p.MultiColor.Signature, MultiColorSignature); err != nil {
+			return err
+		}
+		if err := validateMultiColorForDump(p.MultiColor); err != nil {
+			return err
+		}
+	} else if p.MultiColor != nil {
+		return fmt.Errorf(".Preset version %d cannot encode MultiColor", p.Version)
+	}
+	hasBody := p.Version >= 200 && (p.Version < 2000 || 10000 <= p.Version)
+	if hasBody {
+		if p.BodyProperty == nil {
+			return fmt.Errorf("BodyProperty is nil for .Preset version %d", p.Version)
+		}
+		if err := validatePresetSignature("Body", p.BodyProperty.Signature, BodyPropertySignature); err != nil {
+			return err
+		}
+	} else if p.BodyProperty != nil {
+		return fmt.Errorf(".Preset version %d cannot encode BodyProperty", p.Version)
+	}
+	return nil
+}
+
+func writePresetSlot(writer *stream.BinaryWriter, version int32, field string, slot int, slotName string) error {
+	if err := validatePresetSlotID(field, slot); err != nil {
+		return err
+	}
+	if err := writer.WriteInt32(int32(slot)); err != nil {
+		return fmt.Errorf("write %s slotID failed: %w", field, err)
+	}
+	if presetPropertyHasSlotNames(version) {
+		if err := writer.WriteString(slotName); err != nil {
+			return fmt.Errorf("write %s slotName failed: %w", field, err)
+		}
+	}
+	return nil
 }
 
 func (p *Preset) Dump(w io.Writer) error {
+	if err := validatePresetForDump(p); err != nil {
+		return fmt.Errorf("write .Preset failed: %w", err)
+	}
+	p.ThumbLength = int32(len(p.ThumbData))
 	writer := stream.NewBinaryWriter(w)
 
 	// 1. signature
@@ -882,7 +1268,7 @@ func (p *Preset) Dump(w io.Writer) error {
 		if err := writer.WriteInt32(int32(len(p.ThumbData))); err != nil {
 			return fmt.Errorf("write thumb length failed: %w", err)
 		}
-		if _, err := w.Write(p.ThumbData); err != nil {
+		if err := writer.WriteBytes(p.ThumbData); err != nil {
 			return fmt.Errorf("write thumb data failed: %w", err)
 		}
 	} else {
@@ -915,9 +1301,11 @@ func (p *Preset) Dump(w io.Writer) error {
 
 // 写入属性列表：Maid.SerializeProp
 func dumpPresetPropertyList(writer *stream.BinaryWriter, ppl *PresetPropertyList) error {
-	if ppl == nil {
-		return fmt.Errorf("write PresetPropertyList failed: PresetPropertyList is nil")
+	keys, err := validatePresetPropertyListForDump(ppl)
+	if err != nil {
+		return fmt.Errorf("write PresetPropertyList failed: %w", err)
 	}
+	ppl.PropertyCount = int32(len(keys))
 
 	if err := writer.WriteString(ppl.Signature); err != nil {
 		return fmt.Errorf("write preset property list signature failed: %w", err)
@@ -927,12 +1315,13 @@ func dumpPresetPropertyList(writer *stream.BinaryWriter, ppl *PresetPropertyList
 		return fmt.Errorf("write preset property list version failed: %w", err)
 	}
 
-	count := int32(len(ppl.PresetProperties))
+	count := int32(len(keys))
 	if err := writer.WriteInt32(count); err != nil {
 		return fmt.Errorf("write preset property list count failed: %w", err)
 	}
 
-	for k, v := range ppl.PresetProperties {
+	for _, k := range keys {
+		v := ppl.PresetProperties[k]
 		// 仅当列表版本 >= 4 时写 key（MPN 字符串）
 		if ppl.Version >= 4 {
 			if err := writer.WriteString(k); err != nil {
@@ -945,11 +1334,35 @@ func dumpPresetPropertyList(writer *stream.BinaryWriter, ppl *PresetPropertyList
 		}
 	}
 
+	if presetPropertyListHasExtensions(ppl.Version) {
+		if err := writer.WriteInt32(int32(len(ppl.MaidPropOther))); err != nil {
+			return fmt.Errorf("write MaidPropOther count failed: %w", err)
+		}
+		for i := range ppl.MaidPropOther {
+			entry := &ppl.MaidPropOther[i]
+			if err := writer.WriteString(entry.Key); err != nil {
+				return fmt.Errorf("write MaidPropOther[%d] key failed: %w", i, err)
+			}
+			if err := writePresetProperty(writer, &entry.Property); err != nil {
+				return fmt.Errorf("write MaidPropOther[%d] failed: %w", i, err)
+			}
+		}
+		if err := writePresetByteBlock(writer, "PartsColorOtherBin", ppl.PartsColorOtherBin); err != nil {
+			return err
+		}
+		if err := writePresetByteBlock(writer, "CRCPresetBin", ppl.CRCPresetBin); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 // 写入单个属性：MaidProp.Serialize
 func writePresetProperty(writer *stream.BinaryWriter, pp *PresetProperty) error {
+	if err := validatePresetPropertyForDump(pp); err != nil {
+		return fmt.Errorf("write PresetProperty failed: %w", err)
+	}
 	if err := writer.WriteString(pp.Signature); err != nil {
 		return fmt.Errorf("write prop signature failed: %w", err)
 	}
@@ -1005,9 +1418,12 @@ func writePresetProperty(writer *stream.BinaryWriter, pp *PresetProperty) error 
 		}
 		for i := 0; i < int(nSub); i++ {
 			sp := pp.SubProps[i]
-			// 是否存在
-			if err := writer.WriteBool(true); err != nil {
+			exists := sp != nil
+			if err := writer.WriteBool(exists); err != nil {
 				return fmt.Errorf("write prop sub exists failed: %w", err)
+			}
+			if !exists {
+				continue
 			}
 			if err := writer.WriteBool(sp.IsDut); err != nil {
 				return fmt.Errorf("write prop sub is dut failed: %w", err)
@@ -1035,9 +1451,14 @@ func writePresetProperty(writer *stream.BinaryWriter, pp *PresetProperty) error 
 			if err := writer.WriteInt32(int32(len(pp.SkinPositions))); err != nil {
 				return fmt.Errorf("write prop skin position count failed: %w", err)
 			}
-			for slot, e := range pp.SkinPositions {
-				if err := writer.WriteInt32(int32(slot)); err != nil {
-					return fmt.Errorf("write prop skin position slot failed: %w", err)
+			slots, err := orderedPresetIntMapKeys(pp.SkinPositions, pp.SkinPositionOrder, "SkinPositions")
+			if err != nil {
+				return err
+			}
+			for _, slot := range slots {
+				e := pp.SkinPositions[slot]
+				if err := writePresetSlot(writer, ver, "skinPos", slot, e.SlotName); err != nil {
+					return err
 				}
 				if err := writer.WriteInt32(e.RID); err != nil {
 					return fmt.Errorf("write prop skin position rid failed: %w", err)
@@ -1088,14 +1509,24 @@ func writePresetProperty(writer *stream.BinaryWriter, pp *PresetProperty) error 
 			if err := writer.WriteInt32(int32(len(pp.AttachPositions))); err != nil {
 				return fmt.Errorf("write prop attach position count failed: %w", err)
 			}
-			for slot, mp := range pp.AttachPositions {
-				if err := writer.WriteInt32(int32(slot)); err != nil {
-					return fmt.Errorf("write prop attach position slot failed: %w", err)
+			slots, err := orderedPresetIntMapKeys(pp.AttachPositions, pp.AttachPositionOrder, "AttachPositions")
+			if err != nil {
+				return err
+			}
+			for _, slot := range slots {
+				mp := pp.AttachPositions[slot]
+				if err := writePresetSlot(writer, ver, "attachPos", slot, pp.AttachPositionSlotNames[slot]); err != nil {
+					return err
 				}
 				if err := writer.WriteInt32(int32(len(mp))); err != nil {
 					return fmt.Errorf("write prop attach position name count failed: %w", err)
 				}
-				for name, e := range mp {
+				names, err := orderedPresetStringMapKeys(mp, pp.AttachPositionNameOrders[slot], fmt.Sprintf("AttachPositions[%d]", slot))
+				if err != nil {
+					return err
+				}
+				for _, name := range names {
+					e := mp[name]
 					if err := writer.WriteString(name); err != nil {
 						return fmt.Errorf("write prop attach position name failed: %w", err)
 					}
@@ -1155,9 +1586,14 @@ func writePresetProperty(writer *stream.BinaryWriter, pp *PresetProperty) error 
 			if err := writer.WriteInt32(int32(len(pp.MaterialProps))); err != nil {
 				return fmt.Errorf("write prop material prop count failed: %w", err)
 			}
-			for slot, e := range pp.MaterialProps {
-				if err := writer.WriteInt32(int32(slot)); err != nil {
-					return fmt.Errorf("write prop material prop slot failed: %w", err)
+			slots, err := orderedPresetIntMapKeys(pp.MaterialProps, pp.MaterialPropOrder, "MaterialProps")
+			if err != nil {
+				return err
+			}
+			for _, slot := range slots {
+				e := pp.MaterialProps[slot]
+				if err := writePresetSlot(writer, ver, "matProp", slot, e.SlotName); err != nil {
+					return err
 				}
 				if err := writer.WriteInt32(e.RID); err != nil {
 					return fmt.Errorf("write prop material prop rid failed: %w", err)
@@ -1188,9 +1624,14 @@ func writePresetProperty(writer *stream.BinaryWriter, pp *PresetProperty) error 
 				if err := writer.WriteInt32(int32(len(pp.BoneLengths))); err != nil {
 					return fmt.Errorf("write prop bone length count failed: %w", err)
 				}
-				for slot, e := range pp.BoneLengths {
-					if err := writer.WriteInt32(int32(slot)); err != nil {
-						return fmt.Errorf("write prop bone length slot failed: %w", err)
+				slots, err := orderedPresetIntMapKeys(pp.BoneLengths, pp.BoneLengthOrder, "BoneLengths")
+				if err != nil {
+					return err
+				}
+				for _, slot := range slots {
+					e := pp.BoneLengths[slot]
+					if err := writePresetSlot(writer, ver, "boneLen", slot, e.SlotName); err != nil {
+						return err
 					}
 					if err := writer.WriteInt32(e.RID); err != nil {
 						return fmt.Errorf("write prop bone length rid failed: %w", err)
@@ -1198,7 +1639,12 @@ func writePresetProperty(writer *stream.BinaryWriter, pp *PresetProperty) error 
 					if err := writer.WriteInt32(int32(len(e.Lengths))); err != nil {
 						return fmt.Errorf("write prop bone length len count failed: %w", err)
 					}
-					for k, v := range e.Lengths {
+					names, err := orderedPresetStringMapKeys(e.Lengths, e.LengthOrder, fmt.Sprintf("BoneLengths[%d].Lengths", slot))
+					if err != nil {
+						return err
+					}
+					for _, k := range names {
+						v := e.Lengths[k]
 						if err := writer.WriteString(k); err != nil {
 							return fmt.Errorf("write prop bone length len name failed: %w", err)
 						}
@@ -1210,129 +1656,94 @@ func writePresetProperty(writer *stream.BinaryWriter, pp *PresetProperty) error 
 			}
 		}
 	}
+	if presetPropertyHasIsCrcParts(ver) {
+		if err := writer.WriteBool(pp.IsCrcParts); err != nil {
+			return fmt.Errorf("write prop isCrcParts failed: %w", err)
+		}
+	}
 
 	return nil
 }
 
-// 写入多颜色：MaidParts.Serialize（统一按新版本写）
-func dumpMultiColor(writer *stream.BinaryWriter, mc *MultiColor) error {
+func validateMultiColorForDump(mc *MultiColor) error {
 	if mc == nil {
-		return fmt.Errorf("write MultiColor failed: MultiColor is nil")
+		return fmt.Errorf("MultiColor is nil")
 	}
+	if err := validatePresetSignature("MultiColor", mc.Signature, MultiColorSignature); err != nil {
+		return err
+	}
+	if err := validatePresetCount("MultiColor count", mc.PartCount); err != nil {
+		return err
+	}
+	if mc.Version <= 1200 {
+		if len(mc.PartNames) != 0 {
+			return fmt.Errorf("legacy MultiColor version %d cannot encode PartNames", mc.Version)
+		}
+		if int64(mc.PartCount) != int64(len(mc.PartsColors)) {
+			return fmt.Errorf("legacy MultiColor PartCount %d does not match %d PartsColors", mc.PartCount, len(mc.PartsColors))
+		}
+		return nil
+	}
+	if len(mc.PartNames) != len(mc.PartsColors) {
+		return fmt.Errorf("MultiColor PartNames length %d does not match PartsColors length %d", len(mc.PartNames), len(mc.PartsColors))
+	}
+	for index, name := range mc.PartNames {
+		if name == "MAX" {
+			return fmt.Errorf("MultiColor PartNames[%d] uses reserved terminator MAX", index)
+		}
+	}
+	return nil
+}
 
+// 写入多颜色：按存储版本忠实写回旧/新布局。
+func dumpMultiColor(writer *stream.BinaryWriter, mc *MultiColor) error {
+	if err := validateMultiColorForDump(mc); err != nil {
+		return fmt.Errorf("write MultiColor failed: %w", err)
+	}
 	if err := writer.WriteString(mc.Signature); err != nil {
 		return fmt.Errorf("write prop multi color name failed: %w", err)
 	}
 	if err := writer.WriteInt32(mc.Version); err != nil {
 		return fmt.Errorf("write prop multi color version failed: %w", err)
 	}
+	if err := writer.WriteInt32(mc.PartCount); err != nil {
+		return fmt.Errorf("write prop multi color len count failed: %w", err)
+	}
 
 	if mc.Version <= 1200 {
-		// 旧格式：固定顺序、无名字串、无 "MAX"
-		var order []int // 索引映射到你的 colors
-		if mc.Version < 200 {
-			// 7 项
-			order = []int{0, 1, 2, 3, 4, 5, 6} // EYE_L, EYE_R, HAIR, EYE_BROW, UNDER_HAIR, SKIN, NIPPLE
-		} else {
-			// 9 项
-			order = []int{0, 1, 2, 3, 4, 5, 6, 7, 8} // EYE_L, EYE_R, HAIR, EYE_BROW, UNDER_HAIR, SKIN, NIPPLE, HAIR_OUTLINE, SKIN_OUTLINE
-		}
-		if err := writer.WriteInt32(int32(len(order))); err != nil {
-			return fmt.Errorf("write prop multi color len count failed: %w", err)
-		}
-		colors := mc.PartsColors
-		need := len(order)
-		if len(colors) < need {
-			tmp := make([]PartsColor, need)
-			copy(tmp, colors)
-			colors = tmp // 用零值补足未提供的项
-		}
-		for _, idx := range order {
-			pc := colors[idx]
-			if err := writer.WriteBool(pc.IsUse); err != nil {
-				return fmt.Errorf("write prop multi color is use failed: %w", err)
-			}
-			if err := writer.WriteInt32(pc.MainHue); err != nil {
-				return fmt.Errorf("write prop multi color main hue failed: %w", err)
-			}
-			if err := writer.WriteInt32(pc.MainChroma); err != nil {
-				return fmt.Errorf("write prop multi color main hue failed: %w", err)
-			}
-			if err := writer.WriteInt32(pc.MainBrightness); err != nil {
-				return fmt.Errorf("write prop multi color main brightness failed: %w", err)
-			}
-			if err := writer.WriteInt32(pc.MainContrast); err != nil {
-				return fmt.Errorf("write prop multi color main contrast failed: %w", err)
-			}
-			if err := writer.WriteInt32(pc.ShadowRate); err != nil {
-				return fmt.Errorf("write prop multi color shadow rate failed: %w", err)
-			}
-			if err := writer.WriteInt32(pc.ShadowHue); err != nil {
-				return fmt.Errorf("write prop multi color shadow hue failed: %w", err)
-			}
-			if err := writer.WriteInt32(pc.ShadowChroma); err != nil {
-				return fmt.Errorf("write prop multi color shadow chroma failed: %w", err)
-			}
-			if err := writer.WriteInt32(pc.ShadowBrightness); err != nil {
-				return fmt.Errorf("write prop multi color shadow contrast failed: %w", err)
-			}
-			if err := writer.WriteInt32(pc.ShadowContrast); err != nil {
-				return fmt.Errorf("write prop multi color shadow chroma failed: %w", err)
+		for index := range mc.PartsColors {
+			if err := writePartsColor(writer, &mc.PartsColors[index]); err != nil {
+				return fmt.Errorf("write prop multi color[%d] failed: %w", index, err)
 			}
 		}
 		return nil
 	}
 
-	// 统一写 13, C# 中直接初始化为 m_aryPartsColor = new MaidParts.PartsColor[13]; 写入 m_aryPartsColor.Length
-	names := []string{"EYE_L", "EYE_R", "HAIR", "EYE_BROW", "UNDER_HAIR", "SKIN", "NIPPLE", "HAIR_OUTLINE", "SKIN_OUTLINE", "EYE_WHITE", "MATSUGE_UP", "MATSUGE_LOW", "FUTAE"}
-	if err := writer.WriteInt32(int32(len(names))); err != nil {
-		return fmt.Errorf("write prop multi color len count failed: %w", err)
-	}
-	colors := mc.PartsColors
-	if len(colors) < len(names) {
-		tmp := make([]PartsColor, len(names))
-		copy(tmp, colors)
-		colors = tmp
-	}
-	for i, name := range names {
+	for index, name := range mc.PartNames {
 		if err := writer.WriteString(name); err != nil {
-			return fmt.Errorf("write prop multi color name failed: %w", err)
+			return fmt.Errorf("write prop multi color[%d] name failed: %w", index, err)
 		}
-		pc := colors[i]
-		if err := writer.WriteBool(pc.IsUse); err != nil {
-			return fmt.Errorf("write prop multi color is use failed: %w", err)
-		}
-		if err := writer.WriteInt32(pc.MainHue); err != nil {
-			return fmt.Errorf("write prop multi color main hue failed: %w", err)
-		}
-		if err := writer.WriteInt32(pc.MainChroma); err != nil {
-			return fmt.Errorf("write prop multi color main chroma failed: %w", err)
-		}
-		if err := writer.WriteInt32(pc.MainBrightness); err != nil {
-			return fmt.Errorf("write prop multi color main brightness failed: %w", err)
-		}
-		if err := writer.WriteInt32(pc.MainContrast); err != nil {
-			return fmt.Errorf("write prop multi color main contrast failed: %w", err)
-		}
-		if err := writer.WriteInt32(pc.ShadowRate); err != nil {
-			return fmt.Errorf("write prop multi color shadow rate failed: %w", err)
-		}
-		if err := writer.WriteInt32(pc.ShadowHue); err != nil {
-			return fmt.Errorf("write prop multi color shadow hue failed: %w", err)
-		}
-		if err := writer.WriteInt32(pc.ShadowChroma); err != nil {
-			return fmt.Errorf("write prop multi color shadow chroma failed: %w", err)
-		}
-		if err := writer.WriteInt32(pc.ShadowBrightness); err != nil {
-			return fmt.Errorf("write prop multi color shadow brightness failed: %w", err)
-		}
-		if err := writer.WriteInt32(pc.ShadowContrast); err != nil {
-			return fmt.Errorf("write prop multi color shadow contrast failed: %w", err)
+		if err := writePartsColor(writer, &mc.PartsColors[index]); err != nil {
+			return fmt.Errorf("write prop multi color[%d] failed: %w", index, err)
 		}
 	}
-	// 结尾 "MAX"
 	if err := writer.WriteString("MAX"); err != nil {
 		return fmt.Errorf("write prop multi color max failed: %w", err)
+	}
+	return nil
+}
+
+func writePartsColor(writer *stream.BinaryWriter, color *PartsColor) error {
+	if err := writer.WriteBool(color.IsUse); err != nil {
+		return err
+	}
+	for _, value := range []int32{
+		color.MainHue, color.MainChroma, color.MainBrightness, color.MainContrast,
+		color.ShadowRate, color.ShadowHue, color.ShadowChroma, color.ShadowBrightness, color.ShadowContrast,
+	} {
+		if err := writer.WriteInt32(value); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -1341,6 +1752,9 @@ func dumpMultiColor(writer *stream.BinaryWriter, mc *MultiColor) error {
 func dumpBodyProperty(writer *stream.BinaryWriter, bp *BodyProperty) error {
 	if bp == nil {
 		return fmt.Errorf("write Body failed: BodyProperty is nil")
+	}
+	if err := validatePresetSignature("Body", bp.Signature, BodyPropertySignature); err != nil {
+		return fmt.Errorf("write Body failed: %w", err)
 	}
 
 	if err := writer.WriteString(bp.Signature); err != nil {

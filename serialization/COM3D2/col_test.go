@@ -47,3 +47,26 @@ func TestCol(t *testing.T) {
 		})
 	}
 }
+
+func TestColDumpRejectsNilColliderLayoutsBeforeWriting(t *testing.T) {
+	tests := []struct {
+		name     string
+		collider ICollider
+	}{
+		{name: "nil interface", collider: nil},
+		{name: "typed nil", collider: (*DynamicBoneCollider)(nil)},
+		{name: "nil base", collider: &DynamicBoneCollider{}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			value := &Col{Colliders: []ICollider{test.collider}}
+			var output bytes.Buffer
+			if err := value.Dump(&output); err == nil {
+				t.Fatal("Dump accepted an invalid collider")
+			}
+			if output.Len() != 0 {
+				t.Fatalf("rejected collider wrote %d bytes", output.Len())
+			}
+		})
+	}
+}

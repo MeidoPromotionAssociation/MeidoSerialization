@@ -48,6 +48,20 @@ func TestPsk(t *testing.T) {
 	}
 }
 
+func TestPskDumpRejectsGroupsUnsupportedByStoredVersion(t *testing.T) {
+	value := Psk{
+		Version:                   216,
+		PanierRadiusDistribGroups: []PanierRadiusGroup{{BoneName: "bone"}},
+	}
+	var output bytes.Buffer
+	if err := value.Dump(&output); err == nil {
+		t.Fatal("Dump accepted radius groups in PSK version 216")
+	}
+	if output.Len() != 0 {
+		t.Fatalf("rejected PSK wrote %d bytes", output.Len())
+	}
+}
+
 func TestPskDump_KCESLegacyVersionSample(t *testing.T) {
 	data, err := os.ReadFile("../../testdata/kces_assets/default_skirt.psk")
 	if err != nil {

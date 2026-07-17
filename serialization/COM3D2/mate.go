@@ -39,9 +39,9 @@ func ReadMate(r io.Reader) (*Mate, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read .mate signature failed: %w", err)
 	}
-	//if sig != MateSignature {
-	//	return nil, fmt.Errorf("invalid .mate signature: got %q, want %s", sig, MateSignature)
-	//}
+	if sig != MateSignature {
+		return nil, fmt.Errorf("invalid .mate signature: got %q, want %q", sig, MateSignature)
+	}
 	m.Signature = sig
 
 	// 2. version (int32)
@@ -65,11 +65,30 @@ func ReadMate(r io.Reader) (*Mate, error) {
 	}
 	m.Material = mat
 
+	if trailing, peekErr := rp.Peek(1); peekErr == nil {
+		return nil, fmt.Errorf("read .mate: trailing data after material EndTag (next byte %#x)", trailing[0])
+	} else if peekErr != io.EOF {
+		return nil, fmt.Errorf("read .mate: check trailing data failed: %w", peekErr)
+	}
+
 	return m, nil
 }
 
 // Dump 将 Mate 写出到 w 中
 func (m *Mate) Dump(w io.Writer) error {
+	if m == nil {
+		return fmt.Errorf("write .mate failed: mate is nil")
+	}
+	if m.Signature != MateSignature {
+		return fmt.Errorf("write .mate signature failed: got %q, want %q", m.Signature, MateSignature)
+	}
+	if m.Material == nil {
+		return fmt.Errorf("write .mate material failed: material is nil")
+	}
+	if err := validateMaterialForDump(".mate Material", m.Material); err != nil {
+		return err
+	}
+
 	writer := stream.NewBinaryWriter(w)
 
 	// 1. signature
@@ -88,10 +107,8 @@ func (m *Mate) Dump(w io.Writer) error {
 	}
 
 	// 4. material
-	if m.Material != nil {
-		if err := m.Material.Dump(writer); err != nil {
-			return fmt.Errorf("write .mate material failed: %w", err)
-		}
+	if err := m.Material.Dump(writer); err != nil {
+		return fmt.Errorf("write .mate material failed: %w", err)
 	}
 
 	return nil
@@ -163,6 +180,9 @@ func readMaterial(reader *stream.BinaryReader) (*Material, error) {
 
 // Dump 将 Material 写出到 w 中。
 func (m *Material) Dump(writer *stream.BinaryWriter) error {
+	if err := validateMaterialForDump("Material", m); err != nil {
+		return err
+	}
 	// 1. name
 	if err := writer.WriteString(m.Name); err != nil {
 		return fmt.Errorf("write material.name failed: %w", err)
@@ -190,6 +210,70 @@ func (m *Material) Dump(writer *stream.BinaryWriter) error {
 		return fmt.Errorf("write properties %s failed: %w", EndTag, err)
 	}
 
+	return nil
+}
+
+func validateMaterialForDump(path string, material *Material) error {
+	if material == nil {
+		return fmt.Errorf("%s is nil", path)
+	}
+	for index, property := range material.Properties {
+		propertyPath := fmt.Sprintf("%s.Properties[%d]", path, index)
+		switch value := property.(type) {
+		case *TexProperty:
+			if value == nil {
+				return fmt.Errorf("%s is nil", propertyPath)
+			}
+			switch value.SubTag {
+			case "tex2d", "cube":
+				if value.Tex2D == nil {
+					return fmt.Errorf("%s has SubTag %q but Tex2D is nil", propertyPath, value.SubTag)
+				}
+			case "texRT":
+				if value.TexRT == nil {
+					return fmt.Errorf("%s has SubTag %q but TexRT is nil", propertyPath, value.SubTag)
+				}
+			case "null":
+			default:
+				return fmt.Errorf("%s has unknown TexProperty SubTag %q", propertyPath, value.SubTag)
+			}
+		case *ColProperty:
+			if value == nil {
+				return fmt.Errorf("%s is nil", propertyPath)
+			}
+		case *VecProperty:
+			if value == nil {
+				return fmt.Errorf("%s is nil", propertyPath)
+			}
+		case *FProperty:
+			if value == nil {
+				return fmt.Errorf("%s is nil", propertyPath)
+			}
+		case *RangeProperty:
+			if value == nil {
+				return fmt.Errorf("%s is nil", propertyPath)
+			}
+		case *TexOffsetProperty:
+			if value == nil {
+				return fmt.Errorf("%s is nil", propertyPath)
+			}
+		case *TexScaleProperty:
+			if value == nil {
+				return fmt.Errorf("%s is nil", propertyPath)
+			}
+		case *KeywordProperty:
+			if value == nil {
+				return fmt.Errorf("%s is nil", propertyPath)
+			}
+			if _, err := collectionCountInt32(propertyPath+" keyword count", len(value.Keywords)); err != nil {
+				return err
+			}
+		case nil:
+			return fmt.Errorf("%s is nil", propertyPath)
+		default:
+			return fmt.Errorf("%s has unsupported type %T", propertyPath, property)
+		}
+	}
 	return nil
 }
 
@@ -760,10 +844,13 @@ func (f *KeywordProperty) Read(reader *stream.BinaryReader) error {
 	if err != nil {
 		return fmt.Errorf("read Keyword count failed: %w", err)
 	}
+	if err := validateNonNegativeCount("Keyword count", count); err != nil {
+		return err
+	}
 	f.Count = count
 
 	// 循环读取 count 个 keyword
-	f.Keywords = make([]Keyword, count)
+	f.Keywords = makeCountedSliceForAppend[Keyword](count)
 	for i := int32(0); i < count; i++ {
 		key, err := reader.ReadString()
 		if err != nil {
@@ -773,15 +860,20 @@ func (f *KeywordProperty) Read(reader *stream.BinaryReader) error {
 		if err != nil {
 			return fmt.Errorf("read Keyword value failed: %w", err)
 		}
-		f.Keywords[i] = Keyword{
+		f.Keywords = append(f.Keywords, Keyword{
 			Key:   key,
 			Value: value,
-		}
+		})
 	}
 	return nil
 }
 
 func (f *KeywordProperty) Write(writer *stream.BinaryWriter) error {
+	count, err := collectionCountInt32("KeywordProperty keyword count", len(f.Keywords))
+	if err != nil {
+		return err
+	}
+	f.Count = count
 	// 写出类型标识 "keyword"
 	if err := writer.WriteString(f.GetTypeName()); err != nil {
 		return fmt.Errorf("write KeywordProperty type failed: %w", err)
@@ -791,7 +883,7 @@ func (f *KeywordProperty) Write(writer *stream.BinaryWriter) error {
 		return fmt.Errorf("write KeywordProperty name failed: %w", err)
 	}
 	// 写出 count
-	if err := writer.WriteInt32(int32(len(f.Keywords))); err != nil {
+	if err := writer.WriteInt32(count); err != nil {
 		return fmt.Errorf("write KeywordProperty count failed: %w", err)
 	}
 	// 循环写出 count 个 keyword

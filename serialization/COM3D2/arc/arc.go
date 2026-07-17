@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -339,25 +340,40 @@ func (arc *Arc) Dump(path string) error {
 	}
 
 	for i, fl := range files {
-		// decide compression
-		compress := false
+		// Preserve an existing compressed payload by default. Compression globs
+		// additionally select uncompressed/new files for compression.
+		wasCompressed := fl.Ptr.Compressed()
+		compress := wasCompressed
 		for _, p := range pats {
 			if p.MatchString(fl.Name) {
 				compress = true
 				break
 			}
 		}
-		data, err := fl.Ptr.Data()
+		stored, err := fl.Ptr.Data()
 		if err != nil {
 			return fmt.Errorf("failed to read file data: %w", err)
 		}
-		raw := data
-		enc := data
-		if compress && !fl.Ptr.Compressed() {
-			enc, err = deflateCompress(data)
+		raw := stored
+		enc := stored
+		if wasCompressed {
+			raw, err = deflateDecompress(stored)
+			if err != nil {
+				return fmt.Errorf("failed to decompress existing file %q: %w", fl.RelativePath(), err)
+			}
+		} else if compress {
+			enc, err = deflateCompress(raw)
 			if err != nil {
 				return fmt.Errorf("failed to compress file data: %w", err)
 			}
+		}
+		rawSize, err := checkedArcUint32Length(fmt.Sprintf("file %q raw size", fl.RelativePath()), len(raw))
+		if err != nil {
+			return err
+		}
+		storedSize, err := checkedArcUint32Length(fmt.Sprintf("file %q stored size", fl.RelativePath()), len(enc))
+		if err != nil {
+			return err
 		}
 		pos, err := writer.Tell()
 		if err != nil {
@@ -375,10 +391,10 @@ func (arc *Arc) Dump(path string) error {
 		if err := writer.WriteUInt32(0); err != nil {
 			return fmt.Errorf("failed to write file header: %w", err)
 		}
-		if err := writer.WriteUInt32(uint32(len(raw))); err != nil {
+		if err := writer.WriteUInt32(rawSize); err != nil {
 			return fmt.Errorf("failed to write file header: %w", err)
 		}
-		if err := writer.WriteUInt32(uint32(len(enc))); err != nil {
+		if err := writer.WriteUInt32(storedSize); err != nil {
 			return fmt.Errorf("failed to write file header: %w", err)
 		}
 		if err := writer.WriteBytes(enc); err != nil {
@@ -462,6 +478,14 @@ func (arc *Arc) Dump(path string) error {
 	if err != nil {
 		return fmt.Errorf("failed to compress UTF16 name table: %w", err)
 	}
+	nameRawSize, err := checkedArcUint32Length("UTF16 name table raw size", len(nameRaw))
+	if err != nil {
+		return err
+	}
+	nameStoredSize, err := checkedArcUint32Length("UTF16 name table compressed size", len(nameEnc))
+	if err != nil {
+		return err
+	}
 	if err := writer.WriteInt32(3); err != nil {
 		return fmt.Errorf("failed to write metadata block count: %w", err)
 	}
@@ -474,10 +498,10 @@ func (arc *Arc) Dump(path string) error {
 	if err := writer.WriteUInt32(0); err != nil {
 		return fmt.Errorf("failed to write metadata block flags: %w", err)
 	}
-	if err := writer.WriteUInt32(uint32(len(nameRaw))); err != nil {
+	if err := writer.WriteUInt32(nameRawSize); err != nil {
 		return fmt.Errorf("failed to write UTF16 name table raw size: %w", err)
 	}
-	if err := writer.WriteUInt32(uint32(len(nameEnc))); err != nil {
+	if err := writer.WriteUInt32(nameStoredSize); err != nil {
 		return fmt.Errorf("failed to write UTF16 name table compressed size: %w", err)
 	}
 	if err := writer.WriteBytes(nameEnc); err != nil {
@@ -485,6 +509,20 @@ func (arc *Arc) Dump(path string) error {
 	}
 
 	return nil
+}
+
+func checkedArcUint32Length(path string, length int) (uint32, error) {
+	if uint64(length) > math.MaxUint32 {
+		return 0, fmt.Errorf("%s %d exceeds UInt32", path, length)
+	}
+	return uint32(length), nil
+}
+
+func checkedArcInt32Count(path string, count int) (int32, error) {
+	if uint64(count) > math.MaxInt32 {
+		return 0, fmt.Errorf("%s %d exceeds Int32", path, count)
+	}
+	return int32(count), nil
 }
 
 // calculateDirOffsets computes offset mapping for directories in an ARC file system based on their structure and depth.

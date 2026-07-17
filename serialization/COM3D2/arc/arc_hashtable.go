@@ -12,6 +12,18 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
 )
 
+func makeCountedSliceForAppend[T any](count int32) []T {
+	if count <= 0 {
+		return make([]T, 0)
+	}
+	const maxInitialCapacity = 1024
+	capacity := int(count)
+	if capacity > maxInitialCapacity {
+		capacity = maxInitialCapacity
+	}
+	return make([]T, 0, capacity)
+}
+
 // readHashTable reads a hash table from a binary stream and returns a pointer to the constructed hashTable or an error.
 func readHashTable(reader *stream.BinaryReader) (*hashTable, error) {
 	var ht hashTable
@@ -31,17 +43,26 @@ func readHashTable(reader *stream.BinaryReader) (*hashTable, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read dir count failed: %w", err)
 	}
+	if dirCount < 0 {
+		return nil, fmt.Errorf("directory count is negative: %d", dirCount)
+	}
 	ht.DirCount = dirCount
 
 	fv, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read file count failed: %w", err)
 	}
+	if fv < 0 {
+		return nil, fmt.Errorf("file count is negative: %d", fv)
+	}
 	ht.FileCount = fv
 
 	depth, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read depth failed: %w", err)
+	}
+	if depth < 0 {
+		return nil, fmt.Errorf("directory depth is negative: %d", depth)
 	}
 	ht.Depth = depth
 
@@ -51,7 +72,7 @@ func readHashTable(reader *stream.BinaryReader) (*hashTable, error) {
 	}
 	ht.Padding = padding
 
-	ht.DirEntries = make([]fileEntryRec, ht.DirCount)
+	ht.DirEntries = makeCountedSliceForAppend[fileEntryRec](ht.DirCount)
 	for i := 0; i < int(ht.DirCount); i++ {
 		var e fileEntryRec
 		hash, err := reader.ReadUInt64()
@@ -64,10 +85,10 @@ func readHashTable(reader *stream.BinaryReader) (*hashTable, error) {
 		}
 		e.Hash = hash
 		e.Offset = offset
-		ht.DirEntries[i] = e
+		ht.DirEntries = append(ht.DirEntries, e)
 	}
 
-	ht.FileEntries = make([]fileEntryRec, ht.FileCount)
+	ht.FileEntries = makeCountedSliceForAppend[fileEntryRec](ht.FileCount)
 	for i := 0; i < int(ht.FileCount); i++ {
 		var e fileEntryRec
 		hash, err := reader.ReadUInt64()
@@ -80,23 +101,23 @@ func readHashTable(reader *stream.BinaryReader) (*hashTable, error) {
 		}
 		e.Hash = hash
 		e.Offset = offset
-		ht.FileEntries[i] = e
+		ht.FileEntries = append(ht.FileEntries, e)
 	}
-	ht.ParentsID = make([]uint64, ht.Depth)
+	ht.ParentsID = makeCountedSliceForAppend[uint64](ht.Depth)
 	for i := 0; i < int(ht.Depth); i++ {
 		parentHash, err := reader.ReadUInt64()
 		if err != nil {
 			return nil, fmt.Errorf("read parent hash failed: %w", err)
 		}
-		ht.ParentsID[i] = parentHash
+		ht.ParentsID = append(ht.ParentsID, parentHash)
 	}
-	ht.SubDirEntries = make([]*hashTable, ht.DirCount)
+	ht.SubDirEntries = makeCountedSliceForAppend[*hashTable](ht.DirCount)
 	for i := 0; i < int(ht.DirCount); i++ {
 		subDir, err := readHashTable(reader)
 		if err != nil {
 			return nil, fmt.Errorf("read subDir entry failed: %w", err)
 		}
-		ht.SubDirEntries[i] = subDir
+		ht.SubDirEntries = append(ht.SubDirEntries, subDir)
 	}
 	return &ht, nil
 }
@@ -138,6 +159,18 @@ func readNameTable(reader *stream.BinaryReader) (map[uint64]string, error) {
 
 // writeHashTable writes the hash table for the current directory and its subdirectories to the provided BinaryWriter.
 func (arc *Arc) writeHashTable(bw *stream.BinaryWriter, dirOffsets map[uint64]int64, uuidToHash map[uint64]uint64, fileOffsets map[uint64]int64, cur *Dir) error {
+	dirCount, err := checkedArcInt32Count("directory count", len(cur.Dirs))
+	if err != nil {
+		return err
+	}
+	fileCount, err := checkedArcInt32Count("file count", len(cur.Files))
+	if err != nil {
+		return err
+	}
+	depth, err := checkedArcInt32Count("directory depth", cur.Depth())
+	if err != nil {
+		return err
+	}
 	if err := bw.WriteBytes(dirHeader); err != nil {
 		return fmt.Errorf("write dir header failed: %w", err)
 	}
@@ -146,15 +179,15 @@ func (arc *Arc) writeHashTable(bw *stream.BinaryWriter, dirOffsets map[uint64]in
 		return fmt.Errorf("write dir hash failed: %w", err)
 	}
 
-	if err := bw.WriteUInt32(uint32(len(cur.Dirs))); err != nil {
+	if err := bw.WriteInt32(dirCount); err != nil {
 		return fmt.Errorf("write dir count failed: %w", err)
 	}
 
-	if err := bw.WriteUInt32(uint32(len(cur.Files))); err != nil {
+	if err := bw.WriteInt32(fileCount); err != nil {
 		return fmt.Errorf("write file count failed: %w", err)
 	}
 
-	if err := bw.WriteUInt32(uint32(cur.Depth())); err != nil {
+	if err := bw.WriteInt32(depth); err != nil {
 		return fmt.Errorf("write depth failed: %w", err)
 	}
 
@@ -242,7 +275,10 @@ func (arc *Arc) writeNameTable(bw *stream.BinaryWriter, utf16 bool) error {
 			h = NameHashUTF8(n)
 		}
 		b := utf16le(n)
-		sz := int32(len(b) / 2)
+		sz, err := checkedArcInt32Count(fmt.Sprintf("name %q UTF-16 code-unit count", n), len(b)/2)
+		if err != nil {
+			return err
+		}
 
 		if err := bw.WriteUInt64(h); err != nil {
 			return fmt.Errorf("write name hash failed: %w", err)

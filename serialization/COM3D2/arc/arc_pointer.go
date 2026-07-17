@@ -99,7 +99,10 @@ func (a *ArcPointer) ensure() error {
 	a.raw = raw
 	a.size = sz
 	a.compressed = flag == 1
-	pos, _ := a.reader.Seek(0, io.SeekCurrent)
+	pos, err := a.reader.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return fmt.Errorf("failed to determine data offset: %w", err)
+	}
 	a.dataOff = pos
 	a.initialized = true
 	return nil
@@ -115,6 +118,9 @@ func (a *ArcPointer) Data() ([]byte, error) {
 	}
 	if _, err := a.reader.Seek(a.dataOff, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to seek to data offset: %w", err)
+	}
+	if uint64(a.size) > uint64(^uint(0)>>1) {
+		return nil, fmt.Errorf("stored size %d exceeds this platform's int range", a.size)
 	}
 	return a.reader.ReadBytes(int(a.size))
 }

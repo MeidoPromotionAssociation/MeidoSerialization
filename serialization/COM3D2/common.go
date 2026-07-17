@@ -130,6 +130,48 @@ type Keyframe struct {
 	OutTangent float32 `json:"OutTangent"`
 }
 
+func validateNonNegativeCount(name string, count int32) error {
+	if count < 0 {
+		return fmt.Errorf("%s is negative: %d", name, count)
+	}
+	return nil
+}
+
+func collectionCountInt32(name string, length int) (int32, error) {
+	if int64(length) > int64(1<<31-1) {
+		return 0, fmt.Errorf("%s %d exceeds Int32", name, length)
+	}
+	return int32(length), nil
+}
+
+// makeCountedSliceForAppend creates a small initial buffer for an on-wire
+// Int32 count. It deliberately does not impose a format limit: valid large
+// collections can still grow as they are read, while a truncated stream with
+// a corrupt huge count cannot force a multi-gigabyte allocation before the
+// first element is available.
+func makeCountedSliceForAppend[T any](count int32) []T {
+	if count <= 0 {
+		return make([]T, 0)
+	}
+	const maxInitialCapacity = 1024
+	capacity := int(count)
+	if capacity > maxInitialCapacity {
+		capacity = maxInitialCapacity
+	}
+	return make([]T, 0, capacity)
+}
+
+func makeCountedMap[K comparable, V any](count int32) map[K]V {
+	const maxInitialCapacity = 1024
+	capacity := int(count)
+	if capacity < 0 {
+		capacity = 0
+	} else if capacity > maxInitialCapacity {
+		capacity = maxInitialCapacity
+	}
+	return make(map[K]V, capacity)
+}
+
 // 因为循环依赖问题，所以写在这里了
 
 // ReadAnimationCurve 读取 AnimationCurve：先读 int(个数)，若为 0 则返回空
@@ -138,10 +180,13 @@ func ReadAnimationCurve(reader *stream.BinaryReader) (AnimationCurve, error) {
 	if err != nil {
 		return AnimationCurve{}, fmt.Errorf("read curve keyCount failed: %w", err)
 	}
+	if err := validateNonNegativeCount("curve keyCount", n); err != nil {
+		return AnimationCurve{}, err
+	}
 	if n == 0 {
 		return AnimationCurve{}, nil
 	}
-	Keyframes := make([]Keyframe, n)
+	keyframes := makeCountedSliceForAppend[Keyframe](n)
 	for i := 0; i < int(n); i++ {
 		t, err := reader.ReadFloat32() // 读取关键帧时间
 		if err != nil {
@@ -159,14 +204,18 @@ func ReadAnimationCurve(reader *stream.BinaryReader) (AnimationCurve, error) {
 		if err != nil {
 			return AnimationCurve{}, fmt.Errorf("read keyframe outTangent failed: %w", err)
 		}
-		Keyframes[i] = Keyframe{Time: t, Value: v, InTangent: inT, OutTangent: outT}
+		keyframes = append(keyframes, Keyframe{Time: t, Value: v, InTangent: inT, OutTangent: outT})
 	}
-	return AnimationCurve{Keyframes: Keyframes}, nil
+	return AnimationCurve{Keyframes: keyframes}, nil
 }
 
 // WriteAnimationCurve 写出 AnimationCurve：先写 int(个数)，然后依次写 time,value,inTangent,outTangent
 func WriteAnimationCurve(writer *stream.BinaryWriter, ac AnimationCurve) error {
-	err := writer.WriteInt32(int32(len(ac.Keyframes))) // 写入 Keyframe 数量
+	count, err := collectionCountInt32("curve keyCount", len(ac.Keyframes))
+	if err != nil {
+		return err
+	}
+	err = writer.WriteInt32(count) // 写入 Keyframe 数量
 	if err != nil {
 		return fmt.Errorf("write curve keyCount failed: %w", err)
 	}

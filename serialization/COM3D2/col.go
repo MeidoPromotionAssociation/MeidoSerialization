@@ -55,9 +55,12 @@ func ReadCol(r io.Reader) (*Col, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read collider count failed: %w", err)
 	}
+	if err := validateNonNegativeCount("collider count", count); err != nil {
+		return nil, err
+	}
 
 	// 4. 逐个读取 Collider
-	file.Colliders = make([]ICollider, 0, count)
+	file.Colliders = makeCountedSliceForAppend[ICollider](count)
 	for i := 0; i < int(count); i++ {
 		typeName, err := reader.ReadString()
 		if err != nil {
@@ -93,6 +96,18 @@ func ReadCol(r io.Reader) (*Col, error) {
 
 // Dump 把 Col 写出到 w 中
 func (c *Col) Dump(w io.Writer) error {
+	if c == nil {
+		return fmt.Errorf("nil collider file")
+	}
+	count, err := collectionCountInt32("collider count", len(c.Colliders))
+	if err != nil {
+		return err
+	}
+	for index, collider := range c.Colliders {
+		if err := validateColliderForDump(index, collider); err != nil {
+			return err
+		}
+	}
 	writer := stream.NewBinaryWriter(w)
 
 	// 1. 写 Signature
@@ -104,7 +119,6 @@ func (c *Col) Dump(w io.Writer) error {
 		return fmt.Errorf("write version failed: %w", err)
 	}
 	// 3. 写 Collider count
-	count := int32(len(c.Colliders))
 	if err := writer.WriteInt32(count); err != nil {
 		return fmt.Errorf("write collider count failed: %w", err)
 	}
@@ -119,6 +133,42 @@ func (c *Col) Dump(w io.Writer) error {
 		if err := collider.Write(writer, c.Version); err != nil {
 			return fmt.Errorf("collider.Write failed at index %d: %w", i, err)
 		}
+	}
+	return nil
+}
+
+func validateColliderForDump(index int, collider ICollider) error {
+	path := fmt.Sprintf("Colliders[%d]", index)
+	switch value := collider.(type) {
+	case *DynamicBoneCollider:
+		if value == nil {
+			return fmt.Errorf("%s is nil", path)
+		}
+		if value.Base == nil {
+			return fmt.Errorf("%s.Base is nil", path)
+		}
+	case *DynamicBonePlaneCollider:
+		if value == nil {
+			return fmt.Errorf("%s is nil", path)
+		}
+		if value.Base == nil {
+			return fmt.Errorf("%s.Base is nil", path)
+		}
+	case *DynamicBoneMuneCollider:
+		if value == nil {
+			return fmt.Errorf("%s is nil", path)
+		}
+		if value.Base == nil {
+			return fmt.Errorf("%s.Base is nil", path)
+		}
+	case *MissingCollider:
+		if value == nil {
+			return fmt.Errorf("%s is nil", path)
+		}
+	case nil:
+		return fmt.Errorf("%s is nil", path)
+	default:
+		return fmt.Errorf("%s has unsupported type %T", path, collider)
 	}
 	return nil
 }

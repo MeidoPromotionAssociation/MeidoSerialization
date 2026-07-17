@@ -232,6 +232,9 @@ func ReadPhy(r io.Reader) (*Phy, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read CollidersCount failed: %w", err)
 	}
+	if err := validateNonNegativeCount("CollidersCount", colCount); err != nil {
+		return nil, err
+	}
 	p.CollidersCount = colCount
 
 	// 虽然 C# 记录了 CollidersCount，但并没有写任何内容
@@ -241,6 +244,9 @@ func ReadPhy(r io.Reader) (*Phy, error) {
 	excCount, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read ExclusionsCount failed: %w", err)
+	}
+	if err := validateNonNegativeCount("ExclusionsCount", excCount); err != nil {
+		return nil, err
 	}
 	p.ExclusionsCount = excCount
 
@@ -260,6 +266,9 @@ func ReadPhy(r io.Reader) (*Phy, error) {
 
 // Dump 写出 "CM3D21_PHY" 格式
 func (p *Phy) Dump(w io.Writer) error {
+	if err := validatePhyForDump(p); err != nil {
+		return err
+	}
 	writer := stream.NewBinaryWriter(w)
 
 	// 1. Signature
@@ -384,6 +393,55 @@ func (p *Phy) Dump(w io.Writer) error {
 	return nil
 }
 
+func validatePhyForDump(phy *Phy) error {
+	if phy == nil {
+		return fmt.Errorf("nil phy")
+	}
+	if err := validateNonNegativeCount("CollidersCount", phy.CollidersCount); err != nil {
+		return err
+	}
+	if err := validateNonNegativeCount("ExclusionsCount", phy.ExclusionsCount); err != nil {
+		return err
+	}
+	partials := []struct {
+		name   string
+		mode   int32
+		values []BoneValue
+	}{
+		{name: "PartialDamping", mode: phy.EnablePartialDamping, values: phy.PartialDamping},
+		{name: "PartialElasticity", mode: phy.EnablePartialElasticity, values: phy.PartialElasticity},
+		{name: "PartialStiffness", mode: phy.EnablePartialStiffness, values: phy.PartialStiffness},
+		{name: "PartialInert", mode: phy.EnablePartialInert, values: phy.PartialInert},
+		{name: "PartialRadius", mode: phy.EnablePartialRadius, values: phy.PartialRadius},
+	}
+	for _, partial := range partials {
+		if partial.mode != PartialModePartial && len(partial.values) != 0 {
+			return fmt.Errorf("%s mode=%d would discard %d bone values", partial.name, partial.mode, len(partial.values))
+		}
+		if partial.mode == PartialModePartial {
+			if _, err := collectionCountInt32(partial.name+" count", len(partial.values)); err != nil {
+				return err
+			}
+		}
+	}
+	curves := []struct {
+		name  string
+		curve AnimationCurve
+	}{
+		{name: "DampingDistrib", curve: phy.DampingDistrib},
+		{name: "ElasticityDistrib", curve: phy.ElasticityDistrib},
+		{name: "StiffnessDistrib", curve: phy.StiffnessDistrib},
+		{name: "InertDistrib", curve: phy.InertDistrib},
+		{name: "RadiusDistrib", curve: phy.RadiusDistrib},
+	}
+	for _, curve := range curves {
+		if _, err := collectionCountInt32(curve.name+" keyCount", len(curve.curve.Keyframes)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // readPartial 读取：
 //
 //	int(PartialMode) -> 如果 != PartialModePartial, 结束；
@@ -401,8 +459,11 @@ func readPartial(reader *stream.BinaryReader) (int32, []BoneValue, error) {
 	if err != nil {
 		return mode, nil, fmt.Errorf("read partial count failed: %w", err)
 	}
+	if err := validateNonNegativeCount("partial count", count); err != nil {
+		return mode, nil, err
+	}
 
-	vals := make([]BoneValue, count)
+	vals := makeCountedSliceForAppend[BoneValue](count)
 	for i := 0; i < int(count); i++ { // 循环读取骨骼名称和对应 float 值
 		bn, err := reader.ReadString() // 读取骨骼名称
 		if err != nil {
@@ -412,7 +473,7 @@ func readPartial(reader *stream.BinaryReader) (int32, []BoneValue, error) {
 		if err != nil {
 			return mode, nil, fmt.Errorf("read boneValue failed: %w", err)
 		}
-		vals[i] = BoneValue{BoneName: bn, Value: fv} // 存储到切片中
+		vals = append(vals, BoneValue{BoneName: bn, Value: fv}) // 存储到切片中
 	}
 	return mode, vals, nil
 }
@@ -428,7 +489,10 @@ func writePartial(writer *stream.BinaryWriter, mode int32, values []BoneValue) e
 		return nil
 	}
 
-	count := int32(len(values))
+	count, err := collectionCountInt32("partial count", len(values))
+	if err != nil {
+		return err
+	}
 	if err := writer.WriteInt32(count); err != nil {
 		return fmt.Errorf("write partial count failed: %w", err)
 	}

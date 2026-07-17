@@ -92,6 +92,9 @@ func ReadMenu(r io.Reader) (*Menu, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read bodySize failed: %w", err)
 	}
+	if err := validateNonNegativeCount("menu bodySize", bodySize); err != nil {
+		return nil, err
+	}
 	m.BodySize = bodySize
 
 	// 8. Commands, until we see a 0 byte
@@ -119,6 +122,9 @@ func ReadMenu(r io.Reader) (*Menu, error) {
 			first, err := reader.ReadString()
 			if err != nil {
 				return nil, fmt.Errorf("read command failed: %w", err)
+			}
+			if first == "" {
+				return nil, fmt.Errorf("menu command name is empty")
 			}
 			cmd.Command = first
 			if ac > 1 {
@@ -149,12 +155,13 @@ func ReadMenu(r io.Reader) (*Menu, error) {
 
 // Dump 把 Menu 写出到 w 中
 func (m *Menu) Dump(w io.Writer) error {
-	writer := stream.NewBinaryWriter(w)
-
-	err := m.UpdateBodySize()
-	if err != nil {
+	if m == nil {
+		return fmt.Errorf("nil menu")
+	}
+	if err := m.UpdateBodySize(); err != nil {
 		return fmt.Errorf("update bodySize failed: %w", err)
 	}
+	writer := stream.NewBinaryWriter(w)
 
 	// 1. Signature
 	if err := writer.WriteString(m.Signature); err != nil {
@@ -193,16 +200,7 @@ func (m *Menu) Dump(w io.Writer) error {
 
 	// 8. 写入 Commands
 	for _, cmd := range m.Commands {
-		// 至少要有命令名；Args 可以为空
-		if cmd.Command == "" {
-			continue
-		}
-
 		// ArgCount = 1(命令名) + len(Args)，总数不能超过 255
-		if len(cmd.Args)+1 > 255 {
-			return fmt.Errorf("command %q has invalid arg count=%d, max count is 255", cmd.Command, len(cmd.Args)+1)
-		}
-
 		// 写 ArgCount
 		if err := writer.WriteByte(byte(len(cmd.Args) + 1)); err != nil {
 			return fmt.Errorf("write command argCount failed: %w", err)
@@ -234,9 +232,29 @@ func (m *Menu) Dump(w io.Writer) error {
 //     加上 7BitEncoded 编码 encodedLength 所需的字节数，再加上 encodedLength 本身。
 //   - 最后再加上 1 个字节的结束标志。
 func (m *Menu) UpdateBodySize() error {
-	var sum int32 = 0
+	sum, err := m.CalculateBodySize()
+	if err != nil {
+		return err
+	}
+	m.BodySize = sum
+	return nil
+}
+
+// CalculateBodySize returns the command-block size written by Dump and the
+// official compiler.
+func (m *Menu) CalculateBodySize() (int32, error) {
+	if m == nil {
+		return 0, fmt.Errorf("nil menu")
+	}
+	var sum int64
 
 	for _, cmd := range m.Commands {
+		if cmd.Command == "" {
+			return 0, fmt.Errorf("menu command name is empty")
+		}
+		if len(cmd.Args)+1 > 255 {
+			return 0, fmt.Errorf("command %q has invalid arg count=%d, max count is 255", cmd.Command, len(cmd.Args)+1)
+		}
 		// 1. 写入 ArgCount (1 字节)
 		sum += 1
 
@@ -244,29 +262,30 @@ func (m *Menu) UpdateBodySize() error {
 		{
 			encodedLength := len(cmd.Command)
 			if encodedLength > math.MaxInt32 {
-				return fmt.Errorf("string parameter length (%d) exceeds the maximum value of int32", encodedLength)
+				return 0, fmt.Errorf("string parameter length (%d) exceeds the maximum value of int32", encodedLength)
 			}
 			lebSize := stream.Get7BitEncodedIntSize(int32(encodedLength))
-			sum += int32(lebSize)
-			sum += int32(encodedLength)
+			sum += int64(lebSize) + int64(encodedLength)
 		}
 
 		// 3. 遍历每个参数
 		for _, arg := range cmd.Args {
 			encodedLength := len(arg)
 			if encodedLength > math.MaxInt32 {
-				return fmt.Errorf("string parameter length (%d) exceeds the maximum value of int32", encodedLength)
+				return 0, fmt.Errorf("string parameter length (%d) exceeds the maximum value of int32", encodedLength)
 			}
 			lebSize := stream.Get7BitEncodedIntSize(int32(encodedLength))
-			sum += int32(lebSize)
-			sum += int32(encodedLength)
+			sum += int64(lebSize) + int64(encodedLength)
+		}
+		if sum > math.MaxInt32 {
+			return 0, fmt.Errorf("menu command body size %d exceeds the maximum value of int32", sum)
 		}
 	}
 
 	// 3. 结束标志 0 字节
 	sum += 1
-
-	m.BodySize = sum
-
-	return nil
+	if sum > math.MaxInt32 {
+		return 0, fmt.Errorf("menu command body size %d exceeds the maximum value of int32", sum)
+	}
+	return int32(sum), nil
 }

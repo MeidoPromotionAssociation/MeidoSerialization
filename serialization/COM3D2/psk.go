@@ -87,9 +87,12 @@ func ReadPsk(r io.Reader) (*Psk, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read panier radius group count failed: %w", err)
 		}
+		if err := validateNonNegativeCount("panier radius group count", groupCount); err != nil {
+			return nil, err
+		}
 
 		if groupCount > 0 {
-			psk.PanierRadiusDistribGroups = make([]PanierRadiusGroup, groupCount)
+			psk.PanierRadiusDistribGroups = makeCountedSliceForAppend[PanierRadiusGroup](groupCount)
 			for i := 0; i < int(groupCount); i++ {
 				boneName, err := reader.ReadString()
 				if err != nil {
@@ -106,11 +109,11 @@ func ReadPsk(r io.Reader) (*Psk, error) {
 					return nil, fmt.Errorf("read curve failed: %w", err)
 				}
 
-				psk.PanierRadiusDistribGroups[i] = PanierRadiusGroup{
+				psk.PanierRadiusDistribGroups = append(psk.PanierRadiusDistribGroups, PanierRadiusGroup{
 					BoneName: boneName,
 					Radius:   radius,
 					Curve:    curve,
-				}
+				})
 			}
 		}
 	}
@@ -228,6 +231,9 @@ func ReadPsk(r io.Reader) (*Psk, error) {
 
 // Dump 将 Psk 结构写到 w 中，生成符合 CM3D21_PSK 格式的二进制数据。
 func (p Psk) Dump(w io.Writer) error {
+	if err := validatePskForDump(&p); err != nil {
+		return err
+	}
 	writer := stream.NewBinaryWriter(w)
 
 	// 1. 写签名
@@ -271,8 +277,6 @@ func (p Psk) Dump(w io.Writer) error {
 				return fmt.Errorf("write curve failed: %w", err)
 			}
 		}
-	} else if len(p.PanierRadiusDistribGroups) > 0 {
-		return fmt.Errorf("panier radius distrib groups require psk version >= 217, got %d", p.Version)
 	}
 
 	// 6. 写裙撑力度
@@ -353,5 +357,39 @@ func (p Psk) Dump(w io.Writer) error {
 		}
 	}
 
+	return nil
+}
+
+func validatePskForDump(psk *Psk) error {
+	if psk.Version < 217 && len(psk.PanierRadiusDistribGroups) != 0 {
+		return fmt.Errorf("psk version %d cannot encode %d panier radius groups", psk.Version, len(psk.PanierRadiusDistribGroups))
+	}
+	if psk.Version >= 217 {
+		if _, err := collectionCountInt32("panier radius group count", len(psk.PanierRadiusDistribGroups)); err != nil {
+			return err
+		}
+	}
+	curves := []struct {
+		name  string
+		curve AnimationCurve
+	}{
+		{name: "PanierRadiusDistrib", curve: psk.PanierRadiusDistrib},
+		{name: "PanierForceDistrib", curve: psk.PanierForceDistrib},
+		{name: "VelocityForceRateDistrib", curve: psk.VelocityForceRateDistrib},
+		{name: "GravityDistrib", curve: psk.GravityDistrib},
+	}
+	if psk.Version >= 217 {
+		for index, group := range psk.PanierRadiusDistribGroups {
+			curves = append(curves, struct {
+				name  string
+				curve AnimationCurve
+			}{name: fmt.Sprintf("PanierRadiusDistribGroups[%d].Curve", index), curve: group.Curve})
+		}
+	}
+	for _, curve := range curves {
+		if _, err := collectionCountInt32(curve.name+" keyCount", len(curve.curve.Keyframes)); err != nil {
+			return err
+		}
+	}
 	return nil
 }

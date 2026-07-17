@@ -35,13 +35,16 @@ func ReadDanceObjectData(r io.Reader) (*DanceObjectData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read DanceObjectData count failed: %w", err)
 	}
+	if err := validateNonNegativeCount("DanceObjectData count", count); err != nil {
+		return nil, err
+	}
 
 	data := &DanceObjectData{
-		Entries: make([]DanceObjectEntry, count),
+		Entries: makeCountedSliceForAppend[DanceObjectEntry](count),
 	}
 
 	for i := int32(0); i < count; i++ {
-		entry := &data.Entries[i]
+		var entry DanceObjectEntry
 
 		entry.TargetMaidNo, err = reader.ReadInt32()
 		if err != nil {
@@ -71,14 +74,19 @@ func ReadDanceObjectData(r io.Reader) (*DanceObjectData, error) {
 		if err != nil {
 			return nil, fmt.Errorf("read entry[%d].refCount failed: %w", i, err)
 		}
+		if err := validateNonNegativeCount(fmt.Sprintf("entry[%d].refCount", i), refCount); err != nil {
+			return nil, err
+		}
 
-		entry.ObjectReferenceTrackIDList = make([]int32, refCount)
+		entry.ObjectReferenceTrackIDList = makeCountedSliceForAppend[int32](refCount)
 		for j := int32(0); j < refCount; j++ {
-			entry.ObjectReferenceTrackIDList[j], err = reader.ReadInt32()
+			trackID, err := reader.ReadInt32()
 			if err != nil {
 				return nil, fmt.Errorf("read entry[%d].trackID[%d] failed: %w", i, j, err)
 			}
+			entry.ObjectReferenceTrackIDList = append(entry.ObjectReferenceTrackIDList, trackID)
 		}
+		data.Entries = append(data.Entries, entry)
 	}
 
 	return data, nil
@@ -86,9 +94,23 @@ func ReadDanceObjectData(r io.Reader) (*DanceObjectData, error) {
 
 // Dump 将舞蹈对象数据写出到 w
 func (d *DanceObjectData) Dump(w io.Writer) error {
+	if d == nil {
+		return fmt.Errorf("nil DanceObjectData")
+	}
+	entryCount, err := collectionCountInt32("DanceObjectData entry count", len(d.Entries))
+	if err != nil {
+		return err
+	}
+	refCounts := make([]int32, len(d.Entries))
+	for i := range d.Entries {
+		refCounts[i], err = collectionCountInt32(fmt.Sprintf("DanceObjectData entry[%d] reference count", i), len(d.Entries[i].ObjectReferenceTrackIDList))
+		if err != nil {
+			return err
+		}
+	}
 	writer := stream.NewBinaryWriter(w)
 
-	if err := writer.WriteInt32(int32(len(d.Entries))); err != nil {
+	if err := writer.WriteInt32(entryCount); err != nil {
 		return fmt.Errorf("write DanceObjectData count failed: %w", err)
 	}
 
@@ -108,7 +130,7 @@ func (d *DanceObjectData) Dump(w io.Writer) error {
 		if err := writer.WriteString(entry.TreePath); err != nil {
 			return fmt.Errorf("write entry[%d].TreePath failed: %w", i, err)
 		}
-		if err := writer.WriteInt32(int32(len(entry.ObjectReferenceTrackIDList))); err != nil {
+		if err := writer.WriteInt32(refCounts[i]); err != nil {
 			return fmt.Errorf("write entry[%d].refCount failed: %w", i, err)
 		}
 		for j, trackID := range entry.ObjectReferenceTrackIDList {
@@ -168,25 +190,30 @@ func (t *TranslationTrack) read(reader *stream.BinaryReader) error {
 	if err != nil {
 		return fmt.Errorf("read TranslationTrack.TotalFrame failed: %w", err)
 	}
+	if err := validateNonNegativeCount("TranslationTrack.TotalFrame", t.TotalFrame); err != nil {
+		return err
+	}
 	t.ObjectTreePath, err = reader.ReadString()
 	if err != nil {
 		return fmt.Errorf("read TranslationTrack.ObjectTreePath failed: %w", err)
 	}
 
-	t.PosArray = make([]Vector3, t.TotalFrame)
+	t.PosArray = makeCountedSliceForAppend[Vector3](t.TotalFrame)
 	for i := int32(0); i < t.TotalFrame; i++ {
-		t.PosArray[i].X, err = reader.ReadFloat32()
+		var position Vector3
+		position.X, err = reader.ReadFloat32()
 		if err != nil {
 			return fmt.Errorf("read TranslationTrack.PosArray[%d].X failed: %w", i, err)
 		}
-		t.PosArray[i].Y, err = reader.ReadFloat32()
+		position.Y, err = reader.ReadFloat32()
 		if err != nil {
 			return fmt.Errorf("read TranslationTrack.PosArray[%d].Y failed: %w", i, err)
 		}
-		t.PosArray[i].Z, err = reader.ReadFloat32()
+		position.Z, err = reader.ReadFloat32()
 		if err != nil {
 			return fmt.Errorf("read TranslationTrack.PosArray[%d].Z failed: %w", i, err)
 		}
+		t.PosArray = append(t.PosArray, position)
 	}
 	return nil
 }
@@ -238,29 +265,34 @@ func (t *RotationTrack) read(reader *stream.BinaryReader) error {
 	if err != nil {
 		return fmt.Errorf("read RotationTrack.TotalFrame failed: %w", err)
 	}
+	if err := validateNonNegativeCount("RotationTrack.TotalFrame", t.TotalFrame); err != nil {
+		return err
+	}
 	t.ObjectTreePath, err = reader.ReadString()
 	if err != nil {
 		return fmt.Errorf("read RotationTrack.ObjectTreePath failed: %w", err)
 	}
 
-	t.QuaternionArray = make([]Quaternion, t.TotalFrame)
+	t.QuaternionArray = makeCountedSliceForAppend[Quaternion](t.TotalFrame)
 	for i := int32(0); i < t.TotalFrame; i++ {
-		t.QuaternionArray[i].X, err = reader.ReadFloat32()
+		var rotation Quaternion
+		rotation.X, err = reader.ReadFloat32()
 		if err != nil {
 			return err
 		}
-		t.QuaternionArray[i].Y, err = reader.ReadFloat32()
+		rotation.Y, err = reader.ReadFloat32()
 		if err != nil {
 			return err
 		}
-		t.QuaternionArray[i].Z, err = reader.ReadFloat32()
+		rotation.Z, err = reader.ReadFloat32()
 		if err != nil {
 			return err
 		}
-		t.QuaternionArray[i].W, err = reader.ReadFloat32()
+		rotation.W, err = reader.ReadFloat32()
 		if err != nil {
 			return err
 		}
+		t.QuaternionArray = append(t.QuaternionArray, rotation)
 	}
 	return nil
 }
@@ -339,63 +371,80 @@ func (t *PropertyTrack) read(reader *stream.BinaryReader) error {
 		return fmt.Errorf("read PropertyTrack.PropertyName failed: %w", err)
 	}
 
-	valCount, err := reader.ReadInt32()
-	if err != nil {
-		return fmt.Errorf("read PropertyTrack value count failed: %w", err)
-	}
-
 	switch t.ValueType {
 	case 0: // Integer
-		t.IntValArray = make([]int32, valCount)
+		valCount, err := readPropertyValueCount(reader)
+		if err != nil {
+			return err
+		}
+		t.IntValArray = makeCountedSliceForAppend[int32](valCount)
 		for i := int32(0); i < valCount; i++ {
-			t.IntValArray[i], err = reader.ReadInt32()
+			value, err := reader.ReadInt32()
 			if err != nil {
 				return err
 			}
+			t.IntValArray = append(t.IntValArray, value)
 		}
 	case 2: // Float
-		t.FloatValArray = make([]float32, valCount)
+		valCount, err := readPropertyValueCount(reader)
+		if err != nil {
+			return err
+		}
+		t.FloatValArray = makeCountedSliceForAppend[float32](valCount)
 		for i := int32(0); i < valCount; i++ {
-			t.FloatValArray[i], err = reader.ReadFloat32()
+			value, err := reader.ReadFloat32()
 			if err != nil {
 				return err
 			}
+			t.FloatValArray = append(t.FloatValArray, value)
 		}
 	case 5: // Vector3
-		t.Vec3ValArray = make([]Vector3, valCount)
+		valCount, err := readPropertyValueCount(reader)
+		if err != nil {
+			return err
+		}
+		t.Vec3ValArray = makeCountedSliceForAppend[Vector3](valCount)
 		for i := int32(0); i < valCount; i++ {
-			t.Vec3ValArray[i].X, err = reader.ReadFloat32()
+			var value Vector3
+			value.X, err = reader.ReadFloat32()
 			if err != nil {
 				return err
 			}
-			t.Vec3ValArray[i].Y, err = reader.ReadFloat32()
+			value.Y, err = reader.ReadFloat32()
 			if err != nil {
 				return err
 			}
-			t.Vec3ValArray[i].Z, err = reader.ReadFloat32()
+			value.Z, err = reader.ReadFloat32()
 			if err != nil {
 				return err
 			}
+			t.Vec3ValArray = append(t.Vec3ValArray, value)
 		}
 	case 6: // Color
-		t.ColorValArray = make([]Color, valCount)
+		valCount, err := readPropertyValueCount(reader)
+		if err != nil {
+			return err
+		}
+		t.ColorValArray = makeCountedSliceForAppend[Color](valCount)
 		for i := int32(0); i < valCount; i++ {
-			t.ColorValArray[i].A, err = reader.ReadFloat32()
+			var value Color
+			value.A, err = reader.ReadFloat32()
 			if err != nil {
 				return err
 			}
-			t.ColorValArray[i].R, err = reader.ReadFloat32()
+			value.R, err = reader.ReadFloat32()
 			if err != nil {
 				return err
 			}
-			t.ColorValArray[i].G, err = reader.ReadFloat32()
+			value.G, err = reader.ReadFloat32()
 			if err != nil {
 				return err
 			}
-			t.ColorValArray[i].B, err = reader.ReadFloat32()
+			value.B, err = reader.ReadFloat32()
 			if err != nil {
 				return err
 			}
+			t.ColorValArray = append(t.ColorValArray, value)
 		}
 	}
 
@@ -403,18 +452,34 @@ func (t *PropertyTrack) read(reader *stream.BinaryReader) error {
 	if err != nil {
 		return fmt.Errorf("read PropertyTrack index count failed: %w", err)
 	}
-	t.IndexArray = make([]KeyValuePairInt, indexCount)
+	if err := validateNonNegativeCount("PropertyTrack index count", indexCount); err != nil {
+		return err
+	}
+	t.IndexArray = makeCountedSliceForAppend[KeyValuePairInt](indexCount)
 	for i := int32(0); i < indexCount; i++ {
-		t.IndexArray[i].Key, err = reader.ReadInt32()
+		var pair KeyValuePairInt
+		pair.Key, err = reader.ReadInt32()
 		if err != nil {
 			return err
 		}
-		t.IndexArray[i].Value, err = reader.ReadInt32()
+		pair.Value, err = reader.ReadInt32()
 		if err != nil {
 			return err
 		}
+		t.IndexArray = append(t.IndexArray, pair)
 	}
 	return nil
+}
+
+func readPropertyValueCount(reader *stream.BinaryReader) (int32, error) {
+	count, err := reader.ReadInt32()
+	if err != nil {
+		return 0, fmt.Errorf("read PropertyTrack value count failed: %w", err)
+	}
+	if err := validateNonNegativeCount("PropertyTrack value count", count); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func (t *PropertyTrack) write(writer *stream.BinaryWriter) error {
@@ -523,9 +588,18 @@ type EventParameter struct {
 	Array     []EventParameter `json:"Array,omitempty"`     // 数组值（ValueType=12）
 }
 
+const maxEventParameterDepth = 256
+
 func readEventParameter(reader *stream.BinaryReader) (EventParameter, error) {
+	return readEventParameterDepth(reader, 0)
+}
+
+func readEventParameterDepth(reader *stream.BinaryReader, depth int) (EventParameter, error) {
 	var p EventParameter
 	var err error
+	if depth >= maxEventParameterDepth {
+		return p, fmt.Errorf("EventParameter nesting exceeds %d", maxEventParameterDepth)
+	}
 
 	p.ValueType, err = reader.ReadInt32()
 	if err != nil {
@@ -537,12 +611,16 @@ func readEventParameter(reader *stream.BinaryReader) (EventParameter, error) {
 		if err != nil {
 			return p, err
 		}
-		p.Array = make([]EventParameter, count)
+		if err := validateNonNegativeCount("EventParameter array count", count); err != nil {
+			return p, err
+		}
+		p.Array = makeCountedSliceForAppend[EventParameter](count)
 		for i := int32(0); i < count; i++ {
-			p.Array[i], err = readEventParameter(reader)
+			item, err := readEventParameterDepth(reader, depth+1)
 			if err != nil {
 				return p, err
 			}
+			p.Array = append(p.Array, item)
 		}
 		return p, nil
 	}
@@ -623,16 +701,27 @@ func readEventParameter(reader *stream.BinaryReader) (EventParameter, error) {
 }
 
 func writeEventParameter(writer *stream.BinaryWriter, p EventParameter) error {
+	return writeEventParameterDepth(writer, p, 0)
+}
+
+func writeEventParameterDepth(writer *stream.BinaryWriter, p EventParameter, depth int) error {
+	if depth >= maxEventParameterDepth {
+		return fmt.Errorf("EventParameter nesting exceeds %d", maxEventParameterDepth)
+	}
 	if err := writer.WriteInt32(p.ValueType); err != nil {
 		return err
 	}
 
 	if p.ValueType == 12 { // Array
-		if err := writer.WriteInt32(int32(len(p.Array))); err != nil {
+		count, err := collectionCountInt32("EventParameter array count", len(p.Array))
+		if err != nil {
+			return err
+		}
+		if err := writer.WriteInt32(count); err != nil {
 			return err
 		}
 		for _, item := range p.Array {
-			if err := writeEventParameter(writer, item); err != nil {
+			if err := writeEventParameterDepth(writer, item, depth+1); err != nil {
 				return err
 			}
 		}
@@ -735,10 +824,13 @@ func (t *EventTrack) read(reader *stream.BinaryReader) error {
 	if err != nil {
 		return fmt.Errorf("read EventTrack method count failed: %w", err)
 	}
+	if err := validateNonNegativeCount("EventTrack method count", methodCount); err != nil {
+		return err
+	}
 
-	t.MethodDataArray = make([]MethodData, methodCount)
+	t.MethodDataArray = makeCountedSliceForAppend[MethodData](methodCount)
 	for i := int32(0); i < methodCount; i++ {
-		md := &t.MethodDataArray[i]
+		var md MethodData
 		md.StartFrame, err = reader.ReadInt32()
 		if err != nil {
 			return err
@@ -761,14 +853,19 @@ func (t *EventTrack) read(reader *stream.BinaryReader) error {
 			if err != nil {
 				return err
 			}
-			md.Params = make([]EventParameter, paramCount)
+			if err := validateNonNegativeCount(fmt.Sprintf("EventTrack method[%d] parameter count", i), paramCount); err != nil {
+				return err
+			}
+			md.Params = makeCountedSliceForAppend[EventParameter](paramCount)
 			for j := int32(0); j < paramCount; j++ {
-				md.Params[j], err = readEventParameter(reader)
+				parameter, err := readEventParameter(reader)
 				if err != nil {
 					return err
 				}
+				md.Params = append(md.Params, parameter)
 			}
 		}
+		t.MethodDataArray = append(t.MethodDataArray, md)
 	}
 	return nil
 }
@@ -879,6 +976,9 @@ func ReadTimelineData(r io.Reader) (*TimelineData, error) {
 
 // Dump 将 TimelineData 写出到 w
 func (d *TimelineData) Dump(w io.Writer) error {
+	if err := validateTimelineDataForDump(d); err != nil {
+		return err
+	}
 	writer := stream.NewBinaryWriter(w)
 
 	if err := writer.WriteString(TimelineSignature); err != nil {
@@ -903,6 +1003,146 @@ func (d *TimelineData) Dump(w io.Writer) error {
 	return nil
 }
 
+func validateTimelineDataForDump(data *TimelineData) error {
+	if data == nil {
+		return fmt.Errorf("nil TimelineData")
+	}
+	if err := validateNonNegativeCount("TimelineData.TotalFrame", data.TotalFrame); err != nil {
+		return err
+	}
+	for index, track := range data.Tracks {
+		path := fmt.Sprintf("TimelineData.Tracks[%d]", index)
+		switch value := track.(type) {
+		case *TranslationTrack:
+			if value == nil {
+				return fmt.Errorf("%s is nil", path)
+			}
+			if err := validateTrackFrameArray(path, value.TotalFrame, len(value.PosArray)); err != nil {
+				return err
+			}
+		case *RotationTrack:
+			if value == nil {
+				return fmt.Errorf("%s is nil", path)
+			}
+			if err := validateTrackFrameArray(path, value.TotalFrame, len(value.QuaternionArray)); err != nil {
+				return err
+			}
+		case *PropertyTrack:
+			if value == nil {
+				return fmt.Errorf("%s is nil", path)
+			}
+			if err := validateNonNegativeCount(path+".TotalFrame", value.TotalFrame); err != nil {
+				return err
+			}
+			if err := validatePropertyTrackForDump(path, value); err != nil {
+				return err
+			}
+		case *EventTrack:
+			if value == nil {
+				return fmt.Errorf("%s is nil", path)
+			}
+			if err := validateNonNegativeCount(path+".TotalFrame", value.TotalFrame); err != nil {
+				return err
+			}
+			if _, err := collectionCountInt32(path+".MethodDataArray count", len(value.MethodDataArray)); err != nil {
+				return err
+			}
+			for methodIndex := range value.MethodDataArray {
+				methodPath := fmt.Sprintf("%s.MethodDataArray[%d]", path, methodIndex)
+				method := &value.MethodDataArray[methodIndex]
+				if _, err := collectionCountInt32(methodPath+".Params count", len(method.Params)); err != nil {
+					return err
+				}
+				for parameterIndex := range method.Params {
+					if err := validateEventParameterForDump(fmt.Sprintf("%s.Params[%d]", methodPath, parameterIndex), method.Params[parameterIndex], 0); err != nil {
+						return err
+					}
+				}
+			}
+		default:
+			return fmt.Errorf("%s has unsupported type %T", path, track)
+		}
+	}
+	return nil
+}
+
+func validateTrackFrameArray(path string, totalFrame int32, arrayLength int) error {
+	if err := validateNonNegativeCount(path+".TotalFrame", totalFrame); err != nil {
+		return err
+	}
+	if int64(totalFrame) != int64(arrayLength) {
+		return fmt.Errorf("%s TotalFrame=%d but frame array length=%d", path, totalFrame, arrayLength)
+	}
+	return nil
+}
+
+func validatePropertyTrackForDump(path string, track *PropertyTrack) error {
+	lengths := map[int32]int{
+		0: len(track.IntValArray),
+		2: len(track.FloatValArray),
+		5: len(track.Vec3ValArray),
+		6: len(track.ColorValArray),
+	}
+	selectedLength, known := lengths[track.ValueType]
+	if known {
+		if _, err := collectionCountInt32(path+" value count", selectedLength); err != nil {
+			return err
+		}
+	}
+	for valueType, length := range lengths {
+		if length != 0 && valueType != track.ValueType {
+			return fmt.Errorf("%s ValueType=%d would discard the ValueType=%d array with %d values", path, track.ValueType, valueType, length)
+		}
+	}
+	if _, err := collectionCountInt32(path+".IndexArray count", len(track.IndexArray)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateEventParameterForDump(path string, parameter EventParameter, depth int) error {
+	if depth >= maxEventParameterDepth {
+		return fmt.Errorf("%s nesting exceeds %d", path, maxEventParameterDepth)
+	}
+	if parameter.ValueType == 12 {
+		if _, err := collectionCountInt32(path+" array count", len(parameter.Array)); err != nil {
+			return err
+		}
+		for index := range parameter.Array {
+			if err := validateEventParameterForDump(fmt.Sprintf("%s.Array[%d]", path, index), parameter.Array[index], depth+1); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if len(parameter.Array) != 0 {
+		return fmt.Errorf("%s ValueType=%d would discard %d array elements", path, parameter.ValueType, len(parameter.Array))
+	}
+	switch parameter.ValueType {
+	case 4:
+		if parameter.ValVect2 == nil {
+			return fmt.Errorf("%s Vector2 value is nil", path)
+		}
+	case 5:
+		if parameter.ValVect3 == nil {
+			return fmt.Errorf("%s Vector3 value is nil", path)
+		}
+	case 6:
+		if parameter.ValVect4 == nil {
+			return fmt.Errorf("%s Vector4 value is nil", path)
+		}
+	case 7:
+		if parameter.ValColor == nil {
+			return fmt.Errorf("%s Color value is nil", path)
+		}
+	case 8:
+		if parameter.ValRect == nil {
+			return fmt.Errorf("%s Rect value is nil", path)
+		}
+	}
+	return nil
+}
+
 // ============================================================================
 // JSON 反序列化（多态轨道）
 // ============================================================================
@@ -921,11 +1161,9 @@ type trackTypeProbe struct {
 
 // MarshalJSON 序列化 TimelineData 时为每个轨道附加 TypeName 字段
 func (d *TimelineData) MarshalJSON() ([]byte, error) {
-	type trackOut struct {
-		TypeName string      `json:"TypeName"`
-		Track    interface{} `json:"-"`
+	if d == nil {
+		return []byte("null"), nil
 	}
-
 	out := struct {
 		TotalFrame int32             `json:"TotalFrame"`
 		FrameRate  int32             `json:"FrameRate"`
@@ -935,7 +1173,11 @@ func (d *TimelineData) MarshalJSON() ([]byte, error) {
 		FrameRate:  d.FrameRate,
 	}
 
-	for _, track := range d.Tracks {
+	for index, track := range d.Tracks {
+		typeName, err := timelineTrackTypeName(track)
+		if err != nil {
+			return nil, fmt.Errorf("marshal track[%d]: %w", index, err)
+		}
 		raw, err := json.Marshal(track)
 		if err != nil {
 			return nil, err
@@ -945,7 +1187,13 @@ func (d *TimelineData) MarshalJSON() ([]byte, error) {
 		if err := json.Unmarshal(raw, &obj); err != nil {
 			return nil, err
 		}
-		typeNameRaw, _ := json.Marshal(track.GetTypeName())
+		if obj == nil {
+			return nil, fmt.Errorf("marshal track[%d]: track encoded as null", index)
+		}
+		typeNameRaw, err := json.Marshal(typeName)
+		if err != nil {
+			return nil, err
+		}
 		obj["TypeName"] = typeNameRaw
 
 		merged, err := json.Marshal(obj)
@@ -954,8 +1202,34 @@ func (d *TimelineData) MarshalJSON() ([]byte, error) {
 		}
 		out.Tracks = append(out.Tracks, merged)
 	}
-	_ = trackOut{}
 	return json.Marshal(out)
+}
+
+func timelineTrackTypeName(track TimelineTrack) (string, error) {
+	switch value := track.(type) {
+	case *TranslationTrack:
+		if value == nil {
+			return "", fmt.Errorf("nil TranslationTrack")
+		}
+		return TrackTranslation, nil
+	case *RotationTrack:
+		if value == nil {
+			return "", fmt.Errorf("nil RotationTrack")
+		}
+		return TrackRotation, nil
+	case *PropertyTrack:
+		if value == nil {
+			return "", fmt.Errorf("nil PropertyTrack")
+		}
+		return TrackProperty, nil
+	case *EventTrack:
+		if value == nil {
+			return "", fmt.Errorf("nil EventTrack")
+		}
+		return TrackEvent, nil
+	default:
+		return "", fmt.Errorf("unsupported track type %T", track)
+	}
 }
 
 // UnmarshalJSON 反序列化 TimelineData，根据 TypeName 字段创建对应的轨道实现
