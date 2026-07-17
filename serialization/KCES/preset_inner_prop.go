@@ -209,9 +209,15 @@ func readKCESPresetPropBase(r *kcesPresetInnerReader, path string, version int32
 	if value.ShareInfinityColorData, err = r.br.ReadBool(); err != nil {
 		return value, fmt.Errorf("read %s.shareInfinityColorData: %w", path, err)
 	}
-	value.EditBaseData, err = r.readBlob(path + ".editBaseData")
+	editBaseData, err := r.readBlob(path + ".editBaseData")
 	if err != nil {
 		return value, err
+	}
+	if len(editBaseData) != 0 {
+		value.EditBaseData, err = DecodeKCESPresetEditBaseData(editBaseData)
+		if err != nil {
+			return value, fmt.Errorf("decode %s.editBaseData: %w", path, err)
+		}
 	}
 	if value.SavedCutoutMaskRID, err = r.br.ReadUInt64(); err != nil {
 		return value, fmt.Errorf("read %s.savedCutoutMaskRid: %w", path, err)
@@ -737,8 +743,15 @@ func readKCESPresetSubProperty(r *kcesPresetInnerReader, path string, version in
 	if value.DefaultHokuroTattooSlotID, err = r.readString(path + ".defaultHokuroTattooSlotId"); err != nil {
 		return value, err
 	}
-	if value.EditUnitData, err = r.readBlob(path + ".editUnitData"); err != nil {
+	editUnitData, err := r.readBlob(path + ".editUnitData")
+	if err != nil {
 		return value, err
+	}
+	if len(editUnitData) != 0 {
+		value.EditUnitData, err = DecodeKCESPresetEditUnitData(editUnitData)
+		if err != nil {
+			return value, fmt.Errorf("decode %s.editUnitData: %w", path, err)
+		}
 	}
 	if version >= 2001 {
 		if value.SavedDefaultHokuroTattooRID, err = r.br.ReadUInt64(); err != nil {
@@ -910,7 +923,11 @@ func writeKCESPresetPropBase(bw *stream.BinaryWriter, value *KCESPresetPropBase,
 	if err := validateKCESPresetInnerNullableString(value.FileName, path+".fileName"); err != nil {
 		return err
 	}
-	if err := validateKCESPresetInnerBlob(value.EditBaseData, path+".editBaseData"); err != nil {
+	editBaseData, err := encodeKCESPresetEditBaseDataBlock(value.EditBaseData)
+	if err != nil {
+		return fmt.Errorf("encode %s.editBaseData: %w", path, err)
+	}
+	if err := validateKCESPresetInnerBlob(editBaseData, path+".editBaseData"); err != nil {
 		return err
 	}
 	if err := bw.WriteInt32(value.Index); err != nil {
@@ -939,7 +956,7 @@ func writeKCESPresetPropBase(bw *stream.BinaryWriter, value *KCESPresetPropBase,
 	if err := bw.WriteBool(value.ShareInfinityColorData); err != nil {
 		return err
 	}
-	if err := writeKCESPresetInnerBlob(bw, value.EditBaseData); err != nil {
+	if err := writeKCESPresetInnerBlob(bw, editBaseData); err != nil {
 		return err
 	}
 	if err := bw.WriteUInt64(value.SavedCutoutMaskRID); err != nil {
@@ -1405,7 +1422,11 @@ func writeKCESPresetSubProperty(bw *stream.BinaryWriter, value *KCESPresetSubPro
 	if err := validateKCESPresetInnerString(value.DefaultHokuroTattooSlotID, path+".defaultHokuroTattooSlotId"); err != nil {
 		return err
 	}
-	if err := validateKCESPresetInnerBlob(value.EditUnitData, path+".editUnitData"); err != nil {
+	editUnitData, err := encodeKCESPresetEditUnitDataBlock(value.EditUnitData)
+	if err != nil {
+		return fmt.Errorf("encode %s.editUnitData: %w", path, err)
+	}
+	if err := validateKCESPresetInnerBlob(editUnitData, path+".editUnitData"); err != nil {
 		return err
 	}
 	if err := bw.WriteInt32(value.Number); err != nil {
@@ -1414,7 +1435,7 @@ func writeKCESPresetSubProperty(bw *stream.BinaryWriter, value *KCESPresetSubPro
 	if err := bw.WriteString(value.DefaultHokuroTattooSlotID); err != nil {
 		return err
 	}
-	if err := writeKCESPresetInnerBlob(bw, value.EditUnitData); err != nil {
+	if err := writeKCESPresetInnerBlob(bw, editUnitData); err != nil {
 		return err
 	}
 	if version >= 2001 {
@@ -1423,4 +1444,18 @@ func writeKCESPresetSubProperty(bw *stream.BinaryWriter, value *KCESPresetSubPro
 		}
 	}
 	return writeKCESPresetPropBase(bw, &value.Base, path+".base", version, mpnName, depth)
+}
+
+func encodeKCESPresetEditBaseDataBlock(value *KCESPresetEditBaseData) ([]byte, error) {
+	if value == nil {
+		return nil, nil
+	}
+	return EncodeKCESPresetEditBaseData(value)
+}
+
+func encodeKCESPresetEditUnitDataBlock(value *KCESPresetEditUnitData) ([]byte, error) {
+	if value == nil {
+		return nil, nil
+	}
+	return EncodeKCESPresetEditUnitData(value)
 }

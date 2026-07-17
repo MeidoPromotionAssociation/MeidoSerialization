@@ -1,6 +1,9 @@
 package COM3D2
 
-import "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
+import (
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+)
 
 // ColModel 用于让 wails 识别 col 对应结构体
 type ColModel struct{}
@@ -67,5 +70,5 @@ func (s *NeiModel) Dummy(COM3D2.Nei) {}
 type PresetModel struct{}
 
 // Dummy 用于让 wails 识别 preset 对应结构体，需要在签名中使用所有结构体
-func (s *PresetModel) Dummy(COM3D2.Preset, COM3D2.PresetMetadata, COM3D2.PresetProperty, COM3D2.PresetPropertyList, COM3D2.BoneAttachPosEntry, COM3D2.VtxAttachPosEntry, COM3D2.MatPropSaveEntry, COM3D2.BoneLengthEntry, COM3D2.SubProp, COM3D2.BoneAttachPos, COM3D2.VtxAttachPos, COM3D2.MatPropSave, COM3D2.MultiColor, COM3D2.PartsColor, COM3D2.BodyProperty) {
+func (s *PresetModel) Dummy(COM3D2.Preset, COM3D2.PresetMetadata, COM3D2.PresetProperty, COM3D2.PresetPropertyList, COM3D2.BoneAttachPosEntry, COM3D2.VtxAttachPosEntry, COM3D2.MatPropSaveEntry, COM3D2.BoneLengthEntry, COM3D2.SubProp, COM3D2.BoneAttachPos, COM3D2.VtxAttachPos, COM3D2.MatPropSave, COM3D2.MultiColor, COM3D2.PartsColor, COM3D2.BodyProperty, serializationKCES.ExpandedKCESPreset, serializationKCES.ExpandedKCESPresetCore, serializationKCES.KCESPresetPropertyList, serializationKCES.KCESPresetColorData, serializationKCES.KCESPresetBodyData, serializationKCES.KCESPresetEditBaseData, serializationKCES.KCESPresetEditUnitData, serializationKCES.KCESPresetEditColorPreset, serializationKCES.ColorPreset) {
 }

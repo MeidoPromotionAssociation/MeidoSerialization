@@ -90,7 +90,7 @@ type KCESPresetPropBase struct {
 	SavedTextureDataDefines  uint64                        `json:"savedTextureDataDefines"`
 	SavedTextureData         []KCESPresetNamedSavedTexture `json:"savedTextureData"`
 	ShareInfinityColorData   bool                          `json:"shareInfinityColorData"`
-	EditBaseData             []byte                        `json:"editBaseData"`
+	EditBaseData             *KCESPresetEditBaseData       `json:"editBaseData"`
 	SavedCutoutMaskRID       uint64                        `json:"savedCutoutMaskRid"`
 	SavedCutoutMask          *KCESPresetCutoutMask         `json:"savedCutoutMask"`
 	SavedPartHideRID         uint64                        `json:"savedPartHideRid"`
@@ -204,11 +204,11 @@ type KCESPresetSavedHairLength struct {
 }
 
 type KCESPresetSubProperty struct {
-	Number                      int32              `json:"number"`
-	DefaultHokuroTattooSlotID   string             `json:"defaultHokuroTattooSlotId"`
-	EditUnitData                []byte             `json:"editUnitData"`
-	SavedDefaultHokuroTattooRID uint64             `json:"savedDefaultHokuroTattooRid"`
-	Base                        KCESPresetPropBase `json:"base"`
+	Number                      int32                   `json:"number"`
+	DefaultHokuroTattooSlotID   string                  `json:"defaultHokuroTattooSlotId"`
+	EditUnitData                *KCESPresetEditUnitData `json:"editUnitData"`
+	SavedDefaultHokuroTattooRID uint64                  `json:"savedDefaultHokuroTattooRid"`
+	Base                        KCESPresetPropBase      `json:"base"`
 }
 
 // KCESPresetColorData is MaidInfinityColor.Serialize's preset block. Current
@@ -310,9 +310,6 @@ func (r *kcesPresetInnerReader) readBlob(path string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read %s data: %w", path, err)
 	}
-	// editBaseData/editUnitData are independently versioned MessagePack
-	// payloads. Keep them opaque here so this binary serializer does not reject
-	// newer typed schemas or perform the game's migration work implicitly.
 	return data, nil
 }
 

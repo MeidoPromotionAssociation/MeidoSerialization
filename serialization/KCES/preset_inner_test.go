@@ -15,9 +15,8 @@ func presetInnerString(value string) *string { return &value }
 
 func minimalKCESPresetPropBase() KCESPresetPropBase {
 	return KCESPresetPropBase{
-		Type:         "None",
-		SubType:      "None",
-		EditBaseData: []byte{},
+		Type:    "None",
+		SubType: "None",
 	}
 }
 
@@ -93,9 +92,19 @@ func fullKCESPresetPropertyList() *KCESPresetPropertyList {
 		},
 	}}
 	base.ShareInfinityColorData = true
-	// Deliberately not valid MessagePack. This layer must preserve the nested,
-	// independently-versioned payload rather than trying to migrate it.
-	base.EditBaseData = []byte{0xc1, 0xff, 0x00}
+	embeddedColorPreset, err := NewColorPreset("12345678-1234-1234-1234-123456789abc")
+	if err != nil {
+		panic(err)
+	}
+	embeddedColorPresetID := "embedded-color"
+	base.EditBaseData = &KCESPresetEditBaseData{
+		Version: -22,
+		ColorPreset: &KCESPresetEditColorPreset{
+			ID:               &embeddedColorPresetID,
+			SerializedPreset: embeddedColorPreset,
+		},
+		Flags: map[string]string{"future-flag": "kept"},
+	}
 	base.SavedCutoutMaskRID = 6
 	base.SavedCutoutMask = &KCESPresetCutoutMask{MaxLevel: 7, NowLevel: 8, Enabled: true}
 	base.SavedPartHideRID = 9
@@ -131,9 +140,14 @@ func fullKCESPresetPropertyList() *KCESPresetPropertyList {
 	base.SavedHairLengthRID = 16
 	base.SavedHairLengths = []KCESPresetSavedHairLength{{PartName: &hairPart, Value: 0.5}}
 	base.SubProperties = []*KCESPresetSubProperty{nil, {
-		Number:                      17,
-		DefaultHokuroTattooSlotID:   "none",
-		EditUnitData:                []byte{0xc1},
+		Number:                    17,
+		DefaultHokuroTattooSlotID: "none",
+		EditUnitData: &KCESPresetEditUnitData{
+			Version:      -33,
+			PositionX:    1.25,
+			PositionY:    -2.5,
+			WarpointName: presetInnerString("future-warpoint"),
+		},
 		SavedDefaultHokuroTattooRID: math.MaxUint64,
 		Base:                        minimalKCESPresetPropBase(),
 	}}
@@ -203,7 +217,7 @@ func versionedKCESPresetPropertyList(propertyVersion int32) *KCESPresetPropertyL
 	base.SubProperties = []*KCESPresetSubProperty{{
 		Number:                    1,
 		DefaultHokuroTattooSlotID: "none",
-		EditUnitData:              []byte{},
+		EditUnitData:              nil,
 		SavedDefaultHokuroTattooRID: func() uint64 {
 			if propertyVersion >= 2001 {
 				return 99

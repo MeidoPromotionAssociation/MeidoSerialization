@@ -2,10 +2,12 @@ package COM3D2
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
 
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
 )
 
@@ -526,6 +528,35 @@ func TestPresetPropertyListBeforeVersion4RejectsUnstoredKey(t *testing.T) {
 }
 
 func TestPresetPropertyListExtensionsRoundTrip(t *testing.T) {
+	partsColorOther := &MultiColor{
+		Signature: MultiColorSignature,
+		Version:   1201,
+		PartCount: 37,
+		PartNames: []string{"EYE_L"},
+		PartsColors: []PartsColor{{
+			IsUse: true, MainHue: 10, MainChroma: 20, MainBrightness: 30, MainContrast: 40,
+			ShadowRate: 50, ShadowHue: 60, ShadowChroma: 70, ShadowBrightness: 80, ShadowContrast: 90,
+		}},
+	}
+	partsColorOtherWire, err := EncodeMultiColorBlock(partsColorOther)
+	if err != nil {
+		t.Fatalf("EncodeMultiColorBlock: %v", err)
+	}
+	crcOpaque, err := serializationKCES.NewKCESPreset()
+	if err != nil {
+		t.Fatalf("NewKCESPreset: %v", err)
+	}
+	crcOpaque.ContainerVersion = 812
+	crcOpaque.MaidData.Version = 813
+	crcPreset, err := serializationKCES.ExpandKCESPreset(crcOpaque)
+	if err != nil {
+		t.Fatalf("ExpandKCESPreset: %v", err)
+	}
+	crcPresetWire, err := serializationKCES.EncodeExpandedKCESPreset(crcPreset)
+	if err != nil {
+		t.Fatalf("EncodeExpandedKCESPreset: %v", err)
+	}
+
 	var original bytes.Buffer
 	w := stream.NewBinaryWriter(&original)
 	testWrite(t, w.WriteString(PresetPropertyListSignature))
@@ -536,10 +567,10 @@ func TestPresetPropertyListExtensionsRoundTrip(t *testing.T) {
 	testWrite(t, w.WriteInt32(1))
 	testWrite(t, w.WriteString("other"))
 	writeMinimalPresetProperty(t, w, PresetPropertySignature, 30000, "other", false)
-	testWrite(t, w.WriteInt32(3))
-	testWrite(t, w.WriteBytes([]byte{0x10, 0x20, 0x30}))
-	testWrite(t, w.WriteInt32(2))
-	testWrite(t, w.WriteBytes([]byte{0xaa, 0xbb}))
+	testWrite(t, w.WriteInt32(int32(len(partsColorOtherWire))))
+	testWrite(t, w.WriteBytes(partsColorOtherWire))
+	testWrite(t, w.WriteInt32(int32(len(crcPresetWire))))
+	testWrite(t, w.WriteBytes(crcPresetWire))
 
 	ppl, err := readPresetPropertyList(stream.NewBinaryReader(bytes.NewReader(original.Bytes())))
 	if err != nil {
@@ -548,19 +579,76 @@ func TestPresetPropertyListExtensionsRoundTrip(t *testing.T) {
 	if len(ppl.MaidPropOther) != 1 || ppl.MaidPropOther[0].Key != "other" || ppl.MaidPropOther[0].Property.Name != "other" {
 		t.Fatalf("MaidPropOther = %#v", ppl.MaidPropOther)
 	}
-	if !bytes.Equal(ppl.PartsColorOtherBin, []byte{0x10, 0x20, 0x30}) {
-		t.Fatalf("PartsColorOtherBin = %x", ppl.PartsColorOtherBin)
+	if ppl.PartsColorOther == nil || ppl.PartsColorOther.Version != 1201 || len(ppl.PartsColorOther.PartNames) != 1 || ppl.PartsColorOther.PartNames[0] != "EYE_L" || ppl.PartsColorOther.PartsColors[0].ShadowContrast != 90 {
+		t.Fatalf("PartsColorOther = %+v", ppl.PartsColorOther)
 	}
-	if !bytes.Equal(ppl.CRCPresetBin, []byte{0xaa, 0xbb}) {
-		t.Fatalf("CRCPresetBin = %x", ppl.CRCPresetBin)
+	if ppl.CRCPreset == nil || ppl.CRCPreset.ContainerVersion != 812 || ppl.CRCPreset.MaidData == nil || ppl.CRCPreset.MaidData.Version != 813 || ppl.CRCPreset.MaidData.PropData == nil {
+		t.Fatalf("CRCPreset = %+v", ppl.CRCPreset)
+	}
+	jsonData, err := json.Marshal(ppl)
+	if err != nil {
+		t.Fatalf("marshal typed preset extensions: %v", err)
+	}
+	if bytes.Contains(jsonData, []byte("PartsColorOtherBin")) || bytes.Contains(jsonData, []byte("CRCPresetBin")) || bytes.Contains(jsonData, []byte(`"propData":"`)) {
+		t.Fatalf("preset extension JSON still exposes known binary blocks: %s", jsonData)
+	}
+	for _, field := range []string{`"PartsColorOther":{`, `"CRCPreset":{`, `"propData":{`} {
+		if !bytes.Contains(jsonData, []byte(field)) {
+			t.Fatalf("typed preset extension JSON lacks %s: %s", field, jsonData)
+		}
 	}
 
 	var encoded bytes.Buffer
 	if err := dumpPresetPropertyList(stream.NewBinaryWriter(&encoded), ppl); err != nil {
 		t.Fatalf("dumpPresetPropertyList: %v", err)
 	}
-	if !bytes.Equal(encoded.Bytes(), original.Bytes()) {
-		t.Fatal("MPROP_LIST extension wire changed after round-trip")
+	redecoded, err := readPresetPropertyList(stream.NewBinaryReader(bytes.NewReader(encoded.Bytes())))
+	if err != nil {
+		t.Fatalf("re-read typed MPROP_LIST extensions: %v", err)
+	}
+	if redecoded.PartsColorOther == nil || redecoded.PartsColorOther.Version != 1201 || len(redecoded.PartsColorOther.PartNames) != 1 || redecoded.PartsColorOther.PartNames[0] != "EYE_L" || redecoded.PartsColorOther.PartsColors[0].ShadowContrast != 90 {
+		t.Fatalf("redecoded PartsColorOther = %+v", redecoded.PartsColorOther)
+	}
+	if redecoded.CRCPreset == nil || redecoded.CRCPreset.ContainerVersion != 812 || redecoded.CRCPreset.MaidData == nil || redecoded.CRCPreset.MaidData.Version != 813 || redecoded.CRCPreset.MaidData.PropData == nil || redecoded.CRCPreset.MaidData.ColorData == nil || redecoded.CRCPreset.MaidData.BodyData == nil {
+		t.Fatalf("redecoded CRCPreset = %+v", redecoded.CRCPreset)
+	}
+}
+
+func TestPresetPropertyListRejectsMalformedExtensionPayloads(t *testing.T) {
+	validColor, err := EncodeMultiColorBlock(&MultiColor{
+		Signature: MultiColorSignature,
+		Version:   1201,
+		PartCount: 0,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name        string
+		colorData   []byte
+		crcData     []byte
+		wantInError string
+	}{
+		{name: "parts color", colorData: []byte{1, 2, 3}, wantInError: "PartsColorOtherBin"},
+		{name: "CRC preset", colorData: validColor, crcData: []byte{0xff, 0x00}, wantInError: "CRCPresetBin"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var wire bytes.Buffer
+			w := stream.NewBinaryWriter(&wire)
+			testWrite(t, w.WriteString(PresetPropertyListSignature))
+			testWrite(t, w.WriteInt32(2002))
+			testWrite(t, w.WriteInt32(0))
+			testWrite(t, w.WriteInt32(0))
+			testWrite(t, w.WriteInt32(int32(len(test.colorData))))
+			testWrite(t, w.WriteBytes(test.colorData))
+			testWrite(t, w.WriteInt32(int32(len(test.crcData))))
+			testWrite(t, w.WriteBytes(test.crcData))
+			_, err := readPresetPropertyList(stream.NewBinaryReader(bytes.NewReader(wire.Bytes())))
+			if err == nil || !strings.Contains(err.Error(), test.wantInError) {
+				t.Fatalf("readPresetPropertyList error = %v, want %q", err, test.wantInError)
+			}
+		})
 	}
 }
 

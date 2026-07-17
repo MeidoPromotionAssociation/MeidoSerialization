@@ -1,10 +1,12 @@
 package COM3D2
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 
+	kces "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
 )
@@ -82,14 +84,14 @@ type PresetMetadata struct {
 
 // PresetPropertyList 表示预设属性列表
 type PresetPropertyList struct {
-	Signature          string                    `json:"Signature"`               // "CM3D2_MPROP_LIST"
-	Version            int32                     `json:"Version"`                 // 版本号
-	PropertyCount      int32                     `json:"PropertyCount"`           // 属性数量
-	PresetProperties   map[string]PresetProperty `json:"PresetProperties"`        // 属性映射表
-	PropertyOrder      []string                  `json:"PropertyOrder,omitempty"` // 保留 wire 中主属性的顺序
-	MaidPropOther      []NamedPresetProperty     `json:"MaidPropOther"`           // COM3D2.5 扩展属性
-	PartsColorOtherBin []byte                    `json:"PartsColorOtherBin"`      // COM3D2.5 扩展颜色块（原始字节）
-	CRCPresetBin       []byte                    `json:"CRCPresetBin"`            // COM3D2.5 CRC 预设块（原始字节）
+	Signature        string                    `json:"Signature"`                 // "CM3D2_MPROP_LIST"
+	Version          int32                     `json:"Version"`                   // 版本号
+	PropertyCount    int32                     `json:"PropertyCount"`             // 属性数量
+	PresetProperties map[string]PresetProperty `json:"PresetProperties"`          // 属性映射表
+	PropertyOrder    []string                  `json:"PropertyOrder,omitempty"`   // 保留 wire 中主属性的顺序
+	MaidPropOther    []NamedPresetProperty     `json:"MaidPropOther"`             // COM3D2.5 扩展属性
+	PartsColorOther  *MultiColor               `json:"PartsColorOther,omitempty"` // COM3D2.5 另一身体体系的 CM3D2_MULTI_COL
+	CRCPreset        *kces.ExpandedKCESPreset  `json:"CRCPreset,omitempty"`       // KCES VirtualDirectory preset
 }
 
 // NamedPresetProperty 保留 MPROP_LIST 中属性前置键及其顺序。
@@ -518,13 +520,25 @@ func readPresetPropertyList(reader *stream.BinaryReader) (*PresetPropertyList, e
 			}
 			ppl.MaidPropOther = append(ppl.MaidPropOther, NamedPresetProperty{Key: key, Property: *prop})
 		}
-		ppl.PartsColorOtherBin, err = readPresetByteBlock(reader, "PartsColorOtherBin")
+		partsColorOtherData, err := readPresetByteBlock(reader, "PartsColorOtherBin")
 		if err != nil {
 			return nil, err
 		}
-		ppl.CRCPresetBin, err = readPresetByteBlock(reader, "CRCPresetBin")
+		if len(partsColorOtherData) != 0 {
+			ppl.PartsColorOther, err = DecodeMultiColorBlock(partsColorOtherData)
+			if err != nil {
+				return nil, fmt.Errorf("decode PartsColorOtherBin: %w", err)
+			}
+		}
+		crcPresetData, err := readPresetByteBlock(reader, "CRCPresetBin")
 		if err != nil {
 			return nil, err
+		}
+		if len(crcPresetData) != 0 {
+			ppl.CRCPreset, err = kces.DecodeExpandedKCESPreset(crcPresetData)
+			if err != nil {
+				return nil, fmt.Errorf("decode CRCPresetBin: %w", err)
+			}
 		}
 	}
 
@@ -962,6 +976,30 @@ func readMultiColor(reader *stream.BinaryReader) (*MultiColor, error) {
 	return mc, nil
 }
 
+// DecodeMultiColorBlock decodes one complete CM3D2_MULTI_COL byte block. It
+// is used both by top-level presets and by COM3D2.5's PartsColorOther field.
+func DecodeMultiColorBlock(data []byte) (*MultiColor, error) {
+	r := bytes.NewReader(data)
+	value, err := readMultiColor(stream.NewBinaryReader(r))
+	if err != nil {
+		return nil, err
+	}
+	if r.Len() != 0 {
+		return nil, fmt.Errorf("MultiColor block has %d trailing bytes", r.Len())
+	}
+	return value, nil
+}
+
+// EncodeMultiColorBlock writes one complete CM3D2_MULTI_COL byte block while
+// retaining the version and old/new layout stored in value.
+func EncodeMultiColorBlock(value *MultiColor) ([]byte, error) {
+	var out bytes.Buffer
+	if err := dumpMultiColor(stream.NewBinaryWriter(&out), value); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
+}
+
 func readPartsColor(reader *stream.BinaryReader, pc *PartsColor) (int, error) {
 	var err error
 	if pc.IsUse, err = reader.ReadBool(); err != nil {
@@ -1173,16 +1211,35 @@ func validatePresetPropertyListForDump(ppl *PresetPropertyList) ([]string, error
 				return nil, fmt.Errorf("MaidPropOther[%d]: %w", i, err)
 			}
 		}
-		if _, err := collectionCountInt32("PartsColorOtherBin length", len(ppl.PartsColorOtherBin)); err != nil {
+		if _, _, err := encodePresetPropertyListExtensionBlocks(ppl); err != nil {
 			return nil, err
 		}
-		if _, err := collectionCountInt32("CRCPresetBin length", len(ppl.CRCPresetBin)); err != nil {
-			return nil, err
-		}
-	} else if len(ppl.MaidPropOther) != 0 || len(ppl.PartsColorOtherBin) != 0 || len(ppl.CRCPresetBin) != 0 {
+	} else if len(ppl.MaidPropOther) != 0 || ppl.PartsColorOther != nil || ppl.CRCPreset != nil {
 		return nil, fmt.Errorf("PresetPropertyList version %d cannot encode COM3D2.5 extension data", ppl.Version)
 	}
 	return keys, nil
+}
+
+func encodePresetPropertyListExtensionBlocks(ppl *PresetPropertyList) (partsColorOtherData, crcPresetData []byte, err error) {
+	if ppl.PartsColorOther != nil {
+		partsColorOtherData, err = EncodeMultiColorBlock(ppl.PartsColorOther)
+		if err != nil {
+			return nil, nil, fmt.Errorf("encode PartsColorOther: %w", err)
+		}
+	}
+	if _, err := collectionCountInt32("PartsColorOtherBin length", len(partsColorOtherData)); err != nil {
+		return nil, nil, err
+	}
+	if ppl.CRCPreset != nil {
+		crcPresetData, err = kces.EncodeExpandedKCESPreset(ppl.CRCPreset)
+		if err != nil {
+			return nil, nil, fmt.Errorf("encode CRCPreset: %w", err)
+		}
+	}
+	if _, err := collectionCountInt32("CRCPresetBin length", len(crcPresetData)); err != nil {
+		return nil, nil, err
+	}
+	return partsColorOtherData, crcPresetData, nil
 }
 
 func validatePresetForDump(p *Preset) error {
@@ -1335,6 +1392,10 @@ func dumpPresetPropertyList(writer *stream.BinaryWriter, ppl *PresetPropertyList
 	}
 
 	if presetPropertyListHasExtensions(ppl.Version) {
+		partsColorOtherData, crcPresetData, err := encodePresetPropertyListExtensionBlocks(ppl)
+		if err != nil {
+			return err
+		}
 		if err := writer.WriteInt32(int32(len(ppl.MaidPropOther))); err != nil {
 			return fmt.Errorf("write MaidPropOther count failed: %w", err)
 		}
@@ -1347,10 +1408,10 @@ func dumpPresetPropertyList(writer *stream.BinaryWriter, ppl *PresetPropertyList
 				return fmt.Errorf("write MaidPropOther[%d] failed: %w", i, err)
 			}
 		}
-		if err := writePresetByteBlock(writer, "PartsColorOtherBin", ppl.PartsColorOtherBin); err != nil {
+		if err := writePresetByteBlock(writer, "PartsColorOtherBin", partsColorOtherData); err != nil {
 			return err
 		}
-		if err := writePresetByteBlock(writer, "CRCPresetBin", ppl.CRCPresetBin); err != nil {
+		if err := writePresetByteBlock(writer, "CRCPresetBin", crcPresetData); err != nil {
 			return err
 		}
 	}
