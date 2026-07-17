@@ -67,6 +67,22 @@ func TestEndianReaderAlignedString(t *testing.T) {
 	}
 }
 
+func TestEndianReaderAlignedStringRejectsInvalidLengthAndPadding(t *testing.T) {
+	t.Run("negative length", func(t *testing.T) {
+		r := NewEndianReader([]byte{0xff, 0xff, 0xff, 0xff}, binary.LittleEndian)
+		if _, err := r.ReadAlignedString(); err == nil {
+			t.Fatal("negative aligned string length unexpectedly accepted")
+		}
+	})
+
+	t.Run("truncated padding", func(t *testing.T) {
+		r := NewEndianReader([]byte{1, 0, 0, 0, 'x'}, binary.LittleEndian)
+		if _, err := r.ReadAlignedString(); !errors.Is(err, io.ErrUnexpectedEOF) {
+			t.Fatalf("ReadAlignedString error = %v, want io.ErrUnexpectedEOF", err)
+		}
+	})
+}
+
 func TestReadNullString(t *testing.T) {
 	r := NewEndianReader([]byte("CAB\x00tail"), binary.LittleEndian)
 	s, err := r.ReadNullString()

@@ -154,9 +154,6 @@ func (r *EndianReader) ReadBytes(n int) ([]byte, error) {
 	if n < 0 {
 		return nil, fmt.Errorf("negative byte count: %d", n)
 	}
-	if n > 512*1024*1024 {
-		return nil, fmt.Errorf("byte count too large: %d", n)
-	}
 	if err := r.require(n); err != nil {
 		return nil, err
 	}
@@ -190,9 +187,8 @@ func (r *EndianReader) ReadAlignedString() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if length <= 0 {
-		r.Align4()
-		return "", nil
+	if length < 0 {
+		return "", fmt.Errorf("negative aligned string length: %d", length)
 	}
 	n := int(length)
 	if err := r.require(n); err != nil {
@@ -200,7 +196,11 @@ func (r *EndianReader) ReadAlignedString() (string, error) {
 	}
 	s := string(r.data[r.pos : r.pos+n])
 	r.pos += n
-	r.Align4()
+	padding := (-r.pos) & 3
+	if err := r.require(padding); err != nil {
+		return "", err
+	}
+	r.pos += padding
 	return s, nil
 }
 

@@ -24,12 +24,22 @@ func ReadBytes(r io.Reader, n int) ([]byte, error) {
 	if n < 0 {
 		return nil, fmt.Errorf("negative byte count: %d", n)
 	}
-	if n > 512*1024*1024 {
-		return nil, fmt.Errorf("byte count too large: %d", n)
+	if n == 0 {
+		return []byte{}, nil
 	}
-	buf := make([]byte, n)
-	_, err := io.ReadFull(r, buf)
-	return buf, err
+
+	// Do not allocate n bytes up front. Lengths in game files are untrusted,
+	// and a truncated stream with a very large declared length must not cause
+	// a similarly large allocation before we can discover the truncation.
+	limited := &io.LimitedReader{R: r, N: int64(n)}
+	buf, err := io.ReadAll(limited)
+	if err != nil {
+		return buf, err
+	}
+	if limited.N != 0 {
+		return buf, io.ErrUnexpectedEOF
+	}
+	return buf, nil
 }
 
 // ReadBool 读取一个字节，返回 bool，如果字节非 0 则返回 true，否则返回 false
@@ -154,18 +164,10 @@ func ReadString(r io.Reader) (string, error) {
 		return "", nil
 	}
 
-	if stringLength > 10*1024*1024 {
-		return "", fmt.Errorf("string length too large: %d", stringLength)
-	}
-
-	// 对于 Go 来说，由于 string 本身就是 UTF-8，我们可以简化处理
-	// 直接读取所有字节并转换为字符串
-	buffer := make([]byte, stringLength)
-	_, err = io.ReadFull(r, buffer)
+	// 对于 Go 来说，由于 string 本身就是 UTF-8，我们可以简化处理。
+	// ReadBytes 渐进读取，避免不可信的大长度在截断输入上触发巨量预分配。
+	buffer, err := ReadBytes(r, int(stringLength))
 	if err != nil {
-		if err == io.EOF {
-			return "", errors.New("unexpected end of stream while reading string")
-		}
 		return "", err
 	}
 
@@ -271,6 +273,9 @@ func PeekString(r io.Reader) (string, error) {
 
 		b := bSlice[prefixLen]
 		prefixLen++
+		if prefixLen == 5 && b&0xF8 != 0 {
+			return "", fmt.Errorf("peekString: invalid 7-bit Int32 length")
+		}
 
 		// 7-Bit 解码逻辑
 		stringLength |= (int(b) & 0x7F) << shift

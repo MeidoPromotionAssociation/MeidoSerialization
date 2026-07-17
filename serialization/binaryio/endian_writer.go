@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 )
@@ -132,10 +133,13 @@ func (w *EndianWriter) WriteFloat64(value float64) error {
 }
 
 // WriteAlignedString 写入 Unity 对齐字符串布局 / WriteAlignedString writes Unity's aligned string layout:
-// uint32 字节长度、原始字节，然后填充到 4 字节边界 / uint32 byte length, raw bytes, then padding to a 4-byte boundary.
+// int32 字节长度、原始字节，然后填充到 4 字节边界 / int32 byte length, raw bytes, then padding to a 4-byte boundary.
 func (w *EndianWriter) WriteAlignedString(value string) error {
 	data := []byte(value)
-	if err := w.WriteUInt32(uint32(len(data))); err != nil {
+	if uint64(len(data)) > uint64(math.MaxInt32) {
+		return fmt.Errorf("aligned string byte length %d exceeds Int32 wire range", len(data))
+	}
+	if err := w.WriteInt32(int32(len(data))); err != nil {
 		return err
 	}
 	if err := w.WriteBytes(data); err != nil {

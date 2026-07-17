@@ -3,6 +3,7 @@ package stream
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 )
@@ -26,15 +27,13 @@ func (bw *BinaryWriter) WriteBool(value bool) error {
 	} else {
 		bw.buffer[0] = 0
 	}
-	_, err := bw.W.Write(bw.buffer[:1])
-	return err
+	return bw.writeFull(bw.buffer[:1])
 }
 
 // WriteByte 写入单个字节
 func (bw *BinaryWriter) WriteByte(value byte) error {
 	bw.buffer[0] = value
-	_, err := bw.W.Write(bw.buffer[:1])
-	return err
+	return bw.writeFull(bw.buffer[:1])
 }
 
 // WriteSByte 写入有符号字节
@@ -45,65 +44,60 @@ func (bw *BinaryWriter) WriteSByte(value int8) error {
 // WriteInt16 写入 2 字节有符号整数 (little-endian)
 func (bw *BinaryWriter) WriteInt16(value int16) error {
 	binary.LittleEndian.PutUint16(bw.buffer[:2], uint16(value))
-	_, err := bw.W.Write(bw.buffer[:2])
-	return err
+	return bw.writeFull(bw.buffer[:2])
 }
 
 // WriteUInt16 写入 2 字节无符号整数 (little-endian)
 func (bw *BinaryWriter) WriteUInt16(value uint16) error {
 	binary.LittleEndian.PutUint16(bw.buffer[:2], value)
-	_, err := bw.W.Write(bw.buffer[:2])
-	return err
+	return bw.writeFull(bw.buffer[:2])
 }
 
 // WriteInt32 写入 4 字节有符号整数 (little-endian)
 func (bw *BinaryWriter) WriteInt32(value int32) error {
 	binary.LittleEndian.PutUint32(bw.buffer[:4], uint32(value))
-	_, err := bw.W.Write(bw.buffer[:4])
-	return err
+	return bw.writeFull(bw.buffer[:4])
 }
 
 // WriteUInt32 写入 4 字节无符号整数 (little-endian)
 func (bw *BinaryWriter) WriteUInt32(value uint32) error {
 	binary.LittleEndian.PutUint32(bw.buffer[:4], value)
-	_, err := bw.W.Write(bw.buffer[:4])
-	return err
+	return bw.writeFull(bw.buffer[:4])
 }
 
 // WriteInt64 写入 8 字节有符号整数 (little-endian)
 func (bw *BinaryWriter) WriteInt64(value int64) error {
 	binary.LittleEndian.PutUint64(bw.buffer[:8], uint64(value))
-	_, err := bw.W.Write(bw.buffer[:8])
-	return err
+	return bw.writeFull(bw.buffer[:8])
 }
 
 // WriteUInt64 写入 8 字节无符号整数 (little-endian)
 func (bw *BinaryWriter) WriteUInt64(value uint64) error {
 	binary.LittleEndian.PutUint64(bw.buffer[:8], value)
-	_, err := bw.W.Write(bw.buffer[:8])
-	return err
+	return bw.writeFull(bw.buffer[:8])
 }
 
 // WriteFloat32 写入 4 字节浮点数 (little-endian)
 func (bw *BinaryWriter) WriteFloat32(value float32) error {
 	bits := math.Float32bits(value)
 	binary.LittleEndian.PutUint32(bw.buffer[:4], bits)
-	_, err := bw.W.Write(bw.buffer[:4])
-	return err
+	return bw.writeFull(bw.buffer[:4])
 }
 
 // WriteFloat64 写入 8 字节浮点数 (little-endian)
 func (bw *BinaryWriter) WriteFloat64(value float64) error {
 	bits := math.Float64bits(value)
 	binary.LittleEndian.PutUint64(bw.buffer[:8], bits)
-	_, err := bw.W.Write(bw.buffer[:8])
-	return err
+	return bw.writeFull(bw.buffer[:8])
 }
 
 // WriteString 写入长度前缀的 UTF-8 字符串（与 C# BinaryWriter 兼容）
 func (bw *BinaryWriter) WriteString(value string) error {
 	// 计算 UTF-8 字节长度
 	length := len(value)
+	if uint64(length) > uint64(1<<31-1) {
+		return fmt.Errorf("string byte length %d exceeds Int32", length)
+	}
 
 	// 写入 7-bit 编码的长度
 	if err := bw.write7BitEncodedInt(length); err != nil {
@@ -112,8 +106,7 @@ func (bw *BinaryWriter) WriteString(value string) error {
 
 	// 写入字符串字节
 	if length > 0 {
-		_, err := bw.W.Write([]byte(value))
-		return err
+		return bw.writeFull([]byte(value))
 	}
 
 	return nil
@@ -133,8 +126,21 @@ func (bw *BinaryWriter) write7BitEncodedInt(value int) error {
 
 // WriteBytes 写入字节数组
 func (bw *BinaryWriter) WriteBytes(value []byte) error {
-	_, err := bw.W.Write(value)
-	return err
+	return bw.writeFull(value)
+}
+
+func (bw *BinaryWriter) writeFull(value []byte) error {
+	if bw == nil || bw.W == nil {
+		return errors.New("stream.BinaryWriter: nil writer")
+	}
+	n, err := bw.W.Write(value)
+	if err != nil {
+		return err
+	}
+	if n != len(value) {
+		return io.ErrShortWrite
+	}
+	return nil
 }
 
 // -------------------- Float2 / Float3 / Float4 / Float4x4 --------------------
@@ -143,8 +149,7 @@ func (bw *BinaryWriter) WriteBytes(value []byte) error {
 func (bw *BinaryWriter) WriteFloat2(arr [2]float32) error {
 	binary.LittleEndian.PutUint32(bw.buffer[0:4], math.Float32bits(arr[0]))
 	binary.LittleEndian.PutUint32(bw.buffer[4:8], math.Float32bits(arr[1]))
-	_, err := bw.W.Write(bw.buffer[:8])
-	return err
+	return bw.writeFull(bw.buffer[:8])
 }
 
 // WriteFloat3 写入 3 个连续的 float32 (Vector3)
@@ -152,8 +157,7 @@ func (bw *BinaryWriter) WriteFloat3(arr [3]float32) error {
 	binary.LittleEndian.PutUint32(bw.buffer[0:4], math.Float32bits(arr[0]))
 	binary.LittleEndian.PutUint32(bw.buffer[4:8], math.Float32bits(arr[1]))
 	binary.LittleEndian.PutUint32(bw.buffer[8:12], math.Float32bits(arr[2]))
-	_, err := bw.W.Write(bw.buffer[:12])
-	return err
+	return bw.writeFull(bw.buffer[:12])
 }
 
 // WriteFloat4 写入 4 个连续的 float32 (Vector4/Quaternion)
@@ -162,8 +166,7 @@ func (bw *BinaryWriter) WriteFloat4(arr [4]float32) error {
 	binary.LittleEndian.PutUint32(bw.buffer[4:8], math.Float32bits(arr[1]))
 	binary.LittleEndian.PutUint32(bw.buffer[8:12], math.Float32bits(arr[2]))
 	binary.LittleEndian.PutUint32(bw.buffer[12:16], math.Float32bits(arr[3]))
-	_, err := bw.W.Write(bw.buffer[:16])
-	return err
+	return bw.writeFull(bw.buffer[:16])
 }
 
 // WriteFloat4x4 写入 16 个连续的 float32 (4x4 Matrix)
@@ -171,8 +174,7 @@ func (bw *BinaryWriter) WriteFloat4x4(arr [16]float32) error {
 	for i := 0; i < 16; i++ {
 		binary.LittleEndian.PutUint32(bw.buffer[i*4:i*4+4], math.Float32bits(arr[i]))
 	}
-	_, err := bw.W.Write(bw.buffer[:64])
-	return err
+	return bw.writeFull(bw.buffer[:64])
 }
 
 // Flush 刷新底层写入器（如果支持）

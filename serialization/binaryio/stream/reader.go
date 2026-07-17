@@ -135,17 +135,16 @@ func (br *BinaryReader) ReadString() (string, error) {
 		return "", nil
 	}
 
-	if length > 10*1024*1024 {
-		return "", fmt.Errorf("string length too large: %d", length)
-	}
-
 	// 如果长度小于 64 字节，直接复用内部 buffer
 	var buf []byte
 	if length <= len(br.buffer) {
 		buf = br.buffer[:length]
 	} else {
-		// 超出 64 字节才分配堆内存
-		buf = make([]byte, length)
+		buf, err = br.ReadBytes(length)
+		if err != nil {
+			return "", err
+		}
+		return string(buf), nil
 	}
 	_, err = io.ReadFull(br.R, buf)
 	if err != nil {
@@ -158,28 +157,23 @@ func (br *BinaryReader) ReadString() (string, error) {
 
 // read7BitEncodedInt 读取 7-bit 编码的整数
 func (br *BinaryReader) read7BitEncodedInt() (int, error) {
-	count := 0
-	shift := 0
-
-	for {
-		if shift == 5*7 {
-			return 0, errors.New("format error: bad 7-bit int32")
-		}
-
+	var count uint32
+	for byteIndex := 0; byteIndex < 5; byteIndex++ {
 		b, err := br.ReadByte()
 		if err != nil {
 			return 0, err
 		}
-
-		count |= int(b&0x7F) << shift
-		shift += 7
-
+		// A .NET string length is a non-negative Int32. On the fifth
+		// byte only bits 0..2 may therefore be set.
+		if byteIndex == 4 && b&0xF8 != 0 {
+			return 0, errors.New("format error: bad 7-bit int32")
+		}
+		count |= uint32(b&0x7F) << (7 * byteIndex)
 		if (b & 0x80) == 0 {
-			break
+			return int(count), nil
 		}
 	}
-
-	return count, nil
+	return 0, errors.New("format error: bad 7-bit int32")
 }
 
 // ReadBytes 读取指定数量的字节
@@ -192,13 +186,15 @@ func (br *BinaryReader) ReadBytes(count int) ([]byte, error) {
 		return []byte{}, nil
 	}
 
-	if count > 512*1024*1024 {
-		return nil, fmt.Errorf("byte count too large: %d", count)
+	limited := &io.LimitedReader{R: br.R, N: int64(count)}
+	buf, err := io.ReadAll(limited)
+	if err != nil {
+		return buf, err
 	}
-
-	buf := make([]byte, count)
-	_, err := io.ReadFull(br.R, buf)
-	return buf, err
+	if limited.N != 0 {
+		return buf, io.ErrUnexpectedEOF
+	}
+	return buf, nil
 }
 
 // -------------------- Float2 / Float3 / Float4 / Float4x4 --------------------
@@ -304,6 +300,9 @@ func (br *BinaryReader) PeekString() (string, error) {
 
 		b := bSlice[prefixLen] // 获取刚刚 Peek 到的最后一个字节
 		prefixLen++
+		if prefixLen == 5 && b&0xF8 != 0 {
+			return "", errors.New("peekString: invalid 7-bit Int32 length")
+		}
 
 		// 7-Bit 解码
 		stringLength |= (int(b) & 0x7F) << shift

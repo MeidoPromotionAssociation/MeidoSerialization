@@ -6,34 +6,32 @@ import (
 )
 
 // Read7BitEncodedInt 读取 C# 格式的 7-bit encoded int
-// 完全匹配 .NET 4.8 的实现逻辑
+// 匹配 .NET 4.8 的实现逻辑
 func Read7BitEncodedInt(reader io.Reader) (int32, error) {
-	var count int32
-	var shift uint
-
-	for {
-		// 检查是否超过最大字节数（5 字节）
-		if shift == 5*7 { // 5 bytes max per Int32
-			return 0, errors.New("format exception: bad 7-bit encoded int32")
-		}
-
+	var count uint32
+	for byteIndex := 0; byteIndex < 5; byteIndex++ {
 		// 读取一个字节
 		b, err := ReadByte(reader)
 		if err != nil {
 			return 0, err
 		}
+		// An Int32 has only four meaningful bits in the fifth byte. This
+		// still accepts all values emitted by Write7BitEncodedInt, including
+		// negative ones, while rejecting encodings whose high bits would be
+		// silently discarded by an Int32 shift.
+		if byteIndex == 4 && b&0xF0 != 0 {
+			return 0, errors.New("format exception: bad 7-bit encoded int32")
+		}
 
 		// 将低 7 位加入结果
-		count |= int32(b&0x7F) << shift
-		shift += 7
+		count |= uint32(b&0x7F) << (7 * byteIndex)
 
 		// 如果最高位为 0，结束读取
 		if (b & 0x80) == 0 {
-			break
+			return int32(count), nil
 		}
 	}
-
-	return count, nil
+	return 0, errors.New("format exception: bad 7-bit encoded int32")
 }
 
 // Write7BitEncodedInt 写入 C# 格式的 7-bit encoded int
