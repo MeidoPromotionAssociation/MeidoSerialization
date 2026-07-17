@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
@@ -40,12 +41,16 @@ func NewSerializedFileWriter(unityVersion string) *SerializedFileWriter {
 	if unityVersion == "" {
 		unityVersion = "2021.3.37f1"
 	}
-	return &SerializedFileWriter{
+	w := &SerializedFileWriter{
 		UnityVersion:   unityVersion,
 		TargetPlatform: defaultPlatform,
 		nextPathId:     1,
 		usedPathIds:    map[int64]struct{}{},
 	}
+	if err := validateSerializedFileUnityVersion(unityVersion); err != nil {
+		w.setError(err)
+	}
+	return w
 }
 
 // AddTextAsset 添加一个 TextAsset 对象。
@@ -103,7 +108,7 @@ func (w *SerializedFileWriter) AddTexture2DWithLoadName(name string, loadName st
 
 // AddTexture2DWithLoadNameAndPathID 添加带独立 m_Name、加载 key 和首选 PathID 的 Texture2D / AddTexture2DWithLoadNameAndPathID adds a generated Texture2D with separate internal m_Name, AssetBundle load key, and preferred PathID
 func (w *SerializedFileWriter) AddTexture2DWithLoadNameAndPathID(name string, loadName string, width, height int, imageData []byte, pathID int64) int64 {
-	data, err := encodeTexture2DData(name, width, height, imageData)
+	data, err := encodeTexture2DData(w.UnityVersion, name, width, height, imageData)
 	if err != nil {
 		w.setError(fmt.Errorf("encode Texture2D %q: %w", name, err))
 		return 0
@@ -139,12 +144,9 @@ func (w *SerializedFileWriter) AddRawObjectWithLoadName(classId int32, name stri
 // AddRawObjectWithLoadNameAndPathID 添加带独立 m_Name、加载 key 和首选 PathID 的原始 Unity 对象 / AddRawObjectWithLoadNameAndPathID adds a raw serialized Unity object with separate internal m_Name, AssetBundle load key, and preferred PathID
 func (w *SerializedFileWriter) AddRawObjectWithLoadNameAndPathID(classId int32, name string, loadName string, data []byte, pathID int64) int64 {
 	if rawObjectHasLeadingName(classId) {
-		rewritten, err := rewriteLeadingAlignedName(data, name)
-		if err != nil {
-			w.setError(fmt.Errorf("rewrite raw object %q leading name: %w", name, err))
-			return 0
+		if rewritten, err := rewriteLeadingAlignedName(data, name); err == nil {
+			data = rewritten
 		}
-		data = rewritten
 	}
 	actualPathID := w.reserveOrAllocatePathID(pathID)
 	w.objects = append(w.objects, sfObject{
@@ -187,8 +189,21 @@ func (w *SerializedFileWriter) reserveOrAllocatePathID(pathID int64) int64 {
 		return w.allocatePathID()
 	}
 	w.usedPathIds[pathID] = struct{}{}
-	if pathID > 0 && pathID >= w.nextPathId {
+	if pathID > 0 && pathID >= w.nextPathId && pathID < math.MaxInt64 {
 		w.nextPathId = pathID + 1
+	}
+	return pathID
+}
+
+func (w *SerializedFileWriter) nextAvailablePathID() int64 {
+	w.ensurePathIDState()
+	pathID := w.nextPathId
+	for pathID == 0 || w.isPathIDUsed(pathID) {
+		if pathID == math.MaxInt64 {
+			pathID = math.MinInt64
+		} else {
+			pathID++
+		}
 	}
 	return pathID
 }
@@ -222,7 +237,8 @@ func rawObjectHasLeadingName(classId int32) bool {
 		ClassIDMonoScript,
 		ClassIDFont,
 		ClassIDSprite,
-		ClassIDSpriteAtlas:
+		ClassIDSpriteAtlas,
+		ClassIDAssetBundle:
 		return true
 	default:
 		return false
@@ -230,21 +246,9 @@ func rawObjectHasLeadingName(classId int32) bool {
 }
 
 func rewriteLeadingAlignedName(data []byte, name string) ([]byte, error) {
-	if name == "" || len(data) < 4 {
-		return data, nil
-	}
-	oldLen := int(binary.LittleEndian.Uint32(data[:4]))
-	if oldLen <= 0 || oldLen > 4096 {
-		return data, nil
-	}
-	oldEnd := binaryio.AlignOffset(4+oldLen, 4)
-	if oldEnd > len(data) {
-		return data, nil
-	}
-	for _, r := range string(data[4 : 4+oldLen]) {
-		if r < 0x20 && r != '\t' && r != '\n' && r != '\r' {
-			return data, nil
-		}
+	r := binaryio.NewEndianReader(data, binary.LittleEndian)
+	if _, err := r.ReadAlignedString(); err != nil {
+		return nil, err
 	}
 
 	var buf bytes.Buffer
@@ -252,15 +256,32 @@ func rewriteLeadingAlignedName(data []byte, name string) ([]byte, error) {
 	if err := bw.WriteAlignedString(name); err != nil {
 		return nil, err
 	}
-	buf.Write(data[oldEnd:])
+	buf.Write(data[r.Pos():])
 	return buf.Bytes(), nil
 }
 
 // Write 将所有对象写入为完整的 SerializedFile v22 格式。
 // 自动追加 AssetBundle 对象（ClassID 142）作为 m_Container 映射。
 func (w *SerializedFileWriter) Write(out io.Writer) error {
+	if w == nil {
+		return fmt.Errorf("nil SerializedFileWriter")
+	}
+	if out == nil {
+		return fmt.Errorf("nil SerializedFile output writer")
+	}
 	if w.err != nil {
 		return w.err
+	}
+	if err := validateSerializedFileUnityVersion(w.UnityVersion); err != nil {
+		return err
+	}
+	if _, err := int32WireLength("serialized object count", uint64(len(w.objects))+1); err != nil {
+		return err
+	}
+	for i := range w.objects {
+		if _, err := uint32WireLength(fmt.Sprintf("object[%d] %q byte size", i, w.objects[i].name), uint64(len(w.objects[i].data))); err != nil {
+			return err
+		}
 	}
 
 	// 追加 AssetBundle 对象
@@ -268,8 +289,10 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("encode AssetBundle object: %w", err)
 	}
-	abPathId := w.allocatePathID()
-	allObjects := append(w.objects, sfObject{
+	abPathId := w.nextAvailablePathID()
+	allObjects := make([]sfObject, 0, len(w.objects)+1)
+	allObjects = append(allObjects, w.objects...)
+	allObjects = append(allObjects, sfObject{
 		pathId:  abPathId,
 		classId: ClassIDAssetBundle,
 		name:    "CAB-generated",
@@ -291,7 +314,7 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 	// 数据区偏移需要对齐到 16 字节
 	dataOffset := binaryio.AlignOffset(headerSize+len(metadataBuf), 16)
 
-	// 构建数据区（每个对象数据 4 字节对齐）
+	// 构建数据区（每个对象数据 8 字节对齐）
 	dataBuf, objectOffsets, err := buildDataSection(allObjects)
 	if err != nil {
 		return fmt.Errorf("build data section: %w", err)
@@ -304,21 +327,28 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 	}
 	dataOffset = binaryio.AlignOffset(headerSize+len(metadataBuf), 16)
 
-	fileSize := int64(dataOffset) + int64(len(dataBuf))
+	fileSize, ok := addNonNegativeInt64(int64(dataOffset), int64(len(dataBuf)))
+	if !ok {
+		return fmt.Errorf("serialized file size overflows Int64")
+	}
+	metadataSize, err := uint32WireLength("serialized metadata size", uint64(len(metadataBuf)))
+	if err != nil {
+		return err
+	}
 
 	// 写入 header（Big-Endian）
 	var header bytes.Buffer
 	hw := binaryio.NewEndianWriter(&header, binary.BigEndian)
-	if err := hw.WriteUInt32(uint32(len(metadataBuf))); err != nil { // MetadataSize (legacy)
+	if err := hw.WriteUInt32(0); err != nil { // MetadataSize (legacy; zero for v22)
 		return fmt.Errorf("write header metadata size: %w", err)
 	}
-	if err := hw.WriteUInt32(uint32(fileSize)); err != nil { // FileSize (legacy)
+	if err := hw.WriteUInt32(0); err != nil { // FileSize (legacy; zero for v22)
 		return fmt.Errorf("write header file size: %w", err)
 	}
 	if err := hw.WriteUInt32(sfVersion); err != nil { // Version
 		return fmt.Errorf("write header version: %w", err)
 	}
-	if err := hw.WriteUInt32(uint32(dataOffset)); err != nil { // DataOffset (legacy)
+	if err := hw.WriteUInt32(0); err != nil { // DataOffset (legacy; zero for v22)
 		return fmt.Errorf("write header data offset: %w", err)
 	}
 	if err := hw.WriteByte(0); err != nil { // Endianness = Little
@@ -328,7 +358,7 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 		return fmt.Errorf("write header padding: %w", err)
 	}
 	// v22 extended header
-	if err := hw.WriteUInt32(uint32(len(metadataBuf))); err != nil { // MetadataSize
+	if err := hw.WriteUInt32(metadataSize); err != nil { // MetadataSize
 		return fmt.Errorf("write extended header metadata size: %w", err)
 	}
 	if err := hw.WriteInt64(fileSize); err != nil { // FileSize (int64)
@@ -341,20 +371,20 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 		return fmt.Errorf("write extended header unused field: %w", err)
 	}
 
-	if _, err := out.Write(header.Bytes()); err != nil {
+	if err := writeBundleBytes(out, header.Bytes()); err != nil {
 		return fmt.Errorf("write header: %w", err)
 	}
-	if _, err := out.Write(metadataBuf); err != nil {
+	if err := writeBundleBytes(out, metadataBuf); err != nil {
 		return fmt.Errorf("write metadata: %w", err)
 	}
 	// 填充到 dataOffset
 	padding := dataOffset - headerSize - len(metadataBuf)
 	if padding > 0 {
-		if _, err := out.Write(make([]byte, padding)); err != nil {
+		if err := writeBundleBytes(out, make([]byte, padding)); err != nil {
 			return fmt.Errorf("write padding: %w", err)
 		}
 	}
-	if _, err := out.Write(dataBuf); err != nil {
+	if err := writeBundleBytes(out, dataBuf); err != nil {
 		return fmt.Errorf("write data: %w", err)
 	}
 	return nil
@@ -365,6 +395,17 @@ func (w *SerializedFileWriter) buildMetadata(objects []sfObject, classIds []int3
 }
 
 func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, classIds []int32, offsets []int64) ([]byte, error) {
+	if offsets != nil && len(offsets) != len(objects) {
+		return nil, fmt.Errorf("object offset count %d does not match object count %d", len(offsets), len(objects))
+	}
+	typeCount, err := int32WireLength("serialized type count", uint64(len(classIds)))
+	if err != nil {
+		return nil, err
+	}
+	objectCount, err := int32WireLength("serialized object count", uint64(len(objects)))
+	if err != nil {
+		return nil, err
+	}
 	var buf bytes.Buffer
 	bw := binaryio.NewEndianWriter(&buf, binary.LittleEndian)
 
@@ -384,7 +425,7 @@ func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, clas
 	}
 
 	// TypeCount
-	if err := bw.WriteUInt32(uint32(len(classIds))); err != nil {
+	if err := bw.WriteInt32(typeCount); err != nil {
 		return nil, fmt.Errorf("write type count: %w", err)
 	}
 	for _, cid := range classIds {
@@ -394,7 +435,7 @@ func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, clas
 		if err := bw.WriteByte(0); err != nil { // IsStrippedType
 			return nil, fmt.Errorf("write stripped flag for type %d: %w", cid, err)
 		}
-		if err := bw.WriteUInt16(0xFFFF); err != nil { // ScriptTypeIndex
+		if err := bw.WriteInt16(-1); err != nil { // ScriptTypeIndex
 			return nil, fmt.Errorf("write script type index for type %d: %w", cid, err)
 		}
 		if cid == ClassIDMonoBehaviour {
@@ -405,13 +446,10 @@ func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, clas
 		if err := bw.WriteZeroes(16); err != nil { // TypeHash (zeroed)
 			return nil, fmt.Errorf("write type hash for type %d: %w", cid, err)
 		}
-		if err := bw.WriteInt32(0); err != nil { // TypeDependencies count (v21+)
-			return nil, fmt.Errorf("write type dependencies count for type %d: %w", cid, err)
-		}
 	}
 
 	// AssetInfos count
-	if err := bw.WriteUInt32(uint32(len(objects))); err != nil {
+	if err := bw.WriteInt32(objectCount); err != nil {
 		return nil, fmt.Errorf("write asset info count: %w", err)
 	}
 	for i, obj := range objects {
@@ -423,18 +461,33 @@ func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, clas
 			return nil, fmt.Errorf("write asset info[%d] path id: %w", i, err)
 		}
 		var offset int64
-		if offsets != nil && i < len(offsets) {
+		if offsets != nil {
 			offset = offsets[i]
 		}
 		if err := bw.WriteInt64(offset); err != nil { // ByteOffset
 			return nil, fmt.Errorf("write asset info[%d] byte offset: %w", i, err)
 		}
-		if err := bw.WriteUInt32(uint32(len(obj.data))); err != nil { // ByteSize
+		byteSize, err := uint32WireLength(fmt.Sprintf("asset info[%d] byte size", i), uint64(len(obj.data)))
+		if err != nil {
+			return nil, err
+		}
+		if err := bw.WriteUInt32(byteSize); err != nil { // ByteSize
 			return nil, fmt.Errorf("write asset info[%d] byte size: %w", i, err)
 		}
-		if err := bw.WriteInt32(classIdIndex(classIds, obj.classId)); err != nil { // TypeIndex
+		typeIndex := classIdIndex(classIds, obj.classId)
+		if typeIndex < 0 {
+			return nil, fmt.Errorf("asset info[%d] class ID %d is absent from serialized types", i, obj.classId)
+		}
+		if err := bw.WriteInt32(typeIndex); err != nil { // TypeIndex
 			return nil, fmt.Errorf("write asset info[%d] type index: %w", i, err)
 		}
+	}
+
+	// ScriptTypes count = 0. SerializedFile metadata stores this table between
+	// AssetInfos and ExternalFiles even when no MonoBehaviour script references
+	// are present.
+	if err := bw.WriteUInt32(0); err != nil {
+		return nil, fmt.Errorf("write script type count: %w", err)
 	}
 
 	// ExternalFiles count = 0
@@ -455,6 +508,10 @@ func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, clas
 }
 
 func (w *SerializedFileWriter) encodeAssetBundleObject() ([]byte, error) {
+	containerCount, err := int32WireLength("AssetBundle m_Container count", uint64(len(w.objects)))
+	if err != nil {
+		return nil, err
+	}
 	// AssetBundle 对象的最小序列化：m_Name + m_Container
 	var buf bytes.Buffer
 	bw := binaryio.NewEndianWriter(&buf, binary.LittleEndian)
@@ -470,7 +527,7 @@ func (w *SerializedFileWriter) encodeAssetBundleObject() ([]byte, error) {
 	}
 
 	// m_Container (map: name → PPtr)
-	if err := bw.WriteUInt32(uint32(len(w.objects))); err != nil {
+	if err := bw.WriteInt32(containerCount); err != nil {
 		return nil, fmt.Errorf("write AssetBundle m_Container size: %w", err)
 	}
 	for _, obj := range w.objects {
@@ -494,7 +551,13 @@ func (w *SerializedFileWriter) encodeAssetBundleObject() ([]byte, error) {
 		}
 	}
 
-	// m_MainAsset (empty PPtr)
+	// m_MainAsset (AssetInfo: preloadIndex, preloadSize, asset PPtr)
+	if err := bw.WriteUInt32(0); err != nil {
+		return nil, fmt.Errorf("write AssetBundle m_MainAsset preload index: %w", err)
+	}
+	if err := bw.WriteUInt32(0); err != nil {
+		return nil, fmt.Errorf("write AssetBundle m_MainAsset preload size: %w", err)
+	}
 	if err := bw.WriteUInt32(0); err != nil {
 		return nil, fmt.Errorf("write AssetBundle m_MainAsset file index: %w", err)
 	}
@@ -522,12 +585,29 @@ func (w *SerializedFileWriter) encodeAssetBundleObject() ([]byte, error) {
 		return nil, fmt.Errorf("write AssetBundle m_IsStreamedSceneAssetBundle: %w", err)
 	}
 	if err := bw.Align(4); err != nil {
-		return nil, fmt.Errorf("align AssetBundle object: %w", err)
+		return nil, fmt.Errorf("align AssetBundle m_IsStreamedSceneAssetBundle: %w", err)
+	}
+
+	// These fields are present in every KCES sample from Unity 2020.2 through
+	// Unity 2022.3. Omitting them leaves a truncated AssetBundle object that
+	// Unity's built-in type tree cannot deserialize.
+	if err := bw.WriteInt32(0); err != nil { // m_ExplicitDataLayout
+		return nil, fmt.Errorf("write AssetBundle m_ExplicitDataLayout: %w", err)
+	}
+	if err := bw.WriteInt32(0); err != nil { // m_PathFlags
+		return nil, fmt.Errorf("write AssetBundle m_PathFlags: %w", err)
+	}
+	if err := bw.WriteUInt32(0); err != nil { // m_SceneHashes (empty map)
+		return nil, fmt.Errorf("write AssetBundle m_SceneHashes size: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
 func encodeTextAssetData(name string, script []byte) ([]byte, error) {
+	scriptLength, err := int32WireLength("TextAsset m_Script length", uint64(len(script)))
+	if err != nil {
+		return nil, err
+	}
 	var buf bytes.Buffer
 	bw := binaryio.NewEndianWriter(&buf, binary.LittleEndian)
 
@@ -537,7 +617,7 @@ func encodeTextAssetData(name string, script []byte) ([]byte, error) {
 	}
 
 	// m_Script (byte array: length + data + align)
-	if err := bw.WriteUInt32(uint32(len(script))); err != nil {
+	if err := bw.WriteInt32(scriptLength); err != nil {
 		return nil, fmt.Errorf("write TextAsset m_Script length: %w", err)
 	}
 	if err := bw.WriteBytes(script); err != nil {
@@ -550,7 +630,33 @@ func encodeTextAssetData(name string, script []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func encodeTexture2DData(name string, width, height int, imageData []byte) ([]byte, error) {
+func encodeTexture2DData(unityVersion string, name string, width, height int, imageData []byte) ([]byte, error) {
+	if width <= 0 || height <= 0 {
+		return nil, fmt.Errorf("invalid Texture2D dimensions %dx%d", width, height)
+	}
+	if uint64(width) > uint64(math.MaxInt32) || uint64(height) > uint64(math.MaxInt32) {
+		return nil, fmt.Errorf("Texture2D dimensions %dx%d exceed Int32 wire range", width, height)
+	}
+	const bytesPerPixel = uint64(4)
+	if uint64(width) > uint64(math.MaxInt32)/bytesPerPixel/uint64(height) {
+		return nil, fmt.Errorf("Texture2D dimensions %dx%d exceed inline RGBA32 size limit", width, height)
+	}
+	expectedSize := uint64(width) * uint64(height) * bytesPerPixel
+	if expectedSize > uint64(int(^uint(0)>>1)) {
+		return nil, fmt.Errorf("Texture2D image size %d exceeds platform int capacity", expectedSize)
+	}
+	if uint64(len(imageData)) != expectedSize {
+		return nil, fmt.Errorf("Texture2D RGBA32 data size %d does not match %dx%d (%d bytes)", len(imageData), width, height, expectedSize)
+	}
+	imageDataLength, err := int32WireLength("Texture2D image data length", uint64(len(imageData)))
+	if err != nil {
+		return nil, err
+	}
+	newMipmapLimitLayout, err := texture2DUsesMipmapLimitGroup(unityVersion)
+	if err != nil {
+		return nil, err
+	}
+
 	var buf bytes.Buffer
 	bw := binaryio.NewEndianWriter(&buf, binary.LittleEndian)
 
@@ -560,15 +666,19 @@ func encodeTexture2DData(name string, width, height int, imageData []byte) ([]by
 	}
 
 	// m_ForcedFallbackFormat (int)
-	if err := bw.WriteUInt32(0); err != nil {
+	if err := bw.WriteUInt32(uint32(TextureFormatRGBA32)); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_ForcedFallbackFormat: %w", err)
 	}
-	// m_DownscaleFallback (bool + align)
+	// m_DownscaleFallback and m_IsAlphaChannelOptional are adjacent bools;
+	// AlignBytes is attached to the second field in KCES Unity type trees.
 	if err := bw.WriteByte(0); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_DownscaleFallback: %w", err)
 	}
+	if err := bw.WriteByte(0); err != nil {
+		return nil, fmt.Errorf("write Texture2D m_IsAlphaChannelOptional: %w", err)
+	}
 	if err := bw.Align(4); err != nil {
-		return nil, fmt.Errorf("align Texture2D m_DownscaleFallback: %w", err)
+		return nil, fmt.Errorf("align Texture2D m_IsAlphaChannelOptional: %w", err)
 	}
 
 	// m_Width
@@ -581,7 +691,7 @@ func encodeTexture2DData(name string, width, height int, imageData []byte) ([]by
 	}
 
 	// m_CompleteImageSize
-	if err := bw.WriteUInt32(uint32(len(imageData))); err != nil {
+	if err := bw.WriteInt32(imageDataLength); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_CompleteImageSize: %w", err)
 	}
 
@@ -600,16 +710,31 @@ func encodeTexture2DData(name string, width, height int, imageData []byte) ([]by
 		return nil, fmt.Errorf("write Texture2D m_MipCount: %w", err)
 	}
 
-	// m_IsReadable (bool + align)
+	// m_IsReadable, m_IsPreProcessed and the version-specific mipmap-limit
+	// flag are serialized before m_StreamingMipmaps.
 	if err := bw.WriteByte(1); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_IsReadable: %w", err)
 	}
-	if err := bw.Align(4); err != nil {
-		return nil, fmt.Errorf("align Texture2D m_IsReadable: %w", err)
+	if err := bw.WriteByte(0); err != nil {
+		return nil, fmt.Errorf("write Texture2D m_IsPreProcessed: %w", err)
+	}
+	if newMipmapLimitLayout {
+		if err := bw.WriteByte(0); err != nil { // m_IgnoreMipmapLimit
+			return nil, fmt.Errorf("write Texture2D m_IgnoreMipmapLimit: %w", err)
+		}
+		if err := bw.Align(4); err != nil {
+			return nil, fmt.Errorf("align Texture2D m_IgnoreMipmapLimit: %w", err)
+		}
+		if err := bw.WriteAlignedString(""); err != nil { // m_MipmapLimitGroupName
+			return nil, fmt.Errorf("write Texture2D m_MipmapLimitGroupName: %w", err)
+		}
+	} else {
+		if err := bw.WriteByte(0); err != nil { // m_IgnoreMasterTextureLimit
+			return nil, fmt.Errorf("write Texture2D m_IgnoreMasterTextureLimit: %w", err)
+		}
 	}
 
-	// m_StreamingMipmaps (bool + align)
-	if err := bw.WriteByte(0); err != nil {
+	if err := bw.WriteByte(0); err != nil { // m_StreamingMipmaps
 		return nil, fmt.Errorf("write Texture2D m_StreamingMipmaps: %w", err)
 	}
 	if err := bw.Align(4); err != nil {
@@ -669,7 +794,7 @@ func encodeTexture2DData(name string, width, height int, imageData []byte) ([]by
 	}
 
 	// image data (byte array)
-	if err := bw.WriteUInt32(uint32(len(imageData))); err != nil {
+	if err := bw.WriteInt32(imageDataLength); err != nil {
 		return nil, fmt.Errorf("write Texture2D image data length: %w", err)
 	}
 	if err := bw.WriteBytes(imageData); err != nil {
@@ -680,7 +805,7 @@ func encodeTexture2DData(name string, width, height int, imageData []byte) ([]by
 	}
 
 	// m_StreamData (offset=0, size=0, path="")
-	if err := bw.WriteUInt32(0); err != nil {
+	if err := bw.WriteUInt64(0); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_StreamData offset: %w", err)
 	}
 	if err := bw.WriteUInt32(0); err != nil {
@@ -693,18 +818,52 @@ func encodeTexture2DData(name string, width, height int, imageData []byte) ([]by
 	return buf.Bytes(), nil
 }
 
+// validateSerializedFileUnityVersion limits generated built-in object layouts
+// to the Unity lines observed in KCES samples. Raw object bytes are interpreted
+// by Unity according to this version string, so silently accepting an unknown
+// line can make an otherwise byte-identical repack unreadable.
+func validateSerializedFileUnityVersion(unityVersion string) error {
+	major, minor, err := parseUnityMajorMinor(unityVersion)
+	if err != nil {
+		return err
+	}
+	if (major == 2020 && minor == 2) || (major == 2021 && minor == 3) || (major == 2022 && minor == 3) {
+		return nil
+	}
+	return fmt.Errorf("unsupported KCES Unity version %q: supported lines are 2020.2, 2021.3, and 2022.3", unityVersion)
+}
+
+func texture2DUsesMipmapLimitGroup(unityVersion string) (bool, error) {
+	if err := validateSerializedFileUnityVersion(unityVersion); err != nil {
+		return false, err
+	}
+	major, _, _ := parseUnityMajorMinor(unityVersion)
+	return major >= 2022, nil
+}
+
+func parseUnityMajorMinor(unityVersion string) (int, int, error) {
+	var major, minor int
+	if n, err := fmt.Sscanf(unityVersion, "%d.%d", &major, &minor); err != nil || n != 2 {
+		return 0, 0, fmt.Errorf("invalid Unity version %q", unityVersion)
+	}
+	return major, minor, nil
+}
+
 func buildDataSection(objects []sfObject) ([]byte, []int64, error) {
 	var buf bytes.Buffer
 	bw := binaryio.NewEndianWriter(&buf, binary.LittleEndian)
 	offsets := make([]int64, len(objects))
 	for i, obj := range objects {
-		if err := bw.Align(4); err != nil {
+		if err := bw.Align(8); err != nil {
 			return nil, nil, fmt.Errorf("align object[%d]: %w", i, err)
 		}
 		offsets[i] = int64(buf.Len())
 		if err := bw.WriteBytes(obj.data); err != nil {
 			return nil, nil, fmt.Errorf("write object[%d] data: %w", i, err)
 		}
+	}
+	if err := bw.Align(8); err != nil {
+		return nil, nil, fmt.Errorf("align final object data: %w", err)
 	}
 	return buf.Bytes(), offsets, nil
 }
@@ -727,5 +886,5 @@ func classIdIndex(classIds []int32, id int32) int32 {
 			return int32(i)
 		}
 	}
-	return 0
+	return -1
 }

@@ -43,6 +43,9 @@ type AssetEntry struct {
 
 // GetAssetEntries 返回 AssetsFile 中所有资源的条目列表（包含名称）
 func (af *AssetsFile) GetAssetEntries() []AssetEntry {
+	if af == nil {
+		return nil
+	}
 	entries := make([]AssetEntry, 0, len(af.Metadata.AssetInfos))
 	for _, info := range af.Metadata.AssetInfos {
 		entry := AssetEntry{
@@ -97,6 +100,12 @@ func (af *AssetsFile) GetTextAssetData(info *AssetInfo) (name string, script []b
 	if err := r.ReadFull(script); err != nil {
 		return name, nil, fmt.Errorf("read m_Script data failed: %w", err)
 	}
+	if err := alignReader4(r); err != nil {
+		return name, nil, fmt.Errorf("align m_Script failed: %w", err)
+	}
+	if r.Remaining() != 0 {
+		return name, nil, fmt.Errorf("TextAsset has %d unread bytes", r.Remaining())
+	}
 
 	return name, script, nil
 }
@@ -104,8 +113,11 @@ func (af *AssetsFile) GetTextAssetData(info *AssetInfo) (name string, script []b
 // tryReadAssetName 尝试从资源数据中读取 m_Name 字段
 // 大多数 Unity 资源类型的第一个字段都是 m_Name (AlignedString)
 func (af *AssetsFile) tryReadAssetName(info *AssetInfo) string {
+	if af == nil || info == nil || !rawObjectHasLeadingName(info.TypeId) {
+		return ""
+	}
 	data, err := af.GetAssetData(info)
-	if err != nil || len(data) < 5 {
+	if err != nil {
 		return ""
 	}
 
@@ -116,18 +128,10 @@ func (af *AssetsFile) tryReadAssetName(info *AssetInfo) string {
 		order = binary.LittleEndian
 	}
 
-	// 读取 AlignedString: int32 length + bytes
-	nameLen := int32(order.Uint32(data[0:4]))
-	if nameLen <= 0 || nameLen > 1024 || int(nameLen)+4 > len(data) {
+	r := binaryio.NewEndianReader(data, order)
+	name, err := r.ReadAlignedString()
+	if err != nil {
 		return ""
-	}
-	name := string(data[4 : 4+nameLen])
-
-	// 验证名称是否为合理的 ASCII/UTF-8 字符串
-	for _, c := range name {
-		if c < 0x20 && c != '\t' && c != '\n' && c != '\r' {
-			return ""
-		}
 	}
 	return name
 }

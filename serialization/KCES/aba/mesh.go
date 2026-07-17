@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"math/bits"
 	"strings"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
@@ -71,6 +72,13 @@ func (af *AssetsFile) TryConvertMeshToCRMesh(info *AssetInfo, log func(string)) 
 		}
 		return nil, fmt.Errorf("invalid m_VertexCount=%d%s", vertCount, extra)
 	}
+	// AbaExtractor reads this value through AssetTypeValueField.AsInt and stores
+	// it in PackedMesh.m_VertexCount (System.Int32). Keeping the bound explicit
+	// also prevents a corrupt UInt32 value from overflowing Go allocation math.
+	if vertCount > int64(1<<31-1) {
+		return nil, fmt.Errorf("m_VertexCount=%d exceeds the Int32 range used by PackedMesh", vertCount)
+	}
+	vertexCount := int(vertCount)
 
 	dataBytes, ok := vertexData.Field("m_DataSize").Bytes()
 	if !ok || len(dataBytes) == 0 {
@@ -92,20 +100,31 @@ func (af *AssetsFile) TryConvertMeshToCRMesh(info *AssetInfo, log func(string)) 
 			streamCount = ch.Stream + 1
 		}
 	}
-	streamOffset := make([]uint32, streamCount)
-	streamStride := make([]uint32, streamCount)
-	var cursor uint32
+	streamOffset := make([]uint64, streamCount)
+	streamStride := make([]uint64, streamCount)
+	var cursor uint64
 	for streamIdx := 0; streamIdx < streamCount; streamIdx++ {
-		var stride uint32
+		var stride uint64
 		for _, ch := range channels {
 			if ch.Stream == streamIdx && ch.Dimension > 0 {
-				stride += uint32(ch.Dimension) * meshFormatSize(ch.Format)
+				stride += uint64(ch.Dimension) * uint64(meshFormatSize(ch.Format))
 			}
 		}
 		streamOffset[streamIdx] = cursor
 		streamStride[streamIdx] = stride
-		cursor += uint32(vertCount) * stride
-		cursor = (cursor + 15) &^ 15
+		high, streamBytes := bits.Mul64(uint64(vertexCount), stride)
+		streamEnd, carry := bits.Add64(cursor, streamBytes, 0)
+		alignedEnd, alignCarry := bits.Add64(streamEnd, 15, 0)
+		if high != 0 || carry != 0 || alignCarry != 0 {
+			return nil, fmt.Errorf("vertex stream %d layout overflows UInt64", streamIdx)
+		}
+		cursor = alignedEnd &^ 15
+	}
+
+	for _, channelIndex := range []int{0, 1, 2, 4, 12, 13} {
+		if err := validateMeshChannelBounds(channelIndex, channels, streamOffset, streamStride, vertexCount, len(dataBytes)); err != nil {
+			return nil, err
+		}
 	}
 
 	readFloats := func(chIdx int) []float32 {
@@ -116,9 +135,9 @@ func (af *AssetsFile) TryConvertMeshToCRMesh(info *AssetInfo, log func(string)) 
 		stride := streamStride[ch.Stream]
 		offset := streamOffset[ch.Stream]
 		elemSize := meshFormatSize(ch.Format)
-		out := make([]float32, int(vertCount)*ch.Dimension)
-		for i := 0; i < int(vertCount); i++ {
-			base := int(offset) + i*int(stride) + ch.Offset
+		out := make([]float32, vertexCount*ch.Dimension)
+		for i := 0; i < vertexCount; i++ {
+			base := int(offset + uint64(i)*stride + uint64(ch.Offset))
 			for j := 0; j < ch.Dimension; j++ {
 				out[i*ch.Dimension+j] = meshReadFloat(dataBytes, base+j*int(elemSize), ch.Format)
 			}
@@ -134,9 +153,9 @@ func (af *AssetsFile) TryConvertMeshToCRMesh(info *AssetInfo, log func(string)) 
 		stride := streamStride[ch.Stream]
 		offset := streamOffset[ch.Stream]
 		elemSize := meshFormatSize(ch.Format)
-		out := make([]int, int(vertCount)*ch.Dimension)
-		for i := 0; i < int(vertCount); i++ {
-			base := int(offset) + i*int(stride) + ch.Offset
+		out := make([]int, vertexCount*ch.Dimension)
+		for i := 0; i < vertexCount; i++ {
+			base := int(offset + uint64(i)*stride + uint64(ch.Offset))
 			for j := 0; j < ch.Dimension; j++ {
 				out[i*ch.Dimension+j] = meshReadInt(dataBytes, base+j*int(elemSize), ch.Format)
 			}
@@ -170,10 +189,10 @@ func (af *AssetsFile) TryConvertMeshToCRMesh(info *AssetInfo, log func(string)) 
 
 	bindPose, bindDiag := readBindPose(root)
 	subMeshes, subDiag := buildSubMeshes(root, log)
-	skin := buildSkin(int(vertCount), skinWeights, skinIndices, skinWeightDim, skinIndexDim)
+	skin := buildSkin(vertexCount, skinWeights, skinIndices, skinWeightDim, skinIndexDim)
 
 	packed := &PackedMesh{
-		VertexCount: int(vertCount),
+		VertexCount: vertexCount,
 		Vertices:    toVec3List(pos),
 		Normals:     toVec3ListOrEmpty(normals),
 		Tangents:    toVec4ListOrEmpty(tangents),
@@ -230,13 +249,59 @@ func collectMeshChannels(src []*TypeTreeValue) []meshChannel {
 			continue
 		}
 		out = append(out, meshChannel{
-			Stream:    int(stream),
-			Offset:    int(offset),
+			// AbaExtractor explicitly casts all four source integers to byte.
+			// Preserve the same unchecked low-byte behavior before applying the
+			// dimension nibble mask.
+			Stream:    int(byte(stream)),
+			Offset:    int(byte(offset)),
 			Format:    byte(format),
-			Dimension: int(dim) & 15,
+			Dimension: int(byte(dim) & 15),
 		})
 	}
 	return out
+}
+
+func validateMeshChannelBounds(channelIndex int, channels []meshChannel, streamOffset, streamStride []uint64, vertexCount, dataLength int) error {
+	if channelIndex < 0 || channelIndex >= len(channels) || channels[channelIndex].Dimension == 0 {
+		return nil
+	}
+	channel := channels[channelIndex]
+	if channel.Stream < 0 || channel.Stream >= len(streamOffset) || channel.Stream >= len(streamStride) {
+		return fmt.Errorf("mesh channel %d references missing stream %d", channelIndex, channel.Stream)
+	}
+	if vertexCount <= 0 {
+		return fmt.Errorf("mesh channel %d has invalid vertex count %d", channelIndex, vertexCount)
+	}
+	componentBytes := uint64(meshFormatSize(channel.Format))
+	high, lastVertexOffset := bits.Mul64(uint64(vertexCount-1), streamStride[channel.Stream])
+	if high != 0 {
+		return fmt.Errorf("mesh channel %d layout overflows UInt64", channelIndex)
+	}
+	lastEnd, ok := checkedMeshOffset(
+		streamOffset[channel.Stream],
+		lastVertexOffset,
+		uint64(channel.Offset),
+		uint64(channel.Dimension)*componentBytes,
+	)
+	if !ok {
+		return fmt.Errorf("mesh channel %d layout overflows UInt64", channelIndex)
+	}
+	if lastEnd > uint64(dataLength) {
+		return fmt.Errorf("mesh channel %d requires vertex data through byte %d, only %d bytes are available", channelIndex, lastEnd, dataLength)
+	}
+	return nil
+}
+
+func checkedMeshOffset(parts ...uint64) (uint64, bool) {
+	var total uint64
+	for _, part := range parts {
+		var carry uint64
+		total, carry = bits.Add64(total, part, 0)
+		if carry != 0 {
+			return 0, false
+		}
+	}
+	return total, true
 }
 
 func meshFormatSize(format byte) uint32 {
@@ -317,7 +382,8 @@ func meshReadInt(data []byte, off int, format byte) int {
 		if off+4 > len(data) {
 			return 0
 		}
-		return int(binary.LittleEndian.Uint32(data[off:]))
+		// C# performs an unchecked (int)UInt32 cast here.
+		return int(int32(binary.LittleEndian.Uint32(data[off:])))
 	case 11:
 		if off+4 > len(data) {
 			return 0
@@ -332,28 +398,24 @@ func halfToFloat(h uint16) float32 {
 	sign := uint32(h>>15) << 31
 	exp := uint32((h >> 10) & 0x1f)
 	mant := uint32(h & 0x3ff)
-	switch exp {
-	case 0:
-		if mant == 0 {
-			return math.Float32frombits(sign)
-		}
-		for (mant & 0x400) == 0 {
-			mant <<= 1
-			exp--
-		}
-		exp++
-		mant &= ^uint32(0x400)
-	case 31:
+	if exp == 0 {
+		// Match AbaExtractor.HalfToFloat exactly. Its implementation copies a
+		// half subnormal's mantissa into a Single subnormal instead of
+		// normalizing it as a general IEEE-754 half converter would.
+		return math.Float32frombits(sign | (mant << 13))
+	}
+	if exp == 31 {
 		return math.Float32frombits(sign | 0x7f800000 | (mant << 13))
 	}
-	exp = exp + (127 - 15)
-	return math.Float32frombits(sign | (exp << 23) | (mant << 13))
+	return math.Float32frombits(sign | ((exp + 112) << 23) | (mant << 13))
 }
 
 func readBindPose(root *TypeTreeValue) ([][]float32, string) {
 	field := root.Field("m_BindPose")
 	if field == nil {
-		return nil, "bp=dummy"
+		// AbaExtractor initializes a List<float[]> before probing the field, so
+		// a missing bind-pose field serializes as an empty array rather than nil.
+		return [][]float32{}, "bp=dummy"
 	}
 	items := arrayItems(field)
 	out := make([][]float32, 0, len(items))
@@ -524,25 +586,32 @@ func buildSubMeshes(root *TypeTreeValue, log func(string)) ([][]uint32, string) 
 		first, _ := firstField.Int64()
 		indexCount, _ := item.Field("indexCount").Int64()
 		topology, _ := item.Field("topology").Int64()
-		idxs := make([]uint32, 0, indexCount)
+		if first < 0 || indexCount <= 0 || first >= int64(len(idxBytes)) {
+			out = append(out, []uint32{})
+			continue
+		}
+		availableCount := int64(len(idxBytes)-int(first)) / int64(indexSize)
+		readCount := indexCount
+		if readCount > availableCount {
+			readCount = availableCount
+		}
+		capacity := readCount
+		if topology == 1 && readCount >= 3 {
+			capacity = (readCount - 2) * 3
+		}
+		idxs := make([]uint32, 0, int(capacity))
 		if topology == 0 {
-			for n := int64(0); n < indexCount; n++ {
+			for n := int64(0); n < readCount; n++ {
 				off := int(first) + int(n)*indexSize
-				if off+indexSize > len(idxBytes) {
-					break
-				}
 				if is16 {
 					idxs = append(idxs, uint32(binary.LittleEndian.Uint16(idxBytes[off:])))
 				} else {
 					idxs = append(idxs, binary.LittleEndian.Uint32(idxBytes[off:]))
 				}
 			}
-		} else if topology == 1 && indexCount >= 3 {
-			for n := int64(0); n < indexCount-2; n++ {
+		} else if topology == 1 && readCount >= 3 {
+			for n := int64(0); n < readCount-2; n++ {
 				off := int(first) + int(n)*indexSize
-				if off+indexSize*3 > len(idxBytes) {
-					break
-				}
 				var a, b, c uint32
 				if is16 {
 					a = uint32(binary.LittleEndian.Uint16(idxBytes[off:]))

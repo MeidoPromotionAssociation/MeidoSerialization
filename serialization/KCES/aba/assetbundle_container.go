@@ -18,6 +18,9 @@ type AssetBundleContainerEntry struct {
 
 // GetAssetBundleContainerMap 返回从所有 AssetBundle 对象收集的 PathID 到加载名映射 / GetAssetBundleContainerMap returns a PathID to load-name map collected from all AssetBundle objects in this AssetsFile
 func (af *AssetsFile) GetAssetBundleContainerMap() (map[int64]string, error) {
+	if af == nil {
+		return nil, fmt.Errorf("nil assets file")
+	}
 	out := map[int64]string{}
 	for i := range af.Metadata.AssetInfos {
 		info := &af.Metadata.AssetInfos[i]
@@ -39,7 +42,13 @@ func (af *AssetsFile) GetAssetBundleContainerMap() (map[int64]string, error) {
 
 // GetAssetBundleContainerEntries 解码 Unity AssetBundle 对象布局的稳定前缀：m_Name、m_PreloadTable 和 m_Container / GetAssetBundleContainerEntries decodes the stable prefix of Unity's AssetBundle object layout: m_Name, m_PreloadTable, and m_Container
 func (af *AssetsFile) GetAssetBundleContainerEntries(info *AssetInfo) ([]AssetBundleContainerEntry, error) {
-	if info == nil || info.TypeId != ClassIDAssetBundle {
+	if af == nil {
+		return nil, fmt.Errorf("nil assets file")
+	}
+	if info == nil {
+		return nil, fmt.Errorf("nil asset info")
+	}
+	if info.TypeId != ClassIDAssetBundle {
 		return nil, fmt.Errorf("asset is not AssetBundle")
 	}
 	data, err := af.GetAssetData(info)
@@ -59,6 +68,10 @@ func (af *AssetsFile) GetAssetBundleContainerEntries(info *AssetInfo) ([]AssetBu
 	if preloadCount < 0 {
 		return nil, fmt.Errorf("negative AssetBundle m_PreloadTable size %d", preloadCount)
 	}
+	pptrSize := serializedPPtrSize(af.Header.Version)
+	if int64(preloadCount) > int64(r.Remaining())/int64(pptrSize) {
+		return nil, fmt.Errorf("AssetBundle m_PreloadTable size %d requires at least %d bytes but only %d remain", preloadCount, int64(preloadCount)*int64(pptrSize), r.Remaining())
+	}
 	for i := 0; i < int(preloadCount); i++ {
 		if _, _, err := readSerializedPPtr(r, af.Header.Version); err != nil {
 			return nil, fmt.Errorf("read AssetBundle m_PreloadTable[%d]: %w", i, err)
@@ -72,8 +85,12 @@ func (af *AssetsFile) GetAssetBundleContainerEntries(info *AssetInfo) ([]AssetBu
 	if containerCount < 0 {
 		return nil, fmt.Errorf("negative AssetBundle m_Container size %d", containerCount)
 	}
+	minimumContainerEntrySize := 4 + 8 + pptrSize // empty aligned key + preload fields + PPtr
+	if int64(containerCount) > int64(r.Remaining())/int64(minimumContainerEntrySize) {
+		return nil, fmt.Errorf("AssetBundle m_Container size %d requires at least %d bytes but only %d remain", containerCount, int64(containerCount)*int64(minimumContainerEntrySize), r.Remaining())
+	}
 
-	entries := make([]AssetBundleContainerEntry, 0, containerCount)
+	entries := makeABACountedSliceForAppend[AssetBundleContainerEntry](int(containerCount))
 	for i := 0; i < int(containerCount); i++ {
 		name, err := r.ReadAlignedString()
 		if err != nil {
@@ -86,6 +103,9 @@ func (af *AssetsFile) GetAssetBundleContainerEntries(info *AssetInfo) ([]AssetBu
 		preloadSize, err := r.ReadInt32()
 		if err != nil {
 			return nil, fmt.Errorf("read AssetBundle m_Container[%d].preloadSize: %w", i, err)
+		}
+		if preloadIndex < 0 || preloadSize < 0 || int64(preloadIndex)+int64(preloadSize) > int64(preloadCount) {
+			return nil, fmt.Errorf("AssetBundle m_Container[%d] preload range [%d,%d) is outside m_PreloadTable size %d", i, preloadIndex, int64(preloadIndex)+int64(preloadSize), preloadCount)
 		}
 		fileID, pathID, err := readSerializedPPtr(r, af.Header.Version)
 		if err != nil {
@@ -103,6 +123,9 @@ func (af *AssetsFile) GetAssetBundleContainerEntries(info *AssetInfo) ([]AssetBu
 }
 
 func readSerializedPPtr(r *binaryio.EndianReader, version uint32) (int32, int64, error) {
+	if r == nil {
+		return 0, 0, fmt.Errorf("nil PPtr reader")
+	}
 	fileID, err := r.ReadInt32()
 	if err != nil {
 		return 0, 0, err
@@ -113,4 +136,11 @@ func readSerializedPPtr(r *binaryio.EndianReader, version uint32) (int32, int64,
 	}
 	pathID, err := r.ReadInt32()
 	return fileID, int64(pathID), err
+}
+
+func serializedPPtrSize(version uint32) int {
+	if version >= 14 {
+		return 12
+	}
+	return 8
 }

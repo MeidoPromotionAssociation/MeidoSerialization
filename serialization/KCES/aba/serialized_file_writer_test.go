@@ -2,6 +2,8 @@ package aba
 
 import (
 	"bytes"
+	"io"
+	"strings"
 	"testing"
 )
 
@@ -60,6 +62,27 @@ func TestSerializedFileWriter_TextAsset(t *testing.T) {
 				t.Errorf("TextAsset data mismatch: got %d bytes, want %d", len(data), len(script))
 			}
 		}
+	}
+}
+
+func TestSerializedFileWriterPreservesLongAssetNameInEntries(t *testing.T) {
+	name := strings.Repeat("n", 5000)
+	w := NewSerializedFileWriter("2021.3.37f1")
+	w.AddTextAsset(name, []byte("payload"))
+	var out bytes.Buffer
+	if err := w.Write(&out); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	af, err := ReadAssetsFile(out.Bytes())
+	if err != nil {
+		t.Fatalf("ReadAssetsFile: %v", err)
+	}
+	entries := af.GetAssetEntries()
+	if len(entries) < 1 {
+		t.Fatal("no asset entries")
+	}
+	if entries[0].Name != name {
+		t.Fatalf("entry name length = %d, want %d", len(entries[0].Name), len(name))
 	}
 }
 
@@ -192,6 +215,78 @@ func TestSerializedFileWriter_RawObjectNameRewriteOnlyForNamedClasses(t *testing
 		}
 	}
 }
+
+func TestSerializedFileWriter_PreservesOpaqueNamedObjectPayload(t *testing.T) {
+	raw := []byte{1, 2, 3}
+	w := NewSerializedFileWriter("2021.3.37f1")
+	pathID := w.AddRawObjectWithLoadNameAndPathID(ClassIDTextAsset, "internal_name", "load_name", raw, 42)
+	if pathID != 42 {
+		t.Fatalf("PathID got %d, want 42", pathID)
+	}
+
+	var buf bytes.Buffer
+	if err := w.Write(&buf); err != nil {
+		t.Fatalf("Write failed: %v", err)
+	}
+	af, err := ReadAssetsFile(buf.Bytes())
+	if err != nil {
+		t.Fatalf("ReadAssetsFile failed: %v", err)
+	}
+	info := af.GetAssetInfoByPathID(pathID)
+	if info == nil {
+		t.Fatalf("raw object info PathID=%d not found", pathID)
+	}
+	got, err := af.GetAssetData(info)
+	if err != nil {
+		t.Fatalf("GetAssetData: %v", err)
+	}
+	if !bytes.Equal(got, raw) {
+		t.Fatalf("opaque raw object data got %v, want %v", got, raw)
+	}
+	containerNames, err := af.GetAssetBundleContainerMap()
+	if err != nil {
+		t.Fatalf("GetAssetBundleContainerMap: %v", err)
+	}
+	if containerNames[pathID] != "load_name" {
+		t.Fatalf("container name got %q, want load_name", containerNames[pathID])
+	}
+}
+
+func TestRewriteLeadingAlignedNameSupportsLongAndEmptyNames(t *testing.T) {
+	oldData, err := encodeTextAssetData(strings.Repeat("o", 5000), []byte("payload"))
+	if err != nil {
+		t.Fatalf("encodeTextAssetData: %v", err)
+	}
+	longName := strings.Repeat("n", 6000)
+	rewritten, err := rewriteLeadingAlignedName(oldData, longName)
+	if err != nil {
+		t.Fatalf("rewrite long leading name: %v", err)
+	}
+	if got, ok := readLeadingAlignedNameForTest(rewritten); !ok || got != longName {
+		t.Fatalf("long rewritten name length = %d, ok=%v; want %d", len(got), ok, len(longName))
+	}
+
+	rewritten, err = rewriteLeadingAlignedName(oldData, "")
+	if err != nil {
+		t.Fatalf("rewrite empty leading name: %v", err)
+	}
+	if got, ok := readLeadingAlignedNameForTest(rewritten); !ok || got != "" {
+		t.Fatalf("empty rewritten name = %q, ok=%v", got, ok)
+	}
+}
+
+func TestSerializedFileWriterRejectsZeroProgressWriter(t *testing.T) {
+	w := NewSerializedFileWriter("2021.3.37f1")
+	w.AddTextAsset("test.menuassets", []byte("payload"))
+	err := w.Write(zeroProgressSerializedWriter{})
+	if err == nil || !strings.Contains(err.Error(), io.ErrShortWrite.Error()) {
+		t.Fatalf("Write error = %v, want io.ErrShortWrite", err)
+	}
+}
+
+type zeroProgressSerializedWriter struct{}
+
+func (zeroProgressSerializedWriter) Write([]byte) (int, error) { return 0, nil }
 
 func TestSerializedFileWriter_AssetBundleContainerKeepsLoadNames(t *testing.T) {
 	raw, err := encodeTextAssetData("internal_name", []byte("payload"))
@@ -357,7 +452,7 @@ func readLeadingAlignedNameForTest(data []byte) (string, bool) {
 		return "", false
 	}
 	n := int(bytesToLittleUint32(data[:4]))
-	if n <= 0 || 4+n > len(data) {
+	if n < 0 || 4+n > len(data) {
 		return "", false
 	}
 	return string(data[4 : 4+n]), true

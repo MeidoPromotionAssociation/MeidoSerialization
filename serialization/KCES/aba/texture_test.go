@@ -1,6 +1,10 @@
 package aba
 
-import "testing"
+import (
+	"math"
+	"strings"
+	"testing"
+)
 
 func TestGetTexture2DData_Sample(t *testing.T) {
 	bundle, f := openAbaSample(t, "parts_personal002.aba")
@@ -59,4 +63,23 @@ func TestGetTexture2DData_Sample(t *testing.T) {
 		}
 	}
 	t.Fatal("no Texture2D found in sample")
+}
+
+func TestReadStreamingInfoRejectsUnrepresentableRanges(t *testing.T) {
+	field := func(name string, value interface{}) *TypeTreeValue {
+		return &TypeTreeValue{Name: name, Value: value}
+	}
+	stream := &TypeTreeValue{Children: []*TypeTreeValue{
+		field("offset", uint64(math.MaxInt64)+1),
+		field("size", int64(1)),
+		field("path", "x.resS"),
+	}}
+	if _, err := readStreamingInfo(stream); err == nil || !strings.Contains(err.Error(), "offset") {
+		t.Fatalf("oversized offset error = %v", err)
+	}
+	stream.Children[0].Value = uint64(1)
+	stream.Children[1].Value = uint64(math.MaxUint32) + 1
+	if _, err := readStreamingInfo(stream); err == nil || !strings.Contains(err.Error(), "size") {
+		t.Fatalf("oversized size error = %v", err)
+	}
 }

@@ -40,6 +40,18 @@ func TestReadBundle(t *testing.T) {
 
 			// 尝试读取每个文件的数据
 			for i, d := range bundle.BlockInfo.DirectoryInfos {
+				if d.DecompressedSize > maxBundleReadSize {
+					const probeSize int64 = 16
+					for _, relativeOffset := range []int64{0, d.DecompressedSize - probeSize} {
+						data, err := bundle.GetFileDataRange(i, relativeOffset, probeSize)
+						if err != nil {
+							t.Errorf("read large file probe (%d, %q, offset=%d) failed: %v", i, d.Name, relativeOffset, err)
+						} else if len(data) != int(probeSize) {
+							t.Errorf("read large file probe (%d, %q, offset=%d): got %d bytes", i, d.Name, relativeOffset, len(data))
+						}
+					}
+					continue
+				}
 				data, err := bundle.GetFileData(i)
 				if err != nil {
 					t.Errorf("GetFileData(%d, %q) failed: %v", i, d.Name, err)

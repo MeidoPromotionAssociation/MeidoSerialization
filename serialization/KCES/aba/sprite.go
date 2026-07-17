@@ -3,8 +3,12 @@ package aba
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"math"
+	"os"
 	"os/exec"
+	"path"
+	"strings"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
 )
@@ -43,8 +47,14 @@ type spriteRenderDataKey struct {
 
 // DefaultAssetResolver 只解析同一 AssetsFile 内部引用 / DefaultAssetResolver resolves references within the same AssetsFile only
 func DefaultAssetResolver(relativeTo *AssetsFile, fileID int, pathID int64) (*AssetsFile, *AssetInfo, error) {
+	if pathID == 0 {
+		return nil, nil, fmt.Errorf("null PPtr")
+	}
 	if fileID != 0 {
 		return nil, nil, fmt.Errorf("external asset fileID=%d is not available", fileID)
+	}
+	if relativeTo == nil {
+		return nil, nil, fmt.Errorf("nil relative AssetsFile")
 	}
 	info := relativeTo.GetAssetInfoByPathID(pathID)
 	if info == nil {
@@ -73,26 +83,117 @@ func BundleAssetResolver(files map[string]*AssetsFile) AssetResolver {
 		if relativeTo != nil {
 			depIdx := fileID - 1
 			if depIdx >= 0 && depIdx < len(relativeTo.Metadata.ExternalFiles) {
-				depName := normalizeStreamDataPath(relativeTo.Metadata.ExternalFiles[depIdx].PathName)
+				depName := normalizeBundleAssetPath(relativeTo.Metadata.ExternalFiles[depIdx].PathName)
 				if depName != "" {
-					if af := files[depName]; af != nil {
+					af, matched, err := lookupBundleAssetFile(files, depName)
+					if err != nil {
+						return nil, nil, fmt.Errorf("resolve external asset %q: %w", depName, err)
+					}
+					if matched {
 						if info := af.GetAssetInfoByPathID(pathID); info != nil {
 							return af, info, nil
 						}
+						return nil, nil, fmt.Errorf("asset PathID=%d not found in external file %q", pathID, depName)
 					}
 				}
 			}
 		}
+		seen := make(map[*AssetsFile]struct{}, len(files))
+		var matches []*AssetsFile
 		for _, af := range files {
 			if af == nil {
 				continue
 			}
-			if info := af.GetAssetInfoByPathID(pathID); info != nil {
-				return af, info, nil
+			if _, ok := seen[af]; ok {
+				continue
 			}
+			seen[af] = struct{}{}
+			if info := af.GetAssetInfoByPathID(pathID); info != nil {
+				matches = append(matches, af)
+			}
+		}
+		if len(matches) > 1 {
+			return nil, nil, fmt.Errorf("asset PathID=%d is ambiguous across %d AssetsFiles", pathID, len(matches))
+		}
+		if len(matches) == 1 {
+			info := matches[0].GetAssetInfoByPathID(pathID)
+			return matches[0], info, nil
 		}
 		return nil, nil, fmt.Errorf("asset fileID=%d PathID=%d not found", fileID, pathID)
 	}
+}
+
+// lookupBundleAssetFile resolves an external-file name without depending on
+// map iteration order. Case-sensitive normalized matches take precedence over
+// case-insensitive matches; multiple distinct AssetsFiles are always rejected
+// as ambiguous. Multiple aliases that point to the same AssetsFile are safe.
+func lookupBundleAssetFile(files map[string]*AssetsFile, name string) (*AssetsFile, bool, error) {
+	fullName := normalizeBundleAssetPath(name)
+	if fullName == "" {
+		return nil, false, nil
+	}
+	find := func(target string, equalFold bool, baseOnly bool) map[*AssetsFile]struct{} {
+		matches := make(map[*AssetsFile]struct{})
+		for key, af := range files {
+			if af == nil {
+				continue
+			}
+			normalized := normalizeBundleAssetPath(key)
+			if normalized == "" {
+				continue
+			}
+			candidate := normalized
+			if baseOnly {
+				candidate = path.Base(normalized)
+			}
+			if (!equalFold && candidate == target) || (equalFold && strings.EqualFold(candidate, target)) {
+				matches[af] = struct{}{}
+			}
+		}
+		return matches
+	}
+
+	// Prefer the complete normalized path. This preserves Unity's external
+	// file identity when two directories contain same-named assets files.
+	matches := find(fullName, false, false)
+	if len(matches) == 0 {
+		matches = find(fullName, true, false)
+	}
+	// Older callers often index bundle files by basename only. Retain that
+	// compatibility as a final fallback after complete-path matching.
+	if len(matches) == 0 {
+		baseName := path.Base(fullName)
+		matches = find(baseName, false, true)
+		if len(matches) == 0 {
+			matches = find(baseName, true, true)
+		}
+	}
+	if len(matches) > 1 {
+		return nil, true, fmt.Errorf("external asset name %q matches %d AssetsFiles", name, len(matches))
+	}
+	for af := range matches {
+		return af, true, nil
+	}
+	return nil, false, nil
+}
+
+func normalizeBundleAssetPath(p string) string {
+	p = strings.TrimSpace(p)
+	if p == "" || p == "." {
+		return ""
+	}
+	p = strings.ReplaceAll(p, "\\", "/")
+	p = strings.TrimPrefix(p, "archive://")
+	p = strings.TrimPrefix(p, "archive:/")
+	p = strings.TrimLeft(p, "/")
+	if p == "" || p == "." {
+		return ""
+	}
+	p = path.Clean(p)
+	if p == "." || p == ".." || strings.HasPrefix(p, "../") {
+		return ""
+	}
+	return p
 }
 
 // GetSpriteExport 将 Unity Sprite 解析为 Texture2D、裁剪矩形和 SpriteSettings / GetSpriteExport resolves a Unity Sprite to a Texture2D, crop rectangle, and SpriteSettings
@@ -227,6 +328,37 @@ func WriteSpritePNG(sprite *SpriteExport, outPath string) error {
 	if err := tools.CheckMagick(); err != nil {
 		return err
 	}
+	f, err := os.Create(outPath)
+	if err != nil {
+		return fmt.Errorf("create sprite PNG %q: %w", outPath, err)
+	}
+	writeErr := WriteSpritePNGTo(sprite, f)
+	closeErr := f.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close sprite PNG %q: %w", outPath, closeErr)
+	}
+	return nil
+}
+
+// WriteSpritePNGTo writes a cropped Sprite PNG to an already-open
+// destination. ImageMagick emits to stdout so callers can retain filesystem
+// confinement with an os.Root-backed file handle.
+func WriteSpritePNGTo(sprite *SpriteExport, out io.Writer) error {
+	if sprite == nil {
+		return fmt.Errorf("nil sprite")
+	}
+	if sprite.Texture == nil {
+		return fmt.Errorf("sprite has no texture")
+	}
+	if out == nil {
+		return fmt.Errorf("nil sprite PNG writer")
+	}
+	if err := tools.CheckMagick(); err != nil {
+		return err
+	}
 	inputFormat, inputData, err := textureInputForMagick(sprite.Texture)
 	if err != nil {
 		return err
@@ -242,11 +374,12 @@ func WriteSpritePNG(sprite *SpriteExport, outPath string) error {
 		args = append(args, "-crop", crop, "+repage")
 	}
 	args = append(args, spriteMagickOrientationArgs(sprite.SettingsRaw)...)
-	args = append(args, "png32:"+outPath)
+	args = append(args, "png32:-")
 
 	cmd := exec.Command("magick", args...)
 	tools.SetHideWindow(cmd)
 	cmd.Stdin = bytes.NewReader(inputData)
+	cmd.Stdout = out
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {

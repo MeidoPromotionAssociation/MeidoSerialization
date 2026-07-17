@@ -20,6 +20,12 @@ type TypeTreeValue struct {
 
 // ReadAssetValue 使用资源的 TypeTree 解码对象 / ReadAssetValue decodes an asset object with the asset's TypeTree
 func (af *AssetsFile) ReadAssetValue(info *AssetInfo) (*TypeTreeValue, error) {
+	if af == nil {
+		return nil, fmt.Errorf("nil assets file")
+	}
+	if info == nil {
+		return nil, fmt.Errorf("nil asset info")
+	}
 	tt, err := af.typeTreeForAsset(info)
 	if err != nil {
 		return nil, err
@@ -39,12 +45,21 @@ func (af *AssetsFile) ReadAssetValue(info *AssetInfo) (*TypeTreeValue, error) {
 		return nil, err
 	}
 	if next != len(tt.Nodes) {
-		return root, nil
+		return nil, fmt.Errorf("type tree for class %d stopped at node %d/%d", info.TypeId, next, len(tt.Nodes))
+	}
+	if r.Remaining() != 0 {
+		return nil, fmt.Errorf("type tree for class %d left %d unread object bytes", info.TypeId, r.Remaining())
 	}
 	return root, nil
 }
 
 func (af *AssetsFile) typeTreeForAsset(info *AssetInfo) (*TypeTreeType, error) {
+	if af == nil {
+		return nil, fmt.Errorf("nil assets file")
+	}
+	if info == nil {
+		return nil, fmt.Errorf("nil asset info")
+	}
 	if !af.Metadata.TypeTreeEnabled {
 		return nil, fmt.Errorf("assets file does not contain type tree metadata")
 	}
@@ -71,6 +86,12 @@ func (af *AssetsFile) byteOrder() binary.ByteOrder {
 }
 
 func readTypeTreeValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int) (*TypeTreeValue, int, error) {
+	if tt == nil {
+		return nil, idx, fmt.Errorf("nil type tree")
+	}
+	if r == nil {
+		return nil, idx, fmt.Errorf("nil type tree reader")
+	}
 	if idx < 0 || idx >= len(tt.Nodes) {
 		return nil, idx, io.ErrUnexpectedEOF
 	}
@@ -85,7 +106,9 @@ func readTypeTreeValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int) (*Ty
 			return nil, idx + 1, fmt.Errorf("read %s %s: %w", v.TypeName, v.Name, err)
 		}
 		if node.MetaFlags&0x4000 != 0 {
-			r.Align4()
+			if err := alignReader4(r); err != nil {
+				return nil, skipSubtree(tt, idx), fmt.Errorf("align %s %s: %w", v.TypeName, v.Name, err)
+			}
 		}
 		return v, skipSubtree(tt, idx), nil
 	}
@@ -115,7 +138,9 @@ func readTypeTreeValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int) (*Ty
 	}
 
 	if node.MetaFlags&0x4000 != 0 {
-		r.Align4()
+		if err := alignReader4(r); err != nil {
+			return nil, next, fmt.Errorf("align %s %s: %w", v.TypeName, v.Name, err)
+		}
 	}
 	return v, next, nil
 }
@@ -134,9 +159,22 @@ func readArrayValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int, v *Type
 	//       T data
 	// Some versions mark the field itself with TypeFlags; this reader accepts
 	// both shapes and falls back to the first descendant named "size"/"data".
-	arrayLevel := tt.Nodes[next].Level
+	arrayNodeIdx := idx
 	if tt.GetTypeTreeString(&tt.Nodes[next], false) == "Array" {
+		arrayNodeIdx = next
 		next++
+	}
+	alignArray := func() error {
+		// In Unity type trees the 4-byte alignment flag normally belongs to
+		// the nested `Array` node, not to its vector/list field.  The bytes for
+		// the whole array (including all elements) must be consumed before the
+		// alignment is applied.
+		if tt.Nodes[arrayNodeIdx].MetaFlags&0x4000 != 0 {
+			if err := alignReader4(r); err != nil {
+				return fmt.Errorf("align array %s: %w", v.Name, err)
+			}
+		}
+		return nil
 	}
 
 	if next >= len(tt.Nodes) {
@@ -166,16 +204,21 @@ func readArrayValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int, v *Type
 		dataNodeIdx++
 	}
 	if dataNodeIdx >= len(tt.Nodes) || tt.Nodes[dataNodeIdx].Level <= node.Level {
-		// Empty or malformed arrays can still be skipped structurally.
-		return v, skipSubtree(tt, idx), nil
+		return nil, skipSubtree(tt, idx), fmt.Errorf("array %s missing data node", v.Name)
 	}
 
 	dataNode := &tt.Nodes[dataNodeIdx]
 	elemNext := skipSubtree(tt, dataNodeIdx)
 	elemType := tt.GetTypeTreeString(dataNode, true)
+	if minBytes := minimumTypeTreeValueBytes(tt, dataNodeIdx); minBytes > 0 && int64(size) > int64(r.Remaining())/int64(minBytes) {
+		return nil, elemNext, fmt.Errorf("array %s size %d requires at least %d bytes but only %d remain", v.Name, size, int64(size)*int64(minBytes), r.Remaining())
+	}
 
 	if size == 0 {
 		v.Children = []*TypeTreeValue{}
+		if err := alignArray(); err != nil {
+			return nil, skipSubtree(tt, idx), err
+		}
 		return v, skipSubtree(tt, idx), nil
 	}
 
@@ -185,23 +228,31 @@ func readArrayValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int, v *Type
 			return nil, elemNext, err
 		}
 		v.Value = buf
+		if err := alignArray(); err != nil {
+			return nil, skipSubtree(tt, idx), err
+		}
 		return v, skipSubtree(tt, idx), nil
 	}
 
-	v.Children = make([]*TypeTreeValue, 0, size)
+	v.Children = makeABACountedSliceForAppend[*TypeTreeValue](size)
 	for i := 0; i < size; i++ {
+		before := r.Pos()
 		child, _, err := readTypeTreeValue(tt, r, dataNodeIdx)
 		if err != nil {
 			return nil, dataNodeIdx, fmt.Errorf("read %s[%d]: %w", v.Name, i, err)
+		}
+		if r.Pos() == before {
+			return nil, dataNodeIdx, fmt.Errorf("array %s element type %q consumes no bytes", v.Name, elemType)
 		}
 		child.Name = fmt.Sprintf("data[%d]", i)
 		v.Children = append(v.Children, child)
 	}
 
 	// The actual metadata subtree is consumed once structurally, regardless of
-	// element count. arrayLevel is intentionally kept to document the accepted
-	// Unity shape and avoid accidental simplification.
-	_ = arrayLevel
+	// element count.
+	if err := alignArray(); err != nil {
+		return nil, skipSubtree(tt, idx), err
+	}
 	return v, skipSubtree(tt, idx), nil
 }
 
@@ -259,7 +310,7 @@ func readPrimitiveValue(r *binaryio.EndianReader, v *TypeTreeValue) error {
 		return err
 	case "unsigned long long", "UInt64":
 		u, err := r.ReadUInt64()
-		v.Value = int64(u)
+		v.Value = u
 		return err
 	case "float":
 		f, err := r.ReadFloat32()
@@ -275,6 +326,56 @@ func readPrimitiveValue(r *binaryio.EndianReader, v *TypeTreeValue) error {
 		}
 		return fmt.Errorf("unsupported primitive type %q", v.TypeName)
 	}
+}
+
+func alignReader4(r *binaryio.EndianReader) error {
+	if r == nil {
+		return fmt.Errorf("nil reader")
+	}
+	pos := r.Pos()
+	if pos < 0 || pos > r.Len() {
+		return io.ErrUnexpectedEOF
+	}
+	padding := (-pos) & 3
+	if padding > r.Remaining() {
+		return io.ErrUnexpectedEOF
+	}
+	r.Skip(padding)
+	return nil
+}
+
+func minimumTypeTreeValueBytes(tt *TypeTreeType, idx int) int {
+	if tt == nil || idx < 0 || idx >= len(tt.Nodes) {
+		return 0
+	}
+	node := &tt.Nodes[idx]
+	typeName := tt.GetTypeTreeString(node, true)
+	switch typeName {
+	case "string", "TypelessData":
+		return 4
+	case "bool", "char", "SInt8", "UInt8", "unsigned char":
+		return 1
+	case "short", "SInt16", "unsigned short", "UInt16":
+		return 2
+	case "int", "SInt32", "unsigned int", "UInt32", "Type*", "float":
+		return 4
+	case "long long", "SInt64", "unsigned long long", "UInt64", "double":
+		return 8
+	}
+
+	next := idx + 1
+	if next >= len(tt.Nodes) || tt.Nodes[next].Level <= node.Level {
+		return 0
+	}
+	if isArrayNode(node, typeName) {
+		return 4
+	}
+	total := 0
+	for next < len(tt.Nodes) && tt.Nodes[next].Level > node.Level {
+		total += minimumTypeTreeValueBytes(tt, next)
+		next = skipSubtree(tt, next)
+	}
+	return total
 }
 
 func isSpecialPrimitiveType(typeName string) bool {
@@ -361,7 +462,37 @@ func (v *TypeTreeValue) Int64() (int64, bool) {
 	case uint32:
 		return int64(x), true
 	case uint64:
+		if x > math.MaxInt64 {
+			return 0, false
+		}
 		return int64(x), true
+	default:
+		return 0, false
+	}
+}
+
+// UInt64 returns a non-negative integer without losing values above MaxInt64.
+func (v *TypeTreeValue) UInt64() (uint64, bool) {
+	if v == nil {
+		return 0, false
+	}
+	switch x := v.Value.(type) {
+	case uint64:
+		return x, true
+	case uint32:
+		return uint64(x), true
+	case uint:
+		return uint64(x), true
+	case int64:
+		if x < 0 {
+			return 0, false
+		}
+		return uint64(x), true
+	case int:
+		if x < 0 {
+			return 0, false
+		}
+		return uint64(x), true
 	default:
 		return 0, false
 	}

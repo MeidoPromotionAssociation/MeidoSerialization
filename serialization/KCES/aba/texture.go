@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"path"
@@ -79,8 +80,8 @@ func (r bundleRangeResolverAdapter) ResolveBundleFileRange(name string, offset i
 	if err != nil {
 		return nil, err
 	}
-	end := offset + size
-	if offset < 0 || size < 0 || end < offset || end > int64(len(data)) {
+	end, ok := addNonNegativeInt64(offset, size)
+	if !ok || end > int64(len(data)) {
 		return nil, fmt.Errorf("range [%d,%d) out of bounds for %q (%d bytes)", offset, end, name, len(data))
 	}
 	return append([]byte(nil), data[offset:end]...), nil
@@ -123,14 +124,9 @@ func (af *AssetsFile) GetTexture2DDataRange(info *AssetInfo, resolver BundleFile
 	}
 
 	if stream := root.Field("m_StreamData"); stream != nil {
-		if off, ok := stream.Field("offset").Int64(); ok {
-			tex.StreamData.Offset = off
-		}
-		if size, ok := stream.Field("size").Int64(); ok && size >= 0 {
-			tex.StreamData.Size = uint32(size)
-		}
-		if p, ok := stream.Field("path").String(); ok {
-			tex.StreamData.Path = p
+		tex.StreamData, err = readStreamingInfo(stream)
+		if err != nil {
+			return tex, err
 		}
 	}
 
@@ -141,9 +137,13 @@ func (af *AssetsFile) GetTexture2DDataRange(info *AssetInfo, resolver BundleFile
 		}
 		start := tex.StreamData.Offset
 		size := int64(tex.StreamData.Size)
+		end, ok := addNonNegativeInt64(start, size)
+		if !ok {
+			return tex, fmt.Errorf("invalid stream data range offset=%d size=%d", start, size)
+		}
 		streamData, err := resolver(streamName, start, size)
 		if err != nil {
-			return tex, fmt.Errorf("read stream data %q[%d:%d]: %w", streamName, start, start+size, err)
+			return tex, fmt.Errorf("read stream data %q[%d:%d]: %w", streamName, start, end, err)
 		}
 		tex.ImageData = streamData
 	}
@@ -156,6 +156,35 @@ doneTextureDataCheck:
 		return tex, fmt.Errorf("texture has no image data")
 	}
 	return tex, nil
+}
+
+func readStreamingInfo(stream *TypeTreeValue) (StreamingInfo, error) {
+	var info StreamingInfo
+	if stream == nil {
+		return info, nil
+	}
+	if field := stream.Field("offset"); field != nil {
+		offset, ok := field.UInt64()
+		if !ok || offset > math.MaxInt64 {
+			return info, fmt.Errorf("Texture2D m_StreamData.offset is outside Int64 range")
+		}
+		info.Offset = int64(offset)
+	}
+	if field := stream.Field("size"); field != nil {
+		size, ok := field.UInt64()
+		if !ok || size > math.MaxUint32 {
+			return info, fmt.Errorf("Texture2D m_StreamData.size is outside UInt32 range")
+		}
+		info.Size = uint32(size)
+	}
+	if field := stream.Field("path"); field != nil {
+		path, ok := field.String()
+		if !ok {
+			return info, fmt.Errorf("Texture2D m_StreamData.path is not a string")
+		}
+		info.Path = path
+	}
+	return info, nil
 }
 
 func normalizeStreamDataPath(p string) string {
@@ -180,20 +209,48 @@ func WriteTexturePNG(tex *Texture2DData, outPath string) error {
 	if err := tools.CheckMagick(); err != nil {
 		return err
 	}
+	f, err := os.Create(outPath)
+	if err != nil {
+		return fmt.Errorf("create texture PNG %q: %w", outPath, err)
+	}
+	writeErr := WriteTexturePNGTo(tex, f)
+	closeErr := f.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close texture PNG %q: %w", outPath, closeErr)
+	}
+	return nil
+}
+
+// WriteTexturePNGTo converts a Unity Texture2D payload and writes the PNG to
+// an already-open destination. Keeping ImageMagick on stdout lets callers use
+// os.Root-backed files without asking the external process to reopen a path.
+func WriteTexturePNGTo(tex *Texture2DData, out io.Writer) error {
+	if tex == nil {
+		return fmt.Errorf("nil texture")
+	}
+	if out == nil {
+		return fmt.Errorf("nil texture PNG writer")
+	}
+	if err := tools.CheckMagick(); err != nil {
+		return err
+	}
 
 	inputFormat, inputData, err := textureInputForMagick(tex)
 	if err != nil {
 		return err
 	}
-
 	args := []string{}
 	if isRawMagickInputFormat(inputFormat) {
 		args = append(args, "-size", fmt.Sprintf("%dx%d", tex.Width, tex.Height), "-depth", "8")
 	}
-	args = append(args, inputFormat+":-", "png32:"+outPath)
+	args = append(args, inputFormat+":-", "png32:-")
 	cmd := exec.Command("magick", args...)
 	tools.SetHideWindow(cmd)
 	cmd.Stdin = bytes.NewReader(inputData)
+	cmd.Stdout = out
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
@@ -204,31 +261,11 @@ func WriteTexturePNG(tex *Texture2DData, outPath string) error {
 
 // TexturePNGBytes converts a Unity Texture2D payload to PNG bytes via ImageMagick.
 func TexturePNGBytes(tex *Texture2DData) ([]byte, error) {
-	if tex == nil {
-		return nil, fmt.Errorf("nil texture")
-	}
-	if err := tools.CheckMagick(); err != nil {
+	var out bytes.Buffer
+	if err := WriteTexturePNGTo(tex, &out); err != nil {
 		return nil, err
 	}
-	inputFormat, inputData, err := textureInputForMagick(tex)
-	if err != nil {
-		return nil, err
-	}
-	args := []string{}
-	if isRawMagickInputFormat(inputFormat) {
-		args = append(args, "-size", fmt.Sprintf("%dx%d", tex.Width, tex.Height), "-depth", "8")
-	}
-	args = append(args, inputFormat+":-", "png32:-")
-	cmd := exec.Command("magick", args...)
-	tools.SetHideWindow(cmd)
-	cmd.Stdin = bytes.NewReader(inputData)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("magick convert %s texture %q failed: %w, stderr: %s", textureFormatName(tex.TextureFormat), tex.Name, err, stderr.String())
-	}
-	return out, nil
+	return out.Bytes(), nil
 }
 
 func textureInputForMagick(tex *Texture2DData) (string, []byte, error) {
@@ -409,10 +446,15 @@ func WriteDDS(tex *Texture2DData, outPath string) error {
 // WriteRawMagickInput is a small debugging helper used by tests and callers
 // that need to inspect ImageMagick input bytes.
 func WriteRawMagickInput(tex *Texture2DData, w io.Writer) error {
+	if tex == nil {
+		return fmt.Errorf("nil texture")
+	}
+	if w == nil {
+		return fmt.Errorf("nil raw texture writer")
+	}
 	_, data, err := textureInputForMagick(tex)
 	if err != nil {
 		return err
 	}
-	_, err = w.Write(data)
-	return err
+	return writeBundleBytes(w, data)
 }

@@ -25,6 +25,12 @@ func TestWriteBundle_RoundTrip(t *testing.T) {
 				}
 				t.Fatalf("ReadBundle failed: %v", err)
 			}
+			for _, dir := range origBundle.BlockInfo.DirectoryInfos {
+				if dir.DecompressedSize > maxBundleReadSize {
+					f.Close()
+					t.Skipf("bundle contains %q (%d bytes), which cannot be represented by the in-memory BundleFileEntry API", dir.Name, dir.DecompressedSize)
+				}
+			}
 
 			// 提取所有文件数据
 			entries := make([]BundleFileEntry, len(origBundle.BlockInfo.DirectoryInfos))

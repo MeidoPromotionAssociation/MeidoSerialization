@@ -1,12 +1,15 @@
 package aba
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 	"github.com/pierrec/lz4/v4"
+	"github.com/ulikunitz/xz/lzma"
 )
 
 // .aba 文件是标准的 Unity AssetBundle UnityFS 格式 / .aba files use the standard Unity AssetBundle UnityFS format
@@ -53,13 +56,35 @@ const (
 
 	// DirectoryInfo Flags / DirectoryInfo flags
 	DirFlagSerializedFile = 0x04 // 该条目是 AssetsFile（序列化文件）/ Entry is an AssetsFile serialized file
+
+	minSupportedBundleVersion = 6
+	maxSupportedBundleVersion = 8
+
+	// UnityFS block/directory metadata is small compared with the data stream.
+	// The largest KCES sample is about 400 KiB while its decompressed .resS
+	// entry exceeds 4 GiB. Keep metadata and per-block allocations bounded
+	// without imposing a low limit on the logical data stream.
+	maxBlockAndDirInfoSize = 64 << 20
+	maxBundleBlockSize     = 256 << 20
+	// parts_bv002.aba contains a real KCES SerializedFile directory of
+	// 799,993,424 bytes. Keep a bounded single-allocation API while allowing
+	// every observed SerializedFile to reach ReadAssetsFile; multi-gigabyte
+	// .resS entries must still be consumed through smaller range reads.
+	maxBundleReadSize = 1 << 30
 )
 
 // Bundle 表示一个 Unity AssetBundle UnityFS 文件 / Bundle represents one Unity AssetBundle UnityFS file
 type Bundle struct {
 	Header     BundleHeader    // 文件头 / File header
 	BlockInfo  BlockAndDirInfo // 压缩块和目录信息 / Compressed block and directory information
-	DataReader io.ReadSeeker   // 数据区 reader（已处理 LZ4 分块解压）/ Data-area reader after LZ4 block handling
+	DataReader io.ReadSeeker   // 压缩数据区 reader；各块按需解压 / Compressed data-area reader; blocks are decompressed on demand
+
+	bundleStart        int64
+	bundleSize         int64
+	headerEnd          int64
+	blockAndDirOffset  int64
+	fileDataOffset     int64
+	compressedDataSize int64
 }
 
 // BundleHeader 表示 UnityFS 文件头，所有字段使用 Big-Endian 编码 / BundleHeader represents the UnityFS header with Big-Endian fields
@@ -84,6 +109,7 @@ type BlockAndDirInfo struct {
 	Hash           [16]byte        // 16 字节哈希 / 16-byte hash
 	BlockInfos     []BlockInfo     // 数据压缩块信息列表 / Data block info list
 	DirectoryInfos []DirectoryInfo // 文件目录条目列表 / File directory entry list
+	TrailingData   []byte          // 已知目录表之后的未解析字节 / Unparsed bytes following the known directory table
 }
 
 // BlockInfo 描述一个数据压缩块的元信息 / BlockInfo describes one compressed data block
@@ -118,7 +144,29 @@ func (h *FSHeader) GetCompressionType() byte {
 
 // ReadBundle 从 reader 中读取并解析 Unity AssetBundle 文件
 func ReadBundle(r io.ReadSeeker) (*Bundle, error) {
-	bundle := &Bundle{}
+	if r == nil {
+		return nil, fmt.Errorf("bundle reader is nil")
+	}
+
+	start, err := r.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return nil, fmt.Errorf("get bundle start offset: %w", err)
+	}
+	end, err := r.Seek(0, io.SeekEnd)
+	if err != nil {
+		return nil, fmt.Errorf("get bundle stream size: %w", err)
+	}
+	if end < start {
+		return nil, fmt.Errorf("invalid bundle stream range [%d, %d)", start, end)
+	}
+	if _, err := r.Seek(start, io.SeekStart); err != nil {
+		return nil, fmt.Errorf("restore bundle start offset: %w", err)
+	}
+
+	bundle := &Bundle{
+		bundleStart: start,
+		bundleSize:  end - start,
+	}
 
 	// 1. 读取 Header
 	if err := bundle.readHeader(r); err != nil {
@@ -131,15 +179,45 @@ func ReadBundle(r io.ReadSeeker) (*Bundle, error) {
 		}
 		return nil, fmt.Errorf("unsupported signature: %q (only UnityFS supported)", bundle.Header.Signature)
 	}
+	if bundle.Header.Version < minSupportedBundleVersion || bundle.Header.Version > maxSupportedBundleVersion {
+		return nil, fmt.Errorf("unsupported UnityFS version %d (supported: %d-%d)", bundle.Header.Version, minSupportedBundleVersion, maxSupportedBundleVersion)
+	}
+	if bundle.Header.FSHeader.TotalFileSize != bundle.bundleSize {
+		return nil, fmt.Errorf("UnityFS total file size mismatch: header=%d, stream=%d", bundle.Header.FSHeader.TotalFileSize, bundle.bundleSize)
+	}
+	if bundle.Header.FSHeader.TotalFileSize <= 0 {
+		return nil, fmt.Errorf("invalid UnityFS total file size %d", bundle.Header.FSHeader.TotalFileSize)
+	}
+	if bundle.Header.FSHeader.Flags&uint32(FlagHasDirectoryInfo) == 0 {
+		return nil, fmt.Errorf("UnityFS bundle has no combined block/directory info")
+	}
+	if bundle.Header.FSHeader.CompressedSize == 0 || bundle.Header.FSHeader.DecompressedSize == 0 {
+		return nil, fmt.Errorf("invalid block/directory info sizes compressed=%d decompressed=%d", bundle.Header.FSHeader.CompressedSize, bundle.Header.FSHeader.DecompressedSize)
+	}
+	if bundle.Header.FSHeader.CompressedSize > maxBlockAndDirInfoSize || bundle.Header.FSHeader.DecompressedSize > maxBlockAndDirInfoSize {
+		return nil, fmt.Errorf("block/directory info too large: compressed=%d decompressed=%d (limit %d)", bundle.Header.FSHeader.CompressedSize, bundle.Header.FSHeader.DecompressedSize, maxBlockAndDirInfoSize)
+	}
 
 	// 2. 对齐到 16 字节（version >= 7）
+	pos, err := r.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return nil, fmt.Errorf("get UnityFS header end: %w", err)
+	}
+	relativePos := pos - start
+	if relativePos < 0 || relativePos > bundle.bundleSize {
+		return nil, fmt.Errorf("invalid UnityFS header end %d", relativePos)
+	}
 	if bundle.Header.Version >= 7 {
-		pos, _ := r.Seek(0, io.SeekCurrent)
-		aligned := (pos + 15) & ^int64(15)
-		if aligned != pos {
-			r.Seek(aligned, io.SeekStart)
+		aligned, ok := alignInt64(relativePos, 16)
+		if !ok || aligned > bundle.bundleSize {
+			return nil, fmt.Errorf("UnityFS aligned header end is out of bounds")
+		}
+		relativePos = aligned
+		if _, err := r.Seek(start+relativePos, io.SeekStart); err != nil {
+			return nil, fmt.Errorf("seek past UnityFS header padding: %w", err)
 		}
 	}
+	bundle.headerEnd = relativePos
 
 	// 3. 读取 BlockAndDirInfo
 	if err := bundle.readBlockAndDirInfo(r); err != nil {
@@ -151,14 +229,16 @@ func ReadBundle(r io.ReadSeeker) (*Bundle, error) {
 	if !ok {
 		return nil, fmt.Errorf("bundle reader must implement io.ReaderAt")
 	}
-	dataOffset := bundle.getFileDataOffset()
-	bundle.DataReader = io.NewSectionReader(readerAt, dataOffset, bundle.Header.FSHeader.TotalFileSize-dataOffset)
+	bundle.DataReader = io.NewSectionReader(readerAt, start+bundle.fileDataOffset, bundle.compressedDataSize)
 
 	return bundle, nil
 }
 
 // GetFileNames 返回 bundle 中所有文件的名称列表
 func (b *Bundle) GetFileNames() []string {
+	if b == nil {
+		return nil
+	}
 	names := make([]string, len(b.BlockInfo.DirectoryInfos))
 	for i, d := range b.BlockInfo.DirectoryInfos {
 		names[i] = d.Name
@@ -168,13 +248,14 @@ func (b *Bundle) GetFileNames() []string {
 
 // GetFileData 读取指定索引的文件数据（自动处理 LZ4 分块解压）
 func (b *Bundle) GetFileData(index int) ([]byte, error) {
+	if b == nil {
+		return nil, fmt.Errorf("bundle is nil")
+	}
 	if index < 0 || index >= len(b.BlockInfo.DirectoryInfos) {
 		return nil, fmt.Errorf("file index %d out of range [0, %d)", index, len(b.BlockInfo.DirectoryInfos))
 	}
-
-	dir := b.BlockInfo.DirectoryInfos[index]
-
-	data, err := b.readDataRange(dir.Offset, dir.DecompressedSize)
+	dir := &b.BlockInfo.DirectoryInfos[index]
+	data, err := b.GetFileDataRange(index, 0, dir.DecompressedSize)
 	if err != nil {
 		return nil, fmt.Errorf("read file %q data failed: %w", dir.Name, err)
 	}
@@ -184,6 +265,9 @@ func (b *Bundle) GetFileData(index int) ([]byte, error) {
 
 // GetFileDataByName 按名称读取文件数据
 func (b *Bundle) GetFileDataByName(name string) ([]byte, error) {
+	if b == nil {
+		return nil, fmt.Errorf("bundle is nil")
+	}
 	for i, d := range b.BlockInfo.DirectoryInfos {
 		if d.Name == name {
 			return b.GetFileData(i)
@@ -192,21 +276,42 @@ func (b *Bundle) GetFileDataByName(name string) ([]byte, error) {
 	return nil, fmt.Errorf("file %q not found in bundle", name)
 }
 
+// GetFileDataRange reads a byte range from a bundle file selected by directory
+// index. The offset and size are relative to that directory entry.
+func (b *Bundle) GetFileDataRange(index int, offset int64, size int64) ([]byte, error) {
+	if b == nil {
+		return nil, fmt.Errorf("bundle is nil")
+	}
+	if index < 0 || index >= len(b.BlockInfo.DirectoryInfos) {
+		return nil, fmt.Errorf("file index %d out of range [0, %d)", index, len(b.BlockInfo.DirectoryInfos))
+	}
+	dir := &b.BlockInfo.DirectoryInfos[index]
+	if offset < 0 || size < 0 {
+		return nil, fmt.Errorf("invalid file range offset=%d size=%d", offset, size)
+	}
+	end, ok := addNonNegativeInt64(offset, size)
+	if !ok || end > dir.DecompressedSize {
+		return nil, fmt.Errorf("file %q range offset=%d size=%d out of bounds %d", dir.Name, offset, size, dir.DecompressedSize)
+	}
+	absoluteOffset, ok := addNonNegativeInt64(dir.Offset, offset)
+	if !ok {
+		return nil, fmt.Errorf("file %q absolute range offset overflows", dir.Name)
+	}
+	return b.readDataRange(absoluteOffset, size)
+}
+
 // GetFileDataRangeByName reads a byte range from a bundle file by name.
 // The offset and size are relative to the decompressed file entry, not the
 // whole UnityFS data stream.
 func (b *Bundle) GetFileDataRangeByName(name string, offset int64, size int64) ([]byte, error) {
-	for _, d := range b.BlockInfo.DirectoryInfos {
+	if b == nil {
+		return nil, fmt.Errorf("bundle is nil")
+	}
+	for index, d := range b.BlockInfo.DirectoryInfos {
 		if d.Name != name {
 			continue
 		}
-		if offset < 0 || size < 0 {
-			return nil, fmt.Errorf("invalid file range offset=%d size=%d", offset, size)
-		}
-		if offset+size < offset || offset+size > d.DecompressedSize {
-			return nil, fmt.Errorf("file %q range [%d, %d) out of bounds %d", name, offset, offset+size, d.DecompressedSize)
-		}
-		return b.readDataRange(d.Offset+offset, size)
+		return b.GetFileDataRange(index, offset, size)
 	}
 	return nil, fmt.Errorf("file %q not found in bundle", name)
 }
@@ -214,7 +319,8 @@ func (b *Bundle) GetFileDataRangeByName(name string, offset int64, size int64) (
 // readHeader 读取 UnityFS 文件头
 func (b *Bundle) readHeader(r io.ReadSeeker) error {
 	// 1. Signature (null-terminated string)
-	sig, err := binaryio.ReadNullString(r)
+	// Reserve version, two mandatory string terminators, and FSHeader.
+	sig, err := b.readHeaderNullString(r, 4+1+1+20)
 	if err != nil {
 		return fmt.Errorf("read signature failed: %w", err)
 	}
@@ -226,14 +332,15 @@ func (b *Bundle) readHeader(r io.ReadSeeker) error {
 	}
 
 	// 3. GenerationVersion (null-terminated string)
-	genVer, err := binaryio.ReadNullString(r)
+	// Reserve the engine-version terminator and FSHeader.
+	genVer, err := b.readHeaderNullString(r, 1+20)
 	if err != nil {
 		return fmt.Errorf("read generation version failed: %w", err)
 	}
 	b.Header.GenerationVersion = genVer
 
 	// 4. EngineVersion (null-terminated string)
-	engVer, err := binaryio.ReadNullString(r)
+	engVer, err := b.readHeaderNullString(r, 20)
 	if err != nil {
 		return fmt.Errorf("read engine version failed: %w", err)
 	}
@@ -250,53 +357,76 @@ func (b *Bundle) readHeader(r io.ReadSeeker) error {
 // readBlockAndDirInfo 读取并解压 BlockAndDirInfo
 func (b *Bundle) readBlockAndDirInfo(r io.ReadSeeker) error {
 	flags := b.Header.FSHeader.Flags
+	compressedSize := int64(b.Header.FSHeader.CompressedSize)
+	decompressedSize := int64(b.Header.FSHeader.DecompressedSize)
+	compType := b.Header.FSHeader.GetCompressionType()
+	if compType != CompressionNone && compType != CompressionLZMA && compType != CompressionLZ4 && compType != CompressionLZ4HC {
+		return fmt.Errorf("unknown block/directory info compression type: %d", compType)
+	}
+	if compType == CompressionNone && compressedSize != decompressedSize {
+		return fmt.Errorf("uncompressed block/directory info size mismatch: compressed=%d decompressed=%d", compressedSize, decompressedSize)
+	}
 
 	// 确定 BlockAndDirInfo 的位置
+	infoOffset := b.headerEnd
 	if flags&uint32(FlagBlockAndDirAtEnd) != 0 {
 		// 位于文件末尾
-		offset := b.Header.FSHeader.TotalFileSize - int64(b.Header.FSHeader.CompressedSize)
-		r.Seek(offset, io.SeekStart)
+		infoOffset = b.bundleSize - compressedSize
 	}
-	// 否则紧跟在 header 之后（当前位置）
-
-	compressedSize := int(b.Header.FSHeader.CompressedSize)
-	decompressedSize := int(b.Header.FSHeader.DecompressedSize)
+	infoEnd, ok := addNonNegativeInt64(infoOffset, compressedSize)
+	if !ok || infoOffset < b.headerEnd || infoEnd > b.bundleSize {
+		return fmt.Errorf("block/directory info range [%d, %d) is outside bundle size %d", infoOffset, infoEnd, b.bundleSize)
+	}
+	if _, err := r.Seek(b.bundleStart+infoOffset, io.SeekStart); err != nil {
+		return fmt.Errorf("seek to block/directory info: %w", err)
+	}
+	b.blockAndDirOffset = infoOffset
 
 	// 读取压缩数据
-	compressedData := make([]byte, compressedSize)
+	compressedData := make([]byte, int(compressedSize))
 	if _, err := io.ReadFull(r, compressedData); err != nil {
 		return fmt.Errorf("read compressed block info failed: %w", err)
 	}
 
 	// 解压
 	var infoData []byte
-	compType := b.Header.FSHeader.GetCompressionType()
 	switch compType {
 	case CompressionNone:
 		infoData = compressedData
 	case CompressionLZ4, CompressionLZ4HC:
-		infoData = make([]byte, decompressedSize)
+		infoData = make([]byte, int(decompressedSize))
 		n, err := lz4.UncompressBlock(compressedData, infoData)
 		if err != nil {
 			return fmt.Errorf("LZ4 decompress block info failed: %w", err)
 		}
-		infoData = infoData[:n]
+		if n != len(infoData) {
+			return fmt.Errorf("LZ4 block/directory info size mismatch: got %d, want %d", n, len(infoData))
+		}
 	case CompressionLZMA:
-		return fmt.Errorf("LZMA compression not yet supported")
-	default:
-		return fmt.Errorf("unknown compression type: %d", compType)
+		decoded, err := decompressUnityLZMA(compressedData, int(decompressedSize))
+		if err != nil {
+			return fmt.Errorf("LZMA decompress block/directory info failed: %w", err)
+		}
+		infoData = decoded
 	}
 
 	// 解析 BlockAndDirInfo
-	return b.parseBlockAndDirInfo(infoData)
+	if err := b.parseBlockAndDirInfo(infoData); err != nil {
+		return err
+	}
+	return b.validateDataLayout()
 }
 
 // parseBlockAndDirInfo 从解压后的字节中解析 BlockAndDirInfo
 func (b *Bundle) parseBlockAndDirInfo(data []byte) error {
+	if len(data) < 24 {
+		return fmt.Errorf("block/directory info is too short: %d bytes", len(data))
+	}
 	r := binaryio.NewEndianReader(data, binary.BigEndian)
+	var parsed BlockAndDirInfo
 
 	// 1. Hash (16 bytes)
-	if err := r.ReadFull(b.BlockInfo.Hash[:]); err != nil {
+	if err := r.ReadFull(parsed.Hash[:]); err != nil {
 		return fmt.Errorf("read hash: %w", err)
 	}
 
@@ -309,8 +439,11 @@ func (b *Bundle) parseBlockAndDirInfo(data []byte) error {
 		return fmt.Errorf("negative block count %d", blockCountRaw)
 	}
 	blockCount := int(blockCountRaw)
+	if r.Remaining() < 4 || blockCount > (r.Remaining()-4)/10 {
+		return fmt.Errorf("block count %d cannot fit in remaining metadata (%d bytes)", blockCount, r.Remaining())
+	}
 
-	b.BlockInfo.BlockInfos = make([]BlockInfo, blockCount)
+	parsed.BlockInfos = makeABACountedSliceForAppend[BlockInfo](blockCount)
 	for i := 0; i < blockCount; i++ {
 		decompressedSize, err := r.ReadUInt32()
 		if err != nil {
@@ -324,11 +457,27 @@ func (b *Bundle) parseBlockAndDirInfo(data []byte) error {
 		if err != nil {
 			return fmt.Errorf("read block info %d flags: %w", i, err)
 		}
-		b.BlockInfo.BlockInfos[i] = BlockInfo{
+		block := BlockInfo{
 			DecompressedSize: decompressedSize,
 			CompressedSize:   compressedSize,
 			Flags:            flags,
 		}
+		if decompressedSize > maxBundleBlockSize || compressedSize > maxBundleBlockSize {
+			return fmt.Errorf("block info %d is too large: compressed=%d decompressed=%d (per-block limit %d)", i, compressedSize, decompressedSize, maxBundleBlockSize)
+		}
+		switch compType := block.GetCompressionType(); compType {
+		case CompressionNone:
+			if compressedSize != decompressedSize {
+				return fmt.Errorf("uncompressed block info %d size mismatch: compressed=%d decompressed=%d", i, compressedSize, decompressedSize)
+			}
+		case CompressionLZMA, CompressionLZ4, CompressionLZ4HC:
+			if compressedSize == 0 || decompressedSize == 0 {
+				return fmt.Errorf("compressed block info %d has zero size", i)
+			}
+		default:
+			return fmt.Errorf("data block %d has unknown compression type %d", i, compType)
+		}
+		parsed.BlockInfos = append(parsed.BlockInfos, block)
 	}
 
 	// 3. DirectoryCount + DirectoryInfos
@@ -340,8 +489,12 @@ func (b *Bundle) parseBlockAndDirInfo(data []byte) error {
 		return fmt.Errorf("negative directory count %d", dirCountRaw)
 	}
 	dirCount := int(dirCountRaw)
+	const minimumDirectoryInfoSize = 8 + 8 + 4 + 1
+	if dirCount > r.Remaining()/minimumDirectoryInfoSize {
+		return fmt.Errorf("directory count %d cannot fit in remaining metadata (%d bytes)", dirCount, r.Remaining())
+	}
 
-	b.BlockInfo.DirectoryInfos = make([]DirectoryInfo, dirCount)
+	parsed.DirectoryInfos = makeABACountedSliceForAppend[DirectoryInfo](dirCount)
 	for i := 0; i < dirCount; i++ {
 		offset, err := r.ReadInt64()
 		if err != nil {
@@ -361,15 +514,40 @@ func (b *Bundle) parseBlockAndDirInfo(data []byte) error {
 		if err != nil {
 			return fmt.Errorf("read directory info %d name: %w", i, err)
 		}
+		if offset < 0 || decompSize < 0 {
+			return fmt.Errorf("directory info %d has invalid range offset=%d size=%d", i, offset, decompSize)
+		}
 
-		b.BlockInfo.DirectoryInfos[i] = DirectoryInfo{
+		parsed.DirectoryInfos = append(parsed.DirectoryInfos, DirectoryInfo{
 			Offset:           offset,
 			DecompressedSize: decompSize,
 			Flags:            flags,
 			Name:             name,
+		})
+	}
+	if r.Remaining() != 0 {
+		parsed.TrailingData, err = r.ReadBytes(r.Remaining())
+		if err != nil {
+			return fmt.Errorf("read block/directory trailing data: %w", err)
 		}
 	}
 
+	var totalDecompressed int64
+	for i, block := range parsed.BlockInfos {
+		var ok bool
+		totalDecompressed, ok = addNonNegativeInt64(totalDecompressed, int64(block.DecompressedSize))
+		if !ok {
+			return fmt.Errorf("decompressed block size sum overflows at block %d", i)
+		}
+	}
+	for i, dir := range parsed.DirectoryInfos {
+		end, ok := addNonNegativeInt64(dir.Offset, dir.DecompressedSize)
+		if !ok || end > totalDecompressed {
+			return fmt.Errorf("directory info %d range offset=%d size=%d exceeds decompressed data size %d", i, dir.Offset, dir.DecompressedSize, totalDecompressed)
+		}
+	}
+
+	b.BlockInfo = parsed
 	return nil
 }
 
@@ -378,20 +556,26 @@ func (b *Bundle) parseBlockAndDirInfo(data []byte) error {
 // extracting many files does not retain or repeatedly allocate a full bundle
 // decompression buffer.
 func (b *Bundle) readDataRange(offset int64, size int64) ([]byte, error) {
+	if b == nil {
+		return nil, fmt.Errorf("bundle is nil")
+	}
 	if offset < 0 || size < 0 {
 		return nil, fmt.Errorf("invalid range offset=%d size=%d", offset, size)
 	}
-	if size == 0 {
-		return []byte{}, nil
+	if size > maxBundleReadSize {
+		return nil, fmt.Errorf("requested range size %d exceeds in-memory read limit %d; request smaller ranges with GetFileDataRangeByName", size, maxBundleReadSize)
 	}
 
-	var totalSize int64
-	for _, block := range b.BlockInfo.BlockInfos {
-		totalSize += int64(block.DecompressedSize)
+	totalSize, err := sumDecompressedBlockSizes(b.BlockInfo.BlockInfos)
+	if err != nil {
+		return nil, err
 	}
-	end := offset + size
-	if end < offset || end > totalSize {
-		return nil, fmt.Errorf("range [%d, %d) out of decompressed data bounds %d", offset, end, totalSize)
+	end, ok := addNonNegativeInt64(offset, size)
+	if !ok || end > totalSize {
+		return nil, fmt.Errorf("range offset=%d size=%d out of decompressed data bounds %d", offset, size, totalSize)
+	}
+	if size == 0 {
+		return []byte{}, nil
 	}
 
 	readerAt, ok := b.DataReader.(io.ReaderAt)
@@ -399,16 +583,20 @@ func (b *Bundle) readDataRange(offset int64, size int64) ([]byte, error) {
 		return nil, fmt.Errorf("bundle data reader does not support random access")
 	}
 
-	result := make([]byte, 0, size)
+	result := make([]byte, int(size))
+	written := 0
 	var compressedOffset int64
 	var decompressedOffset int64
 	for blockIndex, block := range b.BlockInfo.BlockInfos {
 		blockStart := decompressedOffset
-		blockEnd := blockStart + int64(block.DecompressedSize)
+		blockEnd, ok := addNonNegativeInt64(blockStart, int64(block.DecompressedSize))
+		if !ok {
+			return nil, fmt.Errorf("decompressed offset overflows at block[%d]", blockIndex)
+		}
 		overlaps := offset < blockEnd && end > blockStart
 
 		if overlaps {
-			compressed := make([]byte, block.CompressedSize)
+			compressed := make([]byte, int(block.CompressedSize))
 			if _, err := readerAt.ReadAt(compressed, compressedOffset); err != nil {
 				return nil, fmt.Errorf("read block[%d] data: %w", blockIndex, err)
 			}
@@ -417,41 +605,96 @@ func (b *Bundle) readDataRange(offset int64, size int64) ([]byte, error) {
 			if err != nil {
 				return nil, fmt.Errorf("decompress block[%d]: %w", blockIndex, err)
 			}
-			if int64(len(blockData)) < int64(block.DecompressedSize) {
-				return nil, fmt.Errorf("block[%d] decompressed too short: got %d, want %d", blockIndex, len(blockData), block.DecompressedSize)
+			if len(blockData) != int(block.DecompressedSize) {
+				return nil, fmt.Errorf("block[%d] decompressed size mismatch: got %d, want %d", blockIndex, len(blockData), block.DecompressedSize)
 			}
 
 			copyStart := maxInt64(offset, blockStart) - blockStart
 			copyEnd := minInt64(end, blockEnd) - blockStart
-			result = append(result, blockData[copyStart:copyEnd]...)
+			written += copy(result[written:], blockData[int(copyStart):int(copyEnd)])
 		}
 
-		compressedOffset += int64(block.CompressedSize)
+		compressedOffset, ok = addNonNegativeInt64(compressedOffset, int64(block.CompressedSize))
+		if !ok {
+			return nil, fmt.Errorf("compressed offset overflows at block[%d]", blockIndex)
+		}
 		decompressedOffset = blockEnd
 	}
 
-	if int64(len(result)) != size {
-		return nil, fmt.Errorf("range read size mismatch: got %d, want %d", len(result), size)
+	if int64(written) != size {
+		return nil, fmt.Errorf("range read size mismatch: got %d, want %d", written, size)
 	}
 	return result, nil
 }
 
 func decompressDataBlock(block BlockInfo, compressed []byte) ([]byte, error) {
+	if block.CompressedSize > maxBundleBlockSize || block.DecompressedSize > maxBundleBlockSize {
+		return nil, fmt.Errorf("block is too large: compressed=%d decompressed=%d", block.CompressedSize, block.DecompressedSize)
+	}
+	if len(compressed) != int(block.CompressedSize) {
+		return nil, fmt.Errorf("compressed input size mismatch: got %d, want %d", len(compressed), block.CompressedSize)
+	}
 	switch compType := block.GetCompressionType(); compType {
 	case CompressionNone:
+		if block.CompressedSize != block.DecompressedSize {
+			return nil, fmt.Errorf("uncompressed block size mismatch: compressed=%d decompressed=%d", block.CompressedSize, block.DecompressedSize)
+		}
 		return compressed, nil
 	case CompressionLZ4, CompressionLZ4HC:
-		dst := make([]byte, block.DecompressedSize)
+		if block.CompressedSize == 0 || block.DecompressedSize == 0 {
+			return nil, fmt.Errorf("compressed block has zero size")
+		}
+		dst := make([]byte, int(block.DecompressedSize))
 		n, err := lz4.UncompressBlock(compressed, dst)
 		if err != nil {
 			return nil, err
 		}
-		return dst[:n], nil
+		if n != len(dst) {
+			return nil, fmt.Errorf("LZ4 decompressed size mismatch: got %d, want %d", n, len(dst))
+		}
+		return dst, nil
 	case CompressionLZMA:
-		return nil, fmt.Errorf("LZMA compression not yet supported")
+		data, err := decompressUnityLZMA(compressed, int(block.DecompressedSize))
+		if err != nil {
+			return nil, fmt.Errorf("LZMA decompress: %w", err)
+		}
+		return data, nil
 	default:
 		return nil, fmt.Errorf("unknown block compression type: %d", compType)
 	}
+}
+
+// UnityFS stores the standard five-byte LZMA properties header but omits the
+// classic format's eight-byte uncompressed-size field because that size is
+// already present in the block table. Insert the known size and delegate the
+// actual codec work to the xz/lzma implementation.
+func decompressUnityLZMA(compressed []byte, decompressedSize int) ([]byte, error) {
+	if decompressedSize < 0 {
+		return nil, fmt.Errorf("negative decompressed size %d", decompressedSize)
+	}
+	if len(compressed) < 5 {
+		return nil, fmt.Errorf("compressed stream is shorter than the 5-byte properties header")
+	}
+	var header [13]byte
+	copy(header[:5], compressed[:5])
+	binary.LittleEndian.PutUint64(header[5:], uint64(decompressedSize))
+	stream := io.MultiReader(bytes.NewReader(header[:]), bytes.NewReader(compressed[5:]))
+	reader, err := (lzma.ReaderConfig{DictCap: math.MaxInt32}).NewReader(stream)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]byte, decompressedSize)
+	if _, err := io.ReadFull(reader, result); err != nil {
+		return nil, err
+	}
+	extra, err := io.ReadAll(io.LimitReader(reader, 1))
+	if err != nil {
+		return nil, err
+	}
+	if len(extra) != 0 {
+		return nil, fmt.Errorf("decompressed stream exceeds declared size %d", decompressedSize)
+	}
+	return result, nil
 }
 
 func minInt64(a, b int64) int64 {
@@ -468,29 +711,134 @@ func maxInt64(a, b int64) int64 {
 	return b
 }
 
-// getFileDataOffset 计算数据区在文件中的起始偏移
-func (b *Bundle) getFileDataOffset() int64 {
-	flags := b.Header.FSHeader.Flags
-
-	// 基础偏移 = signature + version + genVersion + engVersion + fsHeader
-	// signature: len + 1 (null), version: 4, genVersion: len + 1, engVersion: len + 1
-	// fsHeader: 8 + 4 + 4 + 4 = 20
-	offset := int64(len(b.Header.Signature) + 1 + 4 +
-		len(b.Header.GenerationVersion) + 1 +
-		len(b.Header.EngineVersion) + 1 + 20)
-
-	if b.Header.Version >= 7 {
-		offset = (offset + 15) & ^int64(15) // align to 16
+func (b *Bundle) validateDataLayout() error {
+	dataOffset := b.headerEnd
+	if b.Header.FSHeader.Flags&uint32(FlagBlockAndDirAtEnd) == 0 {
+		var ok bool
+		dataOffset, ok = addNonNegativeInt64(b.blockAndDirOffset, int64(b.Header.FSHeader.CompressedSize))
+		if !ok {
+			return fmt.Errorf("data offset overflows after block/directory info")
+		}
+	}
+	if b.Header.FSHeader.Flags&uint32(FlagBlockInfoNeedPaddingAtStart) != 0 {
+		aligned, ok := alignInt64(dataOffset, 16)
+		if !ok {
+			return fmt.Errorf("aligned data offset overflows")
+		}
+		dataOffset = aligned
+	}
+	dataEnd := b.bundleSize
+	if b.Header.FSHeader.Flags&uint32(FlagBlockAndDirAtEnd) != 0 {
+		dataEnd = b.blockAndDirOffset
+	}
+	if dataOffset < b.headerEnd || dataOffset > dataEnd {
+		return fmt.Errorf("invalid compressed data range [%d, %d)", dataOffset, dataEnd)
 	}
 
-	if flags&uint32(FlagBlockAndDirAtEnd) == 0 {
-		// BlockAndDirInfo 在 header 之后
-		offset += int64(b.Header.FSHeader.CompressedSize)
+	var compressedSize int64
+	for i, block := range b.BlockInfo.BlockInfos {
+		var ok bool
+		compressedSize, ok = addNonNegativeInt64(compressedSize, int64(block.CompressedSize))
+		if !ok {
+			return fmt.Errorf("compressed block size sum overflows at block %d", i)
+		}
+	}
+	available := dataEnd - dataOffset
+	if compressedSize != available {
+		return fmt.Errorf("compressed data size mismatch: block table=%d, file range=%d", compressedSize, available)
+	}
+	b.fileDataOffset = dataOffset
+	b.compressedDataSize = compressedSize
+	return nil
+}
+
+func sumDecompressedBlockSizes(blocks []BlockInfo) (int64, error) {
+	var total int64
+	for i, block := range blocks {
+		var ok bool
+		total, ok = addNonNegativeInt64(total, int64(block.DecompressedSize))
+		if !ok {
+			return 0, fmt.Errorf("decompressed block size sum overflows at block %d", i)
+		}
+	}
+	return total, nil
+}
+
+func addNonNegativeInt64(a, b int64) (int64, bool) {
+	if a < 0 || b < 0 || a > int64(^uint64(0)>>1)-b {
+		return 0, false
+	}
+	return a + b, true
+}
+
+func alignInt64(value, alignment int64) (int64, bool) {
+	if value < 0 || alignment <= 0 {
+		return 0, false
+	}
+	remainder := value % alignment
+	if remainder == 0 {
+		return value, true
+	}
+	return addNonNegativeInt64(value, alignment-remainder)
+}
+
+func (b *Bundle) readHeaderNullString(r io.ReadSeeker, reservedBytes int64) (string, error) {
+	if b == nil || r == nil {
+		return "", fmt.Errorf("nil bundle header reader")
+	}
+	pos, err := r.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return "", err
+	}
+	relativePos := pos - b.bundleStart
+	if relativePos < 0 || relativePos > b.bundleSize || reservedBytes < 0 || reservedBytes > b.bundleSize-relativePos {
+		return "", fmt.Errorf("bundle has no room for the remaining header fields")
+	}
+	return readNullStringWithin(r, b.bundleSize-relativePos-reservedBytes)
+}
+
+func readNullStringWithin(r io.ReadSeeker, maxBytes int64) (string, error) {
+	if r == nil {
+		return "", fmt.Errorf("reader is nil")
+	}
+	if maxBytes <= 0 {
+		return "", fmt.Errorf("no room for a null-terminated string")
+	}
+	start, err := r.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return "", err
 	}
 
-	if flags&uint32(FlagBlockInfoNeedPaddingAtStart) != 0 {
-		offset = (offset + 15) & ^int64(15) // align to 16
+	var scratch [4096]byte
+	var scanned int64
+	for scanned < maxBytes {
+		chunkSize := int64(len(scratch))
+		if remaining := maxBytes - scanned; chunkSize > remaining {
+			chunkSize = remaining
+		}
+		n, readErr := io.ReadFull(r, scratch[:int(chunkSize)])
+		if terminator := bytes.IndexByte(scratch[:n], 0); terminator >= 0 {
+			length := scanned + int64(terminator)
+			if length > int64(int(^uint(0)>>1)) {
+				return "", fmt.Errorf("null-terminated string length %d exceeds platform int capacity", length)
+			}
+			if _, err := r.Seek(start, io.SeekStart); err != nil {
+				return "", err
+			}
+			data := make([]byte, int(length))
+			if _, err := io.ReadFull(r, data); err != nil {
+				return "", err
+			}
+			var nul [1]byte
+			if _, err := io.ReadFull(r, nul[:]); err != nil {
+				return "", err
+			}
+			return string(data), nil
+		}
+		scanned += int64(n)
+		if readErr != nil {
+			return "", readErr
+		}
 	}
-
-	return offset
+	return "", fmt.Errorf("null-terminated string is not terminated within %d available bytes", maxBytes)
 }

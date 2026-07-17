@@ -1,6 +1,7 @@
 package aba
 
 import (
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"testing"
@@ -63,6 +64,19 @@ func TestGetAssetEntries(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestGetTextAssetDataRejectsNegativeAlignedNameLength(t *testing.T) {
+	data := make([]byte, 8)
+	binary.LittleEndian.PutUint32(data[:4], ^uint32(0))
+	af := &AssetsFile{
+		Header: AssetsFileHeader{Version: 22, FileSize: int64(len(data))},
+		Data:   data,
+	}
+	info := &AssetInfo{TypeId: ClassIDTextAsset, ByteSize: uint32(len(data))}
+	if _, _, err := af.GetTextAssetData(info); err == nil {
+		t.Fatal("negative TextAsset m_Name length unexpectedly decoded")
 	}
 }
 
