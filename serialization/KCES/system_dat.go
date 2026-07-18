@@ -11,6 +11,14 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
+// system.dat
+// KCES 用户系统数据容器，使用 VirtualDirectory 保存 EditData 下的界面、调色板和颜色预设等虚拟文件。
+// 外层使用 KCES VirtualDirectory 版本控制；已知虚拟文件按各自 MessagePack 布局解析，未知文件逐字节保留。
+//
+// system.dat
+// KCES user system-data container using VirtualDirectory to store UI, palette, and color-preset virtual files below EditData.
+// The outer layer uses KCES VirtualDirectory versioning; known virtual files use their MessagePack schemas and unknown files are preserved byte-for-byte.
+
 const KCESSystemDataFormat = "kces-system-data"
 
 type KCESEditDataKind string

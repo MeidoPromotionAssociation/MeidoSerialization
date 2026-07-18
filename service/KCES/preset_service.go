@@ -18,7 +18,7 @@ type PresetService struct{}
 // instead of relying on the shared .preset extension.
 func IsKCESPresetFile(path string) bool {
 	lower := strings.ToLower(path)
-	if (!strings.HasSuffix(lower, ".preset") && !strings.HasSuffix(lower, ".perset")) || strings.HasSuffix(lower, ".json") {
+	if (!strings.HasSuffix(lower, serializationKCES.KCESPresetExtension) && !strings.HasSuffix(lower, serializationKCES.KCESPersetExtension)) || strings.HasSuffix(lower, ".json") {
 		return false
 	}
 	f, err := os.Open(path)
@@ -37,7 +37,7 @@ func IsKCESPresetFile(path string) bool {
 // through the explicit format marker.
 func IsKCESPresetJSONFile(path string) bool {
 	lower := strings.ToLower(path)
-	if !strings.HasSuffix(lower, ".preset.json") && !strings.HasSuffix(lower, ".perset.json") {
+	if !strings.HasSuffix(lower, serializationKCES.KCESPresetExtension+".json") && !strings.HasSuffix(lower, serializationKCES.KCESPersetExtension+".json") {
 		return false
 	}
 	data, err := os.ReadFile(path)

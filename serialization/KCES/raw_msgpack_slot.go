@@ -7,6 +7,10 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
+// KCES 各 MessagePack 格式共用的未知槽位逐字节保留类型。
+//
+// Byte-preserving unknown-slot type shared by KCES MessagePack formats.
+
 // RawMessagePackSlot preserves one complete MessagePack value byte-for-byte.
 // It is used for sparse int-key holes that have no C# member: the generated
 // game formatter normally writes nil there, but a faithful editor must not

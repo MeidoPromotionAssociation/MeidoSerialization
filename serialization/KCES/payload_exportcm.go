@@ -9,21 +9,24 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
+// KCES ExportCM 旁车 JSON wire 的调度实现；实际扩展名能力由对应扩展名文件声明。
+//
+// Dispatcher for KCES ExportCM sidecar JSON wires; each extension file declares whether that wire variant is available.
+
 func isExportCMPayloadExtension(extension string) bool {
-	switch NormalizeKCESPayloadExtension(extension) {
-	case ".dbconf", ".dbcol", ".dslcol":
-		return true
-	default:
-		return false
-	}
+	descriptor, ok := kcesPayloadDescriptorByExtension[NormalizeKCESPayloadExtension(extension)]
+	return ok && descriptor.ExportCMKind != ""
 }
 
 func decodeExportCMPayload(data []byte, extension string) (*KCESPayloadEnvelope, error) {
 	ext := NormalizeKCESPayloadExtension(extension)
-	storageVariant := PayloadStorageExportCMUnityJSON
+	descriptor, ok := kcesPayloadDescriptorByExtension[ext]
+	if !ok || descriptor.ExportCMKind == "" {
+		return nil, fmt.Errorf("extension %q has no ExportCM JSON wire", ext)
+	}
+	storageVariant := descriptor.ExportCMStorageVariant
 	jsonData := data
-	if ext == ".dslcol" {
-		storageVariant = PayloadStorageExportCMDotNetStringJSON
+	if storageVariant == PayloadStorageExportCMDotNetStringJSON {
 		var err error
 		jsonData, err = decodeExportCMDotNetString(data)
 		if err != nil {
@@ -32,11 +35,6 @@ func decodeExportCMPayload(data []byte, extension string) (*KCESPayloadEnvelope,
 	}
 	if !utf8.Valid(jsonData) {
 		return nil, fmt.Errorf("ExportCM JSON is not valid UTF-8")
-	}
-
-	kind := PayloadKindExportCMColliderJSON
-	if ext == ".dbconf" {
-		kind = PayloadKindExportCMDynamicBoneJSON
 	}
 
 	compact, err := compactExportCMJSON(jsonData)
@@ -48,7 +46,7 @@ func decodeExportCMPayload(data []byte, extension string) (*KCESPayloadEnvelope,
 		Extension:      ext,
 		LengthPrefixed: false,
 		StorageVariant: storageVariant,
-		Kind:           kind,
+		Kind:           descriptor.ExportCMKind,
 		Text:           string(jsonData),
 		JSON:           compact,
 	}, nil
@@ -60,17 +58,12 @@ func encodeExportCMPayload(env *KCESPayloadEnvelope, storageVariant string) ([]b
 		return nil, fmt.Errorf("ExportCM storageVariant %q does not use the int32 lengthPrefixed wire", storageVariant)
 	}
 
-	expectedKind := PayloadKindExportCMColliderJSON
-	expectedStorage := PayloadStorageExportCMUnityJSON
-	switch ext {
-	case ".dbconf":
-		expectedKind = PayloadKindExportCMDynamicBoneJSON
-	case ".dbcol":
-	case ".dslcol":
-		expectedStorage = PayloadStorageExportCMDotNetStringJSON
-	default:
+	descriptor, ok := kcesPayloadDescriptorByExtension[ext]
+	if !ok || descriptor.ExportCMKind == "" {
 		return nil, fmt.Errorf("extension %q has no ExportCM JSON wire", ext)
 	}
+	expectedKind := descriptor.ExportCMKind
+	expectedStorage := descriptor.ExportCMStorageVariant
 	if storageVariant != expectedStorage {
 		return nil, fmt.Errorf("extension %q requires ExportCM storageVariant %q, got %q", ext, expectedStorage, storageVariant)
 	}

@@ -10,6 +10,12 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
+// system.dat 内 MoveablePanelManager::SceneEdit::savedata 虚拟文件的 MessagePack 布局。
+// 该载荷没有独立磁盘扩展名。
+//
+// MessagePack layout for the MoveablePanelManager::SceneEdit::savedata virtual file inside system.dat.
+// This payload has no standalone disk extension.
+
 const (
 	moveablePanelMaxMessagePackDepth = 256
 )

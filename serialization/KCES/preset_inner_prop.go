@@ -7,6 +7,10 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
 )
 
+// .preset 内 GP03_MPROP_LIST/GP03_MPROP 属性块的详细读写与校验实现。
+//
+// Detailed reader, writer, and validation implementation for GP03_MPROP_LIST/GP03_MPROP property blocks inside .preset.
+
 func DecodeKCESPresetPropertyData(data []byte) (*KCESPresetPropertyList, error) {
 	r := newKCESPresetInnerReader(data)
 	signature, err := r.readString("KCES preset property-list signature")

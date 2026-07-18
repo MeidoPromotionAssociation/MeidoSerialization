@@ -7,6 +7,12 @@ import (
 	"sort"
 )
 
+// system.dat 内 EditData/GradSv{n} 虚拟文件的渐变点 MessagePack 布局。
+// 该载荷没有独立磁盘扩展名。
+//
+// MessagePack layout for EditData/GradSv{n} gradient-point virtual files inside system.dat.
+// This payload has no standalone disk extension.
+
 const (
 	maxGradPointsMessagePackDepth = 256
 )

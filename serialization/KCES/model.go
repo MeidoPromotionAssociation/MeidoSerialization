@@ -7,12 +7,12 @@ import (
 // .model
 // KCES 模型描述文件，TextAsset.m_Script 直接保存一个 Parts.Model，而不是资源容器。
 // .model 不包含网格字节；meshfileName 引用 .aba 中单独保存的 UnityEngine.Mesh（通常命名为 .mmesh）。
-// 载荷使用 LZ4 Block 压缩的 MessagePack indexed-array；当前 Model 固定版本为 1001。
+// 载荷使用 LZ4 Block Array 压缩的 MessagePack indexed-array；当前 Model 固定版本为 1001。
 //
 // .model
 // KCES model-description file whose TextAsset.m_Script stores one Parts.Model directly rather than an asset container.
 // A .model does not embed mesh bytes: meshfileName references a separate UnityEngine.Mesh in the .aba, normally named with .mmesh.
-// The payload is an LZ4 Block-compressed MessagePack indexed array; the current Model fixed version is 1001.
+// The payload is an LZ4 Block Array-compressed MessagePack indexed array; the current Model fixed version is 1001.
 
 // Model 表示模型数据 / Model represents KCES Parts.Model data
 // 对应 C# Parts.Model，继承自 AMessagePackSerializationVersionControlIntKey / Matches C# Parts.Model, derived from AMessagePackSerializationVersionControlIntKey
@@ -100,7 +100,7 @@ func validateDecodedModel(model *Model) error {
 	return validateGameInt32Fields(model)
 }
 
-// DecodeModel 从 Lz4Block 压缩的 MessagePack 数据解码单个 Model。
+// DecodeModel 从 Lz4BlockArray 压缩的 MessagePack 数据解码单个 Model。
 // 这是 .model TextAsset m_Script 的正确解码方式。
 // 游戏通过 PartsUtility.Deserialize<Model>(GameResource.LoadBinary(...)) 加载。
 func DecodeModel(data []byte) (*Model, error) {
@@ -114,7 +114,7 @@ func DecodeModel(data []byte) (*Model, error) {
 	return m, nil
 }
 
-// EncodeModel 将单个 Model 编码为 Lz4Block 压缩的 MessagePack 数据。
+// EncodeModel 将单个 Model 编码为 Lz4BlockArray 压缩的 MessagePack 数据。
 // 生成的数据可直接作为 .model TextAsset 的 m_Script。
 func EncodeModel(m *Model) ([]byte, error) {
 	if m == nil {
@@ -127,7 +127,7 @@ func EncodeModel(m *Model) ([]byte, error) {
 	return encodeCompressedMsgpack(&normalized, "Model")
 }
 
-// DecodeModelAssets 从 Lz4Block 压缩的 MessagePack 数据解码 ModelAssets 容器
+// DecodeModelAssets 从 Lz4BlockArray 压缩的 MessagePack 数据解码 ModelAssets 容器
 func DecodeModelAssets(data []byte) (*ModelAssets, error) {
 	assets := &ModelAssets{}
 	if err := decodeCompressedMsgpack(data, assets, "ModelAssets"); err != nil {
@@ -144,7 +144,7 @@ func DecodeModelAssets(data []byte) (*ModelAssets, error) {
 	return assets, nil
 }
 
-// EncodeModelAssets 将 ModelAssets 编码为 Lz4Block 压缩的 MessagePack 数据
+// EncodeModelAssets 将 ModelAssets 编码为 Lz4BlockArray 压缩的 MessagePack 数据
 func EncodeModelAssets(assets *ModelAssets) ([]byte, error) {
 	if assets == nil {
 		return nil, fmt.Errorf("ModelAssets is nil")

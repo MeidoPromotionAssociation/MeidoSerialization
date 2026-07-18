@@ -8,6 +8,14 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
+// paths.dat (CM3D2_PATHS)
+// KCES 原生资源搜索路径列表，由 NativeFileManager.ReadAutoPathFile 读取。
+// 布局为 BinaryWriter 字符串签名、Int32 版本、Int32 数量及对应数量的字符串；当前版本为 1000。
+//
+// paths.dat (CM3D2_PATHS)
+// KCES native resource search-path list consumed by NativeFileManager.ReadAutoPathFile.
+// The layout is a BinaryWriter string signature, Int32 version, Int32 count, and that many strings; the current version is 1000.
+
 const (
 	KCESPathsFormat    = "kces-auto-paths"
 	KCESPathsSignature = "CM3D2_PATHS"

@@ -6,6 +6,10 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
+// .preset 的完整编辑视图，在保留 VirtualDirectory 元数据的同时展开 maiddata 内部的属性、颜色和身体块。
+//
+// Fully expanded editing view of .preset, retaining VirtualDirectory metadata while decoding maiddata property, color, and body blocks.
+
 // ExpandedKCESPreset is the fully decoded editing representation of a KCES
 // VirtualDirectory preset. Unlike KCESPreset, the three MaidPresetCore byte
 // strings are represented by their actual game structures instead of base64

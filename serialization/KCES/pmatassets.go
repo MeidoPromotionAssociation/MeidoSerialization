@@ -2,6 +2,14 @@ package KCES
 
 import "fmt"
 
+// .pmatassets
+// KCES 优先级材质资源容器，在 .aba 的 TextAsset 中保存 Parts.PriorityMaterial 数组。
+// 载荷使用 LZ4 Block Array 压缩的 MessagePack indexed-array；当前 PriorityMaterial 固定版本为 1000。
+//
+// .pmatassets
+// KCES priority-material resource container storing Parts.PriorityMaterial entries in a TextAsset inside an .aba bundle.
+// The payload is an LZ4 Block Array-compressed MessagePack indexed array; the current PriorityMaterial fixed version is 1000.
+
 // PriorityMaterial 表示优先级材质数据 / PriorityMaterial represents KCES Parts.PriorityMaterial data
 // 对应 C# Parts.PriorityMaterial，继承自 AMessagePackSerializationVersionControlIntKey / Matches C# Parts.PriorityMaterial, derived from AMessagePackSerializationVersionControlIntKey
 // MessagePack indexed array 布局 / MessagePack indexed-array layout:
@@ -28,7 +36,7 @@ type PriorityMaterial struct {
 //	[Key(0)] fileName    string               容器文件名
 //	[Key(1)] assetArray  PriorityMaterial[]    材质数组
 //
-// 存储在 .aba TextAsset 的 m_Script 中，使用 Lz4Block 压缩 / Stored in TextAsset m_Script inside .aba, compressed with Lz4Block
+// 存储在 .aba TextAsset 的 m_Script 中，使用 Lz4BlockArray 压缩 / Stored in TextAsset m_Script inside .aba, compressed with Lz4BlockArray
 type PriorityMaterialAssets struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
@@ -73,7 +81,7 @@ func EncodePriorityMaterial(pm *PriorityMaterial) []interface{} {
 	}
 }
 
-// DecodePriorityMaterialAssets 从 Lz4Block 压缩的 MessagePack 数据解码 PriorityMaterialAssets / DecodePriorityMaterialAssets decodes PriorityMaterialAssets from Lz4Block-compressed MessagePack data
+// DecodePriorityMaterialAssets 从 Lz4BlockArray 压缩的 MessagePack 数据解码 PriorityMaterialAssets / DecodePriorityMaterialAssets decodes PriorityMaterialAssets from Lz4BlockArray-compressed MessagePack data
 // data 应为 TextAsset m_Script 的原始字节 / data should be raw TextAsset m_Script bytes
 func DecodePriorityMaterialAssets(data []byte) (*PriorityMaterialAssets, error) {
 	assets := &PriorityMaterialAssets{}
@@ -86,7 +94,7 @@ func DecodePriorityMaterialAssets(data []byte) (*PriorityMaterialAssets, error) 
 	return assets, nil
 }
 
-// EncodePriorityMaterialAssets 将 PriorityMaterialAssets 编码为 Lz4Block 压缩的 MessagePack 数据
+// EncodePriorityMaterialAssets 将 PriorityMaterialAssets 编码为 Lz4BlockArray 压缩的 MessagePack 数据
 func EncodePriorityMaterialAssets(assets *PriorityMaterialAssets) ([]byte, error) {
 	if assets == nil {
 		return nil, fmt.Errorf("PriorityMaterialAssets is nil")

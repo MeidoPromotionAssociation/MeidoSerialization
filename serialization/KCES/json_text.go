@@ -8,11 +8,33 @@ import (
 	"strings"
 )
 
-var jsonTextExts = map[string]struct{}{
-	".undressdat":  {},
-	".undresspdat": {},
-	".nson":        {},
+// KCES 明文 JSON 扩展名的统一无损编解码与调度层；支持列表由各扩展名文件声明。
+//
+// Unified lossless codec and dispatcher for KCES plain-JSON extensions; each extension file declares its support descriptor.
+
+type kcesJSONTextDescriptor struct {
+	Extension string
 }
+
+var kcesJSONTextDescriptors = [...]kcesJSONTextDescriptor{
+	undressdatJSONTextDescriptor,
+	undresspdatJSONTextDescriptor,
+	nsonJSONTextDescriptor,
+}
+
+var kcesJSONTextDescriptorByExtension = func() map[string]kcesJSONTextDescriptor {
+	result := make(map[string]kcesJSONTextDescriptor, len(kcesJSONTextDescriptors))
+	for _, descriptor := range kcesJSONTextDescriptors {
+		if descriptor.Extension == "" {
+			panic("KCES JSON-text descriptor has an empty extension")
+		}
+		if _, exists := result[descriptor.Extension]; exists {
+			panic("duplicate KCES JSON-text descriptor for " + descriptor.Extension)
+		}
+		result[descriptor.Extension] = descriptor
+	}
+	return result
+}()
 
 // KCESJSONText 表示 KCES 明文 JSON 资源的封套 / KCESJSONText represents an envelope for KCES plain JSON resources
 type KCESJSONText struct {
@@ -89,7 +111,7 @@ func NormalizeKCESJSONTextExtension(pathOrExt string) string {
 		return ""
 	}
 	ext := filepath.Ext(lower)
-	if _, ok := jsonTextExts[ext]; ok {
+	if _, ok := kcesJSONTextDescriptorByExtension[ext]; ok {
 		return ext
 	}
 	return ""

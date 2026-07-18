@@ -11,6 +11,14 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
+// .vd (bridge_session.vd)
+// KCES 角色编辑桥接会话容器，使用 VirtualDirectory 保存 session_data 与 session_id。
+// 外层容器当前版本为 1000；session_data 是未压缩的 MessagePack indexed object。
+//
+// .vd (bridge_session.vd)
+// KCES character-edit bridge session container using VirtualDirectory to store session_data and session_id.
+// The current outer-container version is 1000; session_data is an uncompressed MessagePack indexed object.
+
 const (
 	// KCESBridgeSessionFormat identifies the editable representation of
 	// CRCEdit.EditBridgeSessionData's bridge_session.vd container.

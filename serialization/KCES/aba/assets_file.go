@@ -10,10 +10,9 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
-// AssetsFile 表示 Unity 序列化文件 .assets / AssetsFile represents a Unity serialized .assets file
-// 这是 AssetBundle 内部的实际资源容器，包含类型树和资源数据 / This is the actual resource container inside an AssetBundle, containing type trees and asset data
-//
-// 文件结构（header 使用 Big-Endian，之后按 Endianness 字段决定）：
+// .assets / Unity SerializedFile
+// AssetBundle 内部的实际资源容器，包含类型树、对象元数据和资源数据。
+// 文件头使用 Big-Endian；后续字段的字节序由 Endianness 指定。结构如下：
 //
 //	[Header]
 //	  - MetadataSize: uint32（元数据块大小，不含 header）
@@ -32,6 +31,21 @@ import (
 //	  - ExternalFiles[]: 外部引用
 //	  - RefTypes[]: 引用类型（v21+）
 //	  - UserInformation: string
+//
+// .assets / Unity SerializedFile
+// The actual resource container inside an AssetBundle, holding type trees, object metadata, and asset data.
+// The header is Big-Endian; Endianness selects the byte order of subsequent fields. Its layout is:
+//
+//	[Header]
+//	  - MetadataSize: uint32 (metadata size excluding the header)
+//	  - FileSize: uint32, or int64 for version 22 and later
+//	  - Version: uint32 serialized-file format version
+//	  - DataOffset: uint32, or int64 for version 22 and later
+//	  - Endianness: byte (0=Little-Endian, 1=Big-Endian) plus three padding bytes
+//
+//	[Metadata] (encoded according to Endianness)
+//	  - UnityVersion, target platform, type-tree flag and definitions
+//	  - AssetInfos, external references, version-21+ reference types, and user information
 type AssetsFile struct {
 	Header   AssetsFileHeader // 文件头 / File header
 	Metadata AssetsMetadata   // 元数据（类型树 + 资源列表）/ Metadata including type trees and asset list

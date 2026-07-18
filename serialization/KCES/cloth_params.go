@@ -1,6 +1,52 @@
 package KCES
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+)
+
+// .dsbconf 与 .dslconf 共用的 MagicaCloth 参数模型。
+//
+// MagicaCloth parameter model shared by .dsbconf and .dslconf.
+
+// DecodeClothParamsFile 解码使用 ClothParams wire 的 .dsbconf 或 .dslconf 文件。
+//
+// DecodeClothParamsFile decodes a .dsbconf or .dslconf file that uses the ClothParams wire model.
+func DecodeClothParamsFile(data []byte, extension string) (*ClothParams, error) {
+	ext := NormalizeKCESPayloadExtension(extension)
+	if ext != KCESDSBConfExtension && ext != KCESDSLConfExtension {
+		return nil, fmt.Errorf("unsupported ClothParams extension %q: expected %s or %s", extension, KCESDSBConfExtension, KCESDSLConfExtension)
+	}
+	env, err := DecodeKCESPayload(data, ext)
+	if err != nil {
+		return nil, err
+	}
+	if env.ClothParams == nil {
+		return nil, fmt.Errorf("payload is not ClothParams")
+	}
+	return env.ClothParams, nil
+}
+
+// EncodeClothParamsFile 编码使用 ClothParams wire 的 .dsbconf 或 .dslconf 文件；空扩展名默认使用 .dsbconf。
+//
+// EncodeClothParamsFile encodes a .dsbconf or .dslconf file using the ClothParams wire model; an empty extension defaults to .dsbconf.
+func EncodeClothParamsFile(params *ClothParams, extension string) ([]byte, error) {
+	ext := NormalizeKCESPayloadExtension(extension)
+	if strings.TrimSpace(extension) == "" {
+		ext = KCESDSBConfExtension
+	} else if ext != KCESDSBConfExtension && ext != KCESDSLConfExtension {
+		return nil, fmt.Errorf("unsupported ClothParams extension %q: expected %s or %s", extension, KCESDSBConfExtension, KCESDSLConfExtension)
+	}
+	env := &KCESPayloadEnvelope{
+		Format:         PayloadFormatKCESMessagePack,
+		Extension:      ext,
+		LengthPrefixed: true,
+		Kind:           PayloadKindClothParams,
+		ClothParams:    params,
+	}
+	return EncodeKCESPayload(env)
+}
 
 // BezierParam 对应 MagicaCloth.BezierParam / BezierParam corresponds to MagicaCloth.BezierParam
 type BezierParam struct {

@@ -99,7 +99,7 @@ func (s *FileTypeService) TryFileTypeDetermine(path string) (info COM3D2Service.
 			return info, true, fmt.Errorf("validate KCES UnityFS file %q: %w", path, bundleErr)
 		}
 		info.FileType = "aba"
-		if ext == ".asset_scene" {
+		if ext == aba.AssetSceneExtension {
 			info.FileType = "asset_scene"
 		}
 		info.StorageFormat = COM3D2Service.FormatBinary
@@ -343,7 +343,7 @@ func (s *FileTypeService) TryFileTypeDetermine(path string) (info COM3D2Service.
 	// content magic was absent, so return a deterministic validation error rather
 	// than allowing the legacy one-record CSV heuristic to misclassify the file.
 	switch ext {
-	case ".ct", ".aba", ".asset_scene", ".perset":
+	case ".ct", ".aba", aba.AssetSceneExtension, serializationKCES.KCESPersetExtension:
 		return info, true, fmt.Errorf("%q does not contain a valid KCES %s signature", path, strings.TrimPrefix(ext, "."))
 	}
 

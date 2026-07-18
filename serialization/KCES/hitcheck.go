@@ -8,6 +8,14 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
 )
 
+// .hitcheck (HitCheck)
+// KCES/COM3D2 身体与头发使用的球形碰撞检测列表。文件以 BinaryWriter 字符串签名和 Int32 条目数开头，
+// 随后逐项保存响应类型、半径、对象与父骨骼名称、局部位置和用途标记；该格式没有版本字段。
+//
+// .hitcheck (HitCheck)
+// Spherical collision-check list used by KCES/COM3D2 bodies and hair. A BinaryWriter string signature and Int32 entry count
+// are followed by response type, radius, object and parent-bone names, local position, and usage flags; the format has no version field.
+
 const HitCheckSignature = "HitCheck"
 
 // HitCheck 表示 KCES hitcheck 二进制文件 / HitCheck represents a KCES hitcheck binary file

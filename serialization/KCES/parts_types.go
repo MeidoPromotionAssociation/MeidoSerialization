@@ -14,6 +14,10 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
+// .menuassets、.materialassets、.model 与 .preset 共用的 Unity/Parts 数据类型及 Int32 校验。
+//
+// Unity/Parts data types and Int32 validation shared by .menuassets, .materialassets, .model, and .preset.
+
 const (
 	gameInt32Min = int64(-1 << 31)
 	gameInt32Max = int64(1<<31 - 1)

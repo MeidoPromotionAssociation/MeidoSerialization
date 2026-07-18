@@ -14,6 +14,10 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
+// KCES 物理与碰撞扩展名的统一封套和调度层；各扩展名的 wire 描述由对应文件声明。
+//
+// Unified envelope and dispatcher for KCES physics and collider extensions; each extension declares its wire descriptor in its own file.
+
 const (
 	PayloadFormatKCESMessagePack = "kces-msgpack-lz4"
 	PayloadFormatKCESExportCM    = "kces-exportcm-sidecar"
@@ -36,19 +40,41 @@ const (
 	PayloadKindExportCMColliderJSON    = "exportcm-collider-json"
 )
 
-var lengthPrefixedPayloadExts = map[string]struct{}{
-	".dbconf":      {},
-	".dbcol":       {},
-	".db2conf":     {},
-	".dsbconf":     {},
-	".dsb2conf":    {},
-	".dslconf":     {},
-	".dsl2conf":    {},
-	".dslcol":      {},
-	".ikcol":       {},
-	".limbcol":     {},
-	".ikcol.bytes": {},
+type kcesPayloadDescriptor struct {
+	Extension              string
+	Kind                   string
+	LengthPrefixed         bool
+	ExportCMKind           string
+	ExportCMStorageVariant string
 }
+
+var kcesPayloadDescriptors = [...]kcesPayloadDescriptor{
+	dbconfPayloadDescriptor,
+	dbcolPayloadDescriptor,
+	db2confPayloadDescriptor,
+	dsbconfPayloadDescriptor,
+	dsb2confPayloadDescriptor,
+	dslconfPayloadDescriptor,
+	dsl2confPayloadDescriptor,
+	dslcolPayloadDescriptor,
+	ikcolPayloadDescriptor,
+	ikcolBytesPayloadDescriptor,
+	limbcolPayloadDescriptor,
+}
+
+var kcesPayloadDescriptorByExtension = func() map[string]kcesPayloadDescriptor {
+	result := make(map[string]kcesPayloadDescriptor, len(kcesPayloadDescriptors))
+	for _, descriptor := range kcesPayloadDescriptors {
+		if descriptor.Extension == "" {
+			panic("KCES payload descriptor has an empty extension")
+		}
+		if _, exists := result[descriptor.Extension]; exists {
+			panic("duplicate KCES payload descriptor for " + descriptor.Extension)
+		}
+		result[descriptor.Extension] = descriptor
+	}
+	return result
+}()
 
 // KCESPayloadEnvelope is a JSON-editable envelope for both native KCES
 // MessagePack resources and the COM3D2-compatible JSON sidecars written by
@@ -94,65 +120,6 @@ func (e *KCESPayloadEnvelope) UnmarshalJSON(data []byte) error {
 	}
 	*e = KCESPayloadEnvelope(alias)
 	return nil
-}
-
-// DynamicBoneStatus 对应 KCES DynamicBoneStatus / DynamicBoneStatus corresponds to KCES DynamicBoneStatus
-// 游戏以 MessagePack indexed-array 写入，version 在 Key(0)，字段在 Key(1)..Key(15) / The game writes MessagePack indexed-array data with version at Key(0) and fields at Key(1)..Key(15)
-type DynamicBoneStatus struct {
-	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"`
-	Version                int                         `json:"version"`             // 版本号，通常为 1000 / Version value, usually 1000
-	Damping                float32                     `json:"damping"`             // 阻尼值 / Damping value
-	DampingKeyFrames       []DynamicBoneAnimationFrame `json:"dampingKeyFrames"`    // 阻尼动画关键帧 / Damping animation keyframes
-	Elasticity             float32                     `json:"elasticity"`          // 弹性值 / Elasticity value
-	ElasticityKeyFrames    []DynamicBoneAnimationFrame `json:"elasticityKeyFrames"` // 弹性动画关键帧 / Elasticity animation keyframes
-	Stiffness              float32                     `json:"stiffness"`           // 刚性值 / Stiffness value
-	StiffnessKeyFrames     []DynamicBoneAnimationFrame `json:"stiffnessKeyFrames"`  // 刚性动画关键帧 / Stiffness animation keyframes
-	Inert                  float32                     `json:"inert"`               // 惯性值 / Inert value
-	InertKeyFrames         []DynamicBoneAnimationFrame `json:"inertKeyFrames"`      // 惯性动画关键帧 / Inert animation keyframes
-	Radius                 float32                     `json:"radius"`              // 碰撞半径 / Collision radius
-	RadiusKeyFrames        []DynamicBoneAnimationFrame `json:"radiusKeyFrames"`     // 半径动画关键帧 / Radius animation keyframes
-	EndLength              float32                     `json:"endLength"`           // 末端长度 / End length
-	EndOffset              Vector3                     `json:"endOffset"`           // 末端偏移 / End offset
-	Gravity                Vector3                     `json:"gravity"`             // 重力向量 / Gravity vector
-	Force                  Vector3                     `json:"force"`               // 外力向量 / External force vector
-	FreezeAxis             int                         `json:"freezeAxis"`          // 冻结轴枚举 / Freeze-axis enum
-}
-
-// NewDynamicBoneStatus returns the current-game defaults for callers creating
-// a new object explicitly. Decoders do not invoke this constructor or inject
-// these values into an existing/short wire object.
-func NewDynamicBoneStatus() *DynamicBoneStatus {
-	return &DynamicBoneStatus{
-		Version:    1000,
-		Damping:    0.6,
-		Elasticity: 0.1,
-		Stiffness:  0.1,
-		Gravity:    Vector3{Y: -0.05},
-	}
-}
-
-// UnmarshalJSON decodes only fields present in the editing document. Game
-// constructor defaults remain available through NewDynamicBoneStatus and are
-// never injected while deserializing existing data.
-func (s *DynamicBoneStatus) UnmarshalJSON(data []byte) error {
-	type dynamicBoneStatusJSON DynamicBoneStatus
-	var value dynamicBoneStatusJSON
-	if err := json.Unmarshal(data, &value); err != nil {
-		return err
-	}
-	*s = DynamicBoneStatus(value)
-	return nil
-}
-
-// DynamicBoneAnimationFrame 表示 DynamicBoneStatus 的动画关键帧 / DynamicBoneAnimationFrame represents one animation keyframe in DynamicBoneStatus
-type DynamicBoneAnimationFrame struct {
-	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"`
-	Time                   float32 `json:"time"`       // 关键帧时间 / Keyframe time
-	Value                  float32 `json:"value"`      // 关键帧值 / Keyframe value
-	InTangent              float32 `json:"inTangent"`  // 入切线 / Incoming tangent
-	OutTangent             float32 `json:"outTangent"` // 出切线 / Outgoing tangent
 }
 
 func DecodeKCESPayload(data []byte, extension string) (*KCESPayloadEnvelope, error) {
@@ -347,6 +314,9 @@ func encodeKCESMessagePackPayload(env *KCESPayloadEnvelope) ([]byte, error) {
 	if kind == "" {
 		kind = payloadKindForExtension(ext)
 	}
+	if descriptor, ok := kcesPayloadDescriptorByExtension[ext]; ok && kind != descriptor.Kind {
+		return nil, fmt.Errorf("extension %q with storageVariant %q requires kind %q, got %q", ext, PayloadStorageInt32LZ4MessagePack, descriptor.Kind, kind)
+	}
 
 	var msgpackData []byte
 	var err error
@@ -485,54 +455,6 @@ func editableMessagePackJSONString(env *KCESPayloadEnvelope) (string, error) {
 	return env.Text, nil
 }
 
-func DecodeDynamicBoneStatusFile(data []byte) (*DynamicBoneStatus, error) {
-	env, err := DecodeKCESPayload(data, ".dbconf")
-	if err != nil {
-		return nil, err
-	}
-	if env.DynamicBone == nil {
-		return nil, fmt.Errorf("payload is not DynamicBoneStatus")
-	}
-	return env.DynamicBone, nil
-}
-
-func EncodeDynamicBoneStatusFile(status *DynamicBoneStatus) ([]byte, error) {
-	env := &KCESPayloadEnvelope{
-		Format:         PayloadFormatKCESMessagePack,
-		Extension:      ".dbconf",
-		LengthPrefixed: true,
-		Kind:           PayloadKindDynamicBoneStatus,
-		DynamicBone:    status,
-	}
-	return EncodeKCESPayload(env)
-}
-
-func DecodeClothParamsFile(data []byte, extension string) (*ClothParams, error) {
-	env, err := DecodeKCESPayload(data, extension)
-	if err != nil {
-		return nil, err
-	}
-	if env.ClothParams == nil {
-		return nil, fmt.Errorf("payload is not ClothParams")
-	}
-	return env.ClothParams, nil
-}
-
-func EncodeClothParamsFile(params *ClothParams, extension string) ([]byte, error) {
-	ext := NormalizeKCESPayloadExtension(extension)
-	if ext == "" {
-		ext = ".dsbconf"
-	}
-	env := &KCESPayloadEnvelope{
-		Format:         PayloadFormatKCESMessagePack,
-		Extension:      ext,
-		LengthPrefixed: true,
-		Kind:           PayloadKindClothParams,
-		ClothParams:    params,
-	}
-	return EncodeKCESPayload(env)
-}
-
 func StripLengthPrefix(data []byte) ([]byte, bool, error) {
 	if len(data) < 4 {
 		return data, false, nil
@@ -551,8 +473,8 @@ func AddLengthPrefix(payload []byte) []byte {
 }
 
 func IsLengthPrefixedKCESPayloadExtension(extension string) bool {
-	_, ok := lengthPrefixedPayloadExts[NormalizeKCESPayloadExtension(extension)]
-	return ok
+	descriptor, ok := kcesPayloadDescriptorByExtension[NormalizeKCESPayloadExtension(extension)]
+	return ok && descriptor.LengthPrefixed
 }
 
 func IsKCESPayloadExtension(extension string) bool {
@@ -564,50 +486,19 @@ func NormalizeKCESPayloadExtension(pathOrExt string) string {
 	if lower == "" {
 		return ""
 	}
-	if strings.HasSuffix(lower, ".ikcol.bytes") {
-		return ".ikcol.bytes"
+	if strings.HasSuffix(lower, ikcolBytesPayloadDescriptor.Extension) {
+		return ikcolBytesPayloadDescriptor.Extension
 	}
 	ext := filepath.Ext(lower)
-	switch ext {
-	case ".dbconf", ".dbcol", ".db2conf", ".dsbconf", ".dsb2conf", ".dslconf", ".dsl2conf", ".dslcol", ".ikcol", ".limbcol":
+	if _, ok := kcesPayloadDescriptorByExtension[ext]; ok {
 		return ext
-	default:
-		return ""
 	}
+	return ""
 }
 
 func payloadKindForExtension(ext string) string {
-	switch NormalizeKCESPayloadExtension(ext) {
-	case ".dbconf":
-		return PayloadKindDynamicBoneStatus
-	case ".db2conf", ".dsb2conf", ".dsl2conf":
-		return PayloadKindJSONString
-	case ".dsbconf", ".dslconf":
-		return PayloadKindClothParams
-	case ".dbcol", ".dslcol":
-		return PayloadKindColliderPackage
-	case ".limbcol":
-		return PayloadKindLimbCollider
-	case ".ikcol", ".ikcol.bytes":
-		return PayloadKindIKCollider
-	default:
-		return PayloadKindRawMsgpack
+	if descriptor, ok := kcesPayloadDescriptorByExtension[NormalizeKCESPayloadExtension(ext)]; ok {
+		return descriptor.Kind
 	}
-}
-
-func validateDynamicBoneStatusForEncoding(status *DynamicBoneStatus) error {
-	if err := requireInt32("dynamicBoneStatus.version", status.Version); err != nil {
-		return err
-	}
-	return requireInt32("dynamicBoneStatus.freezeAxis", status.FreezeAxis)
-}
-
-func normalizeDynamicBoneStatusForEncoding(status *DynamicBoneStatus) *DynamicBoneStatus {
-	normalized := *status
-	normalized.DampingKeyFrames = cloneSlicePreserveNil(status.DampingKeyFrames)
-	normalized.ElasticityKeyFrames = cloneSlicePreserveNil(status.ElasticityKeyFrames)
-	normalized.StiffnessKeyFrames = cloneSlicePreserveNil(status.StiffnessKeyFrames)
-	normalized.InertKeyFrames = cloneSlicePreserveNil(status.InertKeyFrames)
-	normalized.RadiusKeyFrames = cloneSlicePreserveNil(status.RadiusKeyFrames)
-	return &normalized
+	return PayloadKindRawMsgpack
 }

@@ -2,6 +2,14 @@ package KCES
 
 import "fmt"
 
+// .materialassets
+// KCES 材质资源容器，在 .aba 的 TextAsset 中保存 Parts.Material 数组及其材质属性。
+// 载荷使用 LZ4 Block Array 压缩的 MessagePack indexed-array；当前 Material 固定版本为 1000。
+//
+// .materialassets
+// KCES material-resource container storing Parts.Material entries and their properties in a TextAsset inside an .aba bundle.
+// The payload is an LZ4 Block Array-compressed MessagePack indexed array; the current Material fixed version is 1000.
+
 // Material 表示 KCES 材质数据 / Material represents KCES material data
 // 对应 C# Parts.Material，继承自 AMessagePackSerializationVersionControlIntKey / It maps C# Parts.Material, derived from AMessagePackSerializationVersionControlIntKey
 // MessagePack indexed array 布局：/ MessagePack indexed-array layout:
@@ -92,7 +100,7 @@ func (a *MaterialAssets) setMessagePackRootNil(value bool)   { a.RootNil = value
 
 const materialFixVersion = 1000
 
-// DecodeMaterialAssets 从 Lz4Block 压缩的 MessagePack 数据解码 MaterialAssets
+// DecodeMaterialAssets 从 Lz4BlockArray 压缩的 MessagePack 数据解码 MaterialAssets
 func DecodeMaterialAssets(data []byte) (*MaterialAssets, error) {
 	assets := &MaterialAssets{}
 	if err := decodeCompressedMsgpack(data, assets, "MaterialAssets"); err != nil {
@@ -104,7 +112,7 @@ func DecodeMaterialAssets(data []byte) (*MaterialAssets, error) {
 	return assets, nil
 }
 
-// EncodeMaterialAssets 将 MaterialAssets 编码为 Lz4Block 压缩的 MessagePack 数据
+// EncodeMaterialAssets 将 MaterialAssets 编码为 Lz4BlockArray 压缩的 MessagePack 数据
 func EncodeMaterialAssets(assets *MaterialAssets) ([]byte, error) {
 	if assets == nil {
 		return nil, fmt.Errorf("MaterialAssets is nil")

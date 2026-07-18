@@ -7,6 +7,12 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
+// .preset 的 EditCustomizeData 内部 MessagePack 模型，负责颜色预设引用以及部件位置等编辑数据。
+// 这些对象只存在于 maiddata 的属性块中，不是独立磁盘格式。
+//
+// Internal EditCustomizeData MessagePack models for .preset, covering color-preset references and part-position editing data.
+// These objects exist only inside maiddata property blocks and are not standalone disk formats.
+
 const (
 	KCESPresetEditBaseDataVersion = 1000
 	KCESPresetEditUnitDataVersion = 1000

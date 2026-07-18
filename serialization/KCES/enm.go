@@ -8,6 +8,14 @@ import (
 	"unicode/utf8"
 )
 
+// .enm (export_map.enm)
+// KCES 导出到 COM3D2 时使用的文件名映射，原生文件是 Unity JsonUtility 文档。
+// 当前版本为 1000；内部字典以嵌套 JSON 字符串保存在 serializeData 中。
+//
+// .enm (export_map.enm)
+// KCES filename map used during COM3D2 export; the native file is a Unity JsonUtility document.
+// The current version is 1000; the inner dictionary is stored as a nested JSON string in serializeData.
+
 const (
 	// KCESExportNameMapFormat identifies the editable JSON representation. The
 	// native export_map.enm is also JSON, but uses Unity JsonUtility's

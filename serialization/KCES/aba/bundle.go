@@ -12,10 +12,10 @@ import (
 	"github.com/ulikunitz/xz/lzma"
 )
 
-// .aba 文件是标准的 Unity AssetBundle UnityFS 格式 / .aba files use the standard Unity AssetBundle UnityFS format
-// Unity 5.3+ 使用 UnityFS 签名，包含压缩的资源数据块 / Unity 5.3+ uses the UnityFS signature with compressed resource data blocks
-//
-// 文件整体结构（所有头部字段使用 Big-Endian）：
+// .aba
+// KCES 资源包使用标准 Unity AssetBundle UnityFS 格式。Unity 5.3 及以上版本使用 UnityFS 签名，
+// 文件包含可压缩的块目录、资源数据块以及一个或多个 Unity SerializedFile。
+// 文件整体结构如下，所有头部字段均使用 Big-Endian：
 //
 //	[Header]
 //	  - Signature: "UnityFS" (null-terminated string)
@@ -37,6 +37,26 @@ import (
 //
 //	[Data Blocks]（可能被 LZ4 分块压缩，每块最大 0x20000 bytes）
 //	  - 包含一个或多个 AssetsFile（Unity 序列化文件）
+//
+// .aba
+// KCES resource bundles use the standard Unity AssetBundle UnityFS format. Unity 5.3 and later use the UnityFS signature;
+// a file contains a optionally-compressed block directory, resource-data blocks, and one or more Unity SerializedFiles.
+// The overall layout is shown below, with all header fields encoded as Big-Endian:
+//
+//	[Header]
+//	  - Signature: "UnityFS" (null-terminated string)
+//	  - Version: uint32 (usually file-format version 6 through 8)
+//	  - GenerationVersion: null-terminated string such as "5.x.x"
+//	  - EngineVersion: null-terminated string such as "2021.3.3f1"
+//	  - FSHeader: TotalFileSize(int64), CompressedSize(uint32), DecompressedSize(uint32), Flags(uint32)
+//
+//	[BlockAndDirInfo] (location selected by Flags; optionally compressed with LZ4 or LZMA)
+//	  - Hash: 16 bytes
+//	  - BlockInfos: decompressed size, compressed size, and flags for each block
+//	  - DirectoryInfos: offset, decompressed size, flags, and name for each entry
+//
+//	[Data Blocks] (optionally split into LZ4 blocks of at most 0x20000 bytes)
+//	  - Contains one or more AssetsFiles (Unity serialized files)
 
 const (
 	signatureUnityFS = "UnityFS" // Unity 5.3+ AssetBundle 签名 / Unity 5.3+ AssetBundle signature

@@ -9,6 +9,14 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
 )
 
+// .sad (SAVED_ATTACH_DATA)
+// KCES/GP03 导出的部件附着信息文件，使用 BinaryWriter 编码外层列表与每条附着记录。
+// 外层版本为 2000；当前记录版本为 2001，并兼容无显式记录版本的旧版 2000 布局。
+//
+// .sad (SAVED_ATTACH_DATA)
+// KCES/GP03 exported part-attachment file, encoded by BinaryWriter as an outer list of attachment records.
+// The outer version is 2000; current records use version 2001 while the implicit legacy 2000 layout remains supported.
+
 const (
 	// SavedAttachSignature is written by ExportCM.ExportAttachData before the
 	// file-level version and record count.

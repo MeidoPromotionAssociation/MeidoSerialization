@@ -7,7 +7,17 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
+// .preset
+// KCES 角色预设文件，外层是版本 1000 的 VirtualDirectory，包含 thumbnail、maiddata 和 meta 虚拟文件。
+// maiddata 内部保存属性、颜色和身体数据；该格式与同扩展名的旧版 CM3D2_PRESET wire 不兼容。
+//
+// .preset
+// KCES character-preset file whose outer version-1000 VirtualDirectory contains thumbnail, maiddata, and meta virtual files.
+// maiddata stores property, color, and body data; this wire format is incompatible with legacy CM3D2_PRESET despite sharing the extension.
+
 const (
+	KCESPresetExtension = ".preset"
+
 	// KCESPresetFormat distinguishes the VirtualDirectory-based KCES preset
 	// JSON representation from the legacy CM3D2_PRESET representation, which
 	// uses the same .preset extension.

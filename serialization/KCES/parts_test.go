@@ -8,6 +8,28 @@ import (
 	"testing"
 )
 
+func TestPublicWireTypesRemainInKCESPackage(t *testing.T) {
+	wantPackage := reflect.TypeOf(Model{}).PkgPath()
+	tests := []struct {
+		name  string
+		value interface{}
+	}{
+		{name: "RawMessagePackSlot", value: RawMessagePackSlot{}},
+		{name: "Vector3", value: Vector3{}},
+		{name: "PartsColor", value: PartsColor{}},
+		{name: "PreMulTexDatas", value: PreMulTexDatas{}},
+		{name: "ClothParams", value: ClothParams{}},
+		{name: "ColliderPackage", value: ColliderPackage{}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := reflect.TypeOf(test.value).PkgPath(); got != wantPackage {
+				t.Fatalf("PkgPath() = %q, want KCES package %q", got, wantPackage)
+			}
+		})
+	}
+}
+
 func TestPriorityMaterial_RoundTrip(t *testing.T) {
 	original := &PriorityMaterialAssets{
 		FileName: "test.pmatassets",

@@ -9,6 +9,14 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
 )
 
+// .brd (GP03_BRIDGE)
+// KCES 与 COM3D2_5 之间传递角色预设的 GP03 桥接文件。
+// KCES 1.34.4 写入外层版本 2001；COM3D2_5 的反向传输写入版本 2000。
+//
+// .brd (GP03_BRIDGE)
+// GP03 bridge file used to transfer character presets between KCES and COM3D2_5.
+// KCES 1.34.4 writes outer version 2001; COM3D2_5 writes version 2000 for the reverse transfer.
+
 const (
 	// GP03BridgeSignature is the BinaryWriter string at the start of every
 	// bridge file emitted by KCES ExportCM.ExportMaidData.

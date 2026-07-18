@@ -743,3 +743,88 @@ func TestNormalizeKCESJSONTextExtension(t *testing.T) {
 		}
 	}
 }
+
+func TestKCESPayloadDescriptorsCoverExtensions(t *testing.T) {
+	expected := map[string]struct {
+		kind          string
+		exportKind    string
+		exportStorage string
+	}{
+		KCESDBConfExtension:     {kind: PayloadKindDynamicBoneStatus, exportKind: PayloadKindExportCMDynamicBoneJSON, exportStorage: PayloadStorageExportCMUnityJSON},
+		KCESDBColExtension:      {kind: PayloadKindColliderPackage, exportKind: PayloadKindExportCMColliderJSON, exportStorage: PayloadStorageExportCMUnityJSON},
+		KCESDB2ConfExtension:    {kind: PayloadKindJSONString},
+		KCESDSBConfExtension:    {kind: PayloadKindClothParams},
+		KCESDSB2ConfExtension:   {kind: PayloadKindJSONString},
+		KCESDSLConfExtension:    {kind: PayloadKindClothParams},
+		KCESDSL2ConfExtension:   {kind: PayloadKindJSONString},
+		KCESDSLColExtension:     {kind: PayloadKindColliderPackage, exportKind: PayloadKindExportCMColliderJSON, exportStorage: PayloadStorageExportCMDotNetStringJSON},
+		KCESIKColExtension:      {kind: PayloadKindIKCollider},
+		KCESIKColBytesExtension: {kind: PayloadKindIKCollider},
+		KCESLimbColExtension:    {kind: PayloadKindLimbCollider},
+	}
+	if len(kcesPayloadDescriptorByExtension) != len(expected) {
+		t.Fatalf("payload descriptor count = %d, want %d", len(kcesPayloadDescriptorByExtension), len(expected))
+	}
+	for extension, want := range expected {
+		descriptor, ok := kcesPayloadDescriptorByExtension[extension]
+		if !ok {
+			t.Errorf("missing payload descriptor for %s", extension)
+			continue
+		}
+		if descriptor.Extension != extension || descriptor.Kind != want.kind || !descriptor.LengthPrefixed {
+			t.Errorf("descriptor %s = %+v, want kind=%q and lengthPrefixed=true", extension, descriptor, want.kind)
+		}
+		if descriptor.ExportCMKind != want.exportKind || descriptor.ExportCMStorageVariant != want.exportStorage {
+			t.Errorf("descriptor %s ExportCM = %q/%q, want %q/%q", extension, descriptor.ExportCMKind, descriptor.ExportCMStorageVariant, want.exportKind, want.exportStorage)
+		}
+		if got := NormalizeKCESPayloadExtension("folder/sample" + extension); got != extension {
+			t.Errorf("NormalizeKCESPayloadExtension(%s) = %q", extension, got)
+		}
+	}
+}
+
+func TestKCESJSONTextDescriptorsCoverExtensions(t *testing.T) {
+	expected := []string{
+		KCESUndressDataExtension,
+		KCESUndressPartsDataExtension,
+		KCESNSONExtension,
+	}
+	if len(kcesJSONTextDescriptorByExtension) != len(expected) {
+		t.Fatalf("JSON-text descriptor count = %d, want %d", len(kcesJSONTextDescriptorByExtension), len(expected))
+	}
+	for _, extension := range expected {
+		descriptor, ok := kcesJSONTextDescriptorByExtension[extension]
+		if !ok || descriptor.Extension != extension {
+			t.Errorf("JSON-text descriptor %s = %+v, present=%v", extension, descriptor, ok)
+		}
+		if got := NormalizeKCESJSONTextExtension("folder/sample" + extension); got != extension {
+			t.Errorf("NormalizeKCESJSONTextExtension(%s) = %q", extension, got)
+		}
+	}
+}
+
+func TestKCESMessagePackPayloadRejectsExtensionKindMismatch(t *testing.T) {
+	envelope := &KCESPayloadEnvelope{
+		Format:         PayloadFormatKCESMessagePack,
+		Extension:      KCESDBConfExtension,
+		LengthPrefixed: true,
+		Kind:           PayloadKindClothParams,
+		ClothParams:    NewClothParams(),
+	}
+	if _, err := EncodeKCESPayload(envelope); err == nil || !strings.Contains(err.Error(), "requires kind") {
+		t.Fatalf("EncodeKCESPayload mismatch error = %v, want extension/kind rejection", err)
+	}
+}
+
+func TestClothParamsFileRejectsUnrelatedExtensions(t *testing.T) {
+	for _, extension := range []string{KCESDBConfExtension, ".unknown"} {
+		t.Run(extension, func(t *testing.T) {
+			if _, err := EncodeClothParamsFile(NewClothParams(), extension); err == nil || !strings.Contains(err.Error(), "unsupported ClothParams extension") {
+				t.Fatalf("EncodeClothParamsFile(%q) error = %v, want extension rejection", extension, err)
+			}
+			if _, err := DecodeClothParamsFile(nil, extension); err == nil || !strings.Contains(err.Error(), "unsupported ClothParams extension") {
+				t.Fatalf("DecodeClothParamsFile(%q) error = %v, want extension rejection", extension, err)
+			}
+		})
+	}
+}

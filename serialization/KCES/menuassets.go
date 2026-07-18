@@ -4,6 +4,14 @@ import (
 	"fmt"
 )
 
+// .menuassets
+// KCES 菜单资源容器，在 .aba 的 TextAsset 中保存 Parts.Menu 数组。
+// 载荷使用 LZ4 Block Array 压缩的 MessagePack indexed-array；当前 Menu 固定版本为 1005。
+//
+// .menuassets
+// KCES menu-resource container storing an array of Parts.Menu values in a TextAsset inside an .aba bundle.
+// The payload is an LZ4 Block Array-compressed MessagePack indexed array; the current Menu fixed version is 1005.
+
 // Menu 表示菜单数据 / Menu represents KCES Parts.Menu data
 // 对应 C# Parts.Menu，继承自 AMessagePackSerializationVersionControlIntKey / Matches C# Parts.Menu, derived from AMessagePackSerializationVersionControlIntKey
 // MessagePack indexed array 布局（31 个字段，Key(0)~Key(30)）/ MessagePack indexed-array layout with 31 fields from Key(0) to Key(30)
@@ -109,7 +117,7 @@ const (
 	colvariDataFixVersion    = 1000
 )
 
-// DecodeMenuAssets 从 Lz4Block 压缩的 MessagePack 数据解码 MenuAssets
+// DecodeMenuAssets 从 Lz4BlockArray 压缩的 MessagePack 数据解码 MenuAssets
 func DecodeMenuAssets(data []byte) (*MenuAssets, error) {
 	assets := &MenuAssets{}
 	if err := decodeCompressedMsgpack(data, assets, "MenuAssets"); err != nil {
@@ -121,7 +129,7 @@ func DecodeMenuAssets(data []byte) (*MenuAssets, error) {
 	return assets, nil
 }
 
-// EncodeMenuAssets 将 MenuAssets 编码为 Lz4Block 压缩的 MessagePack 数据
+// EncodeMenuAssets 将 MenuAssets 编码为 Lz4BlockArray 压缩的 MessagePack 数据
 func EncodeMenuAssets(assets *MenuAssets) ([]byte, error) {
 	if assets == nil {
 		return nil, fmt.Errorf("MenuAssets is nil")

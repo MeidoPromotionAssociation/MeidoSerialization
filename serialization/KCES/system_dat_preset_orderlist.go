@@ -8,6 +8,12 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
+// system.dat 内 color_preset/.../preset_orderlist 虚拟文件的 MessagePack 布局。
+// 该载荷没有独立磁盘扩展名。
+//
+// MessagePack layout for color_preset/.../preset_orderlist virtual files inside system.dat.
+// This payload has no standalone disk extension.
+
 const (
 	// ColorPresetOrderListVersion is
 	// ColorPresetProvider.PresetOrderList.FixVersion in KCES 1.34.4.

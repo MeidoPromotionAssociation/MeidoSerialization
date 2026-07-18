@@ -9,6 +9,10 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
 )
 
+// .preset 的 maiddata 内部 BinaryWriter 模型，定义属性列表、颜色数据和身体数据的签名、版本及结构。
+//
+// BinaryWriter models inside .preset maiddata, defining signatures, versions, and structures for property, color, and body data.
+
 const (
 	KCESPresetPropertyListSignature       = "GP03_MPROP_LIST"
 	KCESPresetPropertyListVersion   int32 = 1270

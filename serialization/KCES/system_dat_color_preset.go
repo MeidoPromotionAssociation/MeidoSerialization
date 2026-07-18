@@ -9,6 +9,12 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
+// system.dat 内 color_preset 目录中自定义颜色预设虚拟文件的 MessagePack/LZ4 布局。
+// 该载荷没有独立磁盘扩展名。
+//
+// MessagePack/LZ4 layout for custom color-preset virtual files below color_preset inside system.dat.
+// This payload has no standalone disk extension.
+
 const (
 	// ColorPresetVersion is CustomColorPresetBase<T>.FixVersion in KCES 1.34.4.
 	ColorPresetVersion = 1004

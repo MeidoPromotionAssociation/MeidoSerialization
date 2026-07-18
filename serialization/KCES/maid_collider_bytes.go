@@ -8,6 +8,14 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
 )
 
+// maid_collider.bytes / maid_collider_touch.bytes
+// KCES 系统资源中的女仆胶囊碰撞体列表；Unity 导入后对应同名 TextAsset。
+// 载荷是无签名的 BinaryWriter 数据：Int32 数量，随后为骨骼路径与六个定长数值字段。
+//
+// maid_collider.bytes / maid_collider_touch.bytes
+// KCES system-resource lists of maid capsule colliders, imported by Unity as same-named TextAssets.
+// The payload is signatureless BinaryWriter data: an Int32 count followed by a bone path and six fixed-width numeric fields per entry.
+
 const MaidColliderFormat = "kces-maid-capsule-colliders"
 
 const (

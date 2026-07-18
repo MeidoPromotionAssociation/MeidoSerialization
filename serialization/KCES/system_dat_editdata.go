@@ -9,6 +9,12 @@ import (
 	"unicode/utf8"
 )
 
+// system.dat 的共通 EditData MessagePack 实现，包含预设面板名称、调色板颜色及共享读取器。
+// 这些对象没有独立磁盘扩展名，只作为 VirtualDirectory 内部虚拟文件存在。
+//
+// Shared EditData MessagePack implementation for system.dat, including preset-panel names, palette colors, and the shared reader.
+// These objects have no standalone disk extension and exist only as virtual files inside VirtualDirectory.
+
 // PresetPanelNameSaveData is the raw MessagePack payload stored at
 // EditData/PresetPanelNameSaveData::SceneEdit::savedata in system.dat.
 //

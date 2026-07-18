@@ -12,6 +12,10 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
+// KCES 各格式共用的 MessagePack 根值、LZ4 Block Array 和基础值转换辅助函数。
+//
+// MessagePack-root, LZ4 Block Array, and primitive conversion helpers shared by KCES formats.
+
 // messagePackTrailingCarrier is implemented by top-level game records whose
 // formatter result may be followed by bytes that MessagePack-CSharp leaves
 // unread. The bytes are outside the indexed object itself and therefore must

@@ -9,6 +9,10 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
+// .dbcol、.dslcol、.limbcol 与 .ikcol 系列共用的碰撞体结构、union 编码和校验逻辑。
+//
+// Collider structures, union encoding, and validation shared by .dbcol, .dslcol, .limbcol, and .ikcol families.
+
 // ColliderPackage 表示通用碰撞体包 / ColliderPackage represents a generic collider package
 type ColliderPackage struct {
 	_struct                struct{} `codec:",toarray"`

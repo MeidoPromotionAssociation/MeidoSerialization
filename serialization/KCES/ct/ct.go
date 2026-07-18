@@ -14,13 +14,26 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
-// .ct 文件是 KCES 游戏的资源目录文件 Content Table，实际格式为 VirtualDirectory 序列化格式 / .ct files are KCES Content Table resource catalogs using the serialized VirtualDirectory format
+// .ct
+// KCES 的 Content Table 资源目录文件，外层使用 VirtualDirectory 序列化格式。
+// 文件头之后连续保存各 VirtualFile 的原始数据，尾部保存 LZ4 Block Array 压缩的 MessagePack 目录结构及其长度。
 //
 //	[7 bytes]  FileSignature: bb c3 aa 9a a6 4d ad
 //	[1 byte]   SerializeType: 8e = MessagePack, 00 = MemoryPack
-//	[N bytes]  Raw file data（各 VirtualFile 的原始数据连续存放）
-//	[M bytes]  MessagePack+Lz4BlockArray 压缩的 VirtualDirectory 结构
-//	[4 bytes]  M 的值（little-endian int32，指示 MessagePack 部分的长度）
+//	[N bytes]  原始文件数据（各 VirtualFile 连续存放）
+//	[M bytes]  MessagePack + LZ4 Block Array 压缩的 VirtualDirectory 结构
+//	[4 bytes]  M 的值（Little-Endian Int32）
+//
+// .ct
+// KCES Content Table resource catalog using the serialized VirtualDirectory format.
+// Raw VirtualFile data is stored contiguously after the header; the tail stores the LZ4 Block Array-compressed
+// MessagePack directory structure followed by its length.
+//
+//	[7 bytes]  FileSignature: bb c3 aa 9a a6 4d ad
+//	[1 byte]   SerializeType: 8e = MessagePack, 00 = MemoryPack
+//	[N bytes]  Raw file data with VirtualFiles stored contiguously
+//	[M bytes]  MessagePack + LZ4 Block Array-compressed VirtualDirectory structure
+//	[4 bytes]  M encoded as a Little-Endian Int32
 
 // FileSignature 是 .ct 文件的魔数签名（7 字节），用于验证文件格式 / FileSignature is the 7-byte magic signature used to validate .ct files
 // 对应 C# VirtualDirectory.FileSignature = {0xbb, 0xc3, 0xaa, 0x9a, 0xa6, 0x4d, 0xad}
