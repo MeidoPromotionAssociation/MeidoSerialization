@@ -216,7 +216,7 @@ func writeRawBundleDirectory(root *extractionRoot, bundle *aba.Bundle, dir aba.D
 
 // unpackAssetsFile extracts the required representation of every user asset
 // in one SerializedFile. Raw Unity objects and TextAsset scripts are required;
-// PNG/CRMesh previews are best-effort derivatives and never replace the raw
+// PNG previews are best-effort derivatives and never replace the raw
 // object as the source used for repacking.
 func unpackAssetsFile(root *extractionRoot, sourceName string, bundle *aba.Bundle, af *aba.AssetsFile, containerNames map[int64]string, resolver aba.AssetResolver, streamResolver aba.BundleFileRangeResolver, claimedOutputPaths map[string]string) error {
 	if root == nil {
@@ -317,13 +317,6 @@ func unpackAssetsFile(root *extractionRoot, sourceName string, bundle *aba.Bundl
 			if err := writeExtractedAsset(root, rawPath, assetData, entry, loadName, bundle, af, info, true); err != nil {
 				return fmt.Errorf("write Mesh %q (PathID %d) from %q: %w", assetBaseName, entry.PathId, sourceName, err)
 			}
-			if crmesh, err := af.TryConvertMeshToCRMesh(info, nil); err == nil && len(crmesh) > 0 {
-				crmeshPath := filepath.Join("Mesh", sanitizeName(assetBaseName)+".crmesh")
-				if claimExtractionPaths(claimedOutputPaths, fmt.Sprintf("optional Mesh preview PathID %d from %s", entry.PathId, sourceName), crmeshPath) == nil {
-					_ = root.WriteFile(crmeshPath, crmesh, 0644)
-				}
-			}
-
 		default:
 			assetData, err := af.GetAssetData(info)
 			if err != nil {

@@ -9,11 +9,10 @@ import (
 
 func TestKCESAssetSamplesHaveKnownSuffixes(t *testing.T) {
 	knownSuffixes := map[string]struct{}{
-		".nei":    {},
-		".psk":    {},
-		".png":    {},
-		".crmesh": {},
-		".bytes":  {},
+		".nei":   {},
+		".psk":   {},
+		".png":   {},
+		".bytes": {},
 	}
 	for _, path := range allKCESAssetSamplePaths(t) {
 		suffix := kcesAssetSampleSuffix(path)
@@ -48,6 +47,11 @@ func allKCESAssetSamplePaths(t *testing.T) []string {
 	for _, path := range paths {
 		name := strings.ToLower(filepath.Base(path))
 		if strings.HasSuffix(name, ".meta.json") || strings.HasSuffix(name, ".typetree.json") {
+			continue
+		}
+		// Historical AbaExtractor CR_MOD_MESH fixtures are external derived
+		// artifacts, not KCES asset samples supported by this package.
+		if strings.HasSuffix(name, ".crmesh") {
 			continue
 		}
 		samples = append(samples, path)

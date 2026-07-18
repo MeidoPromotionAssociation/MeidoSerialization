@@ -518,8 +518,6 @@ func derivedPackArtifactRawPaths(path string) []string {
 		}
 	case parent == "sprite" && strings.HasSuffix(lower, ".png"):
 		return []string{filepath.Join(dir, name[:len(name)-len(".png")]+".sprite.bytes")}
-	case parent == "mesh" && strings.HasSuffix(lower, ".crmesh"):
-		return []string{filepath.Join(dir, name[:len(name)-len(".crmesh")]+".bytes")}
 	case strings.HasSuffix(lower, ".tex.png"):
 		return []string{filepath.Join(dir, name[:len(name)-len(".png")]+".bytes")}
 	case strings.HasSuffix(lower, ".tex.jpg"):

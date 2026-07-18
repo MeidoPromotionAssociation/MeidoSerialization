@@ -53,7 +53,7 @@ func TestAbaService_UnpackAba_KCESSampleExportsUsableFiles(t *testing.T) {
 	assertExists(filepath.Join("Mesh", "hair_twin019.mmesh.bytes"))
 	assertExists(filepath.Join("Mesh", "hair_twin019.mmesh.bytes.meta.json"))
 	assertExists(filepath.Join("Mesh", "hair_twin019.mmesh.bytes.typetree.json"))
-	assertExists(filepath.Join("Mesh", "hair_twin019.mmesh.crmesh"))
+	assertNotExists(filepath.Join("Mesh", "hair_twin019.mmesh.crmesh"))
 	assertExists(filepath.Join("SpriteAtlas", "parts_personal002.partsatlas.bytes"))
 	assertExists(filepath.Join("SpriteAtlas", "parts_personal002.partsatlas.bytes.meta.json"))
 	assertExists(filepath.Join("SpriteAtlas", "parts_personal002.partsatlas.bytes.typetree.json"))
@@ -112,14 +112,7 @@ func TestAbaService_UnpackAba_KCESSampleExportsUsableFiles(t *testing.T) {
 	}
 	assertValidRawMeta(filepath.Join("Sprite", "hair_twin019_i_.tex.sprite.bytes.meta.json"))
 	assertValidRawMeta(filepath.Join("Mesh", "hair_twin019.mmesh.bytes.meta.json"))
-
-	crmesh, err := os.ReadFile(filepath.Join(outDir, "Mesh", "hair_twin019.mmesh.crmesh"))
-	if err != nil {
-		t.Fatalf("read crmesh: %v", err)
-	}
-	if len(crmesh) < 12 || crmesh[0] != 11 || string(crmesh[1:12]) != "CR_MOD_MESH" {
-		t.Fatalf("invalid crmesh prefix: % x", crmesh[:min(len(crmesh), 12)])
-	}
+	assertValidTypeTree(filepath.Join("Mesh", "hair_twin019.mmesh.bytes.typetree.json"), aba.ClassIDMesh)
 
 	spriteFile, err := os.Open(filepath.Join(outDir, "Sprite", "hair_twin019_i_.tex.png"))
 	if err != nil {

@@ -542,14 +542,6 @@ func TestPackService_PackToAbaAndCtSkipsDerivedUnpackArtifacts(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(inputDir, "Mesh", "cm3d2_megane002.mmesh.bytes"), rawMeshData, 0644); err != nil {
 		t.Fatal(err)
 	}
-	crmesh, err := os.ReadFile(filepath.Join("..", "..", "testdata", "kces_assets", "cm3d2_megane002.mmesh.crmesh"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(inputDir, "Mesh", "cm3d2_megane002.mmesh.crmesh"), crmesh, 0644); err != nil {
-		t.Fatal(err)
-	}
-
 	service := &PackService{}
 	if err := service.PackToAbaAndCt(inputDir, "unpacked"); err != nil {
 		t.Fatalf("PackToAbaAndCt: %v", err)

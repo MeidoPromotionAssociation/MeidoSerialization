@@ -4,6 +4,16 @@ import (
 	"fmt"
 )
 
+// .model
+// KCES 模型描述文件，TextAsset.m_Script 直接保存一个 Parts.Model，而不是资源容器。
+// .model 不包含网格字节；meshfileName 引用 .aba 中单独保存的 UnityEngine.Mesh（通常命名为 .mmesh）。
+// 载荷使用 LZ4 Block 压缩的 MessagePack indexed-array；当前 Model 固定版本为 1001。
+//
+// .model
+// KCES model-description file whose TextAsset.m_Script stores one Parts.Model directly rather than an asset container.
+// A .model does not embed mesh bytes: meshfileName references a separate UnityEngine.Mesh in the .aba, normally named with .mmesh.
+// The payload is an LZ4 Block-compressed MessagePack indexed array; the current Model fixed version is 1001.
+
 // Model 表示模型数据 / Model represents KCES Parts.Model data
 // 对应 C# Parts.Model，继承自 AMessagePackSerializationVersionControlIntKey / Matches C# Parts.Model, derived from AMessagePackSerializationVersionControlIntKey
 // MessagePack indexed array 布局 / MessagePack indexed-array layout:
