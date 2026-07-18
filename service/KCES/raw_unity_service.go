@@ -14,8 +14,11 @@ import (
 
 const RawUnityObjectFormat = "kces-unity-raw-object"
 
-// RawUnityObjectEnvelope 是从 .aba 提取的原始 Unity 序列化对象字节的 JSON 可编辑封套 / RawUnityObjectEnvelope is the JSON-editable wrapper for raw Unity serialized object bytes extracted from .aba bundles
-// 对象数据本身无损保存，sidecar 元数据保留 PathID、加载名以及解释原始对象布局所需的 Unity 版本上下文 / Object data is preserved losslessly while sidecar metadata keeps PathID, load name, and the Unity version context needed to interpret the original object layout
+// RawUnityObjectEnvelope 是从 .aba 提取的原始 Unity 序列化对象字节的 JSON 可编辑封套。
+// 对象数据本身无损保存，sidecar 元数据保留 PathID、加载名以及解释原始对象布局所需的 Unity 版本上下文。
+//
+// RawUnityObjectEnvelope is the JSON-editable wrapper for raw Unity serialized object bytes extracted from .aba files.
+// Object data is preserved losslessly while sidecar metadata keeps PathID, load name, and the Unity version context needed to interpret the original object layout.
 type RawUnityObjectEnvelope struct {
 	Format                string                    `json:"format"`                          // 封套格式标识，固定为 kces-unity-raw-object / Envelope format marker, fixed to kces-unity-raw-object
 	ClassID               int32                     `json:"classId"`                         // Unity ClassID / Unity ClassID
@@ -27,14 +30,16 @@ type RawUnityObjectEnvelope struct {
 	UnityVersion          string                    `json:"unityVersion,omitempty"`          // SerializedFile Unity 版本 / SerializedFile Unity version
 	EngineVersion         string                    `json:"engineVersion,omitempty"`         // UnityFS header 引擎版本 / UnityFS header engine version
 	TargetPlatform        *uint32                   `json:"targetPlatform,omitempty"`        // SerializedFile 目标平台 / SerializedFile target platform
-	BundleVersion         uint32                    `json:"bundleVersion,omitempty"`         // UnityFS 格式版本 / UnityFS format version
+	AbaVersion            uint32                    `json:"abaVersion,omitempty"`            // UnityFS 格式版本 / UnityFS format version
 	GenerationVersion     string                    `json:"generationVersion,omitempty"`     // UnityFS generation version / UnityFS generation version
 	SerializedFileVersion uint32                    `json:"serializedFileVersion,omitempty"` // SerializedFile 格式版本 / SerializedFile format version
 	DataBase64            string                    `json:"dataBase64"`                      // 原始序列化对象数据 base64 / Base64 of raw serialized object data
 	TypeTree              *RawUnityTypeTreeEnvelope `json:"typeTree,omitempty"`              // 可选 TypeTree 只读视图 / Optional read-only TypeTree view
 }
 
-// RawUnityObjectService 提供原始 Unity 对象字节与 JSON 封套的转换服务 / RawUnityObjectService converts raw Unity object bytes to and from JSON envelopes
+// RawUnityObjectService 提供原始 Unity 对象字节与 JSON 封套之间的转换服务。
+//
+// RawUnityObjectService converts raw Unity object bytes to and from JSON envelopes.
 type RawUnityObjectService struct{}
 
 func IsKCESRawUnityBytesFile(path string) bool {
@@ -97,7 +102,7 @@ func (s *RawUnityObjectService) ConvertJsonToRawUnityObject(inputPath string, ou
 		UnityVersion:          envelope.UnityVersion,
 		EngineVersion:         envelope.EngineVersion,
 		TargetPlatform:        envelope.TargetPlatform,
-		BundleVersion:         envelope.BundleVersion,
+		AbaVersion:            envelope.AbaVersion,
 		GenerationVersion:     envelope.GenerationVersion,
 		SerializedFileVersion: envelope.SerializedFileVersion,
 	}
@@ -165,7 +170,7 @@ func (s *RawUnityObjectService) ReadRawUnityObjectFile(path string) (*RawUnityOb
 		UnityVersion:          meta.UnityVersion,
 		EngineVersion:         meta.EngineVersion,
 		TargetPlatform:        meta.TargetPlatform,
-		BundleVersion:         meta.BundleVersion,
+		AbaVersion:            meta.AbaVersion,
 		GenerationVersion:     meta.GenerationVersion,
 		SerializedFileVersion: meta.SerializedFileVersion,
 		DataBase64:            base64.StdEncoding.EncodeToString(data),
@@ -175,7 +180,7 @@ func (s *RawUnityObjectService) ReadRawUnityObjectFile(path string) (*RawUnityOb
 
 func hasRawAssetMeta(meta rawAssetMeta) bool {
 	return meta.PathID != 0 || meta.LoadName != "" || meta.UnityVersion != "" || meta.EngineVersion != "" ||
-		meta.TargetPlatform != nil || meta.BundleVersion != 0 || meta.GenerationVersion != "" || meta.SerializedFileVersion != 0
+		meta.TargetPlatform != nil || meta.AbaVersion != 0 || meta.GenerationVersion != "" || meta.SerializedFileVersion != 0
 }
 
 func inferRawUnityObjectKind(path string) (string, int32, bool) {

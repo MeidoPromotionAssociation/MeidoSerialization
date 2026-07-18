@@ -63,24 +63,24 @@ func TestReadTypeTreeValue_AlignsNestedArrayNode(t *testing.T) {
 
 func TestReadAssetValue_ArrayAlignmentRealSamples(t *testing.T) {
 	tests := []struct {
-		bundleName string
-		classID    int32
+		abaName string
+		classID int32
 	}{
-		{bundleName: "cm3d2_eyes.aba", classID: ClassIDSprite},
-		{bundleName: "crc_nt008_accha001.aba", classID: ClassIDMesh},
+		{abaName: "cm3d2_eyes.aba", classID: ClassIDSprite},
+		{abaName: "crc_nt008_accha001.aba", classID: ClassIDMesh},
 	}
 
 	for _, test := range tests {
-		t.Run(test.bundleName, func(t *testing.T) {
-			bundle, file := openAbaSample(t, test.bundleName)
+		t.Run(test.abaName, func(t *testing.T) {
+			abaFile, file := openAbaSample(t, test.abaName)
 			defer file.Close()
 
 			decoded := 0
-			for dirIndex, dir := range bundle.BlockInfo.DirectoryInfos {
+			for dirIndex, dir := range abaFile.BlockInfo.DirectoryInfos {
 				if !dir.IsSerialized() {
 					continue
 				}
-				data, err := bundle.GetFileData(dirIndex)
+				data, err := abaFile.GetFileData(dirIndex)
 				if err != nil {
 					t.Fatalf("GetFileData(%q): %v", dir.Name, err)
 				}

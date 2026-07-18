@@ -38,17 +38,17 @@ func smallAbaTestFiles(t *testing.T) []string {
 	return small
 }
 
-func openAbaSample(t *testing.T, name string) (*Bundle, *os.File) {
+func openAbaSample(t *testing.T, name string) (*Aba, *os.File) {
 	t.Helper()
 	filePath := filepath.Join("..", "..", "..", "testdata", "aba", name)
 	f, err := os.Open(filePath)
 	if err != nil {
 		t.Skipf("sample .aba not available: %v", err)
 	}
-	bundle, err := ReadBundle(f)
+	abaFile, err := ReadAba(f)
 	if err != nil {
 		f.Close()
-		t.Fatalf("ReadBundle: %v", err)
+		t.Fatalf("ReadAba: %v", err)
 	}
-	return bundle, f
+	return abaFile, f
 }

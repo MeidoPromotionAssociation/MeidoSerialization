@@ -8,7 +8,9 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
-// 常用 Unity 类型 ID / Common Unity class IDs
+// 常用 Unity 类型 ID。
+//
+// Common Unity class IDs.
 const (
 	ClassIDGameObject    int32 = 1
 	ClassIDTransform     int32 = 4
@@ -31,7 +33,9 @@ const (
 
 const classIDAssetBundle = ClassIDAssetBundle
 
-// AssetEntry 表示一个可提取的资源条目（包含名称和类型信息）/ AssetEntry represents one extractable asset entry with name and type metadata
+// AssetEntry 表示一个可提取的资源条目，包含名称和类型信息。
+//
+// AssetEntry represents one extractable asset entry with name and type metadata.
 type AssetEntry struct {
 	PathId   int64  // 资源路径 ID / Asset PathID
 	TypeId   int32  // 类型 ID / Unity class ID

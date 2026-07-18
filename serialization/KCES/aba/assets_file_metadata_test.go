@@ -477,20 +477,20 @@ func TestReadAssetsFileAllReadableKCESSamples(t *testing.T) {
 			t.Errorf("open %s: %v", filepath.Base(path), err)
 			continue
 		}
-		bundle, err := ReadBundle(f)
+		abaFile, err := ReadAba(f)
 		if err != nil {
 			f.Close()
 			if isEncryptedError(err) {
 				continue
 			}
-			t.Errorf("ReadBundle(%s): %v", filepath.Base(path), err)
+			t.Errorf("ReadAba(%s): %v", filepath.Base(path), err)
 			continue
 		}
-		for _, entry := range bundle.BlockInfo.DirectoryInfos {
+		for _, entry := range abaFile.BlockInfo.DirectoryInfos {
 			if !entry.IsSerialized() {
 				continue
 			}
-			data, err := readWholeBundleEntryForAssetsTest(bundle, entry)
+			data, err := readWholeAbaEntryForAssetsTest(abaFile, entry)
 			if err != nil {
 				t.Errorf("read %s/%s: %v", filepath.Base(path), entry.Name, err)
 				continue
@@ -669,7 +669,7 @@ func writeLEForAssetsTest(t *testing.T, dst *bytes.Buffer, value any) {
 	}
 }
 
-func readWholeBundleEntryForAssetsTest(bundle *Bundle, entry DirectoryInfo) ([]byte, error) {
+func readWholeAbaEntryForAssetsTest(abaFile *Aba, entry DirectoryInfo) ([]byte, error) {
 	if entry.DecompressedSize < 0 || uint64(entry.DecompressedSize) > uint64(int(^uint(0)>>1)) {
 		return nil, fmt.Errorf("entry size %d cannot fit in memory", entry.DecompressedSize)
 	}
@@ -680,7 +680,7 @@ func readWholeBundleEntryForAssetsTest(bundle *Bundle, entry DirectoryInfo) ([]b
 		if size > chunkSize {
 			size = chunkSize
 		}
-		chunk, err := bundle.GetFileDataRangeByName(entry.Name, offset, size)
+		chunk, err := abaFile.GetFileDataRangeByName(entry.Name, offset, size)
 		if err != nil {
 			return nil, err
 		}

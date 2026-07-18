@@ -14,19 +14,19 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
-func TestPackServiceRepackAbaPreservesBundleHeaderContext(t *testing.T) {
+func TestPackServiceRepackAbaPreservesAbaHeaderContext(t *testing.T) {
 	var source bytes.Buffer
-	wantOptions := &aba.BundleWriteOptions{
+	wantOptions := &aba.AbaWriteOptions{
 		EngineVersion:     "2022.3.62f2",
 		GenerationVersion: "custom-generation",
 		Version:           8,
 		Compress:          true,
 	}
-	if err := aba.WriteBundle(&source, []aba.BundleFileEntry{{
+	if err := aba.WriteAba(&source, []aba.AbaFileEntry{{
 		Name: "resources/sample.resource",
 		Data: []byte("resource-data"),
 	}}, wantOptions); err != nil {
-		t.Fatalf("write source bundle: %v", err)
+		t.Fatalf("write source .aba file: %v", err)
 	}
 
 	tmpDir := t.TempDir()
@@ -38,12 +38,12 @@ func TestPackServiceRepackAbaPreservesBundleHeaderContext(t *testing.T) {
 	if err := (&AbaService{}).UnpackAba(sourcePath, unpackedDir); err != nil {
 		t.Fatalf("UnpackAba: %v", err)
 	}
-	metaData, err := os.ReadFile(filepath.Join(unpackedDir, abaBundleMetaFileName))
+	metaData, err := os.ReadFile(filepath.Join(unpackedDir, abaMetaFileName))
 	if err != nil {
-		t.Fatalf("read bundle metadata sidecar: %v", err)
+		t.Fatalf("read .aba metadata sidecar: %v", err)
 	}
-	if !bytes.Contains(metaData, []byte(`"bundleVersion": 8`)) || !bytes.Contains(metaData, []byte(`"engineVersion": "2022.3.62f2"`)) {
-		t.Fatalf("bundle metadata sidecar lacks source context: %s", metaData)
+	if !bytes.Contains(metaData, []byte(`"abaVersion": 8`)) || !bytes.Contains(metaData, []byte(`"engineVersion": "2022.3.62f2"`)) {
+		t.Fatalf(".aba metadata sidecar lacks source context: %s", metaData)
 	}
 
 	outPath := filepath.Join(tmpDir, "repacked.aba")
@@ -54,9 +54,9 @@ func TestPackServiceRepackAbaPreservesBundleHeaderContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repacked, err := aba.ReadBundle(bytes.NewReader(repackedData))
+	repacked, err := aba.ReadAba(bytes.NewReader(repackedData))
 	if err != nil {
-		t.Fatalf("read repacked bundle: %v", err)
+		t.Fatalf("read repacked .aba file: %v", err)
 	}
 	if repacked.Header.Version != wantOptions.Version || repacked.Header.EngineVersion != wantOptions.EngineVersion || repacked.Header.GenerationVersion != wantOptions.GenerationVersion {
 		t.Fatalf("repacked header got %+v, want version=%d engine=%q generation=%q", repacked.Header, wantOptions.Version, wantOptions.EngineVersion, wantOptions.GenerationVersion)
@@ -81,7 +81,7 @@ func TestPackServiceRepackAbaUsesExistingAssetMetaContext(t *testing.T) {
 	}
 	if err := writeRawAssetMeta(assetPath, rawAssetMeta{
 		EngineVersion:     "2022.3.35f1",
-		BundleVersion:     8,
+		AbaVersion:        8,
 		GenerationVersion: "legacy-sidecar-generation",
 	}); err != nil {
 		t.Fatal(err)
@@ -95,19 +95,19 @@ func TestPackServiceRepackAbaUsesExistingAssetMetaContext(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bundle, err := aba.ReadBundle(bytes.NewReader(data))
+	abaFile, err := aba.ReadAba(bytes.NewReader(data))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bundle.Header.Version != 8 || bundle.Header.EngineVersion != "2022.3.35f1" || bundle.Header.GenerationVersion != "legacy-sidecar-generation" {
-		t.Fatalf("repacked header did not use existing asset metadata: %+v", bundle.Header)
+	if abaFile.Header.Version != 8 || abaFile.Header.EngineVersion != "2022.3.35f1" || abaFile.Header.GenerationVersion != "legacy-sidecar-generation" {
+		t.Fatalf("repacked header did not use existing asset metadata: %+v", abaFile.Header)
 	}
-	if len(bundle.BlockInfo.DirectoryInfos) != 1 || bundle.BlockInfo.DirectoryInfos[0].Name != "sample.resource" {
-		t.Fatalf("asset metadata sidecar was packed as a bundle entry: %+v", bundle.BlockInfo.DirectoryInfos)
+	if len(abaFile.BlockInfo.DirectoryInfos) != 1 || abaFile.BlockInfo.DirectoryInfos[0].Name != "sample.resource" {
+		t.Fatalf("asset metadata sidecar was packed as an .aba entry: %+v", abaFile.BlockInfo.DirectoryInfos)
 	}
 }
 
-func TestPackService_PackToAbaAndCtProducesCatalogedBundle(t *testing.T) {
+func TestPackService_PackToAbaAndCtProducesCatalogedAba(t *testing.T) {
 	tmpDir := t.TempDir()
 	inputDir := filepath.Join(tmpDir, "sample_pack")
 	if err := os.MkdirAll(inputDir, 0755); err != nil {
@@ -246,11 +246,11 @@ func TestPackService_PackToAbaAndCtProducesCatalogedBundle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read .aba: %v", err)
 	}
-	bundle, err := aba.ReadBundle(bytes.NewReader(abaData))
+	abaFile, err := aba.ReadAba(bytes.NewReader(abaData))
 	if err != nil {
-		t.Fatalf("ReadBundle: %v", err)
+		t.Fatalf("ReadAba: %v", err)
 	}
-	fileData, err := bundle.GetFileData(0)
+	fileData, err := abaFile.GetFileData(0)
 	if err != nil {
 		t.Fatalf("GetFileData: %v", err)
 	}
@@ -314,7 +314,7 @@ func TestPackService_PackToAbaAndCtProducesCatalogedBundle(t *testing.T) {
 	}
 }
 
-func TestPackServicePreservesStreamingSidecarAsRawBundleEntry(t *testing.T) {
+func TestPackServicePreservesStreamingSidecarAsRawAbaEntry(t *testing.T) {
 	tmpDir := t.TempDir()
 	inputDir := filepath.Join(tmpDir, "stream_pack")
 	if err := os.MkdirAll(inputDir, 0755); err != nil {
@@ -332,19 +332,19 @@ func TestPackServicePreservesStreamingSidecarAsRawBundleEntry(t *testing.T) {
 	if err := (&PackService{}).PackToAbaAndCt(inputDir, "stream_pack"); err != nil {
 		t.Fatalf("PackToAbaAndCt: %v", err)
 	}
-	bundleData, err := os.ReadFile(filepath.Join(tmpDir, "stream_pack.aba"))
+	abaData, err := os.ReadFile(filepath.Join(tmpDir, "stream_pack.aba"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	bundle, err := aba.ReadBundle(bytes.NewReader(bundleData))
+	abaFile, err := aba.ReadAba(bytes.NewReader(abaData))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(bundle.BlockInfo.DirectoryInfos) != 2 {
-		t.Fatalf("bundle directory count = %d, want CAB + sidecar", len(bundle.BlockInfo.DirectoryInfos))
+	if len(abaFile.BlockInfo.DirectoryInfos) != 2 {
+		t.Fatalf(".aba directory count = %d, want CAB + sidecar", len(abaFile.BlockInfo.DirectoryInfos))
 	}
 	var found bool
-	for i, dir := range bundle.BlockInfo.DirectoryInfos {
+	for i, dir := range abaFile.BlockInfo.DirectoryInfos {
 		if dir.Name != sidecarName {
 			continue
 		}
@@ -352,7 +352,7 @@ func TestPackServicePreservesStreamingSidecarAsRawBundleEntry(t *testing.T) {
 		if dir.IsSerialized() {
 			t.Fatalf("sidecar %q was incorrectly marked as SerializedFile", dir.Name)
 		}
-		got, err := bundle.GetFileData(i)
+		got, err := abaFile.GetFileData(i)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -361,7 +361,7 @@ func TestPackServicePreservesStreamingSidecarAsRawBundleEntry(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatalf("sidecar %q missing from bundle directories", sidecarName)
+		t.Fatalf("sidecar %q missing from .aba directories", sidecarName)
 	}
 
 	ctFile, err := os.Open(filepath.Join(tmpDir, "stream_pack.ct"))
@@ -398,19 +398,19 @@ func TestUnpackThenPackPreservesRealStreamedTextureData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	originalBundle, err := aba.ReadBundle(originalFile)
+	originalAba, err := aba.ReadAba(originalFile)
 	if err != nil {
 		originalFile.Close()
 		t.Fatal(err)
 	}
 	var sidecarName string
 	var originalSidecar []byte
-	for i, dir := range originalBundle.BlockInfo.DirectoryInfos {
+	for i, dir := range originalAba.BlockInfo.DirectoryInfos {
 		if dir.IsSerialized() || !strings.EqualFold(filepath.Ext(dir.Name), ".resS") {
 			continue
 		}
 		sidecarName = dir.Name
-		originalSidecar, err = originalBundle.GetFileData(i)
+		originalSidecar, err = originalAba.GetFileData(i)
 		if err != nil {
 			originalFile.Close()
 			t.Fatal(err)
@@ -430,28 +430,28 @@ func TestUnpackThenPackPreservesRealStreamedTextureData(t *testing.T) {
 		t.Fatalf("PackToAbaAndCt: %v", err)
 	}
 
-	bundleFile, err := os.Open(filepath.Join(tmpDir, "stream_roundtrip.aba"))
+	abaFileHandle, err := os.Open(filepath.Join(tmpDir, "stream_roundtrip.aba"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer bundleFile.Close()
-	bundle, err := aba.ReadBundle(bundleFile)
+	defer abaFileHandle.Close()
+	abaFile, err := aba.ReadAba(abaFileHandle)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var assetsFile *aba.AssetsFile
 	var repackedSidecar []byte
-	for i, dir := range bundle.BlockInfo.DirectoryInfos {
+	for i, dir := range abaFile.BlockInfo.DirectoryInfos {
 		if !dir.IsSerialized() {
 			if dir.Name == sidecarName {
-				repackedSidecar, err = bundle.GetFileData(i)
+				repackedSidecar, err = abaFile.GetFileData(i)
 				if err != nil {
 					t.Fatal(err)
 				}
 			}
 			continue
 		}
-		data, err := bundle.GetFileData(i)
+		data, err := abaFile.GetFileData(i)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -461,7 +461,7 @@ func TestUnpackThenPackPreservesRealStreamedTextureData(t *testing.T) {
 		}
 	}
 	if repackedSidecar == nil || assetsFile == nil {
-		t.Fatalf("repacked bundle missing SerializedFile or .resS sidecar")
+		t.Fatalf("repacked .aba file missing SerializedFile or .resS sidecar")
 	}
 	if !bytes.Equal(repackedSidecar, originalSidecar) {
 		t.Fatalf("repacked .resS bytes differ: got %d bytes, want %d", len(repackedSidecar), len(originalSidecar))
@@ -584,11 +584,11 @@ func TestPackService_PackToAbaAndCtSkipsDerivedUnpackArtifacts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read .aba: %v", err)
 	}
-	bundle, err := aba.ReadBundle(bytes.NewReader(abaData))
+	abaFile, err := aba.ReadAba(bytes.NewReader(abaData))
 	if err != nil {
-		t.Fatalf("ReadBundle: %v", err)
+		t.Fatalf("ReadAba: %v", err)
 	}
-	fileData, err := bundle.GetFileData(0)
+	fileData, err := abaFile.GetFileData(0)
 	if err != nil {
 		t.Fatalf("GetFileData: %v", err)
 	}
@@ -669,11 +669,11 @@ func TestPackService_PackToAbaAndCtUsesRawMetaLoadName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read .aba: %v", err)
 	}
-	bundle, err := aba.ReadBundle(bytes.NewReader(abaData))
+	abaFile, err := aba.ReadAba(bytes.NewReader(abaData))
 	if err != nil {
-		t.Fatalf("ReadBundle: %v", err)
+		t.Fatalf("ReadAba: %v", err)
 	}
-	fileData, err := bundle.GetFileData(0)
+	fileData, err := abaFile.GetFileData(0)
 	if err != nil {
 		t.Fatalf("GetFileData: %v", err)
 	}
@@ -744,11 +744,11 @@ func TestPackService_PackToAbaAndCtUsesTextAssetMeta(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read .aba: %v", err)
 	}
-	bundle, err := aba.ReadBundle(bytes.NewReader(abaData))
+	abaFile, err := aba.ReadAba(bytes.NewReader(abaData))
 	if err != nil {
-		t.Fatalf("ReadBundle: %v", err)
+		t.Fatalf("ReadAba: %v", err)
 	}
-	fileData, err := bundle.GetFileData(0)
+	fileData, err := abaFile.GetFileData(0)
 	if err != nil {
 		t.Fatalf("GetFileData: %v", err)
 	}
@@ -830,11 +830,11 @@ func TestPackService_PackToAbaAndCtInfersRootRawUnityByteSuffixes(t *testing.T) 
 	if err != nil {
 		t.Fatalf("read .aba: %v", err)
 	}
-	bundle, err := aba.ReadBundle(bytes.NewReader(abaData))
+	abaFile, err := aba.ReadAba(bytes.NewReader(abaData))
 	if err != nil {
-		t.Fatalf("ReadBundle: %v", err)
+		t.Fatalf("ReadAba: %v", err)
 	}
-	fileData, err := bundle.GetFileData(0)
+	fileData, err := abaFile.GetFileData(0)
 	if err != nil {
 		t.Fatalf("GetFileData: %v", err)
 	}

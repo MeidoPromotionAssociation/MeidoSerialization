@@ -39,8 +39,8 @@ import (
 //	  - 包含一个或多个 AssetsFile（Unity 序列化文件）
 //
 // .aba
-// KCES resource bundles use the standard Unity AssetBundle UnityFS format. Unity 5.3 and later use the UnityFS signature;
-// a file contains a optionally-compressed block directory, resource-data blocks, and one or more Unity SerializedFiles.
+// KCES .aba files use the standard Unity AssetBundle UnityFS format. Unity 5.3 and later use the UnityFS signature;
+// a file contains an optionally compressed block directory, resource-data blocks, and one or more Unity SerializedFiles.
 // The overall layout is shown below, with all header fields encoded as Big-Endian:
 //
 //	[Header]
@@ -77,38 +77,42 @@ const (
 	// DirectoryInfo Flags / DirectoryInfo flags
 	DirFlagSerializedFile = 0x04 // 该条目是 AssetsFile（序列化文件）/ Entry is an AssetsFile serialized file
 
-	minSupportedBundleVersion = 6
-	maxSupportedBundleVersion = 8
+	minSupportedAbaVersion = 6
+	maxSupportedAbaVersion = 8
 
 	// UnityFS block/directory metadata is small compared with the data stream.
 	// The largest KCES sample is about 400 KiB while its decompressed .resS
 	// entry exceeds 4 GiB. Keep metadata and per-block allocations bounded
 	// without imposing a low limit on the logical data stream.
 	maxBlockAndDirInfoSize = 64 << 20
-	maxBundleBlockSize     = 256 << 20
+	maxAbaBlockSize        = 256 << 20
 	// parts_bv002.aba contains a real KCES SerializedFile directory of
 	// 799,993,424 bytes. Keep a bounded single-allocation API while allowing
 	// every observed SerializedFile to reach ReadAssetsFile; multi-gigabyte
 	// .resS entries must still be consumed through smaller range reads.
-	maxBundleReadSize = 1 << 30
+	maxAbaReadSize = 1 << 30
 )
 
-// Bundle 表示一个 Unity AssetBundle UnityFS 文件 / Bundle represents one Unity AssetBundle UnityFS file
-type Bundle struct {
-	Header     BundleHeader    // 文件头 / File header
+// Aba 表示一个采用 Unity AssetBundle UnityFS 格式的 .aba 文件。
+//
+// Aba represents one .aba file using the Unity AssetBundle UnityFS format.
+type Aba struct {
+	Header     AbaHeader       // 文件头 / File header
 	BlockInfo  BlockAndDirInfo // 压缩块和目录信息 / Compressed block and directory information
 	DataReader io.ReadSeeker   // 压缩数据区 reader；各块按需解压 / Compressed data-area reader; blocks are decompressed on demand
 
-	bundleStart        int64
-	bundleSize         int64
+	abaStart           int64
+	abaSize            int64
 	headerEnd          int64
 	blockAndDirOffset  int64
 	fileDataOffset     int64
 	compressedDataSize int64
 }
 
-// BundleHeader 表示 UnityFS 文件头，所有字段使用 Big-Endian 编码 / BundleHeader represents the UnityFS header with Big-Endian fields
-type BundleHeader struct {
+// AbaHeader 表示 UnityFS 文件头，所有字段使用 Big-Endian 编码。
+//
+// AbaHeader represents the UnityFS header with Big-Endian fields.
+type AbaHeader struct {
 	Signature         string   // 签名（"UnityFS"）/ Signature, usually "UnityFS"
 	Version           uint32   // 文件格式版本（通常 6-8）/ File format version, usually 6-8
 	GenerationVersion string   // 生成版本（如 "5.x.x"）/ Generation version such as "5.x.x"
@@ -116,7 +120,9 @@ type BundleHeader struct {
 	FSHeader          FSHeader // 文件流头部 / File stream header
 }
 
-// FSHeader 表示 UnityFS 的文件流头部信息，紧跟在 BundleHeader 字符串字段之后 / FSHeader represents UnityFS stream header fields after BundleHeader strings
+// FSHeader 表示 UnityFS 的文件流头部信息，紧跟在 AbaHeader 字符串字段之后。
+//
+// FSHeader represents UnityFS stream header fields after the AbaHeader strings.
 type FSHeader struct {
 	TotalFileSize    int64  // 整个文件的总大小 / Total file size
 	CompressedSize   uint32 // BlockAndDirInfo 压缩后的字节大小 / Compressed size of BlockAndDirInfo
@@ -124,7 +130,9 @@ type FSHeader struct {
 	Flags            uint32 // 标志位（压缩类型 + 布局标志）/ Flags combining compression type and layout bits
 }
 
-// BlockAndDirInfo 包含压缩块列表和文件目录列表 / BlockAndDirInfo contains data block and directory lists
+// BlockAndDirInfo 包含压缩块列表和文件目录列表。
+//
+// BlockAndDirInfo contains the data-block and directory lists.
 type BlockAndDirInfo struct {
 	Hash           [16]byte        // 16 字节哈希 / 16-byte hash
 	BlockInfos     []BlockInfo     // 数据压缩块信息列表 / Data block info list
@@ -132,14 +140,18 @@ type BlockAndDirInfo struct {
 	TrailingData   []byte          // 已知目录表之后的未解析字节 / Unparsed bytes following the known directory table
 }
 
-// BlockInfo 描述一个数据压缩块的元信息 / BlockInfo describes one compressed data block
+// BlockInfo 描述一个数据压缩块的元信息。
+//
+// BlockInfo describes one compressed data block.
 type BlockInfo struct {
 	DecompressedSize uint32 // 解压后大小 / Decompressed size
 	CompressedSize   uint32 // 压缩后大小（未压缩时与 DecompressedSize 相同）/ Compressed size, same as DecompressedSize when uncompressed
 	Flags            uint16 // 标志位：低 6 位为压缩类型，bit6 表示是否为流式块 / Flags, low 6 bits are compression type and bit6 marks streamed blocks
 }
 
-// DirectoryInfo 描述 bundle 内的一个文件条目 / DirectoryInfo describes one file entry inside a bundle
+// DirectoryInfo 描述 .aba 文件内的一个目录条目。
+//
+// DirectoryInfo describes one directory entry inside an .aba file.
 type DirectoryInfo struct {
 	Offset           int64  // 相对于数据区起始的偏移量 / Offset relative to the data area start
 	DecompressedSize int64  // 解压后大小 / Decompressed size
@@ -162,60 +174,62 @@ func (h *FSHeader) GetCompressionType() byte {
 	return byte(h.Flags & uint32(CompressionMask))
 }
 
-// ReadBundle 从 reader 中读取并解析 Unity AssetBundle 文件
-func ReadBundle(r io.ReadSeeker) (*Bundle, error) {
+// ReadAba 从 reader 中读取并解析采用 Unity AssetBundle UnityFS 格式的 .aba 文件。
+//
+// ReadAba reads and parses an .aba file using the Unity AssetBundle UnityFS format.
+func ReadAba(r io.ReadSeeker) (*Aba, error) {
 	if r == nil {
-		return nil, fmt.Errorf("bundle reader is nil")
+		return nil, fmt.Errorf(".aba reader is nil")
 	}
 
 	start, err := r.Seek(0, io.SeekCurrent)
 	if err != nil {
-		return nil, fmt.Errorf("get bundle start offset: %w", err)
+		return nil, fmt.Errorf("get .aba start offset: %w", err)
 	}
 	end, err := r.Seek(0, io.SeekEnd)
 	if err != nil {
-		return nil, fmt.Errorf("get bundle stream size: %w", err)
+		return nil, fmt.Errorf("get .aba stream size: %w", err)
 	}
 	if end < start {
-		return nil, fmt.Errorf("invalid bundle stream range [%d, %d)", start, end)
+		return nil, fmt.Errorf("invalid .aba stream range [%d, %d)", start, end)
 	}
 	if _, err := r.Seek(start, io.SeekStart); err != nil {
-		return nil, fmt.Errorf("restore bundle start offset: %w", err)
+		return nil, fmt.Errorf("restore .aba start offset: %w", err)
 	}
 
-	bundle := &Bundle{
-		bundleStart: start,
-		bundleSize:  end - start,
+	abaFile := &Aba{
+		abaStart: start,
+		abaSize:  end - start,
 	}
 
 	// 1. 读取 Header
-	if err := bundle.readHeader(r); err != nil {
-		return nil, fmt.Errorf("read bundle header failed: %w", err)
+	if err := abaFile.readHeader(r); err != nil {
+		return nil, fmt.Errorf("read .aba header failed: %w", err)
 	}
 
-	if bundle.Header.Signature != signatureUnityFS {
-		if len(bundle.Header.Signature) >= 4 && bundle.Header.Signature[:4] == signatureAbap {
+	if abaFile.Header.Signature != signatureUnityFS {
+		if len(abaFile.Header.Signature) >= 4 && abaFile.Header.Signature[:4] == signatureAbap {
 			return nil, fmt.Errorf("this .aba file is encrypted (unsupported). Please install the original DLC and launch the game once to decrypt it")
 		}
-		return nil, fmt.Errorf("unsupported signature: %q (only UnityFS supported)", bundle.Header.Signature)
+		return nil, fmt.Errorf("unsupported signature: %q (only UnityFS supported)", abaFile.Header.Signature)
 	}
-	if bundle.Header.Version < minSupportedBundleVersion || bundle.Header.Version > maxSupportedBundleVersion {
-		return nil, fmt.Errorf("unsupported UnityFS version %d (supported: %d-%d)", bundle.Header.Version, minSupportedBundleVersion, maxSupportedBundleVersion)
+	if abaFile.Header.Version < minSupportedAbaVersion || abaFile.Header.Version > maxSupportedAbaVersion {
+		return nil, fmt.Errorf("unsupported UnityFS version %d (supported: %d-%d)", abaFile.Header.Version, minSupportedAbaVersion, maxSupportedAbaVersion)
 	}
-	if bundle.Header.FSHeader.TotalFileSize != bundle.bundleSize {
-		return nil, fmt.Errorf("UnityFS total file size mismatch: header=%d, stream=%d", bundle.Header.FSHeader.TotalFileSize, bundle.bundleSize)
+	if abaFile.Header.FSHeader.TotalFileSize != abaFile.abaSize {
+		return nil, fmt.Errorf("UnityFS total file size mismatch: header=%d, stream=%d", abaFile.Header.FSHeader.TotalFileSize, abaFile.abaSize)
 	}
-	if bundle.Header.FSHeader.TotalFileSize <= 0 {
-		return nil, fmt.Errorf("invalid UnityFS total file size %d", bundle.Header.FSHeader.TotalFileSize)
+	if abaFile.Header.FSHeader.TotalFileSize <= 0 {
+		return nil, fmt.Errorf("invalid UnityFS total file size %d", abaFile.Header.FSHeader.TotalFileSize)
 	}
-	if bundle.Header.FSHeader.Flags&uint32(FlagHasDirectoryInfo) == 0 {
-		return nil, fmt.Errorf("UnityFS bundle has no combined block/directory info")
+	if abaFile.Header.FSHeader.Flags&uint32(FlagHasDirectoryInfo) == 0 {
+		return nil, fmt.Errorf("UnityFS .aba has no combined block/directory info")
 	}
-	if bundle.Header.FSHeader.CompressedSize == 0 || bundle.Header.FSHeader.DecompressedSize == 0 {
-		return nil, fmt.Errorf("invalid block/directory info sizes compressed=%d decompressed=%d", bundle.Header.FSHeader.CompressedSize, bundle.Header.FSHeader.DecompressedSize)
+	if abaFile.Header.FSHeader.CompressedSize == 0 || abaFile.Header.FSHeader.DecompressedSize == 0 {
+		return nil, fmt.Errorf("invalid block/directory info sizes compressed=%d decompressed=%d", abaFile.Header.FSHeader.CompressedSize, abaFile.Header.FSHeader.DecompressedSize)
 	}
-	if bundle.Header.FSHeader.CompressedSize > maxBlockAndDirInfoSize || bundle.Header.FSHeader.DecompressedSize > maxBlockAndDirInfoSize {
-		return nil, fmt.Errorf("block/directory info too large: compressed=%d decompressed=%d (limit %d)", bundle.Header.FSHeader.CompressedSize, bundle.Header.FSHeader.DecompressedSize, maxBlockAndDirInfoSize)
+	if abaFile.Header.FSHeader.CompressedSize > maxBlockAndDirInfoSize || abaFile.Header.FSHeader.DecompressedSize > maxBlockAndDirInfoSize {
+		return nil, fmt.Errorf("block/directory info too large: compressed=%d decompressed=%d (limit %d)", abaFile.Header.FSHeader.CompressedSize, abaFile.Header.FSHeader.DecompressedSize, maxBlockAndDirInfoSize)
 	}
 
 	// 2. 对齐到 16 字节（version >= 7）
@@ -224,12 +238,12 @@ func ReadBundle(r io.ReadSeeker) (*Bundle, error) {
 		return nil, fmt.Errorf("get UnityFS header end: %w", err)
 	}
 	relativePos := pos - start
-	if relativePos < 0 || relativePos > bundle.bundleSize {
+	if relativePos < 0 || relativePos > abaFile.abaSize {
 		return nil, fmt.Errorf("invalid UnityFS header end %d", relativePos)
 	}
-	if bundle.Header.Version >= 7 {
+	if abaFile.Header.Version >= 7 {
 		aligned, ok := alignInt64(relativePos, 16)
-		if !ok || aligned > bundle.bundleSize {
+		if !ok || aligned > abaFile.abaSize {
 			return nil, fmt.Errorf("UnityFS aligned header end is out of bounds")
 		}
 		relativePos = aligned
@@ -237,25 +251,25 @@ func ReadBundle(r io.ReadSeeker) (*Bundle, error) {
 			return nil, fmt.Errorf("seek past UnityFS header padding: %w", err)
 		}
 	}
-	bundle.headerEnd = relativePos
+	abaFile.headerEnd = relativePos
 
 	// 3. 读取 BlockAndDirInfo
-	if err := bundle.readBlockAndDirInfo(r); err != nil {
+	if err := abaFile.readBlockAndDirInfo(r); err != nil {
 		return nil, fmt.Errorf("read block and dir info failed: %w", err)
 	}
 
 	// 4. 设置数据区 reader
 	readerAt, ok := r.(io.ReaderAt)
 	if !ok {
-		return nil, fmt.Errorf("bundle reader must implement io.ReaderAt")
+		return nil, fmt.Errorf(".aba reader must implement io.ReaderAt")
 	}
-	bundle.DataReader = io.NewSectionReader(readerAt, start+bundle.fileDataOffset, bundle.compressedDataSize)
+	abaFile.DataReader = io.NewSectionReader(readerAt, start+abaFile.fileDataOffset, abaFile.compressedDataSize)
 
-	return bundle, nil
+	return abaFile, nil
 }
 
-// GetFileNames 返回 bundle 中所有文件的名称列表
-func (b *Bundle) GetFileNames() []string {
+// GetFileNames 返回 .aba 中所有文件的名称列表。
+func (b *Aba) GetFileNames() []string {
 	if b == nil {
 		return nil
 	}
@@ -267,9 +281,9 @@ func (b *Bundle) GetFileNames() []string {
 }
 
 // GetFileData 读取指定索引的文件数据（自动处理 LZ4 分块解压）
-func (b *Bundle) GetFileData(index int) ([]byte, error) {
+func (b *Aba) GetFileData(index int) ([]byte, error) {
 	if b == nil {
-		return nil, fmt.Errorf("bundle is nil")
+		return nil, fmt.Errorf(".aba is nil")
 	}
 	if index < 0 || index >= len(b.BlockInfo.DirectoryInfos) {
 		return nil, fmt.Errorf("file index %d out of range [0, %d)", index, len(b.BlockInfo.DirectoryInfos))
@@ -284,23 +298,23 @@ func (b *Bundle) GetFileData(index int) ([]byte, error) {
 }
 
 // GetFileDataByName 按名称读取文件数据
-func (b *Bundle) GetFileDataByName(name string) ([]byte, error) {
+func (b *Aba) GetFileDataByName(name string) ([]byte, error) {
 	if b == nil {
-		return nil, fmt.Errorf("bundle is nil")
+		return nil, fmt.Errorf(".aba is nil")
 	}
 	for i, d := range b.BlockInfo.DirectoryInfos {
 		if d.Name == name {
 			return b.GetFileData(i)
 		}
 	}
-	return nil, fmt.Errorf("file %q not found in bundle", name)
+	return nil, fmt.Errorf("file %q not found in .aba", name)
 }
 
-// GetFileDataRange reads a byte range from a bundle file selected by directory
+// GetFileDataRange reads a byte range from an .aba entry selected by directory
 // index. The offset and size are relative to that directory entry.
-func (b *Bundle) GetFileDataRange(index int, offset int64, size int64) ([]byte, error) {
+func (b *Aba) GetFileDataRange(index int, offset int64, size int64) ([]byte, error) {
 	if b == nil {
-		return nil, fmt.Errorf("bundle is nil")
+		return nil, fmt.Errorf(".aba is nil")
 	}
 	if index < 0 || index >= len(b.BlockInfo.DirectoryInfos) {
 		return nil, fmt.Errorf("file index %d out of range [0, %d)", index, len(b.BlockInfo.DirectoryInfos))
@@ -320,12 +334,12 @@ func (b *Bundle) GetFileDataRange(index int, offset int64, size int64) ([]byte, 
 	return b.readDataRange(absoluteOffset, size)
 }
 
-// GetFileDataRangeByName reads a byte range from a bundle file by name.
+// GetFileDataRangeByName reads a byte range from an .aba entry by name.
 // The offset and size are relative to the decompressed file entry, not the
 // whole UnityFS data stream.
-func (b *Bundle) GetFileDataRangeByName(name string, offset int64, size int64) ([]byte, error) {
+func (b *Aba) GetFileDataRangeByName(name string, offset int64, size int64) ([]byte, error) {
 	if b == nil {
-		return nil, fmt.Errorf("bundle is nil")
+		return nil, fmt.Errorf(".aba is nil")
 	}
 	for index, d := range b.BlockInfo.DirectoryInfos {
 		if d.Name != name {
@@ -333,11 +347,11 @@ func (b *Bundle) GetFileDataRangeByName(name string, offset int64, size int64) (
 		}
 		return b.GetFileDataRange(index, offset, size)
 	}
-	return nil, fmt.Errorf("file %q not found in bundle", name)
+	return nil, fmt.Errorf("file %q not found in .aba", name)
 }
 
 // readHeader 读取 UnityFS 文件头
-func (b *Bundle) readHeader(r io.ReadSeeker) error {
+func (b *Aba) readHeader(r io.ReadSeeker) error {
 	// 1. Signature (null-terminated string)
 	// Reserve version, two mandatory string terminators, and FSHeader.
 	sig, err := b.readHeaderNullString(r, 4+1+1+20)
@@ -375,7 +389,7 @@ func (b *Bundle) readHeader(r io.ReadSeeker) error {
 }
 
 // readBlockAndDirInfo 读取并解压 BlockAndDirInfo
-func (b *Bundle) readBlockAndDirInfo(r io.ReadSeeker) error {
+func (b *Aba) readBlockAndDirInfo(r io.ReadSeeker) error {
 	flags := b.Header.FSHeader.Flags
 	compressedSize := int64(b.Header.FSHeader.CompressedSize)
 	decompressedSize := int64(b.Header.FSHeader.DecompressedSize)
@@ -391,13 +405,13 @@ func (b *Bundle) readBlockAndDirInfo(r io.ReadSeeker) error {
 	infoOffset := b.headerEnd
 	if flags&uint32(FlagBlockAndDirAtEnd) != 0 {
 		// 位于文件末尾
-		infoOffset = b.bundleSize - compressedSize
+		infoOffset = b.abaSize - compressedSize
 	}
 	infoEnd, ok := addNonNegativeInt64(infoOffset, compressedSize)
-	if !ok || infoOffset < b.headerEnd || infoEnd > b.bundleSize {
-		return fmt.Errorf("block/directory info range [%d, %d) is outside bundle size %d", infoOffset, infoEnd, b.bundleSize)
+	if !ok || infoOffset < b.headerEnd || infoEnd > b.abaSize {
+		return fmt.Errorf("block/directory info range [%d, %d) is outside .aba size %d", infoOffset, infoEnd, b.abaSize)
 	}
-	if _, err := r.Seek(b.bundleStart+infoOffset, io.SeekStart); err != nil {
+	if _, err := r.Seek(b.abaStart+infoOffset, io.SeekStart); err != nil {
 		return fmt.Errorf("seek to block/directory info: %w", err)
 	}
 	b.blockAndDirOffset = infoOffset
@@ -438,7 +452,7 @@ func (b *Bundle) readBlockAndDirInfo(r io.ReadSeeker) error {
 }
 
 // parseBlockAndDirInfo 从解压后的字节中解析 BlockAndDirInfo
-func (b *Bundle) parseBlockAndDirInfo(data []byte) error {
+func (b *Aba) parseBlockAndDirInfo(data []byte) error {
 	if len(data) < 24 {
 		return fmt.Errorf("block/directory info is too short: %d bytes", len(data))
 	}
@@ -482,8 +496,8 @@ func (b *Bundle) parseBlockAndDirInfo(data []byte) error {
 			CompressedSize:   compressedSize,
 			Flags:            flags,
 		}
-		if decompressedSize > maxBundleBlockSize || compressedSize > maxBundleBlockSize {
-			return fmt.Errorf("block info %d is too large: compressed=%d decompressed=%d (per-block limit %d)", i, compressedSize, decompressedSize, maxBundleBlockSize)
+		if decompressedSize > maxAbaBlockSize || compressedSize > maxAbaBlockSize {
+			return fmt.Errorf("block info %d is too large: compressed=%d decompressed=%d (per-block limit %d)", i, compressedSize, decompressedSize, maxAbaBlockSize)
 		}
 		switch compType := block.GetCompressionType(); compType {
 		case CompressionNone:
@@ -573,17 +587,17 @@ func (b *Bundle) parseBlockAndDirInfo(data []byte) error {
 
 // readDataRange returns a slice from the decompressed UnityFS data stream.
 // It only reads and decompresses blocks that overlap the requested range, so
-// extracting many files does not retain or repeatedly allocate a full bundle
+// extracting many files does not retain or repeatedly allocate a full .aba
 // decompression buffer.
-func (b *Bundle) readDataRange(offset int64, size int64) ([]byte, error) {
+func (b *Aba) readDataRange(offset int64, size int64) ([]byte, error) {
 	if b == nil {
-		return nil, fmt.Errorf("bundle is nil")
+		return nil, fmt.Errorf(".aba is nil")
 	}
 	if offset < 0 || size < 0 {
 		return nil, fmt.Errorf("invalid range offset=%d size=%d", offset, size)
 	}
-	if size > maxBundleReadSize {
-		return nil, fmt.Errorf("requested range size %d exceeds in-memory read limit %d; request smaller ranges with GetFileDataRangeByName", size, maxBundleReadSize)
+	if size > maxAbaReadSize {
+		return nil, fmt.Errorf("requested range size %d exceeds in-memory read limit %d; request smaller ranges with GetFileDataRangeByName", size, maxAbaReadSize)
 	}
 
 	totalSize, err := sumDecompressedBlockSizes(b.BlockInfo.BlockInfos)
@@ -600,7 +614,7 @@ func (b *Bundle) readDataRange(offset int64, size int64) ([]byte, error) {
 
 	readerAt, ok := b.DataReader.(io.ReaderAt)
 	if !ok {
-		return nil, fmt.Errorf("bundle data reader does not support random access")
+		return nil, fmt.Errorf(".aba data reader does not support random access")
 	}
 
 	result := make([]byte, int(size))
@@ -648,7 +662,7 @@ func (b *Bundle) readDataRange(offset int64, size int64) ([]byte, error) {
 }
 
 func decompressDataBlock(block BlockInfo, compressed []byte) ([]byte, error) {
-	if block.CompressedSize > maxBundleBlockSize || block.DecompressedSize > maxBundleBlockSize {
+	if block.CompressedSize > maxAbaBlockSize || block.DecompressedSize > maxAbaBlockSize {
 		return nil, fmt.Errorf("block is too large: compressed=%d decompressed=%d", block.CompressedSize, block.DecompressedSize)
 	}
 	if len(compressed) != int(block.CompressedSize) {
@@ -731,7 +745,7 @@ func maxInt64(a, b int64) int64 {
 	return b
 }
 
-func (b *Bundle) validateDataLayout() error {
+func (b *Aba) validateDataLayout() error {
 	dataOffset := b.headerEnd
 	if b.Header.FSHeader.Flags&uint32(FlagBlockAndDirAtEnd) == 0 {
 		var ok bool
@@ -747,7 +761,7 @@ func (b *Bundle) validateDataLayout() error {
 		}
 		dataOffset = aligned
 	}
-	dataEnd := b.bundleSize
+	dataEnd := b.abaSize
 	if b.Header.FSHeader.Flags&uint32(FlagBlockAndDirAtEnd) != 0 {
 		dataEnd = b.blockAndDirOffset
 	}
@@ -802,19 +816,19 @@ func alignInt64(value, alignment int64) (int64, bool) {
 	return addNonNegativeInt64(value, alignment-remainder)
 }
 
-func (b *Bundle) readHeaderNullString(r io.ReadSeeker, reservedBytes int64) (string, error) {
+func (b *Aba) readHeaderNullString(r io.ReadSeeker, reservedBytes int64) (string, error) {
 	if b == nil || r == nil {
-		return "", fmt.Errorf("nil bundle header reader")
+		return "", fmt.Errorf("nil .aba header reader")
 	}
 	pos, err := r.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return "", err
 	}
-	relativePos := pos - b.bundleStart
-	if relativePos < 0 || relativePos > b.bundleSize || reservedBytes < 0 || reservedBytes > b.bundleSize-relativePos {
-		return "", fmt.Errorf("bundle has no room for the remaining header fields")
+	relativePos := pos - b.abaStart
+	if relativePos < 0 || relativePos > b.abaSize || reservedBytes < 0 || reservedBytes > b.abaSize-relativePos {
+		return "", fmt.Errorf(".aba has no room for the remaining header fields")
 	}
-	return readNullStringWithin(r, b.bundleSize-relativePos-reservedBytes)
+	return readNullStringWithin(r, b.abaSize-relativePos-reservedBytes)
 }
 
 func readNullStringWithin(r io.ReadSeeker, maxBytes int64) (string, error) {

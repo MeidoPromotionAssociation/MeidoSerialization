@@ -11,37 +11,43 @@ import (
 	"github.com/pierrec/lz4/v4"
 )
 
-// BundleWriteOptions 控制 AssetBundle 写入行为 / BundleWriteOptions controls AssetBundle write behavior
-type BundleWriteOptions struct {
+// AbaWriteOptions 控制 .aba 文件的写入行为。
+//
+// AbaWriteOptions controls .aba file writing.
+type AbaWriteOptions struct {
 	EngineVersion     string // Unity 引擎版本（如 "2021.3.3f1"），默认 "2021.3.3f1" / Unity engine version such as "2021.3.3f1", default "2021.3.3f1"
 	GenerationVersion string // 生成版本（如 "5.x.x"），默认 "5.x.x" / Generation version such as "5.x.x", default "5.x.x"
 	Version           uint32 // 文件格式版本，默认 7 / File format version, default 7
 	Compress          bool   // 是否使用 LZ4 压缩数据块 / Whether to compress data blocks with LZ4
 }
 
-// BundleFileEntry 表示要写入 bundle 的一个文件条目 / BundleFileEntry represents one file entry to write into a bundle
-type BundleFileEntry struct {
+// AbaFileEntry 表示要写入 .aba 文件的一个目录条目。
+//
+// AbaFileEntry represents one directory entry to write into an .aba file.
+type AbaFileEntry struct {
 	Name         string // 文件名（如 "CAB-xxx"）/ File name such as "CAB-xxx"
 	Data         []byte // 文件数据 / File data
 	IsSerialized bool   // 是否为 AssetsFile（序列化文件）/ Whether this entry is an AssetsFile serialized file
 }
 
-// WriteBundle 将文件条目列表写入为 UnityFS 格式的 AssetBundle
+// WriteAba 将文件条目列表写入采用 Unity AssetBundle UnityFS 格式的 .aba 文件。
+//
+// WriteAba writes file entries as an .aba file using the Unity AssetBundle UnityFS format.
 //
 // 写入格式：
 //
 //	[Header] UnityFS signature + version + engine version + FSHeader
 //	[BlockAndDirInfo] LZ4 压缩的块信息和目录信息
 //	[Data Blocks] 文件数据（可选 LZ4 压缩，每块 0x20000 字节）
-func WriteBundle(w io.Writer, entries []BundleFileEntry, opts *BundleWriteOptions) error {
+func WriteAba(w io.Writer, entries []AbaFileEntry, opts *AbaWriteOptions) error {
 	if w == nil {
-		return fmt.Errorf("bundle writer is nil")
+		return fmt.Errorf(".aba writer is nil")
 	}
 	if _, err := int32WireLength("entry count", uint64(len(entries))); err != nil {
 		return err
 	}
 
-	var options BundleWriteOptions
+	var options AbaWriteOptions
 	if opts != nil {
 		options = *opts
 	}
@@ -54,13 +60,13 @@ func WriteBundle(w io.Writer, entries []BundleFileEntry, opts *BundleWriteOption
 	if options.Version == 0 {
 		options.Version = 7
 	}
-	if options.Version < minSupportedBundleVersion || options.Version > maxSupportedBundleVersion {
-		return fmt.Errorf("unsupported UnityFS version %d (supported: %d-%d)", options.Version, minSupportedBundleVersion, maxSupportedBundleVersion)
+	if options.Version < minSupportedAbaVersion || options.Version > maxSupportedAbaVersion {
+		return fmt.Errorf("unsupported UnityFS version %d (supported: %d-%d)", options.Version, minSupportedAbaVersion, maxSupportedAbaVersion)
 	}
-	if err := validateBundleHeaderString("generation version", options.GenerationVersion); err != nil {
+	if err := validateAbaHeaderString("generation version", options.GenerationVersion); err != nil {
 		return err
 	}
-	if err := validateBundleHeaderString("engine version", options.EngineVersion); err != nil {
+	if err := validateAbaHeaderString("engine version", options.EngineVersion); err != nil {
 		return err
 	}
 
@@ -87,14 +93,14 @@ func WriteBundle(w io.Writer, entries []BundleFileEntry, opts *BundleWriteOption
 	}
 
 	// 2. 第一遍编码数据块，只记录块表和压缩后总大小。数据在最终
-	// 写出时重新编码，避免为整个 bundle 保留第二份大切片。
+	// 写出时重新编码，避免为整个 .aba 文件保留第二份大切片。
 	var blockInfos []BlockInfo
 	var compressedDataSize int64
-	err := forEachBundleDataBlock(entries, func(index int, block []byte) error {
+	err := forEachAbaDataBlock(entries, func(index int, block []byte) error {
 		if _, err := int32WireLength("data block count", uint64(index)+1); err != nil {
 			return fmt.Errorf("data block count exceeds Int32 wire range")
 		}
-		info, encoded, err := encodeBundleDataBlock(block, options.Compress)
+		info, encoded, err := encodeAbaDataBlock(block, options.Compress)
 		if err != nil {
 			return fmt.Errorf("encode data block %d: %w", index, err)
 		}
@@ -150,11 +156,11 @@ func WriteBundle(w io.Writer, entries []BundleFileEntry, opts *BundleWriteOption
 
 	totalFileSize, ok := addNonNegativeInt64(int64(alignedHeaderSize), int64(n))
 	if !ok {
-		return fmt.Errorf("bundle header and metadata size overflow")
+		return fmt.Errorf(".aba header and metadata size overflow")
 	}
 	totalFileSize, ok = addNonNegativeInt64(totalFileSize, compressedDataSize)
 	if !ok {
-		return fmt.Errorf("total bundle file size overflow")
+		return fmt.Errorf("total .aba file size overflow")
 	}
 
 	// 6. 确定 flags
@@ -214,22 +220,22 @@ func WriteBundle(w io.Writer, entries []BundleFileEntry, opts *BundleWriteOption
 	}
 
 	// 8. 顺序输出 header、BlockAndDirInfo 和数据块。
-	if err := writeBundleBytes(w, buf.Bytes()); err != nil {
+	if err := writeAbaBytes(w, buf.Bytes()); err != nil {
 		return fmt.Errorf("write UnityFS header: %w", err)
 	}
-	if err := writeBundleBytes(w, blockAndDirCompressed); err != nil {
+	if err := writeAbaBytes(w, blockAndDirCompressed); err != nil {
 		return fmt.Errorf("write block and dir info: %w", err)
 	}
 	blockIndex := 0
-	err = forEachBundleDataBlock(entries, func(index int, block []byte) error {
-		info, encoded, err := encodeBundleDataBlock(block, options.Compress)
+	err = forEachAbaDataBlock(entries, func(index int, block []byte) error {
+		info, encoded, err := encodeAbaDataBlock(block, options.Compress)
 		if err != nil {
 			return err
 		}
 		if index >= len(blockInfos) || info != blockInfos[index] {
 			return fmt.Errorf("data block %d changed between encoding passes", index)
 		}
-		if err := writeBundleBytes(w, encoded); err != nil {
+		if err := writeAbaBytes(w, encoded); err != nil {
 			return err
 		}
 		blockIndex++
@@ -244,17 +250,17 @@ func WriteBundle(w io.Writer, entries []BundleFileEntry, opts *BundleWriteOption
 	return nil
 }
 
-func validateBundleHeaderString(field, value string) error {
+func validateAbaHeaderString(field, value string) error {
 	if strings.IndexByte(value, 0) >= 0 {
 		return fmt.Errorf("%s contains a NUL byte", field)
 	}
 	return nil
 }
 
-// forEachBundleDataBlock exposes the concatenated entry stream in bounded
+// forEachAbaDataBlock exposes the concatenated entry stream in bounded
 // UnityFS blocks. The scratch storage is reused and is valid only until fn
 // returns.
-func forEachBundleDataBlock(entries []BundleFileEntry, fn func(index int, block []byte) error) error {
+func forEachAbaDataBlock(entries []AbaFileEntry, fn func(index int, block []byte) error) error {
 	if fn == nil {
 		return fmt.Errorf("data block callback is nil")
 	}
@@ -294,8 +300,8 @@ func forEachBundleDataBlock(entries []BundleFileEntry, fn func(index int, block 
 	}
 }
 
-func encodeBundleDataBlock(block []byte, compress bool) (BlockInfo, []byte, error) {
-	if len(block) > maxBundleBlockSize || uint64(len(block)) > uint64(^uint32(0)) {
+func encodeAbaDataBlock(block []byte, compress bool) (BlockInfo, []byte, error) {
+	if len(block) > maxAbaBlockSize || uint64(len(block)) > uint64(^uint32(0)) {
 		return BlockInfo{}, nil, fmt.Errorf("data block is too large: %d bytes", len(block))
 	}
 	rawInfo := BlockInfo{
@@ -322,7 +328,7 @@ func encodeBundleDataBlock(block []byte, compress bool) (BlockInfo, []byte, erro
 	}, dst[:n], nil
 }
 
-func writeBundleBytes(w io.Writer, data []byte) error {
+func writeAbaBytes(w io.Writer, data []byte) error {
 	for len(data) != 0 {
 		n, err := w.Write(data)
 		if n < 0 || n > len(data) {
@@ -362,8 +368,8 @@ func serializeBlockAndDirInfo(blocks []BlockInfo, dirs []DirectoryInfo) ([]byte,
 		return nil, fmt.Errorf("write block count: %w", err)
 	}
 	for i, b := range blocks {
-		if b.DecompressedSize > maxBundleBlockSize || b.CompressedSize > maxBundleBlockSize {
-			return nil, fmt.Errorf("block[%d] exceeds per-block size limit %d", i, maxBundleBlockSize)
+		if b.DecompressedSize > maxAbaBlockSize || b.CompressedSize > maxAbaBlockSize {
+			return nil, fmt.Errorf("block[%d] exceeds per-block size limit %d", i, maxAbaBlockSize)
 		}
 		if err := bw.WriteUInt32(b.DecompressedSize); err != nil {
 			return nil, fmt.Errorf("write block[%d] decompressed size: %w", i, err)

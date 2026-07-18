@@ -7,7 +7,7 @@ import "fmt"
 // 载荷使用 LZ4 Block Array 压缩的 MessagePack indexed-array；当前 Material 固定版本为 1000。
 //
 // .materialassets
-// KCES material-resource container storing Parts.Material entries and their properties in a TextAsset inside an .aba bundle.
+// KCES material-resource container storing Parts.Material entries and their properties in a TextAsset inside an .aba file.
 // The payload is an LZ4 Block Array-compressed MessagePack indexed array; the current Material fixed version is 1000.
 
 // Material 表示 KCES 材质数据 / Material represents KCES material data

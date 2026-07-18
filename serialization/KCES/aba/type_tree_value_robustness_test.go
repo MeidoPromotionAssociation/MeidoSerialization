@@ -106,20 +106,20 @@ func TestTypeTreeRealSampleConsumptionProfile(t *testing.T) {
 		if err != nil {
 			t.Fatalf("open %s: %v", filePath, err)
 		}
-		bundle, err := ReadBundle(f)
+		abaFile, err := ReadAba(f)
 		if err != nil {
 			_ = f.Close()
 			if isEncryptedError(err) {
 				continue
 			}
-			t.Fatalf("ReadBundle(%s): %v", filePath, err)
+			t.Fatalf("ReadAba(%s): %v", filePath, err)
 		}
 
-		for dirIndex, dir := range bundle.BlockInfo.DirectoryInfos {
+		for dirIndex, dir := range abaFile.BlockInfo.DirectoryInfos {
 			if !dir.IsSerialized() {
 				continue
 			}
-			data, err := bundle.GetFileData(dirIndex)
+			data, err := abaFile.GetFileData(dirIndex)
 			if err != nil {
 				t.Fatalf("GetFileData(%s:%s): %v", filePath, dir.Name, err)
 			}

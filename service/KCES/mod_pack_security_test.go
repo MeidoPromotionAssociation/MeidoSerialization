@@ -90,7 +90,7 @@ func TestPackModManifestRejectsOversizedInMemorySourceBeforeReading(t *testing.T
 		Name:        "oversized_source",
 		CatalogType: "Parts",
 		PackageType: "Plugin",
-		Assets:      []ModAsset{{Name: "huge.resS", Path: "huge.resS", Kind: "bundleraw"}},
+		Assets:      []ModAsset{{Name: "huge.resS", Path: "huge.resS", Kind: "abaraw"}},
 	}
 	err = packModManifest(manifest, baseDir, baseDir)
 	if err == nil || !strings.Contains(err.Error(), "exceeds in-memory packing limit") {

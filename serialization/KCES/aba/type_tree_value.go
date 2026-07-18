@@ -9,8 +9,11 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
-// TypeTreeValue 是根据内嵌 TypeTree 解码出的 Unity 序列化值 / TypeTreeValue is a decoded Unity serialized value built from an embedded TypeTree
-// 它只暴露 KCES 提取器所需的小型导航和转换 API / It intentionally exposes only the small navigation and conversion API needed by KCES extractors
+// TypeTreeValue 是根据内嵌 TypeTree 解码出的 Unity 序列化值。
+// 它只暴露 KCES 提取器所需的小型导航和转换 API。
+//
+// TypeTreeValue is a decoded Unity serialized value built from an embedded TypeTree.
+// It intentionally exposes only the small navigation and conversion API needed by KCES extractors.
 type TypeTreeValue struct {
 	TypeName string           // Unity 类型名 / Unity type name
 	Name     string           // 字段名或节点名 / Field or node name

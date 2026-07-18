@@ -16,12 +16,12 @@ const (
 )
 
 // unityPackSettings is the single version contract shared by the generated
-// SerializedFile and its containing UnityFS bundle.
+// SerializedFile and its containing UnityFS .aba file.
 type unityPackSettings struct {
 	UnityVersion          string
 	EngineVersion         string
 	TargetPlatform        uint32
-	BundleVersion         uint32
+	AbaVersion            uint32
 	GenerationVersion     string
 	SerializedFileVersion uint32
 }
@@ -31,8 +31,8 @@ type unityPackSettings struct {
 // for sidecars created by older MeidoSerialization releases.
 func resolveUnityPackSettings(metas []rawAssetMeta, sources []string) (unityPackSettings, error) {
 	var settings unityPackSettings
-	var unitySource, engineSource, targetSource, bundleSource, generationSource, serializedSource string
-	var targetSet, bundleSet, serializedSet bool
+	var unitySource, engineSource, targetSource, abaSource, generationSource, serializedSource string
+	var targetSet, abaSet, serializedSet bool
 
 	for i, meta := range metas {
 		source := fmt.Sprintf("asset[%d]", i)
@@ -51,8 +51,8 @@ func resolveUnityPackSettings(metas []rawAssetMeta, sources []string) (unityPack
 				return unityPackSettings{}, err
 			}
 		}
-		if meta.BundleVersion != 0 {
-			if err := mergeUint32Setting("bundleVersion", &settings.BundleVersion, &bundleSet, &bundleSource, meta.BundleVersion, source); err != nil {
+		if meta.AbaVersion != 0 {
+			if err := mergeUint32Setting("abaVersion", &settings.AbaVersion, &abaSet, &abaSource, meta.AbaVersion, source); err != nil {
 				return unityPackSettings{}, err
 			}
 		}
@@ -91,13 +91,13 @@ func resolveUnityPackSettings(metas []rawAssetMeta, sources []string) (unityPack
 	if !targetSet {
 		settings.TargetPlatform = defaultKCESTargetPlatform
 	}
-	if !bundleSet {
-		settings.BundleVersion = bundleVersionForUnity(major, minor)
+	if !abaSet {
+		settings.AbaVersion = abaVersionForUnity(major, minor)
 	}
-	if settings.BundleVersion != 7 && settings.BundleVersion != 8 {
+	if settings.AbaVersion != 7 && settings.AbaVersion != 8 {
 		return unityPackSettings{}, fmt.Errorf(
-			"unsupported bundleVersion %d from %s (KCES packing supports UnityFS versions 7 and 8)",
-			settings.BundleVersion, settingSource(bundleSource),
+			"unsupported abaVersion %d from %s (KCES packing supports UnityFS versions 7 and 8)",
+			settings.AbaVersion, settingSource(abaSource),
 		)
 	}
 	if settings.GenerationVersion == "" {
@@ -164,10 +164,10 @@ func parseUnityMajorMinor(version string) (int, int, error) {
 	return major, minor, nil
 }
 
-func bundleVersionForUnity(major int, minor int) uint32 {
+func abaVersionForUnity(major int, minor int) uint32 {
 	// KCES samples built with 2020.2/2021.3 use UnityFS v7; 2022.3 uses v8.
 	// This fallback covers those observed families when an older sidecar has no
-	// explicit bundleVersion; newly unpacked sidecars preserve the exact value.
+	// explicit abaVersion; newly unpacked sidecars preserve the exact value.
 	if major > 2022 || (major == 2022 && minor >= 2) {
 		return 8
 	}

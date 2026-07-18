@@ -37,15 +37,15 @@ func TestAbaServiceUnpackRejectsTraversalName(t *testing.T) {
 	escapePath := filepath.Join(baseDir, "escaped.bin")
 	abaPath := filepath.Join(baseDir, "malicious.aba")
 
-	var bundle bytes.Buffer
-	err := aba.WriteBundle(&bundle, []aba.BundleFileEntry{{
+	var abaBuffer bytes.Buffer
+	err := aba.WriteAba(&abaBuffer, []aba.AbaFileEntry{{
 		Name: "../escaped.bin",
 		Data: []byte("escaped"),
-	}}, &aba.BundleWriteOptions{Compress: false})
+	}}, &aba.AbaWriteOptions{Compress: false})
 	if err != nil {
 		t.Fatalf("create malicious ABA: %v", err)
 	}
-	if err := os.WriteFile(abaPath, bundle.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(abaPath, abaBuffer.Bytes(), 0644); err != nil {
 		t.Fatalf("write malicious ABA: %v", err)
 	}
 

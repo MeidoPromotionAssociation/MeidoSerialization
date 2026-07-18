@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestReadBundle(t *testing.T) {
+func TestReadAba(t *testing.T) {
 	files := smallAbaTestFiles(t)
 
 	for _, filePath := range files {
@@ -19,31 +19,31 @@ func TestReadBundle(t *testing.T) {
 			}
 			defer f.Close()
 
-			bundle, err := ReadBundle(f)
+			abaFile, err := ReadAba(f)
 			if err != nil {
 				if isEncryptedError(err) {
 					t.Skipf("skipping encrypted file: %v", err)
 				}
-				t.Fatalf("ReadBundle failed: %v", err)
+				t.Fatalf("ReadAba failed: %v", err)
 			}
 
-			t.Logf("Signature: %s", bundle.Header.Signature)
-			t.Logf("Version: %d", bundle.Header.Version)
-			t.Logf("Engine: %s", bundle.Header.EngineVersion)
-			t.Logf("TotalFileSize: %d", bundle.Header.FSHeader.TotalFileSize)
-			t.Logf("Blocks: %d, Files: %d", len(bundle.BlockInfo.BlockInfos), len(bundle.BlockInfo.DirectoryInfos))
+			t.Logf("Signature: %s", abaFile.Header.Signature)
+			t.Logf("Version: %d", abaFile.Header.Version)
+			t.Logf("Engine: %s", abaFile.Header.EngineVersion)
+			t.Logf("TotalFileSize: %d", abaFile.Header.FSHeader.TotalFileSize)
+			t.Logf("Blocks: %d, Files: %d", len(abaFile.BlockInfo.BlockInfos), len(abaFile.BlockInfo.DirectoryInfos))
 
-			for i, d := range bundle.BlockInfo.DirectoryInfos {
+			for i, d := range abaFile.BlockInfo.DirectoryInfos {
 				t.Logf("  [%d] %q offset=%d size=%d serialized=%v",
 					i, d.Name, d.Offset, d.DecompressedSize, d.IsSerialized())
 			}
 
 			// 尝试读取每个文件的数据
-			for i, d := range bundle.BlockInfo.DirectoryInfos {
-				if d.DecompressedSize > maxBundleReadSize {
+			for i, d := range abaFile.BlockInfo.DirectoryInfos {
+				if d.DecompressedSize > maxAbaReadSize {
 					const probeSize int64 = 16
 					for _, relativeOffset := range []int64{0, d.DecompressedSize - probeSize} {
-						data, err := bundle.GetFileDataRange(i, relativeOffset, probeSize)
+						data, err := abaFile.GetFileDataRange(i, relativeOffset, probeSize)
 						if err != nil {
 							t.Errorf("read large file probe (%d, %q, offset=%d) failed: %v", i, d.Name, relativeOffset, err)
 						} else if len(data) != int(probeSize) {
@@ -52,7 +52,7 @@ func TestReadBundle(t *testing.T) {
 					}
 					continue
 				}
-				data, err := bundle.GetFileData(i)
+				data, err := abaFile.GetFileData(i)
 				if err != nil {
 					t.Errorf("GetFileData(%d, %q) failed: %v", i, d.Name, err)
 					continue
@@ -66,7 +66,7 @@ func TestReadBundle(t *testing.T) {
 	}
 }
 
-func TestReadBundle_AllFiles(t *testing.T) {
+func TestReadAba_AllFiles(t *testing.T) {
 	files := smallAbaTestFiles(t)
 
 	success := 0
@@ -76,9 +76,9 @@ func TestReadBundle_AllFiles(t *testing.T) {
 		if err != nil {
 			continue
 		}
-		bundle, err := ReadBundle(f)
+		abaFile, err := ReadAba(f)
 		f.Close()
-		if err == nil && len(bundle.BlockInfo.DirectoryInfos) > 0 {
+		if err == nil && len(abaFile.BlockInfo.DirectoryInfos) > 0 {
 			success++
 		} else if err != nil {
 			if isEncryptedError(err) {

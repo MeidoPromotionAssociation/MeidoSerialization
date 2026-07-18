@@ -63,9 +63,10 @@ func DefaultAssetResolver(relativeTo *AssetsFile, fileID int, pathID int64) (*As
 	return relativeTo, info, nil
 }
 
-// BundleAssetResolver 返回可解析 bundle 内全部序列化文件的 resolver / BundleAssetResolver returns a resolver for all serialized files in a bundle
-// map key 应包含 bundle 目录名或文件基名 / Map keys should include bundle directory names or file basenames
-func BundleAssetResolver(files map[string]*AssetsFile) AssetResolver {
+// AbaAssetResolver 返回可解析 .aba 内全部序列化文件的 resolver；map key 应包含 .aba 目录名或文件基名。
+//
+// AbaAssetResolver returns a resolver for all serialized files in an .aba; map keys should include .aba directory names or file basenames.
+func AbaAssetResolver(files map[string]*AssetsFile) AssetResolver {
 	return func(relativeTo *AssetsFile, fileID int, pathID int64) (*AssetsFile, *AssetInfo, error) {
 		if pathID == 0 {
 			return nil, nil, fmt.Errorf("null PPtr")
@@ -83,9 +84,9 @@ func BundleAssetResolver(files map[string]*AssetsFile) AssetResolver {
 		if relativeTo != nil {
 			depIdx := fileID - 1
 			if depIdx >= 0 && depIdx < len(relativeTo.Metadata.ExternalFiles) {
-				depName := normalizeBundleAssetPath(relativeTo.Metadata.ExternalFiles[depIdx].PathName)
+				depName := normalizeAbaAssetPath(relativeTo.Metadata.ExternalFiles[depIdx].PathName)
 				if depName != "" {
-					af, matched, err := lookupBundleAssetFile(files, depName)
+					af, matched, err := lookupAbaAssetFile(files, depName)
 					if err != nil {
 						return nil, nil, fmt.Errorf("resolve external asset %q: %w", depName, err)
 					}
@@ -123,12 +124,12 @@ func BundleAssetResolver(files map[string]*AssetsFile) AssetResolver {
 	}
 }
 
-// lookupBundleAssetFile resolves an external-file name without depending on
+// lookupAbaAssetFile resolves an external-file name without depending on
 // map iteration order. Case-sensitive normalized matches take precedence over
 // case-insensitive matches; multiple distinct AssetsFiles are always rejected
 // as ambiguous. Multiple aliases that point to the same AssetsFile are safe.
-func lookupBundleAssetFile(files map[string]*AssetsFile, name string) (*AssetsFile, bool, error) {
-	fullName := normalizeBundleAssetPath(name)
+func lookupAbaAssetFile(files map[string]*AssetsFile, name string) (*AssetsFile, bool, error) {
+	fullName := normalizeAbaAssetPath(name)
 	if fullName == "" {
 		return nil, false, nil
 	}
@@ -138,7 +139,7 @@ func lookupBundleAssetFile(files map[string]*AssetsFile, name string) (*AssetsFi
 			if af == nil {
 				continue
 			}
-			normalized := normalizeBundleAssetPath(key)
+			normalized := normalizeAbaAssetPath(key)
 			if normalized == "" {
 				continue
 			}
@@ -159,7 +160,7 @@ func lookupBundleAssetFile(files map[string]*AssetsFile, name string) (*AssetsFi
 	if len(matches) == 0 {
 		matches = find(fullName, true, false)
 	}
-	// Older callers often index bundle files by basename only. Retain that
+	// Older callers often index .aba files by basename only. Retain that
 	// compatibility as a final fallback after complete-path matching.
 	if len(matches) == 0 {
 		baseName := path.Base(fullName)
@@ -177,7 +178,7 @@ func lookupBundleAssetFile(files map[string]*AssetsFile, name string) (*AssetsFi
 	return nil, false, nil
 }
 
-func normalizeBundleAssetPath(p string) string {
+func normalizeAbaAssetPath(p string) string {
 	p = strings.TrimSpace(p)
 	if p == "" || p == "." {
 		return ""
@@ -198,16 +199,16 @@ func normalizeBundleAssetPath(p string) string {
 
 // GetSpriteExport 将 Unity Sprite 解析为 Texture2D、裁剪矩形和 SpriteSettings / GetSpriteExport resolves a Unity Sprite to a Texture2D, crop rectangle, and SpriteSettings
 // 支持直接 m_RD.texture 引用和通过 m_RenderDataMap 的 SpriteAtlas 间接引用 / It supports direct m_RD.texture references and SpriteAtlas indirection through m_RenderDataMap
-func (af *AssetsFile) GetSpriteExport(info *AssetInfo, resolver AssetResolver, streamResolver BundleFileResolver) (*SpriteExport, error) {
-	var rangeResolver BundleFileRangeResolver
+func (af *AssetsFile) GetSpriteExport(info *AssetInfo, resolver AssetResolver, streamResolver AbaFileResolver) (*SpriteExport, error) {
+	var rangeResolver AbaFileRangeResolver
 	if streamResolver != nil {
-		rangeResolver = bundleRangeResolverAdapter{whole: streamResolver}.ResolveBundleFileRange
+		rangeResolver = abaRangeResolverAdapter{whole: streamResolver}.ResolveAbaFileRange
 	}
 	return af.GetSpriteExportRange(info, resolver, rangeResolver)
 }
 
 // GetSpriteExportRange 是 GetSpriteExport 的范围读取版本 / GetSpriteExportRange is the range-read variant of GetSpriteExport
-func (af *AssetsFile) GetSpriteExportRange(info *AssetInfo, resolver AssetResolver, streamResolver BundleFileRangeResolver) (*SpriteExport, error) {
+func (af *AssetsFile) GetSpriteExportRange(info *AssetInfo, resolver AssetResolver, streamResolver AbaFileRangeResolver) (*SpriteExport, error) {
 	if resolver == nil {
 		resolver = DefaultAssetResolver
 	}
@@ -241,7 +242,7 @@ func (af *AssetsFile) GetSpriteExportRange(info *AssetInfo, resolver AssetResolv
 	return &SpriteExport{Name: name, Texture: tex, Rect: atlasRect, SettingsRaw: atlasSettings}, nil
 }
 
-func (af *AssetsFile) resolveSpriteViaAtlas(root *TypeTreeValue, resolver AssetResolver, streamResolver BundleFileRangeResolver) (*Texture2DData, SpriteRect, uint32, error) {
+func (af *AssetsFile) resolveSpriteViaAtlas(root *TypeTreeValue, resolver AssetResolver, streamResolver AbaFileRangeResolver) (*Texture2DData, SpriteRect, uint32, error) {
 	spriteKey, ok := readRenderDataKey(root.Field("m_RenderDataKey"))
 	if !ok {
 		return nil, SpriteRect{}, 0, fmt.Errorf("m_RenderDataKey field missing")
@@ -273,7 +274,7 @@ func (af *AssetsFile) resolveSpriteViaAtlas(root *TypeTreeValue, resolver AssetR
 	return nil, SpriteRect{}, 0, fmt.Errorf("SpriteAtlas render data not found")
 }
 
-func (af *AssetsFile) resolveSpriteInAtlas(atlasInfo *AssetInfo, key spriteRenderDataKey, resolver AssetResolver, streamResolver BundleFileRangeResolver) (*Texture2DData, SpriteRect, uint32, error) {
+func (af *AssetsFile) resolveSpriteInAtlas(atlasInfo *AssetInfo, key spriteRenderDataKey, resolver AssetResolver, streamResolver AbaFileRangeResolver) (*Texture2DData, SpriteRect, uint32, error) {
 	root, err := af.ReadAssetValue(atlasInfo)
 	if err != nil {
 		return nil, SpriteRect{}, 0, err
@@ -305,7 +306,7 @@ func (af *AssetsFile) resolveSpriteInAtlas(atlasInfo *AssetInfo, key spriteRende
 	return nil, SpriteRect{}, 0, fmt.Errorf("m_RenderDataMap has no matching key")
 }
 
-func resolveTexture2D(relativeTo *AssetsFile, pptr unityPPtr, resolver AssetResolver, streamResolver BundleFileRangeResolver) (*Texture2DData, error) {
+func resolveTexture2D(relativeTo *AssetsFile, pptr unityPPtr, resolver AssetResolver, streamResolver AbaFileRangeResolver) (*Texture2DData, error) {
 	texAF, texInfo, err := resolver(relativeTo, pptr.FileID, pptr.PathID)
 	if err != nil {
 		return nil, err

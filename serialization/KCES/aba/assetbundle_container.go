@@ -6,8 +6,11 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
-// AssetBundleContainerEntry 表示 AssetBundle 对象中的一个 m_Container 记录 / AssetBundleContainerEntry is one m_Container record from an AssetBundle object
-// Name 是 AssetBundle.LoadAsset 使用的 key，可能与目标对象内部 m_Name 不同，尤其是原生对象 / Name is the key used by AssetBundle.LoadAsset and may differ from the target object's internal m_Name, especially for raw/native objects
+// AssetBundleContainerEntry 表示 Unity AssetBundle 对象中的一个 m_Container 记录。
+// Name 是 AssetBundle.LoadAsset 使用的 key，可能与目标对象内部 m_Name 不同，尤其是原生对象。
+//
+// AssetBundleContainerEntry is one m_Container record from a Unity AssetBundle object.
+// Name is the key used by AssetBundle.LoadAsset and may differ from the target object's internal m_Name, especially for raw/native objects.
 type AssetBundleContainerEntry struct {
 	Name         string // m_Container 键名或加载名 / m_Container key or load name
 	PreloadIndex int32  // m_PreloadTable 起始索引 / Start index in m_PreloadTable
@@ -16,7 +19,9 @@ type AssetBundleContainerEntry struct {
 	PathID       int64  // PPtr 路径 ID / PPtr path ID
 }
 
-// GetAssetBundleContainerMap 返回从所有 AssetBundle 对象收集的 PathID 到加载名映射 / GetAssetBundleContainerMap returns a PathID to load-name map collected from all AssetBundle objects in this AssetsFile
+// GetAssetBundleContainerMap 返回从所有 Unity AssetBundle 对象收集的 PathID 到加载名映射。
+//
+// GetAssetBundleContainerMap returns a PathID-to-load-name map collected from all Unity AssetBundle objects in this AssetsFile.
 func (af *AssetsFile) GetAssetBundleContainerMap() (map[int64]string, error) {
 	if af == nil {
 		return nil, fmt.Errorf("nil assets file")
@@ -40,7 +45,9 @@ func (af *AssetsFile) GetAssetBundleContainerMap() (map[int64]string, error) {
 	return out, nil
 }
 
-// GetAssetBundleContainerEntries 解码 Unity AssetBundle 对象布局的稳定前缀：m_Name、m_PreloadTable 和 m_Container / GetAssetBundleContainerEntries decodes the stable prefix of Unity's AssetBundle object layout: m_Name, m_PreloadTable, and m_Container
+// GetAssetBundleContainerEntries 解码 Unity AssetBundle 对象布局的稳定前缀：m_Name、m_PreloadTable 和 m_Container。
+//
+// GetAssetBundleContainerEntries decodes the stable prefix of Unity's AssetBundle object layout: m_Name, m_PreloadTable, and m_Container.
 func (af *AssetsFile) GetAssetBundleContainerEntries(info *AssetInfo) ([]AssetBundleContainerEntry, error) {
 	if af == nil {
 		return nil, fmt.Errorf("nil assets file")

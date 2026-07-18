@@ -18,19 +18,19 @@ func TestGetAssetEntries(t *testing.T) {
 			}
 			defer f.Close()
 
-			bundle, err := ReadBundle(f)
+			abaFile, err := ReadAba(f)
 			if err != nil {
 				if isEncryptedError(err) {
 					t.Skipf("skipping encrypted file: %v", err)
 				}
-				t.Fatalf("ReadBundle failed: %v", err)
+				t.Fatalf("ReadAba failed: %v", err)
 			}
 
-			for i, dir := range bundle.BlockInfo.DirectoryInfos {
+			for i, dir := range abaFile.BlockInfo.DirectoryInfos {
 				if !dir.IsSerialized() {
 					continue
 				}
-				data, err := bundle.GetFileData(i)
+				data, err := abaFile.GetFileData(i)
 				if err != nil {
 					continue
 				}
@@ -40,7 +40,7 @@ func TestGetAssetEntries(t *testing.T) {
 				}
 
 				entries := af.GetAssetEntries()
-				t.Logf("Bundle has %d entries:", len(entries))
+				t.Logf("Aba has %d entries:", len(entries))
 				for _, e := range entries {
 					t.Logf("  PathId=%d Type=%s Name=%q Size=%d", e.PathId, e.TypeName, e.Name, e.Size)
 				}

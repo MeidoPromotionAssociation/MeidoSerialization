@@ -7,14 +7,14 @@ import (
 )
 
 func TestGetTexture2DData_Sample(t *testing.T) {
-	bundle, f := openAbaSample(t, "parts_personal002.aba")
+	abaFile, f := openAbaSample(t, "parts_personal002.aba")
 	defer f.Close()
 
-	for i, dir := range bundle.BlockInfo.DirectoryInfos {
+	for i, dir := range abaFile.BlockInfo.DirectoryInfos {
 		if !dir.IsSerialized() {
 			continue
 		}
-		fileData, err := bundle.GetFileData(i)
+		fileData, err := abaFile.GetFileData(i)
 		if err != nil {
 			t.Fatalf("GetFileData: %v", err)
 		}
@@ -26,7 +26,7 @@ func TestGetTexture2DData_Sample(t *testing.T) {
 			if info.TypeId != ClassIDTexture2D {
 				continue
 			}
-			tex, err := af.GetTexture2DDataRange(&info, bundle.GetFileDataRangeByName)
+			tex, err := af.GetTexture2DDataRange(&info, abaFile.GetFileDataRangeByName)
 			if err != nil {
 				if root, rootErr := af.ReadAssetValue(&info); rootErr == nil {
 					for _, child := range root.Children {

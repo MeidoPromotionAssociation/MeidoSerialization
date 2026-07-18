@@ -19,7 +19,7 @@ const (
 
 // AssetBundleCatalog is the backward-compatible Go catalog envelope. Kind
 // selects either C# AssetBundleCatalog's 12-slot layout or VirtualAssetCatalog's
-// 10-slot local-mode layout; the historical type name and bundle JSON fields
+// 10-slot local-mode layout; the historical type name and assetBundle JSON fields
 // are retained so existing callers and JSON remain readable.
 //
 // MessagePack 布局（[Key(N)] 对应数组下标）：
@@ -48,7 +48,7 @@ type AssetBundleCatalog struct {
 	NameIsNil             bool                 `json:"nameIsNil,omitempty"`             // Key(4) was MessagePack nil / Key(4) 为 MessagePack nil
 	SubName               string               `json:"subName"`                         // 子名称，通常为空 / Sub name, usually empty
 	SubNameIsNil          bool                 `json:"subNameIsNil,omitempty"`          // Key(5) was MessagePack nil / Key(5) 为 MessagePack nil
-	Hash                  uint64               `json:"hash"`                            // catalog 稳定标识；bundle 通常使用 name.aba 的忽略大小写 hash / Stable catalog identifier; bundles commonly hash name.aba
+	Hash                  uint64               `json:"hash"`                            // catalog 稳定标识；.aba 通常使用 name.aba 的忽略大小写 hash / Stable catalog identifier; .aba catalogs commonly hash name.aba
 	CreateTime            int64                `json:"createTime"`                      // 创建时间戳 / Creation timestamp
 	IsEncrypted           bool                 `json:"isEncrypted"`                     // 是否为加密包 abap 格式 / Whether this is an encrypted abap package
 	ResourceFileNames     []string             `json:"resourceFileNames"`               // 关联的资源文件名列表，如 name.aba / Related resource file-name list such as name.aba

@@ -9,7 +9,7 @@ import (
 // 载荷使用 LZ4 Block Array 压缩的 MessagePack indexed-array；当前 Menu 固定版本为 1005。
 //
 // .menuassets
-// KCES menu-resource container storing an array of Parts.Menu values in a TextAsset inside an .aba bundle.
+// KCES menu-resource container storing an array of Parts.Menu values in a TextAsset inside an .aba file.
 // The payload is an LZ4 Block Array-compressed MessagePack indexed array; the current Menu fixed version is 1005.
 
 // Menu 表示菜单数据 / Menu represents KCES Parts.Menu data

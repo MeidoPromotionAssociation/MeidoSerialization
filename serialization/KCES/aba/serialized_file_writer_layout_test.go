@@ -262,13 +262,13 @@ func TestSerializedFileWriter_RepeatedWriteIsDeterministic(t *testing.T) {
 
 func sampleTypeTree(t *testing.T, sample string, classID int32) TypeTreeType {
 	t.Helper()
-	bundle, f := openAbaSample(t, sample)
+	abaFile, f := openAbaSample(t, sample)
 	defer f.Close()
-	for i, dir := range bundle.BlockInfo.DirectoryInfos {
+	for i, dir := range abaFile.BlockInfo.DirectoryInfos {
 		if !dir.IsSerialized() {
 			continue
 		}
-		data, err := bundle.GetFileData(i)
+		data, err := abaFile.GetFileData(i)
 		if err != nil {
 			t.Fatalf("GetFileData(%q): %v", dir.Name, err)
 		}

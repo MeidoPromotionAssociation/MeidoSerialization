@@ -14,15 +14,15 @@ func TestGetSpriteExport_Sample(t *testing.T) {
 		t.Skipf("ImageMagick not available: %v", err)
 	}
 
-	bundle, f := openAbaSample(t, "parts_personal002.aba")
+	abaFile, f := openAbaSample(t, "parts_personal002.aba")
 	defer f.Close()
 
 	files := make(map[string]*AssetsFile)
-	for i, dir := range bundle.BlockInfo.DirectoryInfos {
+	for i, dir := range abaFile.BlockInfo.DirectoryInfos {
 		if !dir.IsSerialized() {
 			continue
 		}
-		fileData, err := bundle.GetFileData(i)
+		fileData, err := abaFile.GetFileData(i)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -33,14 +33,14 @@ func TestGetSpriteExport_Sample(t *testing.T) {
 		files[dir.Name] = af
 		files[filepath.Base(dir.Name)] = af
 	}
-	resolver := BundleAssetResolver(files)
+	resolver := AbaAssetResolver(files)
 
 	for _, af := range files {
 		for _, info := range af.Metadata.AssetInfos {
 			if info.TypeId != ClassIDSprite {
 				continue
 			}
-			sprite, err := af.GetSpriteExportRange(&info, resolver, bundle.GetFileDataRangeByName)
+			sprite, err := af.GetSpriteExportRange(&info, resolver, abaFile.GetFileDataRangeByName)
 			if err != nil {
 				t.Fatalf("GetSpriteExport pathId=%d: %v", info.PathId, err)
 			}

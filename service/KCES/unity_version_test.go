@@ -19,7 +19,7 @@ func TestResolveUnityPackSettingsUsesOneConsistentSourceVersion(t *testing.T) {
 			UnityVersion:          "2022.3.35f1",
 			EngineVersion:         "2022.3.35f1",
 			TargetPlatform:        &target,
-			BundleVersion:         8,
+			AbaVersion:            8,
 			GenerationVersion:     "5.x.x",
 			SerializedFileVersion: 22,
 		},
@@ -27,7 +27,7 @@ func TestResolveUnityPackSettingsUsesOneConsistentSourceVersion(t *testing.T) {
 			UnityVersion:          "2022.3.35f1",
 			EngineVersion:         "2022.3.35f1",
 			TargetPlatform:        &target,
-			BundleVersion:         8,
+			AbaVersion:            8,
 			GenerationVersion:     "5.x.x",
 			SerializedFileVersion: 22,
 		},
@@ -42,7 +42,7 @@ func TestResolveUnityPackSettingsUsesOneConsistentSourceVersion(t *testing.T) {
 		UnityVersion:          "2022.3.35f1",
 		EngineVersion:         "2022.3.35f1",
 		TargetPlatform:        19,
-		BundleVersion:         8,
+		AbaVersion:            8,
 		GenerationVersion:     "5.x.x",
 		SerializedFileVersion: 22,
 	}
@@ -60,7 +60,7 @@ func TestResolveUnityPackSettingsBackwardCompatibleDefaults(t *testing.T) {
 		UnityVersion:          defaultKCESUnityVersion,
 		EngineVersion:         defaultKCESUnityVersion,
 		TargetPlatform:        defaultKCESTargetPlatform,
-		BundleVersion:         7,
+		AbaVersion:            7,
 		GenerationVersion:     defaultKCESGenerationVersion,
 		SerializedFileVersion: supportedSerializedFileVersion,
 	}
@@ -74,7 +74,7 @@ func TestResolveUnityPackSettingsBackwardCompatibleDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve partial sidecar: %v", err)
 	}
-	if got.UnityVersion != "2022.3.62f2" || got.EngineVersion != got.UnityVersion || got.BundleVersion != 8 {
+	if got.UnityVersion != "2022.3.62f2" || got.EngineVersion != got.UnityVersion || got.AbaVersion != 8 {
 		t.Fatalf("partial sidecar settings are inconsistent: %+v", got)
 	}
 }
@@ -103,9 +103,9 @@ func TestResolveUnityPackSettingsRejectsConflicts(t *testing.T) {
 			want: "conflicting targetPlatform sidecars",
 		},
 		{
-			name: "bundle version",
-			meta: []rawAssetMeta{{BundleVersion: 7}, {BundleVersion: 8}},
-			want: "conflicting bundleVersion sidecars",
+			name: "aba version",
+			meta: []rawAssetMeta{{AbaVersion: 7}, {AbaVersion: 8}},
+			want: "conflicting abaVersion sidecars",
 		},
 		{
 			name: "generation version",
@@ -132,14 +132,14 @@ func TestResolveUnityPackSettingsRejectsConflicts(t *testing.T) {
 	}
 }
 
-func TestPackModUsesSidecarVersionForSerializedFileAndBundle(t *testing.T) {
+func TestPackModUsesSidecarVersionForSerializedFileAndAba(t *testing.T) {
 	tmpDir := t.TempDir()
 	target := uint32(19)
 	meta := rawAssetMeta{
 		UnityVersion:          "2022.3.35f1",
 		EngineVersion:         "2022.3.35f1",
 		TargetPlatform:        &target,
-		BundleVersion:         8,
+		AbaVersion:            8,
 		GenerationVersion:     "5.x.x",
 		SerializedFileVersion: 22,
 	}
@@ -170,18 +170,18 @@ func TestPackModUsesSidecarVersionForSerializedFileAndBundle(t *testing.T) {
 		t.Fatalf("packModManifest: %v", err)
 	}
 
-	bundleData, err := os.ReadFile(filepath.Join(tmpDir, "version_contract.aba"))
+	abaData, err := os.ReadFile(filepath.Join(tmpDir, "version_contract.aba"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	bundle, err := aba.ReadBundle(bytes.NewReader(bundleData))
+	abaFile, err := aba.ReadAba(bytes.NewReader(abaData))
 	if err != nil {
-		t.Fatalf("ReadBundle: %v", err)
+		t.Fatalf("ReadAba: %v", err)
 	}
-	if bundle.Header.Version != 8 || bundle.Header.EngineVersion != "2022.3.35f1" || bundle.Header.GenerationVersion != "5.x.x" {
-		t.Fatalf("bundle version contract was not preserved: %+v", bundle.Header)
+	if abaFile.Header.Version != 8 || abaFile.Header.EngineVersion != "2022.3.35f1" || abaFile.Header.GenerationVersion != "5.x.x" {
+		t.Fatalf(".aba version contract was not preserved: %+v", abaFile.Header)
 	}
-	serialized, err := bundle.GetFileData(0)
+	serialized, err := abaFile.GetFileData(0)
 	if err != nil {
 		t.Fatalf("GetFileData: %v", err)
 	}
@@ -192,8 +192,8 @@ func TestPackModUsesSidecarVersionForSerializedFileAndBundle(t *testing.T) {
 	if af.Header.Version != 22 || af.Metadata.UnityVersion != "2022.3.35f1" || af.Metadata.TargetPlatform != 19 {
 		t.Fatalf("SerializedFile version contract was not preserved: header=%+v metadata=%+v", af.Header, af.Metadata)
 	}
-	if bundle.Header.EngineVersion != af.Metadata.UnityVersion {
-		t.Fatalf("UnityFS engine version %q differs from SerializedFile version %q", bundle.Header.EngineVersion, af.Metadata.UnityVersion)
+	if abaFile.Header.EngineVersion != af.Metadata.UnityVersion {
+		t.Fatalf("UnityFS engine version %q differs from SerializedFile version %q", abaFile.Header.EngineVersion, af.Metadata.UnityVersion)
 	}
 }
 
@@ -213,15 +213,15 @@ func TestPackModWithoutVersionSidecarUsesMatchingLegacyDefault(t *testing.T) {
 		t.Fatalf("packModManifest: %v", err)
 	}
 
-	bundleData, err := os.ReadFile(filepath.Join(tmpDir, "legacy_default.aba"))
+	abaData, err := os.ReadFile(filepath.Join(tmpDir, "legacy_default.aba"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	bundle, err := aba.ReadBundle(bytes.NewReader(bundleData))
+	abaFile, err := aba.ReadAba(bytes.NewReader(abaData))
 	if err != nil {
-		t.Fatalf("ReadBundle: %v", err)
+		t.Fatalf("ReadAba: %v", err)
 	}
-	serialized, err := bundle.GetFileData(0)
+	serialized, err := abaFile.GetFileData(0)
 	if err != nil {
 		t.Fatalf("GetFileData: %v", err)
 	}
@@ -229,9 +229,9 @@ func TestPackModWithoutVersionSidecarUsesMatchingLegacyDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadAssetsFile: %v", err)
 	}
-	if bundle.Header.Version != 7 || bundle.Header.EngineVersion != defaultKCESUnityVersion ||
+	if abaFile.Header.Version != 7 || abaFile.Header.EngineVersion != defaultKCESUnityVersion ||
 		af.Metadata.UnityVersion != defaultKCESUnityVersion || af.Metadata.TargetPlatform != defaultKCESTargetPlatform {
-		t.Fatalf("legacy default version contract mismatch: bundle=%+v assets=%+v", bundle.Header, af.Metadata)
+		t.Fatalf("legacy default version contract mismatch: aba=%+v assets=%+v", abaFile.Header, af.Metadata)
 	}
 }
 
@@ -306,7 +306,7 @@ func TestRawUnityObjectJSONRoundTripPreservesUnityVersionContext(t *testing.T) {
 		UnityVersion:          "2020.2.6f1",
 		EngineVersion:         "2020.2.6f1",
 		TargetPlatform:        &target,
-		BundleVersion:         7,
+		AbaVersion:            7,
 		GenerationVersion:     "5.x.x",
 		SerializedFileVersion: 22,
 	}
@@ -324,7 +324,7 @@ func TestRawUnityObjectJSONRoundTripPreservesUnityVersionContext(t *testing.T) {
 		t.Fatalf("decode envelope: %v", err)
 	}
 	if envelope.UnityVersion != wantMeta.UnityVersion || envelope.EngineVersion != wantMeta.EngineVersion ||
-		envelope.TargetPlatform == nil || *envelope.TargetPlatform != target || envelope.BundleVersion != 7 ||
+		envelope.TargetPlatform == nil || *envelope.TargetPlatform != target || envelope.AbaVersion != 7 ||
 		envelope.GenerationVersion != "5.x.x" || envelope.SerializedFileVersion != 22 {
 		t.Fatalf("JSON envelope lost Unity version context: %+v", envelope)
 	}
@@ -346,12 +346,12 @@ func TestKCESSampleVersionFamiliesUseMatchingHeadersAndPreserveTargetPlatform(t 
 	tests := []struct {
 		file           string
 		unityVersion   string
-		bundleVersion  uint32
+		abaVersion     uint32
 		targetPlatform uint32
 	}{
-		{file: "parts_bcc2_gp003.aba", unityVersion: "2020.2.4f1", bundleVersion: 7, targetPlatform: 19},
-		{file: "cm3d2_megane002.aba", unityVersion: "2021.3.6f1", bundleVersion: 7, targetPlatform: 5},
-		{file: "csv.aba", unityVersion: "2022.3.62f2", bundleVersion: 8, targetPlatform: 19},
+		{file: "parts_bcc2_gp003.aba", unityVersion: "2020.2.4f1", abaVersion: 7, targetPlatform: 19},
+		{file: "cm3d2_megane002.aba", unityVersion: "2021.3.6f1", abaVersion: 7, targetPlatform: 5},
+		{file: "csv.aba", unityVersion: "2022.3.62f2", abaVersion: 8, targetPlatform: 19},
 	}
 
 	for _, tt := range tests {
@@ -362,21 +362,21 @@ func TestKCESSampleVersionFamiliesUseMatchingHeadersAndPreserveTargetPlatform(t 
 				t.Skipf("sample not available: %v", err)
 			}
 			defer f.Close()
-			bundle, err := aba.ReadBundle(f)
+			abaFile, err := aba.ReadAba(f)
 			if err != nil {
-				t.Fatalf("ReadBundle: %v", err)
+				t.Fatalf("ReadAba: %v", err)
 			}
-			if bundle.Header.Version != tt.bundleVersion || bundle.Header.EngineVersion != tt.unityVersion {
-				t.Fatalf("bundle got version=%d engine=%q, want version=%d engine=%q",
-					bundle.Header.Version, bundle.Header.EngineVersion, tt.bundleVersion, tt.unityVersion)
+			if abaFile.Header.Version != tt.abaVersion || abaFile.Header.EngineVersion != tt.unityVersion {
+				t.Fatalf(".aba got version=%d engine=%q, want version=%d engine=%q",
+					abaFile.Header.Version, abaFile.Header.EngineVersion, tt.abaVersion, tt.unityVersion)
 			}
 
 			var assetsFile *aba.AssetsFile
-			for i, entry := range bundle.BlockInfo.DirectoryInfos {
+			for i, entry := range abaFile.BlockInfo.DirectoryInfos {
 				if !entry.IsSerialized() {
 					continue
 				}
-				data, readErr := bundle.GetFileData(i)
+				data, readErr := abaFile.GetFileData(i)
 				if readErr != nil {
 					t.Fatalf("GetFileData: %v", readErr)
 				}
@@ -395,9 +395,9 @@ func TestKCESSampleVersionFamiliesUseMatchingHeadersAndPreserveTargetPlatform(t 
 					assetsFile.Header.Version, assetsFile.Metadata.UnityVersion, assetsFile.Metadata.TargetPlatform,
 					tt.unityVersion, tt.targetPlatform)
 			}
-			if bundle.Header.EngineVersion != assetsFile.Metadata.UnityVersion {
-				t.Fatalf("bundle engine %q differs from SerializedFile Unity version %q",
-					bundle.Header.EngineVersion, assetsFile.Metadata.UnityVersion)
+			if abaFile.Header.EngineVersion != assetsFile.Metadata.UnityVersion {
+				t.Fatalf(".aba engine %q differs from SerializedFile Unity version %q",
+					abaFile.Header.EngineVersion, assetsFile.Metadata.UnityVersion)
 			}
 		})
 	}
@@ -409,19 +409,19 @@ func TestUnpackAbaWritesSourceUnityVersionContext(t *testing.T) {
 	if err != nil {
 		t.Skipf("sample not available: %v", err)
 	}
-	bundle, err := aba.ReadBundle(f)
+	abaFile, err := aba.ReadAba(f)
 	if err != nil {
 		f.Close()
-		t.Fatalf("ReadBundle: %v", err)
+		t.Fatalf("ReadAba: %v", err)
 	}
 	defer f.Close()
 
 	var sourceAssets *aba.AssetsFile
-	for i, entry := range bundle.BlockInfo.DirectoryInfos {
+	for i, entry := range abaFile.BlockInfo.DirectoryInfos {
 		if !entry.IsSerialized() {
 			continue
 		}
-		data, readErr := bundle.GetFileData(i)
+		data, readErr := abaFile.GetFileData(i)
 		if readErr != nil {
 			t.Fatalf("GetFileData: %v", readErr)
 		}
@@ -434,11 +434,11 @@ func TestUnpackAbaWritesSourceUnityVersionContext(t *testing.T) {
 	if sourceAssets == nil {
 		t.Fatal("sample contains no SerializedFile")
 	}
-	if bundle.Header.Version != 8 || bundle.Header.EngineVersion != "2022.3.62f2" ||
-		bundle.Header.GenerationVersion != "5.x.x" || sourceAssets.Header.Version != 22 ||
+	if abaFile.Header.Version != 8 || abaFile.Header.EngineVersion != "2022.3.62f2" ||
+		abaFile.Header.GenerationVersion != "5.x.x" || sourceAssets.Header.Version != 22 ||
 		sourceAssets.Metadata.UnityVersion != "2022.3.62f2" || sourceAssets.Metadata.TargetPlatform != 19 {
-		t.Fatalf("sample version evidence changed: bundle=%+v assetsHeader=%+v unity=%q targetPlatform=%d",
-			bundle.Header, sourceAssets.Header, sourceAssets.Metadata.UnityVersion, sourceAssets.Metadata.TargetPlatform)
+		t.Fatalf("sample version evidence changed: aba=%+v assetsHeader=%+v unity=%q targetPlatform=%d",
+			abaFile.Header, sourceAssets.Header, sourceAssets.Metadata.UnityVersion, sourceAssets.Metadata.TargetPlatform)
 	}
 
 	outDir := filepath.Join(t.TempDir(), "unpacked")
@@ -456,11 +456,11 @@ func TestUnpackAbaWritesSourceUnityVersionContext(t *testing.T) {
 	if err := json.Unmarshal(mustReadServiceFile(t, metaPaths[0]), &got); err != nil {
 		t.Fatalf("decode unpacked sidecar: %v", err)
 	}
-	if got.UnityVersion != sourceAssets.Metadata.UnityVersion || got.EngineVersion != bundle.Header.EngineVersion ||
+	if got.UnityVersion != sourceAssets.Metadata.UnityVersion || got.EngineVersion != abaFile.Header.EngineVersion ||
 		got.TargetPlatform == nil || *got.TargetPlatform != sourceAssets.Metadata.TargetPlatform ||
-		got.BundleVersion != bundle.Header.Version || got.GenerationVersion != bundle.Header.GenerationVersion ||
+		got.AbaVersion != abaFile.Header.Version || got.GenerationVersion != abaFile.Header.GenerationVersion ||
 		got.SerializedFileVersion != sourceAssets.Header.Version {
-		t.Fatalf("unpacked sidecar lost source version context: got %+v, bundle=%+v assets=%+v",
-			got, bundle.Header, sourceAssets.Metadata)
+		t.Fatalf("unpacked sidecar lost source version context: got %+v, aba=%+v assets=%+v",
+			got, abaFile.Header, sourceAssets.Metadata)
 	}
 }

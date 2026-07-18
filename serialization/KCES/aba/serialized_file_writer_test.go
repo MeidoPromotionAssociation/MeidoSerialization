@@ -86,7 +86,7 @@ func TestSerializedFileWriterPreservesLongAssetNameInEntries(t *testing.T) {
 	}
 }
 
-func TestSerializedFileWriter_InBundle(t *testing.T) {
+func TestSerializedFileWriter_InAba(t *testing.T) {
 	w := NewSerializedFileWriter("2021.3.37f1")
 	w.AddTextAsset("parts.menuassets", []byte("menu data"))
 
@@ -95,33 +95,33 @@ func TestSerializedFileWriter_InBundle(t *testing.T) {
 		t.Fatalf("Write SerializedFile failed: %v", err)
 	}
 
-	// 包装为 UnityFS bundle
-	entries := []BundleFileEntry{
+	// 包装为 UnityFS .aba 文件
+	entries := []AbaFileEntry{
 		{Name: "CAB-test", Data: sfBuf.Bytes(), IsSerialized: true},
 	}
-	var bundleBuf bytes.Buffer
-	if err := WriteBundle(&bundleBuf, entries, &BundleWriteOptions{Compress: false}); err != nil {
-		t.Fatalf("WriteBundle failed: %v", err)
+	var abaBuffer bytes.Buffer
+	if err := WriteAba(&abaBuffer, entries, &AbaWriteOptions{Compress: false}); err != nil {
+		t.Fatalf("WriteAba failed: %v", err)
 	}
 
-	// 用 ReadBundle 验证
-	bundle, err := ReadBundle(bytes.NewReader(bundleBuf.Bytes()))
+	// 用 ReadAba 验证
+	abaFile, err := ReadAba(bytes.NewReader(abaBuffer.Bytes()))
 	if err != nil {
-		t.Fatalf("ReadBundle failed: %v", err)
+		t.Fatalf("ReadAba failed: %v", err)
 	}
 
-	fileData, err := bundle.GetFileDataByName("CAB-test")
+	fileData, err := abaFile.GetFileDataByName("CAB-test")
 	if err != nil {
 		t.Fatalf("GetFileDataByName failed: %v", err)
 	}
 
 	af, err := ReadAssetsFile(fileData)
 	if err != nil {
-		t.Fatalf("ReadAssetsFile from bundle failed: %v", err)
+		t.Fatalf("ReadAssetsFile from .aba failed: %v", err)
 	}
 
 	assetEntries := af.GetAssetEntries()
-	t.Logf("Bundle contains %d assets", len(assetEntries))
+	t.Logf("Aba contains %d assets", len(assetEntries))
 	for _, e := range assetEntries {
 		t.Logf("  %s: %q", e.TypeName, e.Name)
 	}

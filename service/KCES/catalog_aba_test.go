@@ -44,12 +44,12 @@ func TestCatalogItemsResolveToAbaAssets(t *testing.T) {
 			for i, resourceName := range catalog.ResourceFileNames {
 				resourcePath := filepath.Join(filepath.Dir(ctPath), resourceName)
 				if _, err := os.Stat(resourcePath); err != nil {
-					t.Skipf("resource bundle %s not available: %v", resourcePath, err)
+					t.Skipf("resource .aba file %s not available: %v", resourcePath, err)
 				}
 				assets, err := collectAbaAssetTypes(resourcePath)
 				if err != nil {
 					if isEncryptedAbaError(err) {
-						t.Skipf("resource bundle %s is encrypted and cannot be inspected: %v", resourceName, err)
+						t.Skipf("resource .aba file %s is encrypted and cannot be inspected: %v", resourceName, err)
 					}
 					t.Fatalf("collect assets from %s: %v", resourceName, err)
 				}
@@ -82,16 +82,16 @@ func collectAbaAssetTypes(path string) (map[uint64]int32, error) {
 	}
 	defer f.Close()
 
-	bundle, err := aba.ReadBundle(f)
+	abaFile, err := aba.ReadAba(f)
 	if err != nil {
 		return nil, err
 	}
 	assetTypes := map[uint64]int32{}
-	for i, dir := range bundle.BlockInfo.DirectoryInfos {
+	for i, dir := range abaFile.BlockInfo.DirectoryInfos {
 		if !dir.IsSerialized() {
 			continue
 		}
-		data, err := bundle.GetFileData(i)
+		data, err := abaFile.GetFileData(i)
 		if err != nil {
 			return nil, err
 		}

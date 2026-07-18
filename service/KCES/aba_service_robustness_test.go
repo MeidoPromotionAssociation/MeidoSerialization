@@ -24,10 +24,10 @@ func buildAbaServiceSerializedFile(t *testing.T, add func(*aba.SerializedFileWri
 	return out.Bytes()
 }
 
-func writeAbaServiceBundle(t *testing.T, entries []aba.BundleFileEntry) string {
+func writeAbaServiceFile(t *testing.T, entries []aba.AbaFileEntry) string {
 	t.Helper()
 	var out bytes.Buffer
-	if err := aba.WriteBundle(&out, entries, &aba.BundleWriteOptions{Compress: false}); err != nil {
+	if err := aba.WriteAba(&out, entries, &aba.AbaWriteOptions{Compress: false}); err != nil {
 		t.Fatalf("write ABA fixture: %v", err)
 	}
 	path := filepath.Join(t.TempDir(), "fixture.aba")
@@ -41,7 +41,7 @@ func TestAbaServiceListAbaRejectsPartialResultOnMalformedSerializedFile(t *testi
 	valid := buildAbaServiceSerializedFile(t, func(w *aba.SerializedFileWriter) {
 		w.AddTextAsset("valid.txt", []byte("valid"))
 	})
-	path := writeAbaServiceBundle(t, []aba.BundleFileEntry{
+	path := writeAbaServiceFile(t, []aba.AbaFileEntry{
 		{Name: "CAB-valid", Data: valid, IsSerialized: true},
 		{Name: "CAB-broken", Data: []byte("not a SerializedFile"), IsSerialized: true},
 	})
@@ -53,12 +53,12 @@ func TestAbaServiceListAbaRejectsPartialResultOnMalformedSerializedFile(t *testi
 	if entries != nil {
 		t.Fatalf("ListAba returned %d partial entries together with error", len(entries))
 	}
-	if !strings.Contains(err.Error(), "CAB-broken") || !strings.Contains(err.Error(), "parse serialized bundle file") {
+	if !strings.Contains(err.Error(), "CAB-broken") || !strings.Contains(err.Error(), "parse serialized .aba entry") {
 		t.Fatalf("ListAba error lacks SerializedFile context: %v", err)
 	}
 }
 
-func writeCorruptLZ4SerializedBundle(t *testing.T) string {
+func writeCorruptLZ4SerializedAba(t *testing.T) string {
 	t.Helper()
 	var info bytes.Buffer
 	info.Write(make([]byte, 16))
@@ -110,8 +110,8 @@ func writeCorruptLZ4SerializedBundle(t *testing.T) string {
 	return path
 }
 
-func TestAbaServiceListAbaReturnsBundleDataError(t *testing.T) {
-	path := writeCorruptLZ4SerializedBundle(t)
+func TestAbaServiceListAbaReturnsAbaDataError(t *testing.T) {
+	path := writeCorruptLZ4SerializedAba(t)
 	entries, err := (&AbaService{}).ListAba(path)
 	if err == nil {
 		t.Fatalf("ListAba silently skipped corrupt LZ4 data: %+v", entries)
@@ -119,8 +119,8 @@ func TestAbaServiceListAbaReturnsBundleDataError(t *testing.T) {
 	if entries != nil {
 		t.Fatalf("ListAba returned partial entries with error: %+v", entries)
 	}
-	if !strings.Contains(err.Error(), "CAB-corrupt-lz4") || !strings.Contains(err.Error(), "read serialized bundle file") {
-		t.Fatalf("ListAba error lacks bundle directory context: %v", err)
+	if !strings.Contains(err.Error(), "CAB-corrupt-lz4") || !strings.Contains(err.Error(), "read serialized .aba entry") {
+		t.Fatalf("ListAba error lacks .aba directory context: %v", err)
 	}
 }
 
@@ -128,7 +128,7 @@ func TestAbaServiceUnpackRejectsMalformedTextAsset(t *testing.T) {
 	serialized := buildAbaServiceSerializedFile(t, func(w *aba.SerializedFileWriter) {
 		w.AddRawObject(aba.ClassIDTextAsset, "broken.txt", []byte{1, 2, 3})
 	})
-	path := writeAbaServiceBundle(t, []aba.BundleFileEntry{{
+	path := writeAbaServiceFile(t, []aba.AbaFileEntry{{
 		Name: "CAB-broken-text", Data: serialized, IsSerialized: true,
 	}})
 
@@ -148,7 +148,7 @@ func TestAbaServiceUnpackRejectsMalformedAssetBundleContainer(t *testing.T) {
 		// not discarded.
 		w.AddRawObject(aba.ClassIDAssetBundle, "broken-container", []byte{1, 2, 3})
 	})
-	path := writeAbaServiceBundle(t, []aba.BundleFileEntry{{
+	path := writeAbaServiceFile(t, []aba.AbaFileEntry{{
 		Name: "CAB-broken-container", Data: serialized, IsSerialized: true,
 	}})
 	outDir := filepath.Join(t.TempDir(), "out")
@@ -169,7 +169,7 @@ func TestAbaServiceUnpackPreservesEmptyTextAsset(t *testing.T) {
 	serialized := buildAbaServiceSerializedFile(t, func(w *aba.SerializedFileWriter) {
 		w.AddTextAssetWithLoadName("empty.txt", "assets/empty.txt", nil)
 	})
-	path := writeAbaServiceBundle(t, []aba.BundleFileEntry{{
+	path := writeAbaServiceFile(t, []aba.AbaFileEntry{{
 		Name: "CAB-empty-text", Data: serialized, IsSerialized: true,
 	}})
 	outDir := filepath.Join(t.TempDir(), "out")
@@ -206,7 +206,7 @@ func TestUnpackAssetsFileReturnsRequiredRawObjectReadError(t *testing.T) {
 	}
 	defer root.Close()
 
-	err = unpackAssetsFile(root, "CAB-out-of-range", &aba.Bundle{}, af, nil, nil, nil, make(map[string]string))
+	err = unpackAssetsFile(root, "CAB-out-of-range", &aba.Aba{}, af, nil, nil, nil, make(map[string]string))
 	if err == nil {
 		t.Fatal("unpackAssetsFile silently skipped an out-of-range raw object")
 	}
@@ -220,7 +220,7 @@ func TestAbaServiceUnpackKeepsRawTextureWhenPreviewFails(t *testing.T) {
 	serialized := buildAbaServiceSerializedFile(t, func(w *aba.SerializedFileWriter) {
 		w.AddRawObject(aba.ClassIDTexture2D, "bad", rawTexture)
 	})
-	path := writeAbaServiceBundle(t, []aba.BundleFileEntry{{
+	path := writeAbaServiceFile(t, []aba.AbaFileEntry{{
 		Name: "CAB-bad-preview", Data: serialized, IsSerialized: true,
 	}})
 	outDir := filepath.Join(t.TempDir(), "out")
@@ -247,7 +247,7 @@ func TestAbaServiceUnpackRejectsCollidingRequiredAssetPaths(t *testing.T) {
 		w.AddRawObject(aba.ClassIDMaterial, "same", rawMaterial)
 		w.AddRawObject(aba.ClassIDMaterial, "same", rawMaterial)
 	})
-	path := writeAbaServiceBundle(t, []aba.BundleFileEntry{{
+	path := writeAbaServiceFile(t, []aba.AbaFileEntry{{
 		Name: "CAB-collision", Data: serialized, IsSerialized: true,
 	}})
 

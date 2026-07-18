@@ -10,70 +10,76 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
 )
 
-// AbaService 提供 .aba 文件 Unity AssetBundle 的读取、列出和提取操作 / AbaService provides read, list, and extraction operations for .aba Unity AssetBundle files
+// AbaService 提供 .aba 文件的读取、列出和提取操作；文件内容使用 Unity AssetBundle UnityFS 格式。
+//
+// AbaService provides read, list, and extraction operations for .aba files using the Unity AssetBundle UnityFS format.
 type AbaService struct{}
 
 const (
-	abaBundleMetaFileName = ".meido-aba.meta.json"
-	abaBundleMetaFormat   = "kces-unityfs-bundle"
+	abaMetaFileName = ".meido-aba.meta.json"
+	abaMetaFormat   = "kces-unityfs-aba"
 )
 
-// abaBundleMeta preserves the UnityFS header context which cannot be inferred
-// from a directory containing only non-serialized bundle entries.
-type abaBundleMeta struct {
+// abaMeta preserves the UnityFS header context which cannot be inferred
+// from a directory containing only non-serialized .aba entries.
+type abaMeta struct {
 	Format            string `json:"format"`
-	BundleVersion     uint32 `json:"bundleVersion"`
+	AbaVersion        uint32 `json:"abaVersion"`
 	GenerationVersion string `json:"generationVersion"`
 	EngineVersion     string `json:"engineVersion"`
 }
 
-// rawAssetMeta 表示原始 Unity 对象 sidecar 元数据 / rawAssetMeta represents sidecar metadata for a raw Unity object
+// rawAssetMeta 表示原始 Unity 对象的 sidecar 元数据。
+//
+// rawAssetMeta represents sidecar metadata for a raw Unity object.
 type rawAssetMeta struct {
 	PathID                int64   `json:"pathId"`                          // Unity PathID / Unity PathID
 	LoadName              string  `json:"loadName,omitempty"`              // AssetBundle m_Container 加载名 / AssetBundle m_Container load name
 	UnityVersion          string  `json:"unityVersion,omitempty"`          // SerializedFile 元数据中的 Unity 版本 / Unity version from SerializedFile metadata
 	EngineVersion         string  `json:"engineVersion,omitempty"`         // UnityFS header 中的引擎版本 / Engine version from the UnityFS header
 	TargetPlatform        *uint32 `json:"targetPlatform,omitempty"`        // SerializedFile 目标平台；指针用于区分缺失与显式 0 / SerializedFile target platform; pointer distinguishes absent from explicit zero
-	BundleVersion         uint32  `json:"bundleVersion,omitempty"`         // UnityFS 文件格式版本（KCES 样本为 7 或 8）/ UnityFS format version, 7 or 8 in KCES samples
+	AbaVersion            uint32  `json:"abaVersion,omitempty"`            // UnityFS 文件格式版本（KCES 样本为 7 或 8）/ UnityFS format version, 7 or 8 in KCES samples
 	GenerationVersion     string  `json:"generationVersion,omitempty"`     // UnityFS generation version / UnityFS generation version
 	SerializedFileVersion uint32  `json:"serializedFileVersion,omitempty"` // SerializedFile 格式版本 / SerializedFile format version
 }
 
-// ReadAba 读取 .aba 文件并返回 Bundle
-func (s *AbaService) ReadAba(path string) (*aba.Bundle, *os.File, error) {
+// ReadAba 读取 .aba 文件并返回 Aba。
+//
+// ReadAba reads an .aba file and returns its Aba representation.
+func (s *AbaService) ReadAba(path string) (*aba.Aba, *os.File, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, nil, fmt.Errorf("open .aba file failed: %w", err)
 	}
 
-	bundle, err := aba.ReadBundle(f)
+	abaFile, err := aba.ReadAba(f)
 	if err != nil {
 		f.Close()
 		return nil, nil, fmt.Errorf("parse .aba file failed: %w", err)
 	}
-	return bundle, f, nil
+	return abaFile, f, nil
 }
 
 // ListAba 列出 .aba 文件中的所有资源
 func (s *AbaService) ListAba(path string) ([]aba.AssetEntry, error) {
-	bundle, f, err := s.ReadAba(path)
+	abaFile, f, err := s.ReadAba(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
 	var allEntries []aba.AssetEntry
-	for i, dir := range bundle.BlockInfo.DirectoryInfos {
+	for i, dir := range abaFile.BlockInfo.DirectoryInfos {
 		if !dir.IsSerialized() {
 			continue
 		}
-		data, err := bundle.GetFileData(i)
+		data, err := abaFile.GetFileData(i)
 		if err != nil {
-			return nil, fmt.Errorf("read serialized bundle file %q at directory index %d: %w", dir.Name, i, err)
+			return nil, fmt.Errorf("read serialized .aba entry %q at directory index %d: %w", dir.Name, i, err)
 		}
 		af, err := aba.ReadAssetsFile(data)
 		if err != nil {
-			return nil, fmt.Errorf("parse serialized bundle file %q at directory index %d: %w", dir.Name, i, err)
+			return nil, fmt.Errorf("parse serialized .aba entry %q at directory index %d: %w", dir.Name, i, err)
 		}
 		allEntries = append(allEntries, af.GetAssetEntries()...)
 	}
@@ -82,7 +88,7 @@ func (s *AbaService) ListAba(path string) ([]aba.AssetEntry, error) {
 
 // UnpackAba 将 .aba 文件中的所有资源提取到指定目录
 func (s *AbaService) UnpackAba(abaPath string, outDir string) error {
-	bundle, f, err := s.ReadAba(abaPath)
+	abaFile, f, err := s.ReadAba(abaPath)
 	if err != nil {
 		return err
 	}
@@ -91,35 +97,35 @@ func (s *AbaService) UnpackAba(abaPath string, outDir string) error {
 	if outDir == "" {
 		outDir = abaPath + "_unpacked"
 	}
-	rawBundlePaths := make(map[int]string)
+	rawAbaPaths := make(map[int]string)
 	claimedOutputPaths := make(map[string]string)
-	if err := claimExtractionPaths(claimedOutputPaths, "UnityFS bundle metadata", abaBundleMetaFileName); err != nil {
+	if err := claimExtractionPaths(claimedOutputPaths, "UnityFS .aba metadata", abaMetaFileName); err != nil {
 		return err
 	}
-	for i, dir := range bundle.BlockInfo.DirectoryInfos {
+	for i, dir := range abaFile.BlockInfo.DirectoryInfos {
 		if dir.IsSerialized() {
 			continue
 		}
 		relPath, err := normalizeExtractionPath(dir.Name)
 		if err != nil {
-			return fmt.Errorf("unsafe bundle file name %q: %w", dir.Name, err)
+			return fmt.Errorf("unsafe .aba entry name %q: %w", dir.Name, err)
 		}
-		if err := claimExtractionPaths(claimedOutputPaths, "bundle file "+dir.Name, relPath); err != nil {
+		if err := claimExtractionPaths(claimedOutputPaths, ".aba entry "+dir.Name, relPath); err != nil {
 			return err
 		}
-		rawBundlePaths[i] = relPath
+		rawAbaPaths[i] = relPath
 	}
 
 	serialized := make(map[int]*aba.AssetsFile)
 	serializedByName := make(map[string]*aba.AssetsFile)
 	containerMaps := make(map[int]map[int64]string)
-	for i, dir := range bundle.BlockInfo.DirectoryInfos {
+	for i, dir := range abaFile.BlockInfo.DirectoryInfos {
 		if !dir.IsSerialized() {
 			continue
 		}
-		data, err := bundle.GetFileData(i)
+		data, err := abaFile.GetFileData(i)
 		if err != nil {
-			return fmt.Errorf("read file %q from bundle failed: %w", dir.Name, err)
+			return fmt.Errorf("read file %q from .aba failed: %w", dir.Name, err)
 		}
 		af, err := aba.ReadAssetsFile(data)
 		if err != nil {
@@ -134,51 +140,51 @@ func (s *AbaService) UnpackAba(abaPath string, outDir string) error {
 		}
 		containerMaps[i] = containerNames
 	}
-	resolver := aba.BundleAssetResolver(serializedByName)
-	streamResolver := bundle.GetFileDataRangeByName
+	resolver := aba.AbaAssetResolver(serializedByName)
+	streamResolver := abaFile.GetFileDataRangeByName
 	root, err := openExtractionRoot(outDir)
 	if err != nil {
 		return err
 	}
 	defer root.Close()
-	bundleMetaData, err := json.MarshalIndent(abaBundleMeta{
-		Format:            abaBundleMetaFormat,
-		BundleVersion:     bundle.Header.Version,
-		GenerationVersion: bundle.Header.GenerationVersion,
-		EngineVersion:     bundle.Header.EngineVersion,
+	abaMetaData, err := json.MarshalIndent(abaMeta{
+		Format:            abaMetaFormat,
+		AbaVersion:        abaFile.Header.Version,
+		GenerationVersion: abaFile.Header.GenerationVersion,
+		EngineVersion:     abaFile.Header.EngineVersion,
 	}, "", "  ")
 	if err != nil {
-		return fmt.Errorf("marshal UnityFS bundle metadata: %w", err)
+		return fmt.Errorf("marshal UnityFS .aba metadata: %w", err)
 	}
-	bundleMetaData = append(bundleMetaData, '\n')
-	if err := root.WriteFile(abaBundleMetaFileName, bundleMetaData, 0644); err != nil {
-		return fmt.Errorf("write UnityFS bundle metadata: %w", err)
+	abaMetaData = append(abaMetaData, '\n')
+	if err := root.WriteFile(abaMetaFileName, abaMetaData, 0644); err != nil {
+		return fmt.Errorf("write UnityFS .aba metadata: %w", err)
 	}
 
-	for i, dir := range bundle.BlockInfo.DirectoryInfos {
+	for i, dir := range abaFile.BlockInfo.DirectoryInfos {
 		if !dir.IsSerialized() {
 			// 非序列化文件（如多 GiB 的 .resS）使用范围 API 流式提取，
 			// 避免 GetFileData 的单次内存上限和整文件分配。
-			if err := writeRawBundleDirectory(root, bundle, dir, rawBundlePaths[i]); err != nil {
-				return fmt.Errorf("write raw bundle file %q: %w", dir.Name, err)
+			if err := writeRawAbaDirectory(root, abaFile, dir, rawAbaPaths[i]); err != nil {
+				return fmt.Errorf("write raw .aba entry %q: %w", dir.Name, err)
 			}
 			continue
 		}
 
 		af := serialized[i]
 		if af == nil {
-			return fmt.Errorf("serialized bundle file %q at directory index %d was not loaded", dir.Name, i)
+			return fmt.Errorf("serialized .aba entry %q at directory index %d was not loaded", dir.Name, i)
 		}
-		if err := unpackAssetsFile(root, dir.Name, bundle, af, containerMaps[i], resolver, streamResolver, claimedOutputPaths); err != nil {
+		if err := unpackAssetsFile(root, dir.Name, abaFile, af, containerMaps[i], resolver, streamResolver, claimedOutputPaths); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func writeRawBundleDirectory(root *extractionRoot, bundle *aba.Bundle, dir aba.DirectoryInfo, relPath string) error {
-	if root == nil || bundle == nil {
-		return fmt.Errorf("nil extraction root or bundle")
+func writeRawAbaDirectory(root *extractionRoot, abaFile *aba.Aba, dir aba.DirectoryInfo, relPath string) error {
+	if root == nil || abaFile == nil {
+		return fmt.Errorf("nil extraction root or .aba")
 	}
 	if dir.DecompressedSize < 0 {
 		return fmt.Errorf("negative directory size %d", dir.DecompressedSize)
@@ -190,7 +196,7 @@ func writeRawBundleDirectory(root *extractionRoot, bundle *aba.Bundle, dir aba.D
 			if size > chunkSize {
 				size = chunkSize
 			}
-			data, err := bundle.GetFileDataRangeByName(dir.Name, offset, size)
+			data, err := abaFile.GetFileDataRangeByName(dir.Name, offset, size)
 			if err != nil {
 				return fmt.Errorf("read range [%d,%d): %w", offset, offset+size, err)
 			}
@@ -218,7 +224,7 @@ func writeRawBundleDirectory(root *extractionRoot, bundle *aba.Bundle, dir aba.D
 // in one SerializedFile. Raw Unity objects and TextAsset scripts are required;
 // PNG previews are best-effort derivatives and never replace the raw
 // object as the source used for repacking.
-func unpackAssetsFile(root *extractionRoot, sourceName string, bundle *aba.Bundle, af *aba.AssetsFile, containerNames map[int64]string, resolver aba.AssetResolver, streamResolver aba.BundleFileRangeResolver, claimedOutputPaths map[string]string) error {
+func unpackAssetsFile(root *extractionRoot, sourceName string, abaFile *aba.Aba, af *aba.AssetsFile, containerNames map[int64]string, resolver aba.AssetResolver, streamResolver aba.AbaFileRangeResolver, claimedOutputPaths map[string]string) error {
 	if root == nil {
 		return fmt.Errorf("extract AssetsFile %q: nil extraction root", sourceName)
 	}
@@ -259,7 +265,7 @@ func unpackAssetsFile(root *extractionRoot, sourceName string, bundle *aba.Bundl
 			if err := claimExtractedAssetPaths(claimedOutputPaths, relPath, fmt.Sprintf("TextAsset PathID %d from %s", entry.PathId, sourceName), false); err != nil {
 				return err
 			}
-			if err := writeExtractedAsset(root, relPath, script, entry, loadName, bundle, af, info, false); err != nil {
+			if err := writeExtractedAsset(root, relPath, script, entry, loadName, abaFile, af, info, false); err != nil {
 				return fmt.Errorf("write TextAsset %q (PathID %d) from %q: %w", name, entry.PathId, sourceName, err)
 			}
 
@@ -272,7 +278,7 @@ func unpackAssetsFile(root *extractionRoot, sourceName string, bundle *aba.Bundl
 			if err := claimExtractedAssetPaths(claimedOutputPaths, rawPath, fmt.Sprintf("Texture2D PathID %d from %s", entry.PathId, sourceName), true); err != nil {
 				return err
 			}
-			if err := writeExtractedAsset(root, rawPath, assetData, entry, loadName, bundle, af, info, true); err != nil {
+			if err := writeExtractedAsset(root, rawPath, assetData, entry, loadName, abaFile, af, info, true); err != nil {
 				return fmt.Errorf("write Texture2D %q (PathID %d) from %q: %w", assetBaseName, entry.PathId, sourceName, err)
 			}
 			if tex, err := af.GetTexture2DDataRange(info, streamResolver); err == nil {
@@ -293,7 +299,7 @@ func unpackAssetsFile(root *extractionRoot, sourceName string, bundle *aba.Bundl
 			if err := claimExtractedAssetPaths(claimedOutputPaths, rawPath, fmt.Sprintf("Sprite PathID %d from %s", entry.PathId, sourceName), true); err != nil {
 				return err
 			}
-			if err := writeExtractedAsset(root, rawPath, assetData, entry, loadName, bundle, af, info, true); err != nil {
+			if err := writeExtractedAsset(root, rawPath, assetData, entry, loadName, abaFile, af, info, true); err != nil {
 				return fmt.Errorf("write Sprite %q (PathID %d) from %q: %w", assetBaseName, entry.PathId, sourceName, err)
 			}
 			if sprite, err := af.GetSpriteExportRange(info, resolver, streamResolver); err == nil {
@@ -314,7 +320,7 @@ func unpackAssetsFile(root *extractionRoot, sourceName string, bundle *aba.Bundl
 			if err := claimExtractedAssetPaths(claimedOutputPaths, rawPath, fmt.Sprintf("Mesh PathID %d from %s", entry.PathId, sourceName), true); err != nil {
 				return err
 			}
-			if err := writeExtractedAsset(root, rawPath, assetData, entry, loadName, bundle, af, info, true); err != nil {
+			if err := writeExtractedAsset(root, rawPath, assetData, entry, loadName, abaFile, af, info, true); err != nil {
 				return fmt.Errorf("write Mesh %q (PathID %d) from %q: %w", assetBaseName, entry.PathId, sourceName, err)
 			}
 		default:
@@ -330,7 +336,7 @@ func unpackAssetsFile(root *extractionRoot, sourceName string, bundle *aba.Bundl
 			if err := claimExtractedAssetPaths(claimedOutputPaths, relPath, fmt.Sprintf("%s PathID %d from %s", typeName, entry.PathId, sourceName), true); err != nil {
 				return err
 			}
-			if err := writeExtractedAsset(root, relPath, assetData, entry, loadName, bundle, af, info, true); err != nil {
+			if err := writeExtractedAsset(root, relPath, assetData, entry, loadName, abaFile, af, info, true); err != nil {
 				return fmt.Errorf("write %s asset %q (PathID %d) from %q: %w", typeName, assetBaseName, entry.PathId, sourceName, err)
 			}
 		}
@@ -377,11 +383,11 @@ func claimExtractionPaths(claims map[string]string, owner string, paths ...strin
 	return nil
 }
 
-func writeExtractedAsset(root *extractionRoot, relPath string, data []byte, entry aba.AssetEntry, loadName string, bundle *aba.Bundle, af *aba.AssetsFile, info *aba.AssetInfo, includeTypeTree bool) error {
+func writeExtractedAsset(root *extractionRoot, relPath string, data []byte, entry aba.AssetEntry, loadName string, abaFile *aba.Aba, af *aba.AssetsFile, info *aba.AssetInfo, includeTypeTree bool) error {
 	if err := root.WriteFile(relPath, data, 0644); err != nil {
 		return err
 	}
-	metaData, err := marshalRawAssetMeta(sourceAssetMeta(entry.PathId, loadName, bundle, af))
+	metaData, err := marshalRawAssetMeta(sourceAssetMeta(entry.PathId, loadName, abaFile, af))
 	if err != nil {
 		return fmt.Errorf("marshal asset metadata: %w", err)
 	}
@@ -403,16 +409,16 @@ func writeAssetMeta(assetPath string, pathID int64, loadName string) error {
 	return writeRawAssetMeta(assetPath, rawAssetMeta{PathID: pathID, LoadName: loadName})
 }
 
-func writeSourceAssetMeta(assetPath string, pathID int64, loadName string, bundle *aba.Bundle, af *aba.AssetsFile) error {
-	return writeRawAssetMeta(assetPath, sourceAssetMeta(pathID, loadName, bundle, af))
+func writeSourceAssetMeta(assetPath string, pathID int64, loadName string, abaFile *aba.Aba, af *aba.AssetsFile) error {
+	return writeRawAssetMeta(assetPath, sourceAssetMeta(pathID, loadName, abaFile, af))
 }
 
-func sourceAssetMeta(pathID int64, loadName string, bundle *aba.Bundle, af *aba.AssetsFile) rawAssetMeta {
+func sourceAssetMeta(pathID int64, loadName string, abaFile *aba.Aba, af *aba.AssetsFile) rawAssetMeta {
 	meta := rawAssetMeta{PathID: pathID, LoadName: loadName}
-	if bundle != nil {
-		meta.EngineVersion = bundle.Header.EngineVersion
-		meta.BundleVersion = bundle.Header.Version
-		meta.GenerationVersion = bundle.Header.GenerationVersion
+	if abaFile != nil {
+		meta.EngineVersion = abaFile.Header.EngineVersion
+		meta.AbaVersion = abaFile.Header.Version
+		meta.GenerationVersion = abaFile.Header.GenerationVersion
 	}
 	if af != nil {
 		meta.UnityVersion = af.Metadata.UnityVersion

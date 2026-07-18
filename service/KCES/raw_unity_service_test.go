@@ -144,15 +144,15 @@ func rawUnitySampleKindFromSuffix(path string) (kind string, classID int32, ok b
 }
 
 func TestRawUnityObjectService_JSONRoundTripPreservesTypeTreeSidecar(t *testing.T) {
-	sourceBundle := filepath.Join("..", "..", "testdata", "aba", "cm3d2_megane002.aba")
-	if _, err := os.Stat(sourceBundle); err != nil {
+	sourceAba := filepath.Join("..", "..", "testdata", "aba", "cm3d2_megane002.aba")
+	if _, err := os.Stat(sourceAba); err != nil {
 		t.Skipf("sample not found: %v", err)
 	}
 
 	tmpDir := t.TempDir()
 	unpackDir := filepath.Join(tmpDir, "unpacked")
 	abaService := &AbaService{}
-	if err := abaService.UnpackAba(sourceBundle, unpackDir); err != nil {
+	if err := abaService.UnpackAba(sourceAba, unpackDir); err != nil {
 		t.Fatalf("UnpackAba: %v", err)
 	}
 

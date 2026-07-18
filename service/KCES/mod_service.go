@@ -42,7 +42,7 @@ type ModManifest struct {
 //   - "sprite": Sprite，适用于 .sprite.bytes 原始对象数据透传
 //   - "spriteatlas": SpriteAtlas，适用于 .partsatlas/.partsassets 原始对象数据透传
 //   - "animationclip": AnimationClip，适用于 .anm 原始对象数据透传
-//   - "bundleraw": UnityFS 非序列化 sidecar（.resS/.resource/.resources），不进入 catalog/m_Container
+//   - "abaraw": UnityFS 非序列化 sidecar（.resS/.resource/.resources），不进入 catalog/m_Container
 //   - 其他 Unity 原生类型可用小写 Class 名透传，如 "gameobject"、"transform"、"material"、
 //     "meshrenderer"、"meshfilter"、"shader"、"audioclip"、"monobehaviour"、"monoscript"、"font"
 type ModAsset struct {
@@ -57,13 +57,15 @@ type ModAsset struct {
 	Catalog *bool `json:"catalog,omitempty"`
 }
 
-// ModPackService 提供 KCES MOD 打包服务 / ModPackService provides KCES MOD packing services
+// ModPackService 提供 KCES MOD 打包服务。
+//
+// ModPackService provides KCES MOD packing services.
 type ModPackService struct{}
 
-// The current writer accepts byte slices for every object and bundle sidecar,
+// The current writer accepts byte slices for every object and .aba sidecar,
 // so packing is necessarily in-memory. Bound attacker-controlled source sizes
 // before io.ReadAll; larger multi-gigabyte KCES .resS files require a future
-// streaming BundleFileEntry API.
+// streaming AbaFileEntry API.
 const maxPackInMemoryAssetSize int64 = 1 << 30
 
 // PackMod 根据 manifest 生成 .ct + .aba 文件
@@ -158,7 +160,7 @@ func packModManifest(manifest ModManifest, baseDir string, outputDir string) err
 		ext  string // 资源扩展名 / Resource extension
 	}
 	var entries []catalogEntry
-	var bundleSidecars []aba.BundleFileEntry
+	var abaSidecars []aba.AbaFileEntry
 	assetNames := make(map[uint64]string, len(manifest.Assets))
 	loadNames := make(map[string]string, len(manifest.Assets))
 	pathIDs := make(map[int64]string, len(manifest.Assets))
@@ -188,19 +190,19 @@ func packModManifest(manifest ModManifest, baseDir string, outputDir string) err
 			kind = inferKindForPack(name, a.Path)
 		}
 		meta := assetMetas[assetIndex]
-		if kind == "bundleraw" {
+		if kind == "abaraw" {
 			if a.Catalog != nil && *a.Catalog {
-				return fmt.Errorf("asset %q: bundle sidecar cannot be inserted into the asset catalog", a.Path)
+				return fmt.Errorf("asset %q: .aba sidecar cannot be inserted into the asset catalog", a.Path)
 			}
 			if meta.PathID != 0 || meta.LoadName != "" {
-				return fmt.Errorf("asset %q: bundle sidecar must not have Unity PathID/loadName metadata", a.Path)
+				return fmt.Errorf("asset %q: .aba sidecar must not have Unity PathID/loadName metadata", a.Path)
 			}
 			key := strings.ToLower(filepath.ToSlash(name))
 			if previous, exists := sidecarNames[key]; exists {
-				return fmt.Errorf("bundle sidecars %q and %q use the same case-insensitive directory name", previous, name)
+				return fmt.Errorf(".aba sidecars %q and %q use the same case-insensitive directory name", previous, name)
 			}
 			sidecarNames[key] = name
-			bundleSidecars = append(bundleSidecars, aba.BundleFileEntry{
+			abaSidecars = append(abaSidecars, aba.AbaFileEntry{
 				Name: name,
 				Data: data,
 			})
@@ -263,24 +265,24 @@ func packModManifest(manifest ModManifest, baseDir string, outputDir string) err
 		}
 	}
 
-	// 写入 SerializedFile → UnityFS bundle
+	// 写入 SerializedFile → UnityFS .aba 文件
 	var sfBuf bytes.Buffer
 	if err := sfWriter.Write(&sfBuf); err != nil {
 		return fmt.Errorf("write SerializedFile: %w", err)
 	}
 
-	bundleEntries := []aba.BundleFileEntry{
+	abaEntries := []aba.AbaFileEntry{
 		{Name: "CAB-" + manifest.Name, Data: sfBuf.Bytes(), IsSerialized: true},
 	}
-	bundleEntries = append(bundleEntries, bundleSidecars...)
+	abaEntries = append(abaEntries, abaSidecars...)
 	var abaBuf bytes.Buffer
-	if err := aba.WriteBundle(&abaBuf, bundleEntries, &aba.BundleWriteOptions{
+	if err := aba.WriteAba(&abaBuf, abaEntries, &aba.AbaWriteOptions{
 		EngineVersion:     versionSettings.EngineVersion,
 		GenerationVersion: versionSettings.GenerationVersion,
-		Version:           versionSettings.BundleVersion,
+		Version:           versionSettings.AbaVersion,
 		Compress:          true,
 	}); err != nil {
-		return fmt.Errorf("write .aba bundle: %w", err)
+		return fmt.Errorf("write .aba file: %w", err)
 	}
 
 	catalog := &ct.AssetBundleCatalog{

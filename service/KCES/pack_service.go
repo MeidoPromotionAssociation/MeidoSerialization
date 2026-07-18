@@ -12,7 +12,9 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
 )
 
-// PackService 提供将目录打包为 KCES 格式 .aba + .ct 的服务 / PackService provides services for packing directories into KCES .aba + .ct format
+// PackService 提供将目录打包为 KCES 格式的 .aba + .ct 文件。
+//
+// PackService provides services for packing directories into KCES .aba + .ct files.
 type PackService struct{}
 
 // PackToAbaAndCt 将指定目录打包为可由 KCES catalog 发现的 .aba + .ct。
@@ -74,7 +76,7 @@ func (s *PackService) PackToAbaAndCt(dirPath string, outputBaseName string) erro
 
 // RepackAba 将已解压的 .aba 目录重新打包为 .aba 文件
 func (s *PackService) RepackAba(dirPath string, outPath string) error {
-	var entries []aba.BundleFileEntry
+	var entries []aba.AbaFileEntry
 	inputRoot, err := os.OpenRoot(dirPath)
 	if err != nil {
 		return fmt.Errorf("open input directory failed: %w", err)
@@ -83,11 +85,11 @@ func (s *PackService) RepackAba(dirPath string, outPath string) error {
 
 	var versionMetas []rawAssetMeta
 	var versionSources []string
-	if meta, ok, err := readRepackBundleMeta(inputRoot); err != nil {
+	if meta, ok, err := readRepackAbaMeta(inputRoot); err != nil {
 		return err
 	} else if ok {
 		versionMetas = append(versionMetas, meta)
-		versionSources = append(versionSources, abaBundleMetaFileName)
+		versionSources = append(versionSources, abaMetaFileName)
 	}
 
 	err = filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
@@ -108,7 +110,7 @@ func (s *PackService) RepackAba(dirPath string, outPath string) error {
 			return fmt.Errorf("get relative path for %q: %w", path, err)
 		}
 		slashPath := filepath.ToSlash(relPath)
-		if strings.EqualFold(slashPath, abaBundleMetaFileName) {
+		if strings.EqualFold(slashPath, abaMetaFileName) {
 			return nil
 		}
 		const assetMetaSuffix = ".meta.json"
@@ -136,7 +138,7 @@ func (s *PackService) RepackAba(dirPath string, outPath string) error {
 		if err != nil {
 			return fmt.Errorf("read file %q failed: %w", filepath.ToSlash(relPath), err)
 		}
-		entries = append(entries, aba.BundleFileEntry{
+		entries = append(entries, aba.AbaFileEntry{
 			Name:         slashPath,
 			Data:         data,
 			IsSerialized: isSerializedFile(slashPath),
@@ -150,9 +152,9 @@ func (s *PackService) RepackAba(dirPath string, outPath string) error {
 	if len(entries) == 0 {
 		return fmt.Errorf("no files found in directory")
 	}
-	opts, err := resolveRepackBundleWriteOptions(versionMetas, versionSources)
+	opts, err := resolveRepackAbaWriteOptions(versionMetas, versionSources)
 	if err != nil {
-		return fmt.Errorf("resolve UnityFS bundle context: %w", err)
+		return fmt.Errorf("resolve UnityFS .aba context: %w", err)
 	}
 
 	f, err := os.Create(outPath)
@@ -161,43 +163,43 @@ func (s *PackService) RepackAba(dirPath string, outPath string) error {
 	}
 	defer f.Close()
 
-	return aba.WriteBundle(f, entries, opts)
+	return aba.WriteAba(f, entries, opts)
 }
 
-func readRepackBundleMeta(root *os.Root) (rawAssetMeta, bool, error) {
-	info, err := root.Lstat(abaBundleMetaFileName)
+func readRepackAbaMeta(root *os.Root) (rawAssetMeta, bool, error) {
+	info, err := root.Lstat(abaMetaFileName)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return rawAssetMeta{}, false, nil
 		}
-		return rawAssetMeta{}, false, fmt.Errorf("inspect UnityFS bundle metadata %q: %w", abaBundleMetaFileName, err)
+		return rawAssetMeta{}, false, fmt.Errorf("inspect UnityFS .aba metadata %q: %w", abaMetaFileName, err)
 	}
 	if isLinkOrReparse(info) || !info.Mode().IsRegular() {
-		return rawAssetMeta{}, false, fmt.Errorf("UnityFS bundle metadata %q is not a regular non-reparse file", abaBundleMetaFileName)
+		return rawAssetMeta{}, false, fmt.Errorf("UnityFS .aba metadata %q is not a regular non-reparse file", abaMetaFileName)
 	}
-	data, err := readPackRootRegularFile(root, abaBundleMetaFileName)
+	data, err := readPackRootRegularFile(root, abaMetaFileName)
 	if err != nil {
-		return rawAssetMeta{}, false, fmt.Errorf("read UnityFS bundle metadata %q: %w", abaBundleMetaFileName, err)
+		return rawAssetMeta{}, false, fmt.Errorf("read UnityFS .aba metadata %q: %w", abaMetaFileName, err)
 	}
-	var meta abaBundleMeta
+	var meta abaMeta
 	if err := json.Unmarshal(trimJSONUTF8BOM(data), &meta); err != nil {
-		return rawAssetMeta{}, false, fmt.Errorf("parse UnityFS bundle metadata %q: %w", abaBundleMetaFileName, err)
+		return rawAssetMeta{}, false, fmt.Errorf("parse UnityFS .aba metadata %q: %w", abaMetaFileName, err)
 	}
-	if meta.Format != abaBundleMetaFormat {
-		return rawAssetMeta{}, false, fmt.Errorf("unsupported UnityFS bundle metadata format %q", meta.Format)
+	if meta.Format != abaMetaFormat {
+		return rawAssetMeta{}, false, fmt.Errorf("unsupported UnityFS .aba metadata format %q", meta.Format)
 	}
 	return rawAssetMeta{
 		EngineVersion:     meta.EngineVersion,
-		BundleVersion:     meta.BundleVersion,
+		AbaVersion:        meta.AbaVersion,
 		GenerationVersion: meta.GenerationVersion,
 	}, true, nil
 }
 
-func resolveRepackBundleWriteOptions(metas []rawAssetMeta, sources []string) (*aba.BundleWriteOptions, error) {
-	opts := &aba.BundleWriteOptions{Compress: true}
-	var engineSource, unitySource, generationSource, bundleSource string
+func resolveRepackAbaWriteOptions(metas []rawAssetMeta, sources []string) (*aba.AbaWriteOptions, error) {
+	opts := &aba.AbaWriteOptions{Compress: true}
+	var engineSource, unitySource, generationSource, abaSource string
 	var fallbackUnityVersion string
-	var bundleSet bool
+	var abaSet bool
 	hasExactEngineVersion := false
 	for _, meta := range metas {
 		if meta.EngineVersion != "" {
@@ -222,8 +224,8 @@ func resolveRepackBundleWriteOptions(metas []rawAssetMeta, sources []string) (*a
 		if err := mergeRepackStringSetting("generationVersion", &opts.GenerationVersion, &generationSource, meta.GenerationVersion, source); err != nil {
 			return nil, err
 		}
-		if meta.BundleVersion != 0 {
-			if err := mergeUint32Setting("bundleVersion", &opts.Version, &bundleSet, &bundleSource, meta.BundleVersion, source); err != nil {
+		if meta.AbaVersion != 0 {
+			if err := mergeUint32Setting("abaVersion", &opts.Version, &abaSet, &abaSource, meta.AbaVersion, source); err != nil {
 				return nil, err
 			}
 		}
@@ -238,14 +240,14 @@ func resolveRepackBundleWriteOptions(metas []rawAssetMeta, sources []string) (*a
 	}
 
 	// Older sidecars may only contain the SerializedFile Unity version. Derive
-	// the observed KCES UnityFS family in that case; an explicit bundleVersion
+	// the observed KCES UnityFS family in that case; an explicit abaVersion
 	// always wins and is preserved exactly.
-	if !bundleSet && opts.EngineVersion != "" {
+	if !abaSet && opts.EngineVersion != "" {
 		major, minor, err := parseUnityMajorMinor(opts.EngineVersion)
 		if err != nil {
-			return nil, fmt.Errorf("derive bundleVersion from engineVersion %q from %s: %w", opts.EngineVersion, settingSource(engineSource), err)
+			return nil, fmt.Errorf("derive abaVersion from engineVersion %q from %s: %w", opts.EngineVersion, settingSource(engineSource), err)
 		}
-		opts.Version = bundleVersionForUnity(major, minor)
+		opts.Version = abaVersionForUnity(major, minor)
 	}
 	return opts, nil
 }
@@ -357,7 +359,7 @@ func inferKindForPack(name string, path string) string {
 	lowerPath := strings.ToLower(path)
 	switch strings.ToLower(filepath.Ext(lowerPath)) {
 	case ".ress", ".resource", ".resources":
-		return "bundleraw"
+		return "abaraw"
 	}
 	if _, kind, ok := rawUnityRootByteSuffixForPackName(strings.ToLower(filepath.Base(path))); ok {
 		return kind

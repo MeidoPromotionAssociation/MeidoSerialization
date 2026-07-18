@@ -41,40 +41,44 @@ type Texture2DData struct {
 	StreamData    StreamingInfo // 外部流式数据引用 / External streamed data reference
 }
 
-// StreamingInfo 指向 bundle sidecar 文件中保存的贴图载荷 / StreamingInfo points to texture payload stored in a bundle sidecar file
+// StreamingInfo 指向 .aba sidecar 文件中保存的贴图载荷。
+//
+// StreamingInfo points to texture payload stored in an .aba sidecar file.
 type StreamingInfo struct {
 	Offset int64  // sidecar 文件内偏移 / Offset inside the sidecar file
 	Size   uint32 // 数据大小 / Data size
 	Path   string // sidecar 文件路径 / Sidecar file path
 }
 
-// BundleFileResolver 解析同一 AssetBundle 内的非序列化文件 / BundleFileResolver resolves non-serialized files in the same AssetBundle
-// 典型用途是 Texture2D 的 .resS 载荷 / A typical use is Texture2D .resS payload data
-type BundleFileResolver func(name string) ([]byte, error)
+// AbaFileResolver 解析同一 AssetBundle 内的非序列化文件，典型用途是读取 Texture2D 的 .resS 载荷。
+//
+// AbaFileResolver resolves non-serialized files in the same AssetBundle, typically Texture2D .resS payload data.
+type AbaFileResolver func(name string) ([]byte, error)
 
-// BundleFileRangeResolver 解析非序列化 bundle 文件中的字节范围 / BundleFileRangeResolver resolves a byte range within a non-serialized bundle file
-// Texture2D m_StreamData 通常指向大型 .resS sidecar，范围读取避免每张贴图都加载整文件 / Texture2D m_StreamData commonly points into a large .resS sidecar, and range reads avoid loading the whole file for every texture
-type BundleFileRangeResolver func(name string, offset int64, size int64) ([]byte, error)
+// AbaFileRangeResolver 解析非序列化 .aba 条目中的字节范围。Texture2D m_StreamData 通常指向大型 .resS sidecar，范围读取可避免每张贴图都加载整文件。
+//
+// AbaFileRangeResolver resolves a byte range within a non-serialized .aba entry. Texture2D m_StreamData commonly points into a large .resS sidecar, and range reads avoid loading the whole file for every texture.
+type AbaFileRangeResolver func(name string, offset int64, size int64) ([]byte, error)
 
-// bundleRangeResolverAdapter 在整文件 resolver 和范围 resolver 之间适配 / bundleRangeResolverAdapter adapts between whole-file and range resolvers
-type bundleRangeResolverAdapter struct {
-	whole   BundleFileResolver      // 整文件读取 resolver / Whole-file resolver
-	rangeFn BundleFileRangeResolver // 范围读取 resolver / Range-read resolver
+// abaRangeResolverAdapter 在整文件 resolver 和范围 resolver 之间适配 / abaRangeResolverAdapter adapts between whole-file and range resolvers
+type abaRangeResolverAdapter struct {
+	whole   AbaFileResolver      // 整文件读取 resolver / Whole-file resolver
+	rangeFn AbaFileRangeResolver // 范围读取 resolver / Range-read resolver
 }
 
-func (r bundleRangeResolverAdapter) ResolveBundleFile(name string) ([]byte, error) {
+func (r abaRangeResolverAdapter) ResolveAbaFile(name string) ([]byte, error) {
 	if r.whole == nil {
-		return nil, fmt.Errorf("bundle file resolver is not available")
+		return nil, fmt.Errorf(".aba file resolver is not available")
 	}
 	return r.whole(name)
 }
 
-func (r bundleRangeResolverAdapter) ResolveBundleFileRange(name string, offset int64, size int64) ([]byte, error) {
+func (r abaRangeResolverAdapter) ResolveAbaFileRange(name string, offset int64, size int64) ([]byte, error) {
 	if r.rangeFn != nil {
 		return r.rangeFn(name, offset, size)
 	}
 	if r.whole == nil {
-		return nil, fmt.Errorf("bundle file resolver is not available")
+		return nil, fmt.Errorf(".aba file resolver is not available")
 	}
 	data, err := r.whole(name)
 	if err != nil {
@@ -89,16 +93,16 @@ func (r bundleRangeResolverAdapter) ResolveBundleFileRange(name string, offset i
 
 // GetTexture2DData decodes Texture2D metadata and returns its raw encoded
 // picture data. If image data is stored in m_StreamData, resolver is used.
-func (af *AssetsFile) GetTexture2DData(info *AssetInfo, resolver BundleFileResolver) (*Texture2DData, error) {
-	var rangeResolver BundleFileRangeResolver
+func (af *AssetsFile) GetTexture2DData(info *AssetInfo, resolver AbaFileResolver) (*Texture2DData, error) {
+	var rangeResolver AbaFileRangeResolver
 	if resolver != nil {
-		rangeResolver = bundleRangeResolverAdapter{whole: resolver}.ResolveBundleFileRange
+		rangeResolver = abaRangeResolverAdapter{whole: resolver}.ResolveAbaFileRange
 	}
 	return af.GetTexture2DDataRange(info, rangeResolver)
 }
 
 // GetTexture2DDataRange is the range-read variant of GetTexture2DData.
-func (af *AssetsFile) GetTexture2DDataRange(info *AssetInfo, resolver BundleFileRangeResolver) (*Texture2DData, error) {
+func (af *AssetsFile) GetTexture2DDataRange(info *AssetInfo, resolver AbaFileRangeResolver) (*Texture2DData, error) {
 	root, err := af.ReadAssetValue(info)
 	if err != nil {
 		return nil, err
@@ -456,5 +460,5 @@ func WriteRawMagickInput(tex *Texture2DData, w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	return writeBundleBytes(w, data)
+	return writeAbaBytes(w, data)
 }

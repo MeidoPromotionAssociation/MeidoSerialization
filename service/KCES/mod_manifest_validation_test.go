@@ -194,18 +194,18 @@ func TestPackModManifestUnityVersionOptionControlsBothHeaders(t *testing.T) {
 	if err := packModManifest(manifest, tmpDir, tmpDir); err != nil {
 		t.Fatalf("packModManifest: %v", err)
 	}
-	bundleBytes, err := os.ReadFile(filepath.Join(tmpDir, manifest.Name+".aba"))
+	abaBytes, err := os.ReadFile(filepath.Join(tmpDir, manifest.Name+".aba"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	bundle, err := aba.ReadBundle(bytes.NewReader(bundleBytes))
+	abaFile, err := aba.ReadAba(bytes.NewReader(abaBytes))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bundle.Header.Version != 8 || bundle.Header.EngineVersion != manifest.UnityVersion {
-		t.Fatalf("bundle header got version=%d engine=%q", bundle.Header.Version, bundle.Header.EngineVersion)
+	if abaFile.Header.Version != 8 || abaFile.Header.EngineVersion != manifest.UnityVersion {
+		t.Fatalf(".aba header got version=%d engine=%q", abaFile.Header.Version, abaFile.Header.EngineVersion)
 	}
-	serialized, err := bundle.GetFileData(0)
+	serialized, err := abaFile.GetFileData(0)
 	if err != nil {
 		t.Fatal(err)
 	}

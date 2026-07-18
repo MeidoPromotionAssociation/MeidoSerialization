@@ -10,7 +10,7 @@ import (
 
 var listAbaCmd = &cobra.Command{
 	Use:   "listAba [file/directory]",
-	Short: "List assets inside a .aba bundle",
+	Short: "List assets inside a .aba file",
 	Long: `List all assets inside a .aba (Unity AssetBundle) file.
 When given a directory, processes all .aba files recursively.
 
@@ -32,7 +32,7 @@ Examples:
 
 var unpackAbaCmd = &cobra.Command{
 	Use:   "unpackAba [file/directory]",
-	Short: "Unpack a .aba bundle to a directory",
+	Short: "Unpack a .aba file to a directory",
 	Long: `Unpack a .aba (Unity AssetBundle) file to a directory.
 Assets are organized by type in subdirectories.
 When given a directory, processes all .aba files recursively.

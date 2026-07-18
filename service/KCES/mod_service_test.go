@@ -60,7 +60,7 @@ func TestPackMod_Integration(t *testing.T) {
 		t.Fatalf("DecodeCatalogFromCt: %v", err)
 	}
 	if want := ct.HashStringIgnoreCase("integration_test.aba"); catalog.Hash != want {
-		t.Fatalf("catalog hash=%d, want resource bundle hash %d", catalog.Hash, want)
+		t.Fatalf("catalog hash=%d, want resource .aba hash %d", catalog.Hash, want)
 	}
 	if !sort.StringsAreSorted(catalog.ExtensionList) {
 		t.Fatalf("catalog extension list is not sorted: %v", catalog.ExtensionList)
@@ -81,12 +81,12 @@ func TestPackMod_Integration(t *testing.T) {
 		t.Fatalf("read .aba: %v", err)
 	}
 
-	bundle, err := aba.ReadBundle(bytes.NewReader(abaData))
+	abaFile, err := aba.ReadAba(bytes.NewReader(abaData))
 	if err != nil {
-		t.Fatalf("ReadBundle: %v", err)
+		t.Fatalf("ReadAba: %v", err)
 	}
 
-	fileData, err := bundle.GetFileData(0)
+	fileData, err := abaFile.GetFileData(0)
 	if err != nil {
 		t.Fatalf("GetFileData: %v", err)
 	}
@@ -222,8 +222,8 @@ func TestPackMod_Texture2D(t *testing.T) {
 
 	// 验证 .aba 中的 Texture2D
 	abaData, _ := os.ReadFile(filepath.Join(tmpDir, "tex_test.aba"))
-	bundle, _ := aba.ReadBundle(bytes.NewReader(abaData))
-	fileData, _ := bundle.GetFileData(0)
+	abaFile, _ := aba.ReadAba(bytes.NewReader(abaData))
+	fileData, _ := abaFile.GetFileData(0)
 	af, _ := aba.ReadAssetsFile(fileData)
 
 	entries := af.GetAssetEntries()
@@ -286,11 +286,11 @@ func TestPackMod_InferRawTextureAndSpriteFromPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bundle, err := aba.ReadBundle(bytes.NewReader(abaData))
+	abaFile, err := aba.ReadAba(bytes.NewReader(abaData))
 	if err != nil {
-		t.Fatalf("ReadBundle: %v", err)
+		t.Fatalf("ReadAba: %v", err)
 	}
-	fileData, err := bundle.GetFileData(0)
+	fileData, err := abaFile.GetFileData(0)
 	if err != nil {
 		t.Fatalf("GetFileData: %v", err)
 	}
@@ -355,11 +355,11 @@ func TestPackMod_ExplicitUnityRawObjectKinds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bundle, err := aba.ReadBundle(bytes.NewReader(abaData))
+	abaFile, err := aba.ReadAba(bytes.NewReader(abaData))
 	if err != nil {
-		t.Fatalf("ReadBundle: %v", err)
+		t.Fatalf("ReadAba: %v", err)
 	}
-	fileData, err := bundle.GetFileData(0)
+	fileData, err := abaFile.GetFileData(0)
 	if err != nil {
 		t.Fatalf("GetFileData: %v", err)
 	}

@@ -9,13 +9,13 @@ func TestSpriteAtlasDebugSample(t *testing.T) {
 	if os.Getenv("KCES_DEBUG_SPRITE") == "" {
 		t.Skip("debug helper")
 	}
-	bundle, f := openAbaSample(t, "parts_personal002.aba")
+	abaFile, f := openAbaSample(t, "parts_personal002.aba")
 	defer f.Close()
-	for i, dir := range bundle.BlockInfo.DirectoryInfos {
+	for i, dir := range abaFile.BlockInfo.DirectoryInfos {
 		if !dir.IsSerialized() {
 			continue
 		}
-		fileData, err := bundle.GetFileData(i)
+		fileData, err := abaFile.GetFileData(i)
 		if err != nil {
 			t.Fatal(err)
 		}

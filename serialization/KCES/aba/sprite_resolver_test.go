@@ -30,13 +30,13 @@ func TestDefaultAssetResolverRejectsNullAndNilReferences(t *testing.T) {
 	}
 }
 
-func TestBundleAssetResolverExternalNameMatching(t *testing.T) {
+func TestAbaAssetResolverExternalNameMatching(t *testing.T) {
 	relative := testResolverAssetsFile(1)
 	relative.Metadata.ExternalFiles = []ExternalFile{{PathName: "archive:/Textures/Bar.assets"}}
 	dependency := testResolverAssetsFile(42)
 
 	// The key is an alias with different casing and an additional directory.
-	resolver := BundleAssetResolver(map[string]*AssetsFile{
+	resolver := AbaAssetResolver(map[string]*AssetsFile{
 		"textures/BAR.ASSETS": dependency,
 	})
 	resolvedAF, resolvedInfo, err := resolver(relative, 1, 42)
@@ -49,7 +49,7 @@ func TestBundleAssetResolverExternalNameMatching(t *testing.T) {
 
 	// Complete path matching wins over a same-named basename alias.
 	other := testResolverAssetsFile(42)
-	resolver = BundleAssetResolver(map[string]*AssetsFile{
+	resolver = AbaAssetResolver(map[string]*AssetsFile{
 		"Textures/Bar.assets": dependency,
 		"Other/Bar.assets":    other,
 		"Bar.assets":          other,
@@ -59,7 +59,7 @@ func TestBundleAssetResolverExternalNameMatching(t *testing.T) {
 	}
 
 	// Multiple aliases for the same file are not ambiguous.
-	resolver = BundleAssetResolver(map[string]*AssetsFile{
+	resolver = AbaAssetResolver(map[string]*AssetsFile{
 		"Bar.assets":            dependency,
 		"other/path/Bar.assets": dependency,
 	})
@@ -68,12 +68,12 @@ func TestBundleAssetResolverExternalNameMatching(t *testing.T) {
 	}
 }
 
-func TestBundleAssetResolverRejectsAmbiguousExternalName(t *testing.T) {
+func TestAbaAssetResolverRejectsAmbiguousExternalName(t *testing.T) {
 	relative := testResolverAssetsFile(1)
 	relative.Metadata.ExternalFiles = []ExternalFile{{PathName: "Textures/Bar.assets"}}
 	first := testResolverAssetsFile(42)
 	second := testResolverAssetsFile(42)
-	resolver := BundleAssetResolver(map[string]*AssetsFile{
+	resolver := AbaAssetResolver(map[string]*AssetsFile{
 		"Bar.assets":       first,
 		"other/Bar.assets": second,
 	})
@@ -82,7 +82,7 @@ func TestBundleAssetResolverRejectsAmbiguousExternalName(t *testing.T) {
 	}
 
 	// A case-insensitive collision is also ambiguous when no exact key exists.
-	resolver = BundleAssetResolver(map[string]*AssetsFile{
+	resolver = AbaAssetResolver(map[string]*AssetsFile{
 		"BAR.ASSETS": first,
 		"bar.assets": second,
 	})
@@ -92,10 +92,10 @@ func TestBundleAssetResolverRejectsAmbiguousExternalName(t *testing.T) {
 	}
 }
 
-func TestBundleAssetResolverRejectsAmbiguousFallbackAndNullPPtr(t *testing.T) {
+func TestAbaAssetResolverRejectsAmbiguousFallbackAndNullPPtr(t *testing.T) {
 	first := testResolverAssetsFile(99)
 	second := testResolverAssetsFile(99)
-	resolver := BundleAssetResolver(map[string]*AssetsFile{
+	resolver := AbaAssetResolver(map[string]*AssetsFile{
 		"first.assets":  first,
 		"second.assets": second,
 	})
@@ -107,12 +107,12 @@ func TestBundleAssetResolverRejectsAmbiguousFallbackAndNullPPtr(t *testing.T) {
 	}
 }
 
-func TestBundleAssetResolverDoesNotCrossFileFallbackAfterNamedDependencyMatch(t *testing.T) {
+func TestAbaAssetResolverDoesNotCrossFileFallbackAfterNamedDependencyMatch(t *testing.T) {
 	relative := testResolverAssetsFile(1)
 	relative.Metadata.ExternalFiles = []ExternalFile{{PathName: "Textures/Bar.assets"}}
 	dependency := testResolverAssetsFile(7)
 	unrelated := testResolverAssetsFile(42)
-	resolver := BundleAssetResolver(map[string]*AssetsFile{
+	resolver := AbaAssetResolver(map[string]*AssetsFile{
 		"Textures/Bar.assets": dependency,
 		"Other.assets":        unrelated,
 	})
@@ -121,7 +121,7 @@ func TestBundleAssetResolverDoesNotCrossFileFallbackAfterNamedDependencyMatch(t 
 	}
 }
 
-func TestNormalizeBundleAssetPath(t *testing.T) {
+func TestNormalizeAbaAssetPath(t *testing.T) {
 	tests := map[string]string{
 		"archive:/Textures\\Bar.assets": "Textures/Bar.assets",
 		"archive://Textures/Bar.assets": "Textures/Bar.assets",
@@ -130,8 +130,8 @@ func TestNormalizeBundleAssetPath(t *testing.T) {
 		".":                             "",
 	}
 	for input, want := range tests {
-		if got := normalizeBundleAssetPath(input); got != want {
-			t.Errorf("normalizeBundleAssetPath(%q) = %q, want %q", input, got, want)
+		if got := normalizeAbaAssetPath(input); got != want {
+			t.Errorf("normalizeAbaAssetPath(%q) = %q, want %q", input, got, want)
 		}
 	}
 }

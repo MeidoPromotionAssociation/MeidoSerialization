@@ -7,7 +7,7 @@ import "fmt"
 // 载荷使用 LZ4 Block Array 压缩的 MessagePack indexed-array；当前 PriorityMaterial 固定版本为 1000。
 //
 // .pmatassets
-// KCES priority-material resource container storing Parts.PriorityMaterial entries in a TextAsset inside an .aba bundle.
+// KCES priority-material resource container storing Parts.PriorityMaterial entries in a TextAsset inside an .aba file.
 // The payload is an LZ4 Block Array-compressed MessagePack indexed array; the current PriorityMaterial fixed version is 1000.
 
 // PriorityMaterial 表示优先级材质数据 / PriorityMaterial represents KCES Parts.PriorityMaterial data

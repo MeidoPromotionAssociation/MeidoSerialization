@@ -87,16 +87,16 @@ func (s *FileTypeService) TryFileTypeDetermine(path string) (info COM3D2Service.
 		}
 	}
 
-	// Standard KCES AssetBundles use UnityFS. ReadBundle validates the complete
+	// Standard KCES AssetBundles use UnityFS. ReadAba validates the complete
 	// header, file-size declaration, block metadata and supported version without
 	// decompressing every asset payload.
 	if bytes.HasPrefix(header, []byte(kcesUnityFSSignature+"\x00")) {
 		if _, seekErr := file.Seek(0, 0); seekErr != nil {
 			return info, true, seekErr
 		}
-		bundle, bundleErr := aba.ReadBundle(file)
-		if bundleErr != nil {
-			return info, true, fmt.Errorf("validate KCES UnityFS file %q: %w", path, bundleErr)
+		abaFile, abaErr := aba.ReadAba(file)
+		if abaErr != nil {
+			return info, true, fmt.Errorf("validate KCES UnityFS file %q: %w", path, abaErr)
 		}
 		info.FileType = "aba"
 		if ext == aba.AssetSceneExtension {
@@ -105,7 +105,7 @@ func (s *FileTypeService) TryFileTypeDetermine(path string) (info COM3D2Service.
 		info.StorageFormat = COM3D2Service.FormatBinary
 		info.Game = COM3D2Service.GameKCES
 		info.Signature = kcesUnityFSSignature
-		info.Version = int32(bundle.Header.Version)
+		info.Version = int32(abaFile.Header.Version)
 		return info, true, nil
 	}
 	// abap is an encrypted KCES AssetBundle. The parser intentionally cannot

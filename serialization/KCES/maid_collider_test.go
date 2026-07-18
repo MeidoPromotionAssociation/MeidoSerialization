@@ -133,16 +133,16 @@ func readMaidColliderSamplesFromSystemABA(t *testing.T) map[string][]byte {
 		t.Skipf("system.aba is unavailable: %v", err)
 	}
 	defer f.Close()
-	bundle, err := aba.ReadBundle(f)
+	abaFile, err := aba.ReadAba(f)
 	if err != nil {
-		t.Fatalf("ReadBundle(system.aba): %v", err)
+		t.Fatalf("ReadAba(system.aba): %v", err)
 	}
 	result := map[string][]byte{}
-	for directoryIndex, directory := range bundle.BlockInfo.DirectoryInfos {
+	for directoryIndex, directory := range abaFile.BlockInfo.DirectoryInfos {
 		if !directory.IsSerialized() {
 			continue
 		}
-		data, err := bundle.GetFileData(directoryIndex)
+		data, err := abaFile.GetFileData(directoryIndex)
 		if err != nil {
 			t.Fatalf("GetFileData(%s): %v", directory.Name, err)
 		}

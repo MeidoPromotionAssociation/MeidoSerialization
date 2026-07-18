@@ -36,20 +36,20 @@ func TestReadAssetsFile(t *testing.T) {
 			}
 			defer f.Close()
 
-			bundle, err := ReadBundle(f)
+			abaFile, err := ReadAba(f)
 			if err != nil {
 				if isEncryptedError(err) {
 					t.Skipf("skipping encrypted file: %v", err)
 				}
-				t.Fatalf("ReadBundle failed: %v", err)
+				t.Fatalf("ReadAba failed: %v", err)
 			}
 
-			// 解析 bundle 内的第一个 SerializedFile
-			for i, dir := range bundle.BlockInfo.DirectoryInfos {
+			// 解析 .aba 内的第一个 SerializedFile
+			for i, dir := range abaFile.BlockInfo.DirectoryInfos {
 				if !dir.IsSerialized() {
 					continue
 				}
-				data, err := bundle.GetFileData(i)
+				data, err := abaFile.GetFileData(i)
 				if err != nil {
 					t.Errorf("GetFileData failed: %v", err)
 					continue
@@ -96,17 +96,17 @@ func TestReadAssetsFile_Summary(t *testing.T) {
 		if err != nil {
 			continue
 		}
-		bundle, err := ReadBundle(f)
+		abaFile, err := ReadAba(f)
 		if err != nil {
 			f.Close()
 			continue
 		}
 
-		for i, dir := range bundle.BlockInfo.DirectoryInfos {
+		for i, dir := range abaFile.BlockInfo.DirectoryInfos {
 			if !dir.IsSerialized() {
 				continue
 			}
-			data, err := bundle.GetFileData(i)
+			data, err := abaFile.GetFileData(i)
 			if err != nil {
 				fmt.Printf("  FAIL GetFileData %s/%s: %v\n", filepath.Base(filePath), dir.Name, err)
 				continue

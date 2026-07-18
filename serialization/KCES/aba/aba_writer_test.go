@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestWriteBundle_RoundTrip(t *testing.T) {
+func TestWriteAba_RoundTrip(t *testing.T) {
 	files := smallAbaTestFiles(t)
 
 	for _, filePath := range files {
@@ -17,30 +17,30 @@ func TestWriteBundle_RoundTrip(t *testing.T) {
 				t.Fatalf("open failed: %v", err)
 			}
 
-			origBundle, err := ReadBundle(f)
+			originalAba, err := ReadAba(f)
 			if err != nil {
 				f.Close()
 				if isEncryptedError(err) {
 					t.Skipf("skipping encrypted file: %v", err)
 				}
-				t.Fatalf("ReadBundle failed: %v", err)
+				t.Fatalf("ReadAba failed: %v", err)
 			}
-			for _, dir := range origBundle.BlockInfo.DirectoryInfos {
-				if dir.DecompressedSize > maxBundleReadSize {
+			for _, dir := range originalAba.BlockInfo.DirectoryInfos {
+				if dir.DecompressedSize > maxAbaReadSize {
 					f.Close()
-					t.Skipf("bundle contains %q (%d bytes), which cannot be represented by the in-memory BundleFileEntry API", dir.Name, dir.DecompressedSize)
+					t.Skipf(".aba contains %q (%d bytes), which cannot be represented by the in-memory AbaFileEntry API", dir.Name, dir.DecompressedSize)
 				}
 			}
 
 			// 提取所有文件数据
-			entries := make([]BundleFileEntry, len(origBundle.BlockInfo.DirectoryInfos))
-			for i, dir := range origBundle.BlockInfo.DirectoryInfos {
-				data, err := origBundle.GetFileData(i)
+			entries := make([]AbaFileEntry, len(originalAba.BlockInfo.DirectoryInfos))
+			for i, dir := range originalAba.BlockInfo.DirectoryInfos {
+				data, err := originalAba.GetFileData(i)
 				if err != nil {
 					f.Close()
 					t.Fatalf("GetFileData(%d) failed: %v", i, err)
 				}
-				entries[i] = BundleFileEntry{
+				entries[i] = AbaFileEntry{
 					Name:         dir.Name,
 					Data:         data,
 					IsSerialized: dir.IsSerialized(),
@@ -48,37 +48,37 @@ func TestWriteBundle_RoundTrip(t *testing.T) {
 			}
 			f.Close()
 
-			// 写入新 bundle
+			// 写入新的 .aba 文件
 			var buf bytes.Buffer
-			opts := &BundleWriteOptions{
-				EngineVersion:     origBundle.Header.EngineVersion,
-				GenerationVersion: origBundle.Header.GenerationVersion,
-				Version:           origBundle.Header.Version,
+			opts := &AbaWriteOptions{
+				EngineVersion:     originalAba.Header.EngineVersion,
+				GenerationVersion: originalAba.Header.GenerationVersion,
+				Version:           originalAba.Header.Version,
 				Compress:          true,
 			}
-			if err := WriteBundle(&buf, entries, opts); err != nil {
-				t.Fatalf("WriteBundle failed: %v", err)
+			if err := WriteAba(&buf, entries, opts); err != nil {
+				t.Fatalf("WriteAba failed: %v", err)
 			}
 
 			// 重新读取并验证
 			rewrittenData := buf.Bytes()
-			newBundle, err := ReadBundle(bytes.NewReader(rewrittenData))
+			rewrittenAba, err := ReadAba(bytes.NewReader(rewrittenData))
 			if err != nil {
 				t.Fatalf("re-read failed: %v", err)
 			}
 
-			if newBundle.Header.Signature != origBundle.Header.Signature {
+			if rewrittenAba.Header.Signature != originalAba.Header.Signature {
 				t.Errorf("signature mismatch: got %q, want %q",
-					newBundle.Header.Signature, origBundle.Header.Signature)
+					rewrittenAba.Header.Signature, originalAba.Header.Signature)
 			}
-			if len(newBundle.BlockInfo.DirectoryInfos) != len(origBundle.BlockInfo.DirectoryInfos) {
+			if len(rewrittenAba.BlockInfo.DirectoryInfos) != len(originalAba.BlockInfo.DirectoryInfos) {
 				t.Errorf("directory count mismatch: got %d, want %d",
-					len(newBundle.BlockInfo.DirectoryInfos), len(origBundle.BlockInfo.DirectoryInfos))
+					len(rewrittenAba.BlockInfo.DirectoryInfos), len(originalAba.BlockInfo.DirectoryInfos))
 			}
 
 			// 验证每个文件数据一致
 			for i, entry := range entries {
-				newData, err := newBundle.GetFileData(i)
+				newData, err := rewrittenAba.GetFileData(i)
 				if err != nil {
 					t.Errorf("rewritten GetFileData(%d) failed: %v", i, err)
 					continue

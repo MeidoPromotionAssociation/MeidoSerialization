@@ -10,9 +10,11 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
-// SerializedFileWriter 用于生成 Unity SerializedFile v22 格式 / SerializedFileWriter generates Unity SerializedFile v22 data
-// 支持写入 TextAsset、Texture2D、原始对象和 AssetBundle 容器对象 / It supports TextAsset, Texture2D, raw objects, and AssetBundle container objects
-// 生成的文件可被 KCES 游戏通过 AssetBundle.LoadFromFile 加载 / The generated file can be loaded by KCES through AssetBundle.LoadFromFile
+// SerializedFileWriter 用于生成 Unity SerializedFile v22 格式。
+// 支持写入 TextAsset、Texture2D、原始对象和 Unity AssetBundle 容器对象；生成的文件可被 KCES 游戏通过 AssetBundle.LoadFromFile 加载。
+//
+// SerializedFileWriter generates Unity SerializedFile v22 data.
+// It supports TextAsset, Texture2D, raw objects, and Unity AssetBundle container objects; KCES can load the generated file through AssetBundle.LoadFromFile.
 type SerializedFileWriter struct {
 	UnityVersion   string             // Unity 版本字符串（如 "2021.3.37f1"）/ Unity version string such as "2021.3.37f1"
 	TargetPlatform uint32             // 目标平台 ID（5=Windows Standalone）/ Target platform ID, 5 means Windows Standalone
@@ -61,7 +63,7 @@ func (w *SerializedFileWriter) AddTextAsset(name string, script []byte) int64 {
 }
 
 // AddTextAssetWithPathID 使用首选 PathID 添加 TextAsset / AddTextAssetWithPathID adds a TextAsset using a preferred PathID
-// 重打包已解包 bundle 时用于保留内部 Unity PPtr 引用 / Used when repacking extracted bundles so internal Unity PPtr references keep pointing at the same objects
+// 重打包已解包 .aba 时用于保留内部 Unity PPtr 引用 / Used when repacking extracted .aba files so internal Unity PPtr references keep pointing at the same objects
 func (w *SerializedFileWriter) AddTextAssetWithPathID(name string, script []byte, pathID int64) int64 {
 	return w.AddTextAssetWithLoadNameAndPathID(name, name, script, pathID)
 }
@@ -371,20 +373,20 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 		return fmt.Errorf("write extended header unused field: %w", err)
 	}
 
-	if err := writeBundleBytes(out, header.Bytes()); err != nil {
+	if err := writeAbaBytes(out, header.Bytes()); err != nil {
 		return fmt.Errorf("write header: %w", err)
 	}
-	if err := writeBundleBytes(out, metadataBuf); err != nil {
+	if err := writeAbaBytes(out, metadataBuf); err != nil {
 		return fmt.Errorf("write metadata: %w", err)
 	}
 	// 填充到 dataOffset
 	padding := dataOffset - headerSize - len(metadataBuf)
 	if padding > 0 {
-		if err := writeBundleBytes(out, make([]byte, padding)); err != nil {
+		if err := writeAbaBytes(out, make([]byte, padding)); err != nil {
 			return fmt.Errorf("write padding: %w", err)
 		}
 	}
-	if err := writeBundleBytes(out, dataBuf); err != nil {
+	if err := writeAbaBytes(out, dataBuf); err != nil {
 		return fmt.Errorf("write data: %w", err)
 	}
 	return nil
