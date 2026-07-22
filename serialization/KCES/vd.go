@@ -12,19 +12,19 @@ import (
 )
 
 // .vd (bridge_session.vd)
-// KCES 角色编辑桥接会话容器，使用 VirtualDirectory 保存 session_data 与 session_id
-// 外层容器当前版本为 1000，session_data 是未压缩的 MessagePack indexed object
+// KCES 角色编辑桥接会话容器，使用 VirtualDirectory 保存 session_data 与 session_id。
+// 外层容器当前版本为 1000；session_data 是未压缩的 MessagePack indexed object。
+//
 // .vd (bridge_session.vd)
-// KCES character-edit bridge session container using VirtualDirectory to store session_data and session_id
-// The current outer-container version is 1000 and session_data is an uncompressed MessagePack indexed object
+// KCES character-edit bridge session container using VirtualDirectory to store session_data and session_id.
+// The current outer-container version is 1000; session_data is an uncompressed MessagePack indexed object.
 
 const (
-	// KCESBridgeSessionFormat 标识 CRCEdit.EditBridgeSessionData 的 bridge_session.vd 容器所用的库内可编辑表示
-	// KCESBridgeSessionFormat identifies the library editing representation of the CRCEdit.EditBridgeSessionData bridge_session.vd container
+	// KCESBridgeSessionFormat identifies the editable representation of
+	// CRCEdit.EditBridgeSessionData's bridge_session.vd container.
 	KCESBridgeSessionFormat = "kces-bridge-session"
 
-	// 以下是显式构造函数使用的当前版本，解码器不会注入这些值
-	// These are the current versions used by the explicit constructor and are not injected by decoders
+	// Current versions used by the explicit constructor.
 	KCESBridgeSessionContainerVersion = 1000
 	KCESBridgeSessionDataVersion      = 0
 
@@ -32,47 +32,50 @@ const (
 	kcesBridgeSessionIDFile   = "session_id"
 )
 
-// KCESBridgeSession 表示写入 bridge_session.vd 的完整 VirtualDirectory
-// EditBridgeSessionData 识别的两个文件公开为专用字段，其余虚拟文件原样保留
-// KCESBridgeSession represents the complete VirtualDirectory written to bridge_session.vd
-// The two files understood by EditBridgeSessionData are exposed as dedicated fields while every other virtual file is retained verbatim
+// KCESBridgeSession is the complete VirtualDirectory representation written
+// to bridge_session.vd. The two files understood by EditBridgeSessionData are
+// exposed through SessionData; every other virtual file is retained verbatim.
 type KCESBridgeSession struct {
-	Format                  string                                 `json:"format"`                            // 库的可编辑表示标识，不写入游戏文件 / Library editing-representation identifier, not written to the game file
-	ContainerVersion        int                                    `json:"containerVersion"`                  // 外层 VirtualDirectory 对象版本 / Outer VirtualDirectory object version
-	ContainerVersionless    bool                                   `json:"containerVersionless,omitempty"`    // 原始外层对象是否缺少版本槽位 / Whether the original outer object omitted its version slot
-	ContainerFilesOnly      bool                                   `json:"containerFilesOnly,omitempty"`      // 原始外层对象是否采用仅文件兼容布局 / Whether the original outer object used the files-only compatibility layout
-	ContainerDirectoriesNil bool                                   `json:"containerDirectoriesNil,omitempty"` // 原始目录集合是否为 MessagePack nil / Whether the original directory collection was MessagePack nil
-	ContainerFilesNil       bool                                   `json:"containerFilesNil,omitempty"`       // 原始文件集合是否为 MessagePack nil / Whether the original file collection was MessagePack nil
-	ContainerFieldCount     *int                                   `json:"containerFieldCount,omitempty"`     // 原始 VirtualDirectory indexed object 的槽位数 / Slot count of the original VirtualDirectory indexed object
-	ContainerFutureSlots    [][]byte                               `json:"containerFutureSlots,omitempty"`    // 当前模型未知的后续 VirtualDirectory 槽位原始值 / Raw later VirtualDirectory slot values unknown to the current model
-	ContainerDirectories    map[string]ct.VirtualDirectoryMetadata `json:"containerDirectories,omitempty"`    // 各虚拟目录的线格式元数据 / Wire metadata for each virtual directory
-	ContainerVirtualFiles   map[string]ct.VirtualFileMetadata      `json:"containerVirtualFiles,omitempty"`   // 各虚拟文件的线格式元数据 / Wire metadata for each virtual file
-	SessionData             *KCESBridgeSessionData                 `json:"sessionData"`                       // session_data 文件中的 EditBridgeSessionData 根值 / EditBridgeSessionData root value in the session_data file
-	SessionIDFileData       []byte                                 `json:"sessionIdFileData"`                 // session_id 文件的原始 UTF-8 字节，独立于 MessagePack 中的 sessionId / Raw UTF-8 bytes of the session_id file, independent of the sessionId inside MessagePack
-	ExtraFiles              map[string][]byte                      `json:"extraFiles,omitempty"`              // 两个保留名称之外的虚拟文件原始载荷 / Raw payloads of virtual files other than the two reserved names
+	Format                  string                                 `json:"format"`
+	ContainerVersion        int                                    `json:"containerVersion"`
+	ContainerVersionless    bool                                   `json:"containerVersionless,omitempty"`
+	ContainerFilesOnly      bool                                   `json:"containerFilesOnly,omitempty"`
+	ContainerDirectoriesNil bool                                   `json:"containerDirectoriesNil,omitempty"`
+	ContainerFilesNil       bool                                   `json:"containerFilesNil,omitempty"`
+	ContainerFieldCount     *int                                   `json:"containerFieldCount,omitempty"`
+	ContainerFutureSlots    [][]byte                               `json:"containerFutureSlots,omitempty"`
+	ContainerDirectories    map[string]ct.VirtualDirectoryMetadata `json:"containerDirectories,omitempty"`
+	ContainerVirtualFiles   map[string]ct.VirtualFileMetadata      `json:"containerVirtualFiles,omitempty"`
+	SessionData             *KCESBridgeSessionData                 `json:"sessionData"`
+	SessionIDFileData       []byte                                 `json:"sessionIdFileData"`
+	ExtraFiles              map[string][]byte                      `json:"extraFiles,omitempty"`
 }
 
-// KCESBridgeSessionData 对应 session_data 虚拟文件中的裸 Standard MessagePack indexed object
-// 其已知槽位依次为 Key 0 的版本、Key 1 的 sessionId 和 Key 2 的 HashSet<ulong>
-// HideMenuFileNames 是对应 C# IgnoreMember 的可选编辑标注，不在线格式中存在，编码器也不会用它重建或校验 HideMenuFileIDs
-// FutureSlots 将每个未知索引槽位保存为一个完整 MessagePack 原始值，以在校验边界和嵌套深度的同时保留未来 KCES 版本字段
-// KCESBridgeSessionData corresponds to the bare Standard MessagePack indexed object in the session_data virtual file
-// Its known slots are the version at Key 0, sessionId at Key 1, and HashSet<ulong> at Key 2
-// HideMenuFileNames is an optional editing annotation for the C# IgnoreMember, never exists on the wire, and is not used by the encoder to rebuild or validate HideMenuFileIDs
-// FutureSlots retains each unknown indexed slot as one complete raw MessagePack value so fields from later KCES builds survive while framing and nesting depth are still validated
+// KCESBridgeSessionData matches the bare Standard MessagePack indexed object
+// stored in the session_data virtual file:
+//
+//	[Key(0) version, Key(1) sessionId, Key(2) HashSet<ulong>, ...future keys]
+//
+// HideMenuFileNames is an optional editing annotation for the C# IgnoreMember.
+// It never exists on the wire and the encoder deliberately does not use it to
+// rebuild or validate HideMenuFileIDs.
+//
+// FutureSlots retains each unknown indexed slot as one complete raw
+// MessagePack value. This avoids rewriting or discarding fields added by a
+// later KCES build while still validating their framing and nesting depth.
 type KCESBridgeSessionData struct {
-	MessagePackRootMetadata           // 根值 nil 与尾部字节元数据 / Root nil and trailing-byte metadata
-	FieldCount              *int      `json:"fieldCount,omitempty"`        // 原始 EditBridgeSessionData indexed object 的槽位数 / Slot count of the original EditBridgeSessionData indexed object
-	Version                 int       `json:"version"`                     // Key 0 的版本，当前 FixVersion 为 0 / Version at Key 0, with a current FixVersion of 0
-	SessionID               string    `json:"sessionId"`                   // Key 1 的桥接会话标识 / Bridge session identifier at Key 1
-	SessionIDIsNil          bool      `json:"sessionIdIsNil,omitempty"`    // Key 1 是否显式为 MessagePack nil / Whether Key 1 was explicitly MessagePack nil
-	HideMenuFileIDs         []uint64  `json:"hideMenuFileIds"`             // Key 2 中需要隐藏的菜单文件 FNV-1a RID 集合 / Set of menu-file FNV-1a RIDs to hide at Key 2
-	HideMenuFileNames       *[]string `json:"hideMenuFileNames,omitempty"` // 对应 C# IgnoreMember 的库内编辑标注，不写入线格式 / Library editing annotation corresponding to the C# IgnoreMember, not written to the wire
-	FutureSlots             [][]byte  `json:"futureSlots,omitempty"`       // Key 3 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 3
+	MessagePackRootMetadata
+	FieldCount        *int      `json:"fieldCount,omitempty"`
+	Version           int       `json:"version"`
+	SessionID         string    `json:"sessionId"`
+	SessionIDIsNil    bool      `json:"sessionIdIsNil,omitempty"`
+	HideMenuFileIDs   []uint64  `json:"hideMenuFileIds"`
+	HideMenuFileNames *[]string `json:"hideMenuFileNames,omitempty"`
+	FutureSlots       [][]byte  `json:"futureSlots,omitempty"`
 }
 
-// NewKCESBridgeSession 显式创建当前格式对象，解码器不会调用它或注入这些默认值
-// NewKCESBridgeSession explicitly creates a current-format object while decoders neither call it nor inject these defaults
+// NewKCESBridgeSession creates a current-format object explicitly. Decoders do
+// not call this constructor or inject any of these defaults.
 func NewKCESBridgeSession(sessionID string) *KCESBridgeSession {
 	fieldCount := 3
 	return &KCESBridgeSession{
@@ -88,16 +91,16 @@ func NewKCESBridgeSession(sessionID string) *KCESBridgeSession {
 	}
 }
 
-// IsKCESBridgeSessionData 判断数据是否具有 VirtualDirectory 二进制签名
-// 这只是低成本候选检查，需要与其他 VirtualDirectory 区分时仍须调用 DecodeKCESBridgeSession 并验证两个保留文件及其模式
-// IsKCESBridgeSessionData reports whether data has the VirtualDirectory binary signature
-// This is only a cheap candidate check, so callers distinguishing bridge_session.vd from another VirtualDirectory must still call DecodeKCESBridgeSession and validate its two reserved files and schema
+// IsKCESBridgeSessionData reports whether data has VirtualDirectory's binary
+// signature. It is intentionally only a cheap candidate check; callers that
+// need to distinguish bridge_session.vd from another VirtualDirectory must
+// call DecodeKCESBridgeSession and require its two reserved files/schema.
 func IsKCESBridgeSessionData(data []byte) bool {
 	return len(data) >= len(ct.FileSignature) && bytes.Equal(data[:len(ct.FileSignature)], ct.FileSignature)
 }
 
-// DecodeKCESBridgeSession 解析并验证完整 bridge_session.vd VirtualDirectory
-// DecodeKCESBridgeSession parses and validates the complete bridge_session.vd VirtualDirectory
+// DecodeKCESBridgeSession parses and validates the complete
+// bridge_session.vd VirtualDirectory.
 func DecodeKCESBridgeSession(data []byte) (*KCESBridgeSession, error) {
 	if !IsKCESBridgeSessionData(data) {
 		return nil, fmt.Errorf("not a KCES VirtualDirectory")
@@ -150,8 +153,8 @@ func DecodeKCESBridgeSession(data []byte) (*KCESBridgeSession, error) {
 	return result, nil
 }
 
-// EncodeKCESBridgeSession 写入表示但不调用内外层版本回调，并复制未知文件与未来 MessagePack 槽位
-// EncodeKCESBridgeSession writes the representation without invoking either version callback and copies unknown files and future MessagePack slots
+// EncodeKCESBridgeSession writes the representation without invoking either
+// version callback. Unknown files/future MessagePack slots are copied.
 func EncodeKCESBridgeSession(value *KCESBridgeSession) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil KCES bridge session")
@@ -205,8 +208,6 @@ func EncodeKCESBridgeSession(value *KCESBridgeSession) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-// decodeKCESBridgeSessionData 解码 session_data 中的 Standard MessagePack indexed object 并保留未来槽位与根尾部
-// decodeKCESBridgeSessionData decodes the Standard MessagePack indexed object in session_data and preserves future slots and root trailing bytes
 func decodeKCESBridgeSessionData(data []byte) (*KCESBridgeSessionData, error) {
 	reader := simpleEditDataReader{data: data}
 	if reader.tryReadNil() {
@@ -282,8 +283,6 @@ func decodeKCESBridgeSessionData(data []byte) (*KCESBridgeSessionData, error) {
 	return result, nil
 }
 
-// encodeKCESBridgeSessionData 编码 session_data 根值并阻止 FieldCount 静默丢弃已设置字段
-// encodeKCESBridgeSessionData encodes the session_data root while preventing FieldCount from silently discarding populated fields
 func encodeKCESBridgeSessionData(value *KCESBridgeSessionData) ([]byte, error) {
 	if value == nil {
 		return []byte{0xc0}, nil
@@ -355,14 +354,15 @@ func encodeKCESBridgeSessionData(value *KCESBridgeSessionData) ([]byte, error) {
 	return appendMessagePackRootTrailing(out, value.MessagePackRootMetadata), nil
 }
 
-// KCESBridgeMenuFileID 显式计算游戏回调对一个非 nil 名称生成的值
-// 计算依次提取 Windows 文件名、将扩展名替换为 .menu、执行与区域无关的 Unicode 小写转换，再计算 AssetManager 的 UTF-8 FNV-1a
-// C# 源码调用 ToLower，严格来说依赖 bridge_session.vd 未保存的 CurrentCulture，因此土耳其语 I 等区域敏感情况应直接使用线格式 ID
-// 编码器不会调用此辅助函数，也不会从 IgnoreMember 名称标注推导 ID，C# 的空字符串与 nil 字符串都会生成 .menu 的结果
-// KCESBridgeMenuFileID explicitly computes the value produced by the game callback for one non-nil name
-// The calculation extracts a Windows filename, replaces its extension with .menu, applies locale-independent Unicode lower-casing, and then computes AssetManager UTF-8 FNV-1a
-// The C# source calls ToLower and therefore technically depends on CurrentCulture which bridge_session.vd does not store, so locale-sensitive cases such as Turkish I should use explicit wire IDs
-// The encoder does not call this helper or derive IDs from the IgnoreMember name annotation, and empty and nil C# strings both produce the result for .menu
+// KCESBridgeMenuFileID explicitly computes the value the game callback would
+// produce for one non-nil name: Windows file-name extraction, extension replacement with
+// ".menu", locale-independent Unicode lower-casing, then AssetManager's UTF-8
+// FNV-1a. The C# source calls ToLower() and therefore technically depends on
+// CurrentCulture, which is not stored in bridge_session.vd. Locale-sensitive
+// edge cases (notably Turkish I) should use explicit wire IDs. The encoder does
+// not call this helper or derive IDs from the IgnoreMember name annotation.
+// Empty and nil C# strings have the same callback result (".menu"); Go's
+// string value therefore fully expresses the resulting wire ID.
 func KCESBridgeMenuFileID(path string) uint64 {
 	baseStart := strings.LastIndexAny(path, `/\\`)
 	base := path[baseStart+1:]
@@ -373,8 +373,6 @@ func KCESBridgeMenuFileID(path string) uint64 {
 	return kcesFNV1a64([]byte(canonical))
 }
 
-// kcesFNV1a64 按游戏 AssetManager 的约定计算字节串 FNV-1a 64 位哈希，空输入返回零
-// kcesFNV1a64 computes the FNV-1a 64-bit hash using the game AssetManager convention and returns zero for empty input
 func kcesFNV1a64(data []byte) uint64 {
 	if len(data) == 0 {
 		return 0
@@ -387,14 +385,10 @@ func kcesFNV1a64(data []byte) uint64 {
 	return hash
 }
 
-// readKCESBridgeSessionString 使用共享 MessagePack 读取器解码并验证会话字符串
-// readKCESBridgeSessionString decodes and validates a session string with the shared MessagePack reader
 func readKCESBridgeSessionString(reader *simpleEditDataReader, path string) (string, error) {
 	return reader.readString(path)
 }
 
-// readKCESBridgeSessionUInt64 接受 MessagePack 的无符号编码及非负有符号整数编码并返回 UInt64
-// readKCESBridgeSessionUInt64 accepts unsigned MessagePack encodings and non-negative signed integer encodings and returns a UInt64
 func readKCESBridgeSessionUInt64(reader *simpleEditDataReader, path string) (uint64, error) {
 	marker, err := reader.readByte(path)
 	if err != nil {
@@ -473,8 +467,6 @@ func readKCESBridgeSessionUInt64(reader *simpleEditDataReader, path string) (uin
 	}
 }
 
-// appendKCESBridgeSessionUInt64 以可表示给定值的最短 MessagePack 无符号整数形式追加 UInt64
-// appendKCESBridgeSessionUInt64 appends a UInt64 using the shortest MessagePack unsigned integer form that can represent it
 func appendKCESBridgeSessionUInt64(dst []byte, value uint64) []byte {
 	switch {
 	case value <= 0x7f:

@@ -9,80 +9,74 @@ import (
 )
 
 // .enm (export_map.enm)
-// KCES 导出到 COM3D2 时使用的文件名映射，原生文件是 Unity JsonUtility 文档
-// 当前版本为 1000，内部字典以嵌套 JSON 字符串保存在 serializeData 中
+// KCES 导出到 COM3D2 时使用的文件名映射，原生文件是 Unity JsonUtility 文档。
+// 当前版本为 1000；内部字典以嵌套 JSON 字符串保存在 serializeData 中。
+//
 // .enm (export_map.enm)
-// KCES filename map used during COM3D2 export, with the native file stored as a Unity JsonUtility document
-// The current version is 1000 and the inner dictionary is stored as a nested JSON string in serializeData
+// KCES filename map used during COM3D2 export; the native file is a Unity JsonUtility document.
+// The current version is 1000; the inner dictionary is stored as a nested JSON string in serializeData.
 
 const (
-	// KCESExportNameMapFormat 标识可编辑 JSON 表示，原生 export_map.enm 也是 JSON，但使用 Unity JsonUtility 的 version 和 serializeData 封套而不是此标记
-	// KCESExportNameMapFormat identifies the editable JSON representation, while native export_map.enm is also JSON but uses Unity JsonUtility's version and serializeData wrapper instead of this marker
+	// KCESExportNameMapFormat identifies the editable JSON representation. The
+	// native export_map.enm is also JSON, but uses Unity JsonUtility's
+	// version/serializeData wrapper instead of this marker.
 	KCESExportNameMapFormat = "kces-export-name-map"
 
-	// KCESExportNameMapSignature 用于探测没有自身二进制魔数的原生 JsonUtility 文档
-	// KCESExportNameMapSignature is used to probe native JsonUtility documents that have no binary magic string of their own
+	// KCESExportNameMapSignature is used by content probing for the native
+	// JsonUtility document, which has no binary magic string of its own.
 	KCESExportNameMapSignature = "KCES_EXPORT_NAME_MAP"
 
-	// KCESExportNameMapVersion 是 KCES 1.34.4 中的 ExportFileNameMap.FixVersion
-	// KCESExportNameMapVersion is ExportFileNameMap.FixVersion in KCES 1.34.4
+	// KCESExportNameMapVersion is ExportFileNameMap.FixVersion in KCES 1.34.4.
 	KCESExportNameMapVersion int32 = 1000
 )
 
-// KCESExportNameMap 是 export_map.enm 的稳定编辑表示，保留条目顺序、拼写、大小写以及 nil 与空列表的区别
-// KCESExportNameMap is the stable editing representation of export_map.enm, preserving entry order, spelling, case, and the distinction between nil and empty lists
+// KCESExportNameMap is the stable editing representation of export_map.enm.
+// Entry order, spelling, case, and a nil-versus-empty list are preserved.
 type KCESExportNameMap struct {
-	Format            string                   `json:"format"`                      // JSON 表示格式标识 / JSON representation format identifier
-	Version           int32                    `json:"version"`                     // ExportFileNameMap 对象版本 / ExportFileNameMap object version
-	Entries           []KCESExportNameMapEntry `json:"entries"`                     // 按原生字典序列化顺序保存的映射条目 / Mapping entries in native dictionary serialization order
-	NativeText        string                   `json:"nativeText,omitempty"`        // 解码时捕获的原生 JsonUtility 文本 / Native JsonUtility text captured during decoding
-	NativeDecodeError string                   `json:"nativeDecodeError,omitempty"` // 有效外层 JSON 中无法解释为游戏结构的原因 / Reason valid outer JSON could not be interpreted as the game structure
+	Format            string                   `json:"format"`
+	Version           int32                    `json:"version"`
+	Entries           []KCESExportNameMapEntry `json:"entries"`
+	NativeText        string                   `json:"nativeText,omitempty"`
+	NativeDecodeError string                   `json:"nativeDecodeError,omitempty"`
 }
 
-// KCESExportNameMapEntry 将原始内部资源名映射到实际写在 export_map.enm 旁的短文件名
-// KCESExportNameMapEntry maps an original internal resource name to the short filename actually written next to export_map.enm
+// KCESExportNameMapEntry maps the original internal resource name to the
+// short filename actually written next to export_map.enm.
 type KCESExportNameMapEntry struct {
-	InternalName string `json:"internalName"` // KCES 内部资源名 / KCES internal resource name
-	FileName     string `json:"fileName"`     // 导出到 COM3D2 目录的短文件名 / Short filename exported to the COM3D2 directory
+	InternalName string `json:"internalName"`
+	FileName     string `json:"fileName"`
 }
 
-// kcesExportNameMapNativeOutput 表示游戏 JsonUtility 写出的外层对象
-// kcesExportNameMapNativeOutput represents the outer object written by the game's JsonUtility
 type kcesExportNameMapNativeOutput struct {
-	Version       int32  `json:"version"`       // 对象版本 / Object version
-	SerializeData string `json:"serializeData"` // 作为字符串嵌套的字典 JSON / Dictionary JSON nested as a string
+	Version       int32  `json:"version"`
+	SerializeData string `json:"serializeData"`
 }
 
-// kcesExportNameMapDictionaryOutput 表示 ScourtExtensionsDictionary 的并行键值数组
-// kcesExportNameMapDictionaryOutput represents the parallel key and value arrays used by ScourtExtensionsDictionary
 type kcesExportNameMapDictionaryOutput struct {
-	Keys   []string `json:"keys"`   // 内部资源名数组 / Internal resource-name array
-	Values []string `json:"values"` // 导出文件名数组 / Exported filename array
+	Keys   []string `json:"keys"`
+	Values []string `json:"values"`
 }
 
-// kcesExportNameMapEditing 表示严格解析可编辑 JSON 时使用的可空字段
-// kcesExportNameMapEditing represents nullable fields used while strictly parsing editable JSON
 type kcesExportNameMapEditing struct {
-	Format            *string                           `json:"format"`            // 可空格式标识 / Nullable format identifier
-	Version           *int32                            `json:"version"`           // 可空对象版本 / Nullable object version
-	Entries           *[]*kcesExportNameMapEditingEntry `json:"entries"`           // 可空条目列表与条目 / Nullable entry list and entries
-	NativeText        *string                           `json:"nativeText"`        // 可空原生文本 / Nullable native text
-	NativeDecodeError *string                           `json:"nativeDecodeError"` // 可空原生解码错误 / Nullable native decode error
+	Format            *string                           `json:"format"`
+	Version           *int32                            `json:"version"`
+	Entries           *[]*kcesExportNameMapEditingEntry `json:"entries"`
+	NativeText        *string                           `json:"nativeText"`
+	NativeDecodeError *string                           `json:"nativeDecodeError"`
 }
 
-// kcesExportNameMapEditingEntry 表示严格解析时字段可空的一个编辑条目
-// kcesExportNameMapEditingEntry represents one editing entry with nullable fields for strict parsing
 type kcesExportNameMapEditingEntry struct {
-	InternalName *string `json:"internalName"` // 可空内部资源名 / Nullable internal resource name
-	FileName     *string `json:"fileName"`     // 可空导出文件名 / Nullable exported filename
+	InternalName *string `json:"internalName"`
+	FileName     *string `json:"fileName"`
 }
 
-// DecodeKCESExportNameMap 解析原生 Unity JsonUtility 表示
-// 因 File.ReadAllText 会处理 BOM，允许一个前导 UTF-8 BOM，外层文档和嵌套字典都必须恰好包含一个 JSON 值
-// DecodeKCESExportNameMap parses the native Unity JsonUtility representation shown above
-// One leading UTF-8 BOM is accepted because File.ReadAllText consumes it, and both the outer document and nested dictionary must contain exactly one JSON value
+// DecodeKCESExportNameMap parses the native Unity JsonUtility representation:
 //
 //	{"version":1000,"serializeData":"{\"keys\":[...],\"values\":[...]}"}
+//
+// A single leading UTF-8 BOM is accepted because File.ReadAllText consumes it.
+// Both the outer document and the nested dictionary must contain exactly one
+// JSON value.
 func DecodeKCESExportNameMap(data []byte) (*KCESExportNameMap, error) {
 	if !utf8.Valid(data) {
 		return nil, fmt.Errorf("native export name map is not valid UTF-8")
@@ -170,8 +164,9 @@ func DecodeKCESExportNameMap(data []byte) (*KCESExportNameMap, error) {
 	return result, nil
 }
 
-// EncodeKCESExportNameMap 写出原生 Unity JsonUtility 封套，嵌套键值保留提供的顺序和拼写，并采用 ScourtExtensionsDictionary.FromJson 读取的布局
-// EncodeKCESExportNameMap writes the native Unity JsonUtility wrapper while retaining supplied key and value order and spelling in the layout consumed by ScourtExtensionsDictionary.FromJson
+// EncodeKCESExportNameMap writes the native Unity JsonUtility wrapper. The
+// nested keys and values retain their supplied order and spelling while using
+// the layout consumed by ScourtExtensionsDictionary.FromJson.
 func EncodeKCESExportNameMap(value *KCESExportNameMap) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil export name map")
@@ -213,8 +208,6 @@ func EncodeKCESExportNameMap(value *KCESExportNameMap) ([]byte, error) {
 	return native, nil
 }
 
-// exportNameMapEntriesEqual 比较两个映射条目切片并保留 nil 与空切片的区别
-// exportNameMapEntriesEqual compares two mapping-entry slices while preserving the distinction between nil and empty
 func exportNameMapEntriesEqual(left, right []KCESExportNameMapEntry) bool {
 	if (left == nil) != (right == nil) || len(left) != len(right) {
 		return false
@@ -227,8 +220,9 @@ func exportNameMapEntriesEqual(left, right []KCESExportNameMapEntry) bool {
 	return true
 }
 
-// DecodeKCESExportNameMapJSON 解析带格式标记的可编辑 JSON，缺失和 null 条目列表都表示 nil 列表，与键和值均为 null 的原生字典一致
-// DecodeKCESExportNameMapJSON parses the marker-based editable JSON form, where missing and null entry lists both represent nil to match a native dictionary whose keys and values are both null
+// DecodeKCESExportNameMapJSON parses the editable, marker-based JSON form.
+// Missing and null entry lists both represent a nil list, matching a native
+// dictionary whose keys and values are both null.
 func DecodeKCESExportNameMapJSON(data []byte) (*KCESExportNameMap, error) {
 	var editing kcesExportNameMapEditing
 	if err := decodeKCESExportNameMapJSONValue(data, &editing, "export name map editing JSON", true); err != nil {
@@ -273,8 +267,6 @@ func DecodeKCESExportNameMapJSON(data []byte) (*KCESExportNameMap, error) {
 	})
 }
 
-// optionalExportNameMapString 将可空字符串转换为编辑模型使用的空字符串零值
-// optionalExportNameMapString converts a nullable string to the empty-string zero value used by the editing model
 func optionalExportNameMapString(value *string) string {
 	if value == nil {
 		return ""
@@ -282,8 +274,8 @@ func optionalExportNameMapString(value *string) string {
 	return *value
 }
 
-// EncodeKCESExportNameMapJSON 写出服务和 CLI 使用的确定性编辑表示，不修改 value 或其 Entries 切片
-// EncodeKCESExportNameMapJSON writes the deterministic editing representation used by the service and CLI without mutating value or its Entries slice
+// EncodeKCESExportNameMapJSON writes the deterministic editing representation
+// used by the service and CLI. It does not mutate value or its Entries slice.
 func EncodeKCESExportNameMapJSON(value *KCESExportNameMap) ([]byte, error) {
 	canonical, err := canonicalKCESExportNameMap(value)
 	if err != nil {
@@ -296,8 +288,6 @@ func EncodeKCESExportNameMapJSON(value *KCESExportNameMap) ([]byte, error) {
 	return append(data, '\n'), nil
 }
 
-// canonicalKCESExportNameMap 校验并复制映射为规范编辑模型而不改变条目顺序或大小写
-// canonicalKCESExportNameMap validates and copies a map into the canonical editing model without changing entry order or case
 func canonicalKCESExportNameMap(value *KCESExportNameMap) (*KCESExportNameMap, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil export name map")
@@ -328,8 +318,6 @@ func canonicalKCESExportNameMap(value *KCESExportNameMap) (*KCESExportNameMap, e
 	}, nil
 }
 
-// decodeKCESExportNameMapJSONValue 严格解码一个 UTF-8 JSON 值并拒绝未知字段与尾随内容
-// decodeKCESExportNameMapJSONValue strictly decodes one UTF-8 JSON value and rejects unknown fields and trailing content
 func decodeKCESExportNameMapJSONValue(data []byte, dst any, label string, allowBOM bool) error {
 	if !utf8.Valid(data) {
 		return fmt.Errorf("%s is not valid UTF-8", label)

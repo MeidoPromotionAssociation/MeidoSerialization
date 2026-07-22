@@ -1,0 +1,3991 @@
+{
+  "$defs": {
+    "KCES_BezierParam": {
+      "additionalProperties": false,
+      "properties": {
+        "curveValue": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "endValue": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "startValue": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "useCurveValue": {
+          "type": "boolean"
+        },
+        "useEndValue": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "startValue",
+        "endValue",
+        "useEndValue",
+        "curveValue",
+        "useCurveValue"
+      ],
+      "type": "object"
+    },
+    "KCES_ClothParams": {
+      "additionalProperties": false,
+      "properties": {
+        "adjustMode": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "adjustRotationPower": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "bendDistanceMaxCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "bendDistanceStiffness": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "clampDistanceMaxRatio": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "clampDistanceMinRatio": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "clampDistanceVelocityInfluence": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "clampPositionLength": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "clampPositionRatioX": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "clampPositionRatioY": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "clampPositionRatioZ": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "clampPositionVelocityInfluence": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "clampRotationAngle": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "clampRotationVelocityInfluence": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "clampRotationVelocityLimit": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "disableDistance": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "disableFadeDistance": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "drag": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "friction": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "gravity": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "gravityDirection": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "keepInitialShape": {
+          "type": "boolean"
+        },
+        "mass": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "massInfluence": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "maxMoveSpeed": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "maxRotationSpeed": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "maxVelocity": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "maxVolumeLength": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "nearDistanceLength": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "nearDistanceMaxCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "nearDistanceMaxDepth": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "nearDistanceStiffness": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "penetrationAxis": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "penetrationConnectDistance": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "penetrationDistance": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "penetrationMaxDepth": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "penetrationMode": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "penetrationRadius": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "radius": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "reserved04": {
+          "contentEncoding": "base64",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "reserved05": {
+          "contentEncoding": "base64",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "reserved56": {
+          "contentEncoding": "base64",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "resetStabilizationTime": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "restoreDistanceVelocityInfluence": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "restoreRotation": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "restoreRotationVelocityInfluence": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "springDirectionAtten": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "springDistanceAtten": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "springIntensity": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "springPower": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "springRadius": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "springScaleX": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "springScaleY": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "springScaleZ": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "structDistanceStiffness": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "teleportDistance": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "teleportMode": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "teleportRotation": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "triangleBend": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "useBendDistance": {
+          "type": "boolean"
+        },
+        "useClampDistanceRatio": {
+          "type": "boolean"
+        },
+        "useClampPositionLength": {
+          "type": "boolean"
+        },
+        "useClampRotation": {
+          "type": "boolean"
+        },
+        "useCollision": {
+          "type": "boolean"
+        },
+        "useDistanceDisable": {
+          "type": "boolean"
+        },
+        "useDrag": {
+          "type": "boolean"
+        },
+        "useFixedNonRotation": {
+          "type": "boolean"
+        },
+        "useGravity": {
+          "type": "boolean"
+        },
+        "useLineAvarageRotation": {
+          "type": "boolean"
+        },
+        "useMaxVelocity": {
+          "type": "boolean"
+        },
+        "useNearDistance": {
+          "type": "boolean"
+        },
+        "usePenetration": {
+          "type": "boolean"
+        },
+        "useResetTeleport": {
+          "type": "boolean"
+        },
+        "useRestoreRotation": {
+          "type": "boolean"
+        },
+        "useSpring": {
+          "type": "boolean"
+        },
+        "useTriangleBend": {
+          "type": "boolean"
+        },
+        "useVolume": {
+          "type": "boolean"
+        },
+        "volumeShearStiffness": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "volumeStretchStiffness": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "windInfluence": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "windRandomScale": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "worldMoveInfluence": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        },
+        "worldRotationInfluence": {
+          "$ref": "#/$defs/KCES_BezierParam"
+        }
+      },
+      "required": [
+        "radius",
+        "mass",
+        "useGravity",
+        "gravity",
+        "useDrag",
+        "drag",
+        "useMaxVelocity",
+        "maxVelocity",
+        "worldMoveInfluence",
+        "worldRotationInfluence",
+        "massInfluence",
+        "windInfluence",
+        "windRandomScale",
+        "useDistanceDisable",
+        "disableDistance",
+        "disableFadeDistance",
+        "useResetTeleport",
+        "teleportDistance",
+        "teleportRotation",
+        "useClampDistanceRatio",
+        "clampDistanceMinRatio",
+        "clampDistanceMaxRatio",
+        "clampDistanceVelocityInfluence",
+        "useClampPositionLength",
+        "clampPositionLength",
+        "clampPositionRatioX",
+        "clampPositionRatioY",
+        "clampPositionRatioZ",
+        "clampPositionVelocityInfluence",
+        "useClampRotation",
+        "clampRotationAngle",
+        "clampRotationVelocityInfluence",
+        "restoreDistanceVelocityInfluence",
+        "structDistanceStiffness",
+        "useBendDistance",
+        "bendDistanceMaxCount",
+        "bendDistanceStiffness",
+        "useNearDistance",
+        "nearDistanceMaxCount",
+        "nearDistanceMaxDepth",
+        "nearDistanceLength",
+        "nearDistanceStiffness",
+        "useRestoreRotation",
+        "restoreRotation",
+        "restoreRotationVelocityInfluence",
+        "useSpring",
+        "springPower",
+        "springRadius",
+        "springScaleX",
+        "springScaleY",
+        "springScaleZ",
+        "springIntensity",
+        "springDirectionAtten",
+        "springDistanceAtten",
+        "adjustMode",
+        "adjustRotationPower",
+        "useTriangleBend",
+        "triangleBend",
+        "useVolume",
+        "maxVolumeLength",
+        "volumeStretchStiffness",
+        "volumeShearStiffness",
+        "useCollision",
+        "friction",
+        "keepInitialShape",
+        "usePenetration",
+        "penetrationMode",
+        "penetrationAxis",
+        "penetrationMaxDepth",
+        "penetrationConnectDistance",
+        "penetrationDistance",
+        "penetrationRadius",
+        "useLineAvarageRotation",
+        "useFixedNonRotation",
+        "gravityDirection",
+        "maxMoveSpeed",
+        "maxRotationSpeed",
+        "teleportMode",
+        "resetStabilizationTime",
+        "clampRotationVelocityLimit"
+      ],
+      "type": "object"
+    },
+    "KCES_ColliderCapsule": {
+      "additionalProperties": false,
+      "properties": {
+        "bound": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "center": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "direction": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "endRadius": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "height": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "isDirectionInverse": {
+          "type": "boolean"
+        },
+        "localPosition": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "localRotation": {
+          "$ref": "#/$defs/KCES_Vector4"
+        },
+        "localScale": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "parentName": {
+          "type": "string"
+        },
+        "selfName": {
+          "type": "string"
+        },
+        "startRadius": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "version": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "parentName",
+        "selfName",
+        "localPosition",
+        "localRotation",
+        "localScale",
+        "center",
+        "bound",
+        "direction",
+        "isDirectionInverse",
+        "startRadius",
+        "endRadius",
+        "height"
+      ],
+      "type": "object"
+    },
+    "KCES_ColliderMaidProp": {
+      "additionalProperties": false,
+      "properties": {
+        "bound": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "center": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "centerMpnList": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "centerMpnNameList": {
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "centerRateMax": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "direction": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "endRadius": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "endRadiusMpnList": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "endRadiusMpnNameList": {
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "height": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "isDirectionInverse": {
+          "type": "boolean"
+        },
+        "localPosition": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "localRotation": {
+          "$ref": "#/$defs/KCES_Vector4"
+        },
+        "localScale": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "maxEndRadius": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "maxStartRadius": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "parentName": {
+          "type": "string"
+        },
+        "reserved13": {
+          "contentEncoding": "base64",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "reserved14": {
+          "contentEncoding": "base64",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "reserved15": {
+          "contentEncoding": "base64",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "selfName": {
+          "type": "string"
+        },
+        "startRadius": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "startRadiusMpnList": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "startRadiusMpnNameList": {
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "version": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "parentName",
+        "selfName",
+        "localPosition",
+        "localRotation",
+        "localScale",
+        "center",
+        "bound",
+        "direction",
+        "isDirectionInverse",
+        "startRadius",
+        "endRadius",
+        "height",
+        "centerMpnList",
+        "centerRateMax",
+        "startRadiusMpnList",
+        "maxStartRadius",
+        "endRadiusMpnList",
+        "maxEndRadius",
+        "centerMpnNameList",
+        "startRadiusMpnNameList",
+        "endRadiusMpnNameList"
+      ],
+      "type": "object"
+    },
+    "KCES_ColliderPackage": {
+      "additionalProperties": false,
+      "properties": {
+        "colliders": {
+          "items": {
+            "$ref": "#/$defs/KCES_ColliderRef"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "limbEnableList": {
+          "items": {
+            "$ref": "#/$defs/KCES_ColliderState"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "version": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "colliders"
+      ],
+      "type": "object"
+    },
+    "KCES_ColliderPlane": {
+      "additionalProperties": false,
+      "properties": {
+        "bound": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "center": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "direction": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "isDirectionInverse": {
+          "type": "boolean"
+        },
+        "localPosition": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "localRotation": {
+          "$ref": "#/$defs/KCES_Vector4"
+        },
+        "localScale": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "parentName": {
+          "type": "string"
+        },
+        "selfName": {
+          "type": "string"
+        },
+        "version": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "parentName",
+        "selfName",
+        "localPosition",
+        "localRotation",
+        "localScale",
+        "center",
+        "bound",
+        "direction",
+        "isDirectionInverse"
+      ],
+      "type": "object"
+    },
+    "KCES_ColliderRef": {
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "not": {
+            "required": [
+              "colliderRaw"
+            ]
+          },
+          "properties": {
+            "collider": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/KCES_ColliderPlane"
+                }
+              ]
+            },
+            "type": {
+              "const": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "type",
+            "collider"
+          ],
+          "type": "object"
+        },
+        {
+          "not": {
+            "required": [
+              "colliderRaw"
+            ]
+          },
+          "properties": {
+            "collider": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/KCES_ColliderCapsule"
+                }
+              ]
+            },
+            "type": {
+              "const": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "type",
+            "collider"
+          ],
+          "type": "object"
+        },
+        {
+          "not": {
+            "required": [
+              "colliderRaw"
+            ]
+          },
+          "properties": {
+            "collider": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/KCES_ColliderSphere"
+                }
+              ]
+            },
+            "type": {
+              "const": 2,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "type",
+            "collider"
+          ],
+          "type": "object"
+        },
+        {
+          "not": {
+            "required": [
+              "colliderRaw"
+            ]
+          },
+          "properties": {
+            "collider": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/KCES_ColliderMaidProp"
+                }
+              ]
+            },
+            "type": {
+              "const": 3,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "type",
+            "collider"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "collider": {
+              "type": "null"
+            },
+            "colliderRaw": {
+              "contentEncoding": "base64",
+              "type": "string"
+            },
+            "type": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "type",
+            "collider",
+            "colliderRaw"
+          ],
+          "type": "object"
+        }
+      ],
+      "properties": {
+        "collider": {
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "bound": {
+                  "maximum": 9223372036854775807,
+                  "minimum": -9223372036854775808,
+                  "type": "integer",
+                  "x-meido-integer-bits": 64,
+                  "x-meido-integer-signed": true
+                },
+                "center": {
+                  "$ref": "#/$defs/KCES_Vector3"
+                },
+                "direction": {
+                  "maximum": 9223372036854775807,
+                  "minimum": -9223372036854775808,
+                  "type": "integer",
+                  "x-meido-integer-bits": 64,
+                  "x-meido-integer-signed": true
+                },
+                "fieldCount": {
+                  "maximum": 9223372036854775807,
+                  "minimum": -9223372036854775808,
+                  "type": [
+                    "null",
+                    "integer"
+                  ],
+                  "x-meido-integer-bits": 64,
+                  "x-meido-integer-signed": true
+                },
+                "futureSlots": {
+                  "items": {
+                    "contentEncoding": "base64",
+                    "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "isDirectionInverse": {
+                  "type": "boolean"
+                },
+                "localPosition": {
+                  "$ref": "#/$defs/KCES_Vector3"
+                },
+                "localRotation": {
+                  "$ref": "#/$defs/KCES_Vector4"
+                },
+                "localScale": {
+                  "$ref": "#/$defs/KCES_Vector3"
+                },
+                "nilSlots": {
+                  "items": {
+                    "maximum": 9223372036854775807,
+                    "minimum": -9223372036854775808,
+                    "type": "integer",
+                    "x-meido-integer-bits": 64,
+                    "x-meido-integer-signed": true
+                  },
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "nullElements": {
+                  "additionalProperties": {
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "type": [
+                    "null",
+                    "object"
+                  ]
+                },
+                "nullMapValueKeys": {
+                  "additionalProperties": {
+                    "items": {
+                      "contentEncoding": "base64",
+                      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "type": [
+                    "null",
+                    "object"
+                  ]
+                },
+                "parentName": {
+                  "type": "string"
+                },
+                "selfName": {
+                  "type": "string"
+                },
+                "version": {
+                  "maximum": 9223372036854775807,
+                  "minimum": -9223372036854775808,
+                  "type": "integer",
+                  "x-meido-integer-bits": 64,
+                  "x-meido-integer-signed": true
+                }
+              },
+              "required": [
+                "version",
+                "parentName",
+                "selfName",
+                "localPosition",
+                "localRotation",
+                "localScale",
+                "center",
+                "bound",
+                "direction",
+                "isDirectionInverse"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "bound": {
+                  "maximum": 9223372036854775807,
+                  "minimum": -9223372036854775808,
+                  "type": "integer",
+                  "x-meido-integer-bits": 64,
+                  "x-meido-integer-signed": true
+                },
+                "center": {
+                  "$ref": "#/$defs/KCES_Vector3"
+                },
+                "direction": {
+                  "maximum": 9223372036854775807,
+                  "minimum": -9223372036854775808,
+                  "type": "integer",
+                  "x-meido-integer-bits": 64,
+                  "x-meido-integer-signed": true
+                },
+                "endRadius": {
+                  "maximum": 3.4028234663852886e+38,
+                  "minimum": -3.4028234663852886e+38,
+                  "type": "number"
+                },
+                "fieldCount": {
+                  "maximum": 9223372036854775807,
+                  "minimum": -9223372036854775808,
+                  "type": [
+                    "null",
+                    "integer"
+                  ],
+                  "x-meido-integer-bits": 64,
+                  "x-meido-integer-signed": true
+                },
+                "futureSlots": {
+                  "items": {
+                    "contentEncoding": "base64",
+                    "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "height": {
+                  "maximum": 3.4028234663852886e+38,
+                  "minimum": -3.4028234663852886e+38,
+                  "type": "number"
+                },
+                "isDirectionInverse": {
+                  "type": "boolean"
+                },
+                "localPosition": {
+                  "$ref": "#/$defs/KCES_Vector3"
+                },
+                "localRotation": {
+                  "$ref": "#/$defs/KCES_Vector4"
+                },
+                "localScale": {
+                  "$ref": "#/$defs/KCES_Vector3"
+                },
+                "nilSlots": {
+                  "items": {
+                    "maximum": 9223372036854775807,
+                    "minimum": -9223372036854775808,
+                    "type": "integer",
+                    "x-meido-integer-bits": 64,
+                    "x-meido-integer-signed": true
+                  },
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "nullElements": {
+                  "additionalProperties": {
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "type": [
+                    "null",
+                    "object"
+                  ]
+                },
+                "nullMapValueKeys": {
+                  "additionalProperties": {
+                    "items": {
+                      "contentEncoding": "base64",
+                      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "type": [
+                    "null",
+                    "object"
+                  ]
+                },
+                "parentName": {
+                  "type": "string"
+                },
+                "selfName": {
+                  "type": "string"
+                },
+                "startRadius": {
+                  "maximum": 3.4028234663852886e+38,
+                  "minimum": -3.4028234663852886e+38,
+                  "type": "number"
+                },
+                "version": {
+                  "maximum": 9223372036854775807,
+                  "minimum": -9223372036854775808,
+                  "type": "integer",
+                  "x-meido-integer-bits": 64,
+                  "x-meido-integer-signed": true
+                }
+              },
+              "required": [
+                "version",
+                "parentName",
+                "selfName",
+                "localPosition",
+                "localRotation",
+                "localScale",
+                "center",
+                "bound",
+                "direction",
+                "isDirectionInverse",
+                "startRadius",
+                "endRadius",
+                "height"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "bound": {
+                  "maximum": 9223372036854775807,
+                  "minimum": -9223372036854775808,
+                  "type": "integer",
+                  "x-meido-integer-bits": 64,
+                  "x-meido-integer-signed": true
+                },
+                "center": {
+                  "$ref": "#/$defs/KCES_Vector3"
+                },
+                "fieldCount": {
+                  "maximum": 9223372036854775807,
+                  "minimum": -9223372036854775808,
+                  "type": [
+                    "null",
+                    "integer"
+                  ],
+                  "x-meido-integer-bits": 64,
+                  "x-meido-integer-signed": true
+                },
+                "futureSlots": {
+                  "items": {
+                    "contentEncoding": "base64",
+                    "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "localPosition": {
+                  "$ref": "#/$defs/KCES_Vector3"
+                },
+                "localRotation": {
+                  "$ref": "#/$defs/KCES_Vector4"
+                },
+                "localScale": {
+                  "$ref": "#/$defs/KCES_Vector3"
+                },
+                "nilSlots": {
+                  "items": {
+                    "maximum": 9223372036854775807,
+                    "minimum": -9223372036854775808,
+                    "type": "integer",
+                    "x-meido-integer-bits": 64,
+                    "x-meido-integer-signed": true
+                  },
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "nullElements": {
+                  "additionalProperties": {
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "type": [
+                    "null",
+                    "object"
+                  ]
+                },
+                "nullMapValueKeys": {
+                  "additionalProperties": {
+                    "items": {
+                      "contentEncoding": "base64",
+                      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "type": [
+                    "null",
+                    "object"
+                  ]
+                },
+                "parentName": {
+                  "type": "string"
+                },
+                "radius": {
+                  "maximum": 3.4028234663852886e+38,
+                  "minimum": -3.4028234663852886e+38,
+                  "type": "number"
+                },
+                "selfName": {
+                  "type": "string"
+                },
+                "version": {
+                  "maximum": 9223372036854775807,
+                  "minimum": -9223372036854775808,
+                  "type": "integer",
+                  "x-meido-integer-bits": 64,
+                  "x-meido-integer-signed": true
+                }
+              },
+              "required": [
+                "version",
+                "parentName",
+                "selfName",
+                "localPosition",
+                "localRotation",
+                "localScale",
+                "center",
+                "bound",
+                "radius"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "bound": {
+                  "maximum": 9223372036854775807,
+                  "minimum": -9223372036854775808,
+                  "type": "integer",
+                  "x-meido-integer-bits": 64,
+                  "x-meido-integer-signed": true
+                },
+                "center": {
+                  "$ref": "#/$defs/KCES_Vector3"
+                },
+                "centerMpnList": {
+                  "items": {
+                    "maximum": 9223372036854775807,
+                    "minimum": -9223372036854775808,
+                    "type": "integer",
+                    "x-meido-integer-bits": 64,
+                    "x-meido-integer-signed": true
+                  },
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "centerMpnNameList": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "centerRateMax": {
+                  "$ref": "#/$defs/KCES_Vector3"
+                },
+                "direction": {
+                  "maximum": 9223372036854775807,
+                  "minimum": -9223372036854775808,
+                  "type": "integer",
+                  "x-meido-integer-bits": 64,
+                  "x-meido-integer-signed": true
+                },
+                "endRadius": {
+                  "maximum": 3.4028234663852886e+38,
+                  "minimum": -3.4028234663852886e+38,
+                  "type": "number"
+                },
+                "endRadiusMpnList": {
+                  "items": {
+                    "maximum": 9223372036854775807,
+                    "minimum": -9223372036854775808,
+                    "type": "integer",
+                    "x-meido-integer-bits": 64,
+                    "x-meido-integer-signed": true
+                  },
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "endRadiusMpnNameList": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "fieldCount": {
+                  "maximum": 9223372036854775807,
+                  "minimum": -9223372036854775808,
+                  "type": [
+                    "null",
+                    "integer"
+                  ],
+                  "x-meido-integer-bits": 64,
+                  "x-meido-integer-signed": true
+                },
+                "futureSlots": {
+                  "items": {
+                    "contentEncoding": "base64",
+                    "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  },
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "height": {
+                  "maximum": 3.4028234663852886e+38,
+                  "minimum": -3.4028234663852886e+38,
+                  "type": "number"
+                },
+                "isDirectionInverse": {
+                  "type": "boolean"
+                },
+                "localPosition": {
+                  "$ref": "#/$defs/KCES_Vector3"
+                },
+                "localRotation": {
+                  "$ref": "#/$defs/KCES_Vector4"
+                },
+                "localScale": {
+                  "$ref": "#/$defs/KCES_Vector3"
+                },
+                "maxEndRadius": {
+                  "maximum": 3.4028234663852886e+38,
+                  "minimum": -3.4028234663852886e+38,
+                  "type": "number"
+                },
+                "maxStartRadius": {
+                  "maximum": 3.4028234663852886e+38,
+                  "minimum": -3.4028234663852886e+38,
+                  "type": "number"
+                },
+                "nilSlots": {
+                  "items": {
+                    "maximum": 9223372036854775807,
+                    "minimum": -9223372036854775808,
+                    "type": "integer",
+                    "x-meido-integer-bits": 64,
+                    "x-meido-integer-signed": true
+                  },
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "nullElements": {
+                  "additionalProperties": {
+                    "items": {
+                      "type": "boolean"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "type": [
+                    "null",
+                    "object"
+                  ]
+                },
+                "nullMapValueKeys": {
+                  "additionalProperties": {
+                    "items": {
+                      "contentEncoding": "base64",
+                      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "type": [
+                    "null",
+                    "object"
+                  ]
+                },
+                "parentName": {
+                  "type": "string"
+                },
+                "reserved13": {
+                  "contentEncoding": "base64",
+                  "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "reserved14": {
+                  "contentEncoding": "base64",
+                  "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "reserved15": {
+                  "contentEncoding": "base64",
+                  "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "selfName": {
+                  "type": "string"
+                },
+                "startRadius": {
+                  "maximum": 3.4028234663852886e+38,
+                  "minimum": -3.4028234663852886e+38,
+                  "type": "number"
+                },
+                "startRadiusMpnList": {
+                  "items": {
+                    "maximum": 9223372036854775807,
+                    "minimum": -9223372036854775808,
+                    "type": "integer",
+                    "x-meido-integer-bits": 64,
+                    "x-meido-integer-signed": true
+                  },
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "startRadiusMpnNameList": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": [
+                    "null",
+                    "array"
+                  ]
+                },
+                "version": {
+                  "maximum": 9223372036854775807,
+                  "minimum": -9223372036854775808,
+                  "type": "integer",
+                  "x-meido-integer-bits": 64,
+                  "x-meido-integer-signed": true
+                }
+              },
+              "required": [
+                "version",
+                "parentName",
+                "selfName",
+                "localPosition",
+                "localRotation",
+                "localScale",
+                "center",
+                "bound",
+                "direction",
+                "isDirectionInverse",
+                "startRadius",
+                "endRadius",
+                "height",
+                "centerMpnList",
+                "centerRateMax",
+                "startRadiusMpnList",
+                "maxStartRadius",
+                "endRadiusMpnList",
+                "maxEndRadius",
+                "centerMpnNameList",
+                "startRadiusMpnNameList",
+                "endRadiusMpnNameList"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "colliderRaw": {
+          "contentEncoding": "base64",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "type": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "type",
+        "collider"
+      ],
+      "type": "object"
+    },
+    "KCES_ColliderSphere": {
+      "additionalProperties": false,
+      "properties": {
+        "bound": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "center": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "localPosition": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "localRotation": {
+          "$ref": "#/$defs/KCES_Vector4"
+        },
+        "localScale": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "parentName": {
+          "type": "string"
+        },
+        "radius": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "selfName": {
+          "type": "string"
+        },
+        "version": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "parentName",
+        "selfName",
+        "localPosition",
+        "localRotation",
+        "localScale",
+        "center",
+        "bound",
+        "radius"
+      ],
+      "type": "object"
+    },
+    "KCES_ColliderState": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "isEnable": {
+          "type": "boolean"
+        },
+        "limbType": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "version": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "limbType",
+        "isEnable"
+      ],
+      "type": "object"
+    },
+    "KCES_DynamicBoneAnimationFrame": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "inTangent": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "outTangent": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "time": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "value": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "time",
+        "value",
+        "inTangent",
+        "outTangent"
+      ],
+      "type": "object"
+    },
+    "KCES_DynamicBoneStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "damping": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "dampingKeyFrames": {
+          "items": {
+            "$ref": "#/$defs/KCES_DynamicBoneAnimationFrame"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "elasticity": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "elasticityKeyFrames": {
+          "items": {
+            "$ref": "#/$defs/KCES_DynamicBoneAnimationFrame"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "endLength": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "endOffset": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "force": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "freezeAxis": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "gravity": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "inert": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "inertKeyFrames": {
+          "items": {
+            "$ref": "#/$defs/KCES_DynamicBoneAnimationFrame"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "radius": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "radiusKeyFrames": {
+          "items": {
+            "$ref": "#/$defs/KCES_DynamicBoneAnimationFrame"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "stiffness": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "stiffnessKeyFrames": {
+          "items": {
+            "$ref": "#/$defs/KCES_DynamicBoneAnimationFrame"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "version": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "damping",
+        "dampingKeyFrames",
+        "elasticity",
+        "elasticityKeyFrames",
+        "stiffness",
+        "stiffnessKeyFrames",
+        "inert",
+        "inertKeyFrames",
+        "radius",
+        "radiusKeyFrames",
+        "endLength",
+        "endOffset",
+        "gravity",
+        "force",
+        "freezeAxis"
+      ],
+      "type": "object"
+    },
+    "KCES_IKColliderGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "colliders": {
+          "items": {
+            "$ref": "#/$defs/KCES_ColliderRef"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "target": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "version": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "target",
+        "colliders"
+      ],
+      "type": "object"
+    },
+    "KCES_IKColliderPackage": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/KCES_IKColliderGroup"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "version": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "groups"
+      ],
+      "type": "object"
+    },
+    "KCES_LimbColliderItem": {
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "not": {
+            "required": [
+              "colliderRaw"
+            ]
+          }
+        },
+        {
+          "properties": {
+            "collider": {
+              "type": "null"
+            },
+            "colliderRaw": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "string"
+              ]
+            }
+          },
+          "required": [
+            "colliderRaw"
+          ]
+        }
+      ],
+      "properties": {
+        "collider": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_ColliderMaidProp"
+            }
+          ]
+        },
+        "colliderRaw": {
+          "contentEncoding": "base64",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "target": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "version": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "target",
+        "collider"
+      ],
+      "type": "object"
+    },
+    "KCES_LimbColliderPackage": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/KCES_LimbColliderItem"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "version": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "items"
+      ],
+      "type": "object"
+    },
+    "KCES_Vector3": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "x": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "y": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "z": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "z"
+      ],
+      "type": "object"
+    },
+    "KCES_Vector4": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "w": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "x": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "y": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "z": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "z",
+        "w"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:meido-serialization:editing-json:v1:kces.ikcol",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Lossless editing JSON contract for kces.ikcol.",
+  "oneOf": [
+    {
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "dynamicBoneStatus"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "colliderPackage"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "limbColliderPackage"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "clothParams"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "text"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "json"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "msgpackBase64"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "msgpackJsonPreview"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "extension": {
+          "const": ".ikcol",
+          "type": "string"
+        },
+        "format": {
+          "const": "kces-msgpack-lz4",
+          "type": "string"
+        },
+        "ikColliderPackage": {
+          "not": {
+            "type": "null"
+          }
+        },
+        "kind": {
+          "const": "ik-collider-package",
+          "type": "string"
+        },
+        "lengthPrefixed": {
+          "const": true,
+          "type": "boolean"
+        },
+        "msgpackRootNil": {
+          "const": false,
+          "type": "boolean"
+        },
+        "storageVariant": {
+          "const": "int32-length-lz4-messagepack",
+          "type": "string"
+        }
+      },
+      "required": [
+        "format",
+        "extension",
+        "lengthPrefixed",
+        "storageVariant",
+        "kind",
+        "ikColliderPackage"
+      ],
+      "type": "object"
+    },
+    {
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "dynamicBoneStatus"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "colliderPackage"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "limbColliderPackage"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "ikColliderPackage"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "clothParams"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "text"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "json"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "extension": {
+          "const": ".ikcol",
+          "type": "string"
+        },
+        "format": {
+          "const": "kces-msgpack-lz4",
+          "type": "string"
+        },
+        "kind": {
+          "const": "ik-collider-package",
+          "type": "string"
+        },
+        "lengthPrefixed": {
+          "const": true,
+          "type": "boolean"
+        },
+        "msgpackRootNil": {
+          "const": true,
+          "type": "boolean"
+        },
+        "storageVariant": {
+          "const": "int32-length-lz4-messagepack",
+          "type": "string"
+        }
+      },
+      "required": [
+        "format",
+        "extension",
+        "lengthPrefixed",
+        "storageVariant",
+        "kind",
+        "msgpackRootNil"
+      ],
+      "type": "object"
+    }
+  ],
+  "properties": {
+    "clothParams": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/KCES_ClothParams"
+        }
+      ],
+      "description": "A typed union alternative not selected by the .ikcol descriptor.",
+      "title": "Inactive union field clothParams",
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Leave this field null unless a supported storage variant explicitly selects it.",
+      "x-meido-edit-role": "union_alternative",
+      "x-meido-game-usage": "The payload dispatcher rejects an extension/kind combination that does not match the descriptor.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "implementation_source",
+          "line_end": 410,
+          "line_start": 20,
+          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "path": "serialization/KCES/payload.go",
+          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
+        }
+      ]
+    },
+    "colliderPackage": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/KCES_ColliderPackage"
+        }
+      ],
+      "description": "A typed union alternative not selected by the .ikcol descriptor.",
+      "title": "Inactive union field colliderPackage",
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Leave this field null unless a supported storage variant explicitly selects it.",
+      "x-meido-edit-role": "union_alternative",
+      "x-meido-game-usage": "The payload dispatcher rejects an extension/kind combination that does not match the descriptor.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "implementation_source",
+          "line_end": 410,
+          "line_start": 20,
+          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "path": "serialization/KCES/payload.go",
+          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
+        }
+      ]
+    },
+    "dynamicBoneStatus": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/KCES_DynamicBoneStatus"
+        }
+      ],
+      "description": "A typed union alternative not selected by the .ikcol descriptor.",
+      "title": "Inactive union field dynamicBoneStatus",
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Leave this field null unless a supported storage variant explicitly selects it.",
+      "x-meido-edit-role": "union_alternative",
+      "x-meido-game-usage": "The payload dispatcher rejects an extension/kind combination that does not match the descriptor.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "implementation_source",
+          "line_end": 410,
+          "line_start": 20,
+          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "path": "serialization/KCES/payload.go",
+          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
+        }
+      ]
+    },
+    "extension": {
+      "const": ".ikcol",
+      "description": "The extension descriptor used to select the expected payload kind and wire rules.",
+      "title": "Payload extension",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep the exact extension .ikcol.",
+      "x-meido-edit-role": "format_marker",
+      "x-meido-game-usage": "KCESPayloadEnvelope dispatches decoding and encoding from the complete extension, including the compound .ikcol.bytes suffix.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 145,
+          "line_start": 66,
+          "observation": "IKColliderSaveLoader reads a length-prefixed Lz4BlockArray IKColliderDataPackage and creates collider objects for each effector group.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/kt/ik/IKColliderSaveLoader.cs",
+          "symbol": "IKColliderSaveLoader.Save/Load"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "implementation_source",
+          "line_end": 410,
+          "line_start": 20,
+          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "path": "serialization/KCES/payload.go",
+          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
+        }
+      ]
+    },
+    "format": {
+      "description": "The envelope family marker for native KCES MessagePack or an ExportCM sidecar.",
+      "title": "Payload envelope format",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Use the format matching storageVariant; do not label a native payload as an ExportCM sidecar.",
+      "x-meido-edit-role": "wire_variant",
+      "x-meido-game-usage": "The dispatcher uses kces-msgpack-lz4 for native resources and kces-exportcm-sidecar for JSON sidecars.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 145,
+          "line_start": 66,
+          "observation": "IKColliderSaveLoader reads a length-prefixed Lz4BlockArray IKColliderDataPackage and creates collider objects for each effector group.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/kt/ik/IKColliderSaveLoader.cs",
+          "symbol": "IKColliderSaveLoader.Save/Load"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "implementation_source",
+          "line_end": 410,
+          "line_start": 20,
+          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "path": "serialization/KCES/payload.go",
+          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
+        }
+      ]
+    },
+    "ikColliderPackage": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/KCES_IKColliderPackage"
+        }
+      ],
+      "description": "The typed IKColliderPackage containing effector targets and collider references.",
+      "title": "IK collider package",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep effector targets, collider union tags, and collider geometry aligned with the target rig.",
+      "x-meido-edit-role": "runtime_ik_collision",
+      "x-meido-game-usage": "IKColliderSaveLoader uses these groups to populate full-body IK effector collider lists.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 145,
+          "line_start": 66,
+          "observation": "IKColliderSaveLoader reads a length-prefixed Lz4BlockArray IKColliderDataPackage and creates collider objects for each effector group.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/kt/ik/IKColliderSaveLoader.cs",
+          "symbol": "IKColliderSaveLoader.Save/Load"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "implementation_source",
+          "line_end": 410,
+          "line_start": 20,
+          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "path": "serialization/KCES/payload.go",
+          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
+        }
+      ]
+    },
+    "json": {
+      "description": "The normalized JSON view of a string or ExportCM sidecar payload.",
+      "title": "Parsed JSON view",
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Edit only fields documented by the selected Unity JSON consumer and keep text/json semantically synchronized.",
+      "x-meido-edit-role": "opaque_domain_data",
+      "x-meido-game-usage": "The game-side JSON consumer receives the text; this view is an editing convenience.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "implementation_source",
+          "line_end": 410,
+          "line_start": 20,
+          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "path": "serialization/KCES/payload.go",
+          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
+        }
+      ]
+    },
+    "kind": {
+      "description": "The union discriminator for the typed root object.",
+      "title": "Payload kind discriminator",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Use ik-collider-package for the native .ikcol contract; do not populate a different typed root.",
+      "x-meido-edit-role": "union_discriminator",
+      "x-meido-game-usage": "The decoder selects the corresponding MessagePack or JSON model from this value and rejects extension/kind mismatches.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 145,
+          "line_start": 66,
+          "observation": "IKColliderSaveLoader reads a length-prefixed Lz4BlockArray IKColliderDataPackage and creates collider objects for each effector group.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/kt/ik/IKColliderSaveLoader.cs",
+          "symbol": "IKColliderSaveLoader.Save/Load"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "implementation_source",
+          "line_end": 410,
+          "line_start": 20,
+          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "path": "serialization/KCES/payload.go",
+          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
+        }
+      ]
+    },
+    "lengthPrefixed": {
+      "description": "Whether a little-endian Int32 compressed-byte length precedes the payload.",
+      "title": "Compressed-length flag",
+      "type": "boolean",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Use true for the native .ikcol payload and false for an ExportCM JSON sidecar.",
+      "x-meido-edit-role": "wire_framing",
+      "x-meido-game-usage": "The native loaders call BinaryReader.ReadInt32 before passing exactly that many bytes to MessagePack LZ4 decoding.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 145,
+          "line_start": 66,
+          "observation": "IKColliderSaveLoader reads a length-prefixed Lz4BlockArray IKColliderDataPackage and creates collider objects for each effector group.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/kt/ik/IKColliderSaveLoader.cs",
+          "symbol": "IKColliderSaveLoader.Save/Load"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "implementation_source",
+          "line_end": 410,
+          "line_start": 20,
+          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "path": "serialization/KCES/payload.go",
+          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
+        }
+      ]
+    },
+    "limbColliderPackage": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/KCES_LimbColliderPackage"
+        }
+      ],
+      "description": "A typed union alternative not selected by the .ikcol descriptor.",
+      "title": "Inactive union field limbColliderPackage",
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Leave this field null unless a supported storage variant explicitly selects it.",
+      "x-meido-edit-role": "union_alternative",
+      "x-meido-game-usage": "The payload dispatcher rejects an extension/kind combination that does not match the descriptor.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "implementation_source",
+          "line_end": 410,
+          "line_start": 20,
+          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "path": "serialization/KCES/payload.go",
+          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
+        }
+      ]
+    },
+    "msgpackBase64": {
+      "contentEncoding": "base64",
+      "description": "The complete decompressed MessagePack bytes when no typed root decoder is available.",
+      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+      "title": "Raw MessagePack payload",
+      "type": [
+        "string"
+      ],
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Keep it unchanged and do not also populate a typed root unless the decoder explicitly supports that union.",
+      "x-meido-edit-role": "opaque_payload",
+      "x-meido-game-usage": "This is a lossless fallback for future or unknown payload kinds.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "implementation_source",
+          "line_end": 410,
+          "line_start": 20,
+          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "path": "serialization/KCES/payload.go",
+          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
+        }
+      ]
+    },
+    "msgpackJsonPreview": {
+      "description": "A non-authoritative JSON inspection of an unknown MessagePack root.",
+      "title": "Raw MessagePack preview",
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Treat as read-only and preserve it only as a diagnostic.",
+      "x-meido-edit-role": "diagnostic_metadata",
+      "x-meido-game-usage": "The game consumes msgpackBase64, not this preview.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "implementation_source",
+          "line_end": 410,
+          "line_start": 20,
+          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "path": "serialization/KCES/payload.go",
+          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
+        }
+      ]
+    },
+    "msgpackRootNil": {
+      "description": "Whether the recognized MessagePack root was explicitly nil.",
+      "title": "MessagePack nil root",
+      "type": "boolean",
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Preserve msgpackRootNil and do not combine it with a populated typed root.",
+      "x-meido-edit-role": "serialization_metadata",
+      "x-meido-game-usage": "The codec retains a nil root so a missing object is not silently rewritten as a zero-valued object.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "implementation_source",
+          "line_end": 410,
+          "line_start": 20,
+          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "path": "serialization/KCES/payload.go",
+          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
+        }
+      ]
+    },
+    "msgpackTrailingData": {
+      "contentEncoding": "base64",
+      "description": "Raw bytes after the first recognized MessagePack value.",
+      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+      "title": "MessagePack trailing bytes",
+      "type": [
+        "null",
+        "string"
+      ],
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Preserve unchanged trailing bytes.",
+      "x-meido-edit-role": "opaque_preserve",
+      "x-meido-game-usage": "MessagePack-CSharp stops after the first value; the native game does not assign semantics to these bytes.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "implementation_source",
+          "line_end": 410,
+          "line_start": 20,
+          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "path": "serialization/KCES/payload.go",
+          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
+        }
+      ]
+    },
+    "storageVariant": {
+      "description": "The exact wire representation selected for this extension.",
+      "title": "Storage variant",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Use int32-length-lz4-messagepack for the primary native profile and select an explicitly supported sidecar variant only when the source file came from ExportCM.",
+      "x-meido-edit-role": "wire_variant",
+      "x-meido-game-usage": "The dispatcher distinguishes int32-length-lz4-messagepack from ExportCM Unity JSON and ExportCM .NET-string JSON variants.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 145,
+          "line_start": 66,
+          "observation": "IKColliderSaveLoader reads a length-prefixed Lz4BlockArray IKColliderDataPackage and creates collider objects for each effector group.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/kt/ik/IKColliderSaveLoader.cs",
+          "symbol": "IKColliderSaveLoader.Save/Load"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "implementation_source",
+          "line_end": 410,
+          "line_start": 20,
+          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "path": "serialization/KCES/payload.go",
+          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
+        }
+      ]
+    },
+    "text": {
+      "description": "The original string payload when the selected kind is msgpack-json-string or an ExportCM JSON sidecar.",
+      "title": "String payload text",
+      "type": "string",
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Populate it only for a string or sidecar variant and preserve original text when JSON is unchanged.",
+      "x-meido-edit-role": "opaque_payload",
+      "x-meido-game-usage": "Only string/JSON variants consume this field; other native roots ignore it.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "implementation_source",
+          "line_end": 410,
+          "line_start": 20,
+          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "path": "serialization/KCES/payload.go",
+          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
+        }
+      ]
+    }
+  },
+  "required": [
+    "format",
+    "extension",
+    "lengthPrefixed",
+    "storageVariant",
+    "kind"
+  ],
+  "title": "kces.ikcol editing JSON",
+  "type": "object",
+  "x-meido-format-id": "kces.ikcol",
+  "x-meido-native-suffixes": [
+    ".ikcol"
+  ],
+  "x-meido-representation": "editing_json",
+  "x-meido-schema-version": "1.0.0"
+}

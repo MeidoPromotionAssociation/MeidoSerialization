@@ -2,6 +2,7 @@ package COM3D2
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -70,7 +71,10 @@ func (m *AnmService) WriteAnmFile(path string, anmData *COM3D2.Anm) error {
 }
 
 // ConvertAnmToJson 接收输入文件路径和输出文件路径，将输入文件转换为 .json 文件
-func (m *AnmService) ConvertAnmToJson(inputPath string, outputPath string) error {
+func (m *AnmService) ConvertAnmToJson(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
 	if strings.HasSuffix(outputPath, ".anm") {
 		outputPath = strings.TrimSuffix(outputPath, ".anm") + ".anm.json"
 	}
@@ -80,48 +84,27 @@ func (m *AnmService) ConvertAnmToJson(inputPath string, outputPath string) error
 		return fmt.Errorf("failed to read anm file: %w", err)
 	}
 
-	jsonData, err := json.Marshal(anmData)
-	if err != nil {
-		return fmt.Errorf("failed to marshal anm data: %w", err)
+	if err := checkConversionContext(ctx); err != nil {
+		return err
 	}
-
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("unable to create anm.json file: %w", err)
+	if err := writeConversionJSON(ctx, outputPath, anmData, maxOutputBytes); err != nil {
+		return conversionOutputError("anm JSON", err)
 	}
-	defer func() {
-		if closeErr := f.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("error closing output file: %w", closeErr)
-		}
-	}()
-
-	bw := bufio.NewWriter(f)
-	if _, err := bw.Write(jsonData); err != nil {
-		return fmt.Errorf("failed to write to anm.json file: %w", err)
-	}
-	if err := bw.Flush(); err != nil {
-		return fmt.Errorf("an error occurred while flush bufio: %w", err)
-	}
-
 	return nil
 }
 
 // ConvertJsonToAnm 接收输入文件路径和输出文件路径，将输入文件转换为 .anm 文件
-func (m *AnmService) ConvertJsonToAnm(inputPath string, outputPath string) error {
+func (m *AnmService) ConvertJsonToAnm(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
 	if strings.HasSuffix(outputPath, ".json") {
 		outputPath = strings.TrimSuffix(outputPath, ".json") + ".anm"
 	}
 
-	f, err := os.Open(inputPath)
-	if err != nil {
-		return fmt.Errorf("cannot open anm.json file: %w", err)
-	}
-	defer f.Close()
-
 	var anmData *COM3D2.Anm
-	if err := json.NewDecoder(f).Decode(&anmData); err != nil {
+	if err := readConversionJSON(ctx, inputPath, &anmData); err != nil {
 		return fmt.Errorf("parsing the anm.json file failed: %w", err)
 	}
-
-	return m.WriteAnmFile(outputPath, anmData)
+	if err := writeConversionBinary(ctx, outputPath, maxOutputBytes, anmData.Dump); err != nil {
+		return conversionOutputError("anm", err)
+	}
+	return nil
 }

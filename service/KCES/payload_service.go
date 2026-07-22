@@ -1,9 +1,9 @@
 package KCES
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -36,8 +36,8 @@ func IsKCESPayloadJSONFile(path string) bool {
 // JSON sidecars to and from their explicitly tagged editing envelopes.
 type PayloadService struct{}
 
-func (s *PayloadService) ConvertPayloadToJson(inputPath string, outputPath string) error {
-	data, err := os.ReadFile(inputPath)
+func (s *PayloadService) ConvertPayloadToJson(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
 		return fmt.Errorf("read %q: %w", inputPath, err)
 	}
@@ -51,14 +51,17 @@ func (s *PayloadService) ConvertPayloadToJson(inputPath string, outputPath strin
 	if err != nil {
 		return fmt.Errorf("marshal KCES payload json: %w", err)
 	}
-	if err := os.WriteFile(outputPath, jsonData, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, jsonData, maxOutputBytes); err != nil {
 		return fmt.Errorf("write %q: %w", outputPath, err)
 	}
 	return nil
 }
 
-func (s *PayloadService) ConvertJsonToPayload(inputPath string, outputPath string) error {
-	data, err := os.ReadFile(inputPath)
+func (s *PayloadService) ConvertJsonToPayload(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
 		return fmt.Errorf("read %q: %w", inputPath, err)
 	}
@@ -77,7 +80,10 @@ func (s *PayloadService) ConvertJsonToPayload(inputPath string, outputPath strin
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(outputPath, encoded, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, encoded, maxOutputBytes); err != nil {
 		return fmt.Errorf("write %q: %w", outputPath, err)
 	}
 	return nil

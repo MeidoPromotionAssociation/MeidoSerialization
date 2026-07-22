@@ -14,15 +14,17 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
-// KCES 物理与碰撞扩展名的统一封套和调度层，各扩展名的线格式描述由对应文件声明
-// Unified envelope and dispatcher for KCES physics and collider extensions, with each extension declaring its wire descriptor in its own file
+// KCES 物理与碰撞扩展名的统一封套和调度层；各扩展名的 wire 描述由对应文件声明。
+//
+// Unified envelope and dispatcher for KCES physics and collider extensions; each extension declares its wire descriptor in its own file.
 
 const (
 	PayloadFormatKCESMessagePack = "kces-msgpack-lz4"
 	PayloadFormatKCESExportCM    = "kces-exportcm-sidecar"
 
-	// StorageVariant 有意独立于 Extension，因为 ExportCM 写出的 COM3D2 兼容 JSON 旁车会复用 KCES 自有长度前缀 LZ4 MessagePack 资源的扩展名
-	// StorageVariant is intentionally independent of Extension because ExportCM emits COM3D2-compatible JSON sidecars with extensions also used by KCES for its own length-prefixed LZ4 MessagePack resources
+	// StorageVariant is intentionally independent of Extension. ExportCM emits
+	// COM3D2-compatible JSON sidecars with extensions that KCES also uses for
+	// its own length-prefixed LZ4 MessagePack resources.
 	PayloadStorageInt32LZ4MessagePack      = "int32-length-lz4-messagepack"
 	PayloadStorageExportCMUnityJSON        = "exportcm-unity-json"
 	PayloadStorageExportCMDotNetStringJSON = "exportcm-dotnet-string-unity-json"
@@ -38,14 +40,23 @@ const (
 	PayloadKindExportCMColliderJSON    = "exportcm-collider-json"
 )
 
-// kcesPayloadDescriptor 描述一个 KCES 扩展名支持的原生与 ExportCM 载荷线格式
-// kcesPayloadDescriptor describes the native and ExportCM payload wire formats supported by one KCES extension
 type kcesPayloadDescriptor struct {
-	Extension              string // 文件扩展名 / File extension
-	Kind                   string // 原生 KCES 载荷类型 / Native KCES payload kind
-	LengthPrefixed         bool   // 原生载荷是否要求 Int32 长度前缀 / Whether the native payload requires an Int32 length prefix
-	ExportCMKind           string // ExportCM 旁车载荷类型，空字符串表示不支持 / ExportCM sidecar payload kind, empty when unsupported
-	ExportCMStorageVariant string // ExportCM 旁车的存储变体 / ExportCM sidecar storage variant
+	Extension              string
+	Kind                   string
+	LengthPrefixed         bool
+	ExportCMKind           string
+	ExportCMStorageVariant string
+}
+
+// KCESPayloadDescriptor is the read-only wire contract for one supported
+// payload extension. It is exported so schema and transport layers can use
+// the same descriptor table as the native encoder without copying it.
+type KCESPayloadDescriptor struct {
+	Extension              string
+	Kind                   string
+	LengthPrefixed         bool
+	ExportCMKind           string
+	ExportCMStorageVariant string
 }
 
 var kcesPayloadDescriptors = [...]kcesPayloadDescriptor{
@@ -76,12 +87,26 @@ var kcesPayloadDescriptorByExtension = func() map[string]kcesPayloadDescriptor {
 	return result
 }()
 
-// KCESPayloadEnvelope 是原生 KCES MessagePack 资源和 KCES ExportCM 所写 COM3D2 兼容 JSON 旁车共用的可编辑 JSON 封套
-// 由于多个扩展名会被这两种不兼容的线格式共用，StorageVariant 是写出时的权威判定字段
-// KCESPayloadEnvelope is a JSON-editable envelope for native KCES MessagePack resources and COM3D2-compatible JSON sidecars written by KCES ExportCM
-// StorageVariant is authoritative during encoding because several extensions are shared by those incompatible wire formats
+// DescribeKCESPayload returns the native/ExportCM wire descriptor for an
+// extension. The returned value is a copy and cannot mutate the registry.
+func DescribeKCESPayload(extension string) (KCESPayloadDescriptor, bool) {
+	descriptor, ok := kcesPayloadDescriptorByExtension[NormalizeKCESPayloadExtension(extension)]
+	if !ok {
+		return KCESPayloadDescriptor{}, false
+	}
+	return KCESPayloadDescriptor{
+		Extension: descriptor.Extension, Kind: descriptor.Kind,
+		LengthPrefixed: descriptor.LengthPrefixed,
+		ExportCMKind:   descriptor.ExportCMKind, ExportCMStorageVariant: descriptor.ExportCMStorageVariant,
+	}, true
+}
+
+// KCESPayloadEnvelope is a JSON-editable envelope for both native KCES
+// MessagePack resources and the COM3D2-compatible JSON sidecars written by
+// KCES ExportCM. StorageVariant is authoritative because several extensions
+// are shared by those incompatible wire formats.
 type KCESPayloadEnvelope struct {
-	Format              string               `json:"format"`                        // 封套族，kces-msgpack-lz4 或 kces-exportcm-sidecar / Envelope family, either kces-msgpack-lz4 or kces-exportcm-sidecar
+	Format              string               `json:"format"`                        // Envelope family: kces-msgpack-lz4 or kces-exportcm-sidecar
 	Extension           string               `json:"extension"`                     // 原始文件扩展名，用于判定载荷类型 / Original file extension used to determine payload kind
 	LengthPrefixed      bool                 `json:"lengthPrefixed"`                // 是否带 4 字节长度前缀 / Whether a 4-byte length prefix is present
 	StorageVariant      string               `json:"storageVariant"`                // 实际 wire 形态；同一扩展名可能有 KCES 与 ExportCM 两种 wire / Exact wire variant; an extension can have both KCES and ExportCM forms
@@ -99,8 +124,6 @@ type KCESPayloadEnvelope struct {
 	MsgpackTrailingData []byte               `json:"msgpackTrailingData,omitempty"` // 已识别根值之后 MessagePack-CSharp 未读取的原始字节 / Raw bytes left unread after a recognized root value
 }
 
-// UnmarshalJSON 严格解码载荷封套 JSON 并拒绝未知字段或尾随值
-// UnmarshalJSON strictly decodes payload-envelope JSON and rejects unknown fields or trailing values
 func (e *KCESPayloadEnvelope) UnmarshalJSON(data []byte) error {
 	if !utf8.Valid(data) {
 		return fmt.Errorf("KCES payload JSON is not valid UTF-8")
@@ -124,8 +147,6 @@ func (e *KCESPayloadEnvelope) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// DecodeKCESPayload 尝试扩展名声明的原生 KCES 与 ExportCM 线格式并拒绝歧义结果
-// DecodeKCESPayload tries the native KCES and ExportCM wire formats declared by the extension and rejects ambiguous results
 func DecodeKCESPayload(data []byte, extension string) (*KCESPayloadEnvelope, error) {
 	ext := NormalizeKCESPayloadExtension(extension)
 	messagePackEnvelope, messagePackErr := decodeKCESMessagePackPayload(data, ext)
@@ -146,16 +167,16 @@ func DecodeKCESPayload(data []byte, extension string) (*KCESPayloadEnvelope, err
 	return nil, fmt.Errorf("decode %s payload as KCES MessagePack: %v; decode as ExportCM JSON: %w", ext, messagePackErr, exportErr)
 }
 
-// decodeKCESMessagePackPayload 解码带可选验证长度前缀的 LZ4 Block Array MessagePack 载荷
-// decodeKCESMessagePackPayload decodes an LZ4 Block Array MessagePack payload with a validated length prefix when required
 func decodeKCESMessagePackPayload(data []byte, extension string) (*KCESPayloadEnvelope, error) {
 	ext := NormalizeKCESPayloadExtension(extension)
 	payload, lengthPrefixed, err := StripLengthPrefix(data)
 	if err != nil {
 		return nil, err
 	}
-	// 当前支持的每个游戏载荷扩展名都会在 Lz4BlockArray 字节前写入 BinaryWriter.Write(byte[].Length)，将不匹配的首个 Int32 当作可选内容会导致库接受游戏无法加载的文件
-	// Every currently supported game payload extension writes BinaryWriter.Write(byte[].Length) before the Lz4BlockArray bytes, and treating a mismatched first Int32 as optional would make the library accept a payload the game cannot load
+	// Every currently supported game payload extension is written with
+	// BinaryWriter.Write(byte[].Length) before the Lz4BlockArray bytes. Treating
+	// a mismatched first int32 as an optional prefix makes a payload which this
+	// library accepts but the game cannot load.
 	if IsLengthPrefixedKCESPayloadExtension(ext) && !lengthPrefixed {
 		if len(data) < 4 {
 			return nil, fmt.Errorf("%s payload is missing its required int32 length prefix: file is only %d bytes", ext, len(data))
@@ -276,46 +297,154 @@ func decodeKCESMessagePackPayload(data []byte, extension string) (*KCESPayloadEn
 	return env, nil
 }
 
-// EncodeKCESPayload 按 StorageVariant 分派并编码载荷封套
-// EncodeKCESPayload dispatches and encodes a payload envelope according to StorageVariant
 func EncodeKCESPayload(env *KCESPayloadEnvelope) ([]byte, error) {
 	if env == nil {
 		return nil, fmt.Errorf("nil KCES payload envelope")
 	}
-	storageVariant := env.StorageVariant
-	if storageVariant == "" {
-		if env.Format == PayloadFormatKCESExportCM {
-			return nil, fmt.Errorf("KCES ExportCM payload storageVariant is required")
+	ext := NormalizeKCESPayloadExtension(env.Extension)
+	descriptor, ok := kcesPayloadDescriptorByExtension[ext]
+	if !ok {
+		if env.Extension == "" && env.Format == PayloadFormatKCESMessagePack && env.StorageVariant == PayloadStorageInt32LZ4MessagePack && env.Kind == PayloadKindRawMsgpack {
+			if len(env.MsgpackTrailingData) != 0 {
+				return nil, fmt.Errorf("raw-msgpack already stores the complete decompressed stream in msgpackBase64; msgpackTrailingData must be empty")
+			}
+			if env.MsgpackRootNil || payloadEnvelopeHasTypedRootExceptRaw(env) {
+				return nil, fmt.Errorf("raw-msgpack envelope has incompatible typed or trailing fields")
+			}
+			if _, err := base64.StdEncoding.DecodeString(env.MsgpackBase64); err != nil {
+				return nil, fmt.Errorf("decode msgpackBase64: %w", err)
+			}
+			return encodeKCESMessagePackPayload(env)
 		}
-		// 在 storageVariant 引入前导出的可编辑 JSON 始终表示原有的 Int32 加 LZ4 MessagePack 线格式
-		// Editable JSON emitted before storageVariant was introduced always represented the original Int32 plus LZ4 MessagePack wire format
-		storageVariant = PayloadStorageInt32LZ4MessagePack
+		return nil, fmt.Errorf("unsupported or non-canonical KCES payload extension %q", env.Extension)
+	}
+	if env.Extension != ext {
+		return nil, fmt.Errorf("unsupported or non-canonical KCES payload extension %q", env.Extension)
+	}
+	if env.Format == "" {
+		return nil, fmt.Errorf("KCES payload format is required")
+	}
+	if env.StorageVariant == "" {
+		return nil, fmt.Errorf("KCES payload storageVariant is required")
+	}
+	if env.Kind == "" {
+		return nil, fmt.Errorf("KCES payload kind is required")
+	}
+	if err := validateKCESPayloadEnvelopeRoots(env, descriptor); err != nil {
+		return nil, err
 	}
 
-	switch storageVariant {
+	switch env.StorageVariant {
 	case PayloadStorageInt32LZ4MessagePack:
-		if env.Format != "" && env.Format != PayloadFormatKCESMessagePack {
-			return nil, fmt.Errorf("payload format %q is incompatible with storageVariant %q", env.Format, storageVariant)
+		if env.Format != PayloadFormatKCESMessagePack {
+			return nil, fmt.Errorf("payload format %q is incompatible with storageVariant %q", env.Format, env.StorageVariant)
+		}
+		if !descriptor.LengthPrefixed || !env.LengthPrefixed {
+			return nil, fmt.Errorf("extension %q requires lengthPrefixed=true for storageVariant %q", ext, env.StorageVariant)
 		}
 		return encodeKCESMessagePackPayload(env)
 	case PayloadStorageExportCMUnityJSON, PayloadStorageExportCMDotNetStringJSON:
 		if env.Format != PayloadFormatKCESExportCM {
-			return nil, fmt.Errorf("payload format %q is incompatible with storageVariant %q", env.Format, storageVariant)
+			return nil, fmt.Errorf("payload format %q is incompatible with storageVariant %q", env.Format, env.StorageVariant)
 		}
-		if len(env.MsgpackTrailingData) != 0 {
-			return nil, fmt.Errorf("msgpackTrailingData cannot be represented by ExportCM storageVariant %q", storageVariant)
+		if env.LengthPrefixed {
+			return nil, fmt.Errorf("ExportCM storageVariant %q requires lengthPrefixed=false", env.StorageVariant)
 		}
-		if env.MsgpackRootNil {
-			return nil, fmt.Errorf("msgpackRootNil cannot be represented by ExportCM storageVariant %q", storageVariant)
-		}
-		return encodeExportCMPayload(env, storageVariant)
+		return encodeExportCMPayload(env, env.StorageVariant)
 	default:
-		return nil, fmt.Errorf("unsupported KCES payload storageVariant %q", storageVariant)
+		return nil, fmt.Errorf("unsupported KCES payload storageVariant %q", env.StorageVariant)
 	}
 }
 
-// encodeKCESMessagePackPayload 校验类型字段并编码原生 KCES LZ4 MessagePack 载荷
-// encodeKCESMessagePackPayload validates kind-specific fields and encodes a native KCES LZ4 MessagePack payload
+func payloadEnvelopeHasTypedRootExceptRaw(env *KCESPayloadEnvelope) bool {
+	return env.DynamicBone != nil || env.ColliderPackage != nil || env.LimbCollider != nil || env.IKCollider != nil || env.ClothParams != nil || env.Text != "" || len(env.JSON) != 0
+}
+
+func validateKCESPayloadEnvelopeRoots(env *KCESPayloadEnvelope, descriptor kcesPayloadDescriptor) error {
+	if env.StorageVariant == PayloadStorageInt32LZ4MessagePack {
+		if env.Kind != descriptor.Kind {
+			return fmt.Errorf("extension %q with storageVariant %q requires kind %q, got %q", descriptor.Extension, env.StorageVariant, descriptor.Kind, env.Kind)
+		}
+		if env.Format != PayloadFormatKCESMessagePack || env.LengthPrefixed != descriptor.LengthPrefixed {
+			return fmt.Errorf("extension %q requires native tuple format=%q, storageVariant=%q, kind=%q, lengthPrefixed=%v", descriptor.Extension, PayloadFormatKCESMessagePack, PayloadStorageInt32LZ4MessagePack, descriptor.Kind, descriptor.LengthPrefixed)
+		}
+		if env.MsgpackRootNil {
+			if payloadEnvelopeHasTypedRoot(env) {
+				return fmt.Errorf("msgpackRootNil cannot be combined with a populated payload root")
+			}
+			return nil
+		}
+		if len(env.MsgpackJSONPreview) != 0 {
+			return fmt.Errorf("msgpackJsonPreview is only valid for raw-msgpack payloads")
+		}
+		activePresent := false
+		switch descriptor.Kind {
+		case PayloadKindDynamicBoneStatus:
+			activePresent = env.DynamicBone != nil
+		case PayloadKindColliderPackage:
+			activePresent = env.ColliderPackage != nil
+		case PayloadKindLimbCollider:
+			activePresent = env.LimbCollider != nil
+		case PayloadKindIKCollider:
+			activePresent = env.IKCollider != nil
+		case PayloadKindClothParams:
+			activePresent = env.ClothParams != nil
+		case PayloadKindJSONString:
+			if env.Text == "" && len(env.JSON) == 0 {
+				return fmt.Errorf("string payload requires text or json")
+			}
+		default:
+			return fmt.Errorf("unsupported native payload kind %q for extension %q", descriptor.Kind, descriptor.Extension)
+		}
+		if !activePresent && descriptor.Kind != PayloadKindJSONString {
+			return fmt.Errorf("payload kind %q requires its typed root", descriptor.Kind)
+		}
+		if env.Kind != PayloadKindJSONString && (env.Text != "" || len(env.JSON) != 0) {
+			return fmt.Errorf("text/json fields are inactive for payload kind %q", env.Kind)
+		}
+		if env.MsgpackBase64 != "" {
+			return fmt.Errorf("msgpackBase64 is inactive for payload kind %q", env.Kind)
+		}
+		for name, present := range map[string]bool{
+			"dynamicBoneStatus": env.DynamicBone != nil, "colliderPackage": env.ColliderPackage != nil,
+			"limbColliderPackage": env.LimbCollider != nil, "ikColliderPackage": env.IKCollider != nil,
+			"clothParams": env.ClothParams != nil,
+		} {
+			if present && name != nativeRootFieldName(descriptor.Kind) {
+				return fmt.Errorf("%s is inactive for payload kind %q", name, descriptor.Kind)
+			}
+		}
+		return nil
+	}
+	if descriptor.ExportCMKind == "" || env.Format != PayloadFormatKCESExportCM || env.Kind != descriptor.ExportCMKind || env.StorageVariant != descriptor.ExportCMStorageVariant || env.LengthPrefixed {
+		return fmt.Errorf("extension %q has an inconsistent ExportCM payload tuple", descriptor.Extension)
+	}
+	if env.MsgpackRootNil || len(env.MsgpackTrailingData) != 0 || env.MsgpackBase64 != "" || len(env.MsgpackJSONPreview) != 0 || env.DynamicBone != nil || env.ColliderPackage != nil || env.LimbCollider != nil || env.IKCollider != nil || env.ClothParams != nil {
+		return fmt.Errorf("ExportCM payload has inactive native MessagePack fields")
+	}
+	if env.Text == "" && len(env.JSON) == 0 {
+		return fmt.Errorf("ExportCM payload requires text or json")
+	}
+	return nil
+}
+
+func nativeRootFieldName(kind string) string {
+	switch kind {
+	case PayloadKindDynamicBoneStatus:
+		return "dynamicBoneStatus"
+	case PayloadKindColliderPackage:
+		return "colliderPackage"
+	case PayloadKindLimbCollider:
+		return "limbColliderPackage"
+	case PayloadKindIKCollider:
+		return "ikColliderPackage"
+	case PayloadKindClothParams:
+		return "clothParams"
+	default:
+		return ""
+	}
+}
+
 func encodeKCESMessagePackPayload(env *KCESPayloadEnvelope) ([]byte, error) {
 	ext := NormalizeKCESPayloadExtension(env.Extension)
 	kind := env.Kind
@@ -417,8 +546,6 @@ func encodeKCESMessagePackPayload(env *KCESPayloadEnvelope) ([]byte, error) {
 	return compressed, nil
 }
 
-// payloadEnvelopeHasTypedRoot 判断封套是否包含会被 MessagePack nil 根值丢弃的已解析载荷
-// payloadEnvelopeHasTypedRoot reports whether the envelope contains a parsed payload that a MessagePack nil root would discard
 func payloadEnvelopeHasTypedRoot(env *KCESPayloadEnvelope) bool {
 	return env.DynamicBone != nil ||
 		env.ColliderPackage != nil ||
@@ -431,10 +558,11 @@ func payloadEnvelopeHasTypedRoot(env *KCESPayloadEnvelope) bool {
 		len(env.MsgpackJSONPreview) != 0
 }
 
-// editableMessagePackJSONString 选择 MessagePack 载荷中应保存的准确字符串
-// Text 是原始线格式字符串，JSON 是可编辑解析视图，JSON 未变化时逐字节保留包括无意义空白在内的 Text，实际编辑后写出紧凑 JSON，且不执行游戏迁移或 JsonUtility 回调
-// editableMessagePackJSONString selects the exact string stored in the MessagePack payload
-// Text is the original wire string and JSON is its editable parsed view, preserving Text byte-for-byte including insignificant whitespace when unchanged and emitting compact JSON after an actual edit without running game migrations or JsonUtility callbacks
+// editableMessagePackJSONString selects the exact string to store in the
+// MessagePack payload. Text is the original wire string and JSON is its
+// editable parsed view. An unchanged JSON view keeps Text byte-for-byte,
+// including insignificant whitespace; an actual edit is emitted as compact
+// JSON. No game migration or JsonUtility callback is run.
 func editableMessagePackJSONString(env *KCESPayloadEnvelope) (string, error) {
 	if len(env.JSON) != 0 {
 		if !utf8.Valid(env.JSON) {
@@ -464,8 +592,6 @@ func editableMessagePackJSONString(env *KCESPayloadEnvelope) (string, error) {
 	return env.Text, nil
 }
 
-// StripLengthPrefix 仅在首个小端 UInt32 与剩余字节数完全一致时移除长度前缀
-// StripLengthPrefix removes a length prefix only when the first little-endian UInt32 exactly matches the remaining byte count
 func StripLengthPrefix(data []byte) ([]byte, bool, error) {
 	if len(data) < 4 {
 		return data, false, nil
@@ -477,29 +603,21 @@ func StripLengthPrefix(data []byte) ([]byte, bool, error) {
 	return data, false, nil
 }
 
-// AddLengthPrefix 在载荷前添加小端 UInt32 字节数
-// AddLengthPrefix prepends the payload byte count as a little-endian UInt32
 func AddLengthPrefix(payload []byte) []byte {
 	out := make([]byte, 4, len(payload)+4)
 	binary.LittleEndian.PutUint32(out[:4], uint32(len(payload)))
 	return append(out, payload...)
 }
 
-// IsLengthPrefixedKCESPayloadExtension 判断扩展名的原生载荷是否要求长度前缀
-// IsLengthPrefixedKCESPayloadExtension reports whether an extension requires a length prefix for its native payload
 func IsLengthPrefixedKCESPayloadExtension(extension string) bool {
 	descriptor, ok := kcesPayloadDescriptorByExtension[NormalizeKCESPayloadExtension(extension)]
 	return ok && descriptor.LengthPrefixed
 }
 
-// IsKCESPayloadExtension 判断扩展名或路径是否属于支持的 KCES 载荷格式
-// IsKCESPayloadExtension reports whether an extension or path belongs to a supported KCES payload format
 func IsKCESPayloadExtension(extension string) bool {
 	return NormalizeKCESPayloadExtension(extension) != ""
 }
 
-// NormalizeKCESPayloadExtension 从路径或扩展名提取规范化的受支持扩展名
-// NormalizeKCESPayloadExtension extracts a normalized supported extension from a path or extension
 func NormalizeKCESPayloadExtension(pathOrExt string) string {
 	lower := strings.ToLower(strings.TrimSpace(filepath.ToSlash(pathOrExt)))
 	if lower == "" {
@@ -515,8 +633,6 @@ func NormalizeKCESPayloadExtension(pathOrExt string) string {
 	return ""
 }
 
-// payloadKindForExtension 返回扩展名声明的原生载荷类型，未知扩展名回退为原始 MessagePack
-// payloadKindForExtension returns the native payload kind declared by an extension or falls back to raw MessagePack for an unknown extension
 func payloadKindForExtension(ext string) string {
 	if descriptor, ok := kcesPayloadDescriptorByExtension[NormalizeKCESPayloadExtension(ext)]; ok {
 		return descriptor.Kind

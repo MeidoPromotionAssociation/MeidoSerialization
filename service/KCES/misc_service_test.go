@@ -39,10 +39,10 @@ func TestMiscService_HitCheckRoundTrip(t *testing.T) {
 	}
 
 	service := &MiscService{}
-	if err := service.ConvertMiscToJson(inputPath, jsonPath); err != nil {
+	if err := service.ConvertMiscToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertMiscToJson: %v", err)
 	}
-	if err := service.ConvertJsonToMisc(jsonPath, outputPath); err != nil {
+	if err := service.ConvertJsonToMisc(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJsonToMisc: %v", err)
 	}
 	decoded, err := serializationKCES.DecodeHitCheck(mustReadTestFile(t, outputPath))
@@ -66,7 +66,7 @@ func TestMiscService_JSONTextRoundTrip(t *testing.T) {
 	}
 
 	service := &MiscService{}
-	if err := service.ConvertMiscToJson(inputPath, jsonPath); err != nil {
+	if err := service.ConvertMiscToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertMiscToJson: %v", err)
 	}
 	var envelope serializationKCES.KCESJSONText
@@ -77,7 +77,7 @@ func TestMiscService_JSONTextRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected envelope: %+v", envelope)
 	}
 
-	if err := service.ConvertJsonToMisc(jsonPath, outputPath); err != nil {
+	if err := service.ConvertJsonToMisc(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJsonToMisc: %v", err)
 	}
 	decoded, err := serializationKCES.DecodeKCESJSONText(mustReadTestFile(t, outputPath), ".undressdat")
@@ -104,7 +104,7 @@ func TestMiscService_NSONRoundTrip(t *testing.T) {
 	}
 
 	service := &MiscService{}
-	if err := service.ConvertMiscToJson(inputPath, jsonPath); err != nil {
+	if err := service.ConvertMiscToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertMiscToJson: %v", err)
 	}
 	var envelope serializationKCES.KCESJSONText
@@ -122,7 +122,7 @@ func TestMiscService_NSONRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected NSON envelope: extension=%q json=%s", envelope.Extension, envelope.JSON)
 	}
 
-	if err := service.ConvertJsonToMisc(jsonPath, outputPath); err != nil {
+	if err := service.ConvertJsonToMisc(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJsonToMisc: %v", err)
 	}
 	decoded, err := serializationKCES.DecodeKCESJSONText(mustReadTestFile(t, outputPath), ".nson")
@@ -148,10 +148,10 @@ func TestMiscService_FixedSamplesJSONRoundTrip(t *testing.T) {
 					tmpDir := t.TempDir()
 					jsonPath := filepath.Join(tmpDir, name+".json")
 					outPath := filepath.Join(tmpDir, name)
-					if err := service.ConvertMiscToJson(sample, jsonPath); err != nil {
+					if err := service.ConvertMiscToJson(TestConversionContext, sample, jsonPath, TestConversionMaxOutput); err != nil {
 						t.Fatalf("ConvertMiscToJson: %v", err)
 					}
-					if err := service.ConvertJsonToMisc(jsonPath, outPath); err != nil {
+					if err := service.ConvertJsonToMisc(TestConversionContext, jsonPath, outPath, TestConversionMaxOutput); err != nil {
 						t.Fatalf("ConvertJsonToMisc: %v", err)
 					}
 					want, err := service.ReadMiscFile(sample)

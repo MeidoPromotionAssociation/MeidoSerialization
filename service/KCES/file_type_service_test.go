@@ -92,7 +92,7 @@ func TestFileTypeServiceRecognizesCurrentPresetAndJSONMarkers(t *testing.T) {
 	}
 
 	jsonPath := currentPath + ".json"
-	if err := (&PresetService{}).ConvertPresetToJson(currentPath, jsonPath); err != nil {
+	if err := (&PresetService{}).ConvertPresetToJson(TestConversionContext, currentPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatal(err)
 	}
 	jsonInfo, matched, err := service.TryFileTypeDetermine(jsonPath)
@@ -120,7 +120,7 @@ func TestFileTypeServiceRecognizesNSONAndEditingEnvelope(t *testing.T) {
 		{name: "editing envelope", path: nativePath + ".json"},
 	} {
 		if test.name == "editing envelope" {
-			if err := (&MiscService{}).ConvertMiscToJson(nativePath, test.path); err != nil {
+			if err := (&MiscService{}).ConvertMiscToJson(TestConversionContext, nativePath, test.path, TestConversionMaxOutput); err != nil {
 				t.Fatalf("ConvertMiscToJson: %v", err)
 			}
 		}

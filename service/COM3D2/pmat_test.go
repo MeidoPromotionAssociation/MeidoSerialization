@@ -36,13 +36,13 @@ func TestPMatService(t *testing.T) {
 			}
 
 			// 3. Test ConvertPMatToJson
-			err = s.ConvertPMatToJson(inputPath, jsonPath)
+			err = s.ConvertPMatToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput)
 			if err != nil {
 				t.Fatalf("ConvertPMatToJson failed: %v", err)
 			}
 
 			// 4. Test ConvertJsonToPMat
-			err = s.ConvertJsonToPMat(jsonPath, backPath)
+			err = s.ConvertJsonToPMat(TestConversionContext, jsonPath, backPath, TestConversionMaxOutput)
 			if err != nil {
 				t.Fatalf("ConvertJsonToPMat failed: %v", err)
 			}

@@ -1,6 +1,7 @@
 package KCES
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -62,7 +63,10 @@ func IsKCESPartsJSONFile(path string) bool {
 	}
 }
 
-func (s *PartsService) ConvertPartsToJson(inputPath string, outputPath string) error {
+func (s *PartsService) ConvertPartsToJson(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
 	value, err := s.ReadPartsFile(inputPath)
 	if err != nil {
 		return err
@@ -73,13 +77,16 @@ func (s *PartsService) ConvertPartsToJson(inputPath string, outputPath string) e
 		return fmt.Errorf("marshal KCES parts json: %w", err)
 	}
 
-	if err := os.WriteFile(outputPath, jsonData, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, jsonData, maxOutputBytes); err != nil {
 		return fmt.Errorf("write %q: %w", outputPath, err)
 	}
 	return nil
 }
 
-func (s *PartsService) ConvertJsonToParts(inputPath string, outputPath string) error {
+func (s *PartsService) ConvertJsonToParts(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
 	ext := partsExtFromJSONPath(inputPath)
 	if ext == "" {
 		ext = strings.ToLower(filepath.Ext(outputPath))
@@ -88,7 +95,7 @@ func (s *PartsService) ConvertJsonToParts(inputPath string, outputPath string) e
 		return fmt.Errorf("cannot determine KCES parts type from %q", inputPath)
 	}
 
-	data, err := os.ReadFile(inputPath)
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
 		return fmt.Errorf("read %q: %w", inputPath, err)
 	}
@@ -98,7 +105,10 @@ func (s *PartsService) ConvertJsonToParts(inputPath string, outputPath string) e
 		return err
 	}
 
-	if err := os.WriteFile(outputPath, encoded, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, encoded, maxOutputBytes); err != nil {
 		return fmt.Errorf("write %q: %w", outputPath, err)
 	}
 	return nil

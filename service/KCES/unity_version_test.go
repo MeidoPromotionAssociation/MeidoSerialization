@@ -316,7 +316,7 @@ func TestRawUnityObjectJSONRoundTripPreservesUnityVersionContext(t *testing.T) {
 
 	service := &RawUnityObjectService{}
 	jsonPath := inputPath + ".json"
-	if err := service.ConvertRawUnityObjectToJson(inputPath, jsonPath); err != nil {
+	if err := service.ConvertRawUnityObjectToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertRawUnityObjectToJson: %v", err)
 	}
 	var envelope RawUnityObjectEnvelope
@@ -330,7 +330,7 @@ func TestRawUnityObjectJSONRoundTripPreservesUnityVersionContext(t *testing.T) {
 	}
 
 	outputPath := filepath.Join(tmpDir, "roundtrip.texture2d.bytes")
-	if err := service.ConvertJsonToRawUnityObject(jsonPath, outputPath); err != nil {
+	if err := service.ConvertJsonToRawUnityObject(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJsonToRawUnityObject: %v", err)
 	}
 	if got := mustReadServiceFile(t, outputPath); !bytes.Equal(got, raw) {

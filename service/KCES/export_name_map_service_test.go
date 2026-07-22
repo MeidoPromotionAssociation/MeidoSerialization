@@ -38,7 +38,7 @@ func TestExportNameMapServiceSourceConstructedRoundTripAndProbe(t *testing.T) {
 		t.Fatal("native .enm was not routed")
 	}
 	service := &ExportNameMapService{}
-	if err := service.ConvertExportNameMapToJSON(nativePath, jsonPath); err != nil {
+	if err := service.ConvertExportNameMapToJSON(TestConversionContext, nativePath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatal(err)
 	}
 	if !IsKCESExportNameMapJSONFile(jsonPath) {
@@ -55,7 +55,7 @@ func TestExportNameMapServiceSourceConstructedRoundTripAndProbe(t *testing.T) {
 	if !IsKCESExportNameMapJSONFile(jsonPath) {
 		t.Fatal("BOM-prefixed .enm.json was not routed")
 	}
-	if err := service.ConvertJSONToExportNameMap(jsonPath, backPath); err != nil {
+	if err := service.ConvertJSONToExportNameMap(TestConversionContext, jsonPath, backPath, TestConversionMaxOutput); err != nil {
 		t.Fatal(err)
 	}
 	back, err := os.ReadFile(backPath)
@@ -101,10 +101,10 @@ func TestExportNameMapRoutingPreservesSchemaAnomaliesAndAcceptsNilEntries(t *tes
 	jsonPath := badNative + ".json"
 	backPath := filepath.Join(dir, "back.enm")
 	service := &ExportNameMapService{}
-	if err := service.ConvertExportNameMapToJSON(badNative, jsonPath); err != nil {
+	if err := service.ConvertExportNameMapToJSON(TestConversionContext, badNative, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertExportNameMapToJSON() error = %v", err)
 	}
-	if err := service.ConvertJSONToExportNameMap(jsonPath, backPath); err != nil {
+	if err := service.ConvertJSONToExportNameMap(TestConversionContext, jsonPath, backPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJSONToExportNameMap() error = %v", err)
 	}
 	want, err := os.ReadFile(badNative)

@@ -2,6 +2,7 @@ package COM3D2
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -175,7 +176,10 @@ func (m *ModelService) WriteModelMaterial(inputPath string, outputPath string, m
 }
 
 // ConvertModelToJson 接收输入文件路径和输出文件路径，将输入文件转换为 .json 文件
-func (m *ModelService) ConvertModelToJson(inputPath string, outputPath string) error {
+func (m *ModelService) ConvertModelToJson(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
 	if strings.HasSuffix(outputPath, ".model") {
 		outputPath = strings.TrimSuffix(outputPath, ".model") + ".model.json"
 	}
@@ -185,46 +189,27 @@ func (m *ModelService) ConvertModelToJson(inputPath string, outputPath string) e
 		return fmt.Errorf("failed to read model file: %w", err)
 	}
 
-	jsonData, err := json.Marshal(modelData)
-	if err != nil {
-		return fmt.Errorf("failed to marshal model data: %w", err)
+	if err := checkConversionContext(ctx); err != nil {
+		return err
 	}
-
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("unable to create model.json file: %w", err)
+	if err := writeConversionJSON(ctx, outputPath, modelData, maxOutputBytes); err != nil {
+		return conversionOutputError("model JSON", err)
 	}
-	defer func() {
-		if closeErr := f.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("error closing output file: %w", closeErr)
-		}
-	}()
-
-	bw := bufio.NewWriter(f)
-	if _, err := bw.Write(jsonData); err != nil {
-		return fmt.Errorf("failed to write to model.json file: %w", err)
-	}
-	if err := bw.Flush(); err != nil {
-		return fmt.Errorf("an error occurred while flush bufio: %w", err)
-	}
-
 	return nil
 }
 
 // ConvertJsonToModel 接收输入文件路径和输出文件路径，将输入文件转换为 .model 文件
-func (m *ModelService) ConvertJsonToModel(inputPath string, outputPath string) error {
+func (m *ModelService) ConvertJsonToModel(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
 	if strings.HasSuffix(outputPath, ".json") {
 		outputPath = strings.TrimSuffix(outputPath, ".json") + ".model"
 	}
 
-	f, err := os.Open(inputPath)
-	if err != nil {
-		return fmt.Errorf("cannot open model.json file: %w", err)
-	}
-	defer f.Close()
 	var modelData *COM3D2.Model
-	if err := json.NewDecoder(f).Decode(&modelData); err != nil {
+	if err := readConversionJSON(ctx, inputPath, &modelData); err != nil {
 		return fmt.Errorf("parsing the model.json file failed: %w", err)
 	}
-	return m.WriteModelFile(outputPath, modelData)
+	if err := writeConversionBinary(ctx, outputPath, maxOutputBytes, modelData.Dump); err != nil {
+		return conversionOutputError("model", err)
+	}
+	return nil
 }

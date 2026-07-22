@@ -1,6 +1,7 @@
 package KCES
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -62,7 +63,10 @@ func IsKCESCtJSONFile(path string) bool {
 }
 
 // ConvertCtToJson converts a KCES .ct file into a JSON envelope.
-func (s *CtService) ConvertCtToJson(inputPath string, outputPath string) error {
+func (s *CtService) ConvertCtToJson(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
 	envelope, err := s.ReadCtEnvelope(inputPath)
 	if err != nil {
 		return err
@@ -72,15 +76,18 @@ func (s *CtService) ConvertCtToJson(inputPath string, outputPath string) error {
 		return fmt.Errorf("marshal KCES ct json: %w", err)
 	}
 	data = append(data, '\n')
-	if err := os.WriteFile(outputPath, data, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, data, maxOutputBytes); err != nil {
 		return fmt.Errorf("write %q: %w", outputPath, err)
 	}
 	return nil
 }
 
 // ConvertJsonToCt converts a JSON envelope back into a KCES .ct file.
-func (s *CtService) ConvertJsonToCt(inputPath string, outputPath string) error {
-	data, err := os.ReadFile(inputPath)
+func (s *CtService) ConvertJsonToCt(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
 		return fmt.Errorf("read %q: %w", inputPath, err)
 	}
@@ -97,15 +104,23 @@ func (s *CtService) ConvertJsonToCt(inputPath string, outputPath string) error {
 	if err != nil {
 		return err
 	}
-
-	f, err := os.Create(outputPath)
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	f, err := createConversionFile(ctx, outputPath, maxOutputBytes)
 	if err != nil {
 		return fmt.Errorf("create %q: %w", outputPath, err)
 	}
-	defer f.Close()
-
-	if err := ct.WriteContentTable(f, table); err != nil {
-		return fmt.Errorf("write .ct file: %w", err)
+	writeErr := ct.WriteContentTable(f, table)
+	closeErr := f.Close()
+	if writeErr != nil {
+		return fmt.Errorf("write .ct file: %w", writeErr)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close .ct file: %w", closeErr)
+	}
+	if err := checkConversionContext(ctx); err != nil {
+		return err
 	}
 	return nil
 }

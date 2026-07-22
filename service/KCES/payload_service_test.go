@@ -31,7 +31,7 @@ func TestPayloadService_DynamicBoneJSONRoundTrip(t *testing.T) {
 	}
 
 	service := &PayloadService{}
-	if err := service.ConvertPayloadToJson(inputPath, jsonPath); err != nil {
+	if err := service.ConvertPayloadToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertPayloadToJson: %v", err)
 	}
 
@@ -55,7 +55,7 @@ func TestPayloadService_DynamicBoneJSONRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := service.ConvertJsonToPayload(jsonPath, outPath); err != nil {
+	if err := service.ConvertJsonToPayload(TestConversionContext, jsonPath, outPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJsonToPayload: %v", err)
 	}
 	outData, err := os.ReadFile(outPath)
@@ -97,7 +97,7 @@ func TestPayloadService_ExportCMJSONVariantsRoundTrip(t *testing.T) {
 			}
 
 			service := &PayloadService{}
-			if err := service.ConvertPayloadToJson(input, jsonPath); err != nil {
+			if err := service.ConvertPayloadToJson(TestConversionContext, input, jsonPath, TestConversionMaxOutput); err != nil {
 				t.Fatalf("ConvertPayloadToJson() error = %v", err)
 			}
 			var envelope serializationKCES.KCESPayloadEnvelope
@@ -108,7 +108,7 @@ func TestPayloadService_ExportCMJSONVariantsRoundTrip(t *testing.T) {
 				t.Fatalf("editing envelope format/storage = %q/%q", envelope.Format, envelope.StorageVariant)
 			}
 
-			if err := service.ConvertJsonToPayload(jsonPath, output); err != nil {
+			if err := service.ConvertJsonToPayload(TestConversionContext, jsonPath, output, TestConversionMaxOutput); err != nil {
 				t.Fatalf("ConvertJsonToPayload() error = %v", err)
 			}
 			if got := mustReadServiceTestFile(t, output); !reflect.DeepEqual(got, test.wire) {
@@ -138,6 +138,7 @@ func TestPayloadService_ColliderPackageRoundTrip(t *testing.T) {
 		Format:         serializationKCES.PayloadFormatKCESMessagePack,
 		Extension:      ".dbcol",
 		LengthPrefixed: true,
+		StorageVariant: serializationKCES.PayloadStorageInt32LZ4MessagePack,
 		Kind:           serializationKCES.PayloadKindColliderPackage,
 		ColliderPackage: &serializationKCES.ColliderPackage{
 			Version: 1000,
@@ -167,7 +168,7 @@ func TestPayloadService_ColliderPackageRoundTrip(t *testing.T) {
 	}
 
 	service := &PayloadService{}
-	if err := service.ConvertPayloadToJson(inputPath, jsonPath); err != nil {
+	if err := service.ConvertPayloadToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertPayloadToJson: %v", err)
 	}
 	jsonBytes := mustReadServiceTestFile(t, jsonPath)
@@ -185,7 +186,7 @@ func TestPayloadService_ColliderPackageRoundTrip(t *testing.T) {
 		t.Fatalf("limb enable list not populated from JSON: %+v", decodedJSON.ColliderPackage)
 	}
 
-	if err := service.ConvertJsonToPayload(jsonPath, outputPath); err != nil {
+	if err := service.ConvertJsonToPayload(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJsonToPayload: %v", err)
 	}
 	roundTrip, err := serializationKCES.DecodeKCESPayload(mustReadServiceTestFile(t, outputPath), ".dbcol")
@@ -217,6 +218,7 @@ func testPayloadServiceClothParamsRoundTrip(t *testing.T, ext string) {
 		Format:         serializationKCES.PayloadFormatKCESMessagePack,
 		Extension:      ext,
 		LengthPrefixed: true,
+		StorageVariant: serializationKCES.PayloadStorageInt32LZ4MessagePack,
 		Kind:           serializationKCES.PayloadKindClothParams,
 		ClothParams: &serializationKCES.ClothParams{
 			Radius:                         serializationKCES.BezierParam{StartValue: 0.02, EndValue: 0.04, UseEndValue: true},
@@ -258,7 +260,7 @@ func testPayloadServiceClothParamsRoundTrip(t *testing.T, ext string) {
 	}
 
 	service := &PayloadService{}
-	if err := service.ConvertPayloadToJson(inputPath, jsonPath); err != nil {
+	if err := service.ConvertPayloadToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertPayloadToJson: %v", err)
 	}
 	var decodedJSON serializationKCES.KCESPayloadEnvelope
@@ -277,7 +279,7 @@ func testPayloadServiceClothParamsRoundTrip(t *testing.T, ext string) {
 		t.Fatal(err)
 	}
 
-	if err := service.ConvertJsonToPayload(jsonPath, outputPath); err != nil {
+	if err := service.ConvertJsonToPayload(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJsonToPayload: %v", err)
 	}
 	roundTrip, err := serializationKCES.DecodeKCESPayload(mustReadServiceTestFile(t, outputPath), ext)
@@ -303,10 +305,10 @@ func TestPayloadService_FixedSamplesJSONRoundTrip(t *testing.T) {
 					tmpDir := t.TempDir()
 					jsonPath := filepath.Join(tmpDir, name+".json")
 					outPath := filepath.Join(tmpDir, name)
-					if err := service.ConvertPayloadToJson(sample, jsonPath); err != nil {
+					if err := service.ConvertPayloadToJson(TestConversionContext, sample, jsonPath, TestConversionMaxOutput); err != nil {
 						t.Fatalf("ConvertPayloadToJson: %v", err)
 					}
-					if err := service.ConvertJsonToPayload(jsonPath, outPath); err != nil {
+					if err := service.ConvertJsonToPayload(TestConversionContext, jsonPath, outPath, TestConversionMaxOutput); err != nil {
 						t.Fatalf("ConvertJsonToPayload: %v", err)
 					}
 

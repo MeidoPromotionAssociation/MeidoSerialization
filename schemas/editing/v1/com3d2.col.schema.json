@@ -1,0 +1,297 @@
+{
+  "$defs": {
+    "COM3D2_DynamicBoneColliderBase": {
+      "additionalProperties": false,
+      "properties": {
+        "Bound": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        },
+        "Center": {
+          "items": {
+            "maximum": 3.4028234663852886e+38,
+            "minimum": -3.4028234663852886e+38,
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        },
+        "Direction": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        },
+        "LocalPosition": {
+          "items": {
+            "maximum": 3.4028234663852886e+38,
+            "minimum": -3.4028234663852886e+38,
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        },
+        "LocalRotation": {
+          "items": {
+            "maximum": 3.4028234663852886e+38,
+            "minimum": -3.4028234663852886e+38,
+            "type": "number"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "type": "array"
+        },
+        "LocalScale": {
+          "items": {
+            "maximum": 3.4028234663852886e+38,
+            "minimum": -3.4028234663852886e+38,
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        },
+        "ParentName": {
+          "type": "string"
+        },
+        "SelfName": {
+          "type": "string"
+        },
+        "TypeName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "TypeName",
+        "ParentName",
+        "SelfName",
+        "LocalPosition",
+        "LocalRotation",
+        "LocalScale",
+        "Direction",
+        "Center",
+        "Bound"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:meido-serialization:editing-json:v1:com3d2.col",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Lossless editing JSON contract for com3d2.col.",
+  "properties": {
+    "Colliders": {
+      "description": "An ordered union list of DynamicBone collider records.",
+      "items": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "Base": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/$defs/COM3D2_DynamicBoneColliderBase"
+                  }
+                ]
+              },
+              "Height": {
+                "maximum": 3.4028234663852886e+38,
+                "minimum": -3.4028234663852886e+38,
+                "type": "number"
+              },
+              "Radius": {
+                "maximum": 3.4028234663852886e+38,
+                "minimum": -3.4028234663852886e+38,
+                "type": "number"
+              },
+              "TypeName": {
+                "const": "dbc",
+                "type": "string"
+              }
+            },
+            "required": [
+              "TypeName",
+              "Base",
+              "Radius",
+              "Height"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "Base": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/$defs/COM3D2_DynamicBoneColliderBase"
+                  }
+                ]
+              },
+              "TypeName": {
+                "const": "dpc",
+                "type": "string"
+              }
+            },
+            "required": [
+              "TypeName",
+              "Base"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "Base": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/$defs/COM3D2_DynamicBoneColliderBase"
+                  }
+                ]
+              },
+              "CenterRateMax": {
+                "items": {
+                  "maximum": 3.4028234663852886e+38,
+                  "minimum": -3.4028234663852886e+38,
+                  "type": "number"
+                },
+                "maxItems": 3,
+                "minItems": 3,
+                "type": "array"
+              },
+              "Height": {
+                "maximum": 3.4028234663852886e+38,
+                "minimum": -3.4028234663852886e+38,
+                "type": "number"
+              },
+              "Radius": {
+                "maximum": 3.4028234663852886e+38,
+                "minimum": -3.4028234663852886e+38,
+                "type": "number"
+              },
+              "ScaleRateMulMax": {
+                "maximum": 3.4028234663852886e+38,
+                "minimum": -3.4028234663852886e+38,
+                "type": "number"
+              },
+              "TypeName": {
+                "const": "dbm",
+                "type": "string"
+              }
+            },
+            "required": [
+              "TypeName",
+              "Base",
+              "Radius",
+              "Height",
+              "ScaleRateMulMax",
+              "CenterRateMax"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "TypeName": {
+                "const": "missing",
+                "type": "string"
+              }
+            },
+            "required": [
+              "TypeName"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "title": "Collider records",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Preserve order and use only supported type names; verify every parent bone exists.",
+      "x-meido-edit-role": "runtime_collection",
+      "x-meido-game-usage": "Each record selects a concrete component and is attached to the named parent transform.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 282,
+          "line_start": 232,
+          "observation": "The loader validates CM3D21_COL and constructs dbc, dpc, dbm, or missing collider objects, restoring their parent, transform, direction, center, and bound values.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "symbol": "DynamicBone.SerializeReadCollider"
+        }
+      ]
+    },
+    "Signature": {
+      "description": "The CM3D21_COL header string.",
+      "title": "Collider signature",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep CM3D21_COL.",
+      "x-meido-edit-role": "format_marker",
+      "x-meido-game-usage": "DynamicBone rejects another signature before reading collider records.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 282,
+          "line_start": 232,
+          "observation": "The loader validates CM3D21_COL and constructs dbc, dpc, dbm, or missing collider objects, restoring their parent, transform, direction, center, and bound values.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "symbol": "DynamicBone.SerializeReadCollider"
+        }
+      ]
+    },
+    "Version": {
+      "description": "The integer version passed to each collider's serializer.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "title": "Collider version",
+      "type": "integer",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Preserve the original value and use the target build's value for newly authored files.",
+      "x-meido-edit-role": "version_marker",
+      "x-meido-game-usage": "The game changes the value between builds while retaining the reviewed record layout.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 282,
+          "line_start": 232,
+          "observation": "The loader validates CM3D21_COL and constructs dbc, dpc, dbm, or missing collider objects, restoring their parent, transform, direction, center, and bound values.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "symbol": "DynamicBone.SerializeReadCollider"
+        }
+      ]
+    }
+  },
+  "required": [
+    "Signature",
+    "Version",
+    "Colliders"
+  ],
+  "title": "com3d2.col editing JSON",
+  "type": "object",
+  "x-meido-format-id": "com3d2.col",
+  "x-meido-native-suffixes": [
+    ".col"
+  ],
+  "x-meido-representation": "editing_json",
+  "x-meido-schema-version": "1.0.0"
+}

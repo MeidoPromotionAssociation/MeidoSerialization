@@ -39,11 +39,11 @@ func TestDanceService_DanceObjectData(t *testing.T) {
 				t.Fatalf("ReadDanceObjectDataFile failed: %v", err)
 			}
 
-			if err := s.ConvertDanceObjectDataToJson(inputPath, jsonPath); err != nil {
+			if err := s.ConvertDanceObjectDataToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 				t.Fatalf("ConvertDanceObjectDataToJson failed: %v", err)
 			}
 
-			if err := s.ConvertJsonToDanceObjectData(jsonPath, backPath); err != nil {
+			if err := s.ConvertJsonToDanceObjectData(TestConversionContext, jsonPath, backPath, TestConversionMaxOutput); err != nil {
 				t.Fatalf("ConvertJsonToDanceObjectData failed: %v", err)
 			}
 
@@ -88,11 +88,11 @@ func TestDanceService_TimelineData(t *testing.T) {
 				t.Fatalf("ReadTimelineDataFile failed: %v", err)
 			}
 
-			if err := s.ConvertTimelineDataToJson(inputPath, jsonPath); err != nil {
+			if err := s.ConvertTimelineDataToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 				t.Fatalf("ConvertTimelineDataToJson failed: %v", err)
 			}
 
-			if err := s.ConvertJsonToTimelineData(jsonPath, backPath); err != nil {
+			if err := s.ConvertJsonToTimelineData(TestConversionContext, jsonPath, backPath, TestConversionMaxOutput); err != nil {
 				t.Fatalf("ConvertJsonToTimelineData failed: %v", err)
 			}
 

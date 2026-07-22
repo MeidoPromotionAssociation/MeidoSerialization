@@ -2,6 +2,7 @@ package KCES
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -49,9 +50,16 @@ func (s *SavedAttachService) ReadSavedAttachFile(path string) (*serializationKCE
 	return value, nil
 }
 
-func (s *SavedAttachService) ConvertSavedAttachToJSON(inputPath, outputPath string) error {
-	value, err := s.ReadSavedAttachFile(inputPath)
+func (s *SavedAttachService) ConvertSavedAttachToJSON(ctx context.Context, inputPath, outputPath string, maxOutputBytes int64) error {
+	input, err := readConversionFile(ctx, inputPath)
 	if err != nil {
+		return fmt.Errorf("read saved-attach file %q: %w", inputPath, err)
+	}
+	value, err := serializationKCES.DecodeSavedAttach(input)
+	if err != nil {
+		return fmt.Errorf("decode saved-attach file %q: %w", inputPath, err)
+	}
+	if err := checkConversionContext(ctx); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(value, "", "  ")
@@ -59,14 +67,14 @@ func (s *SavedAttachService) ConvertSavedAttachToJSON(inputPath, outputPath stri
 		return fmt.Errorf("marshal saved-attach JSON: %w", err)
 	}
 	data = append(data, '\n')
-	if err := os.WriteFile(outputPath, data, 0644); err != nil {
+	if err := writeConversionFile(ctx, outputPath, data, maxOutputBytes); err != nil {
 		return fmt.Errorf("write saved-attach JSON %q: %w", outputPath, err)
 	}
 	return nil
 }
 
-func (s *SavedAttachService) ConvertJSONToSavedAttach(inputPath, outputPath string) error {
-	data, err := os.ReadFile(inputPath)
+func (s *SavedAttachService) ConvertJSONToSavedAttach(ctx context.Context, inputPath, outputPath string, maxOutputBytes int64) error {
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
 		return fmt.Errorf("read saved-attach JSON %q: %w", inputPath, err)
 	}
@@ -78,7 +86,10 @@ func (s *SavedAttachService) ConvertJSONToSavedAttach(inputPath, outputPath stri
 	if err != nil {
 		return fmt.Errorf("encode saved-attach JSON %q: %w", inputPath, err)
 	}
-	if err := os.WriteFile(outputPath, encoded, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, encoded, maxOutputBytes); err != nil {
 		return fmt.Errorf("write saved-attach file %q: %w", outputPath, err)
 	}
 	return nil

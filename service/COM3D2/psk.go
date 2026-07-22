@@ -2,6 +2,7 @@ package COM3D2
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -69,7 +70,10 @@ func (m *PskService) WritePskFile(path string, pskData *COM3D2.Psk) error {
 }
 
 // ConvertPskToJson 接收输入文件路径和输出文件路径，将输入文件转换为 .json 文件
-func (m *PskService) ConvertPskToJson(inputPath string, outputPath string) error {
+func (m *PskService) ConvertPskToJson(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
 	if strings.HasSuffix(outputPath, ".psk") {
 		outputPath = strings.TrimSuffix(outputPath, ".psk") + ".psk.json"
 	}
@@ -79,48 +83,27 @@ func (m *PskService) ConvertPskToJson(inputPath string, outputPath string) error
 		return fmt.Errorf("failed to read psk file: %w", err)
 	}
 
-	jsonData, err := json.Marshal(pskData)
-	if err != nil {
-		return fmt.Errorf("failed to marshal psk data: %w", err)
+	if err := checkConversionContext(ctx); err != nil {
+		return err
 	}
-
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("unable to create psk.json file: %w", err)
+	if err := writeConversionJSON(ctx, outputPath, pskData, maxOutputBytes); err != nil {
+		return conversionOutputError("psk JSON", err)
 	}
-	defer func() {
-		if closeErr := f.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("error closing output file: %w", closeErr)
-		}
-	}()
-
-	bw := bufio.NewWriter(f)
-	if _, err := bw.Write(jsonData); err != nil {
-		return fmt.Errorf("failed to write to psk.json file: %w", err)
-	}
-	if err := bw.Flush(); err != nil {
-		return fmt.Errorf("an error occurred while flush bufio: %w", err)
-	}
-
 	return nil
 }
 
 // ConvertJsonToPsk 接收输入文件路径和输出文件路径，将输入文件转换为 .psk 文件
-func (m *PskService) ConvertJsonToPsk(inputPath string, outputPath string) error {
+func (m *PskService) ConvertJsonToPsk(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
 	if strings.HasSuffix(outputPath, ".json") {
 		outputPath = strings.TrimSuffix(outputPath, ".json") + ".psk"
 	}
 
-	f, err := os.Open(inputPath)
-	if err != nil {
-		return fmt.Errorf("cannot open psk.json file: %w", err)
-	}
-	defer f.Close()
-
 	var pskData *COM3D2.Psk
-	if err := json.NewDecoder(f).Decode(&pskData); err != nil {
+	if err := readConversionJSON(ctx, inputPath, &pskData); err != nil {
 		return fmt.Errorf("parsing the psk.json file failed: %w", err)
 	}
-
-	return m.WritePskFile(outputPath, pskData)
+	if err := writeConversionBinary(ctx, outputPath, maxOutputBytes, pskData.Dump); err != nil {
+		return conversionOutputError("psk", err)
+	}
+	return nil
 }

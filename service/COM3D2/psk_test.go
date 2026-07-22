@@ -36,13 +36,13 @@ func TestPskService(t *testing.T) {
 			}
 
 			// 3. Test ConvertPskToJson
-			err = s.ConvertPskToJson(inputPath, jsonPath)
+			err = s.ConvertPskToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput)
 			if err != nil {
 				t.Fatalf("ConvertPskToJson failed: %v", err)
 			}
 
 			// 4. Test ConvertJsonToPsk
-			err = s.ConvertJsonToPsk(jsonPath, backPath)
+			err = s.ConvertJsonToPsk(TestConversionContext, jsonPath, backPath, TestConversionMaxOutput)
 			if err != nil {
 				t.Fatalf("ConvertJsonToPsk failed: %v", err)
 			}

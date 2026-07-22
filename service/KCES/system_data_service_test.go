@@ -83,14 +83,14 @@ func TestSystemDataServiceJSONRoundTripAndFileType(t *testing.T) {
 	}
 
 	service := &SystemDataService{}
-	if err := service.ConvertSystemDataToJSON(inputPath, jsonPath); err != nil {
+	if err := service.ConvertSystemDataToJSON(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertSystemDataToJSON: %v", err)
 	}
 	jsonData := mustReadTestFile(t, jsonPath)
 	if !bytes.Contains(jsonData, []byte(`"kind": "color-preset"`)) || !bytes.Contains(jsonData, []byte(`"colorPreset"`)) || !bytes.Contains(jsonData, []byte(`"instanceGuid": "12345678-1234-1234-1234-123456789abc"`)) {
 		t.Fatalf("generated JSON did not expose the color-preset union:\n%s", jsonData)
 	}
-	if err := service.ConvertJSONToSystemData(jsonPath, outputPath); err != nil {
+	if err := service.ConvertJSONToSystemData(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJSONToSystemData: %v", err)
 	}
 	got, err := serializationKCES.DecodeKCESSystemData(mustReadTestFile(t, outputPath))

@@ -36,13 +36,13 @@ func TestMenuService(t *testing.T) {
 			}
 
 			// 3. Test ConvertMenuToJson
-			err = s.ConvertMenuToJson(inputPath, jsonPath)
+			err = s.ConvertMenuToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput)
 			if err != nil {
 				t.Fatalf("ConvertMenuToJson failed: %v", err)
 			}
 
 			// 4. Test ConvertJsonToMenu
-			err = s.ConvertJsonToMenu(jsonPath, backPath)
+			err = s.ConvertJsonToMenu(TestConversionContext, jsonPath, backPath, TestConversionMaxOutput)
 			if err != nil {
 				t.Fatalf("ConvertJsonToMenu failed: %v", err)
 			}

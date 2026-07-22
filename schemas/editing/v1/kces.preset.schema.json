@@ -1,0 +1,646 @@
+{
+  "$defs": {
+    "KCES_KCESPresetCore": {
+      "additionalProperties": false,
+      "properties": {
+        "bodyData": {
+          "contentEncoding": "base64",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "colorData": {
+          "contentEncoding": "base64",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "propData": {
+          "contentEncoding": "base64",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "rootNil": {
+          "type": "boolean"
+        },
+        "trailingData": {
+          "contentEncoding": "base64",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "version": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "propData",
+        "colorData",
+        "bodyData"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "metaData": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "rootNil": {
+          "type": "boolean"
+        },
+        "trailingData": {
+          "contentEncoding": "base64",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "version": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "metaData"
+      ],
+      "type": "object"
+    },
+    "ct_VirtualDirectoryMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "DirectoriesNil": {
+          "type": "boolean"
+        },
+        "FieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "FilesNil": {
+          "type": "boolean"
+        },
+        "FilesOnly": {
+          "type": "boolean"
+        },
+        "FutureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "Version": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "Versionless": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "Version"
+      ],
+      "type": "object"
+    },
+    "ct_VirtualFileMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "FieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "FutureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "urn:meido-serialization:editing-json:v1:kces.preset",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Lossless editing JSON contract for kces.preset.",
+  "properties": {
+    "containerDirectories": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ct_VirtualDirectoryMetadata"
+      },
+      "description": "Per-directory version, nil, and future-slot metadata.",
+      "title": "Directory metadata",
+      "type": [
+        "null",
+        "object"
+      ],
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Preserve keys and metadata exactly.",
+      "x-meido-edit-role": "serialization_metadata",
+      "x-meido-game-usage": "VirtualDirectory uses it to recreate empty directories and unknown layout state.",
+      "x-meido-risk": "high"
+    },
+    "containerDirectoriesNil": {
+      "description": "Whether the root directory collection was explicitly MessagePack nil.",
+      "title": "Nil directory collection flag",
+      "type": "boolean",
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Keep it synchronized with containerDirectories.",
+      "x-meido-edit-role": "serialization_metadata",
+      "x-meido-game-usage": "The distinction is part of the VirtualDirectory wire shape.",
+      "x-meido-risk": "high"
+    },
+    "containerFieldCount": {
+      "description": "The stored root indexed-array width.",
+      "maximum": 9223372036854775807,
+      "minimum": -9223372036854775808,
+      "title": "Container field count",
+      "type": [
+        "null",
+        "integer"
+      ],
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Preserve it when editing an existing preset.",
+      "x-meido-edit-role": "serialization_metadata",
+      "x-meido-game-usage": "It preserves compatibility with future VirtualDirectory fields.",
+      "x-meido-integer-bits": 64,
+      "x-meido-integer-signed": true,
+      "x-meido-risk": "high"
+    },
+    "containerFilesNil": {
+      "description": "Whether the root file collection was explicitly MessagePack nil.",
+      "title": "Nil file collection flag",
+      "type": "boolean",
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Keep it synchronized with the virtual files and required preset files.",
+      "x-meido-edit-role": "serialization_metadata",
+      "x-meido-game-usage": "The distinction is part of the VirtualDirectory wire shape.",
+      "x-meido-risk": "high"
+    },
+    "containerFilesOnly": {
+      "description": "Whether the root omitted directory metadata in favor of a files-only layout.",
+      "title": "Files-only container flag",
+      "type": "boolean",
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Preserve unchanged.",
+      "x-meido-edit-role": "serialization_metadata",
+      "x-meido-game-usage": "VirtualDirectory uses the flag while rebuilding the root table.",
+      "x-meido-risk": "high"
+    },
+    "containerFutureSlots": {
+      "description": "Raw MessagePack values beyond the known VirtualDirectory keys.",
+      "items": {
+        "contentEncoding": "base64",
+        "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+        "type": [
+          "null",
+          "string"
+        ]
+      },
+      "title": "Container future slots",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Preserve every slot.",
+      "x-meido-edit-role": "opaque_preserve",
+      "x-meido-game-usage": "Current KCES does not interpret these slots.",
+      "x-meido-risk": "critical"
+    },
+    "containerVersion": {
+      "description": "The outer VirtualDirectory version, normally 1000.",
+      "maximum": 9223372036854775807,
+      "minimum": -9223372036854775808,
+      "title": "Preset container version",
+      "type": "integer",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Preserve the source value; use 1000 for a new current KCES preset.",
+      "x-meido-edit-role": "version_marker",
+      "x-meido-game-usage": "VirtualDirectory serializes the preset using this version and its corresponding indexed metadata layout.",
+      "x-meido-integer-bits": 64,
+      "x-meido-integer-signed": true,
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 180,
+          "line_start": 31,
+          "observation": "MaidPreset stores thumbnail, maiddata, and optional meta files in a VirtualDirectory; maiddata contains compressed MaidPresetCore property, color, and body byte blocks.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/MaidPreset.cs",
+          "symbol": "MaidPreset.LoadPreset/Serialize"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 575,
+          "line_start": 409,
+          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length; it preserves version, nil collections, and future slots.",
+          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "symbol": "VirtualDirectory.Serialize/Deserialize"
+        }
+      ]
+    },
+    "containerVersionless": {
+      "description": "Whether the decoded root used the historical versionless VirtualDirectory layout.",
+      "title": "Versionless container flag",
+      "type": "boolean",
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Preserve the decoded layout flag.",
+      "x-meido-edit-role": "serialization_metadata",
+      "x-meido-game-usage": "VirtualDirectory selects its root indexed-array interpretation from this state.",
+      "x-meido-risk": "high"
+    },
+    "containerVirtualFiles": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ct_VirtualFileMetadata"
+      },
+      "description": "Per-file indexed metadata retained independently from file bytes.",
+      "title": "Virtual-file metadata",
+      "type": [
+        "null",
+        "object"
+      ],
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Preserve keys and metadata exactly.",
+      "x-meido-edit-role": "serialization_metadata",
+      "x-meido-game-usage": "VirtualDirectory uses it to preserve short arrays and future slots for individual files.",
+      "x-meido-risk": "high"
+    },
+    "extraFiles": {
+      "additionalProperties": {
+        "contentEncoding": "base64",
+        "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+        "type": [
+          "null",
+          "string"
+        ]
+      },
+      "description": "Virtual files outside thumbnail, maiddata, and meta.",
+      "title": "Additional preset files",
+      "type": [
+        "null",
+        "object"
+      ],
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Preserve names and bytes unless a future game build documents them.",
+      "x-meido-edit-role": "opaque_preserve",
+      "x-meido-game-usage": "MaidPreset ignores unknown files while VirtualDirectory retains them.",
+      "x-meido-risk": "high"
+    },
+    "format": {
+      "description": "The marker for the KCES VirtualDirectory preset envelope.",
+      "title": "Editing format marker",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep kces-virtual-directory-preset.",
+      "x-meido-edit-role": "editing_metadata",
+      "x-meido-game-usage": "It identifies the current KCES preset representation and distinguishes it from legacy COM3D2_PRESET.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 180,
+          "line_start": 31,
+          "observation": "MaidPreset stores thumbnail, maiddata, and optional meta files in a VirtualDirectory; maiddata contains compressed MaidPresetCore property, color, and body byte blocks.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/MaidPreset.cs",
+          "symbol": "MaidPreset.LoadPreset/Serialize"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 575,
+          "line_start": 409,
+          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length; it preserves version, nil collections, and future slots.",
+          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "symbol": "VirtualDirectory.Serialize/Deserialize"
+        }
+      ]
+    },
+    "maidData": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/KCES_KCESPresetCore"
+        }
+      ],
+      "description": "The compressed MessagePack maiddata object containing versioned property, color, and body byte blocks.",
+      "title": "Maid preset core",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep the core version and all three inner blocks from the same source preset generation.",
+      "x-meido-edit-role": "runtime_configuration",
+      "x-meido-game-usage": "MaidPreset hands these blocks to Maid's property, multi-color, and body deserializers when applying a preset.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 180,
+          "line_start": 31,
+          "observation": "MaidPreset stores thumbnail, maiddata, and optional meta files in a VirtualDirectory; maiddata contains compressed MaidPresetCore property, color, and body byte blocks.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/MaidPreset.cs",
+          "symbol": "MaidPreset.LoadPreset/Serialize"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 575,
+          "line_start": 409,
+          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length; it preserves version, nil collections, and future slots.",
+          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "symbol": "VirtualDirectory.Serialize/Deserialize"
+        }
+      ]
+    },
+    "meta": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/KCES_KCESPresetMeta"
+        }
+      ],
+      "description": "Optional compressed MessagePack metadata, normally including the preset display name.",
+      "title": "Preset metadata",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Preserve keys understood by the target browser and retain unknown metadata entries.",
+      "x-meido-edit-role": "runtime_metadata",
+      "x-meido-game-usage": "MaidPreset loads meta for preset-browser information and saves it as a separate virtual file.",
+      "x-meido-risk": "medium",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 180,
+          "line_start": 31,
+          "observation": "MaidPreset stores thumbnail, maiddata, and optional meta files in a VirtualDirectory; maiddata contains compressed MaidPresetCore property, color, and body byte blocks.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/MaidPreset.cs",
+          "symbol": "MaidPreset.LoadPreset/Serialize"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 575,
+          "line_start": 409,
+          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length; it preserves version, nil collections, and future slots.",
+          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "symbol": "VirtualDirectory.Serialize/Deserialize"
+        }
+      ]
+    },
+    "thumbnail": {
+      "contentEncoding": "base64",
+      "description": "PNG thumbnail bytes stored in the thumbnail virtual file.",
+      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+      "title": "Preset thumbnail",
+      "type": [
+        "null",
+        "string"
+      ],
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep valid PNG data or preserve the original thumbnail when editing character blocks.",
+      "x-meido-edit-role": "binary_asset",
+      "x-meido-game-usage": "MaidPreset decodes these bytes for the preset browser preview; they do not directly change character state.",
+      "x-meido-risk": "medium",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 180,
+          "line_start": 31,
+          "observation": "MaidPreset stores thumbnail, maiddata, and optional meta files in a VirtualDirectory; maiddata contains compressed MaidPresetCore property, color, and body byte blocks.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/MaidPreset.cs",
+          "symbol": "MaidPreset.LoadPreset/Serialize"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 575,
+          "line_start": 409,
+          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length; it preserves version, nil collections, and future slots.",
+          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "symbol": "VirtualDirectory.Serialize/Deserialize"
+        }
+      ]
+    }
+  },
+  "required": [
+    "format",
+    "containerVersion",
+    "thumbnail",
+    "maidData"
+  ],
+  "title": "kces.preset editing JSON",
+  "type": "object",
+  "x-meido-format-id": "kces.preset",
+  "x-meido-native-suffixes": [
+    ".preset",
+    ".perset"
+  ],
+  "x-meido-representation": "editing_json",
+  "x-meido-schema-version": "1.0.0"
+}

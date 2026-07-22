@@ -1,0 +1,337 @@
+{
+  "$defs": {
+    "COM3D2_AnimationCurve": {
+      "additionalProperties": false,
+      "properties": {
+        "Keyframes": {
+          "items": {
+            "$ref": "#/$defs/COM3D2_Keyframe"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "Keyframes"
+      ],
+      "type": "object"
+    },
+    "COM3D2_Keyframe": {
+      "additionalProperties": false,
+      "properties": {
+        "InTangent": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "OutTangent": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Time": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Value": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "Time",
+        "Value",
+        "InTangent",
+        "OutTangent"
+      ],
+      "type": "object"
+    },
+    "COM3D2_PanierRadiusGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "BoneName": {
+          "type": "string"
+        },
+        "Curve": {
+          "$ref": "#/$defs/COM3D2_AnimationCurve"
+        },
+        "Radius": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "BoneName",
+        "Radius",
+        "Curve"
+      ],
+      "type": "object"
+    },
+    "COM3D2_Vector3": {
+      "additionalProperties": false,
+      "properties": {
+        "X": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Y": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Z": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "X",
+        "Y",
+        "Z"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:meido-serialization:editing-json:v1:com3d2.psk",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Lossless editing JSON contract for com3d2.psk.",
+  "properties": {
+    "CalcTime": {
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "Gravity": {
+      "$ref": "#/$defs/COM3D2_Vector3",
+      "description": "The gravity vector used by the skirt solver.",
+      "title": "Skirt gravity vector",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Edit the vector and curve together; keep finite values.",
+      "x-meido-edit-role": "runtime_vector",
+      "x-meido-game-usage": "It is read as three floats and combined with GravityDistrib during parameter updates.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 140,
+          "line_start": 18,
+          "observation": "The skirt serializer writes CM3D21_PSK, radius and force curves, per-bone radius groups, stress and scale controls, velocity and gravity curves, and four hard values.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs",
+          "symbol": "DynamicSkirtBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    },
+    "GravityDistrib": {
+      "$ref": "#/$defs/COM3D2_AnimationCurve"
+    },
+    "HardValues": {
+      "description": "The four hard/constraint coefficients written at the end of the file.",
+      "items": {
+        "maximum": 3.4028234663852886e+38,
+        "minimum": -3.4028234663852886e+38,
+        "type": "number"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "title": "Hardness values",
+      "type": "array",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Preserve array length and change one coefficient at a time.",
+      "x-meido-edit-role": "runtime_numeric",
+      "x-meido-game-usage": "DynamicSkirtBone uses them to shape the response of its native cloth plugin.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 140,
+          "line_start": 18,
+          "observation": "The skirt serializer writes CM3D21_PSK, radius and force curves, per-bone radius groups, stress and scale controls, velocity and gravity curves, and four hard values.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs",
+          "symbol": "DynamicSkirtBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    },
+    "PanierForce": {
+      "description": "The force driving skirt/panier motion.",
+      "maximum": 3.4028234663852886e+38,
+      "minimum": -3.4028234663852886e+38,
+      "title": "Panier force",
+      "type": "number",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Use small changes and test both idle and animated poses.",
+      "x-meido-edit-role": "runtime_numeric",
+      "x-meido-game-usage": "The solver applies it with its distribution and stress controls each update.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 140,
+          "line_start": 18,
+          "observation": "The skirt serializer writes CM3D21_PSK, radius and force curves, per-bone radius groups, stress and scale controls, velocity and gravity curves, and four hard values.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs",
+          "symbol": "DynamicSkirtBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    },
+    "PanierForceDistanceThreshold": {
+      "maximum": 3.4028234663852886e+38,
+      "minimum": -3.4028234663852886e+38,
+      "type": "number"
+    },
+    "PanierForceDistrib": {
+      "$ref": "#/$defs/COM3D2_AnimationCurve"
+    },
+    "PanierRadius": {
+      "description": "The base radius used for skirt collision and deformation.",
+      "maximum": 3.4028234663852886e+38,
+      "minimum": -3.4028234663852886e+38,
+      "title": "Base panier radius",
+      "type": "number",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Change with the corresponding radius curves and verify skirt collisions.",
+      "x-meido-edit-role": "runtime_numeric",
+      "x-meido-game-usage": "DynamicSkirtBone combines it with its distribution curve and optional per-bone group values.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 140,
+          "line_start": 18,
+          "observation": "The skirt serializer writes CM3D21_PSK, radius and force curves, per-bone radius groups, stress and scale controls, velocity and gravity curves, and four hard values.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs",
+          "symbol": "DynamicSkirtBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    },
+    "PanierRadiusDistrib": {
+      "$ref": "#/$defs/COM3D2_AnimationCurve"
+    },
+    "PanierRadiusDistribGroups": {
+      "items": {
+        "$ref": "#/$defs/COM3D2_PanierRadiusGroup"
+      },
+      "type": [
+        "null",
+        "array"
+      ]
+    },
+    "PanierStressForce": {
+      "maximum": 3.4028234663852886e+38,
+      "minimum": -3.4028234663852886e+38,
+      "type": "number"
+    },
+    "ScaleEaseSpeed": {
+      "maximum": 3.4028234663852886e+38,
+      "minimum": -3.4028234663852886e+38,
+      "type": "number"
+    },
+    "Signature": {
+      "description": "The CM3D21_PSK header string.",
+      "title": "Skirt-physics signature",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep CM3D21_PSK.",
+      "x-meido-edit-role": "format_marker",
+      "x-meido-game-usage": "DynamicSkirtBone rejects another signature before reading settings.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 140,
+          "line_start": 18,
+          "observation": "The skirt serializer writes CM3D21_PSK, radius and force curves, per-bone radius groups, stress and scale controls, velocity and gravity curves, and four hard values.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs",
+          "symbol": "DynamicSkirtBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    },
+    "StressDegreeMax": {
+      "maximum": 3.4028234663852886e+38,
+      "minimum": -3.4028234663852886e+38,
+      "type": "number"
+    },
+    "StressDegreeMin": {
+      "maximum": 3.4028234663852886e+38,
+      "minimum": -3.4028234663852886e+38,
+      "type": "number"
+    },
+    "StressMinScale": {
+      "maximum": 3.4028234663852886e+38,
+      "minimum": -3.4028234663852886e+38,
+      "type": "number"
+    },
+    "VelocityForceRate": {
+      "maximum": 3.4028234663852886e+38,
+      "minimum": -3.4028234663852886e+38,
+      "type": "number"
+    },
+    "VelocityForceRateDistrib": {
+      "$ref": "#/$defs/COM3D2_AnimationCurve"
+    },
+    "Version": {
+      "description": "The version controlling optional per-bone radius groups.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "title": "Skirt-physics version",
+      "type": "integer",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Preserve the source value and do not remove groups without checking the target build.",
+      "x-meido-edit-role": "version_marker",
+      "x-meido-game-usage": "Versions at or above the reviewed threshold contain the group records; older versions omit them.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 140,
+          "line_start": 18,
+          "observation": "The skirt serializer writes CM3D21_PSK, radius and force curves, per-bone radius groups, stress and scale controls, velocity and gravity curves, and four hard values.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs",
+          "symbol": "DynamicSkirtBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    }
+  },
+  "required": [
+    "Signature",
+    "Version",
+    "PanierRadius",
+    "PanierRadiusDistrib",
+    "PanierRadiusDistribGroups",
+    "PanierForce",
+    "PanierForceDistrib",
+    "PanierStressForce",
+    "StressDegreeMin",
+    "StressDegreeMax",
+    "StressMinScale",
+    "ScaleEaseSpeed",
+    "PanierForceDistanceThreshold",
+    "CalcTime",
+    "VelocityForceRate",
+    "VelocityForceRateDistrib",
+    "Gravity",
+    "GravityDistrib",
+    "HardValues"
+  ],
+  "title": "com3d2.psk editing JSON",
+  "type": "object",
+  "x-meido-format-id": "com3d2.psk",
+  "x-meido-native-suffixes": [
+    ".psk"
+  ],
+  "x-meido-representation": "editing_json",
+  "x-meido-schema-version": "1.0.0"
+}

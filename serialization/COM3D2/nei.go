@@ -21,50 +21,37 @@ import (
 // 本模块实现参考自 https://github.com/usagirei/CM3D2.Toolkit 和 https://github.com/JustAGuest4168/CM3D2.Toolkit
 // 感谢 @usagirei 和 @JustAGuest4168 完整的实现了加解密与转换
 // Under MIT License
-// COM3D2 .nei
-// The Nei format is a Shift-JIS encoded CSV file encrypted with AES in CBC mode, manual alignment without standard padding, and custom IV generation and embedding
-// Normally it should use a fixed key unless KISS did something unusual
-// This module's implementation is based on https://github.com/usagirei/CM3D2.Toolkit and https://github.com/JustAGuest4168/CM3D2.Toolkit
-// Thanks to @usagirei and @JustAGuest4168 for fully implementing encryption, decryption, and conversion
-// Under MIT License
 
-// Nei 表示解密后的 .nei CSV 表格数据
-// Nei represents decrypted .nei CSV table data
+// Nei 表示解密后的 .nei CSV 表格数据 / Nei represents decrypted .nei CSV table data
 type Nei struct {
 	Rows uint32     `json:"Rows"` // CSV 的行数 / Number of CSV rows
 	Cols uint32     `json:"Cols"` // CSV 的列数 / Number of CSV columns
 	Data [][]string `json:"Data"` // CSV 的数据 [行][列] / CSV cell data indexed as [row][column]
 }
 
-// NeiKey 是默认加密密钥
-// NeiKey is the default encryption key
 var (
 	NeiKey = []byte{
 		0xAA, 0xC9, 0xD2, 0x35,
 		0x22, 0x87, 0x20, 0xF2,
 		0x40, 0xC5, 0x61, 0x7C,
 		0x01, 0xDF, 0x66, 0x54,
-	}
+	} // 加密密钥
 )
 
-// ReadNei 从 r 中读取一个 .nei 文件，并解析为 Nei 结构
+// ReadNei 从 r 中读取一个 .nei 文件，并解析为 Nei 结构。
 // neiKey 传入 nil 则使用默认密钥
-// ReadNei reads a .nei file from r and parses it into a Nei structure
-// Passing nil as neiKey selects the default key
 func ReadNei(r io.Reader, neiKey []byte) (*Nei, error) {
 	if neiKey == nil {
 		neiKey = NeiKey
 	}
 
 	// 要解密，所以必须全读取
-	// Decryption requires reading the complete input
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read data: %w", err)
 	}
 
 	// 解密数据
-	// Decrypt the data
 	decrypted, err := decryptData(data, neiKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decrypt data: %w", err)
@@ -74,7 +61,6 @@ func ReadNei(r io.Reader, neiKey []byte) (*Nei, error) {
 	reader := stream.NewBinaryReader(buf)
 
 	// 验证签名
-	// Validate the signature
 	signature, err := reader.ReadBytes(4)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read signature: %w", err)
@@ -84,7 +70,6 @@ func ReadNei(r io.Reader, neiKey []byte) (*Nei, error) {
 	}
 
 	// 读取列数和行数
-	// Read the column and row counts
 	cols, err := reader.ReadUInt32()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read col: %w", err)
@@ -98,23 +83,19 @@ func ReadNei(r io.Reader, neiKey []byte) (*Nei, error) {
 	if err != nil {
 		return nil, err
 	}
-	// 每个单元格都有一个偏移和长度对
-	// 在使用外部输入的维度分配数组前检查物理下界
-	// Every cell has an offset/length pair
-	// Check the physical lower bound before allocating from attacker-controlled dimensions
+	// Every cell has an offset/length pair. Check the physical lower bound
+	// before allocating from attacker-controlled dimensions.
 	if uint64(totalCells) > uint64(buf.Len()/8) {
 		return nil, fmt.Errorf("NEI dimensions %d x %d require %d index entries, but only %d bytes remain", rows, cols, totalCells, buf.Len())
 	}
 
 	// 读取每个单元格的偏移量和长度
-	// Read the offset and length of every cell
 	offsets := make([]uint32, totalCells)
 	lengths := make([]uint32, totalCells)
 	for i := 0; i < totalCells; i++ {
-		// 该单元格内容在字符串数据区中的起始偏移，以 0 为该数据区起点
-		// 该值用于随机访问，解析器稍后按它定位单元格
-		// This is the cell's starting offset relative to the beginning of the string-data area
-		// It supports random access and is used below to locate the cell
+
+		// 该单元格内容在“字符串数据区”中的起始偏移（以 0 为该数据区起点）
+		// 应该是用于随机访问使用的，对我们来说没有用
 		offset, err := reader.ReadUInt32()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read offset: %w", err)
@@ -134,7 +115,6 @@ func ReadNei(r io.Reader, neiKey []byte) (*Nei, error) {
 	}
 
 	// 准备单元格二维数组
-	// Prepare the two-dimensional cell array
 	var data2D [][]string
 	if cols != 0 {
 		data2D = make([][]string, int(rows))
@@ -143,10 +123,8 @@ func ReadNei(r io.Reader, neiKey []byte) (*Nei, error) {
 		}
 	}
 
-	// 按索引表读取每个单元格，偏移是相对字符串数据区的
-	// 不能假设单元格按索引顺序连续存放
-	// Read every cell through the index table, with offsets relative to the string-data area
-	// Cells cannot be assumed to be stored contiguously in index order
+	// 按索引表读取每个单元格。偏移是相对字符串数据区的；不能假设
+	// 单元格按索引顺序连续存放。
 	for i := 0; i < totalCells; i++ {
 		offset := uint64(offsets[i])
 		length := uint64(lengths[i])
@@ -174,8 +152,7 @@ func ReadNei(r io.Reader, neiKey []byte) (*Nei, error) {
 	}, nil
 }
 
-// Dump 将 nei 写出到 w 中，格式与 .Nei 兼容
-// Dump writes nei to w in a format compatible with .Nei
+// Dump 将 nei 写出到 w 中，格式与 .Nei 兼容。
 func (nei *Nei) Dump(w io.Writer) error {
 	totalCells, err := validateNEIShape(nei)
 	if err != nil {
@@ -185,7 +162,6 @@ func (nei *Nei) Dump(w io.Writer) error {
 	writer := stream.NewBinaryWriter(buf)
 
 	// 编码所有字符串
-	// Encode all strings
 	encodedValues := make([][]byte, totalCells)
 	for rowIndex, row := range nei.Data {
 		for colIndex := 0; colIndex < int(nei.Cols); colIndex++ {
@@ -204,28 +180,24 @@ func (nei *Nei) Dump(w io.Writer) error {
 	}
 
 	// 写入文件头
-	// Write the file header
 	err = writer.WriteBytes(NeiSignature)
 	if err != nil {
 		return fmt.Errorf("failed to write signature: %w", err)
 	}
 
 	// 写入列数
-	// Write the column count
 	err = writer.WriteUInt32(nei.Cols)
 	if err != nil {
 		return fmt.Errorf("failed to write Cols: %w", err)
 	}
 
 	// 写入行数
-	// Write the row count
 	err = writer.WriteUInt32(nei.Rows)
 	if err != nil {
 		return fmt.Errorf("failed to write Rows: %w", err)
 	}
 
 	// 写入索引表
-	// Write the index table
 	var totalLength uint64
 	const maxUint32 = uint64(^uint32(0))
 	for _, encoded := range encodedValues {
@@ -246,13 +218,11 @@ func (nei *Nei) Dump(w io.Writer) error {
 		}
 
 		// 索引偏移
-		// Index offset
 		err = writer.WriteUInt32(uint32(offset))
 		if err != nil {
 			return fmt.Errorf("failed to write offset: %w", err)
 		}
 		// 索引长度
-		// Index length
 		err = writer.WriteUInt32(uint32(length))
 		if err != nil {
 			return fmt.Errorf("failed to write length: %w", err)
@@ -262,7 +232,6 @@ func (nei *Nei) Dump(w io.Writer) error {
 	}
 
 	// 写入字符串数据
-	// Write the string data
 	for _, encoded := range encodedValues {
 		if encoded != nil {
 			err = writer.WriteBytes(encoded)
@@ -270,7 +239,6 @@ func (nei *Nei) Dump(w io.Writer) error {
 				return fmt.Errorf("failed to write string: %w", err)
 			}
 			// 每个非空单元都追加一个 null 终止符
-			// Append a null terminator to every non-empty cell
 			err = writer.WriteByte(0x00)
 			if err != nil {
 				return fmt.Errorf("failed to write null terminator: %w", err)
@@ -279,14 +247,12 @@ func (nei *Nei) Dump(w io.Writer) error {
 	}
 
 	// 加密数据
-	// Encrypt the data
 	encryptedData, err := encryptData(buf.Bytes(), NeiKey, nil)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt data: %w", err)
 	}
 
 	// 向 w 写入加密数据
-	// Write the encrypted data to w
 	err = binaryio.WriteBytes(w, encryptedData)
 	if err != nil {
 		return fmt.Errorf("failed to write encrypted data: %w", err)
@@ -295,8 +261,6 @@ func (nei *Nei) Dump(w io.Writer) error {
 	return nil
 }
 
-// checkedNEICellCount 检查 UInt32 行列乘积是否能安全转换为当前平台的切片长度
-// checkedNEICellCount verifies that the UInt32 row-by-column product can be safely converted to a slice length on the current platform
 func checkedNEICellCount(rows, cols uint32) (int, error) {
 	maxInt := uint64(^uint(0) >> 1)
 	if uint64(rows) > maxInt || uint64(cols) > maxInt {
@@ -309,8 +273,6 @@ func checkedNEICellCount(rows, cols uint32) (int, error) {
 	return int(cells), nil
 }
 
-// validateNEIShape 验证 Nei 的二维切片形状与线格式 Rows、Cols 一致
-// validateNEIShape verifies that the Nei two-dimensional slice shape matches the wire Rows and Cols values
 func validateNEIShape(nei *Nei) (int, error) {
 	if nei == nil {
 		return 0, fmt.Errorf("nil NEI table")
@@ -320,10 +282,8 @@ func validateNEIShape(nei *Nei) (int, error) {
 		return 0, err
 	}
 	if nei.Cols == 0 && len(nei.Data) == 0 {
-		// 线格式仅需 Rows 即可表示零列表格
-		// 当行数可达到 UInt32 范围时，避免要求每行都对应一个空 Go 切片
-		// Rows is sufficient to represent a zero-width table on the wire
-		// Avoid requiring one empty Go slice per row when the count can span UInt32
+		// Rows is sufficient to represent a zero-width table on the wire. Avoid
+		// requiring one empty Go slice per row when the count can span UInt32.
 		return totalCells, nil
 	}
 	if uint64(len(nei.Data)) != uint64(nei.Rows) {
@@ -338,7 +298,6 @@ func validateNEIShape(nei *Nei) (int, error) {
 }
 
 // stringToShiftJIS 将UTF-8字符串转换为Shift-JIS字节数组
-// stringToShiftJIS converts a UTF-8 string to a Shift-JIS byte array
 func stringToShiftJIS(s string) ([]byte, error) {
 	var out []byte
 	for _, r := range s {
@@ -360,14 +319,12 @@ func stringToShiftJIS(s string) ([]byte, error) {
 }
 
 // shiftJISToString 将Shift-JIS字节数组转换为UTF-8字符串
-// shiftJISToString converts a Shift-JIS byte array to a UTF-8 string
 func shiftJISToString(data []byte) (string, error) {
 	result, _, err := transform.Bytes(japanese.ShiftJIS.NewDecoder(), data)
 	return string(result), err
 }
 
 // generateIV 生成初始化向量
-// generateIV generates the initialization vector
 func generateIV(ivSeed []byte) []byte {
 	if len(ivSeed) != 4 {
 		panic("IV seed must be 4 bytes")
@@ -381,7 +338,6 @@ func generateIV(ivSeed []byte) []byte {
 	}
 
 	// 线性反馈移位寄存器算法
-	// Linear-feedback shift-register algorithm
 	for i := 0; i < 4; i++ {
 		n := seed[0] ^ (seed[0] << 11)
 		seed[0] = seed[1]
@@ -390,14 +346,10 @@ func generateIV(ivSeed []byte) []byte {
 		// 注：Golang 中位运算优先级与 C# 不同
 		// C# 原式：seed[3] = n ^ seed[3] ^ (n ^ seed[3] >> 11) >> 8;
 		// 解析为：seed[3] = n ^ seed[3] ^ ((n ^ (seed[3] >> 11)) >> 8)
-		// Note: bitwise operators have different precedence in Golang and C#
-		// The original C# expression is seed[3] = n ^ seed[3] ^ (n ^ seed[3] >> 11) >> 8;
-		// It parses as seed[3] = n ^ seed[3] ^ ((n ^ (seed[3] >> 11)) >> 8)
 		seed[3] = n ^ seed[3] ^ ((n ^ (seed[3] >> 11)) >> 8)
 	}
 
 	// 转换为字节数组
-	// Convert to a byte array
 	iv := make([]byte, 16)
 	for i, s := range seed {
 		binary.LittleEndian.PutUint32(iv[i*4:], s)
@@ -407,77 +359,59 @@ func generateIV(ivSeed []byte) []byte {
 }
 
 // encryptData 加密数据
-// encryptData encrypts data
 func encryptData(data []byte, key []byte, ivSeed []byte) ([]byte, error) {
 	if ivSeed == nil {
-		// 以下随机 IV 种子实现按原代码保留为注释
-		// The random IV seed implementation below remains commented out as in the original code
-		// 生成随机 IV 种子
-		// Generate a random IV seed
-		// seed := rand.Uint32()
-		// ivSeed = make([]byte, 4)
-		// binary.LittleEndian.PutUint32(ivSeed, seed)
-		// 不需要任何安全性，越容易解码越好
-		// We don't need any security, the easier it is to decode the better
-		ivSeed = []byte{0x09, 0x00, 0x01, 0x03}
+		//// 生成随机 IV 种子
+		//seed := rand.Uint32()
+		//ivSeed = make([]byte, 4)
+		//binary.LittleEndian.PutUint32(ivSeed, seed)
+		ivSeed = []byte{0x09, 0x00, 0x01, 0x03} // We don't need any security, the easier it is to decode the better
 	}
 
 	iv := generateIV(ivSeed)
 
 	// 创建 AES 加密器
-	// Create the AES cipher
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cipher: %w", err)
 	}
 
 	// 计算填充长度（16字节对齐）
-	// Calculate the padding length for 16-byte alignment
 	extraLen := 0
 	if len(data)%16 != 0 {
 		extraLen = 16 - (len(data) % 16)
 	}
 
 	// 准备加密数据
-	// Prepare the data for encryption
 	plaintext := make([]byte, len(data)+extraLen)
 	copy(plaintext, data)
 
 	// 加密
-	// Encrypt
 	mode := cipher.NewCBCEncrypter(block, iv)
 	ciphertext := make([]byte, len(plaintext))
 	mode.CryptBlocks(ciphertext, plaintext)
 
 	// 构建最终数据
-	// Build the final data
 	result := make([]byte, len(ciphertext)+5)
 	copy(result, ciphertext)
-	// 写入额外长度标识
-	// Write the extra-length marker
-	result[len(ciphertext)] = byte(extraLen) ^ ivSeed[0]
-	// 写入 IV 种子
-	// Write the IV seed
-	copy(result[len(ciphertext)+1:], ivSeed)
+	result[len(ciphertext)] = byte(extraLen) ^ ivSeed[0] // 额外长度标识
+	copy(result[len(ciphertext)+1:], ivSeed)             // IV 种子
 
 	return result, nil
 }
 
 // decryptData 解密数据
-// decryptData decrypts data
 func decryptData(encryptedData []byte, key []byte) ([]byte, error) {
 	if len(encryptedData) < 5 {
 		return nil, fmt.Errorf("invalid data length: %d", len(encryptedData))
 	}
 
 	// 提取控制信息
-	// Extract the control data
 	dataLen := len(encryptedData) - 5
 	if dataLen <= 0 {
 		return nil, fmt.Errorf("invalid encrypted payload length: %d", dataLen)
 	}
 	// CBC 模式要求输入为分组大小的整数倍，否则 CryptBlocks 将 panic
-	// CBC mode requires input to be a multiple of the block size or CryptBlocks will panic
 	if dataLen%aes.BlockSize != 0 {
 		return nil, fmt.Errorf("ciphertext length (%d) is not a multiple of AES block size (%d)", dataLen, aes.BlockSize)
 	}
@@ -491,24 +425,20 @@ func decryptData(encryptedData []byte, key []byte) ([]byte, error) {
 	}
 
 	// 生成 IV
-	// Generate the IV
 	iv := generateIV(ivSeed)
 
 	// 创建 AES 解密器
-	// Create the AES decryptor
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cipher: %w", err)
 	}
 
 	// 解密
-	// Decrypt
 	mode := cipher.NewCBCDecrypter(block, iv)
 	plaintext := make([]byte, dataLen)
 	mode.CryptBlocks(plaintext, encryptedData[:dataLen])
 
 	// 移除填充
-	// Remove the padding
 	actualLen := len(plaintext) - extraLen
 	if actualLen < 0 {
 		return nil, fmt.Errorf("invalid padding length: %d", extraLen)

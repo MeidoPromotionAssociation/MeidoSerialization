@@ -2,6 +2,7 @@ package KCES
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -42,9 +43,16 @@ func (s *GP03BridgeService) ReadBridgeFile(path string) (*serializationKCES.GP03
 	return value, nil
 }
 
-func (s *GP03BridgeService) ConvertBridgeToJSON(inputPath, outputPath string) error {
-	value, err := s.ReadBridgeFile(inputPath)
+func (s *GP03BridgeService) ConvertBridgeToJSON(ctx context.Context, inputPath, outputPath string, maxOutputBytes int64) error {
+	input, err := readConversionFile(ctx, inputPath)
 	if err != nil {
+		return fmt.Errorf("read GP03 bridge file %q: %w", inputPath, err)
+	}
+	value, err := serializationKCES.DecodeGP03Bridge(input)
+	if err != nil {
+		return fmt.Errorf("decode GP03 bridge file %q: %w", inputPath, err)
+	}
+	if err := checkConversionContext(ctx); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(value, "", "  ")
@@ -52,14 +60,14 @@ func (s *GP03BridgeService) ConvertBridgeToJSON(inputPath, outputPath string) er
 		return fmt.Errorf("marshal GP03 bridge JSON: %w", err)
 	}
 	data = append(data, '\n')
-	if err := os.WriteFile(outputPath, data, 0644); err != nil {
+	if err := writeConversionFile(ctx, outputPath, data, maxOutputBytes); err != nil {
 		return fmt.Errorf("write GP03 bridge JSON %q: %w", outputPath, err)
 	}
 	return nil
 }
 
-func (s *GP03BridgeService) ConvertJSONToBridge(inputPath, outputPath string) error {
-	data, err := os.ReadFile(inputPath)
+func (s *GP03BridgeService) ConvertJSONToBridge(ctx context.Context, inputPath, outputPath string, maxOutputBytes int64) error {
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
 		return fmt.Errorf("read GP03 bridge JSON %q: %w", inputPath, err)
 	}
@@ -71,7 +79,10 @@ func (s *GP03BridgeService) ConvertJSONToBridge(inputPath, outputPath string) er
 	if err != nil {
 		return fmt.Errorf("encode GP03 bridge JSON %q: %w", inputPath, err)
 	}
-	if err := os.WriteFile(outputPath, encoded, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, encoded, maxOutputBytes); err != nil {
 		return fmt.Errorf("write GP03 bridge file %q: %w", outputPath, err)
 	}
 	return nil

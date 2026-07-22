@@ -9,30 +9,28 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
-// system.dat 内 color_preset 目录中自定义颜色预设虚拟文件的 MessagePack 和 LZ4 布局
-// 该载荷没有独立磁盘扩展名
-// MessagePack and LZ4 layout for custom color-preset virtual files below color_preset inside system.dat
-// This payload has no standalone disk extension
+// system.dat 内 color_preset 目录中自定义颜色预设虚拟文件的 MessagePack/LZ4 布局。
+// 该载荷没有独立磁盘扩展名。
+//
+// MessagePack/LZ4 layout for custom color-preset virtual files below color_preset inside system.dat.
+// This payload has no standalone disk extension.
 
 const (
-	// ColorPresetVersion 是 KCES 1.34.4 中 CustomColorPresetBase<T>.FixVersion 的值
-	// ColorPresetVersion is the value of CustomColorPresetBase<T>.FixVersion in KCES 1.34.4
+	// ColorPresetVersion is CustomColorPresetBase<T>.FixVersion in KCES 1.34.4.
 	ColorPresetVersion = 1004
-	// ColorPresetNoAssetMigrationMinVersion 是 OnDeserializeVersionCheck 不再检查已安装头发预设菜单的首个根版本
-	// ColorPresetNoAssetMigrationMinVersion is the first root version for which OnDeserializeVersionCheck no longer inspects installed hair-preset menus
+	// ColorPresetNoAssetMigrationMinVersion is the first root version for which
+	// OnDeserializeVersionCheck does not inspect the installed hair preset menus.
 	ColorPresetNoAssetMigrationMinVersion = 1003
-	// ColorPresetPackVersion 是 CustomColorPresetColorPack.FixVersion 的值
-	// ColorPresetPackVersion is the value of CustomColorPresetColorPack.FixVersion
+	// ColorPresetPackVersion is CustomColorPresetColorPack.FixVersion.
 	ColorPresetPackVersion = 1001
-	// ColorPresetColorVersion 是 KCES 1.34.4 中 FreeColor、LayerFreeColor 与 GradationColor 共用的版本
-	// ColorPresetColorVersion is the version shared by FreeColor, LayerFreeColor, and GradationColor in KCES 1.34.4
+	// ColorPresetColorVersion is shared by FreeColor, LayerFreeColor, and
+	// GradationColor in KCES 1.34.4.
 	ColorPresetColorVersion = 1000
 
 	colorPresetCompressionMinLength = 64
 )
 
-// ColorPresetPackType 表示 CustomColorPresetColorPack.Type 的 Int32 线格式值
-// ColorPresetPackType represents the Int32 wire value of CustomColorPresetColorPack.Type
+// ColorPresetPackType is CustomColorPresetColorPack.Type's Int32 wire value.
 type ColorPresetPackType int
 
 const (
@@ -41,103 +39,100 @@ const (
 	ColorPresetPackOnlyAlpha
 )
 
-// ColorPreset 表示 MaidEdit.ColorPreset 与 MaidEdit.ColorPresetSlot 共用的序列化基类
-// 两个派生类没有增加 MessagePack Key，因此线格式字节完全相同
-// ID 与 BaseMenuFile 使用指针是因为 C# 字符串格式化器允许 nil，InstanceGUID 为保持 API 兼容使用字符串并另以 InstanceGUIDIsNil 保留 nil 线状态
-// 普通解码不会重现游戏 Guid.NewGuid 回调，非空线格式值保持不透明，因为游戏不会对它调用 Guid.Parse
-// ColorPreset represents the serialized base shared by MaidEdit.ColorPreset and MaidEdit.ColorPresetSlot
-// Neither derived class adds MessagePack keys, so their wire bytes are identical
-// ID and BaseMenuFile use pointers because the C# string formatter permits nil, while InstanceGUID remains a string for API compatibility and uses InstanceGUIDIsNil to retain the nil wire state
-// Ordinary decoding does not reproduce the game Guid.NewGuid callback, and a non-empty wire value remains opaque because the game never passes it through Guid.Parse
+// ColorPreset models the common serialized base of MaidEdit.ColorPreset and
+// MaidEdit.ColorPresetSlot. Those two derived classes add no MessagePack keys,
+// so their bytes are identical.
+//
+// ID, BaseMenuFile, LayerName, and ViewName use pointers because the C# string
+// formatter permits nil. InstanceGUID is a string for API compatibility, so
+// this model cannot distinguish a nil wire string from an empty one. Ordinary
+// decoding keeps either representation as the empty string and deliberately
+// does not reproduce the game's Guid.NewGuid callback. A non-empty wire value
+// is opaque; the game never passes it through Guid.Parse.
 type ColorPreset struct {
-	MessagePackRootMetadata                         // 根值 nil 与尾部字节元数据 / Root nil and trailing-byte metadata
-	Version                 int                     `json:"version"`                     // Key 0 的预设版本，当前 FixVersion 为 1004 / Preset version at Key 0, with a current FixVersion of 1004
-	ID                      *string                 `json:"id"`                          // Key 1 的预设标识，用户预设保存时也作为虚拟文件名 / Preset identifier at Key 1, also used as the virtual filename for user presets
-	BaseMenuFile            *string                 `json:"baseMenuFile"`                // Key 2 的基础颜色预设菜单文件名 / Base color-preset menu filename at Key 2
-	UserCreated             bool                    `json:"userCreated"`                 // Key 3 的用户创建标志，游戏据此决定是否保存预设二进制 / User-created flag at Key 3, used by the game to decide whether to save preset bytes
-	IsAdvancedMode          bool                    `json:"isAdvancedMode"`              // Key 4 的高级模式状态 / Advanced-mode state at Key 4
-	ColorPackList           []*ColorPresetColorPack `json:"colorPackList"`               // Key 5 的颜色层包列表 / Color-layer pack list at Key 5
-	InstanceGUID            string                  `json:"instanceGuid"`                // Key 6 的实例标识，非空线格式值由游戏作为不透明字符串使用 / Instance identifier at Key 6, with non-empty wire values treated as opaque strings by the game
-	InstanceGUIDIsNil       bool                    `json:"instanceGuidIsNil,omitempty"` // Key 6 是否显式为 MessagePack nil / Whether Key 6 was explicitly MessagePack nil
-	FieldCount              *int                    `json:"fieldCount,omitempty"`        // 原始 indexed object 的槽位数，标准宽度 7 时可省略 / Slot count of the original indexed object, omittable for the standard width of 7
-	FutureSlots             [][]byte                `json:"futureSlots,omitempty"`       // Key 7 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 7
+	MessagePackRootMetadata
+	Version           int                     `json:"version"`
+	ID                *string                 `json:"id"`
+	BaseMenuFile      *string                 `json:"baseMenuFile"`
+	UserCreated       bool                    `json:"userCreated"`
+	IsAdvancedMode    bool                    `json:"isAdvancedMode"`
+	ColorPackList     []*ColorPresetColorPack `json:"colorPackList"`
+	InstanceGUID      string                  `json:"instanceGuid"`
+	InstanceGUIDIsNil bool                    `json:"instanceGuidIsNil,omitempty"`
+	FieldCount        *int                    `json:"fieldCount,omitempty"`
+	FutureSlots       [][]byte                `json:"futureSlots,omitempty"`
 }
 
-// ColorPresetSlot 是 ColorPreset 的线格式别名，游戏派生类型没有新增 Key
-// ColorPresetSlot is a wire alias of ColorPreset because the game-derived type adds no keys
+// ColorPresetSlot is a wire alias: ColorPresetSlot has no additional keys.
 type ColorPresetSlot = ColorPreset
 
-// ColorPresetColorPack 保留 CustomColorPresetColorPack 的全部序列化字段，包括私有 mpnNames 与 allowedMpnOverRide
-// 游戏 CopyTo 方法意外漏掉 allowedMpnOverRide，但本编解码器面向线格式本身，因此不会丢弃它
-// ColorPresetColorPack preserves every serialized CustomColorPresetColorPack field including private mpnNames and allowedMpnOverRide
-// The game CopyTo method accidentally omits allowedMpnOverRide, but this codec models the wire itself and therefore does not discard it
+// ColorPresetColorPack preserves every serialized field, including the
+// private mpnNames and allowedMpnOverRide members. The game's CopyTo method
+// accidentally omits allowedMpnOverRide; this codec models the wire itself and
+// therefore does not discard it.
 type ColorPresetColorPack struct {
-	Version            int                          `json:"version"`                // Key 0 的色包版本，当前 FixVersion 为 1001 / Color-pack version at Key 0, with a current FixVersion of 1001
-	MPNs               []int                        `json:"mpns"`                   // Key 1 的 MPN 数值数组，当前版本反序列化回调会用 MPNNames 解析结果覆盖它 / Numeric MPN array at Key 1, overwritten by parsed MPNNames in the current-version deserialization callback
-	LayerName          *string                      `json:"layerName"`              // Key 2 的 SavedTexData 层名称 / SavedTexData layer name at Key 2
-	ViewName           *string                      `json:"viewName"`               // Key 3 的界面显示名称 / UI display name at Key 3
-	Type               ColorPresetPackType          `json:"type"`                   // Key 4 的颜色与透明度应用模式 / Color and alpha application mode at Key 4
-	ColorList          []*ColorPresetLayerFreeColor `json:"colorList"`              // Key 5 的普通层颜色列表 / Normal layer-color list at Key 5
-	GradationColorList []*ColorPresetGradationColor `json:"gradationColorList"`     // Key 6 的渐变颜色点列表 / Gradation-color point list at Key 6
-	Alpha              float32                      `json:"alpha"`                  // Key 7 的乘算透明度 / Multiplied alpha at Key 7
-	AllowedMPNOverride bool                         `json:"allowedMpnOverRide"`     // Key 8 的 MPN 覆盖许可标志 / MPN override permission flag at Key 8
-	MPNNames           []string                     `json:"mpnNames"`               // Key 9 的 MPN 名称数组，当前反序列化回调用它重建 MPNs / MPN-name array at Key 9, used by the current deserialization callback to rebuild MPNs
-	MPNNameNulls       []bool                       `json:"mpnNameNulls,omitempty"` // MPNNames 各项是否在线格式中为 nil 的库内保真元数据 / Library fidelity metadata recording which MPNNames entries were nil on the wire
-	FieldCount         *int                         `json:"fieldCount,omitempty"`   // 原始 indexed object 的槽位数，标准宽度 10 时可省略 / Slot count of the original indexed object, omittable for the standard width of 10
-	FutureSlots        [][]byte                     `json:"futureSlots,omitempty"`  // Key 10 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 10
+	Version            int                          `json:"version"`
+	MPNs               []int                        `json:"mpns"`
+	LayerName          *string                      `json:"layerName"`
+	ViewName           *string                      `json:"viewName"`
+	Type               ColorPresetPackType          `json:"type"`
+	ColorList          []*ColorPresetLayerFreeColor `json:"colorList"`
+	GradationColorList []*ColorPresetGradationColor `json:"gradationColorList"`
+	Alpha              float32                      `json:"alpha"`
+	AllowedMPNOverride bool                         `json:"allowedMpnOverRide"`
+	MPNNames           []string                     `json:"mpnNames"`
+	MPNNameNulls       []bool                       `json:"mpnNameNulls,omitempty"`
+	FieldCount         *int                         `json:"fieldCount,omitempty"`
+	FutureSlots        [][]byte                     `json:"futureSlots,omitempty"`
 }
 
-// ColorPresetFreeColor 公开 FreeColor 的四个私有原始字段
-// MessagePack 私有成员解析器不会让这些值经过带范围钳制的公开属性
-// ColorPresetFreeColor exposes the four private raw fields of FreeColor
-// The MessagePack private-member resolver does not pass these values through the clamping public properties
+// ColorPresetFreeColor exposes FreeColor's four private raw fields. They are
+// not passed through the clamping public properties by the private resolver.
 type ColorPresetFreeColor struct {
-	Version     int      `json:"version"`               // Key 0 的 FreeColor 版本，当前 FixVersion 为 1000 / FreeColor version at Key 0, with a current FixVersion of 1000
-	Hue         int      `json:"hue"`                   // Key 1 的私有原始色相 hue_ / Private raw hue_ value at Key 1
-	Saturation  int      `json:"saturation"`            // Key 2 的私有原始饱和度 saturation_ / Private raw saturation_ value at Key 2
-	Brightness  int      `json:"brightness"`            // Key 3 的私有原始亮度 brightness_，不是 rawBrighteness 加 255 表示 / Private raw brightness_ value at Key 3, not the rawBrighteness plus-255 representation
-	Contrast    int      `json:"contrast"`              // Key 4 的私有原始对比度 contrast_ / Private raw contrast_ value at Key 4
-	FieldCount  *int     `json:"fieldCount,omitempty"`  // 原始 indexed object 的槽位数，标准宽度 5 时可省略 / Slot count of the original indexed object, omittable for the standard width of 5
-	FutureSlots [][]byte `json:"futureSlots,omitempty"` // Key 5 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 5
+	Version     int      `json:"version"`
+	Hue         int      `json:"hue"`
+	Saturation  int      `json:"saturation"`
+	Brightness  int      `json:"brightness"`
+	Contrast    int      `json:"contrast"`
+	FieldCount  *int     `json:"fieldCount,omitempty"`
+	FutureSlots [][]byte `json:"futureSlots,omitempty"`
 }
 
-// ColorPresetLayerFreeColor 表示 LayerFreeColor 包含继承版本在内的四槽 indexed object
-// ColorPresetLayerFreeColor represents the four-slot LayerFreeColor indexed object including its inherited version
+// ColorPresetLayerFreeColor is LayerFreeColor's inherited four-slot object.
 type ColorPresetLayerFreeColor struct {
-	Version     int                   `json:"version"`               // Key 0 的 LayerFreeColor 版本，当前 FixVersion 为 1000 / LayerFreeColor version at Key 0, with a current FixVersion of 1000
-	BaseColor   *ColorPresetFreeColor `json:"baseColor"`             // Key 1 的可空基础 FreeColor / Nullable base FreeColor at Key 1
-	ShadowColor *ColorPresetFreeColor `json:"shadowColor"`           // Key 2 的可空阴影 FreeColor / Nullable shadow FreeColor at Key 2
-	ShadowRate  int                   `json:"shadowRate"`            // Key 3 的私有原始阴影比例 shadowRate_ / Private raw shadowRate_ value at Key 3
-	FieldCount  *int                  `json:"fieldCount,omitempty"`  // 原始 indexed object 的槽位数，标准宽度 4 时可省略 / Slot count of the original indexed object, omittable for the standard width of 4
-	FutureSlots [][]byte              `json:"futureSlots,omitempty"` // Key 4 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 4
+	Version     int                   `json:"version"`
+	BaseColor   *ColorPresetFreeColor `json:"baseColor"`
+	ShadowColor *ColorPresetFreeColor `json:"shadowColor"`
+	ShadowRate  int                   `json:"shadowRate"`
+	FieldCount  *int                  `json:"fieldCount,omitempty"`
+	FutureSlots [][]byte              `json:"futureSlots,omitempty"`
 }
 
-// ColorPresetControlSlider 只包含 ControlSlider 唯一序列化的私有 value_ 字段
-// readonly range 被 MessagePack 忽略，并由 C# 构造函数重建为 0 至 1
-// ColorPresetControlSlider contains the only serialized private value_ field of ControlSlider
-// Its readonly range is ignored by MessagePack and rebuilt as 0 through 1 by the C# constructor
+// ColorPresetControlSlider contains the only serialized ControlSlider field,
+// private value_. Its readonly range is ignored by MessagePack and is rebuilt
+// as [0,1] by the C# constructor.
 type ColorPresetControlSlider struct {
-	Value       float32  `json:"value"`                 // Key 0 的私有原始滑块值 value_，私有成员解析不会钳制它 / Private raw slider value_ at Key 0, not clamped by private-member deserialization
-	FieldCount  *int     `json:"fieldCount,omitempty"`  // 原始 indexed object 的槽位数，标准宽度 1 时可省略 / Slot count of the original indexed object, omittable for the standard width of 1
-	FutureSlots [][]byte `json:"futureSlots,omitempty"` // Key 1 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 1
+	Value       float32  `json:"value"`
+	FieldCount  *int     `json:"fieldCount,omitempty"`
+	FutureSlots [][]byte `json:"futureSlots,omitempty"`
 }
 
-// ColorPresetGradationColor 在 LayerFreeColor 四个槽位后增加三个 ControlSlider
-// ColorPresetGradationColor extends the four LayerFreeColor slots with three ControlSlider values
+// ColorPresetGradationColor extends LayerFreeColor with three ControlSliders.
 type ColorPresetGradationColor struct {
-	Version     int                       `json:"version"`                 // Key 0 的 GradationColor 版本，当前 FixVersion 为 1000 / GradationColor version at Key 0, with a current FixVersion of 1000
-	BaseColor   *ColorPresetFreeColor     `json:"baseColor"`               // Key 1 的可空基础 FreeColor / Nullable base FreeColor at Key 1
-	ShadowColor *ColorPresetFreeColor     `json:"shadowColor"`             // Key 2 的可空阴影 FreeColor / Nullable shadow FreeColor at Key 2
-	ShadowRate  int                       `json:"shadowRate"`              // Key 3 的私有原始阴影比例 shadowRate_ / Private raw shadowRate_ value at Key 3
-	Position    *ColorPresetControlSlider `json:"controlPointPosition"`    // Key 4 的渐变控制点中心位置滑块 / Gradation control-point center-position slider at Key 4
-	RangeBefore *ColorPresetControlSlider `json:"controlPointRangeBefore"` // Key 5 的控制点前侧范围滑块 / Control-point before-range slider at Key 5
-	RangeAfter  *ColorPresetControlSlider `json:"controlPointRangeAfter"`  // Key 6 的控制点后侧范围滑块 / Control-point after-range slider at Key 6
-	FieldCount  *int                      `json:"fieldCount,omitempty"`    // 原始 indexed object 的槽位数，标准宽度 7 时可省略 / Slot count of the original indexed object, omittable for the standard width of 7
-	FutureSlots [][]byte                  `json:"futureSlots,omitempty"`   // Key 7 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 7
+	Version     int                       `json:"version"`
+	BaseColor   *ColorPresetFreeColor     `json:"baseColor"`
+	ShadowColor *ColorPresetFreeColor     `json:"shadowColor"`
+	ShadowRate  int                       `json:"shadowRate"`
+	Position    *ColorPresetControlSlider `json:"controlPointPosition"`
+	RangeBefore *ColorPresetControlSlider `json:"controlPointRangeBefore"`
+	RangeAfter  *ColorPresetControlSlider `json:"controlPointRangeAfter"`
+	FieldCount  *int                      `json:"fieldCount,omitempty"`
+	FutureSlots [][]byte                  `json:"futureSlots,omitempty"`
 }
 
-// NewColorPreset 创建与 C# 构造函数一致的确定性默认值，但要求调用者提供 GUID，避免 Guid.NewGuid 在序列化代码中隐藏身份变化
-// NewColorPreset creates the same deterministic defaults as the C# constructor but requires the caller to supply the GUID so Guid.NewGuid cannot hide identity changes inside serialization code
+// NewColorPreset creates the same deterministic defaults as the C#
+// constructor, except the caller supplies the GUID instead of permitting
+// Guid.NewGuid to hide identity changes inside serialization code.
 func NewColorPreset(instanceGUID string) (*ColorPreset, error) {
 	if err := validateColorPresetConstructorGUID(instanceGUID, "ColorPreset.instanceGuid"); err != nil {
 		return nil, err
@@ -145,14 +140,12 @@ func NewColorPreset(instanceGUID string) (*ColorPreset, error) {
 	return newColorPresetDefaults(instanceGUID), nil
 }
 
-// NewColorPresetSlot 是线格式相同的 ColorPresetSlot 对应显式构造函数
-// NewColorPresetSlot is the corresponding explicit constructor for the wire-identical ColorPresetSlot type
+// NewColorPresetSlot is the corresponding explicit constructor for the
+// wire-identical ColorPresetSlot type.
 func NewColorPresetSlot(instanceGUID string) (*ColorPresetSlot, error) {
 	return NewColorPreset(instanceGUID)
 }
 
-// newColorPresetDefaults 创建 CustomColorPresetBase 构造后的版本、空色包列表和指定实例标识
-// newColorPresetDefaults creates the version, empty color-pack list, and supplied instance identifier produced after CustomColorPresetBase construction
 func newColorPresetDefaults(instanceGUID string) *ColorPreset {
 	return &ColorPreset{
 		Version:       ColorPresetVersion,
@@ -161,8 +154,6 @@ func newColorPresetDefaults(instanceGUID string) *ColorPreset {
 	}
 }
 
-// newColorPresetPackDefaults 创建 CustomColorPresetColorPack 字段初始化器产生的当前版本与两个空颜色列表
-// newColorPresetPackDefaults creates the current version and two empty color lists produced by CustomColorPresetColorPack field initializers
 func newColorPresetPackDefaults() *ColorPresetColorPack {
 	return &ColorPresetColorPack{
 		Version:            ColorPresetPackVersion,
@@ -171,14 +162,10 @@ func newColorPresetPackDefaults() *ColorPresetColorPack {
 	}
 }
 
-// newColorPresetFreeColorDefaults 创建只设置当前 FixVersion 的 FreeColor
-// newColorPresetFreeColorDefaults creates a FreeColor with only its current FixVersion set
 func newColorPresetFreeColorDefaults() *ColorPresetFreeColor {
 	return &ColorPresetFreeColor{Version: ColorPresetColorVersion}
 }
 
-// newColorPresetLayerDefaults 创建带当前版本及两个非 nil 默认 FreeColor 的 LayerFreeColor
-// newColorPresetLayerDefaults creates a LayerFreeColor with the current version and two non-nil default FreeColor values
 func newColorPresetLayerDefaults() *ColorPresetLayerFreeColor {
 	return &ColorPresetLayerFreeColor{
 		Version:     ColorPresetColorVersion,
@@ -187,8 +174,6 @@ func newColorPresetLayerDefaults() *ColorPresetLayerFreeColor {
 	}
 }
 
-// newColorPresetGradationDefaults 创建带默认基础色、阴影色和三个 ControlSlider 的 GradationColor
-// newColorPresetGradationDefaults creates a GradationColor with default base color, shadow color, and three ControlSlider values
 func newColorPresetGradationDefaults() *ColorPresetGradationColor {
 	return &ColorPresetGradationColor{
 		Version:     ColorPresetColorVersion,
@@ -200,16 +185,16 @@ func newColorPresetGradationDefaults() *ColorPresetGradationColor {
 	}
 }
 
-// DecodeColorPreset 解码完整 PrivateLz4BlockArray 用户预设而不调用构造默认值、迁移或序列化回调
-// DecodeColorPreset decodes a complete PrivateLz4BlockArray user preset without invoking constructor defaults, migrations, or serialization callbacks
+// DecodeColorPreset decodes a complete PrivateLz4BlockArray user preset without
+// invoking constructor defaults, migrations, or serialization callbacks.
 func DecodeColorPreset(data []byte) (*ColorPreset, error) {
 	return decodeColorPreset(data, "")
 }
 
-// DecodeColorPresetWithInstanceGUID 在 Key 6 缺失、nil 或为空时提供 C# 对象构造函数与 OnAfterDeserialize 回调原本会生成的确定值
-// 这是显式选择的便利接口，非空线格式值仍具权威性并作为不透明文本处理
-// DecodeColorPresetWithInstanceGUID supplies the deterministic value otherwise generated by the C# object constructor and OnAfterDeserialize callback when Key 6 is absent, nil, or empty
-// This is an explicit opt-in convenience while a non-empty wire value remains authoritative and is treated as opaque text
+// DecodeColorPresetWithInstanceGUID supplies the deterministic value that the
+// C# object constructor/OnAfterDeserialize callback would otherwise generate
+// when Key(6) is absent, nil, or empty. This is an explicit opt-in convenience;
+// a non-empty wire value remains authoritative and is treated as opaque text.
 func DecodeColorPresetWithInstanceGUID(data []byte, constructorGUID string) (*ColorPreset, error) {
 	if err := validateColorPresetConstructorGUID(constructorGUID, "ColorPreset constructor instanceGuid"); err != nil {
 		return nil, err
@@ -217,20 +202,17 @@ func DecodeColorPresetWithInstanceGUID(data []byte, constructorGUID string) (*Co
 	return decodeColorPreset(data, constructorGUID)
 }
 
-// DecodeColorPresetSlot 解码与 ColorPreset 线格式相同的 ColorPresetSlot 载荷
-// DecodeColorPresetSlot decodes the ColorPresetSlot payload whose wire form is identical to ColorPreset
+// DecodeColorPresetSlot decodes the wire-identical ColorPresetSlot payload.
 func DecodeColorPresetSlot(data []byte) (*ColorPresetSlot, error) {
 	return DecodeColorPreset(data)
 }
 
-// DecodeColorPresetSlotWithInstanceGUID 为 instanceGuid 缺失的 ColorPresetSlot 载荷提供确定性构造形式
-// DecodeColorPresetSlotWithInstanceGUID provides the deterministic constructor form for a ColorPresetSlot payload with a missing instanceGuid field
+// DecodeColorPresetSlotWithInstanceGUID is the deterministic constructor form
+// for a ColorPresetSlot payload with a missing instanceGuid field.
 func DecodeColorPresetSlotWithInstanceGUID(data []byte, constructorGUID string) (*ColorPresetSlot, error) {
 	return DecodeColorPresetWithInstanceGUID(data, constructorGUID)
 }
 
-// decodeColorPreset 解压颜色预设根值，按 indexed object 宽度读取已知字段并保留未来槽位和根尾部
-// decodeColorPreset decompresses a color-preset root, reads known fields according to indexed object width, and preserves future slots and root trailing bytes
 func decodeColorPreset(data []byte, constructorGUID string) (*ColorPreset, error) {
 	raw, err := ct.DecompressLz4BlockArray(data)
 	if err != nil {
@@ -320,10 +302,10 @@ func decodeColorPreset(data []byte, constructorGUID string) (*ColorPreset, error
 	return value, nil
 }
 
-// EncodeColorPreset 按 FieldCount 与 FutureSlots 表示的 indexed object 宽度写出预设而不调用游戏迁移或序列化回调
-// 所有显式版本以及数值和名称两组 MPN 数组都按调用者提供内容保留
-// EncodeColorPreset emits the indexed object width represented by FieldCount and FutureSlots without invoking game migration or serialization callbacks
-// Every explicit version and both numeric and named MPN arrays are preserved as supplied by the caller
+// EncodeColorPreset emits the indexed-object width represented by FieldCount
+// and FutureSlots without invoking any game migration or serialization
+// callback. Every explicit version and both the numeric/name MPN arrays are
+// preserved as supplied.
 func EncodeColorPreset(value *ColorPreset) ([]byte, error) {
 	if value == nil {
 		return []byte{0xc0}, nil
@@ -408,20 +390,15 @@ func EncodeColorPreset(value *ColorPreset) ([]byte, error) {
 	return colorPresetCompress(raw)
 }
 
-// EncodeColorPresetSlot 写出与 ColorPreset 线格式相同的 ColorPresetSlot 载荷
-// EncodeColorPresetSlot emits the ColorPresetSlot payload whose wire form is identical to ColorPreset
+// EncodeColorPresetSlot emits the wire-identical ColorPresetSlot payload.
 func EncodeColorPresetSlot(value *ColorPresetSlot) ([]byte, error) {
 	return EncodeColorPreset(value)
 }
 
-// validateDecodedColorPreset 对解码结果应用与无损重编码相同的范围和嵌套值校验
-// validateDecodedColorPreset applies the same range and nested-value checks required for lossless re-encoding to a decoded result
 func validateDecodedColorPreset(value *ColorPreset) error {
 	return validateColorPresetForEncoding(value)
 }
 
-// validateColorPresetForEncoding 验证根字符串、Int32、集合长度及所有嵌套色包可由目标 MessagePack 线格式表示
-// validateColorPresetForEncoding verifies that root strings, Int32 values, collection lengths, and every nested color pack fit the target MessagePack wire form
 func validateColorPresetForEncoding(value *ColorPreset) error {
 	if value == nil {
 		return fmt.Errorf("ColorPreset is nil")
@@ -449,10 +426,9 @@ func validateColorPresetForEncoding(value *ColorPreset) error {
 	return nil
 }
 
-// 游戏构造函数使用 Guid.NewGuid().ToString 初始化 instanceGuid
-// 模拟这条随机构造路径的调用者必须提供 D 格式 GUID，已有非空线格式标识仍保持不透明
-// Game constructors initialize instanceGuid with Guid.NewGuid().ToString
-// Callers simulating that random constructor path must provide a D-format GUID while existing non-empty wire identifiers remain opaque
+// Constructors in the game initialize instanceGuid with Guid.NewGuid().ToString().
+// Callers simulating that otherwise-random constructor path must therefore
+// provide a D-format GUID. Existing non-empty wire identifiers remain opaque.
 func validateColorPresetConstructorGUID(value, path string) error {
 	if len(value) != 36 {
 		return fmt.Errorf("%s must be a non-empty D-format GUID (8-4-4-4-12 hex digits)", path)
@@ -472,8 +448,6 @@ func validateColorPresetConstructorGUID(value, path string) error {
 	return nil
 }
 
-// colorPresetReadPackList 读取可为 nil 且项目也可为 nil 的 CustomColorPresetColorPack 列表
-// colorPresetReadPackList reads a CustomColorPresetColorPack list that may be nil and whose entries may also be nil
 func colorPresetReadPackList(r *simpleEditDataReader, path string) ([]*ColorPresetColorPack, error) {
 	if r.tryReadNil() {
 		return nil, nil
@@ -493,8 +467,6 @@ func colorPresetReadPackList(r *simpleEditDataReader, path string) ([]*ColorPres
 	return result, nil
 }
 
-// colorPresetReadPack 按 CustomColorPresetColorPack 的十个当前 Key 读取一个可空色包并保留未来槽位
-// colorPresetReadPack reads one nullable color pack using the ten current CustomColorPresetColorPack keys and preserves future slots
 func colorPresetReadPack(r *simpleEditDataReader, path string) (*ColorPresetColorPack, error) {
 	if r.tryReadNil() {
 		return nil, nil
@@ -579,8 +551,6 @@ func colorPresetReadPack(r *simpleEditDataReader, path string) (*ColorPresetColo
 	return value, nil
 }
 
-// validateColorPresetPack 验证色包字段、MPN 数组、名称 nil 元数据及嵌套颜色列表可无损表示
-// validateColorPresetPack verifies that color-pack fields, MPN arrays, name nil metadata, and nested color lists can be represented losslessly
 func validateColorPresetPack(value *ColorPresetColorPack, path string, decoded bool) error {
 	if value == nil {
 		return nil
@@ -635,8 +605,6 @@ func validateColorPresetPack(value *ColorPresetColorPack, path string, decoded b
 	return nil
 }
 
-// colorPresetAppendPack 按保留的 indexed object 宽度写入一个可空 CustomColorPresetColorPack
-// colorPresetAppendPack writes one nullable CustomColorPresetColorPack using its preserved indexed object width
 func colorPresetAppendPack(dst []byte, value *ColorPresetColorPack, path string) ([]byte, error) {
 	if value == nil {
 		return append(dst, 0xc0), nil
@@ -753,8 +721,6 @@ func colorPresetAppendPack(dst []byte, value *ColorPresetColorPack, path string)
 	return dst, nil
 }
 
-// colorPresetReadLayerList 读取可为 nil 且项目也可为 nil 的 LayerFreeColor 列表
-// colorPresetReadLayerList reads a LayerFreeColor list that may be nil and whose entries may also be nil
 func colorPresetReadLayerList(r *simpleEditDataReader, path string) ([]*ColorPresetLayerFreeColor, error) {
 	if r.tryReadNil() {
 		return nil, nil
@@ -774,8 +740,6 @@ func colorPresetReadLayerList(r *simpleEditDataReader, path string) ([]*ColorPre
 	return result, nil
 }
 
-// colorPresetReadLayer 按 LayerFreeColor 的四个当前 Key 读取一个可空普通层颜色并保留未来槽位
-// colorPresetReadLayer reads one nullable normal layer color using the four current LayerFreeColor keys and preserves future slots
 func colorPresetReadLayer(r *simpleEditDataReader, path string) (*ColorPresetLayerFreeColor, error) {
 	if r.tryReadNil() {
 		return nil, nil
@@ -820,8 +784,6 @@ func colorPresetReadLayer(r *simpleEditDataReader, path string) (*ColorPresetLay
 	return value, nil
 }
 
-// validateColorPresetLayer 验证 LayerFreeColor 版本、嵌套 FreeColor 及私有阴影比例均可表示
-// validateColorPresetLayer verifies that the LayerFreeColor version, nested FreeColor values, and private shadow rate are representable
 func validateColorPresetLayer(value *ColorPresetLayerFreeColor, path string, decoded bool) error {
 	if value == nil {
 		return nil
@@ -838,8 +800,6 @@ func validateColorPresetLayer(value *ColorPresetLayerFreeColor, path string, dec
 	return requireInt32(path+".shadowRate_", value.ShadowRate)
 }
 
-// colorPresetAppendLayer 按保留的 indexed object 宽度写入一个可空 LayerFreeColor
-// colorPresetAppendLayer writes one nullable LayerFreeColor using its preserved indexed object width
 func colorPresetAppendLayer(dst []byte, value *ColorPresetLayerFreeColor, path string) ([]byte, error) {
 	if value == nil {
 		return append(dst, 0xc0), nil
@@ -888,8 +848,6 @@ func colorPresetAppendLayer(dst []byte, value *ColorPresetLayerFreeColor, path s
 	return dst, nil
 }
 
-// colorPresetReadFreeColor 按 FreeColor 的版本和四个私有原始字段读取一个可空颜色并保留未来槽位
-// colorPresetReadFreeColor reads one nullable color using the FreeColor version and four private raw fields and preserves future slots
 func colorPresetReadFreeColor(r *simpleEditDataReader, path string) (*ColorPresetFreeColor, error) {
 	if r.tryReadNil() {
 		return nil, nil
@@ -918,8 +876,6 @@ func colorPresetReadFreeColor(r *simpleEditDataReader, path string) (*ColorPrese
 	return value, nil
 }
 
-// validateColorPresetFree 验证 FreeColor 版本和四个私有原始整数均位于 System.Int32 范围
-// validateColorPresetFree verifies that the FreeColor version and four private raw integers fit System.Int32
 func validateColorPresetFree(value *ColorPresetFreeColor, path string, decoded bool) error {
 	if value == nil {
 		return nil
@@ -928,8 +884,8 @@ func validateColorPresetFree(value *ColorPresetFreeColor, path string, decoded b
 		return err
 	}
 	fields := []struct {
-		name  string // 用于错误路径的私有字段名称 / Private field name used in error paths
-		value int    // 待验证的原始整数值 / Raw integer value to validate
+		name  string
+		value int
 	}{
 		{name: "hue_", value: value.Hue},
 		{name: "saturation_", value: value.Saturation},
@@ -944,8 +900,6 @@ func validateColorPresetFree(value *ColorPresetFreeColor, path string, decoded b
 	return nil
 }
 
-// colorPresetAppendFree 按保留的 indexed object 宽度写入一个可空 FreeColor
-// colorPresetAppendFree writes one nullable FreeColor using its preserved indexed object width
 func colorPresetAppendFree(dst []byte, value *ColorPresetFreeColor, path string) ([]byte, error) {
 	if value == nil {
 		return append(dst, 0xc0), nil
@@ -955,8 +909,8 @@ func colorPresetAppendFree(dst []byte, value *ColorPresetFreeColor, path string)
 		return nil, err
 	}
 	fields := []struct {
-		name  string // 用于字段丢弃错误的名称 / Name used in field-discard errors
-		value int    // 对应槽位的原始整数值 / Raw integer value for the corresponding slot
+		name  string
+		value int
 	}{{"version", value.Version}, {"hue", value.Hue}, {"saturation", value.Saturation}, {"brightness", value.Brightness}, {"contrast", value.Contrast}}
 	for index, field := range fields {
 		if fieldCount <= index && field.value != 0 {
@@ -976,8 +930,6 @@ func colorPresetAppendFree(dst []byte, value *ColorPresetFreeColor, path string)
 	return dst, nil
 }
 
-// colorPresetReadGradationList 读取可为 nil 且项目也可为 nil 的 GradationColor 列表
-// colorPresetReadGradationList reads a GradationColor list that may be nil and whose entries may also be nil
 func colorPresetReadGradationList(r *simpleEditDataReader, path string) ([]*ColorPresetGradationColor, error) {
 	if r.tryReadNil() {
 		return nil, nil
@@ -997,8 +949,6 @@ func colorPresetReadGradationList(r *simpleEditDataReader, path string) ([]*Colo
 	return result, nil
 }
 
-// colorPresetReadGradation 按 GradationColor 的七个当前 Key 读取一个可空渐变颜色并保留未来槽位
-// colorPresetReadGradation reads one nullable gradation color using the seven current GradationColor keys and preserves future slots
 func colorPresetReadGradation(r *simpleEditDataReader, path string) (*ColorPresetGradationColor, error) {
 	if r.tryReadNil() {
 		return nil, nil
@@ -1043,8 +993,6 @@ func colorPresetReadGradation(r *simpleEditDataReader, path string) (*ColorPrese
 	return value, nil
 }
 
-// validateColorPresetGradation 验证 GradationColor 版本、嵌套 FreeColor 和私有阴影比例均可表示
-// validateColorPresetGradation verifies that the GradationColor version, nested FreeColor values, and private shadow rate are representable
 func validateColorPresetGradation(value *ColorPresetGradationColor, path string, decoded bool) error {
 	if value == nil {
 		return nil
@@ -1064,8 +1012,6 @@ func validateColorPresetGradation(value *ColorPresetGradationColor, path string,
 	return nil
 }
 
-// colorPresetAppendGradation 按保留的 indexed object 宽度写入一个可空 GradationColor 及三个滑块
-// colorPresetAppendGradation writes one nullable GradationColor and its three sliders using the preserved indexed object width
 func colorPresetAppendGradation(dst []byte, value *ColorPresetGradationColor, path string) ([]byte, error) {
 	if value == nil {
 		return append(dst, 0xc0), nil
@@ -1118,8 +1064,8 @@ func colorPresetAppendGradation(dst []byte, value *ColorPresetGradationColor, pa
 		dst = simpleEditDataAppendInt32(dst, value.ShadowRate)
 	}
 	sliders := []struct {
-		value *ColorPresetControlSlider // 待写入的可空滑块 / Nullable slider to write
-		name  string                    // 用于字段路径的滑块名称 / Slider name used in field paths
+		value *ColorPresetControlSlider
+		name  string
 	}{{value.Position, "controlPointPosition"}, {value.RangeBefore, "controlPointRangeBefore"}, {value.RangeAfter, "controlPointRangeAfter"}}
 	for index, slider := range sliders {
 		if fieldCount < 5+index {
@@ -1136,8 +1082,6 @@ func colorPresetAppendGradation(dst []byte, value *ColorPresetGradationColor, pa
 	return dst, nil
 }
 
-// colorPresetAppendControlSlider 按保留的 indexed object 宽度写入一个可空 ControlSlider 原始值
-// colorPresetAppendControlSlider writes one nullable raw ControlSlider value using its preserved indexed object width
 func colorPresetAppendControlSlider(dst []byte, value *ColorPresetControlSlider, path string) ([]byte, error) {
 	if value == nil {
 		return append(dst, 0xc0), nil
@@ -1159,8 +1103,6 @@ func colorPresetAppendControlSlider(dst []byte, value *ColorPresetControlSlider,
 	return dst, nil
 }
 
-// colorPresetReadControlSlider 读取一个可空 ControlSlider 的私有 value_ 与未来槽位
-// colorPresetReadControlSlider reads the private value_ and future slots of one nullable ControlSlider
 func colorPresetReadControlSlider(r *simpleEditDataReader, path string) (*ColorPresetControlSlider, error) {
 	if r.tryReadNil() {
 		return nil, nil
@@ -1187,8 +1129,6 @@ func colorPresetReadControlSlider(r *simpleEditDataReader, path string) (*ColorP
 	return value, nil
 }
 
-// colorPresetReadInt32Array 读取可空的 System.Int32 数组
-// colorPresetReadInt32Array reads a nullable System.Int32 array
 func colorPresetReadInt32Array(r *simpleEditDataReader, path string) ([]int, error) {
 	if r.tryReadNil() {
 		return nil, nil
@@ -1209,8 +1149,6 @@ func colorPresetReadInt32Array(r *simpleEditDataReader, path string) ([]int, err
 	return result, nil
 }
 
-// colorPresetReadStringArray 读取可空字符串数组，并以平行布尔切片保留各项目的 nil 线状态
-// colorPresetReadStringArray reads a nullable string array and preserves each entry nil wire state in a parallel Boolean slice
 func colorPresetReadStringArray(r *simpleEditDataReader, path string) ([]string, []bool, error) {
 	if r.tryReadNil() {
 		return nil, nil, nil
@@ -1246,8 +1184,6 @@ func colorPresetReadStringArray(r *simpleEditDataReader, path string) ([]string,
 	return result, nulls, nil
 }
 
-// colorPresetReadNullableString 读取 MessagePack nil 或一个字符串并返回指针表示
-// colorPresetReadNullableString reads MessagePack nil or one string and returns a pointer representation
 func colorPresetReadNullableString(r *simpleEditDataReader, path string) (*string, error) {
 	if r.tryReadNil() {
 		return nil, nil
@@ -1259,8 +1195,6 @@ func colorPresetReadNullableString(r *simpleEditDataReader, path string) (*strin
 	return &value, nil
 }
 
-// colorPresetReadBool 只接受 MessagePack false 或 true 标记
-// colorPresetReadBool accepts only the MessagePack false or true markers
 func colorPresetReadBool(r *simpleEditDataReader, path string) (bool, error) {
 	marker, err := r.readByte(path)
 	if err != nil {
@@ -1276,8 +1210,8 @@ func colorPresetReadBool(r *simpleEditDataReader, path string) (bool, error) {
 	}
 }
 
-// colorPresetReadSingle 镜像 MessagePackReader.ReadSingle，接受所有整数编码以及 float32 和 float64 并转换为 System.Single
-// colorPresetReadSingle mirrors MessagePackReader.ReadSingle by accepting every integer encoding plus float32 and float64 and converting to System.Single
+// colorPresetReadSingle mirrors MessagePackReader.ReadSingle: all integer
+// codes plus float32/float64 are accepted and converted to System.Single.
 func colorPresetReadSingle(r *simpleEditDataReader, path string) (float32, error) {
 	marker, err := r.readByte(path)
 	if err != nil {
@@ -1349,8 +1283,6 @@ func colorPresetReadSingle(r *simpleEditDataReader, path string) (float32, error
 	}
 }
 
-// colorPresetReadObjectHeader 读取 indexed object 数组头并按剩余字节限制字段数量
-// colorPresetReadObjectHeader reads an indexed object array header and bounds its field count by remaining bytes
 func colorPresetReadObjectHeader(r *simpleEditDataReader, path string) (int, error) {
 	count, err := r.readArrayLength(path)
 	if err != nil {
@@ -1362,8 +1294,6 @@ func colorPresetReadObjectHeader(r *simpleEditDataReader, path string) (int, err
 	return count, nil
 }
 
-// colorPresetReadCollectionHeader 读取集合数组头并按剩余字节限制项目数量
-// colorPresetReadCollectionHeader reads a collection array header and bounds its entry count by remaining bytes
 func colorPresetReadCollectionHeader(r *simpleEditDataReader, path string) (int, error) {
 	count, err := r.readArrayLength(path)
 	if err != nil {
@@ -1375,8 +1305,6 @@ func colorPresetReadCollectionHeader(r *simpleEditDataReader, path string) (int,
 	return count, nil
 }
 
-// colorPresetReadFutureFields 跳过已知 Key 之后的字段并逐项复制完整 MessagePack 原始值
-// colorPresetReadFutureFields skips fields after the known keys and copies each complete raw MessagePack value
 func colorPresetReadFutureFields(r *simpleEditDataReader, known, count int, path string) ([][]byte, error) {
 	if count <= known {
 		return nil, nil
@@ -1392,8 +1320,6 @@ func colorPresetReadFutureFields(r *simpleEditDataReader, known, count int, path
 	return result, nil
 }
 
-// colorPresetValidateNullableString 在非 nil 时验证字符串的 UTF-8 与 str32 长度
-// colorPresetValidateNullableString validates UTF-8 and str32 length when a string is non-nil
 func colorPresetValidateNullableString(value *string, path string) error {
 	if value == nil {
 		return nil
@@ -1401,8 +1327,6 @@ func colorPresetValidateNullableString(value *string, path string) error {
 	return colorPresetValidateString(*value, path)
 }
 
-// colorPresetValidateString 验证字符串为 UTF-8 且字节长度可由 MessagePack str32 表示
-// colorPresetValidateString verifies that a string is UTF-8 and its byte length fits MessagePack str32
 func colorPresetValidateString(value, path string) error {
 	if !utf8.ValidString(value) {
 		return fmt.Errorf("%s is not valid UTF-8", path)
@@ -1413,8 +1337,6 @@ func colorPresetValidateString(value, path string) error {
 	return nil
 }
 
-// colorPresetAppendNullableString 追加 MessagePack nil 或非空指针指向的字符串
-// colorPresetAppendNullableString appends MessagePack nil or the string referenced by a non-nil pointer
 func colorPresetAppendNullableString(dst []byte, value *string) []byte {
 	if value == nil {
 		return append(dst, 0xc0)
@@ -1422,8 +1344,6 @@ func colorPresetAppendNullableString(dst []byte, value *string) []byte {
 	return simpleEditDataAppendString(dst, *value)
 }
 
-// colorPresetAppendBool 追加标准 MessagePack false 或 true 标记
-// colorPresetAppendBool appends the canonical MessagePack false or true marker
 func colorPresetAppendBool(dst []byte, value bool) []byte {
 	if value {
 		return append(dst, 0xc3)
@@ -1431,15 +1351,11 @@ func colorPresetAppendBool(dst []byte, value bool) []byte {
 	return append(dst, 0xc2)
 }
 
-// colorPresetAppendFloat32 使用标准 MessagePack float32 标记和大端位模式追加值
-// colorPresetAppendFloat32 appends a value using the canonical MessagePack float32 marker and big-endian bit pattern
 func colorPresetAppendFloat32(dst []byte, value float32) []byte {
 	bits := math.Float32bits(value)
 	return append(dst, 0xca, byte(bits>>24), byte(bits>>16), byte(bits>>8), byte(bits))
 }
 
-// colorPresetCompress 按 MessagePack-CSharp 的 64 字节阈值决定原样写出或 PrivateLz4BlockArray 包装
-// colorPresetCompress chooses unchanged output or PrivateLz4BlockArray wrapping using the MessagePack-CSharp 64-byte threshold
 func colorPresetCompress(raw []byte) ([]byte, error) {
 	if len(raw) < colorPresetCompressionMinLength {
 		return raw, nil

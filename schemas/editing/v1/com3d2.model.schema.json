@@ -1,0 +1,1148 @@
+{
+  "$defs": {
+    "COM3D2_Bone": {
+      "additionalProperties": false,
+      "properties": {
+        "HasScale": {
+          "type": "boolean"
+        },
+        "Name": {
+          "type": "string"
+        },
+        "ParentIndex": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        },
+        "Position": {
+          "$ref": "#/$defs/COM3D2_Vector3"
+        },
+        "Rotation": {
+          "$ref": "#/$defs/COM3D2_Quaternion"
+        },
+        "Scale": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/COM3D2_Vector3"
+            }
+          ]
+        }
+      },
+      "required": [
+        "Name",
+        "HasScale",
+        "ParentIndex",
+        "Position",
+        "Rotation"
+      ],
+      "type": "object"
+    },
+    "COM3D2_BoneWeight": {
+      "additionalProperties": false,
+      "properties": {
+        "BoneIndex0": {
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "BoneIndex1": {
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "BoneIndex2": {
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "BoneIndex3": {
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "Weight0": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Weight1": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Weight2": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Weight3": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "BoneIndex0",
+        "BoneIndex1",
+        "BoneIndex2",
+        "BoneIndex3",
+        "Weight0",
+        "Weight1",
+        "Weight2",
+        "Weight3"
+      ],
+      "type": "object"
+    },
+    "COM3D2_Keyword": {
+      "additionalProperties": false,
+      "properties": {
+        "Key": {
+          "type": "string"
+        },
+        "Value": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "Key",
+        "Value"
+      ],
+      "type": "object"
+    },
+    "COM3D2_Material": {
+      "additionalProperties": false,
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Properties": {
+          "items": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "PropName": {
+                    "type": "string"
+                  },
+                  "SubTag": {
+                    "type": "string"
+                  },
+                  "Tex2D": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/$defs/COM3D2_Tex2DSubProperty"
+                      }
+                    ]
+                  },
+                  "TexRT": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/$defs/COM3D2_TexRTSubProperty"
+                      }
+                    ]
+                  },
+                  "TypeName": {
+                    "const": "tex",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "TypeName",
+                  "PropName",
+                  "SubTag",
+                  "Tex2D",
+                  "TexRT"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "Color": {
+                    "items": {
+                      "maximum": 3.4028234663852886e+38,
+                      "minimum": -3.4028234663852886e+38,
+                      "type": "number"
+                    },
+                    "maxItems": 4,
+                    "minItems": 4,
+                    "type": "array"
+                  },
+                  "PropName": {
+                    "type": "string"
+                  },
+                  "TypeName": {
+                    "const": "col",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "TypeName",
+                  "PropName",
+                  "Color"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "PropName": {
+                    "type": "string"
+                  },
+                  "TypeName": {
+                    "const": "vec",
+                    "type": "string"
+                  },
+                  "Vector": {
+                    "items": {
+                      "maximum": 3.4028234663852886e+38,
+                      "minimum": -3.4028234663852886e+38,
+                      "type": "number"
+                    },
+                    "maxItems": 4,
+                    "minItems": 4,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "TypeName",
+                  "PropName",
+                  "Vector"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "Number": {
+                    "maximum": 3.4028234663852886e+38,
+                    "minimum": -3.4028234663852886e+38,
+                    "type": "number"
+                  },
+                  "PropName": {
+                    "type": "string"
+                  },
+                  "TypeName": {
+                    "const": "f",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "TypeName",
+                  "PropName",
+                  "Number"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "Number": {
+                    "maximum": 3.4028234663852886e+38,
+                    "minimum": -3.4028234663852886e+38,
+                    "type": "number"
+                  },
+                  "PropName": {
+                    "type": "string"
+                  },
+                  "TypeName": {
+                    "const": "range",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "TypeName",
+                  "PropName",
+                  "Number"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "OffsetX": {
+                    "maximum": 3.4028234663852886e+38,
+                    "minimum": -3.4028234663852886e+38,
+                    "type": "number"
+                  },
+                  "OffsetY": {
+                    "maximum": 3.4028234663852886e+38,
+                    "minimum": -3.4028234663852886e+38,
+                    "type": "number"
+                  },
+                  "PropName": {
+                    "type": "string"
+                  },
+                  "TypeName": {
+                    "const": "tex_offset",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "TypeName",
+                  "PropName",
+                  "OffsetX",
+                  "OffsetY"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "PropName": {
+                    "type": "string"
+                  },
+                  "ScaleX": {
+                    "maximum": 3.4028234663852886e+38,
+                    "minimum": -3.4028234663852886e+38,
+                    "type": "number"
+                  },
+                  "ScaleY": {
+                    "maximum": 3.4028234663852886e+38,
+                    "minimum": -3.4028234663852886e+38,
+                    "type": "number"
+                  },
+                  "TypeName": {
+                    "const": "tex_scale",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "TypeName",
+                  "PropName",
+                  "ScaleX",
+                  "ScaleY"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "Count": {
+                    "maximum": 2147483647,
+                    "minimum": -2147483648,
+                    "type": "integer"
+                  },
+                  "Keywords": {
+                    "items": {
+                      "$ref": "#/$defs/COM3D2_Keyword"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "PropName": {
+                    "type": "string"
+                  },
+                  "TypeName": {
+                    "const": "keyword",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "TypeName",
+                  "PropName",
+                  "Count",
+                  "Keywords"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "ShaderFilename": {
+          "type": "string"
+        },
+        "ShaderName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Name",
+        "ShaderName",
+        "ShaderFilename",
+        "Properties"
+      ],
+      "type": "object"
+    },
+    "COM3D2_MorphData": {
+      "additionalProperties": false,
+      "properties": {
+        "Indices": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "Name": {
+          "type": "string"
+        },
+        "Normals": {
+          "items": {
+            "$ref": "#/$defs/COM3D2_Vector3"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "Tangents": {
+          "items": {
+            "$ref": "#/$defs/COM3D2_Quaternion"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "Vertex": {
+          "items": {
+            "$ref": "#/$defs/COM3D2_Vector3"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "Name",
+        "Indices",
+        "Vertex",
+        "Normals"
+      ],
+      "type": "object"
+    },
+    "COM3D2_Quaternion": {
+      "additionalProperties": false,
+      "properties": {
+        "W": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "X": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Y": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Z": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "X",
+        "Y",
+        "Z",
+        "W"
+      ],
+      "type": "object"
+    },
+    "COM3D2_SkinThickness": {
+      "additionalProperties": false,
+      "properties": {
+        "GroupOrder": {
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "Groups": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/COM3D2_ThickGroup"
+              }
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "Signature": {
+          "type": "string"
+        },
+        "Use": {
+          "type": "boolean"
+        },
+        "Version": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Signature",
+        "Version",
+        "Use",
+        "Groups"
+      ],
+      "type": "object"
+    },
+    "COM3D2_Tex2DSubProperty": {
+      "additionalProperties": false,
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Offset": {
+          "items": {
+            "maximum": 3.4028234663852886e+38,
+            "minimum": -3.4028234663852886e+38,
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "Path": {
+          "type": "string"
+        },
+        "Scale": {
+          "items": {
+            "maximum": 3.4028234663852886e+38,
+            "minimum": -3.4028234663852886e+38,
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "Name",
+        "Path",
+        "Offset",
+        "Scale"
+      ],
+      "type": "object"
+    },
+    "COM3D2_TexRTSubProperty": {
+      "additionalProperties": false,
+      "properties": {
+        "DiscardedStr1": {
+          "type": "string"
+        },
+        "DiscardedStr2": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "DiscardedStr1",
+        "DiscardedStr2"
+      ],
+      "type": "object"
+    },
+    "COM3D2_ThickDefPerAngle": {
+      "additionalProperties": false,
+      "properties": {
+        "AngleDegree": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        },
+        "DefaultDistance": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "VertexIndex": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "AngleDegree",
+        "VertexIndex",
+        "DefaultDistance"
+      ],
+      "type": "object"
+    },
+    "COM3D2_ThickGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "EndBoneName": {
+          "type": "string"
+        },
+        "GroupName": {
+          "type": "string"
+        },
+        "Points": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/COM3D2_ThickPoint"
+              }
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "StartBoneName": {
+          "type": "string"
+        },
+        "StepAngleDegree": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "GroupName",
+        "StartBoneName",
+        "EndBoneName",
+        "StepAngleDegree",
+        "Points"
+      ],
+      "type": "object"
+    },
+    "COM3D2_ThickPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "DistanceParAngle": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/COM3D2_ThickDefPerAngle"
+              }
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "RatioSegmentStartToEnd": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "TargetBoneName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "TargetBoneName",
+        "RatioSegmentStartToEnd",
+        "DistanceParAngle"
+      ],
+      "type": "object"
+    },
+    "COM3D2_Vector2": {
+      "additionalProperties": false,
+      "properties": {
+        "X": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Y": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "X",
+        "Y"
+      ],
+      "type": "object"
+    },
+    "COM3D2_Vector3": {
+      "additionalProperties": false,
+      "properties": {
+        "X": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Y": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Z": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "X",
+        "Y",
+        "Z"
+      ],
+      "type": "object"
+    },
+    "COM3D2_Vertex": {
+      "additionalProperties": false,
+      "properties": {
+        "Normal": {
+          "$ref": "#/$defs/COM3D2_Vector3"
+        },
+        "Position": {
+          "$ref": "#/$defs/COM3D2_Vector3"
+        },
+        "UV": {
+          "$ref": "#/$defs/COM3D2_Vector2"
+        },
+        "UV2": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/COM3D2_Vector2"
+            }
+          ]
+        },
+        "UV3": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/COM3D2_Vector2"
+            }
+          ]
+        },
+        "UV4": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/COM3D2_Vector2"
+            }
+          ]
+        },
+        "Unknown1": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/COM3D2_Vector2"
+            }
+          ]
+        },
+        "Unknown2": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/COM3D2_Vector2"
+            }
+          ]
+        },
+        "Unknown3": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/COM3D2_Vector2"
+            }
+          ]
+        },
+        "Unknown4": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/COM3D2_Vector2"
+            }
+          ]
+        }
+      },
+      "required": [
+        "Position",
+        "Normal",
+        "UV"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:meido-serialization:editing-json:v1:com3d2.model",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Lossless editing JSON contract for com3d2.model.",
+  "properties": {
+    "BindPoses": {
+      "items": {
+        "items": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "maxItems": 16,
+        "minItems": 16,
+        "type": "array"
+      },
+      "type": [
+        "null",
+        "array"
+      ]
+    },
+    "BoneCount": {
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "BoneNames": {
+      "description": "The ordered transform names used by bone weights and bind poses.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Bone name table",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Do not reorder or rename entries without rewriting every dependent index and path.",
+      "x-meido-edit-role": "runtime_skeleton",
+      "x-meido-game-usage": "ImportCM creates the hierarchy and resolves each weighted bone by this table.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 315,
+          "line_start": 46,
+          "observation": "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "symbol": "ImportCM.LoadSkinMesh_R"
+        }
+      ]
+    },
+    "BoneWeights": {
+      "description": "Four bone indices and weights per vertex.",
+      "items": {
+        "$ref": "#/$defs/COM3D2_BoneWeight"
+      },
+      "title": "Skin weights",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep indices in range and weights coherent with the target bone count.",
+      "x-meido-edit-role": "runtime_geometry",
+      "x-meido-game-usage": "The SkinnedMeshRenderer uses them with BoneNames and BindPoses to deform the mesh.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 315,
+          "line_start": 46,
+          "observation": "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "symbol": "ImportCM.LoadSkinMesh_R"
+        }
+      ]
+    },
+    "Bones": {
+      "items": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "#/$defs/COM3D2_Bone"
+          }
+        ]
+      },
+      "type": [
+        "null",
+        "array"
+      ]
+    },
+    "Materials": {
+      "description": "Material records embedded in the mesh resource.",
+      "items": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "#/$defs/COM3D2_Material"
+          }
+        ]
+      },
+      "title": "Model material slots",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep material count aligned with SubMeshes and use valid .mate resources.",
+      "x-meido-edit-role": "runtime_resource_reference",
+      "x-meido-game-usage": "The loader creates or resolves Unity materials and assigns them to the renderer's submesh slots.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 315,
+          "line_start": 46,
+          "observation": "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "symbol": "ImportCM.LoadSkinMesh_R"
+        }
+      ]
+    },
+    "MorphData": {
+      "items": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "#/$defs/COM3D2_MorphData"
+          }
+        ]
+      },
+      "type": [
+        "null",
+        "array"
+      ]
+    },
+    "Name": {
+      "description": "The resource name used to name the generated GameObject.",
+      "title": "Model name",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep it aligned with the deployed model resource.",
+      "x-meido-edit-role": "resource_identity",
+      "x-meido-game-usage": "The loader prefixes it when creating the scene object and uses it as the mesh identity.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 315,
+          "line_start": 46,
+          "observation": "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "symbol": "ImportCM.LoadSkinMesh_R"
+        }
+      ]
+    },
+    "RootBoneName": {
+      "type": "string"
+    },
+    "ShadowCastingMode": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "Signature": {
+      "description": "The CM3D2_MESH header string.",
+      "title": "Mesh signature",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep CM3D2_MESH.",
+      "x-meido-edit-role": "format_marker",
+      "x-meido-game-usage": "ImportCM refuses the stream when this signature is not present.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 315,
+          "line_start": 46,
+          "observation": "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "symbol": "ImportCM.LoadSkinMesh_R"
+        }
+      ]
+    },
+    "SkinThickness": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/COM3D2_SkinThickness"
+        }
+      ]
+    },
+    "SubMeshCount": {
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "SubMeshes": {
+      "description": "The per-material triangle index arrays.",
+      "items": {
+        "items": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        },
+        "type": [
+          "null",
+          "array"
+        ]
+      },
+      "title": "Submesh triangles",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Preserve submesh count and valid vertex indices.",
+      "x-meido-edit-role": "runtime_geometry",
+      "x-meido-game-usage": "ImportCM assigns each array to a Unity submesh and then binds material records in order.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 315,
+          "line_start": 46,
+          "observation": "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "symbol": "ImportCM.LoadSkinMesh_R"
+        }
+      ]
+    },
+    "Tangents": {
+      "items": {
+        "$ref": "#/$defs/COM3D2_Quaternion"
+      },
+      "type": [
+        "null",
+        "array"
+      ]
+    },
+    "Version": {
+      "description": "The version selecting optional scale and later mesh records.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "title": "Mesh version",
+      "type": "integer",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Preserve it and keep conditional fields consistent with the target build.",
+      "x-meido-edit-role": "version_marker",
+      "x-meido-game-usage": "LoadSkinMesh_R uses it when reading bone transforms and model extensions.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 315,
+          "line_start": 46,
+          "observation": "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "symbol": "ImportCM.LoadSkinMesh_R"
+        }
+      ]
+    },
+    "VertCount": {
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "Vertices": {
+      "description": "The mesh vertex position array.",
+      "items": {
+        "$ref": "#/$defs/COM3D2_Vertex"
+      },
+      "title": "Vertex positions",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep its length equal to all vertex-indexed channels and preserve coordinate units.",
+      "x-meido-edit-role": "runtime_geometry",
+      "x-meido-game-usage": "The loader assigns it directly to the Unity Mesh before skinning and morph processing.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 315,
+          "line_start": 46,
+          "observation": "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "symbol": "ImportCM.LoadSkinMesh_R"
+        }
+      ]
+    }
+  },
+  "required": [
+    "Signature",
+    "Version",
+    "Name",
+    "RootBoneName",
+    "Bones",
+    "VertCount",
+    "SubMeshCount",
+    "BoneCount",
+    "BoneNames",
+    "BindPoses",
+    "Vertices",
+    "BoneWeights",
+    "SubMeshes",
+    "Materials"
+  ],
+  "title": "com3d2.model editing JSON",
+  "type": "object",
+  "x-meido-format-id": "com3d2.model",
+  "x-meido-native-suffixes": [
+    ".model"
+  ],
+  "x-meido-representation": "editing_json",
+  "x-meido-schema-version": "1.0.0"
+}

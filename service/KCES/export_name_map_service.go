@@ -1,6 +1,7 @@
 package KCES
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -36,8 +37,8 @@ func IsKCESExportNameMapJSONFile(path string) bool {
 // and the deterministic, entry-based editing JSON representation.
 type ExportNameMapService struct{}
 
-func (s *ExportNameMapService) ConvertExportNameMapToJSON(inputPath, outputPath string) error {
-	data, err := os.ReadFile(inputPath)
+func (s *ExportNameMapService) ConvertExportNameMapToJSON(ctx context.Context, inputPath, outputPath string, maxOutputBytes int64) error {
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
 		return fmt.Errorf("read KCES export name map %q: %w", inputPath, err)
 	}
@@ -49,14 +50,17 @@ func (s *ExportNameMapService) ConvertExportNameMapToJSON(inputPath, outputPath 
 	if err != nil {
 		return fmt.Errorf("encode KCES export name map editing JSON: %w", err)
 	}
-	if err := os.WriteFile(outputPath, encoded, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, encoded, maxOutputBytes); err != nil {
 		return fmt.Errorf("write KCES export name map JSON %q: %w", outputPath, err)
 	}
 	return nil
 }
 
-func (s *ExportNameMapService) ConvertJSONToExportNameMap(inputPath, outputPath string) error {
-	data, err := os.ReadFile(inputPath)
+func (s *ExportNameMapService) ConvertJSONToExportNameMap(ctx context.Context, inputPath, outputPath string, maxOutputBytes int64) error {
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
 		return fmt.Errorf("read KCES export name map JSON %q: %w", inputPath, err)
 	}
@@ -68,7 +72,10 @@ func (s *ExportNameMapService) ConvertJSONToExportNameMap(inputPath, outputPath 
 	if err != nil {
 		return fmt.Errorf("encode native KCES export name map: %w", err)
 	}
-	if err := os.WriteFile(outputPath, encoded, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, encoded, maxOutputBytes); err != nil {
 		return fmt.Errorf("write native KCES export name map %q: %w", outputPath, err)
 	}
 	return nil

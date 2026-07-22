@@ -18,10 +18,10 @@ func TestPartsService_MenuAssetsJSONRoundTrip(t *testing.T) {
 	outPath := filepath.Join(tmpDir, "parts_personal002.menuassets")
 
 	service := &PartsService{}
-	if err := service.ConvertPartsToJson(sample, jsonPath); err != nil {
+	if err := service.ConvertPartsToJson(TestConversionContext, sample, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertPartsToJson failed: %v", err)
 	}
-	if err := service.ConvertJsonToParts(jsonPath, outPath); err != nil {
+	if err := service.ConvertJsonToParts(TestConversionContext, jsonPath, outPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJsonToParts failed: %v", err)
 	}
 
@@ -49,10 +49,10 @@ func TestPartsService_ModelJSONRoundTrip(t *testing.T) {
 	outPath := filepath.Join(tmpDir, "hair_twin019.model")
 
 	service := &PartsService{}
-	if err := service.ConvertPartsToJson(sample, jsonPath); err != nil {
+	if err := service.ConvertPartsToJson(TestConversionContext, sample, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertPartsToJson failed: %v", err)
 	}
-	if err := service.ConvertJsonToParts(jsonPath, outPath); err != nil {
+	if err := service.ConvertJsonToParts(TestConversionContext, jsonPath, outPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJsonToParts failed: %v", err)
 	}
 
@@ -103,10 +103,10 @@ func TestPartsService_PriorityMaterialAssetsJSONRoundTrip(t *testing.T) {
 	}
 
 	service := &PartsService{}
-	if err := service.ConvertPartsToJson(inputPath, jsonPath); err != nil {
+	if err := service.ConvertPartsToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertPartsToJson failed: %v", err)
 	}
-	if err := service.ConvertJsonToParts(jsonPath, outPath); err != nil {
+	if err := service.ConvertJsonToParts(TestConversionContext, jsonPath, outPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJsonToParts failed: %v", err)
 	}
 
@@ -143,10 +143,10 @@ func TestPartsService_FixedSamplesJSONRoundTrip(t *testing.T) {
 					name := filepath.Base(sample)
 					jsonPath := filepath.Join(tmpDir, name+".json")
 					outPath := filepath.Join(tmpDir, name)
-					if err := service.ConvertPartsToJson(sample, jsonPath); err != nil {
+					if err := service.ConvertPartsToJson(TestConversionContext, sample, jsonPath, TestConversionMaxOutput); err != nil {
 						t.Fatalf("ConvertPartsToJson: %v", err)
 					}
-					if err := service.ConvertJsonToParts(jsonPath, outPath); err != nil {
+					if err := service.ConvertJsonToParts(TestConversionContext, jsonPath, outPath, TestConversionMaxOutput); err != nil {
 						t.Fatalf("ConvertJsonToParts: %v", err)
 					}
 					want, err := service.ReadPartsFile(sample)

@@ -36,13 +36,13 @@ func TestMateService(t *testing.T) {
 			}
 
 			// 3. Test ConvertMateToJson
-			err = s.ConvertMateToJson(inputPath, jsonPath)
+			err = s.ConvertMateToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput)
 			if err != nil {
 				t.Fatalf("ConvertMateToJson failed: %v", err)
 			}
 
 			// 4. Test ConvertJsonToMate
-			err = s.ConvertJsonToMate(jsonPath, backPath)
+			err = s.ConvertJsonToMate(TestConversionContext, jsonPath, backPath, TestConversionMaxOutput)
 			if err != nil {
 				t.Fatalf("ConvertJsonToMate failed: %v", err)
 			}

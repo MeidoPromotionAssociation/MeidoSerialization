@@ -249,24 +249,24 @@ func payloadInt32Cases() []payloadInt32Case {
 
 func newDynamicBoneInt32Envelope() *KCESPayloadEnvelope {
 	return &KCESPayloadEnvelope{
-		Extension:   ".dbconf",
-		Kind:        PayloadKindDynamicBoneStatus,
+		Format: PayloadFormatKCESMessagePack, Extension: ".dbconf", LengthPrefixed: true,
+		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindDynamicBoneStatus,
 		DynamicBone: NewDynamicBoneStatus(),
 	}
 }
 
 func newClothInt32Envelope() *KCESPayloadEnvelope {
 	return &KCESPayloadEnvelope{
-		Extension:   ".dsbconf",
-		Kind:        PayloadKindClothParams,
+		Format: PayloadFormatKCESMessagePack, Extension: ".dsbconf", LengthPrefixed: true,
+		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindClothParams,
 		ClothParams: NewClothParams(),
 	}
 }
 
 func newGenericColliderInt32Envelope() *KCESPayloadEnvelope {
 	return &KCESPayloadEnvelope{
-		Extension: ".dbcol",
-		Kind:      PayloadKindColliderPackage,
+		Format: PayloadFormatKCESMessagePack, Extension: ".dbcol", LengthPrefixed: true,
+		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindColliderPackage,
 		ColliderPackage: &ColliderPackage{
 			Version: 1000,
 			Colliders: []ColliderRef{
@@ -286,8 +286,8 @@ func newGenericColliderInt32Envelope() *KCESPayloadEnvelope {
 
 func newLimbColliderInt32Envelope() *KCESPayloadEnvelope {
 	return &KCESPayloadEnvelope{
-		Extension: ".limbcol",
-		Kind:      PayloadKindLimbCollider,
+		Format: PayloadFormatKCESMessagePack, Extension: ".limbcol", LengthPrefixed: true,
+		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindLimbCollider,
 		LimbCollider: &LimbColliderPackage{
 			Version: 1000,
 			Items: []LimbColliderItem{{
@@ -301,8 +301,8 @@ func newLimbColliderInt32Envelope() *KCESPayloadEnvelope {
 
 func newIKColliderInt32Envelope() *KCESPayloadEnvelope {
 	return &KCESPayloadEnvelope{
-		Extension: ".ikcol",
-		Kind:      PayloadKindIKCollider,
+		Format: PayloadFormatKCESMessagePack, Extension: ".ikcol", LengthPrefixed: true,
+		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindIKCollider,
 		IKCollider: &IKColliderPackage{
 			Version: 1000,
 			Groups: []IKColliderGroup{{

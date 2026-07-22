@@ -1,6 +1,7 @@
 package KCES
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -46,8 +47,8 @@ func isMaidColliderBaseName(name string) bool {
 	return name == "maid_collider" || name == "maid_collider_touch"
 }
 
-func (s *MaidColliderService) ConvertMaidColliderToJSON(inputPath, outputPath string) error {
-	data, err := os.ReadFile(inputPath)
+func (s *MaidColliderService) ConvertMaidColliderToJSON(ctx context.Context, inputPath, outputPath string, maxOutputBytes int64) error {
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
 		return fmt.Errorf("read %q: %w", inputPath, err)
 	}
@@ -60,14 +61,17 @@ func (s *MaidColliderService) ConvertMaidColliderToJSON(inputPath, outputPath st
 		return fmt.Errorf("marshal KCES maid collider JSON: %w", err)
 	}
 	jsonData = append(jsonData, '\n')
-	if err := os.WriteFile(outputPath, jsonData, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, jsonData, maxOutputBytes); err != nil {
 		return fmt.Errorf("write %q: %w", outputPath, err)
 	}
 	return nil
 }
 
-func (s *MaidColliderService) ConvertJSONToMaidCollider(inputPath, outputPath string) error {
-	data, err := os.ReadFile(inputPath)
+func (s *MaidColliderService) ConvertJSONToMaidCollider(ctx context.Context, inputPath, outputPath string, maxOutputBytes int64) error {
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
 		return fmt.Errorf("read %q: %w", inputPath, err)
 	}
@@ -82,7 +86,10 @@ func (s *MaidColliderService) ConvertJSONToMaidCollider(inputPath, outputPath st
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(outputPath, encoded, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, encoded, maxOutputBytes); err != nil {
 		return fmt.Errorf("write %q: %w", outputPath, err)
 	}
 	return nil

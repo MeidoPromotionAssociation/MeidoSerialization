@@ -74,4 +74,6 @@ func init() {
 	RootCmd.AddCommand(packCtCmd)
 	RootCmd.AddCommand(inspectKcesCatalogCmd)
 	RootCmd.AddCommand(packKcesModCmd)
+	RootCmd.AddCommand(serveCmd)
+	RootCmd.AddCommand(mcpCmd)
 }

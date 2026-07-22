@@ -13,9 +13,10 @@ import (
 )
 
 // .aba
-// KCES 资源包使用标准 Unity AssetBundle UnityFS 格式，Unity 5.3 及以上版本使用 UnityFS 签名
-// 文件包含可压缩的块目录、资源数据块以及一个或多个 Unity SerializedFile
-// 文件整体结构如下，所有头部字段均使用 Big-Endian
+// KCES 资源包使用标准 Unity AssetBundle UnityFS 格式。Unity 5.3 及以上版本使用 UnityFS 签名，
+// 文件包含可压缩的块目录、资源数据块以及一个或多个 Unity SerializedFile。
+// 文件整体结构如下，所有头部字段均使用 Big-Endian：
+//
 //	[Header]
 //	  - Signature: "UnityFS" (null-terminated string)
 //	  - Version: uint32（文件格式版本，通常 6-8）
@@ -26,106 +27,112 @@ import (
 //	    - CompressedSize: uint32（BlockAndDirInfo 压缩后大小）
 //	    - DecompressedSize: uint32（BlockAndDirInfo 解压后大小）
 //	    - Flags: uint32（压缩和布局标志位）
+//
 //	[BlockAndDirInfo]（位置由 Flags 决定，可能被 LZ4 或 LZMA 压缩）
 //	  - Hash: 16 bytes
 //	  - BlockCount: int32
 //	  - BlockInfos[BlockCount]: DecompressedSize(uint32) + CompressedSize(uint32) + Flags(uint16)
 //	  - DirectoryCount: int32
 //	  - DirectoryInfos[DirectoryCount]: Offset(int64) + DecompressedSize(int64) + Flags(uint32) + Name(string)
+//
 //	[Data Blocks]（可能被 LZ4 分块压缩，每块最大 0x20000 bytes）
 //	  - 包含一个或多个 AssetsFile（Unity 序列化文件）
 //
-//
 // .aba
-// KCES .aba files use the standard Unity AssetBundle UnityFS format; Unity 5.3 and later use the UnityFS signature
-// A file contains an optionally compressed block directory, resource-data blocks, and one or more Unity SerializedFiles
-// The overall layout is shown below, with all header fields encoded as Big-Endian
+// KCES .aba files use the standard Unity AssetBundle UnityFS format. Unity 5.3 and later use the UnityFS signature;
+// a file contains an optionally compressed block directory, resource-data blocks, and one or more Unity SerializedFiles.
+// The overall layout is shown below, with all header fields encoded as Big-Endian:
+//
 //	[Header]
 //	  - Signature: "UnityFS" (null-terminated string)
 //	  - Version: uint32 (usually file-format version 6 through 8)
 //	  - GenerationVersion: null-terminated string such as "5.x.x"
 //	  - EngineVersion: null-terminated string such as "2021.3.3f1"
 //	  - FSHeader: TotalFileSize(int64), CompressedSize(uint32), DecompressedSize(uint32), Flags(uint32)
+//
 //	[BlockAndDirInfo] (location selected by Flags; optionally compressed with LZ4 or LZMA)
 //	  - Hash: 16 bytes
 //	  - BlockInfos: decompressed size, compressed size, and flags for each block
 //	  - DirectoryInfos: offset, decompressed size, flags, and name for each entry
+//
 //	[Data Blocks] (optionally split into LZ4 blocks of at most 0x20000 bytes)
 //	  - Contains one or more AssetsFiles (Unity serialized files)
 
 const (
-	signatureUnityFS = "UnityFS" // signatureUnityFS 是 Unity 5.3 及以上 AssetBundle 的明文签名 / signatureUnityFS is the plaintext AssetBundle signature for Unity 5.3 and later
-	signatureAbap    = "abap"    // signatureAbap 是需要 key 文件解密的 KCES 加密 AssetBundle 签名前缀 / signatureAbap is the KCES encrypted AssetBundle signature prefix requiring key-file decryption
+	signatureUnityFS = "UnityFS" // Unity 5.3+ AssetBundle 签名 / Unity 5.3+ AssetBundle signature
+	signatureAbap    = "abap"    // KCES 加密 AssetBundle 签名（需要 key 文件解密）/ KCES encrypted AssetBundle signature requiring key-file decryption
 
-	// 下列常量定义 FSHeader Flags 位
-	// The following constants define FSHeader flag bits
-	CompressionNone  = 0x00 // CompressionNone 表示不压缩 / CompressionNone denotes no compression
-	CompressionLZMA  = 0x01 // CompressionLZMA 表示 LZMA 压缩 / CompressionLZMA denotes LZMA compression
-	CompressionLZ4   = 0x02 // CompressionLZ4 表示 LZ4 压缩 / CompressionLZ4 denotes LZ4 compression
-	CompressionLZ4HC = 0x03 // CompressionLZ4HC 表示高压缩率 LZ4HC 压缩 / / CompressionLZ4HC denotes higher-ratio LZ4HC compression
-	CompressionMask  = 0x3f // CompressionMask 是低六位压缩类型掩码 / CompressionMask is the compression-type mask in the low six bits
+	// FSHeader Flags 位定义 / FSHeader flag bits
+	CompressionNone  = 0x00 // 无压缩 / No compression
+	CompressionLZMA  = 0x01 // LZMA 压缩 / LZMA compression
+	CompressionLZ4   = 0x02 // LZ4 压缩 / LZ4 compression
+	CompressionLZ4HC = 0x03 // LZ4HC 压缩（更高压缩率）/ LZ4HC compression with higher ratio
+	CompressionMask  = 0x3f // 压缩类型掩码（低 6 位）/ Compression type mask in the low 6 bits
 
-	FlagHasDirectoryInfo            = 0x40  // FlagHasDirectoryInfo 表示块信息与目录信息组合保存 / FlagHasDirectoryInfo denotes combined block and directory information
-	FlagBlockAndDirAtEnd            = 0x80  // FlagBlockAndDirAtEnd 表示 BlockAndDirInfo 位于文件末尾 / FlagBlockAndDirAtEnd denotes BlockAndDirInfo stored at file end
-	FlagOldWebPluginCompat          = 0x100 // FlagOldWebPluginCompat 是旧版 Web 插件兼容位 / FlagOldWebPluginCompat is the old Web-plugin compatibility bit
-	FlagBlockInfoNeedPaddingAtStart = 0x200 // FlagBlockInfoNeedPaddingAtStart 表示数据块起始需要 16 字节对齐 / FlagBlockInfoNeedPaddingAtStart denotes 16-byte alignment before data blocks
+	FlagHasDirectoryInfo            = 0x40  // 包含目录信息（5.2+ 始终为 true）/ Contains directory info, always true in 5.2+
+	FlagBlockAndDirAtEnd            = 0x80  // BlockAndDirInfo 位于文件末尾 / BlockAndDirInfo is stored at file end
+	FlagOldWebPluginCompat          = 0x100 // 旧版 Web 插件兼容 / Old web plugin compatibility
+	FlagBlockInfoNeedPaddingAtStart = 0x200 // 数据块起始需要 16 字节对齐 / Data blocks require 16-byte alignment at start
 
-	// 下列常量定义 DirectoryInfo Flags 位
-	// The following constants define DirectoryInfo flag bits
-	DirFlagSerializedFile = 0x04 // DirFlagSerializedFile 表示条目是序列化 AssetsFile / DirFlagSerializedFile denotes a serialized AssetsFile entry
+	// DirectoryInfo Flags / DirectoryInfo flags
+	DirFlagSerializedFile = 0x04 // 该条目是 AssetsFile（序列化文件）/ Entry is an AssetsFile serialized file
 
-	minSupportedAbaVersion = 6 // 最低支持的 Aba 版本 / Minimum supported Aba version
-	maxSupportedAbaVersion = 8 // 最高支持的 Aba 版本 / Maximum supported Aba version
+	minSupportedAbaVersion = 6
+	maxSupportedAbaVersion = 8
 
-	// UnityFS 块目录元数据相对数据流很小，最大的 KCES 样本约为 400 KiB，而其解压后的 .resS 条目超过 4 GiB
-	// 因此限制元数据与单块分配，同时不对逻辑数据流施加较低上限
-	// UnityFS block and directory metadata is small compared with the data stream; the largest KCES sample is about 400 KiB while its decompressed .resS entry exceeds 4 GiB
-	// Metadata and per-block allocations are therefore bounded without imposing a low limit on the logical data stream
-	maxBlockAndDirInfoSize = 64 << 20  // 64 MiB
-	maxAbaBlockSize        = 256 << 20 // 256 MiB
-	// parts_bv002.aba 包含一个 799,993,424 字节的真实 KCES SerializedFile 目录
-	// 单次分配 API 保持有限，同时允许所有已观察到的 SerializedFile 传给 ReadAssetsFile；数 GiB 的 .resS 条目仍须通过较小范围读取
-	// parts_bv002.aba contains a real KCES SerializedFile directory of 799,993,424 bytes
-	// The single-allocation API remains bounded while allowing every observed SerializedFile to reach ReadAssetsFile; multi-gigabyte .resS entries must still use smaller range reads
-	maxAbaReadSize = 1 << 30 // 1 GiB
+	// UnityFS block/directory metadata is small compared with the data stream.
+	// The largest KCES sample is about 400 KiB while its decompressed .resS
+	// entry exceeds 4 GiB. Keep metadata and per-block allocations bounded
+	// without imposing a low limit on the logical data stream.
+	maxBlockAndDirInfoSize = 64 << 20
+	maxAbaBlockSize        = 256 << 20
+	// parts_bv002.aba contains a real KCES SerializedFile directory of
+	// 799,993,424 bytes. Keep a bounded single-allocation API while allowing
+	// every observed SerializedFile to reach ReadAssetsFile; multi-gigabyte
+	// .resS entries must still be consumed through smaller range reads.
+	maxAbaReadSize = 1 << 30
 )
 
-// Aba 表示一个采用 Unity AssetBundle UnityFS 格式的 .aba 文件
-// Aba represents one .aba file using the Unity AssetBundle UnityFS format
+// Aba 表示一个采用 Unity AssetBundle UnityFS 格式的 .aba 文件。
+//
+// Aba represents one .aba file using the Unity AssetBundle UnityFS format.
 type Aba struct {
 	Header     AbaHeader       // 文件头 / File header
 	BlockInfo  BlockAndDirInfo // 压缩块和目录信息 / Compressed block and directory information
 	DataReader io.ReadSeeker   // 压缩数据区 reader；各块按需解压 / Compressed data-area reader; blocks are decompressed on demand
 
-	abaStart           int64 // .aba 在底层流中的起始绝对偏移 / Absolute start offset of the .aba in the backing stream
-	abaSize            int64 // 从 abaStart 起计算的 .aba 总字节数 / Total .aba byte length measured from abaStart
-	headerEnd          int64 // 相对于 abaStart 的对齐后头部末尾 / Aligned header end relative to abaStart
-	blockAndDirOffset  int64 // 块目录信息相对于 abaStart 的偏移 / Block-and-directory info offset relative to abaStart
-	fileDataOffset     int64 // 压缩数据块相对于 abaStart 的起始偏移 / Compressed data-block start offset relative to abaStart
-	compressedDataSize int64 // 块表中全部压缩数据块的总字节数 / Total compressed byte count of all data blocks in the block table
+	abaStart           int64
+	abaSize            int64
+	headerEnd          int64
+	blockAndDirOffset  int64
+	fileDataOffset     int64
+	compressedDataSize int64
 }
 
-// AbaHeader 表示 UnityFS 文件头，所有字段使用 Big-Endian 编码
-// AbaHeader represents the UnityFS header with Big-Endian fields
+// AbaHeader 表示 UnityFS 文件头，所有字段使用 Big-Endian 编码。
+//
+// AbaHeader represents the UnityFS header with Big-Endian fields.
 type AbaHeader struct {
-	Signature         string   // 签名，受支持的明文值为 "UnityFS" / Signature, with "UnityFS" as the supported plaintext value
-	Version           uint32   // UnityFS 文件格式版本，当前支持 6 至 8 / UnityFS file-format version, currently supporting 6 through 8
-	GenerationVersion string   // NUL 结尾的生成版本字符串，如 "5.x.x" / NUL-terminated generation-version string such as "5.x.x"
-	EngineVersion     string   // NUL 结尾的 Unity 引擎版本字符串 / NUL-terminated Unity engine-version string
+	Signature         string   // 签名（"UnityFS"）/ Signature, usually "UnityFS"
+	Version           uint32   // 文件格式版本（通常 6-8）/ File format version, usually 6-8
+	GenerationVersion string   // 生成版本（如 "5.x.x"）/ Generation version such as "5.x.x"
+	EngineVersion     string   // Unity 引擎版本（如 "2021.3.3f1"）/ Unity engine version such as "2021.3.3f1"
 	FSHeader          FSHeader // 文件流头部 / File stream header
 }
 
-// FSHeader 表示紧跟在 AbaHeader 字符串字段之后的 UnityFS 文件流头部
-// FSHeader represents UnityFS stream header fields following the AbaHeader strings
+// FSHeader 表示 UnityFS 的文件流头部信息，紧跟在 AbaHeader 字符串字段之后。
+//
+// FSHeader represents UnityFS stream header fields after the AbaHeader strings.
 type FSHeader struct {
 	TotalFileSize    int64  // 整个文件的总大小 / Total file size
 	CompressedSize   uint32 // BlockAndDirInfo 压缩后的字节大小 / Compressed size of BlockAndDirInfo
 	DecompressedSize uint32 // BlockAndDirInfo 解压后的字节大小 / Decompressed size of BlockAndDirInfo
-	Flags            uint32 // 组合压缩类型与布局位的标志 / Flags combining compression type and layout bits
+	Flags            uint32 // 标志位（压缩类型 + 布局标志）/ Flags combining compression type and layout bits
 }
 
-// BlockAndDirInfo 包含数据块列表和文件目录列表
-// BlockAndDirInfo contains the data-block and directory lists
+// BlockAndDirInfo 包含压缩块列表和文件目录列表。
+//
+// BlockAndDirInfo contains the data-block and directory lists.
 type BlockAndDirInfo struct {
 	Hash           [16]byte        // 16 字节哈希 / 16-byte hash
 	BlockInfos     []BlockInfo     // 数据压缩块信息列表 / Data block info list
@@ -133,43 +140,43 @@ type BlockAndDirInfo struct {
 	TrailingData   []byte          // 已知目录表之后的未解析字节 / Unparsed bytes following the known directory table
 }
 
-// BlockInfo 描述一个数据压缩块的元信息
-// BlockInfo describes one compressed data block
+// BlockInfo 描述一个数据压缩块的元信息。
+//
+// BlockInfo describes one compressed data block.
 type BlockInfo struct {
 	DecompressedSize uint32 // 解压后大小 / Decompressed size
-	CompressedSize   uint32 // 压缩后大小，未压缩时与 DecompressedSize 相同 / Compressed size, equal to DecompressedSize when uncompressed
+	CompressedSize   uint32 // 压缩后大小（未压缩时与 DecompressedSize 相同）/ Compressed size, same as DecompressedSize when uncompressed
 	Flags            uint16 // 标志位：低 6 位为压缩类型，bit6 表示是否为流式块 / Flags, low 6 bits are compression type and bit6 marks streamed blocks
 }
 
-// DirectoryInfo 描述 .aba 文件内的一个目录条目
-// DirectoryInfo describes one directory entry inside an .aba file
+// DirectoryInfo 描述 .aba 文件内的一个目录条目。
+//
+// DirectoryInfo describes one directory entry inside an .aba file.
 type DirectoryInfo struct {
 	Offset           int64  // 相对于数据区起始的偏移量 / Offset relative to the data area start
 	DecompressedSize int64  // 解压后大小 / Decompressed size
-	Flags            uint32 // 目录条目标志，0x04 表示序列化 AssetsFile / Directory-entry flags, with 0x04 denoting a serialized AssetsFile
+	Flags            uint32 // 标志位（0x04 = 序列化文件/AssetsFile）/ Flags, 0x04 means serialized AssetsFile
 	Name             string // 文件名 / File name
 }
 
-// GetCompressionType 返回数据块 Flags 低六位中的压缩类型
-// GetCompressionType returns the compression type from the low six bits of data-block Flags
+// GetCompressionType 返回块的压缩类型
 func (b *BlockInfo) GetCompressionType() byte {
 	return byte(b.Flags & uint16(CompressionMask))
 }
 
-// IsSerialized 返回目录条目是否标记为序列化 AssetsFile
-// IsSerialized reports whether the directory entry is marked as a serialized AssetsFile
+// IsSerialized 返回该条目是否为 AssetsFile
 func (d *DirectoryInfo) IsSerialized() bool {
 	return d.Flags&DirFlagSerializedFile != 0
 }
 
-// GetCompressionType 返回 FSHeader Flags 低六位中的块目录元数据压缩类型
-// GetCompressionType returns the block-directory metadata compression type from the low six bits of FSHeader Flags
+// GetCompressionType 返回 FSHeader 的压缩类型
 func (h *FSHeader) GetCompressionType() byte {
 	return byte(h.Flags & uint32(CompressionMask))
 }
 
-// ReadAba 从 reader 的当前位置读取并解析采用 Unity AssetBundle UnityFS 格式的 .aba 文件
-// ReadAba reads and parses an .aba file in Unity AssetBundle UnityFS format from the reader's current position
+// ReadAba 从 reader 中读取并解析采用 Unity AssetBundle UnityFS 格式的 .aba 文件。
+//
+// ReadAba reads and parses an .aba file using the Unity AssetBundle UnityFS format.
 func ReadAba(r io.ReadSeeker) (*Aba, error) {
 	if r == nil {
 		return nil, fmt.Errorf(".aba reader is nil")
@@ -195,8 +202,7 @@ func ReadAba(r io.ReadSeeker) (*Aba, error) {
 		abaSize:  end - start,
 	}
 
-	// 首先读取 UnityFS Header
-	// First read the UnityFS Header
+	// 1. 读取 Header
 	if err := abaFile.readHeader(r); err != nil {
 		return nil, fmt.Errorf("read .aba header failed: %w", err)
 	}
@@ -226,8 +232,7 @@ func ReadAba(r io.ReadSeeker) (*Aba, error) {
 		return nil, fmt.Errorf("block/directory info too large: compressed=%d decompressed=%d (limit %d)", abaFile.Header.FSHeader.CompressedSize, abaFile.Header.FSHeader.DecompressedSize, maxBlockAndDirInfoSize)
 	}
 
-	// UnityFS version 7 及以上将头部末尾对齐到 16 字节
-	// UnityFS version 7 and later align the end of the header to 16 bytes
+	// 2. 对齐到 16 字节（version >= 7）
 	pos, err := r.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return nil, fmt.Errorf("get UnityFS header end: %w", err)
@@ -248,14 +253,12 @@ func ReadAba(r io.ReadSeeker) (*Aba, error) {
 	}
 	abaFile.headerEnd = relativePos
 
-	// 随后读取并解析 BlockAndDirInfo
-	// Then read and parse BlockAndDirInfo
+	// 3. 读取 BlockAndDirInfo
 	if err := abaFile.readBlockAndDirInfo(r); err != nil {
 		return nil, fmt.Errorf("read block and dir info failed: %w", err)
 	}
 
-	// 最后为压缩数据区创建支持随机访问的 section reader
-	// Finally create a random-access section reader for the compressed data area
+	// 4. 设置数据区 reader
 	readerAt, ok := r.(io.ReaderAt)
 	if !ok {
 		return nil, fmt.Errorf(".aba reader must implement io.ReaderAt")
@@ -265,8 +268,7 @@ func ReadAba(r io.ReadSeeker) (*Aba, error) {
 	return abaFile, nil
 }
 
-// GetFileNames 按目录表顺序返回 .aba 中所有文件名称
-// GetFileNames returns every file name in .aba directory-table order
+// GetFileNames 返回 .aba 中所有文件的名称列表。
 func (b *Aba) GetFileNames() []string {
 	if b == nil {
 		return nil
@@ -278,8 +280,7 @@ func (b *Aba) GetFileNames() []string {
 	return names
 }
 
-// GetFileData 读取指定目录索引的完整解压文件数据
-// GetFileData reads complete decompressed file data for a directory index
+// GetFileData 读取指定索引的文件数据（自动处理 LZ4 分块解压）
 func (b *Aba) GetFileData(index int) ([]byte, error) {
 	if b == nil {
 		return nil, fmt.Errorf(".aba is nil")
@@ -296,8 +297,7 @@ func (b *Aba) GetFileData(index int) ([]byte, error) {
 	return data, nil
 }
 
-// GetFileDataByName 按目录条目名称读取完整解压文件数据
-// GetFileDataByName reads complete decompressed file data by directory-entry name
+// GetFileDataByName 按名称读取文件数据
 func (b *Aba) GetFileDataByName(name string) ([]byte, error) {
 	if b == nil {
 		return nil, fmt.Errorf(".aba is nil")
@@ -310,8 +310,8 @@ func (b *Aba) GetFileDataByName(name string) ([]byte, error) {
 	return nil, fmt.Errorf("file %q not found in .aba", name)
 }
 
-// GetFileDataRange 从目录索引指定的 .aba 条目读取字节范围，offset 和 size 相对于该目录条目
-// GetFileDataRange reads a byte range from an .aba entry selected by directory index, with offset and size relative to that entry
+// GetFileDataRange reads a byte range from an .aba entry selected by directory
+// index. The offset and size are relative to that directory entry.
 func (b *Aba) GetFileDataRange(index int, offset int64, size int64) ([]byte, error) {
 	if b == nil {
 		return nil, fmt.Errorf(".aba is nil")
@@ -334,8 +334,9 @@ func (b *Aba) GetFileDataRange(index int, offset int64, size int64) ([]byte, err
 	return b.readDataRange(absoluteOffset, size)
 }
 
-// GetFileDataRangeByName 按名称读取 .aba 条目的字节范围，offset 和 size 相对于解压后的文件条目而非整个 UnityFS 数据流
-// GetFileDataRangeByName reads a byte range from a named .aba entry, with offset and size relative to the decompressed entry rather than the whole UnityFS data stream
+// GetFileDataRangeByName reads a byte range from an .aba entry by name.
+// The offset and size are relative to the decompressed file entry, not the
+// whole UnityFS data stream.
 func (b *Aba) GetFileDataRangeByName(name string, offset int64, size int64) ([]byte, error) {
 	if b == nil {
 		return nil, fmt.Errorf(".aba is nil")
@@ -349,41 +350,37 @@ func (b *Aba) GetFileDataRangeByName(name string, offset int64, size int64) ([]b
 	return nil, fmt.Errorf("file %q not found in .aba", name)
 }
 
-// readHeader 按 Big-Endian 读取 UnityFS 头部字段
-// readHeader reads UnityFS header fields in Big-Endian order
+// readHeader 读取 UnityFS 文件头
 func (b *Aba) readHeader(r io.ReadSeeker) error {
-	// 首先读取 NUL 结尾的 Signature，并为 Version、两个必需字符串终止符和 FSHeader 预留空间
-	// First read the NUL-terminated Signature while reserving room for Version, two required string terminators, and FSHeader
+	// 1. Signature (null-terminated string)
+	// Reserve version, two mandatory string terminators, and FSHeader.
 	sig, err := b.readHeaderNullString(r, 4+1+1+20)
 	if err != nil {
 		return fmt.Errorf("read signature failed: %w", err)
 	}
 	b.Header.Signature = sig
 
-	// Version 是 Big-Endian UInt32
-	// Version is a Big-Endian UInt32
+	// 2. Version (uint32 big-endian)
 	if err := binary.Read(r, binary.BigEndian, &b.Header.Version); err != nil {
 		return fmt.Errorf("read version failed: %w", err)
 	}
 
-	// GenerationVersion 是 NUL 结尾字符串，并为 EngineVersion 终止符和 FSHeader 预留空间
-	// GenerationVersion is a NUL-terminated string read while reserving room for the EngineVersion terminator and FSHeader
+	// 3. GenerationVersion (null-terminated string)
+	// Reserve the engine-version terminator and FSHeader.
 	genVer, err := b.readHeaderNullString(r, 1+20)
 	if err != nil {
 		return fmt.Errorf("read generation version failed: %w", err)
 	}
 	b.Header.GenerationVersion = genVer
 
-	// EngineVersion 是 NUL 结尾字符串
-	// EngineVersion is a NUL-terminated string
+	// 4. EngineVersion (null-terminated string)
 	engVer, err := b.readHeaderNullString(r, 20)
 	if err != nil {
 		return fmt.Errorf("read engine version failed: %w", err)
 	}
 	b.Header.EngineVersion = engVer
 
-	// FSHeader 是固定宽度的 Big-Endian 结构
-	// FSHeader is a fixed-width Big-Endian structure
+	// 5. FSHeader
 	if err := binary.Read(r, binary.BigEndian, &b.Header.FSHeader); err != nil {
 		return fmt.Errorf("read fs header failed: %w", err)
 	}
@@ -391,8 +388,7 @@ func (b *Aba) readHeader(r io.ReadSeeker) error {
 	return nil
 }
 
-// readBlockAndDirInfo 定位、读取、解压并解析 BlockAndDirInfo
-// readBlockAndDirInfo locates, reads, decompresses, and parses BlockAndDirInfo
+// readBlockAndDirInfo 读取并解压 BlockAndDirInfo
 func (b *Aba) readBlockAndDirInfo(r io.ReadSeeker) error {
 	flags := b.Header.FSHeader.Flags
 	compressedSize := int64(b.Header.FSHeader.CompressedSize)
@@ -405,12 +401,10 @@ func (b *Aba) readBlockAndDirInfo(r io.ReadSeeker) error {
 		return fmt.Errorf("uncompressed block/directory info size mismatch: compressed=%d decompressed=%d", compressedSize, decompressedSize)
 	}
 
-	// BlockAndDirInfo 默认紧随头部，也可由 FlagBlockAndDirAtEnd 指定在文件末尾
-	// BlockAndDirInfo follows the header by default or is placed at file end by FlagBlockAndDirAtEnd
+	// 确定 BlockAndDirInfo 的位置
 	infoOffset := b.headerEnd
 	if flags&uint32(FlagBlockAndDirAtEnd) != 0 {
-		// 末尾布局使用文件大小减去压缩元数据大小得到起始位置
-		// The end layout derives the start from file size minus compressed metadata size
+		// 位于文件末尾
 		infoOffset = b.abaSize - compressedSize
 	}
 	infoEnd, ok := addNonNegativeInt64(infoOffset, compressedSize)
@@ -422,15 +416,13 @@ func (b *Aba) readBlockAndDirInfo(r io.ReadSeeker) error {
 	}
 	b.blockAndDirOffset = infoOffset
 
-	// 读取 BlockAndDirInfo 的压缩或原始字节
-	// Read the compressed or raw BlockAndDirInfo bytes
+	// 读取压缩数据
 	compressedData := make([]byte, int(compressedSize))
 	if _, err := io.ReadFull(r, compressedData); err != nil {
 		return fmt.Errorf("read compressed block info failed: %w", err)
 	}
 
-	// 按 FSHeader 低六位指定的算法解压元数据
-	// Decompress metadata using the algorithm selected by the low six FSHeader bits
+	// 解压
 	var infoData []byte
 	switch compType {
 	case CompressionNone:
@@ -452,16 +444,14 @@ func (b *Aba) readBlockAndDirInfo(r io.ReadSeeker) error {
 		infoData = decoded
 	}
 
-	// 解析块表与目录表并校验数据布局
-	// Parse the block and directory tables and validate the data layout
+	// 解析 BlockAndDirInfo
 	if err := b.parseBlockAndDirInfo(infoData); err != nil {
 		return err
 	}
 	return b.validateDataLayout()
 }
 
-// parseBlockAndDirInfo 从解压后的 Big-Endian 字节中解析 BlockAndDirInfo
-// parseBlockAndDirInfo parses BlockAndDirInfo from decompressed Big-Endian bytes
+// parseBlockAndDirInfo 从解压后的字节中解析 BlockAndDirInfo
 func (b *Aba) parseBlockAndDirInfo(data []byte) error {
 	if len(data) < 24 {
 		return fmt.Errorf("block/directory info is too short: %d bytes", len(data))
@@ -469,14 +459,12 @@ func (b *Aba) parseBlockAndDirInfo(data []byte) error {
 	r := binaryio.NewEndianReader(data, binary.BigEndian)
 	var parsed BlockAndDirInfo
 
-	// 元数据首先保存 16 字节 Hash
-	// Metadata begins with a 16-byte Hash
+	// 1. Hash (16 bytes)
 	if err := r.ReadFull(parsed.Hash[:]); err != nil {
 		return fmt.Errorf("read hash: %w", err)
 	}
 
-	// Hash 后保存 BlockCount 和固定宽度的 BlockInfos
-	// Hash is followed by BlockCount and fixed-width BlockInfos
+	// 2. BlockCount + BlockInfos
 	blockCountRaw, err := r.ReadInt32()
 	if err != nil {
 		return fmt.Errorf("read block count: %w", err)
@@ -526,8 +514,7 @@ func (b *Aba) parseBlockAndDirInfo(data []byte) error {
 		parsed.BlockInfos = append(parsed.BlockInfos, block)
 	}
 
-	// 块表后保存 DirectoryCount 和变长名称的 DirectoryInfos
-	// The block table is followed by DirectoryCount and DirectoryInfos with variable-length names
+	// 3. DirectoryCount + DirectoryInfos
 	dirCountRaw, err := r.ReadInt32()
 	if err != nil {
 		return fmt.Errorf("read directory count: %w", err)
@@ -556,8 +543,7 @@ func (b *Aba) parseBlockAndDirInfo(data []byte) error {
 			return fmt.Errorf("read directory info %d flags: %w", i, err)
 		}
 
-		// 每个目录条目以 NUL 结尾的 Name 收尾
-		// Each directory entry ends with a NUL-terminated Name
+		// Name (null-terminated)
 		name, err := r.ReadNullString()
 		if err != nil {
 			return fmt.Errorf("read directory info %d name: %w", i, err)
@@ -599,10 +585,10 @@ func (b *Aba) parseBlockAndDirInfo(data []byte) error {
 	return nil
 }
 
-// readDataRange 从解压后的 UnityFS 数据流返回一个范围
-// 仅读取和解压与请求范围重叠的块，因此提取多个文件时不会保留或反复分配完整 .aba 解压缓冲区
-// readDataRange returns a range from the decompressed UnityFS data stream
-// It reads and decompresses only overlapping blocks, so extracting many files does not retain or repeatedly allocate a full .aba decompression buffer
+// readDataRange returns a slice from the decompressed UnityFS data stream.
+// It only reads and decompresses blocks that overlap the requested range, so
+// extracting many files does not retain or repeatedly allocate a full .aba
+// decompression buffer.
 func (b *Aba) readDataRange(offset int64, size int64) ([]byte, error) {
 	if b == nil {
 		return nil, fmt.Errorf(".aba is nil")
@@ -675,8 +661,6 @@ func (b *Aba) readDataRange(offset int64, size int64) ([]byte, error) {
 	return result, nil
 }
 
-// decompressDataBlock 按数据块 Flags 解压一个压缩块并校验输出长度
-// decompressDataBlock decompresses one data block according to its Flags and validates the output length
 func decompressDataBlock(block BlockInfo, compressed []byte) ([]byte, error) {
 	if block.CompressedSize > maxAbaBlockSize || block.DecompressedSize > maxAbaBlockSize {
 		return nil, fmt.Errorf("block is too large: compressed=%d decompressed=%d", block.CompressedSize, block.DecompressedSize)
@@ -714,10 +698,10 @@ func decompressDataBlock(block BlockInfo, compressed []byte) ([]byte, error) {
 	}
 }
 
-// UnityFS 保存标准五字节 LZMA 属性头，但省略传统格式的八字节解压大小，因为该大小已在块表中给出
-// 本函数插入已知大小，并将实际解码交给 xz/lzma 实现
-// UnityFS stores the standard five-byte LZMA properties header but omits the classic eight-byte uncompressed-size field because that size is already present in the block table
-// This function inserts the known size and delegates codec work to the xz/lzma implementation
+// UnityFS stores the standard five-byte LZMA properties header but omits the
+// classic format's eight-byte uncompressed-size field because that size is
+// already present in the block table. Insert the known size and delegate the
+// actual codec work to the xz/lzma implementation.
 func decompressUnityLZMA(compressed []byte, decompressedSize int) ([]byte, error) {
 	if decompressedSize < 0 {
 		return nil, fmt.Errorf("negative decompressed size %d", decompressedSize)
@@ -747,8 +731,6 @@ func decompressUnityLZMA(compressed []byte, decompressedSize int) ([]byte, error
 	return result, nil
 }
 
-// minInt64 返回两个 Int64 中较小者
-// minInt64 returns the smaller of two Int64 values
 func minInt64(a, b int64) int64 {
 	if a < b {
 		return a
@@ -756,8 +738,6 @@ func minInt64(a, b int64) int64 {
 	return b
 }
 
-// maxInt64 返回两个 Int64 中较大者
-// maxInt64 returns the larger of two Int64 values
 func maxInt64(a, b int64) int64 {
 	if a > b {
 		return a
@@ -765,8 +745,6 @@ func maxInt64(a, b int64) int64 {
 	return b
 }
 
-// validateDataLayout 根据头部 flags 和块表计算并校验压缩数据区
-// validateDataLayout computes and validates the compressed data area from header flags and the block table
 func (b *Aba) validateDataLayout() error {
 	dataOffset := b.headerEnd
 	if b.Header.FSHeader.Flags&uint32(FlagBlockAndDirAtEnd) == 0 {
@@ -808,8 +786,6 @@ func (b *Aba) validateDataLayout() error {
 	return nil
 }
 
-// sumDecompressedBlockSizes 安全累加所有数据块的解压大小
-// sumDecompressedBlockSizes safely sums decompressed sizes for all data blocks
 func sumDecompressedBlockSizes(blocks []BlockInfo) (int64, error) {
 	var total int64
 	for i, block := range blocks {
@@ -822,8 +798,6 @@ func sumDecompressedBlockSizes(blocks []BlockInfo) (int64, error) {
 	return total, nil
 }
 
-// addNonNegativeInt64 加法仅接受非负值并检测 Int64 溢出
-// addNonNegativeInt64 adds non-negative values and detects Int64 overflow
 func addNonNegativeInt64(a, b int64) (int64, bool) {
 	if a < 0 || b < 0 || a > int64(^uint64(0)>>1)-b {
 		return 0, false
@@ -831,8 +805,6 @@ func addNonNegativeInt64(a, b int64) (int64, bool) {
 	return a + b, true
 }
 
-// alignInt64 将非负值向上对齐到指定正数边界
-// alignInt64 rounds a non-negative value up to a positive alignment boundary
 func alignInt64(value, alignment int64) (int64, bool) {
 	if value < 0 || alignment <= 0 {
 		return 0, false
@@ -844,8 +816,6 @@ func alignInt64(value, alignment int64) (int64, bool) {
 	return addNonNegativeInt64(value, alignment-remainder)
 }
 
-// readHeaderNullString 在保留后续头部字段空间的前提下读取一个 NUL 结尾字符串
-// readHeaderNullString reads a NUL-terminated string while reserving space for remaining header fields
 func (b *Aba) readHeaderNullString(r io.ReadSeeker, reservedBytes int64) (string, error) {
 	if b == nil || r == nil {
 		return "", fmt.Errorf("nil .aba header reader")
@@ -861,8 +831,6 @@ func (b *Aba) readHeaderNullString(r io.ReadSeeker, reservedBytes int64) (string
 	return readNullStringWithin(r, b.abaSize-relativePos-reservedBytes)
 }
 
-// readNullStringWithin 在给定最大字节数内读取 NUL 结尾字符串
-// readNullStringWithin reads a NUL-terminated string within a given maximum byte count
 func readNullStringWithin(r io.ReadSeeker, maxBytes int64) (string, error) {
 	if r == nil {
 		return "", fmt.Errorf("reader is nil")

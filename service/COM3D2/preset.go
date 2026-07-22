@@ -2,6 +2,7 @@ package COM3D2
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -98,7 +99,10 @@ func (s *PresetService) WritePresetFile(path string, PresetData *COM3D2.Preset) 
 }
 
 // ConvertPresetToJson 接收输入文件路径和输出文件路径，将输入文件转换为 .json 文件
-func (s *PresetService) ConvertPresetToJson(inputPath string, outputPath string) error {
+func (s *PresetService) ConvertPresetToJson(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
 	if strings.HasSuffix(outputPath, ".preset") {
 		outputPath = strings.TrimSuffix(outputPath, ".preset") + ".preset.json"
 	}
@@ -108,48 +112,27 @@ func (s *PresetService) ConvertPresetToJson(inputPath string, outputPath string)
 		return fmt.Errorf("failed to read preset file: %w", err)
 	}
 
-	jsonData, err := json.Marshal(presetData)
-	if err != nil {
-		return fmt.Errorf("failed to marshal preset data: %w", err)
+	if err := checkConversionContext(ctx); err != nil {
+		return err
 	}
-
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("unable to create preset.json file: %w", err)
+	if err := writeConversionJSON(ctx, outputPath, presetData, maxOutputBytes); err != nil {
+		return conversionOutputError("preset JSON", err)
 	}
-	defer func() {
-		if closeErr := f.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("error closing output file: %w", closeErr)
-		}
-	}()
-
-	bw := bufio.NewWriter(f)
-	if _, err := bw.Write(jsonData); err != nil {
-		return fmt.Errorf("failed to write to preset.json file: %w", err)
-	}
-	if err := bw.Flush(); err != nil {
-		return fmt.Errorf("an error occurred while flush bufio: %w", err)
-	}
-
 	return nil
 }
 
 // ConvertJsonToPreset 接收输入文件路径和输出文件路径，将输入文件转换为 .preset 文件
-func (s *PresetService) ConvertJsonToPreset(inputPath string, outputPath string) error {
+func (s *PresetService) ConvertJsonToPreset(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
 	if strings.HasSuffix(outputPath, ".json") {
 		outputPath = strings.TrimSuffix(outputPath, ".json") + ".preset"
 	}
 
-	f, err := os.Open(inputPath)
-	if err != nil {
-		return fmt.Errorf("cannot open preset.json file: %w", err)
-	}
-	defer f.Close()
-
 	var presetData *COM3D2.Preset
-	if err := json.NewDecoder(f).Decode(&presetData); err != nil {
+	if err := readConversionJSON(ctx, inputPath, &presetData); err != nil {
 		return fmt.Errorf("parsing the preset.json file failed: %w", err)
 	}
-
-	return s.WritePresetFile(outputPath, presetData)
+	if err := writeConversionBinary(ctx, outputPath, maxOutputBytes, presetData.Dump); err != nil {
+		return conversionOutputError("preset", err)
+	}
+	return nil
 }

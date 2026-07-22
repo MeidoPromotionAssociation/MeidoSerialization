@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/application"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2/arc"
 	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
 	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
@@ -178,50 +180,52 @@ func canonicalLegacyFileType(fileType string) string {
 }
 
 func convertCOM3D2ToJSONByType(fileType string, inputPath string, outputPath string) (bool, error) {
+	ctx := context.Background()
 	switch canonicalLegacyFileType(strings.TrimPrefix(strings.ToLower(fileType), ".")) {
 	case "menu":
-		return true, (&COM3D2Service.MenuService{}).ConvertMenuToJson(inputPath, outputPath)
+		return true, (&COM3D2Service.MenuService{}).ConvertMenuToJson(ctx, inputPath, outputPath, application.DefaultMaxOutputBytes)
 	case "mate":
-		return true, (&COM3D2Service.MateService{}).ConvertMateToJson(inputPath, outputPath)
+		return true, (&COM3D2Service.MateService{}).ConvertMateToJson(ctx, inputPath, outputPath, application.DefaultMaxOutputBytes)
 	case "pmat":
-		return true, (&COM3D2Service.PMatService{}).ConvertPMatToJson(inputPath, outputPath)
+		return true, (&COM3D2Service.PMatService{}).ConvertPMatToJson(ctx, inputPath, outputPath, application.DefaultMaxOutputBytes)
 	case "col":
-		return true, (&COM3D2Service.ColService{}).ConvertColToJson(inputPath, outputPath)
+		return true, (&COM3D2Service.ColService{}).ConvertColToJson(ctx, inputPath, outputPath, application.DefaultMaxOutputBytes)
 	case "phy":
-		return true, (&COM3D2Service.PhyService{}).ConvertPhyToJson(inputPath, outputPath)
+		return true, (&COM3D2Service.PhyService{}).ConvertPhyToJson(ctx, inputPath, outputPath, application.DefaultMaxOutputBytes)
 	case "psk":
-		return true, (&COM3D2Service.PskService{}).ConvertPskToJson(inputPath, outputPath)
+		return true, (&COM3D2Service.PskService{}).ConvertPskToJson(ctx, inputPath, outputPath, application.DefaultMaxOutputBytes)
 	case "anm":
-		return true, (&COM3D2Service.AnmService{}).ConvertAnmToJson(inputPath, outputPath)
+		return true, (&COM3D2Service.AnmService{}).ConvertAnmToJson(ctx, inputPath, outputPath, application.DefaultMaxOutputBytes)
 	case "model":
-		return true, (&COM3D2Service.ModelService{}).ConvertModelToJson(inputPath, outputPath)
+		return true, (&COM3D2Service.ModelService{}).ConvertModelToJson(ctx, inputPath, outputPath, application.DefaultMaxOutputBytes)
 	case "preset":
-		return true, (&COM3D2Service.PresetService{}).ConvertPresetToJson(inputPath, outputPath)
+		return true, (&COM3D2Service.PresetService{}).ConvertPresetToJson(ctx, inputPath, outputPath, application.DefaultMaxOutputBytes)
 	default:
 		return false, nil
 	}
 }
 
 func convertCOM3D2JSONToModByType(fileType string, inputPath string, outputPath string) (bool, error) {
+	ctx := context.Background()
 	switch canonicalLegacyFileType(strings.TrimPrefix(strings.ToLower(fileType), ".")) {
 	case "menu":
-		return true, (&COM3D2Service.MenuService{}).ConvertJsonToMenu(inputPath, outputPath)
+		return true, (&COM3D2Service.MenuService{}).ConvertJsonToMenu(ctx, inputPath, outputPath, application.DefaultMaxOutputBytes)
 	case "mate":
-		return true, (&COM3D2Service.MateService{}).ConvertJsonToMate(inputPath, outputPath)
+		return true, (&COM3D2Service.MateService{}).ConvertJsonToMate(ctx, inputPath, outputPath, application.DefaultMaxOutputBytes)
 	case "pmat":
-		return true, (&COM3D2Service.PMatService{}).ConvertJsonToPMat(inputPath, outputPath)
+		return true, (&COM3D2Service.PMatService{}).ConvertJsonToPMat(ctx, inputPath, outputPath, application.DefaultMaxOutputBytes)
 	case "col":
-		return true, (&COM3D2Service.ColService{}).ConvertJsonToCol(inputPath, outputPath)
+		return true, (&COM3D2Service.ColService{}).ConvertJsonToCol(ctx, inputPath, outputPath, application.DefaultMaxOutputBytes)
 	case "phy":
-		return true, (&COM3D2Service.PhyService{}).ConvertJsonToPhy(inputPath, outputPath)
+		return true, (&COM3D2Service.PhyService{}).ConvertJsonToPhy(ctx, inputPath, outputPath, application.DefaultMaxOutputBytes)
 	case "psk":
-		return true, (&COM3D2Service.PskService{}).ConvertJsonToPsk(inputPath, outputPath)
+		return true, (&COM3D2Service.PskService{}).ConvertJsonToPsk(ctx, inputPath, outputPath, application.DefaultMaxOutputBytes)
 	case "anm":
-		return true, (&COM3D2Service.AnmService{}).ConvertJsonToAnm(inputPath, outputPath)
+		return true, (&COM3D2Service.AnmService{}).ConvertJsonToAnm(ctx, inputPath, outputPath, application.DefaultMaxOutputBytes)
 	case "model":
-		return true, (&COM3D2Service.ModelService{}).ConvertJsonToModel(inputPath, outputPath)
+		return true, (&COM3D2Service.ModelService{}).ConvertJsonToModel(ctx, inputPath, outputPath, application.DefaultMaxOutputBytes)
 	case "preset":
-		return true, (&COM3D2Service.PresetService{}).ConvertJsonToPreset(inputPath, outputPath)
+		return true, (&COM3D2Service.PresetService{}).ConvertJsonToPreset(ctx, inputPath, outputPath, application.DefaultMaxOutputBytes)
 	default:
 		return false, nil
 	}
@@ -311,6 +315,7 @@ func isCtFile(path string) bool {
 
 // convertToJson converts a MOD file to JSON
 func convertToJson(path string) error {
+	ctx := context.Background()
 	ext := strings.ToLower(filepath.Ext(path))
 	outputPath := path + ".json"
 
@@ -330,7 +335,7 @@ func convertToJson(path string) error {
 	}
 	if KCESService.IsKCESBridgeSessionFile(path) {
 		service := &KCESService.BridgeSessionService{}
-		err = service.ConvertBridgeSessionToJSON(path, outputPath)
+		err = service.ConvertBridgeSessionToJSON(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES bridge session JSON: %w", path, err)
 		}
@@ -339,7 +344,7 @@ func convertToJson(path string) error {
 	}
 	if KCESService.IsKCESGP03BridgeFile(path) {
 		service := &KCESService.GP03BridgeService{}
-		err = service.ConvertBridgeToJSON(path, outputPath)
+		err = service.ConvertBridgeToJSON(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES GP03 bridge JSON: %w", path, err)
 		}
@@ -348,7 +353,7 @@ func convertToJson(path string) error {
 	}
 	if KCESService.IsKCESExportNameMapFile(path) {
 		service := &KCESService.ExportNameMapService{}
-		err = service.ConvertExportNameMapToJSON(path, outputPath)
+		err = service.ConvertExportNameMapToJSON(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES export name map JSON: %w", path, err)
 		}
@@ -357,7 +362,7 @@ func convertToJson(path string) error {
 	}
 	if KCESService.IsKCESSavedAttachFile(path) {
 		service := &KCESService.SavedAttachService{}
-		err = service.ConvertSavedAttachToJSON(path, outputPath)
+		err = service.ConvertSavedAttachToJSON(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES saved-attach JSON: %w", path, err)
 		}
@@ -366,7 +371,7 @@ func convertToJson(path string) error {
 	}
 	if KCESService.IsKCESSystemDataFile(path) {
 		service := &KCESService.SystemDataService{}
-		err = service.ConvertSystemDataToJSON(path, outputPath)
+		err = service.ConvertSystemDataToJSON(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES system.dat JSON: %w", path, err)
 		}
@@ -375,7 +380,7 @@ func convertToJson(path string) error {
 	}
 	if KCESService.IsKCESPathsFile(path) {
 		service := &KCESService.PathsService{}
-		err = service.ConvertPathsToJSON(path, outputPath)
+		err = service.ConvertPathsToJSON(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to paths.dat JSON: %w", path, err)
 		}
@@ -384,7 +389,7 @@ func convertToJson(path string) error {
 	}
 	if KCESService.IsKCESMaidColliderFile(path) {
 		service := &KCESService.MaidColliderService{}
-		err = service.ConvertMaidColliderToJSON(path, outputPath)
+		err = service.ConvertMaidColliderToJSON(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES maid collider JSON: %w", path, err)
 		}
@@ -393,7 +398,7 @@ func convertToJson(path string) error {
 	}
 	if KCESService.IsKCESPayloadFile(path) {
 		service := &KCESService.PayloadService{}
-		err = service.ConvertPayloadToJson(path, outputPath)
+		err = service.ConvertPayloadToJson(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES payload JSON: %w", path, err)
 		}
@@ -402,7 +407,7 @@ func convertToJson(path string) error {
 	}
 	if KCESService.IsKCESPartsFile(path) {
 		service := &KCESService.PartsService{}
-		err = service.ConvertPartsToJson(path, outputPath)
+		err = service.ConvertPartsToJson(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES parts JSON: %w", path, err)
 		}
@@ -411,7 +416,7 @@ func convertToJson(path string) error {
 	}
 	if KCESService.IsKCESMiscFile(path) {
 		service := &KCESService.MiscService{}
-		err = service.ConvertMiscToJson(path, outputPath)
+		err = service.ConvertMiscToJson(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES misc JSON: %w", path, err)
 		}
@@ -420,7 +425,7 @@ func convertToJson(path string) error {
 	}
 	if KCESService.IsKCESRawUnityBytesFile(path) {
 		service := &KCESService.RawUnityObjectService{}
-		err = service.ConvertRawUnityObjectToJson(path, outputPath)
+		err = service.ConvertRawUnityObjectToJson(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES raw Unity JSON: %w", path, err)
 		}
@@ -429,7 +434,7 @@ func convertToJson(path string) error {
 	}
 	if KCESService.IsKCESCtFile(path) {
 		service := &KCESService.CtService{}
-		err = service.ConvertCtToJson(path, outputPath)
+		err = service.ConvertCtToJson(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES ct JSON: %w", path, err)
 		}
@@ -438,7 +443,7 @@ func convertToJson(path string) error {
 	}
 	if KCESService.IsKCESPresetFile(path) {
 		service := &KCESService.PresetService{}
-		err = service.ConvertPresetToJson(path, outputPath)
+		err = service.ConvertPresetToJson(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES preset JSON: %w", path, err)
 		}
@@ -447,7 +452,7 @@ func convertToJson(path string) error {
 	}
 	if KCESService.IsKCESDataFile(path) {
 		service := &KCESService.DataService{}
-		err = service.ConvertDataToJson(path, outputPath)
+		err = service.ConvertDataToJson(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES data JSON: %w", path, err)
 		}
@@ -472,6 +477,7 @@ func convertToJson(path string) error {
 
 // convertToMod converts a JSON file to a MOD file
 func convertToMod(path string) error {
+	ctx := context.Background()
 	if !strings.HasSuffix(strings.ToLower(path), ".json") {
 		return fmt.Errorf("not a JSON file: %s", path)
 	}
@@ -497,7 +503,7 @@ func convertToMod(path string) error {
 	}
 	if KCESService.IsKCESBridgeSessionJSONFile(path) {
 		service := &KCESService.BridgeSessionService{}
-		err = service.ConvertJSONToBridgeSession(path, outputPath)
+		err = service.ConvertJSONToBridgeSession(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES bridge session file: %w", path, err)
 		}
@@ -506,7 +512,7 @@ func convertToMod(path string) error {
 	}
 	if KCESService.IsKCESGP03BridgeJSONFile(path) {
 		service := &KCESService.GP03BridgeService{}
-		err = service.ConvertJSONToBridge(path, outputPath)
+		err = service.ConvertJSONToBridge(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES GP03 bridge file: %w", path, err)
 		}
@@ -515,7 +521,7 @@ func convertToMod(path string) error {
 	}
 	if KCESService.IsKCESExportNameMapJSONFile(path) || strings.HasSuffix(strings.ToLower(path), ".enm.json") {
 		service := &KCESService.ExportNameMapService{}
-		err = service.ConvertJSONToExportNameMap(path, outputPath)
+		err = service.ConvertJSONToExportNameMap(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES export name map: %w", path, err)
 		}
@@ -524,7 +530,7 @@ func convertToMod(path string) error {
 	}
 	if KCESService.IsKCESSavedAttachJSONFile(path) {
 		service := &KCESService.SavedAttachService{}
-		err = service.ConvertJSONToSavedAttach(path, outputPath)
+		err = service.ConvertJSONToSavedAttach(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES saved-attach file: %w", path, err)
 		}
@@ -533,7 +539,7 @@ func convertToMod(path string) error {
 	}
 	if KCESService.IsKCESSystemDataJSONFile(path) || strings.HasSuffix(strings.ToLower(path), "system.dat.json") {
 		service := &KCESService.SystemDataService{}
-		err = service.ConvertJSONToSystemData(path, outputPath)
+		err = service.ConvertJSONToSystemData(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES system.dat: %w", path, err)
 		}
@@ -542,7 +548,7 @@ func convertToMod(path string) error {
 	}
 	if KCESService.IsKCESPathsJSONFile(path) || strings.HasSuffix(strings.ToLower(path), "paths.dat.json") {
 		service := &KCESService.PathsService{}
-		err = service.ConvertJSONToPaths(path, outputPath)
+		err = service.ConvertJSONToPaths(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to paths.dat: %w", path, err)
 		}
@@ -552,7 +558,7 @@ func convertToMod(path string) error {
 	maidColliderBase := trimLastExtension(path)
 	if KCESService.IsKCESMaidColliderJSONFile(path) || KCESService.IsKCESMaidColliderFile(maidColliderBase) {
 		service := &KCESService.MaidColliderService{}
-		err = service.ConvertJSONToMaidCollider(path, outputPath)
+		err = service.ConvertJSONToMaidCollider(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES maid collider: %w", path, err)
 		}
@@ -561,7 +567,7 @@ func convertToMod(path string) error {
 	}
 	if KCESService.IsKCESPayloadJSONFile(path) {
 		service := &KCESService.PayloadService{}
-		err = service.ConvertJsonToPayload(path, outputPath)
+		err = service.ConvertJsonToPayload(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES payload: %w", path, err)
 		}
@@ -570,7 +576,7 @@ func convertToMod(path string) error {
 	}
 	if KCESService.IsKCESPartsJSONFile(path) {
 		service := &KCESService.PartsService{}
-		err = service.ConvertJsonToParts(path, outputPath)
+		err = service.ConvertJsonToParts(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES parts payload: %w", path, err)
 		}
@@ -579,7 +585,7 @@ func convertToMod(path string) error {
 	}
 	if KCESService.IsKCESMiscJSONFile(path) {
 		service := &KCESService.MiscService{}
-		err = service.ConvertJsonToMisc(path, outputPath)
+		err = service.ConvertJsonToMisc(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES misc payload: %w", path, err)
 		}
@@ -589,7 +595,7 @@ func convertToMod(path string) error {
 	rawUnityBase := trimLastExtension(path)
 	if KCESService.IsKCESRawUnityBytesJSONFile(path) || KCESService.IsKCESRawUnityBytesFile(rawUnityBase) {
 		service := &KCESService.RawUnityObjectService{}
-		err = service.ConvertJsonToRawUnityObject(path, outputPath)
+		err = service.ConvertJsonToRawUnityObject(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES raw Unity payload: %w", path, err)
 		}
@@ -598,7 +604,7 @@ func convertToMod(path string) error {
 	}
 	if KCESService.IsKCESCtJSONFile(path) || strings.HasSuffix(strings.ToLower(path), ".ct.json") {
 		service := &KCESService.CtService{}
-		err = service.ConvertJsonToCt(path, outputPath)
+		err = service.ConvertJsonToCt(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES ct: %w", path, err)
 		}
@@ -607,7 +613,7 @@ func convertToMod(path string) error {
 	}
 	if KCESService.IsKCESPresetJSONFile(path) {
 		service := &KCESService.PresetService{}
-		err = service.ConvertJsonToPreset(path, outputPath)
+		err = service.ConvertJsonToPreset(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES preset: %w", path, err)
 		}
@@ -616,7 +622,7 @@ func convertToMod(path string) error {
 	}
 	if KCESService.IsKCESDataJSONFile(path) {
 		service := &KCESService.DataService{}
-		err = service.ConvertJsonToData(path, outputPath)
+		err = service.ConvertJsonToData(ctx, path, outputPath, application.DefaultMaxOutputBytes)
 		if err != nil {
 			return fmt.Errorf("failed to convert %s to KCES data: %w", path, err)
 		}
@@ -937,9 +943,9 @@ func convertBytesToJson(path string, outputPath string) error {
 
 	switch bytesType {
 	case COM3D2Service.DanceBytesTimeline:
-		return service.ConvertTimelineDataToJson(path, outputPath)
+		return service.ConvertTimelineDataToJson(context.Background(), path, outputPath, application.DefaultMaxOutputBytes)
 	case COM3D2Service.DanceBytesObjectData:
-		return service.ConvertDanceObjectDataToJson(path, outputPath)
+		return service.ConvertDanceObjectDataToJson(context.Background(), path, outputPath, application.DefaultMaxOutputBytes)
 	default:
 		return fmt.Errorf("unrecognized .bytes file content")
 	}
@@ -962,9 +968,9 @@ func convertJsonToBytes(path string, outputPath string) error {
 	service := &COM3D2Service.DanceService{}
 	header := string(headerBytes)
 	if strings.Contains(header, "\"TotalFrame\"") && strings.Contains(header, "\"FrameRate\"") {
-		return service.ConvertJsonToTimelineData(path, outputPath)
+		return service.ConvertJsonToTimelineData(context.Background(), path, outputPath, application.DefaultMaxOutputBytes)
 	}
-	return service.ConvertJsonToDanceObjectData(path, outputPath)
+	return service.ConvertJsonToDanceObjectData(context.Background(), path, outputPath, application.DefaultMaxOutputBytes)
 }
 
 // convertFile automatically determines the direction of conversion

@@ -1,0 +1,455 @@
+{
+  "$defs": {
+    "COM3D2_Keyword": {
+      "additionalProperties": false,
+      "properties": {
+        "Key": {
+          "type": "string"
+        },
+        "Value": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "Key",
+        "Value"
+      ],
+      "type": "object"
+    },
+    "COM3D2_Material": {
+      "additionalProperties": false,
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Properties": {
+          "items": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "PropName": {
+                    "type": "string"
+                  },
+                  "SubTag": {
+                    "type": "string"
+                  },
+                  "Tex2D": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/$defs/COM3D2_Tex2DSubProperty"
+                      }
+                    ]
+                  },
+                  "TexRT": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "$ref": "#/$defs/COM3D2_TexRTSubProperty"
+                      }
+                    ]
+                  },
+                  "TypeName": {
+                    "const": "tex",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "TypeName",
+                  "PropName",
+                  "SubTag",
+                  "Tex2D",
+                  "TexRT"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "Color": {
+                    "items": {
+                      "maximum": 3.4028234663852886e+38,
+                      "minimum": -3.4028234663852886e+38,
+                      "type": "number"
+                    },
+                    "maxItems": 4,
+                    "minItems": 4,
+                    "type": "array"
+                  },
+                  "PropName": {
+                    "type": "string"
+                  },
+                  "TypeName": {
+                    "const": "col",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "TypeName",
+                  "PropName",
+                  "Color"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "PropName": {
+                    "type": "string"
+                  },
+                  "TypeName": {
+                    "const": "vec",
+                    "type": "string"
+                  },
+                  "Vector": {
+                    "items": {
+                      "maximum": 3.4028234663852886e+38,
+                      "minimum": -3.4028234663852886e+38,
+                      "type": "number"
+                    },
+                    "maxItems": 4,
+                    "minItems": 4,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "TypeName",
+                  "PropName",
+                  "Vector"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "Number": {
+                    "maximum": 3.4028234663852886e+38,
+                    "minimum": -3.4028234663852886e+38,
+                    "type": "number"
+                  },
+                  "PropName": {
+                    "type": "string"
+                  },
+                  "TypeName": {
+                    "const": "f",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "TypeName",
+                  "PropName",
+                  "Number"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "Number": {
+                    "maximum": 3.4028234663852886e+38,
+                    "minimum": -3.4028234663852886e+38,
+                    "type": "number"
+                  },
+                  "PropName": {
+                    "type": "string"
+                  },
+                  "TypeName": {
+                    "const": "range",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "TypeName",
+                  "PropName",
+                  "Number"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "OffsetX": {
+                    "maximum": 3.4028234663852886e+38,
+                    "minimum": -3.4028234663852886e+38,
+                    "type": "number"
+                  },
+                  "OffsetY": {
+                    "maximum": 3.4028234663852886e+38,
+                    "minimum": -3.4028234663852886e+38,
+                    "type": "number"
+                  },
+                  "PropName": {
+                    "type": "string"
+                  },
+                  "TypeName": {
+                    "const": "tex_offset",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "TypeName",
+                  "PropName",
+                  "OffsetX",
+                  "OffsetY"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "PropName": {
+                    "type": "string"
+                  },
+                  "ScaleX": {
+                    "maximum": 3.4028234663852886e+38,
+                    "minimum": -3.4028234663852886e+38,
+                    "type": "number"
+                  },
+                  "ScaleY": {
+                    "maximum": 3.4028234663852886e+38,
+                    "minimum": -3.4028234663852886e+38,
+                    "type": "number"
+                  },
+                  "TypeName": {
+                    "const": "tex_scale",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "TypeName",
+                  "PropName",
+                  "ScaleX",
+                  "ScaleY"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "Count": {
+                    "maximum": 2147483647,
+                    "minimum": -2147483648,
+                    "type": "integer"
+                  },
+                  "Keywords": {
+                    "items": {
+                      "$ref": "#/$defs/COM3D2_Keyword"
+                    },
+                    "type": [
+                      "null",
+                      "array"
+                    ]
+                  },
+                  "PropName": {
+                    "type": "string"
+                  },
+                  "TypeName": {
+                    "const": "keyword",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "TypeName",
+                  "PropName",
+                  "Count",
+                  "Keywords"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "ShaderFilename": {
+          "type": "string"
+        },
+        "ShaderName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "Name",
+        "ShaderName",
+        "ShaderFilename",
+        "Properties"
+      ],
+      "type": "object"
+    },
+    "COM3D2_Tex2DSubProperty": {
+      "additionalProperties": false,
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Offset": {
+          "items": {
+            "maximum": 3.4028234663852886e+38,
+            "minimum": -3.4028234663852886e+38,
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "Path": {
+          "type": "string"
+        },
+        "Scale": {
+          "items": {
+            "maximum": 3.4028234663852886e+38,
+            "minimum": -3.4028234663852886e+38,
+            "type": "number"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "Name",
+        "Path",
+        "Offset",
+        "Scale"
+      ],
+      "type": "object"
+    },
+    "COM3D2_TexRTSubProperty": {
+      "additionalProperties": false,
+      "properties": {
+        "DiscardedStr1": {
+          "type": "string"
+        },
+        "DiscardedStr2": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "DiscardedStr1",
+        "DiscardedStr2"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:meido-serialization:editing-json:v1:com3d2.mate",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Lossless editing JSON contract for com3d2.mate.",
+  "properties": {
+    "Material": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/COM3D2_Material"
+        }
+      ],
+      "description": "The shader identity and typed property records applied to the Unity material.",
+      "title": "Material payload",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Edit only known property variants; preserve property order and unknown records.",
+      "x-meido-edit-role": "runtime_configuration",
+      "x-meido-game-usage": "ReadMaterial selects or clones a base material, changes the shader when needed, and applies each property in stream order.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 505,
+          "line_start": 317,
+          "observation": "The loader validates CM3D2_MATERIAL, reads the material name and shader, then applies typed texture, color, vector, float, range, offset, scale, and keyword properties to a Unity Material.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "symbol": "ImportCM.LoadMaterial/ReadMaterial"
+        }
+      ]
+    },
+    "Name": {
+      "description": "The material instance name used by the loader and priority-material lookup.",
+      "title": "Material name",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep it synchronized with the material file and any matching priority-material entry.",
+      "x-meido-edit-role": "resource_identity",
+      "x-meido-game-usage": "ImportCM assigns it to UnityEngine.Material.name and uses it when looking up a .pmat override.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 505,
+          "line_start": 317,
+          "observation": "The loader validates CM3D2_MATERIAL, reads the material name and shader, then applies typed texture, color, vector, float, range, offset, scale, and keyword properties to a Unity Material.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "symbol": "ImportCM.LoadMaterial/ReadMaterial"
+        }
+      ]
+    },
+    "Signature": {
+      "description": "The fixed CM3D2_MATERIAL header string.",
+      "title": "Material signature",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep CM3D2_MATERIAL.",
+      "x-meido-edit-role": "format_marker",
+      "x-meido-game-usage": "ImportCM.LoadMaterial checks it before reading the material payload.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 505,
+          "line_start": 317,
+          "observation": "The loader validates CM3D2_MATERIAL, reads the material name and shader, then applies typed texture, color, vector, float, range, offset, scale, and keyword properties to a Unity Material.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "symbol": "ImportCM.LoadMaterial/ReadMaterial"
+        }
+      ]
+    },
+    "Version": {
+      "description": "The integer version stored after the material signature.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "title": "Material version",
+      "type": "integer",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Preserve the source value unless targeting a known compiler version.",
+      "x-meido-edit-role": "version_marker",
+      "x-meido-game-usage": "The loader reads it to keep the stream aligned; property compatibility is selected by the property records and game build.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 505,
+          "line_start": 317,
+          "observation": "The loader validates CM3D2_MATERIAL, reads the material name and shader, then applies typed texture, color, vector, float, range, offset, scale, and keyword properties to a Unity Material.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "symbol": "ImportCM.LoadMaterial/ReadMaterial"
+        }
+      ]
+    }
+  },
+  "required": [
+    "Signature",
+    "Version",
+    "Name",
+    "Material"
+  ],
+  "title": "com3d2.mate editing JSON",
+  "type": "object",
+  "x-meido-format-id": "com3d2.mate",
+  "x-meido-native-suffixes": [
+    ".mate",
+    ".mat"
+  ],
+  "x-meido-representation": "editing_json",
+  "x-meido-schema-version": "1.0.0"
+}

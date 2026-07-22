@@ -111,7 +111,7 @@ func TestModelPreservesDeepIndexedObjectWireMetadata(t *testing.T) {
 	rotationFuture := codec.Raw{0x81, 0xa1, 'f', 0x92, 0xc0, 0xc3}
 	groupFuture := codec.Raw{0xd6, 0x42, 0, 0, 0, 9}
 	modelWire := []interface{}{
-		int64(1001), uint64(9), "x.model", "x.mmesh", "model",
+		int64(1001), uint64(9), "x.model", "x.mmesh", "root",
 		[]interface{}{
 			[]interface{}{
 				"root", int64(-1), false,

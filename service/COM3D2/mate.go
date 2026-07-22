@@ -2,6 +2,7 @@ package COM3D2
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -70,7 +71,10 @@ func (m *MateService) WriteMateFile(path string, mateData *COM3D2.Mate) error {
 }
 
 // ConvertMateToJson 接收输入文件路径和输出文件路径，将输入文件转换为 .json 文件
-func (m *MateService) ConvertMateToJson(inputPath string, outputPath string) error {
+func (m *MateService) ConvertMateToJson(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
 	if strings.HasSuffix(outputPath, ".mate") {
 		outputPath = strings.TrimSuffix(outputPath, ".mate") + ".mate.json"
 	}
@@ -80,48 +84,27 @@ func (m *MateService) ConvertMateToJson(inputPath string, outputPath string) err
 		return fmt.Errorf("failed to read mate file: %w", err)
 	}
 
-	jsonData, err := json.Marshal(mateData)
-	if err != nil {
-		return fmt.Errorf("failed to marshal mate data: %w", err)
+	if err := checkConversionContext(ctx); err != nil {
+		return err
 	}
-
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("unable to create mate.json file: %w", err)
+	if err := writeConversionJSON(ctx, outputPath, mateData, maxOutputBytes); err != nil {
+		return conversionOutputError("mate JSON", err)
 	}
-	defer func() {
-		if closeErr := f.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("error closing output file: %w", closeErr)
-		}
-	}()
-
-	bw := bufio.NewWriter(f)
-	if _, err := bw.Write(jsonData); err != nil {
-		return fmt.Errorf("failed to write to mate.json file: %w", err)
-	}
-	if err := bw.Flush(); err != nil {
-		return fmt.Errorf("an error occurred while flush bufio: %w", err)
-	}
-
 	return nil
 }
 
 // ConvertJsonToMate 接收输入文件路径和输出文件路径，将输入文件转换为 .mate 文件
-func (m *MateService) ConvertJsonToMate(inputPath string, outputPath string) error {
+func (m *MateService) ConvertJsonToMate(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
 	if strings.HasSuffix(outputPath, ".json") {
 		outputPath = strings.TrimSuffix(outputPath, ".json") + ".mate"
 	}
 
-	f, err := os.Open(inputPath)
-	if err != nil {
-		return fmt.Errorf("cannot open mate.json file: %w", err)
-	}
-	defer f.Close()
-
 	var mateData *COM3D2.Mate
-	if err := json.NewDecoder(f).Decode(&mateData); err != nil {
+	if err := readConversionJSON(ctx, inputPath, &mateData); err != nil {
 		return fmt.Errorf("parsing the mate.json file failed: %w", err)
 	}
-
-	return m.WriteMateFile(outputPath, mateData)
+	if err := writeConversionBinary(ctx, outputPath, maxOutputBytes, mateData.Dump); err != nil {
+		return conversionOutputError("mate", err)
+	}
+	return nil
 }

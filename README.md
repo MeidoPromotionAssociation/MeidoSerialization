@@ -14,8 +14,8 @@
 ## Introduction
 
 MeidoSerialization is a serialization library written in Golang, designed to handle file formats used
-in [KISS](https://www.kisskiss.tv/) games. It currently supports [CM3D2](https://www.kisskiss.tv/cm3d2/)
-and [COM3D2](https://com3d2.jp/) game file formats.
+in [KISS](https://www.kisskiss.tv/) games. It currently supports [CM3D2](https://www.kisskiss.tv/cm3d2/),
+[COM3D2](https://com3d2.jp/), and the newer KCES character-editing file formats.
 
 <br>
 
@@ -27,11 +27,61 @@ Or you can find me in Discord [Custom Maid Server](https://discord.gg/custommaid
 
 ## Features
 
-- Read and write various file formats used in CM3D2 and COM3D2 games
+- Read and write various file formats used in CM3D2, COM3D2, and KCES
 - Convert binary game files to JSON format for easy editing
 - Convert JSON files back to binary game formats
-- Support for multiple file types including: .menu, .mate, .pmat, .col, .phy, .psk, .tex, .anm, .model, .nei, .preset,
+- Expose the same conversion engine through versioned protobuf/gRPC and MCP stdio
+  transports ([transport API documentation](docs/transport-api.md))
+- Support for multiple file types including: .menu, .mate, .pmat, .col, .phy, .psk, .tex, .anm, .model, .nei,
+  .preset/.perset,
   .arc, .bytes (dance data)
+
+gRPC `--root` entries are read-only. MCP defaults to an unrestricted
+direct-path convenience mode; supplying `--root`, `--write-root`, or
+`--restrict-paths` switches it to confined root-ID mode. gRPC inline payloads
+are capped at 3 MiB, larger data uses bounded temporary blobs, and archive
+listings are paged. KCES raw Unity `.bytes` inputs and outputs preserve
+adjacent metadata and TypeTree sidecars as one artifact bundle. Dance
+transport IDs are `com3d2.timeline` and `com3d2.object_data`.
+
+### Schema-first editing
+
+Callers that need a strongly typed editor do not have to convert a sample file
+first. Call gRPC `GetCapabilities`, select a format with
+`has_editing_schema: true`, then call `GetFormatSchema` with its `format_id`.
+The response contains the complete Draft 2020-12 document as
+`application/schema+json` bytes. Verify `sha256`, cache by `schema_id` and
+`schema_version`, and pass the document to a JSON Schema code generator (for
+example quicktype, `json-schema-to-typescript`, NJsonSchema, or `typify`).
+The generated types describe the editing JSON accepted by `Validate` and
+`Convert`, including polymorphic `oneOf` branches, recursive `$defs`, base64
+byte fields, and standard exact integer ranges. MCP clients fetch the same
+bytes from
+`meido://schemas/{format_id}`. Native-only formats such as `.arc` have no
+editing schema and are intentionally not exposed as typed editing documents.
+JSON Schema covers the structural contract; call `Validate` after editing to
+enforce cross-field and native-wire invariants before conversion.
+
+For semantic editing help, fetch `GetFormatGuide` after the Schema. The Guide
+is an embedded source-review profile that maps JSON paths and Schema
+pointers to the field's actual game usage, edit role, risk, invariants, enum
+meanings, and source evidence. Script-like formats can additionally publish
+structured command forms, positional arguments, target-build coverage, and
+shared game-constant `value_sets`; an argument's `value_set_refs` identifies
+the exact enum or slot table to use. Unprefixed states describe AI source review:
+`runtime_verified` means the documented game code path was checked against the
+cited source, while `serialization_verified` means the codec or wire-preservation
+boundary was checked and resource-specific payload members may remain opaque.
+They do not claim human approval. The `human_` prefix is reserved for explicit
+human review, for example `human_runtime_verified` and
+`human_serialization_verified`. `schema_only` confirms only JSON shape and must
+be preserved unless the caller has independent evidence. Every published editing
+format now has a checked-in reviewed profile. The effective Guide merges that
+profile with the complete Schema-derived field inventory, so coverage remains
+field-specific and unreviewed fields remain explicitly `schema_only`. The normal workflow is
+Capabilities -> Schema -> Guide -> skill/`meido.edit_format` -> inspect ->
+minimal edit -> Validate -> Convert. Guide and Schema generation do not read
+the local `game` source tree.
 
 ## Supported File Types
 
@@ -65,7 +115,9 @@ file：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/mai
 - This library was originally developed for the [COM3D2_MOD_EDITOR](https://github.com/90135/COM3D2_MOD_EDITOR) project
   and was later made independent for easier use. You can also refer to that project for usage examples.
 -
+
 pkg.go.dev: [https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
+
 - DeepWiki (Note: May contain AI
   hallucinations): [https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
 
@@ -307,7 +359,8 @@ This project is licensed under the BSD-3-Clause License - see the LICENSE file f
 ## 简介
 
 MeidoSerialization 是一个用 Golang 编写的序列化库，专为处理 [KISS](https://www.kisskiss.tv)
-游戏中使用的文件格式而设计。目前支持 [CM3D2](https://www.kisskiss.tv/cm3d2/) 和 [COM3D2](https://com3d2.jp/) 的游戏文件格式。
+游戏中使用的文件格式而设计。目前支持 [CM3D2](https://www.kisskiss.tv/cm3d2/)、[COM3D2](https://com3d2.jp/) 以及后续 KCES
+角色编辑系统的文件格式。
 
 <br>
 
@@ -321,10 +374,45 @@ MeidoSerialization 是一个用 Golang 编写的序列化库，专为处理 [KIS
 
 ## 功能特点
 
-- 读取和写入 CM3D2 和 COM3D2 游戏中使用的各种文件格式
+- 读取和写入 CM3D2、COM3D2 和 KCES 使用的各种文件格式
 - 将二进制游戏文件转换为 JSON 格式以便于编辑
 - 将 JSON 文件转换回二进制游戏格式
-- 支持多种文件类型，包括：.menu、.mate、.pmat、.col、.phy、.psk、.tex、.anm、.model、.nei、.preset、.arc、.bytes（舞蹈数据）
+- 通过版本化 protobuf/gRPC 和 MCP stdio 接口提供统一的转换能力（详见[传输 API 文档](docs/transport-api.md)）
+- 支持多种文件类型，包括：.menu、.mate、.pmat、.col、.phy、.psk、.tex、.anm、.model、.nei、.preset/.perset、.arc、.bytes（舞蹈数据）
+
+gRPC 的 `--root` 只读。MCP 默认使用可直接传入 `path`/`output_path` 的便捷模式；
+添加 `--root`、`--write-root` 或 `--restrict-paths` 后切换为受根目录白名单约束的
+安全模式。gRPC 一个 artifact bundle 的内联字节共享 3 MiB 预算，更大的文件使用
+受配额约束的临时 blob，归档列表使用分页；舞蹈格式 ID 为 `com3d2.timeline` 和
+`com3d2.object_data`。KCES raw Unity `.bytes` 的相邻 metadata/TypeTree sidecar 会作为
+同一个 artifact bundle 一起保留。
+
+### 先获取 Schema，再构建强类型编辑器
+
+调用方无需先转换一个样本文件即可构建编辑器。先调用 gRPC
+`GetCapabilities`，选择 `has_editing_schema: true` 的 `format_id`，再调用
+`GetFormatSchema`。响应中的 `schema_json` 是完整的 Draft 2020-12
+`application/schema+json` 文档；使用 `sha256` 校验内容，并以
+`schema_id` 和 `schema_version` 作为缓存键，然后交给 TypeScript、C#、Rust
+等 JSON Schema 代码生成器。生成的类型就是 `Validate`/`Convert` 接受的
+editing JSON 结构，包含 `oneOf` 多态分支、递归 `$defs`、base64 字节字段和
+标准精确整数范围。MCP 使用同一份文档，资源 URI 为
+`meido://schemas/{format_id}`。仅原生格式（例如 `.arc`）没有 editing
+Schema，不会伪造一个强类型编辑结构。JSON Schema 负责结构约束；编辑后仍应先
+调用 `Validate`，由原生序列化器检查跨字段关系和 wire 语义，再执行转换。
+
+需要字段语义时，在 Schema 之后调用 `GetFormatGuide`。Guide 是对照源码生成并嵌入程序
+的审阅 profile，逐个说明 JSON 路径、Schema 指针、游戏实际用途、编辑角色、风险、
+枚举含义、跨字段不变量和源码证据。无前缀状态表示 AI 源码审阅：
+`runtime_verified` 表示已对照引用源码核对运行路径；`serialization_verified` 表示已核对
+编解码或 wire 保真边界，但资源特有的载荷成员仍可能是不透明的。二者都不表示真人
+批准。`human_` 前缀专门保留给明确的真人复核，例如 `human_runtime_verified` 和
+`human_serialization_verified`。`schema_only` 只确认 JSON 结构，未审阅字段必须原样
+保留，不得根据名字猜测用途。现在每个已发布的 editing format 都有审阅后的
+profile；有效 Guide 会将 profile 与 Schema 派生的完整字段目录合并，因此覆盖范围仍然
+精确到字段，未审阅字段仍明确标为 `schema_only`。推荐调用顺序是：Capabilities -> Schema
+-> Guide -> skill/`meido.edit_format` -> inspect -> 最小修改 -> Validate -> Convert。
+Guide 和 Schema 的生成器都不读取本地 `game` 源码目录。
 
 ## 支持的文件类型
 
@@ -357,7 +445,9 @@ MeidoSerialization 是一个用 Golang 编写的序列化库，专为处理 [KIS
 
 - 本库最初是为了 [COM3D2_MOD_EDITOR](https://github.com/90135/COM3D2_MOD_EDITOR) 项目开发的，后来独立出来以方便各位使用，您也可以参考该项目的使用方法。
 -
+
 pkg.go.dev：[https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
+
 - DeepWiki（请注意 AI
   幻觉，有很多内容是它瞎编的）：[https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
 
@@ -597,7 +687,7 @@ AI Translated
 
 MeidoSerialization は、[KISS](https://www.kisskiss.tv) ゲームで使用されるファイル形式を処理するために設計された、Golang
 で書かれたシリアライゼーションライブラリです。現在、[CM3D2](https://www.kisskiss.tv/cm3d2/)
-と [COM3D2](https://com3d2.jp/) のゲームファイル形式に対応しています。
+、[COM3D2](https://com3d2.jp/)、および後継 KCES キャラクター編集システムのファイル形式に対応しています。
 
 <br>
 
@@ -609,10 +699,44 @@ Discord [Custom Maid Server](https://discord.gg/custommaid) でも私を見つ�
 
 ## 機能
 
-- CM3D2 および COM3D2 ゲームで使用される様々なファイル形式の読み書き
+- CM3D2、COM3D2、および KCES で使用される様々なファイル形式の読み書き
 - バイナリゲームファイルを編集しやすい JSON 形式に変換
 - JSON ファイルをバイナリゲーム形式に変換
-- 対応ファイル形式：.menu、.mate、.pmat、.col、.phy、.psk、.tex、.anm、.model、.nei、.preset、.arc、.bytes（ダンスデータ）
+- バージョン付き protobuf/gRPC および MCP stdio から同じ変換エンジンを利用（[Transport API](docs/transport-api.md)）
+- 対応ファイル形式：.menu、.mate、.pmat、.col、.phy、.psk、.tex、.anm、.model、.nei、.preset/.perset、.arc、.bytes（ダンスデータ）
+
+gRPC の 1 つの artifact bundle 内のインラインバイトは 3 MiB の共有予算で、
+大きなファイルはクォータ付き一時 blob を使用します。MCP はデフォルトで直接
+`path`/`output_path` を受け付ける unrestricted モードです。`--root`、
+`--write-root`、または `--restrict-paths` を指定すると、root ID に限定された
+restricted モードへ切り替わります。アーカイブ一覧はページングされ、KCES raw
+Unity `.bytes` の metadata/TypeTree sidecar は同じ artifact bundle として保持
+されます。ダンス形式 ID は `com3d2.timeline` と `com3d2.object_data` です。
+
+### Schema から強い型のエディタを作る
+
+サンプルファイルを先に変換する必要はありません。gRPC の
+`GetCapabilities` で `has_editing_schema: true` の `format_id` を選び、
+`GetFormatSchema` を呼び出します。レスポンスの `schema_json` は完全な
+Draft 2020-12 `application/schema+json` 文書です。`sha256` を検証し、
+`schema_id` と `schema_version` でキャッシュしてから、JSON Schema の
+コードジェネレータに渡してください。生成される型は `Validate` と
+`Convert` が受け付ける editing JSON と一致し、`oneOf` の多相分岐、再帰的な
+`$defs`、base64 バイト列、標準の正確な整数範囲も含みます。MCP では同じ
+文書を `meido://schemas/{format_id}` から取得できます。`.arc` のような
+ネイティブ専用形式には editing Schema がありません。JSON Schema は構造を
+検証し、フィールド間および native wire の制約は変換前の `Validate` で検証します。
+
+フィールドのゲーム内用途を確認する場合は Schema の後に `GetFormatGuide` を取得
+してください。Guide はソースと照合した埋め込み review profile です。JSON パス、
+Schema ポインタ、実際のランタイム用途、編集ロール、リスク、列挙値、フィールド間
+不変条件と根拠を含みます。接頭辞なしの `runtime_verified` と
+`serialization_verified` は AI によるソース確認であり、人間の承認を意味しません。
+`human_` 接頭辞は明示的な人間レビュー専用です。`schema_only` は JSON 形状だけを
+確認済みという意味です。すべての editing format に
+レビュー済み profile があり、未レビューの個別フィールドは引き続き `schema_only` です。推奨順序は
+Capabilities -> Schema -> Guide -> skill/`meido.edit_format` -> inspect -> 最小編集
+-> Validate -> Convert で、Guide と Schema の生成時・実行時に `game` ソースを読みません。
 
 ## 対応ファイル形式
 
@@ -646,7 +770,9 @@ Discord [Custom Maid Server](https://discord.gg/custommaid) でも私を見つ�
 - このライブラリは当初 [COM3D2_MOD_EDITOR](https://github.com/90135/COM3D2_MOD_EDITOR)
   プロジェクト用に開発され、後に独立して使いやすくなりました。そのプロジェクトの使用方法も参考にできます。
 -
+
 pkg.go.dev：[https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
+
 - DeepWiki（注意：AI
   ハルシネーションが含まれる可能性があります）：[https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
 
@@ -946,7 +1072,7 @@ In case of any discrepancy between the translated versions, the Simplified Chine
 
 1. Tool Nature Statement
     This project is an open-source tool released under the BSD-3-Clause license. The developer(s) (hereinafter referred to as "the Author") are individual technical researchers only. The Author does not derive any commercial benefit from this tool and does not provide any form of online service or user account system.
-    This tool is a purely local data processing tool with no content generation capabilities whatsoever. It possesses no online upload or download functionality.
+    This tool is a local-first data processing tool with no content generation capabilities whatsoever. Its optional self-hosted gRPC transport can transfer data only between the caller and the process operated by the user; the Author operates no upload/download service.
     At its core, this tool is a format converter. All output content is the result of format conversion applied to the user's original input data. The tool itself does not generate, modify, or inject any new data content.
 
 2. Usage restrictions
@@ -974,7 +1100,7 @@ In case of any discrepancy between the translated versions, the Simplified Chine
 
   Users acknowledge and agree that:
       - This tool possesses no content generation capabilities; the final content depends entirely on the input files. The tool merely performs format conversion operations and cannot be held responsible for the legality, nature, or usage context of the user's input data.
-      - This tool contains no data upload/download capabilities; all content processing is completed on the user's local device.
+      - The optional gRPC transport is self-hosted by the user. The Author receives no transferred data, and all content processing remains on the device running that process.
       - If illegal activities involving this tool are discovered, they must be reported immediately to the public security authorities.
       - The Author reserves the right to cease distribution of specific versions suspected of being abused.
 
@@ -1016,7 +1142,7 @@ In case of any discrepancy between the translated versions, the Simplified Chine
 
 1. 工具性质声明  
    本项目是基于 BSD-3-Clause 许可证的开源工具。开发者（以下简称"作者"）仅为个人技术研究者，不通过本工具获取任何商业利益，亦不提供任何形式的在线服务及用户账号体系。
-   本工具为纯本地化数据处理工具，不具备任何内容生成能力，无任何在线上传下载功能。
+   本工具为本地优先的数据处理工具，不具备任何内容生成能力。可选的自托管 gRPC 传输仅在调用方与用户自行运行的进程之间传输数据；作者不运营任何上传下载服务。
    本工具本质上是一个格式转换器，所有输出内容均为用户提供的原始数据的格式转换结果，工具本身不产生、修改或注入任何新数据内容。
 
 2. 使用限制
@@ -1044,7 +1170,7 @@ In case of any discrepancy between the translated versions, the Simplified Chine
 
    用户知悉并同意：
      - 本工具不具备任何内容生成能力，最终内容完全取决于其输入文件。工具仅执行格式转换操作，无法对用户输入数据的合法性、内容性质及使用场景负责。
-     - 本工具不包含任何数据上传/下载功能，所有内容生成均在用户本地设备完成
+     - 可选的 gRPC 传输由用户自行托管，作者不会接收任何传输数据；所有内容处理仍在运行该进程的用户设备上完成
      - 如发现有人利用本工具从事违法活动，应立即向公安机关举报
      - 开发者保留停止分发涉嫌被滥用的特定版本的权利
 
@@ -1089,7 +1215,7 @@ In case of any discrepancy between the translated versions, the Simplified Chine
 
 1. ツールの性質に関する声明
    本プロジェクトは、BSD-3-Clause ライセンスに基づくオープンソースツールです。開発者（以下「作者」）は個人の技術研究者に過ぎず、本ツールを通じていかなる商業的利益も得ておらず、いかなる形式のオンラインサービス及びユーザーアカウントシステムも提供しません。
-   本ツールは純粋にローカル環境でのデータ処理ツールであり、いかなるコンテンツ生成能力も有しておらず、いかなるオンラインアップロード・ダウンロード機能も備えていません。
+   本ツールはローカル優先のデータ処理ツールであり、いかなるコンテンツ生成能力も有していません。任意のセルフホスト gRPC 転送は、利用者が運用する呼び出し元とプロセスの間でのみデータを転送し、作者はいかなるアップロード・ダウンロードサービスも運営しません。
    本ツールは本質的にフォーマット変換ツールであり、すべての出力内容はユーザーが提供したオリジナルデータのフォーマット変換結果です。ツール自体は、いかなる新しいデータ内容も生成、修正、または注入しません。
 
 2. 使用制限
@@ -1120,7 +1246,7 @@ In case of any discrepancy between the translated versions, the Simplified Chine
 
    ユーザーはこれを理解し同意するものとします：
      - 本ツールはコンテンツ生成能力を一切有しておらず、最終的なコンテンツは完全に入力ファイルに依存します。ツールはフォーマット変換操作のみを実行し、ユーザー入力データの合法性、内容の性質、および使用シナリオについて責任を負うことはできません。
-     - 本ツールにはいかなるデータアップロード/ダウンロード機能も含まれておらず、すべてのコンテンツ生成はユーザーのローカルデバイス上で完了します。
+     - 任意の gRPC 転送は利用者自身がホストします。作者が転送データを受信することはなく、すべてのコンテンツ処理は当該プロセスを実行する利用者のデバイス上で完了します。
      - 本ツールを利用した違法行為を発見した場合は、直ちに公安機関に通報すること。
      - 開発者は、悪用の疑いのある特定バージョンの配布停止権利を留保します。
 

@@ -31,7 +31,7 @@ func TestPathsServiceRoundTrip(t *testing.T) {
 	}
 
 	service := &PathsService{}
-	if err := service.ConvertPathsToJSON(inputPath, jsonPath); err != nil {
+	if err := service.ConvertPathsToJSON(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatal(err)
 	}
 	if !IsKCESPathsJSONFile(jsonPath) {
@@ -48,7 +48,7 @@ func TestPathsServiceRoundTrip(t *testing.T) {
 	if !IsKCESPathsJSONFile(jsonPath) {
 		t.Fatal("BOM-prefixed paths.dat JSON marker was not routed")
 	}
-	if err := service.ConvertJSONToPaths(jsonPath, backPath); err != nil {
+	if err := service.ConvertJSONToPaths(TestConversionContext, jsonPath, backPath, TestConversionMaxOutput); err != nil {
 		t.Fatal(err)
 	}
 	backData, err := os.ReadFile(backPath)

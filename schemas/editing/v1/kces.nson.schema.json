@@ -1,0 +1,72 @@
+{
+  "$id": "urn:meido-serialization:editing-json:v1:kces.nson",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Lossless editing JSON contract for kces.nson.",
+  "properties": {
+    "extension": {
+      "const": ".nson",
+      "description": "The fixed extension marker .nson.",
+      "title": "Resource extension",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep the exact value .nson.",
+      "x-meido-edit-role": "format_marker",
+      "x-meido-game-usage": "The dispatcher uses it to select the plain-JSON resource path.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 115,
+          "line_start": 43,
+          "observation": "CsvManager loads .nson resources as TextAsset.text and parses the enabled-list JSON with JsonUtility; this profile does not claim a domain schema for arbitrary resource fields.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/CsvManager.cs",
+          "symbol": "CsvManager.GetCsvText/CreateCsvIdManager"
+        }
+      ]
+    },
+    "json": {
+      "description": "The parsed JSON value exposed for editing.",
+      "title": "Normalized JSON value",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Change only keys documented by the specific resource or game feature; preserve unknown members and types.",
+      "x-meido-edit-role": "opaque_domain_data",
+      "x-meido-game-usage": "CsvManager passes the original JSON text to the consuming resource code; this library does not infer the domain schema.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 115,
+          "line_start": 43,
+          "observation": "CsvManager loads .nson resources as TextAsset.text and parses the enabled-list JSON with JsonUtility; this profile does not claim a domain schema for arbitrary resource fields.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/CsvManager.cs",
+          "symbol": "CsvManager.GetCsvText/CreateCsvIdManager"
+        }
+      ]
+    },
+    "text": {
+      "description": "The source text retained for byte-preserving output when the normalized JSON is unchanged.",
+      "title": "Original JSON text",
+      "type": "string",
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Keep text when no semantic edit is made; regenerate valid UTF-8 JSON after an intentional edit.",
+      "x-meido-edit-role": "serialization_cache",
+      "x-meido-game-usage": "The game reads TextAsset.text, so whitespace and encoding may matter to external tools even when JSON semantics are unchanged.",
+      "x-meido-risk": "high"
+    }
+  },
+  "required": [
+    "extension",
+    "json"
+  ],
+  "title": "kces.nson editing JSON",
+  "type": "object",
+  "x-meido-format-id": "kces.nson",
+  "x-meido-native-suffixes": [
+    ".nson"
+  ],
+  "x-meido-representation": "editing_json",
+  "x-meido-schema-version": "1.0.0"
+}

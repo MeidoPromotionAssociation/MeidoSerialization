@@ -9,10 +9,11 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
-// TypeTreeValue 是根据内嵌 TypeTree 解码出的 Unity 序列化值
-// 它只暴露 KCES 提取器所需的小型导航和转换 API
-// TypeTreeValue is a decoded Unity serialized value built from an embedded TypeTree
-// It intentionally exposes only the small navigation and conversion API needed by KCES extractors
+// TypeTreeValue 是根据内嵌 TypeTree 解码出的 Unity 序列化值。
+// 它只暴露 KCES 提取器所需的小型导航和转换 API。
+//
+// TypeTreeValue is a decoded Unity serialized value built from an embedded TypeTree.
+// It intentionally exposes only the small navigation and conversion API needed by KCES extractors.
 type TypeTreeValue struct {
 	TypeName string           // Unity 类型名 / Unity type name
 	Name     string           // 字段名或节点名 / Field or node name
@@ -20,8 +21,7 @@ type TypeTreeValue struct {
 	Children []*TypeTreeValue // 子节点列表 / Child node list
 }
 
-// ReadAssetValue 使用资源的 TypeTree 解码对象，并确认类型树和对象数据均被完整消费
-// ReadAssetValue decodes an asset object with its TypeTree and verifies that both the tree and object data are fully consumed
+// ReadAssetValue 使用资源的 TypeTree 解码对象 / ReadAssetValue decodes an asset object with the asset's TypeTree
 func (af *AssetsFile) ReadAssetValue(info *AssetInfo) (*TypeTreeValue, error) {
 	if af == nil {
 		return nil, fmt.Errorf("nil assets file")
@@ -56,10 +56,6 @@ func (af *AssetsFile) ReadAssetValue(info *AssetInfo) (*TypeTreeValue, error) {
 	return root, nil
 }
 
-// typeTreeForAsset 按 SerializedFile 版本为对象选择对应的 TypeTree
-// v16 及以后使用 AssetInfo.TypeIdOrIndex 作为类型树索引，更早版本按 class ID 查找
-// typeTreeForAsset selects the TypeTree for an asset according to the SerializedFile version
-// Versions 16 and later use AssetInfo.TypeIdOrIndex as the type-tree index, while earlier versions search by class ID
 func (af *AssetsFile) typeTreeForAsset(info *AssetInfo) (*TypeTreeType, error) {
 	if af == nil {
 		return nil, fmt.Errorf("nil assets file")
@@ -85,8 +81,6 @@ func (af *AssetsFile) typeTreeForAsset(info *AssetInfo) (*TypeTreeType, error) {
 	return nil, fmt.Errorf("type tree for class %d not found", info.TypeId)
 }
 
-// byteOrder 返回当前 AssetsFile 头部声明的对象字节序
-// byteOrder returns the object byte order declared by the AssetsFile header
 func (af *AssetsFile) byteOrder() binary.ByteOrder {
 	if af.Header.Endianness {
 		return binary.BigEndian
@@ -94,8 +88,6 @@ func (af *AssetsFile) byteOrder() binary.ByteOrder {
 	return binary.LittleEndian
 }
 
-// readTypeTreeValue 按 TypeTree 的先序节点递归读取一个值，并返回下一个未消费节点索引
-// readTypeTreeValue recursively reads one value in TypeTree preorder and returns the next unconsumed node index
 func readTypeTreeValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int) (*TypeTreeValue, int, error) {
 	if tt == nil {
 		return nil, idx, fmt.Errorf("nil type tree")
@@ -156,8 +148,6 @@ func readTypeTreeValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int) (*Ty
 	return v, next, nil
 }
 
-// readArrayValue 读取 Unity 数组的 size 和 data 子树，并为字节数组使用连续字节路径
-// readArrayValue reads a Unity array's size and data subtrees and uses a contiguous-byte path for byte arrays
 func readArrayValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int, v *TypeTreeValue) (*TypeTreeValue, int, error) {
 	node := &tt.Nodes[idx]
 	next := idx + 1
@@ -165,20 +155,23 @@ func readArrayValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int, v *Type
 		return v, next, fmt.Errorf("array %s has no Array node", v.Name)
 	}
 
-	// Unity 数组通常编码为 vector、list 或 TypelessData 字段下的 Array、int size 和 T data
-	// 某些版本把 TypeFlags 放在字段自身，本读取器兼容两种形状，并回退到首个名为 size 或 data 的后代节点
-	// Unity arrays are normally encoded as a vector, list, or TypelessData field containing Array, int size, and T data
-	// Some versions put TypeFlags on the field itself; this reader accepts both shapes and falls back to the first descendant named size or data
+	// Unity arrays are encoded as:
+	//   vector/list/TypelessData field
+	//     Array
+	//       int size
+	//       T data
+	// Some versions mark the field itself with TypeFlags; this reader accepts
+	// both shapes and falls back to the first descendant named "size"/"data".
 	arrayNodeIdx := idx
 	if tt.GetTypeTreeString(&tt.Nodes[next], false) == "Array" {
 		arrayNodeIdx = next
 		next++
 	}
 	alignArray := func() error {
-		// Unity TypeTree 中四字节对齐标志通常属于嵌套 Array 节点而非 vector 或 list 字段
-		// 必须先消费整个数组（包括所有元素）的字节，再应用对齐
-		// In Unity TypeTrees the four-byte alignment flag normally belongs to the nested Array node rather than its vector or list field
-		// The bytes for the whole array, including all elements, must be consumed before alignment is applied
+		// In Unity type trees the 4-byte alignment flag normally belongs to
+		// the nested `Array` node, not to its vector/list field.  The bytes for
+		// the whole array (including all elements) must be consumed before the
+		// alignment is applied.
 		if tt.Nodes[arrayNodeIdx].MetaFlags&0x4000 != 0 {
 			if err := alignReader4(r); err != nil {
 				return fmt.Errorf("align array %s: %w", v.Name, err)
@@ -258,16 +251,14 @@ func readArrayValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int, v *Type
 		v.Children = append(v.Children, child)
 	}
 
-	// 元数据子树只按结构消费一次，与元素数量无关
-	// The metadata subtree is consumed once structurally regardless of element count
+	// The actual metadata subtree is consumed once structurally, regardless of
+	// element count.
 	if err := alignArray(); err != nil {
 		return nil, skipSubtree(tt, idx), err
 	}
 	return v, skipSubtree(tt, idx), nil
 }
 
-// readPrimitiveValue 根据 TypeTree 类型名读取一个标量、字符串或 TypelessData 值
-// readPrimitiveValue reads one scalar, string, or TypelessData value according to the TypeTree type name
 func readPrimitiveValue(r *binaryio.EndianReader, v *TypeTreeValue) error {
 	switch v.TypeName {
 	case "string":
@@ -340,8 +331,6 @@ func readPrimitiveValue(r *binaryio.EndianReader, v *TypeTreeValue) error {
 	}
 }
 
-// alignReader4 将读取位置推进到下一个四字节边界
-// alignReader4 advances the reader to the next four-byte boundary
 func alignReader4(r *binaryio.EndianReader) error {
 	if r == nil {
 		return fmt.Errorf("nil reader")
@@ -358,8 +347,6 @@ func alignReader4(r *binaryio.EndianReader) error {
 	return nil
 }
 
-// minimumTypeTreeValueBytes 计算节点值的保守最小字节数，用于校验数组计数的可行性
-// minimumTypeTreeValueBytes computes a conservative minimum byte count for a node to validate array counts
 func minimumTypeTreeValueBytes(tt *TypeTreeType, idx int) int {
 	if tt == nil || idx < 0 || idx >= len(tt.Nodes) {
 		return 0
@@ -394,8 +381,6 @@ func minimumTypeTreeValueBytes(tt *TypeTreeType, idx int) int {
 	return total
 }
 
-// isSpecialPrimitiveType 判断类型是否需要专门的变长读取逻辑
-// isSpecialPrimitiveType reports whether a type requires dedicated variable-length reading logic
 func isSpecialPrimitiveType(typeName string) bool {
 	switch typeName {
 	case "string", "TypelessData":
@@ -405,8 +390,6 @@ func isSpecialPrimitiveType(typeName string) bool {
 	}
 }
 
-// isArrayNode 根据 TypeFlags 或类型名判断 TypeTree 节点是否表示数组
-// isArrayNode reports whether a TypeTree node represents an array from TypeFlags or its type name
 func isArrayNode(node *TypeTreeNode, typeName string) bool {
 	if node.TypeFlags&0x01 != 0 {
 		return true
@@ -419,8 +402,6 @@ func isArrayNode(node *TypeTreeNode, typeName string) bool {
 	}
 }
 
-// isByteElement 判断数组元素是否可以按连续字节读取
-// isByteElement reports whether array elements can be read as contiguous bytes
 func isByteElement(typeName string) bool {
 	switch typeName {
 	case "UInt8", "unsigned char", "SInt8", "char":
@@ -430,8 +411,6 @@ func isByteElement(typeName string) bool {
 	}
 }
 
-// skipSubtree 返回跳过节点及其所有后代后的下一个节点索引
-// skipSubtree returns the next node index after a node and all of its descendants
 func skipSubtree(tt *TypeTreeType, idx int) int {
 	level := tt.Nodes[idx].Level
 	idx++
@@ -441,8 +420,7 @@ func skipSubtree(tt *TypeTreeType, idx int) int {
 	return idx
 }
 
-// Field 返回名称匹配的第一个直接子节点
-// Field returns the first direct child with the requested field name
+// Field returns the first direct child with the requested field name.
 func (v *TypeTreeValue) Field(name string) *TypeTreeValue {
 	if v == nil {
 		return nil
@@ -455,8 +433,7 @@ func (v *TypeTreeValue) Field(name string) *TypeTreeValue {
 	return nil
 }
 
-// FieldPath 按字段名依次遍历直接子节点
-// FieldPath walks through direct children by field names
+// FieldPath walks through direct children by field names.
 func (v *TypeTreeValue) FieldPath(names ...string) *TypeTreeValue {
 	cur := v
 	for _, name := range names {
@@ -468,8 +445,6 @@ func (v *TypeTreeValue) FieldPath(names ...string) *TypeTreeValue {
 	return cur
 }
 
-// String 将节点值断言为字符串并返回是否成功
-// String asserts the node value as a string and reports whether it succeeded
 func (v *TypeTreeValue) String() (string, bool) {
 	if v == nil {
 		return "", false
@@ -478,8 +453,6 @@ func (v *TypeTreeValue) String() (string, bool) {
 	return s, ok
 }
 
-// Int64 将支持的有符号或可表示无符号整数转换为 Int64
-// Int64 converts supported signed or representable unsigned integers to Int64
 func (v *TypeTreeValue) Int64() (int64, bool) {
 	if v == nil {
 		return 0, false
@@ -501,8 +474,7 @@ func (v *TypeTreeValue) Int64() (int64, bool) {
 	}
 }
 
-// UInt64 返回非负整数，并保留大于 MaxInt64 的 UInt64 值
-// UInt64 returns a non-negative integer without losing values above MaxInt64
+// UInt64 returns a non-negative integer without losing values above MaxInt64.
 func (v *TypeTreeValue) UInt64() (uint64, bool) {
 	if v == nil {
 		return 0, false
@@ -529,8 +501,6 @@ func (v *TypeTreeValue) UInt64() (uint64, bool) {
 	}
 }
 
-// Float32 将 Float32 或 Float64 节点值转换为 Float32
-// Float32 converts a Float32 or Float64 node value to Float32
 func (v *TypeTreeValue) Float32() (float32, bool) {
 	if v == nil {
 		return 0, false
@@ -545,8 +515,6 @@ func (v *TypeTreeValue) Float32() (float32, bool) {
 	}
 }
 
-// Bytes 返回节点中的原始字节，或将子节点整数转换为字节数组
-// Bytes returns raw bytes in the node or converts integer child nodes to a byte array
 func (v *TypeTreeValue) Bytes() ([]byte, bool) {
 	if v == nil {
 		return nil, false

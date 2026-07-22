@@ -56,7 +56,7 @@ func TestRawUnityObjectService_FixedSamplesJSONRoundTrip(t *testing.T) {
 			tmpDir := t.TempDir()
 			jsonPath := filepath.Join(tmpDir, filepath.Base(inputPath)+".json")
 			outPath := filepath.Join(tmpDir, filepath.Base(inputPath))
-			if err := service.ConvertRawUnityObjectToJson(inputPath, jsonPath); err != nil {
+			if err := service.ConvertRawUnityObjectToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 				t.Fatalf("ConvertRawUnityObjectToJson: %v", err)
 			}
 			if !IsKCESRawUnityBytesJSONFile(jsonPath) {
@@ -69,7 +69,7 @@ func TestRawUnityObjectService_FixedSamplesJSONRoundTrip(t *testing.T) {
 			if !reflect.DeepEqual(&jsonEnvelope, envelope) {
 				t.Fatalf("JSON envelope changed: got %#v, want %#v", &jsonEnvelope, envelope)
 			}
-			if err := service.ConvertJsonToRawUnityObject(jsonPath, outPath); err != nil {
+			if err := service.ConvertJsonToRawUnityObject(TestConversionContext, jsonPath, outPath, TestConversionMaxOutput); err != nil {
 				t.Fatalf("ConvertJsonToRawUnityObject: %v", err)
 			}
 			roundTrip, err := os.ReadFile(outPath)
@@ -163,7 +163,7 @@ func TestRawUnityObjectService_JSONRoundTripPreservesTypeTreeSidecar(t *testing.
 
 	service := &RawUnityObjectService{}
 	jsonPath := filepath.Join(tmpDir, "cm3d2_megane002.tex.bytes.json")
-	if err := service.ConvertRawUnityObjectToJson(inputPath, jsonPath); err != nil {
+	if err := service.ConvertRawUnityObjectToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertRawUnityObjectToJson: %v", err)
 	}
 
@@ -176,7 +176,7 @@ func TestRawUnityObjectService_JSONRoundTripPreservesTypeTreeSidecar(t *testing.
 	}
 
 	outPath := filepath.Join(tmpDir, "roundtrip.tex.bytes")
-	if err := service.ConvertJsonToRawUnityObject(jsonPath, outPath); err != nil {
+	if err := service.ConvertJsonToRawUnityObject(TestConversionContext, jsonPath, outPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJsonToRawUnityObject: %v", err)
 	}
 	restored, err := readRawUnityTypeTreeSidecar(outPath)
@@ -217,7 +217,7 @@ func TestRawUnityObjectService_TypeDirectorySampleJSONRoundTrip(t *testing.T) {
 	}
 
 	jsonPath := inputPath + ".json"
-	if err := service.ConvertRawUnityObjectToJson(inputPath, jsonPath); err != nil {
+	if err := service.ConvertRawUnityObjectToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertRawUnityObjectToJson: %v", err)
 	}
 	var decoded RawUnityObjectEnvelope

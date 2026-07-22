@@ -31,13 +31,13 @@ func TestMaidColliderServiceHandlesExtensionlessTextAsset(t *testing.T) {
 		t.Fatal("maid collider base-name detection failed")
 	}
 	service := &MaidColliderService{}
-	if err := service.ConvertMaidColliderToJSON(input, jsonPath); err != nil {
+	if err := service.ConvertMaidColliderToJSON(TestConversionContext, input, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertMaidColliderToJSON: %v", err)
 	}
 	if !IsKCESMaidColliderJSONFile(jsonPath) {
 		t.Fatal("maid collider JSON marker was not detected")
 	}
-	if err := service.ConvertJSONToMaidCollider(jsonPath, back); err != nil {
+	if err := service.ConvertJSONToMaidCollider(TestConversionContext, jsonPath, back, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJSONToMaidCollider: %v", err)
 	}
 	if _, err := serializationKCES.DecodeMaidCollider(mustReadFile(t, back)); err != nil {

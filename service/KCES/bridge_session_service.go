@@ -1,6 +1,7 @@
 package KCES
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -52,24 +53,31 @@ func (s *BridgeSessionService) ReadBridgeSessionFile(path string) (*serializatio
 	return value, nil
 }
 
-func (s *BridgeSessionService) ConvertBridgeSessionToJSON(inputPath, outputPath string) error {
-	value, err := s.ReadBridgeSessionFile(inputPath)
+func (s *BridgeSessionService) ConvertBridgeSessionToJSON(ctx context.Context, inputPath, outputPath string, maxOutputBytes int64) error {
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
+		return fmt.Errorf("read KCES bridge session %q: %w", inputPath, err)
+	}
+	value, err := serializationKCES.DecodeKCESBridgeSession(data)
+	if err != nil {
+		return fmt.Errorf("decode KCES bridge session %q: %w", inputPath, err)
+	}
+	if err := checkConversionContext(ctx); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(value, "", "  ")
+	data, err = json.MarshalIndent(value, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal KCES bridge session JSON: %w", err)
 	}
 	data = append(data, '\n')
-	if err := os.WriteFile(outputPath, data, 0644); err != nil {
+	if err := writeConversionFile(ctx, outputPath, data, maxOutputBytes); err != nil {
 		return fmt.Errorf("write KCES bridge session JSON %q: %w", outputPath, err)
 	}
 	return nil
 }
 
-func (s *BridgeSessionService) ConvertJSONToBridgeSession(inputPath, outputPath string) error {
-	data, err := os.ReadFile(inputPath)
+func (s *BridgeSessionService) ConvertJSONToBridgeSession(ctx context.Context, inputPath, outputPath string, maxOutputBytes int64) error {
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
 		return fmt.Errorf("read KCES bridge session JSON %q: %w", inputPath, err)
 	}
@@ -81,7 +89,10 @@ func (s *BridgeSessionService) ConvertJSONToBridgeSession(inputPath, outputPath 
 	if err != nil {
 		return fmt.Errorf("encode KCES bridge session JSON %q: %w", inputPath, err)
 	}
-	if err := os.WriteFile(outputPath, encoded, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, encoded, maxOutputBytes); err != nil {
 		return fmt.Errorf("write KCES bridge session %q: %w", outputPath, err)
 	}
 	return nil

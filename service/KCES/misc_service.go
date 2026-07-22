@@ -2,6 +2,7 @@ package KCES
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,7 +32,10 @@ func IsKCESMiscJSONFile(path string) bool {
 	return isHitCheckFile(base) || serializationKCES.IsKCESJSONTextExtension(base)
 }
 
-func (s *MiscService) ConvertMiscToJson(inputPath string, outputPath string) error {
+func (s *MiscService) ConvertMiscToJson(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
 	value, err := s.ReadMiscFile(inputPath)
 	if err != nil {
 		return err
@@ -41,14 +45,17 @@ func (s *MiscService) ConvertMiscToJson(inputPath string, outputPath string) err
 	if err != nil {
 		return fmt.Errorf("marshal KCES misc json: %w", err)
 	}
-	if err := os.WriteFile(outputPath, jsonData, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, jsonData, maxOutputBytes); err != nil {
 		return fmt.Errorf("write %q: %w", outputPath, err)
 	}
 	return nil
 }
 
-func (s *MiscService) ConvertJsonToMisc(inputPath string, outputPath string) error {
-	data, err := os.ReadFile(inputPath)
+func (s *MiscService) ConvertJsonToMisc(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
 		return fmt.Errorf("read %q: %w", inputPath, err)
 	}
@@ -66,7 +73,10 @@ func (s *MiscService) ConvertJsonToMisc(inputPath string, outputPath string) err
 		return err
 	}
 
-	if err := os.WriteFile(outputPath, encoded, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, encoded, maxOutputBytes); err != nil {
 		return fmt.Errorf("write %q: %w", outputPath, err)
 	}
 	return nil

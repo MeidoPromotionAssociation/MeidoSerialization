@@ -1,0 +1,216 @@
+{
+  "$defs": {
+    "COM3D2_BoneCurveData": {
+      "additionalProperties": false,
+      "properties": {
+        "BonePath": {
+          "type": "string"
+        },
+        "PropertyCurves": {
+          "items": {
+            "$ref": "#/$defs/COM3D2_PropertyCurve"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "BonePath",
+        "PropertyCurves"
+      ],
+      "type": "object"
+    },
+    "COM3D2_Keyframe": {
+      "additionalProperties": false,
+      "properties": {
+        "InTangent": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "OutTangent": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Time": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Value": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "Time",
+        "Value",
+        "InTangent",
+        "OutTangent"
+      ],
+      "type": "object"
+    },
+    "COM3D2_PropertyCurve": {
+      "additionalProperties": false,
+      "properties": {
+        "Keyframes": {
+          "items": {
+            "$ref": "#/$defs/COM3D2_Keyframe"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "PropertyIndex": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "PropertyIndex",
+        "Keyframes"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:meido-serialization:editing-json:v1:com3d2.anm",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Lossless editing JSON contract for com3d2.anm.",
+  "properties": {
+    "BoneCurves": {
+      "description": "The ordered bone-path and property-curve records applied to an AnimationClip.",
+      "items": {
+        "$ref": "#/$defs/COM3D2_BoneCurveData"
+      },
+      "title": "Bone curve records",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Use valid bone paths and property indices; preserve keyframe order and channel identity.",
+      "x-meido-edit-role": "runtime_animation",
+      "x-meido-game-usage": "The loader maps each property index to a Unity local position or rotation channel.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 850,
+          "line_start": 770,
+          "observation": "The animation loader validates CM3D2_ANIM, maps property bytes to Unity AnimationCurve channels, and applies the curves to bone paths.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "symbol": "ImportCM.LoadAniClip"
+        }
+      ]
+    },
+    "BustKeyLeft": {
+      "description": "Whether left-bust channels are enabled when supported by the file version.",
+      "title": "Left bust animation switch",
+      "type": "boolean",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Change only when the corresponding channels are present.",
+      "x-meido-edit-role": "runtime_toggle",
+      "x-meido-game-usage": "PhotoMotionData and the animation loader use this flag to include or suppress left-bust motion.",
+      "x-meido-risk": "medium",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 850,
+          "line_start": 770,
+          "observation": "The animation loader validates CM3D2_ANIM, maps property bytes to Unity AnimationCurve channels, and applies the curves to bone paths.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "symbol": "ImportCM.LoadAniClip"
+        }
+      ]
+    },
+    "BustKeyRight": {
+      "description": "Whether right-bust channels are enabled when supported by the file version.",
+      "title": "Right bust animation switch",
+      "type": "boolean",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Change only when the corresponding channels are present.",
+      "x-meido-edit-role": "runtime_toggle",
+      "x-meido-game-usage": "The loader applies the same gating to right-bust channels.",
+      "x-meido-risk": "medium",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 850,
+          "line_start": 770,
+          "observation": "The animation loader validates CM3D2_ANIM, maps property bytes to Unity AnimationCurve channels, and applies the curves to bone paths.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "symbol": "ImportCM.LoadAniClip"
+        }
+      ]
+    },
+    "Signature": {
+      "description": "The CM3D2_ANIM header string.",
+      "title": "Animation signature",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep CM3D2_ANIM.",
+      "x-meido-edit-role": "format_marker",
+      "x-meido-game-usage": "ImportCM validates it before constructing a Unity AnimationClip.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 850,
+          "line_start": 770,
+          "observation": "The animation loader validates CM3D2_ANIM, maps property bytes to Unity AnimationCurve channels, and applies the curves to bone paths.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "symbol": "ImportCM.LoadAniClip"
+        }
+      ]
+    },
+    "Version": {
+      "description": "The version controlling optional bust-key flags.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "title": "Animation version",
+      "type": "integer",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Preserve the original value; use 1001 when creating a modern file with bust flags.",
+      "x-meido-edit-role": "version_marker",
+      "x-meido-game-usage": "The reviewed reader accepts the channel stream and uses version-aware handling for BustKeyLeft and BustKeyRight.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 850,
+          "line_start": 770,
+          "observation": "The animation loader validates CM3D2_ANIM, maps property bytes to Unity AnimationCurve channels, and applies the curves to bone paths.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "symbol": "ImportCM.LoadAniClip"
+        }
+      ]
+    }
+  },
+  "required": [
+    "Signature",
+    "Version",
+    "BoneCurves"
+  ],
+  "title": "com3d2.anm editing JSON",
+  "type": "object",
+  "x-meido-format-id": "com3d2.anm",
+  "x-meido-native-suffixes": [
+    ".anm"
+  ],
+  "x-meido-representation": "editing_json",
+  "x-meido-schema-version": "1.0.0"
+}

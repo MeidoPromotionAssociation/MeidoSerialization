@@ -1,6 +1,7 @@
 package KCES
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -65,24 +66,31 @@ func (s *PresetService) ReadPresetFile(path string) (*serializationKCES.KCESPres
 	return preset, nil
 }
 
-func (s *PresetService) ConvertPresetToJson(inputPath string, outputPath string) error {
-	preset, err := s.ReadPresetFile(inputPath)
+func (s *PresetService) ConvertPresetToJson(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
+		return fmt.Errorf("read KCES preset %q: %w", inputPath, err)
+	}
+	preset, err := serializationKCES.DecodeKCESPreset(data)
+	if err != nil {
+		return fmt.Errorf("parse KCES preset %q: %w", inputPath, err)
+	}
+	if err := checkConversionContext(ctx); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(preset, "", "  ")
+	data, err = json.MarshalIndent(preset, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal KCES preset JSON: %w", err)
 	}
 	data = append(data, '\n')
-	if err := os.WriteFile(outputPath, data, 0644); err != nil {
+	if err := writeConversionFile(ctx, outputPath, data, maxOutputBytes); err != nil {
 		return fmt.Errorf("write %q: %w", outputPath, err)
 	}
 	return nil
 }
 
-func (s *PresetService) ConvertJsonToPreset(inputPath string, outputPath string) error {
-	data, err := os.ReadFile(inputPath)
+func (s *PresetService) ConvertJsonToPreset(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
 		return fmt.Errorf("read %q: %w", inputPath, err)
 	}
@@ -97,7 +105,10 @@ func (s *PresetService) ConvertJsonToPreset(inputPath string, outputPath string)
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(outputPath, encoded, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, encoded, maxOutputBytes); err != nil {
 		return fmt.Errorf("write %q: %w", outputPath, err)
 	}
 	return nil

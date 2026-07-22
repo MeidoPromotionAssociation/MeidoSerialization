@@ -1,0 +1,47 @@
+name: Transport API
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  transport:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+          cache: true
+      - uses: bufbuild/buf-setup-action@v1
+        with:
+          version: "1.72.0"
+      - name: Check protobuf lint
+        run: buf lint
+      - name: Check generated protobuf code
+        run: |
+          buf generate
+          git diff --exit-code -- api/gen/go
+      - name: Check published editing schemas
+        run: |
+          go generate ./schemas/editing/v1
+          git diff --exit-code -- schemas/editing/v1
+          test -z "$(git status --porcelain --untracked-files=all -- schemas/editing/v1)"
+      - name: Validate static format guides and Schema pointers
+        run: go test ./schemas/knowledge/v1
+      - name: Test Schema generation and publication
+        run: go test ./internal/schemagen
+      - name: Test KCES collider JSON and payload descriptor contracts
+        run: go test ./serialization/KCES -run '^Test(ColliderJSON.*|EncodeKCESPayloadRejectsDescriptorContractViolations)$'
+      - name: Test transport and application contracts
+        run: go test ./application ./internal/blobstore ./internal/conversionio ./transport/grpcserver ./transport/mcpserver
+      - name: Test transport CLI configuration
+        run: go test ./cmd -run '^Test(TransportCommandsAreRegistered|ValidateGRPCListenAddress|ConfiguredRoots|MCPFilesystemModeSelection)$'
+      - name: Vet transport and application packages
+        run: go vet ./application ./internal/blobstore ./internal/conversionio ./transport/grpcserver ./transport/mcpserver
+      - name: Build all commands and packages
+        run: go build ./...

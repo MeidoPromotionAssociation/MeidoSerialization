@@ -1,6 +1,7 @@
 package KCES
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -33,8 +34,8 @@ func IsKCESPathsJSONFile(path string) bool {
 	return header.Format == serializationKCES.KCESPathsFormat
 }
 
-func (s *PathsService) ConvertPathsToJSON(inputPath, outputPath string) error {
-	data, err := os.ReadFile(inputPath)
+func (s *PathsService) ConvertPathsToJSON(ctx context.Context, inputPath, outputPath string, maxOutputBytes int64) error {
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
 		return fmt.Errorf("read paths.dat %q: %w", inputPath, err)
 	}
@@ -47,14 +48,17 @@ func (s *PathsService) ConvertPathsToJSON(inputPath, outputPath string) error {
 		return fmt.Errorf("marshal paths.dat JSON: %w", err)
 	}
 	encoded = append(encoded, '\n')
-	if err := os.WriteFile(outputPath, encoded, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, encoded, maxOutputBytes); err != nil {
 		return fmt.Errorf("write paths.dat JSON %q: %w", outputPath, err)
 	}
 	return nil
 }
 
-func (s *PathsService) ConvertJSONToPaths(inputPath, outputPath string) error {
-	data, err := os.ReadFile(inputPath)
+func (s *PathsService) ConvertJSONToPaths(ctx context.Context, inputPath, outputPath string, maxOutputBytes int64) error {
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
 		return fmt.Errorf("read paths.dat JSON %q: %w", inputPath, err)
 	}
@@ -72,7 +76,10 @@ func (s *PathsService) ConvertJSONToPaths(inputPath, outputPath string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(outputPath, encoded, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, encoded, maxOutputBytes); err != nil {
 		return fmt.Errorf("write paths.dat %q: %w", outputPath, err)
 	}
 	return nil

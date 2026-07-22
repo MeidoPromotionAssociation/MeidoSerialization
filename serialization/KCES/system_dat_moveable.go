@@ -10,61 +10,67 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
-// system.dat 内 MoveablePanelManager::SceneEdit::savedata 虚拟文件的 MessagePack 布局
-// 该载荷没有独立磁盘扩展名
-// MessagePack layout for the MoveablePanelManager::SceneEdit::savedata virtual file inside system.dat
-// This payload has no standalone disk extension
+// system.dat 内 MoveablePanelManager::SceneEdit::savedata 虚拟文件的 MessagePack 布局。
+// 该载荷没有独立磁盘扩展名。
+//
+// MessagePack layout for the MoveablePanelManager::SceneEdit::savedata virtual file inside system.dat.
+// This payload has no standalone disk extension.
 
 const (
 	moveablePanelMaxMessagePackDepth = 256
 )
 
-// MoveablePanelSaveData 表示 system.dat 中 EditData/MoveablePanelManager::SceneEdit::savedata 保存的原始未压缩 Standard MessagePack 值
-// 两个切片有意保持顺序，因为 MoveablePanelManager 会遍历 MoveablePanelPosition 并调用 Transform.SetAsLastSibling 恢复面板同级顺序
-// 将任一线格式列表转换为映射都会丢失游戏中可观察的状态
-// MoveablePanelSaveData represents the raw uncompressed Standard MessagePack value stored at EditData/MoveablePanelManager::SceneEdit::savedata in system.dat
-// Both slices intentionally retain order because MoveablePanelManager restores panel sibling order by iterating MoveablePanelPosition and calling Transform.SetAsLastSibling
-// Converting either wire list to a map would lose observable game state
+// MoveablePanelSaveData is the raw, uncompressed Standard MessagePack value
+// stored in system.dat at
+// EditData/MoveablePanelManager::SceneEdit::savedata.
+//
+// The two slices intentionally remain ordered. MoveablePanelManager restores
+// panel sibling order by iterating MoveablePanelPosition and calling
+// Transform.SetAsLastSibling, so converting either wire list into a map would
+// lose observable game state.
 type MoveablePanelSaveData struct {
-	MessagePackRootMetadata                                  // 根值 nil 与尾部字节元数据 / Root nil and trailing-byte metadata
-	MoveablePanelPosition    []MoveablePanelPositionEntry    `json:"moveablePanelPosition"`    // Key 0 的有序面板名称和 anchoredPosition3D 列表 / Ordered panel-name and anchoredPosition3D list at Key 0
-	MoveablePanelActiveState []MoveablePanelActiveStateEntry `json:"moveablePanelActiveState"` // Key 1 的有序面板名称和打开状态列表 / Ordered panel-name and open-state list at Key 1
-	FieldCount               *int                            `json:"fieldCount,omitempty"`     // 原始 indexed object 的槽位数，标准宽度 2 时可省略 / Slot count of the original indexed object, omittable for the standard width of 2
-	FutureSlots              [][]byte                        `json:"futureSlots,omitempty"`    // Key 2 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 2
+	MessagePackRootMetadata
+	MoveablePanelPosition    []MoveablePanelPositionEntry    `json:"moveablePanelPosition"`
+	MoveablePanelActiveState []MoveablePanelActiveStateEntry `json:"moveablePanelActiveState"`
+	FieldCount               *int                            `json:"fieldCount,omitempty"`
+	FutureSlots              [][]byte                        `json:"futureSlots,omitempty"`
 }
 
-// MoveablePanelPositionEntry 表示 KeyValuePair<string, UnityEngine.Vector3>
-// MessagePack KeyValuePair 格式化器始终使用精确的 array 2
-// MoveablePanelPositionEntry represents KeyValuePair<string, UnityEngine.Vector3>
-// The MessagePack KeyValuePair formatter always uses an exact array of 2
+// MoveablePanelPositionEntry represents
+// KeyValuePair<string, UnityEngine.Vector3>. The MessagePack KeyValuePair
+// formatter always uses an exact array(2).
 type MoveablePanelPositionEntry struct {
-	PanelName      string  `json:"panelName"`                // KeyValuePair Key 中用于查找 MoveablePanel.PanelName 的名称 / Name in the KeyValuePair Key used to find MoveablePanel.PanelName
-	PanelNameIsNil bool    `json:"panelNameIsNil,omitempty"` // 线格式中的 Key 是否显式为 MessagePack nil / Whether the wire Key was explicitly MessagePack nil
-	Position       Vector3 `json:"position"`                 // KeyValuePair Value 中恢复到 RectTransform.anchoredPosition3D 的位置 / Position in the KeyValuePair Value restored to RectTransform.anchoredPosition3D
+	PanelName      string  `json:"panelName"`
+	PanelNameIsNil bool    `json:"panelNameIsNil,omitempty"`
+	Position       Vector3 `json:"position"`
 }
 
-// MoveablePanelActiveStateEntry 表示 KeyValuePair<string, bool>
-// MessagePack KeyValuePair 格式化器始终使用精确的 array 2
-// MoveablePanelActiveStateEntry represents KeyValuePair<string, bool>
-// The MessagePack KeyValuePair formatter always uses an exact array of 2
+// MoveablePanelActiveStateEntry represents KeyValuePair<string, bool>. The
+// MessagePack KeyValuePair formatter always uses an exact array(2).
 type MoveablePanelActiveStateEntry struct {
-	PanelName      string `json:"panelName"`                // KeyValuePair Key 中用于匹配 MoveablePanel.PanelName 的名称 / Name in the KeyValuePair Key used to match MoveablePanel.PanelName
-	PanelNameIsNil bool   `json:"panelNameIsNil,omitempty"` // 线格式中的 Key 是否显式为 MessagePack nil / Whether the wire Key was explicitly MessagePack nil
-	Active         bool   `json:"active"`                   // KeyValuePair Value 中决定游戏显示或隐藏面板的打开状态 / Open state in the KeyValuePair Value used by the game to show or hide the panel
+	PanelName      string `json:"panelName"`
+	PanelNameIsNil bool   `json:"panelNameIsNil,omitempty"`
+	Active         bool   `json:"active"`
 }
 
-// DecodeMoveablePanelSaveData 解码 MessagePackSerializer.Serialize<MoveablePanelSaveData> 写出的裸 Standard MessagePack 载荷
-// 兼容行为遵循游戏格式化器而不假定每个 indexed array 都有唯一标准长度
-// indexed object 格式化器先构造 MoveablePanelSaveData，因此缺失字段保持线模型零值，未知尾部键被消费后原样保存在 FutureSlots
-// Vector3Formatter 接受任意长度数组，缺失的 x、y、z 默认为零并跳过 z 之后的分量，解码宽度与跳过值保存在 Vector3.IndexedObjectMetadata 中
-// MessagePackReader.ReadSingle 接受 float32、float64 和所有整数编码并转换为 System.Single，可空列表与名称、重复名称及所有 IEEE-754 值均会保留
-// 畸形 UTF-8 按 MessagePackReader.ReadString 的行为使用 U+FFFD 规范化
-// DecodeMoveablePanelSaveData decodes the bare Standard MessagePack payload written by MessagePackSerializer.Serialize<MoveablePanelSaveData>
-// Compatibility follows the game formatters instead of assuming every indexed array has one canonical length
-// The indexed object formatter constructs MoveablePanelSaveData first, so absent fields keep wire-model zero values and unknown trailing keys are consumed and retained verbatim in FutureSlots
-// Vector3Formatter accepts arrays of any length, defaults absent x, y, and z to zero, and skips later components while decoded width and skipped values remain in Vector3.IndexedObjectMetadata
-// MessagePackReader.ReadSingle accepts float32, float64, and every integer encoding and converts to System.Single, while nullable lists and names, duplicate names, and all IEEE-754 values are preserved
-// Malformed UTF-8 is normalized with U+FFFD to match MessagePackReader.ReadString
+// DecodeMoveablePanelSaveData decodes the bare Standard MessagePack payload
+// written by MessagePackSerializer.Serialize<MoveablePanelSaveData>.
+//
+// Compatibility follows the game's formatters rather than assuming every
+// indexed array has one canonical length:
+//   - the indexed-object formatter constructs MoveablePanelSaveData first, so
+//     absent fields retain their wire-model zero values and unknown trailing
+//     keys are consumed and retained verbatim in FutureSlots;
+//   - Vector3Formatter accepts arrays of any length, defaults absent x/y/z to
+//     zero, and skips components after z. The decoded width and skipped values
+//     are retained in Vector3.IndexedObjectMetadata so editing does not turn a
+//     short/extended wire value into the current array(3) layout;
+//   - MessagePackReader.ReadSingle accepts float32, float64, and every integer
+//     code, converting the result to System.Single.
+//
+// Nullable lists/names, duplicate names, and all IEEE-754 values are retained;
+// interpreting them is left to the game. Malformed UTF-8 is normalized with
+// U+FFFD, matching MessagePackReader.ReadString.
 func DecodeMoveablePanelSaveData(data []byte) (*MoveablePanelSaveData, error) {
 	reader := moveablePanelMessagePackReader{data: data}
 	if reader.tryReadNil() {
@@ -118,12 +124,10 @@ func DecodeMoveablePanelSaveData(data []byte) (*MoveablePanelSaveData, error) {
 	return value, nil
 }
 
-// EncodeMoveablePanelSaveData 保留解码后的 indexed object 与 Vector3 宽度及未来槽位
-// 新建 Vector3 使用游戏当前的 array 3 布局和 float32 标记 0xca，KeyValuePair 按游戏格式化器要求保持精确 array 2
-// 调用者不会被修改
-// EncodeMoveablePanelSaveData preserves decoded indexed object and Vector3 widths and future slots
-// Newly created Vector3 values use the current game array-of-3 layout and float32 marker 0xca while KeyValuePair remains an exact array of 2 as required by the game formatter
-// The caller is never modified
+// EncodeMoveablePanelSaveData preserves decoded indexed-object and Vector3
+// widths/future slots. Newly created vectors use the game's current array(3)
+// layout and float32 (0xca) coordinates. KeyValuePair remains exact array(2),
+// as required by the game's formatter. The caller is never modified.
 func EncodeMoveablePanelSaveData(value *MoveablePanelSaveData) ([]byte, error) {
 	if value == nil {
 		return []byte{0xc0}, nil
@@ -206,8 +210,6 @@ func EncodeMoveablePanelSaveData(value *MoveablePanelSaveData) ([]byte, error) {
 	return appendMessagePackRootTrailing(out, value.MessagePackRootMetadata), nil
 }
 
-// validateMoveablePanelSaveData 验证列表长度以及面板名称 nil 状态和 UTF-8 表示
-// validateMoveablePanelSaveData validates list lengths and panel-name nil state and UTF-8 representation
 func validateMoveablePanelSaveData(value *MoveablePanelSaveData) error {
 	if value == nil {
 		return nil
@@ -240,15 +242,11 @@ func validateMoveablePanelSaveData(value *MoveablePanelSaveData) error {
 	return nil
 }
 
-// moveablePanelMessagePackReader 提供面板状态载荷所需的有界 MessagePack 读取和跳过操作
-// moveablePanelMessagePackReader provides bounded MessagePack read and skip operations needed by panel-state payloads
 type moveablePanelMessagePackReader struct {
-	data []byte // 完整输入字节 / Complete input bytes
-	pos  int    // 下一个待读取字节的位置 / Position of the next byte to read
+	data []byte
+	pos  int
 }
 
-// tryReadNil 在当前位置为 MessagePack nil 时消费它并返回 true
-// tryReadNil consumes MessagePack nil at the current position and reports whether it was present
 func (reader *moveablePanelMessagePackReader) tryReadNil() bool {
 	if reader.pos < len(reader.data) && reader.data[reader.pos] == 0xc0 {
 		reader.pos++
@@ -257,14 +255,10 @@ func (reader *moveablePanelMessagePackReader) tryReadNil() bool {
 	return false
 }
 
-// remaining 返回尚未消费的输入字节数
-// remaining returns the number of unconsumed input bytes
 func (reader *moveablePanelMessagePackReader) remaining() int {
 	return len(reader.data) - reader.pos
 }
 
-// readByte 读取单个字节并在输入耗尽时返回带标签错误
-// readByte reads one byte and returns a label-qualified error when input is exhausted
 func (reader *moveablePanelMessagePackReader) readByte(label string) (byte, error) {
 	if reader.pos >= len(reader.data) {
 		return 0, fmt.Errorf("%s: unexpected EOF", label)
@@ -274,8 +268,6 @@ func (reader *moveablePanelMessagePackReader) readByte(label string) (byte, erro
 	return value, nil
 }
 
-// readBytes 读取指定长度的连续字节而不复制并推进当前位置
-// readBytes reads a contiguous byte range without copying and advances the current position
 func (reader *moveablePanelMessagePackReader) readBytes(length int, label string) ([]byte, error) {
 	if length < 0 || length > reader.remaining() {
 		return nil, fmt.Errorf("%s: unexpected EOF (need %d bytes, have %d)", label, length, reader.remaining())
@@ -285,8 +277,6 @@ func (reader *moveablePanelMessagePackReader) readBytes(length int, label string
 	return value, nil
 }
 
-// readArrayHeader 读取 fixarray、array16 或 array32 的元素数量
-// readArrayHeader reads an element count from fixarray, array16, or array32
 func (reader *moveablePanelMessagePackReader) readArrayHeader(label string) (int, error) {
 	code, err := reader.readByte(label)
 	if err != nil {
@@ -314,8 +304,6 @@ func (reader *moveablePanelMessagePackReader) readArrayHeader(label string) (int
 	return simpleEditDataLengthToInt(uint32(count), label)
 }
 
-// readPositionList 读取可空的有序 KeyValuePair<string, Vector3> 列表并要求每项宽度为 2
-// readPositionList reads a nullable ordered KeyValuePair<string, Vector3> list and requires every pair to have width 2
 func (reader *moveablePanelMessagePackReader) readPositionList() ([]MoveablePanelPositionEntry, error) {
 	if reader.tryReadNil() {
 		return nil, nil
@@ -349,8 +337,6 @@ func (reader *moveablePanelMessagePackReader) readPositionList() ([]MoveablePane
 	return result, nil
 }
 
-// readActiveStateList 读取可空的有序 KeyValuePair<string, bool> 列表并要求每项宽度为 2
-// readActiveStateList reads a nullable ordered KeyValuePair<string, bool> list and requires every pair to have width 2
 func (reader *moveablePanelMessagePackReader) readActiveStateList() ([]MoveablePanelActiveStateEntry, error) {
 	if reader.tryReadNil() {
 		return nil, nil
@@ -384,8 +370,6 @@ func (reader *moveablePanelMessagePackReader) readActiveStateList() ([]MoveableP
 	return result, nil
 }
 
-// readString 读取可为 nil 的 MessagePack 字符串，并按游戏行为替换畸形 UTF-8
-// readString reads a nullable MessagePack string and replaces malformed UTF-8 using game behavior
 func (reader *moveablePanelMessagePackReader) readString(label string) (string, bool, error) {
 	code, err := reader.readByte(label)
 	if err != nil {
@@ -432,8 +416,6 @@ func (reader *moveablePanelMessagePackReader) readString(label string) (string, 
 	return string(bytes), false, nil
 }
 
-// readVector3 读取任意 indexed array 宽度的 Unity Vector3 并保留其结构元数据
-// readVector3 reads a Unity Vector3 with any indexed array width and preserves its structural metadata
 func (reader *moveablePanelMessagePackReader) readVector3(label string) (Vector3, error) {
 	start := reader.pos
 	count, err := reader.readArrayHeader(label)
@@ -450,18 +432,16 @@ func (reader *moveablePanelMessagePackReader) readVector3(label string) (Vector3
 	if err := ct.DecodeMsgpack(reader.data[start:reader.pos], &value); err != nil {
 		return Vector3{}, fmt.Errorf("%s: %w", label, err)
 	}
-	// Vector3Formatter 对已知分量调用 ReadSingle，因此会拒绝 nil 而不是将其视为 float32 零值
-	// 共享 indexed object 编解码器会记录这类 nil 标量槽位，使结构元数据得以保留而不放宽游戏接受的线格式语法
-	// Vector3Formatter calls ReadSingle for known components and therefore rejects nil instead of treating it as float32 zero
-	// The shared indexed object codec records such nil scalar slots so structural metadata can be retained without weakening the wire grammar accepted by the game
+	// Vector3Formatter calls ReadSingle for known components, and therefore
+	// rejects nil instead of treating it as the float32 zero value. The shared
+	// indexed-object codec records such nil scalar slots so we can retain its
+	// structural metadata without weakening the game's accepted wire grammar.
 	if value.IndexedObjectMetadata != nil && len(value.NilSlots) != 0 {
 		return Vector3{}, fmt.Errorf("%s component %d is nil; the game requires a number", label, value.NilSlots[0])
 	}
 	return value, nil
 }
 
-// readSingle 按 MessagePackReader.ReadSingle 规则将浮点或整数编码转换为 float32
-// readSingle converts floating-point or integer encodings to float32 using MessagePackReader.ReadSingle rules
 func (reader *moveablePanelMessagePackReader) readSingle(label string) (float32, error) {
 	code, err := reader.readByte(label)
 	if err != nil {
@@ -534,8 +514,6 @@ func (reader *moveablePanelMessagePackReader) readSingle(label string) (float32,
 	}
 }
 
-// readBool 只接受 MessagePack false 或 true 标记
-// readBool accepts only the MessagePack false or true markers
 func (reader *moveablePanelMessagePackReader) readBool(label string) (bool, error) {
 	code, err := reader.readByte(label)
 	if err != nil {
@@ -551,8 +529,8 @@ func (reader *moveablePanelMessagePackReader) readBool(label string) (bool, erro
 	}
 }
 
-// skipValue 为未知 indexed object 字段和 Vector3 分量镜像 MessagePackReader.Skip，并施加明确递归限制
-// skipValue mirrors MessagePackReader.Skip for unknown indexed object fields and Vector3 components while enforcing an explicit recursion limit
+// skipValue mirrors MessagePackReader.Skip for unknown indexed-object fields
+// and Vector3 components, while retaining an explicit recursion limit.
 func (reader *moveablePanelMessagePackReader) skipValue(depth int) error {
 	if depth >= moveablePanelMaxMessagePackDepth {
 		return fmt.Errorf("MessagePack nesting exceeds %d", moveablePanelMaxMessagePackDepth)
@@ -574,8 +552,6 @@ func (reader *moveablePanelMessagePackReader) skipValue(depth int) error {
 		return reader.skipMap(int(code&0x0f), depth)
 	}
 
-	// 固定扩展长度包含一个类型代码字节
-	// Fixed extension lengths include one type-code byte
 	fixedPayload := map[byte]int{
 		0xca: 4, 0xcb: 8,
 		0xcc: 1, 0xcd: 2, 0xce: 4, 0xcf: 8,
@@ -598,9 +574,7 @@ func (reader *moveablePanelMessagePackReader) skipValue(depth int) error {
 			return err
 		}
 		length := int(lengthByte)
-		// ext8 长度不包含其类型代码字节
-		// The ext8 length excludes its type-code byte
-		if code == 0xc7 {
+		if code == 0xc7 { // ext8 includes a type-code byte.
 			length++
 		}
 		_, err = reader.readBytes(length, "skipped payload")
@@ -664,8 +638,6 @@ func (reader *moveablePanelMessagePackReader) skipValue(depth int) error {
 	}
 }
 
-// skipBytePayload 按 uint64 长度跳过原始载荷并先验证剩余字节
-// skipBytePayload skips a raw payload by uint64 length after validating remaining bytes
 func (reader *moveablePanelMessagePackReader) skipBytePayload(length uint64) error {
 	if length > uint64(reader.remaining()) {
 		return fmt.Errorf("skipped payload: unexpected EOF (need %d bytes, have %d)", length, reader.remaining())
@@ -674,8 +646,6 @@ func (reader *moveablePanelMessagePackReader) skipBytePayload(length uint64) err
 	return nil
 }
 
-// skipArray 逐项跳过数组并在递归前按剩余字节限制数量
-// skipArray skips an array item by item and bounds its count by remaining bytes before recursion
 func (reader *moveablePanelMessagePackReader) skipArray(count, depth int) error {
 	if count > reader.remaining() {
 		return fmt.Errorf("skipped array: unexpected EOF before %d entries", count)
@@ -688,8 +658,6 @@ func (reader *moveablePanelMessagePackReader) skipArray(count, depth int) error 
 	return nil
 }
 
-// skipMap 逐项跳过映射键和值并在递归前按剩余字节限制数量
-// skipMap skips map keys and values one pair at a time and bounds their count by remaining bytes before recursion
 func (reader *moveablePanelMessagePackReader) skipMap(count, depth int) error {
 	if count > reader.remaining()/2 {
 		return fmt.Errorf("skipped map: unexpected EOF before %d entries", count)
@@ -705,8 +673,6 @@ func (reader *moveablePanelMessagePackReader) skipMap(count, depth int) error {
 	return nil
 }
 
-// appendMoveablePanelArrayHeader 以可表示数量的最短 MessagePack 数组头追加元素数
-// appendMoveablePanelArrayHeader appends an element count using the shortest MessagePack array header that can represent it
 func appendMoveablePanelArrayHeader(out []byte, count int) []byte {
 	switch {
 	case count < 16:
@@ -718,8 +684,6 @@ func appendMoveablePanelArrayHeader(out []byte, count int) []byte {
 	}
 }
 
-// appendMoveablePanelString 验证 UTF-8 后以可表示字节长度的最短 MessagePack 字符串形式追加值
-// appendMoveablePanelString validates UTF-8 and appends a value using the shortest MessagePack string form that can represent its byte length
 func appendMoveablePanelString(out []byte, value string) ([]byte, error) {
 	if !utf8.ValidString(value) {
 		return nil, fmt.Errorf("value is not valid UTF-8")
@@ -740,8 +704,6 @@ func appendMoveablePanelString(out []byte, value string) ([]byte, error) {
 	return append(out, value...), nil
 }
 
-// appendMoveablePanelFloat32 使用标准 MessagePack float32 标记和大端位模式追加值
-// appendMoveablePanelFloat32 appends a value using the canonical MessagePack float32 marker and big-endian bit pattern
 func appendMoveablePanelFloat32(out []byte, value float32) []byte {
 	bits := math.Float32bits(value)
 	return append(out, 0xca, byte(bits>>24), byte(bits>>16), byte(bits>>8), byte(bits))

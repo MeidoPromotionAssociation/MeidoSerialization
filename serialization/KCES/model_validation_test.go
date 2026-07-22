@@ -2,6 +2,33 @@ package KCES
 
 import "testing"
 
+func TestModelNameSelectsExactlyOneTransform(t *testing.T) {
+	tests := []struct {
+		name      string
+		modelName string
+		transData []TransData
+	}{
+		{name: "missing selector", transData: []TransData{{Name: "root", ParentNo: -1}}},
+		{name: "unknown selector", modelName: "missing", transData: []TransData{{Name: "root", ParentNo: -1}}},
+		{name: "ambiguous selector", modelName: "root", transData: []TransData{{Name: "root", ParentNo: -1}, {Name: "root", ParentNo: -1}}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			model := &Model{ModelName: test.modelName, TransData: test.transData}
+			if _, err := EncodeModel(model); err == nil {
+				t.Fatal("EncodeModel accepted an invalid modelName selector")
+			}
+		})
+	}
+
+	if _, err := EncodeModel(&Model{ModelName: "root", TransData: []TransData{{Name: "root", ParentNo: -1}}}); err != nil {
+		t.Fatalf("EncodeModel rejected a unique modelName selector: %v", err)
+	}
+	if _, err := EncodeModel(&Model{}); err != nil {
+		t.Fatalf("EncodeModel rejected the zero-value synthetic model: %v", err)
+	}
+}
+
 func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing.T) {
 	validMorph := func() BlendData {
 		return BlendData{
@@ -67,6 +94,7 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 			model: func() Model {
 				model := validModelForStructureTest()
 				model.TransData = []TransData{{Name: "a", ParentNo: 1}, {Name: "b", ParentNo: 0}}
+				model.ModelName = "a"
 				return model
 			},
 			want: "cycle",
@@ -266,6 +294,7 @@ func TestEncodeModelDoesNotGuessExternalMeshVertexUpperBound(t *testing.T) {
 
 func validModelForStructureTest() Model {
 	return Model{
+		ModelName:        "root",
 		TransData:        []TransData{{Name: "root", ParentNo: -1}},
 		BoneNames:        []string{},
 		MaterialFileName: []string{},

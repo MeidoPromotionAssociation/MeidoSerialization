@@ -15,105 +15,92 @@ import (
 )
 
 // .ct
-// KCES 的 Content Table 资源目录文件，外层使用 VirtualDirectory 序列化格式
-// 文件头之后连续保存各 VirtualFile 的原始数据，尾部保存 LZ4 Block Array 压缩的 MessagePack 目录结构及其长度
+// KCES 的 Content Table 资源目录文件，外层使用 VirtualDirectory 序列化格式。
+// 文件头之后连续保存各 VirtualFile 的原始数据，尾部保存 LZ4 Block Array 压缩的 MessagePack 目录结构及其长度。
 //
 //	[7 bytes]  FileSignature: bb c3 aa 9a a6 4d ad
 //	[1 byte]   SerializeType: 8e = MessagePack, 00 = MemoryPack
 //	[N bytes]  原始文件数据（各 VirtualFile 连续存放）
 //	[M bytes]  MessagePack + LZ4 Block Array 压缩的 VirtualDirectory 结构
 //	[4 bytes]  M 的值（Little-Endian Int32）
+//
 // .ct
-// KCES Content Table resource catalog using the serialized VirtualDirectory format
+// KCES Content Table resource catalog using the serialized VirtualDirectory format.
 // Raw VirtualFile data is stored contiguously after the header; the tail stores the LZ4 Block Array-compressed
-// MessagePack directory structure followed by its length
+// MessagePack directory structure followed by its length.
+//
 //	[7 bytes]  FileSignature: bb c3 aa 9a a6 4d ad
 //	[1 byte]   SerializeType: 8e = MessagePack, 00 = MemoryPack
 //	[N bytes]  Raw file data with VirtualFiles stored contiguously
 //	[M bytes]  MessagePack + LZ4 Block Array-compressed VirtualDirectory structure
 //	[4 bytes]  M encoded as a Little-Endian Int32
 
-// FileSignature 是 .ct 文件的魔数签名（7 字节），用于验证文件格式
+// FileSignature 是 .ct 文件的魔数签名（7 字节），用于验证文件格式 / FileSignature is the 7-byte magic signature used to validate .ct files
 // 对应 C# VirtualDirectory.FileSignature = {0xbb, 0xc3, 0xaa, 0x9a, 0xa6, 0x4d, 0xad}
-// FileSignature is the 7-byte magic signature used to validate .ct files
-// It matches C# VirtualDirectory.FileSignature = {0xbb, 0xc3, 0xaa, 0x9a, 0xa6, 0x4d, 0xad}
 var FileSignature = []byte{0xbb, 0xc3, 0xaa, 0x9a, 0xa6, 0x4d, 0xad}
 
 const (
-	// HeaderSize 是文件头大小，由 7 字节签名和 1 字节序列化类型组成
-	// HeaderSize is the header width made up of a 7-byte signature and a 1-byte serialization type
+	// HeaderSize 是文件头大小：7 字节签名 + 1 字节序列化类型
 	HeaderSize = 8
 	// SerializeTypeMsgPack 表示使用 MessagePack 序列化（0x8e）
 	// 另一种可能值 0x00 表示 MemoryPack，本库不支持
-	// SerializeTypeMsgPack selects MessagePack serialization (0x8e)
-	// The other defined value 0x00 selects MemoryPack, which this package does not support
 	SerializeTypeMsgPack = 0x8e
-	// footerSizeLen 是文件末尾存储 MessagePack 数据长度的字节数（Little-Endian UInt32）
-	// footerSizeLen is the number of bytes used for the trailing MessagePack length (Little-Endian UInt32)
+	// footerSizeLen 是文件末尾存储 msgpack 数据长度的字节数（little-endian uint32）
 	footerSizeLen = 4
 	// ctVersion 是 VirtualDirectory 的固定版本号，对应 C# VirtualDirectory.FixVersion = 1000
-	// ctVersion is the fixed VirtualDirectory version matching C# VirtualDirectory.FixVersion = 1000
 	ctVersion = 1000
 )
 
-// ContentTable 表示解析后的 .ct 文件 VirtualDirectory 序列化结构
-// .ct 文件是 KCES 游戏的资源目录容器，内部存储 catalog、ExtensionNameList 等虚拟文件
-// 游戏通过 CatalogUtility.FromCatalog<T> 读取 .ct 中的 "catalog" 文件获取资源索引
-// ContentTable represents a parsed .ct file in serialized VirtualDirectory form
-// A .ct file is a KCES resource catalog container storing virtual files such as catalog and ExtensionNameList
-// The game reads the "catalog" virtual file through CatalogUtility.FromCatalog<T> to obtain resource indexes
+// ContentTable 表示解析后的 .ct 文件 VirtualDirectory 序列化结构 / ContentTable represents a parsed .ct file in serialized VirtualDirectory form
+// .ct 文件是 KCES 游戏的资源目录容器，内部存储 catalog、ExtensionNameList 等虚拟文件 / A .ct file is a KCES resource catalog container storing virtual files such as catalog and ExtensionNameList
+// 游戏通过 CatalogUtility.FromCatalog<T> 读取 .ct 中的 "catalog" 文件获取资源索引 / The game reads the "catalog" virtual file through CatalogUtility.FromCatalog<T> to obtain resource indexes
 type ContentTable struct {
-	Version        int                                 `json:"Version"`                  // 保存的根 VirtualDirectory 版本；零值原样保留 / Stored root VirtualDirectory version; zero is preserved
-	Versionless    bool                                `json:"Versionless,omitempty"`    // 历史根无版本 [目录, 文件] 形式 / Historical root [directories, files] form with no version slot
-	FilesOnly      bool                                `json:"FilesOnly,omitempty"`      // 历史根 [版本, 文件] 形式 / Historical root [version, files] form
-	DirectoriesNil bool                                `json:"DirectoriesNil,omitempty"` // 根 allDirectorys 使用 MessagePack nil / Root allDirectorys was encoded as MessagePack nil
-	FilesNil       bool                                `json:"FilesNil,omitempty"`       // 根 allFiles 使用 MessagePack nil / Root allFiles was encoded as MessagePack nil
-	FieldCount     *int                                `json:"FieldCount,omitempty"`     // 非标准根 indexed array 的槽数 / Non-canonical root indexed-array width
-	FutureSlots    [][]byte                            `json:"FutureSlots,omitempty"`    // 根已知槽之后保留的原始 MessagePack 值 / Verbatim root MessagePack values after known slots
-	Directories    map[string]VirtualDirectoryMetadata `json:"Directories,omitempty"`    // 每个子目录路径的元数据，包含空目录 / Metadata for every child directory path, including empty directories
-	Files          map[string]VirtualFile              `json:"Files"`                    // 虚拟文件表，键为文件名，值为位置和大小 / Virtual file table keyed by file name with position and size values
+	Version        int                                 `json:"Version"`                  // Stored root VirtualDirectory version; zero is preserved / 保存的根 VirtualDirectory 版本；零值原样保留
+	Versionless    bool                                `json:"Versionless,omitempty"`    // Historical root [directories, files] form with no version slot / 历史根无版本 [目录, 文件] 形式
+	FilesOnly      bool                                `json:"FilesOnly,omitempty"`      // Historical root [version, files] form / 历史根 [版本, 文件] 形式
+	DirectoriesNil bool                                `json:"DirectoriesNil,omitempty"` // Root allDirectorys was MessagePack nil / 根 allDirectorys 为 MessagePack nil
+	FilesNil       bool                                `json:"FilesNil,omitempty"`       // Root allFiles was MessagePack nil / 根 allFiles 为 MessagePack nil
+	FieldCount     *int                                `json:"FieldCount,omitempty"`     // Non-canonical root indexed-array width / 非标准根 indexed-array 槽数
+	FutureSlots    [][]byte                            `json:"FutureSlots,omitempty"`    // Verbatim root MessagePack values after known slots / 根已知槽后的原始 MessagePack 值
+	Directories    map[string]VirtualDirectoryMetadata `json:"Directories,omitempty"`    // Metadata for every child directory path, including empty directories / 每个子目录路径的元数据（含空目录）
+	Files          map[string]VirtualFile              `json:"Files"`                    // 虚拟文件表，key 为文件名，value 为位置和大小 / Virtual file table keyed by file name with position and size values
 	Raw            []byte                              `json:"-"`                        // 完整文件原始字节，用于按偏移提取虚拟文件内容 / Raw bytes of the full file used to slice virtual file contents by offset
-	dataEnd        int64                               // 实际虚拟文件数据区末尾，零值表示使用 len(Raw) / End of the virtual-file payload area; zero means len(Raw)
+	dataEnd        int64                               // 实际虚拟文件数据区末尾；零值表示使用 len(Raw) / End of the virtual-file payload area; zero means len(Raw)
 }
 
-// VirtualDirectoryMetadata 保存一个子 VirtualDirectory 的 indexed object 形状
-// 路径在 ContentTable.Directories 中以规范化的斜杠分隔键保存，缺少条目表示新建目录并继承根布局，解码得到的每个目录都会有条目
-// VirtualDirectoryMetadata preserves the indexed-object shape of one child VirtualDirectory
-// Paths are stored as canonical slash-separated keys in ContentTable.Directories; a missing entry denotes a newly-created directory that inherits the root layout, and every decoded directory receives an entry
+// VirtualDirectoryMetadata preserves the indexed-object shape of one child
+// VirtualDirectory. Paths are stored as canonical slash-separated keys in
+// ContentTable.Directories. A missing entry denotes a newly-created directory
+// and inherits the root layout; every decoded directory receives an entry.
 type VirtualDirectoryMetadata struct {
-	Version        int      `json:"Version"`                  // 子 VirtualDirectory 的版本值 / Child VirtualDirectory version value
-	Versionless    bool     `json:"Versionless,omitempty"`    // 子目录使用无版本布局 / Child directory uses the versionless layout
-	FilesOnly      bool     `json:"FilesOnly,omitempty"`      // 子目录使用 [版本, 文件] 布局 / Child directory uses the [version, files] layout
-	DirectoriesNil bool     `json:"DirectoriesNil,omitempty"` // 子目录表编码为 nil / Child directory map was encoded as nil
-	FilesNil       bool     `json:"FilesNil,omitempty"`       // 文件表编码为 nil / File map was encoded as nil
-	FieldCount     *int     `json:"FieldCount,omitempty"`     // 子目录 indexed array 的实际槽数 / Actual child-directory indexed-array width
-	FutureSlots    [][]byte `json:"FutureSlots,omitempty"`    // 已知槽之后保留的原始 MessagePack 值 / Verbatim MessagePack values after known slots
+	Version        int      `json:"Version"`
+	Versionless    bool     `json:"Versionless,omitempty"`
+	FilesOnly      bool     `json:"FilesOnly,omitempty"`
+	DirectoriesNil bool     `json:"DirectoriesNil,omitempty"`
+	FilesNil       bool     `json:"FilesNil,omitempty"`
+	FieldCount     *int     `json:"FieldCount,omitempty"`
+	FutureSlots    [][]byte `json:"FutureSlots,omitempty"`
 }
 
-// VirtualFile 表示虚拟文件系统中的一个文件条目
-// 对应 C# VirtualFile 的 MessagePack indexed array [Key(0)=position, Key(1)=size]
-// VirtualFile represents one file entry in the virtual file system
-// It matches the C# VirtualFile MessagePack indexed array [Key(0)=position, Key(1)=size]
+// VirtualFile 表示虚拟文件系统中的一个文件条目 / VirtualFile represents one file entry in the virtual file system
+// 对应 C# VirtualFile 的 MessagePack indexed array: [Key(0)=position, Key(1)=size] / Matches the C# VirtualFile MessagePack indexed array [Key(0)=position, Key(1)=size]
 type VirtualFile struct {
 	Position    int64    `json:"Position"`              // 文件数据在 .ct 文件中的绝对字节偏移，从文件开头计算且包含 header / Absolute byte offset of file data inside the .ct file, counted from file start including header
 	Size        int      `json:"Size"`                  // 文件数据的字节大小 / File data size in bytes
-	FieldCount  *int     `json:"FieldCount,omitempty"`  // 非标准 indexed array 的槽数 / Non-canonical indexed-array width
-	FutureSlots [][]byte `json:"FutureSlots,omitempty"` // position 和 size 后的原始 MessagePack 值 / Verbatim MessagePack values after position and size
+	FieldCount  *int     `json:"FieldCount,omitempty"`  // Non-canonical indexed-array width / 非标准 indexed-array 槽数
+	FutureSlots [][]byte `json:"FutureSlots,omitempty"` // Verbatim MessagePack values after position and size / position、size 后的原始 MessagePack 值
 }
 
-// VirtualFileMetadata 保存与位置无关的 VirtualFile indexed object 形状
-// 语义包装器重建载荷偏移时使用此元数据保留短数组和未来槽位
-// VirtualFileMetadata preserves the position-independent portion of a VirtualFile indexed-object shape
-// Semantic wrappers use it when rebuilding payload offsets while retaining short arrays and future slots
+// VirtualFileMetadata is the position-independent portion of a VirtualFile's
+// indexed-object shape. Semantic wrappers use it when they rebuild payload
+// offsets but still need to retain short arrays and future slots.
 type VirtualFileMetadata struct {
-	FieldCount  *int     `json:"FieldCount,omitempty"`  // VirtualFile indexed array 的实际槽数 / Actual VirtualFile indexed-array width
-	FutureSlots [][]byte `json:"FutureSlots,omitempty"` // 已知字段之后的原始 MessagePack 值 / Verbatim MessagePack values after known fields
+	FieldCount  *int     `json:"FieldCount,omitempty"`
+	FutureSlots [][]byte `json:"FutureSlots,omitempty"`
 }
 
-// ReadContentTable 从 reader 中读取并解析 .ct 文件
-// 解析流程：验证签名、读取末尾长度、提取 MessagePack 数据、LZ4 解压并解码 VirtualDirectory
-// ReadContentTable reads and parses a .ct file from reader
-// The procedure validates the signature, reads the trailing length, extracts MessagePack data, decompresses LZ4, and decodes VirtualDirectory
+// ReadContentTable 从 reader 中读取并解析 .ct 文件。
+// 解析流程：验证签名 → 读取末尾长度 → 提取 MessagePack 数据 → LZ4 解压 → 解码 VirtualDirectory。
 func ReadContentTable(r io.Reader) (*ContentTable, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
@@ -164,10 +151,8 @@ func ReadContentTable(r io.Reader) (*ContentTable, error) {
 	return ct, nil
 }
 
-// WriteContentTable 将 ContentTable 序列化为 .ct 格式并写入 writer
-// 写入顺序为签名、序列化类型、各文件原始数据、LZ4 压缩的 VirtualDirectory 和长度尾部
-// WriteContentTable serializes ContentTable in .ct format and writes it to writer
-// The write order is the signature, serialization type, raw file data, LZ4-compressed VirtualDirectory, and trailing length
+// WriteContentTable 将 ContentTable 序列化为 .ct 格式并写入 writer。
+// 写入流程：签名 → 序列化类型 → 各文件原始数据 → LZ4 压缩的 VirtualDirectory → 长度尾部。
 func WriteContentTable(w io.Writer, ct *ContentTable) error {
 	if w == nil {
 		return fmt.Errorf("nil content table writer")
@@ -177,7 +162,7 @@ func WriteContentTable(w io.Writer, ct *ContentTable) error {
 	}
 	type fileEntry struct {
 		name string      // 虚拟文件名 / Virtual file name
-		file VirtualFile // VirtualFile 线格式形状元数据 / VirtualFile wire-shape metadata
+		file VirtualFile // VirtualFile wire-shape metadata / VirtualFile wire 形态元数据
 		data []byte      // 虚拟文件数据 / Virtual file data
 	}
 	names := make([]string, 0, len(ct.Files))
@@ -213,8 +198,9 @@ func WriteContentTable(w io.Writer, ct *ContentTable) error {
 		updated := entry.file
 		updated.Position = offset
 		updated.Size = len(entry.data)
-		// 历史零宽 VirtualFile 没有 position 槽位，空数据无需搬移，因此保留解码得到的零值而不制造无法编码的位置
-		// A zero-width historical VirtualFile has no position slot; empty data needs no relocation, so its decoded zero value is retained instead of manufacturing an unencodable position
+		// A zero-width historical VirtualFile has no position slot. Empty data
+		// does not need relocating, so retain its decoded zero value instead of
+		// manufacturing a position that the preserved shape cannot encode.
 		if entry.file.FieldCount != nil && *entry.file.FieldCount < 1 && len(entry.data) == 0 {
 			updated.Position = entry.file.Position
 		}
@@ -251,8 +237,8 @@ func WriteContentTable(w io.Writer, ct *ContentTable) error {
 		return fmt.Errorf("compressed VirtualDirectory is too large: %d bytes", len(compressed))
 	}
 
-	// 所有模型和封装校验都在首次写入前完成，被拒绝的元数据形状不会留下部分写入的输出流
-	// All model and framing validation is complete before the first write, so rejected metadata cannot leave a partially written output stream
+	// All model and framing validation is complete before the first write, so a
+	// rejected metadata shape cannot leave a partially-written output stream.
 	if err := binaryio.WriteBytes(w, FileSignature); err != nil {
 		return fmt.Errorf("write file signature failed: %w", err)
 	}
@@ -278,10 +264,8 @@ func WriteContentTable(w io.Writer, ct *ContentTable) error {
 	return nil
 }
 
-// NewContentTableFromDir 从磁盘目录创建 ContentTable，将目录中所有文件作为虚拟文件
-// 文件路径相对于 dirPath，并使用正斜杠分隔
-// NewContentTableFromDir creates a ContentTable from a disk directory and treats every file as a virtual file
-// File paths are relative to dirPath and use slash separators
+// NewContentTableFromDir 从磁盘目录创建 ContentTable，将目录中所有文件作为虚拟文件。
+// 文件路径使用正斜杠分隔，相对于 dirPath。
 func NewContentTableFromDir(dirPath string) (*ContentTable, error) {
 	ct := &ContentTable{
 		Version: ctVersion,
@@ -328,10 +312,8 @@ func NewContentTableFromDir(dirPath string) (*ContentTable, error) {
 	return ct, nil
 }
 
-// GetFileData 根据虚拟文件名提取原始字节数据
-// 函数使用 Files 表中的 Position 和 Size 在 Raw 中切片返回
-// GetFileData extracts raw bytes for a virtual file name
-// It slices Raw using Position and Size from the Files table
+// GetFileData 根据虚拟文件名提取原始字节数据。
+// 通过 Files 表中的 Position/Size 在 Raw 中切片返回。
 func (ct *ContentTable) GetFileData(name string) ([]byte, error) {
 	if ct == nil {
 		return nil, fmt.Errorf("nil content table")
@@ -353,8 +335,7 @@ func (ct *ContentTable) GetFileData(name string) ([]byte, error) {
 	return ct.Raw[start:end], nil
 }
 
-// GetFileNames 返回按字典序排列的所有虚拟文件名
-// GetFileNames returns all virtual file names in lexicographic order
+// GetFileNames 返回按字典序排列的所有虚拟文件名。
 func (ct *ContentTable) GetFileNames() []string {
 	if ct == nil {
 		return nil
@@ -367,10 +348,10 @@ func (ct *ContentTable) GetFileNames() []string {
 	return names
 }
 
-// GetVirtualDirectoryMetadata 返回重建已解码目录树所需的最小元数据
-// 可从扁平文件和子路径推导出的规范非空目录会被省略，空目录以及版本或布局不同于父目录的节点会明确保留
-// GetVirtualDirectoryMetadata returns the minimal metadata needed to recreate the decoded directory tree
-// Canonical non-empty directories derivable from flattened file and child paths are omitted, while empty directories and nodes whose version or layout differs from the parent remain explicit
+// GetVirtualDirectoryMetadata returns the minimal metadata needed to recreate
+// the decoded directory tree. Canonical non-empty directories are derivable
+// from flattened file/child paths and are omitted; empty directories and any
+// node whose version/layout differs from its parent remain explicit.
 func (ct *ContentTable) GetVirtualDirectoryMetadata() map[string]VirtualDirectoryMetadata {
 	if ct == nil || len(ct.Directories) == 0 {
 		return nil
@@ -413,8 +394,6 @@ func (ct *ContentTable) GetVirtualDirectoryMetadata() map[string]VirtualDirector
 	return result
 }
 
-// virtualDirectoryMetadataEqual 判断两份 VirtualDirectory 线格式元数据是否相同
-// virtualDirectoryMetadataEqual reports whether two VirtualDirectory wire-metadata values are equal
 func virtualDirectoryMetadataEqual(left, right VirtualDirectoryMetadata) bool {
 	if left.Version != right.Version || left.Versionless != right.Versionless || left.FilesOnly != right.FilesOnly || left.DirectoriesNil != right.DirectoriesNil || left.FilesNil != right.FilesNil {
 		return false
@@ -433,8 +412,6 @@ func virtualDirectoryMetadataEqual(left, right VirtualDirectoryMetadata) bool {
 	return true
 }
 
-// cloneVirtualDirectoryMetadata 深拷贝 VirtualDirectory 线格式元数据
-// cloneVirtualDirectoryMetadata makes a deep copy of VirtualDirectory wire metadata
 func cloneVirtualDirectoryMetadata(value VirtualDirectoryMetadata) VirtualDirectoryMetadata {
 	result := value
 	if value.FieldCount != nil {
@@ -445,10 +422,9 @@ func cloneVirtualDirectoryMetadata(value VirtualDirectoryMetadata) VirtualDirect
 	return result
 }
 
-// GetVirtualFileMetadata 返回表中各文件非规范且与位置无关的线格式元数据
-// 返回的映射和字节切片均为深拷贝，可以独立修改
-// GetVirtualFileMetadata returns non-canonical, position-independent wire metadata for files in the table
-// The returned map and byte slices are deep copies and may be edited independently
+// GetVirtualFileMetadata returns the non-canonical, position-independent wire
+// metadata for files in the table. The returned map and byte slices are deep
+// copies and may be edited independently.
 func (ct *ContentTable) GetVirtualFileMetadata() map[string]VirtualFileMetadata {
 	if ct == nil {
 		return nil
@@ -471,10 +447,10 @@ func (ct *ContentTable) GetVirtualFileMetadata() map[string]VirtualFileMetadata 
 	return result
 }
 
-// ApplyVirtualFileMetadata 在语义包装器重建文件载荷与偏移后覆盖短数组和未来槽位元数据
-// 不存在文件的元数据会被拒绝，因为静默忽略会丢失编辑文档中的线格式状态
-// ApplyVirtualFileMetadata overlays short-array and future-slot metadata after a semantic wrapper rebuilds file payloads and offsets
-// Metadata for a missing file is rejected because silently ignoring it would lose wire state from the editing document
+// ApplyVirtualFileMetadata overlays short-array/future-slot metadata after a
+// semantic wrapper has rebuilt file payloads and offsets. Metadata for a file
+// that does not exist is rejected because silently ignoring it would lose wire
+// state from the editing document.
 func (ct *ContentTable) ApplyVirtualFileMetadata(metadata map[string]VirtualFileMetadata) error {
 	if ct == nil {
 		return fmt.Errorf("nil content table")
@@ -495,8 +471,6 @@ func (ct *ContentTable) ApplyVirtualFileMetadata(metadata map[string]VirtualFile
 	return nil
 }
 
-// cloneRawByteSlots 深拷贝保存原始 MessagePack 槽位的字节切片
-// cloneRawByteSlots deep-copies byte slices containing raw MessagePack slots
 func cloneRawByteSlots(values [][]byte) [][]byte {
 	if values == nil {
 		return nil
@@ -508,18 +482,17 @@ func cloneRawByteSlots(values [][]byte) [][]byte {
 	return result
 }
 
-// AddFile 向 ContentTable 追加一个虚拟文件
-// 数据会追加到 Raw 的载荷区末尾，并自动更新 Position 和 Size
-// AddFile appends a virtual file to ContentTable
-// Data is appended to the end of the Raw payload area and Position and Size are updated automatically
+// AddFile 向 ContentTable 追加一个虚拟文件。
+// 数据会追加到 Raw 末尾，自动更新 Position 和 Size。
 func (ct *ContentTable) AddFile(name string, data []byte) {
 	if ct.Files == nil {
 		ct.Files = make(map[string]VirtualFile)
 	}
-	// ReadContentTable 返回的表会在 Raw 中保留序列化目录与尾部，dataEnd 标记虚拟文件数据终点
-	// 追加前先分离该尾部，否则新位置会落入元数据或其后并被 GetFileData 拒绝；载荷前缀不变，因此已有文件偏移仍然有效
-	// A table returned by ReadContentTable retains the serialized directory and footer in Raw, with dataEnd marking the end of virtual-file data
-	// The tail is detached before appending so the new position does not point into or beyond metadata; existing offsets remain valid because the payload prefix is unchanged
+	// A table returned by ReadContentTable retains the serialized directory
+	// metadata and footer in Raw, with dataEnd marking where virtual-file data
+	// stops. Detach that tail before appending; otherwise the new position would
+	// point into/after metadata and GetFileData would reject it. Existing file
+	// offsets remain valid because the payload prefix is unchanged.
 	if ct.dataEnd > 0 && ct.dataEnd <= int64(len(ct.Raw)) {
 		ct.Raw = append([]byte(nil), ct.Raw[:ct.dataEnd]...)
 		ct.dataEnd = 0
@@ -529,10 +502,8 @@ func (ct *ContentTable) AddFile(name string, data []byte) {
 	ct.Files[name] = VirtualFile{Position: position, Size: len(data)}
 }
 
-// DecodeMsgpackFile 提取虚拟文件并解码 MessagePack，同时自动处理 Lz4BlockArray 压缩
-// 适用于读取 catalog、ExtensionNameList 等 MessagePack 序列化文件
-// DecodeMsgpackFile extracts a virtual file and decodes MessagePack while handling Lz4BlockArray compression automatically
-// It is suitable for MessagePack files such as catalog and ExtensionNameList
+// DecodeMsgpackFile 提取虚拟文件并解码 MessagePack（自动处理 Lz4BlockArray 压缩）。
+// 适用于读取 catalog、ExtensionNameList 等 MessagePack 序列化的文件。
 func (ct *ContentTable) DecodeMsgpackFile(name string, out interface{}) error {
 	raw, err := ct.GetFileData(name)
 	if err != nil {
@@ -547,10 +518,10 @@ func (ct *ContentTable) DecodeMsgpackFile(name string, out interface{}) error {
 	return DecodeMsgpack(decoded, out)
 }
 
-// decodeVirtualDirectory 解码一个 MessagePack VirtualDirectory，并保留每个嵌套 indexed object 的形状
-// 未来槽位使用 codec.Raw，使未知值（包括扩展值）能够逐字节写回而不会被解释或丢弃
-// decodeVirtualDirectory decodes one MessagePack VirtualDirectory while retaining the shape of every nested indexed object
-// Future slots use codec.Raw so unknown values, including extension values, can be written back byte-for-byte instead of being interpreted or dropped
+// decodeVirtualDirectory decodes one MessagePack VirtualDirectory while
+// retaining the shape of every nested indexed object. codec.Raw is used for
+// future slots so unknown values (including extension values) can be written
+// back byte-for-byte instead of being interpreted or dropped.
 func (ct *ContentTable) decodeVirtualDirectory(data []byte) error {
 	root, err := decodeRawMsgpackArray(data, "VirtualDirectory root")
 	if err != nil {
@@ -569,8 +540,6 @@ func (ct *ContentTable) decodeVirtualDirectory(data []byte) error {
 	return ct.extractDirectoryFilesRaw(root, "")
 }
 
-// extractDirectoryFilesRaw 从一个 VirtualDirectory indexed array 递归提取目录和文件
-// extractDirectoryFilesRaw recursively extracts directories and files from one VirtualDirectory indexed array
 func (ct *ContentTable) extractDirectoryFilesRaw(arr []codec.Raw, prefix string) error {
 	metadata := VirtualDirectoryMetadata{}
 	var directoriesRaw codec.Raw
@@ -580,8 +549,8 @@ func (ct *ContentTable) extractDirectoryFilesRaw(arr []codec.Raw, prefix string)
 	knownFieldCount := 3
 
 	if len(arr) == 0 {
-		// 此处没有可用于推断含版本布局的版本值，因此原样保留零宽数组并明确记录缺失状态
-		// No version value is available to infer the versioned layout, so the zero-width array is retained exactly and its absence recorded explicitly
+		// There is no version value from which to infer the versioned layout.
+		// Keep the zero-width array exactly and expose the absence explicitly.
 		metadata.Versionless = true
 		knownFieldCount = 2
 	} else {
@@ -597,11 +566,9 @@ func (ct *ContentTable) extractDirectoryFilesRaw(arr []codec.Raw, prefix string)
 			metadata.Version = version
 			switch len(arr) {
 			case 1:
-				// 这是只包含 Key(0) 的生成式短 indexed object
-				// This is a generated short indexed object containing only Key(0)
+				// Short generated indexed object: only Key(0) is present.
 			case 2:
-				// 这是历史紧凑形式 [version, allFiles]
-				// This is the historical compact form [version, allFiles]
+				// Historical compact form [version, allFiles].
 				metadata.FilesOnly = true
 				knownFieldCount = 2
 				filesRaw = arr[1]
@@ -613,8 +580,7 @@ func (ct *ContentTable) extractDirectoryFilesRaw(arr []codec.Raw, prefix string)
 				filesPresent = true
 			}
 		} else {
-			// 这是不含 Key(0) 的历史形式 [allDirectorys, allFiles]
-			// This is the historical form [allDirectorys, allFiles] without Key(0)
+			// Historical form [allDirectorys, allFiles] without Key(0).
 			metadata.Versionless = true
 			knownFieldCount = 2
 			directoriesRaw = arr[0]
@@ -705,8 +671,6 @@ func (ct *ContentTable) extractDirectoryFilesRaw(arr []codec.Raw, prefix string)
 	return nil
 }
 
-// decodeRawMsgpackArray 将单个 MessagePack 数组解码为保留原始编码的槽位
-// decodeRawMsgpackArray decodes one MessagePack array into slots that retain their raw encoding
 func decodeRawMsgpackArray(data []byte, label string) ([]codec.Raw, error) {
 	if len(data) == 0 {
 		return nil, fmt.Errorf("%s: empty MessagePack value", label)
@@ -729,13 +693,10 @@ func decodeRawMsgpackArray(data []byte, label string) ([]codec.Raw, error) {
 	return values, nil
 }
 
-// decodeVirtualDirectoryRawMap 解码 allDirectorys 或 allFiles 映射，并单独报告其是否为 nil
-// decodeVirtualDirectoryRawMap decodes an allDirectorys or allFiles map and separately reports whether it was nil
 func decodeVirtualDirectoryRawMap(data []byte, label string) (map[string]codec.Raw, bool, error) {
-	// ugorji 将 codec.Raw 中解码得到的 MessagePack nil 表示为 nil 切片，而非单字节 0xc0
-	// 调用方会另行跟踪槽位是否存在，因此两种形式在此都明确表示一个存在但值为 nil 的映射
-	// ugorji represents a decoded MessagePack nil held in codec.Raw as a nil slice rather than the one-byte 0xc0 span
-	// The caller tracks slot presence separately, so both forms unambiguously mean a present nil map here
+	// ugorji represents a decoded MessagePack nil held in codec.Raw as a nil
+	// slice rather than the one-byte 0xc0 span. Slot presence is tracked by the
+	// caller, so both forms unambiguously mean a present nil map here.
 	if len(data) == 0 || (len(data) == 1 && data[0] == 0xc0) {
 		return nil, true, nil
 	}
@@ -768,8 +729,6 @@ func decodeVirtualDirectoryRawMap(data []byte, label string) (map[string]codec.R
 	return values, false, nil
 }
 
-// messagePackMapLength 读取 MessagePack 映射头声明的元素数量
-// messagePackMapLength reads the element count declared by a MessagePack map header
 func messagePackMapLength(data []byte) (int, error) {
 	if len(data) == 0 {
 		return 0, fmt.Errorf("empty MessagePack map value")
@@ -796,8 +755,6 @@ func messagePackMapLength(data []byte) (int, error) {
 	}
 }
 
-// messagePackMapHeaderSize 返回 MessagePack 映射头占用的字节数
-// messagePackMapHeaderSize returns the byte width of a MessagePack map header
 func messagePackMapHeaderSize(data []byte) (int, error) {
 	if len(data) == 0 {
 		return 0, fmt.Errorf("empty MessagePack map value")
@@ -820,8 +777,6 @@ func messagePackMapHeaderSize(data []byte) (int, error) {
 	}
 }
 
-// decodeSingleRawMsgpackValue 解码恰好一个原始 MessagePack 值，并拒绝尾随字节
-// decodeSingleRawMsgpackValue decodes exactly one raw MessagePack value and rejects trailing bytes
 func decodeSingleRawMsgpackValue(data []byte, out interface{}, label string) error {
 	if len(data) == 0 {
 		data = []byte{0xc0}
@@ -835,10 +790,9 @@ func decodeSingleRawMsgpackValue(data []byte, out interface{}, label string) err
 	if len(data) == 1 && data[0] == 0xc0 {
 		return nil
 	}
-	// ugorji 将字节解码器耗尽报告为包装后的 "unexpected EOF" 而非 io.EOF
-	// 因此使用新解码器将首个值解码为 Raw 并比较捕获区间，不再通过第二次 Decode 探测
-	// ugorji reports an exhausted byte decoder as a wrapped "unexpected EOF" rather than io.EOF
-	// The first value is therefore decoded as Raw with a fresh decoder and its captured span compared instead of probing with a second Decode call
+	// ugorji reports an exhausted byte decoder as a wrapped "unexpected EOF"
+	// rather than io.EOF. Decode the first value as Raw in a fresh decoder and
+	// compare its captured span instead of probing with a second Decode call.
 	var captured codec.Raw
 	spanDecoder := codec.NewDecoderBytes(data, h)
 	if err := spanDecoder.Decode(&captured); err != nil {
@@ -850,8 +804,6 @@ func decodeSingleRawMsgpackValue(data []byte, out interface{}, label string) err
 	return nil
 }
 
-// cloneCodecRawSlots 深拷贝 codec.Raw 槽位，并将 ugorji 的空切片 nil 表示恢复为 0xc0
-// cloneCodecRawSlots deep-copies codec.Raw slots and restores ugorji's empty-slice nil representation to 0xc0
 func cloneCodecRawSlots(values []codec.Raw) [][]byte {
 	if values == nil {
 		return nil
@@ -867,8 +819,6 @@ func cloneCodecRawSlots(values []codec.Raw) [][]byte {
 	return result
 }
 
-// decodeVirtualFileRaw 解码 VirtualFile indexed array，并保留短数组宽度与未来槽位
-// decodeVirtualFileRaw decodes a VirtualFile indexed array while preserving short-array width and future slots
 func decodeVirtualFileRaw(data []byte) (VirtualFile, error) {
 	fields, err := decodeRawMsgpackArray(data, "VirtualFile")
 	if err != nil {
@@ -911,7 +861,6 @@ func decodeVirtualFileRaw(data []byte) (VirtualFile, error) {
 }
 
 // decodeVirtualFile 将 MessagePack 解码后的 indexed array [position, size] 转为 VirtualFile
-// decodeVirtualFile converts a decoded MessagePack indexed array [position, size] to VirtualFile
 func decodeVirtualFile(val interface{}) (VirtualFile, error) {
 	arr, ok := val.([]interface{})
 	if !ok || len(arr) < 2 {
@@ -933,16 +882,12 @@ func decodeVirtualFile(val interface{}) (VirtualFile, error) {
 	return VirtualFile{Position: pos, Size: size}, nil
 }
 
-// virtualDirNode 是将扁平路径重建为 VirtualDirectory 层级时使用的内部节点
-// virtualDirNode is an internal node used to rebuild the VirtualDirectory hierarchy from flattened paths
 type virtualDirNode struct {
-	dirs     map[string]*virtualDirNode // 按当前层名称索引的子目录 / Child directories keyed by their names at this level
-	files    map[string]VirtualFile     // 当前目录中的虚拟文件 / Virtual files in the current directory
-	metadata *VirtualDirectoryMetadata  // 当前目录显式保留的线格式元数据 / Explicit wire metadata retained for the current directory
+	dirs     map[string]*virtualDirNode
+	files    map[string]VirtualFile
+	metadata *VirtualDirectoryMetadata
 }
 
-// encodeVirtualDirectoryTree 从扁平目录元数据和文件路径构建可编码的 VirtualDirectory 树
-// encodeVirtualDirectoryTree builds an encodable VirtualDirectory tree from flattened directory metadata and file paths
 func encodeVirtualDirectoryTree(rootMetadata VirtualDirectoryMetadata, metadata map[string]VirtualDirectoryMetadata, files map[string]VirtualFile) ([]interface{}, error) {
 	root := &virtualDirNode{
 		dirs:     map[string]*virtualDirNode{},
@@ -978,8 +923,6 @@ func encodeVirtualDirectoryTree(rootMetadata VirtualDirectoryMetadata, metadata 
 	return encoded, nil
 }
 
-// ensureVirtualDirNode 确保路径各层节点存在并返回末级目录
-// ensureVirtualDirNode ensures every node on a path exists and returns the final directory
 func ensureVirtualDirNode(root *virtualDirNode, parts []string) *virtualDirNode {
 	node := root
 	for _, part := range parts {
@@ -993,8 +936,6 @@ func ensureVirtualDirNode(root *virtualDirNode, parts []string) *virtualDirNode 
 	return node
 }
 
-// encodeVirtualDirNode 按所选历史或当前布局递归编码一个 VirtualDirectory 节点
-// encodeVirtualDirNode recursively encodes a VirtualDirectory node using its selected current or historical layout
 func encodeVirtualDirNode(node *virtualDirNode, inherited VirtualDirectoryMetadata, path string) ([]interface{}, error) {
 	metadata := inherited
 	if node.metadata != nil {
@@ -1092,8 +1033,6 @@ func encodeVirtualDirNode(node *virtualDirNode, inherited VirtualDirectoryMetada
 	return result, nil
 }
 
-// encodeVirtualFilesMap 编码一个 VirtualDirectory 的 allFiles 映射
-// encodeVirtualFilesMap encodes the allFiles map of one VirtualDirectory
 func encodeVirtualFilesMap(files map[string]VirtualFile, directoryLabel string) (map[string]interface{}, error) {
 	result := make(map[string]interface{}, len(files))
 	for name, file := range files {
@@ -1106,8 +1045,6 @@ func encodeVirtualFilesMap(files map[string]VirtualFile, directoryLabel string) 
 	return result, nil
 }
 
-// encodeVirtualFile 按保留的数组宽度和未来槽位编码 VirtualFile
-// encodeVirtualFile encodes a VirtualFile using its retained array width and future slots
 func encodeVirtualFile(file VirtualFile, label string) ([]interface{}, error) {
 	fieldCount, err := resolveIndexedObjectFieldCount(file.FieldCount, 2, file.FutureSlots, label)
 	if err != nil {
@@ -1135,8 +1072,6 @@ func encodeVirtualFile(file VirtualFile, label string) ([]interface{}, error) {
 	return result, nil
 }
 
-// resolveIndexedObjectFieldCount 解析 indexed object 的输出槽数并校验未来槽位数量与内容
-// resolveIndexedObjectFieldCount resolves an indexed object's output width and validates the count and content of future slots
 func resolveIndexedObjectFieldCount(fieldCount *int, known int, futureSlots [][]byte, label string) (int, error) {
 	count64 := uint64(known)
 	if uint64(len(futureSlots)) > math.MaxUint32 {
@@ -1170,8 +1105,6 @@ func resolveIndexedObjectFieldCount(fieldCount *int, known int, futureSlots [][]
 	return count, nil
 }
 
-// splitVirtualPath 将虚拟路径拆分为非空且非点号的组成部分
-// splitVirtualPath splits a virtual path into non-empty, non-dot components
 func splitVirtualPath(name string) []string {
 	cleaned := strings.ReplaceAll(filepath.ToSlash(name), "\\", "/")
 	raw := strings.Split(cleaned, "/")
@@ -1184,15 +1117,11 @@ func splitVirtualPath(name string) []string {
 	return parts
 }
 
-// joinVirtualPath 连接并规范化两个供内部使用的虚拟路径片段
-// joinVirtualPath joins and normalizes two virtual-path fragments for internal use
 func joinVirtualPath(prefix string, name string) string {
 	parts := append(splitVirtualPath(prefix), splitVirtualPath(name)...)
 	return strings.Join(parts, "/")
 }
 
-// joinVirtualPathChecked 校验并连接两个可序列化的虚拟路径
-// joinVirtualPathChecked validates and joins two serializable virtual paths
 func joinVirtualPathChecked(prefix string, name string) (string, error) {
 	canonicalName, err := canonicalVirtualPath(name)
 	if err != nil {
@@ -1208,10 +1137,10 @@ func joinVirtualPathChecked(prefix string, name string) (string, error) {
 	return canonicalPrefix + "/" + canonicalName, nil
 }
 
-// canonicalVirtualComponent 校验 allDirectorys 或 allFiles 中的一个字典键
-// 键内分隔符无法由扁平 ContentTable 路径模型表示且会在重新编码时改变目录层级，因此会作为不可表示的线格式形状被拒绝而不是规范化
-// canonicalVirtualComponent validates one dictionary key from allDirectorys or allFiles
-// A separator inside a key cannot be represented by the flattened ContentTable path model without changing directory depth on re-encode, so it is rejected as an unrepresentable wire shape instead of normalized
+// canonicalVirtualComponent validates one dictionary key from allDirectorys or
+// allFiles. A separator inside a key cannot be represented by the flattened
+// ContentTable path model without changing the directory level on re-encode,
+// so it is rejected as an unrepresentable wire shape rather than normalized.
 func canonicalVirtualComponent(name string) (string, error) {
 	if name == "" {
 		return "", fmt.Errorf("name is empty")
@@ -1228,8 +1157,6 @@ func canonicalVirtualComponent(name string) (string, error) {
 	return name, nil
 }
 
-// canonicalVirtualPath 校验虚拟路径并统一使用正斜杠分隔
-// canonicalVirtualPath validates a virtual path and normalizes its separators to slashes
 func canonicalVirtualPath(name string) (string, error) {
 	if name == "" {
 		return "", fmt.Errorf("path is empty")
@@ -1253,8 +1180,6 @@ func canonicalVirtualPath(name string) (string, error) {
 	return strings.Join(parts, "/"), nil
 }
 
-// strictStringMap 将通用 MessagePack 映射转换为仅允许字符串键的映射
-// strictStringMap converts a generic MessagePack map to a map that permits only string keys
 func strictStringMap(v interface{}) (map[string]interface{}, error) {
 	switch m := v.(type) {
 	case map[string]interface{}:
@@ -1278,10 +1203,8 @@ const (
 	csharpInt32Max = int64(1<<31 - 1)
 )
 
-// toInt 将 MessagePack 整数转换为 C# int 使用的线格式宽度
-// 即使 Go 运行于 64 位主机，也会明确限制为 Int32 范围
-// toInt converts a MessagePack integer to the wire width used by C# int
-// It deliberately enforces the Int32 range even when Go runs on a 64-bit host
+// toInt converts a MessagePack integer to the wire width used by C# int.
+// It intentionally enforces Int32 even when Go is running on a 64-bit host.
 func toInt(v interface{}) (int, bool) {
 	switch n := v.(type) {
 	case int64:
@@ -1308,8 +1231,6 @@ func toInt(v interface{}) (int, bool) {
 	return 0, false
 }
 
-// validateInt32Field 校验 Go int 字段能够以 C# Int32 表示
-// validateInt32Field validates that a Go int field is representable as C# Int32
 func validateInt32Field(value int, name string) error {
 	if int64(value) < csharpInt32Min || int64(value) > csharpInt32Max {
 		return fmt.Errorf("%s %d is outside the Int32 range", name, value)
@@ -1317,8 +1238,6 @@ func validateInt32Field(value int, name string) error {
 	return nil
 }
 
-// isIntegerValue 判断解码值是否属于支持的 MessagePack 整数表示
-// isIntegerValue reports whether a decoded value uses one of the supported MessagePack integer representations
 func isIntegerValue(value interface{}) bool {
 	switch value.(type) {
 	case int64, uint64, int, uint:
@@ -1328,8 +1247,6 @@ func isIntegerValue(value interface{}) bool {
 	}
 }
 
-// toInt64 将支持的 MessagePack 整数转换为有符号 Int64
-// toInt64 converts a supported MessagePack integer to signed Int64
 func toInt64(v interface{}) (int64, bool) {
 	switch n := v.(type) {
 	case int64:
@@ -1350,8 +1267,6 @@ func toInt64(v interface{}) (int64, bool) {
 	return 0, false
 }
 
-// lenOf 返回通用数组的长度，非数组值返回 -1
-// lenOf returns the length of a generic array or -1 for a non-array value
 func lenOf(v interface{}) int {
 	if arr, ok := v.([]interface{}); ok {
 		return len(arr)

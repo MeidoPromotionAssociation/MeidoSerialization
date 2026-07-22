@@ -8,53 +8,62 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
-// system.dat 内 color_preset/.../preset_orderlist 虚拟文件的 MessagePack 布局
-// 该载荷没有独立磁盘扩展名
-// MessagePack layout for color_preset/.../preset_orderlist virtual files inside system.dat
-// This payload has no standalone disk extension
+// system.dat 内 color_preset/.../preset_orderlist 虚拟文件的 MessagePack 布局。
+// 该载荷没有独立磁盘扩展名。
+//
+// MessagePack layout for color_preset/.../preset_orderlist virtual files inside system.dat.
+// This payload has no standalone disk extension.
 
 const (
-	// ColorPresetOrderListVersion 是 KCES 1.34.4 中 ColorPresetProvider.PresetOrderList.FixVersion 的值
-	// ColorPresetOrderListVersion is the value of ColorPresetProvider.PresetOrderList.FixVersion in KCES 1.34.4
+	// ColorPresetOrderListVersion is
+	// ColorPresetProvider.PresetOrderList.FixVersion in KCES 1.34.4.
 	ColorPresetOrderListVersion = 1000
 
-	// KCES 搭载的 MessagePack-CSharp 中 MessagePackSerializerOptions.CompressionMinLength 默认为 64
-	// Lz4BlockArray 选项会原样写出更短的序列化值，仅包装达到或超过此边界的值
-	// MessagePackSerializerOptions.CompressionMinLength defaults to 64 in the MessagePack-CSharp version shipped with KCES
-	// Lz4BlockArray options write shorter serialized values unchanged and wrap only values at or above this boundary
+	// MessagePackSerializerOptions.CompressionMinLength defaults to 64 in the
+	// MessagePack-CSharp version shipped by KCES. Lz4BlockArray options write a
+	// shorter serialized value through unchanged and only wrap values at or
+	// above this boundary.
 	colorPresetOrderListCompressionMinLength = 64
 )
 
-// ColorPresetOrderList 表示 system.dat/EditData/color_preset 下名为 preset_orderlist 的 VirtualFile 载荷
-// 它对应 MaidEdit.ColorPresetProvider.PresetOrderList，Key 0 是继承版本，Key 1 是 ID 顺序列表
-// IDOrderList 及其项目都可为 nil，游戏加载时会报告空、nil 和重复 ID 但不会拒绝序列化对象，因此此无损载荷层保留这些值
-// ColorPresetOrderList represents the payload in a VirtualFile named preset_orderlist below system.dat/EditData/color_preset
-// It corresponds to MaidEdit.ColorPresetProvider.PresetOrderList with the inherited version at Key 0 and the ID order list at Key 1
-// IDOrderList and its entries may be nil, and the game reports empty, nil, and duplicate IDs while loading without rejecting the serialized object, so this lossless payload layer preserves them
+// ColorPresetOrderList is the payload stored in a VirtualFile named
+// "preset_orderlist" below system.dat/EditData/color_preset/... . It mirrors
+// MaidEdit.ColorPresetProvider.PresetOrderList:
+//
+//	[Key(0)] int version
+//	[Key(1)] List<string> idOrderList
+//
+// IDOrderList and its elements are nullable because MessagePack-CSharp's
+// standard List<string> formatter represents both with MessagePack nil. The
+// game reports empty, nil, and duplicate IDs while loading but does not reject
+// the serialized object, so this lossless payload layer preserves them.
 type ColorPresetOrderList struct {
-	MessagePackRootMetadata           // 根值 nil 与尾部字节元数据 / Root nil and trailing-byte metadata
-	Version                 int       `json:"version"`               // Key 0 的版本，当前 FixVersion 为 1000 / Version at Key 0, with a current FixVersion of 1000
-	IDOrderList             []*string `json:"idOrderList"`           // Key 1 的可空颜色预设 instanceGuid 顺序列表 / Nullable ordered list of color-preset instanceGuid values at Key 1
-	FieldCount              *int      `json:"fieldCount,omitempty"`  // 原始 indexed object 的槽位数，标准宽度 2 时可省略 / Slot count of the original indexed object, omittable for the standard width of 2
-	FutureSlots             [][]byte  `json:"futureSlots,omitempty"` // Key 2 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 2
+	MessagePackRootMetadata
+	Version     int       `json:"version"`
+	IDOrderList []*string `json:"idOrderList"`
+	FieldCount  *int      `json:"fieldCount,omitempty"`
+	FutureSlots [][]byte  `json:"futureSlots,omitempty"`
 }
 
-// NewColorPresetOrderList 返回 C# 构造流程产生的状态
-// AMessagePackSerializationVersionControlIntKey 将版本初始化为 FixVersion，而没有初始化器的 idOrderList 自动属性保持 nil
-// NewColorPresetOrderList returns the state produced by the C# construction flow
-// AMessagePackSerializationVersionControlIntKey initializes the version to FixVersion while the idOrderList auto-property has no initializer and remains nil
+// NewColorPresetOrderList returns the state produced by the C# constructors.
+// AMessagePackSerializationVersionControlIntKey initializes version to
+// FixVersion, while the auto-property idOrderList has no initializer and is
+// therefore nil.
 func NewColorPresetOrderList() *ColorPresetOrderList {
 	return &ColorPresetOrderList{Version: ColorPresetOrderListVersion}
 }
 
-// DecodeColorPresetOrderList 解码直接保存在 preset_orderlist VirtualFile 中的 StandardLz4BlockArray 字节
-// 此载荷没有 BinaryWriter 长度前缀，因为 SetFileData 直接接收 MessagePackSerializer.Serialize 的结果，LoadPresetOrder 也将完整 VirtualFile 字节交给反序列化器
-// indexed object 兼容行为与 MessagePack-CSharp 一致，同时保留原始线形状，缺失字段仍缺失，未来字段被消费后原样保留
-// 空 Migrate 实现不会被调用，旧版本解码后也不重写，nil 根值和 nil idOrderList 均作为线格式值保留
-// DecodeColorPresetOrderList decodes StandardLz4BlockArray bytes stored directly in the preset_orderlist VirtualFile
-// This payload has no BinaryWriter length prefix because SetFileData receives MessagePackSerializer.Serialize output directly and LoadPresetOrder passes complete VirtualFile bytes to the deserializer
-// Indexed object compatibility matches MessagePack-CSharp while preserving the original wire shape, leaving missing fields absent and retaining consumed future fields verbatim
-// The empty Migrate implementation is not invoked, legacy versions are not rewritten after decoding, and both a nil root and nil idOrderList remain wire values
+// DecodeColorPresetOrderList decodes the StandardLz4BlockArray bytes stored
+// directly in the preset_orderlist VirtualFile. There is no BinaryWriter
+// length prefix: SetFileData receives MessagePackSerializer.Serialize's bytes
+// directly, and LoadPresetOrder passes the complete VirtualFile bytes back to
+// MessagePackSerializer.Deserialize.
+//
+// Indexed-object compatibility matches MessagePack-CSharp while preserving the
+// original wire shape: missing fields remain absent and unknown future fields
+// are consumed and retained verbatim. The empty Migrate implementation is not
+// invoked and a legacy version is not rewritten after decoding. A nil root and
+// nil idOrderList are both retained as wire values.
 func DecodeColorPresetOrderList(data []byte) (*ColorPresetOrderList, error) {
 	raw, err := ct.DecompressLz4BlockArray(data)
 	if err != nil {
@@ -115,8 +124,9 @@ func DecodeColorPresetOrderList(data []byte) (*ColorPresetOrderList, error) {
 	return value, nil
 }
 
-// EncodeColorPresetOrderList 使用 StandardLz4BlockArray 写出 FieldCount 与 FutureSlots 表示的 indexed object 宽度并原样保留调用者版本
-// EncodeColorPresetOrderList uses StandardLz4BlockArray to emit the indexed object width represented by FieldCount and FutureSlots and preserves the caller version verbatim
+// EncodeColorPresetOrderList emits the indexed-object width represented by
+// FieldCount and FutureSlots using StandardLz4BlockArray, and preserves the
+// caller's version verbatim.
 func EncodeColorPresetOrderList(value *ColorPresetOrderList) ([]byte, error) {
 	if value == nil {
 		return []byte{0xc0}, nil
@@ -184,8 +194,6 @@ func EncodeColorPresetOrderList(value *ColorPresetOrderList) ([]byte, error) {
 	return encodeColorPresetOrderListRaw(raw)
 }
 
-// encodeColorPresetOrderListRaw 按 MessagePack-CSharp 的 64 字节阈值决定原样写出或 Lz4BlockArray 包装
-// encodeColorPresetOrderListRaw chooses unchanged output or Lz4BlockArray wrapping using the MessagePack-CSharp 64-byte threshold
 func encodeColorPresetOrderListRaw(raw []byte) ([]byte, error) {
 	if len(raw) < colorPresetOrderListCompressionMinLength {
 		return raw, nil
@@ -197,8 +205,6 @@ func encodeColorPresetOrderListRaw(raw []byte) ([]byte, error) {
 	return encoded, nil
 }
 
-// readColorPresetOrderStringList 读取 Key 1 中列表本身及其项目都可为 nil 的字符串数组
-// readColorPresetOrderStringList reads the Key 1 string array whose list and entries may both be nil
 func readColorPresetOrderStringList(r *simpleEditDataReader) ([]*string, error) {
 	const path = "ColorPresetOrderList.idOrderList"
 	if r.tryReadNil() {

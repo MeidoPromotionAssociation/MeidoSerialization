@@ -27,6 +27,72 @@ Download in [Release](https://github.com/MeidoPromotionAssociation/MeidoSerializ
 
 ## Usage
 
+### Transport servers
+
+The CLI also provides transport entry points that share the application
+engine with the conversion commands:
+
+```bash
+# Local protobuf/gRPC endpoint. Roots are read-only.
+MeidoSerialization.exe serve grpc --root mods=C:\Games\COM3D2\Mod
+
+# MCP convenience mode: tools use path and output_path directly.
+MeidoSerialization.exe mcp
+
+# MCP restricted mode: root flags enable confinement automatically.
+MeidoSerialization.exe mcp `
+  --root mods=C:\Games\COM3D2\Mod `
+  --write-root work=C:\Users\me\MeidoWork
+```
+
+The gRPC listener defaults to `127.0.0.1:50051`; use `--allow-remote` only
+when an external trusted boundary provides network security. See
+[`docs/transport-api.md`](../docs/transport-api.md) for the protobuf schema,
+blob streaming, MCP filesystem modes, tools, and Buf regeneration commands.
+
+With no root flags, MCP is intentionally unrestricted and can access every
+regular file allowed by the server process account. Supplying `--root` or
+`--write-root` switches to restricted root-ID tool schemas. `--restrict-paths`
+selects restricted mode explicitly and, with no roots, denies all file access.
+Existing MCP commands that already configure roots remain restricted.
+
+Transport limits can be adjusted with `serve grpc --max-blob-mib`,
+`--max-total-blob-mib`, `--max-blobs`, `--blob-ttl`, and `--inline-mib` (the
+bundle-wide inline limit cannot exceed 3 MiB). MCP uses `--max-result-mib` for inline
+editing JSON and `--max-write-mib` for installed conversion/extraction output.
+An explicit `--blob-dir` is exclusively locked for the server lifetime; a
+second server using the same directory fails before it can clean active blobs.
+KCES raw Unity `.bytes`, `.meta.json`, and `.typetree.json` files are carried
+and installed as one artifact bundle by the transport APIs.
+
+For a strongly typed editor, use this order:
+
+1. Call gRPC `GetCapabilities` and select an advertised `format_id` with
+   `has_editing_schema`.
+2. Fetch `GetFormatSchema`, verify `sha256`, cache by `schema_id` and
+   `schema_version`, and feed `schema_json` (Draft 2020-12 JSON Schema) to the
+   target-language code generator.
+3. Fetch `GetFormatGuide` and verify its SHA-256 and matching `schema_id`.
+   The Guide is an embedded source-review profile describing JSON paths,
+   Schema pointers, actual game usage, edit roles, risks, invariants, enum
+   meanings, and source evidence. Script Guides may also expose structured
+   command forms and shared `value_sets`; resolve an argument's
+   `value_set_refs` before selecting an enum, MPN, slot, or other game constant.
+   Unprefixed `runtime_verified` and
+   `serialization_verified` record AI source review, not human approval. The
+   `human_` prefix is reserved for explicit human review. `schema_only` confirms
+   shape only and must be preserved as opaque data. Every editing format has a
+   reviewed profile, while individual unreviewed fields remain `schema_only`.
+4. For an LLM, fetch `meido://skills/editing/{format_id}` or use the
+   `meido.edit_format` MCP prompt, which embeds the exact Schema and Guide.
+5. Detect and inspect the real input, make the smallest requested edit, call
+   `Validate`, and convert only after validation succeeds.
+
+MCP exposes the same Schema as `meido://schemas/{format_id}` and the Guide as
+`meido://guides/{format_id}`. Guide and Schema generation do not read the local
+`game` source tree. Native-only formats do not have an editing schema or Guide;
+cross-field and native-wire constraints intentionally remain in the serializers.
+
 The CLI provides the following main commands:
 
 ### convert2json
@@ -265,7 +331,8 @@ MeidoSerialization.exe extractArc ./arc_directory --ext .tex
 - `--strict` or `-s`: Use strict mode for file type determination (based on content rather than file extension)
 - `--type` or `-t`: Filter by file type. Supported values:
     - `menu, mate, pmat, col, phy, psk, anm, model, tex, preset, nei, csv, image, arc, bytes`
-    - KCES payload filters: `menuassets, materialassets, pmatassets, dbconf, dbcol, db2conf, dsbconf, dsb2conf, dslconf, dsl2conf, dslcol, ikcol, limbcol, ikcol.bytes`
+    - KCES payload filters:
+      `menuassets, materialassets, pmatassets, dbconf, dbcol, db2conf, dsbconf, dsb2conf, dslconf, dsl2conf, dslcol, ikcol, limbcol, ikcol.bytes`
     - image refers to any image format supported by ImageMagick (such as .png, .jpg, .gif, .webp, etc.)
     - bytes refers to dance binary data files (timeline_data.bytes, maid_data.bytes, item_data.bytes, event_data.bytes)
     - or `'<type>.json'` for MOD JSON files (e.g., `menu.json`)
@@ -326,6 +393,51 @@ MeidoSerialization CLI 是 MeidoSerialization 库的命令行界面，允许您�
 在 [Release](https://github.com/MeidoPromotionAssociation/MeidoSerialization/releases) 中下载
 
 ## 使用方法
+
+### gRPC/MCP 传输与强类型编辑器
+
+CLI 的 gRPC 和 MCP 入口与普通转换命令共用同一个 application engine：
+
+```powershell
+# gRPC：--root 只读
+MeidoSerialization.exe serve grpc --root mods=C:\Games\COM3D2\Mod
+
+# MCP 便捷模式：工具直接使用 path / output_path
+MeidoSerialization.exe mcp
+
+# MCP 安全模式：配置任意 root 后自动限制到白名单
+MeidoSerialization.exe mcp `
+  --root mods=C:\Games\COM3D2\Mod `
+  --write-root work=C:\Users\me\MeidoWork
+```
+
+不带 root 参数时，MCP 默认进入 `unrestricted` 便捷模式，可访问运行账号有权限访问的
+所有普通文件。添加 `--root` 或 `--write-root` 会自动切换为使用 root ID 的安全模式；
+也可显式添加 `--restrict-paths`，且不配置 root 时会拒绝全部文件访问。已有的 root 配置
+仍保持安全模式，不需要修改启动命令。
+
+显式 `--blob-dir` 在 gRPC 服务生命周期内独占锁定；第二个使用相同目录的实例会在
+清理任何活动 blob 前启动失败。KCES raw Unity 的 `.bytes`、`.meta.json` 和
+`.typetree.json` 由传输 API 作为一个 artifact bundle 一起读取、返回和安装。
+
+调用方在转换前构建编辑器时，按以下顺序调用：
+
+1. `GetCapabilities`，选择 `has_editing_schema` 的 `format_id`。
+2. `GetFormatSchema`，校验 `sha256`，按 `schema_id`/`schema_version` 缓存，并把
+   `schema_json` 交给目标语言的 Draft 2020-12 JSON Schema 生成器。
+3. `GetFormatGuide`，校验 Guide 的 `sha256`，并确认 Guide 的 `schema_id` 与 Schema
+   一致。Guide 是对照源码生成并嵌入程序的审阅 profile，说明 JSON 路径、
+   Schema 指针、游戏实际用途、编辑角色、风险、枚举、不变量和证据。
+4. LLM 场景读取 `meido://skills/editing/{format_id}`，或使用
+   `meido.edit_format` Prompt；Prompt 会直接嵌入 Schema 和 Guide。
+5. inspect 真实文件，只做目标所需的最小修改，调用 `Validate`，成功后再 Convert。
+
+无前缀的 `runtime_verified` 和 `serialization_verified` 表示 AI 源码审阅，不代表真人
+批准；`human_` 前缀只保留给明确的真人复核。`schema_only` 只确认 JSON 结构，不能从
+字段名推断游戏行为，未审阅字段应原样保留。每个 editing format 都有审阅后的 profile，
+但个别未审阅字段仍为 `schema_only`。Guide 和 Schema 的生成器
+及运行时都不读取本地 `game` 源码目录。完整协议、资源 URI 和安全限制见
+[`docs/transport-api.md`](../docs/transport-api.md)。
 
 CLI 提供以下主要命令：
 
@@ -630,6 +742,28 @@ JSON テキストに変換した後、キーワード置換などのバッチ処
 [Release](https://github.com/MeidoPromotionAssociation/MeidoSerialization/releases) からダウンロード
 
 ## 使用方法
+
+### gRPC/MCP トランスポートと強い型のエディタ
+
+gRPC と MCP は通常の変換コマンドと同じ application engine を使用します。
+MCP は root オプションなしでは `path`/`output_path` を直接使う unrestricted
+モードです。`--root`、`--write-root`、または `--restrict-paths` を指定すると、
+root ID に限定された restricted モードへ自動的に切り替わります。
+変換前に `GetCapabilities` -> `GetFormatSchema` -> `GetFormatGuide` の順で取得し、
+Schema の `sha256`/ID を検証して型を生成し、Guide の `schema_id` が一致することを
+確認してください。Guide はソースと照合した埋め込み review profile で、
+JSON パス、実際の用途、編集ロール、リスク、列挙値、根拠を説明します。
+接頭辞なしの `runtime_verified` と `serialization_verified` は AI のソース確認で、
+人間の承認ではありません。`human_` 接頭辞は明示的な人間レビュー専用です。
+`schema_only` は形状だけ確認済みです。すべての editing format
+にレビュー済み profile があり、未レビューの個別フィールドは `schema_only` のままです。LLM では
+`meido://skills/editing/{format_id}` または `meido.edit_format` を使うと Schema と
+Guide が直接埋め込まれます。その後 inspect -> 最小編集 -> `Validate` -> Convert の
+順で進めます。生成器と実行時にローカルの `game` ソースは必要ありません。
+明示した `--blob-dir` はサーバーの存続中に排他的にロックされます。同じディレクトリ
+を使う 2 つ目のサーバーは active blob を削除する前に起動を拒否されます。KCES raw
+Unity の `.bytes`、`.meta.json`、`.typetree.json` は 1 つの artifact bundle として
+扱われます。
 
 CLI は以下の主要コマンドを提供します：
 

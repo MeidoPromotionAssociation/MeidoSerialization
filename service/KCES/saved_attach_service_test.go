@@ -56,7 +56,7 @@ func TestSavedAttachServiceJSONRoundTrip(t *testing.T) {
 	}
 
 	service := &SavedAttachService{}
-	if err := service.ConvertSavedAttachToJSON(inputPath, jsonPath); err != nil {
+	if err := service.ConvertSavedAttachToJSON(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertSavedAttachToJSON: %v", err)
 	}
 	var envelope serializationKCES.SavedAttachFile
@@ -81,7 +81,7 @@ func TestSavedAttachServiceJSONRoundTrip(t *testing.T) {
 			t.Fatalf("saved-attach info for %q = %+v", path, info)
 		}
 	}
-	if err := service.ConvertJSONToSavedAttach(jsonPath, outputPath); err != nil {
+	if err := service.ConvertJSONToSavedAttach(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJSONToSavedAttach: %v", err)
 	}
 	decodedInput, err := serializationKCES.DecodeSavedAttach(data)
@@ -116,10 +116,10 @@ func TestSavedAttachServicePreservesTrailingData(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := &SavedAttachService{}
-	if err := service.ConvertSavedAttachToJSON(inputPath, jsonPath); err != nil {
+	if err := service.ConvertSavedAttachToJSON(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatal(err)
 	}
-	if err := service.ConvertJSONToSavedAttach(jsonPath, outputPath); err != nil {
+	if err := service.ConvertJSONToSavedAttach(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
 		t.Fatal(err)
 	}
 	if got := mustReadTestFile(t, outputPath); !bytes.Equal(got, wire) {
@@ -158,7 +158,7 @@ func TestSavedAttachServiceStrictJSONAndRouting(t *testing.T) {
 			if err := os.WriteFile(inputPath, append([]byte{0xef, 0xbb, 0xbf}, []byte(body)...), 0644); err != nil {
 				t.Fatal(err)
 			}
-			err := service.ConvertJSONToSavedAttach(inputPath, outputPath)
+			err := service.ConvertJSONToSavedAttach(TestConversionContext, inputPath, outputPath, TestConversionMaxOutput)
 			if err == nil {
 				t.Fatal("malformed saved-attach JSON was accepted")
 			}
@@ -208,7 +208,7 @@ func TestSavedAttachServiceStrictJSONAndRouting(t *testing.T) {
 			if err := os.WriteFile(inputPath, append([]byte{0xef, 0xbb, 0xbf}, []byte(test.body)...), 0644); err != nil {
 				t.Fatal(err)
 			}
-			if err := service.ConvertJSONToSavedAttach(inputPath, outputPath); err != nil {
+			if err := service.ConvertJSONToSavedAttach(TestConversionContext, inputPath, outputPath, TestConversionMaxOutput); err != nil {
 				t.Fatalf("wire-representable saved-attach JSON was rejected: %v", err)
 			}
 			value, err := service.ReadSavedAttachFile(outputPath)
@@ -231,7 +231,7 @@ func TestSavedAttachServiceStrictJSONAndRouting(t *testing.T) {
 		if err := os.WriteFile(inputPath, body, 0644); err != nil {
 			t.Fatal(err)
 		}
-		err := service.ConvertJSONToSavedAttach(inputPath, outputPath)
+		err := service.ConvertJSONToSavedAttach(TestConversionContext, inputPath, outputPath, TestConversionMaxOutput)
 		if err == nil || !strings.Contains(err.Error(), "UTF-8") {
 			t.Fatalf("invalid UTF-8 error=%v", err)
 		}

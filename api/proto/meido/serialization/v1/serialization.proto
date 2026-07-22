@@ -1,0 +1,296 @@
+syntax = "proto3";
+
+package meido.serialization.v1;
+
+option go_package = "github.com/MeidoPromotionAssociation/MeidoSerialization/api/gen/go/meido/serialization/v1;serializationv1";
+
+// SerializationService exposes the same application engine used by the CLI
+// and MCP server. Protobuf is a control/transport format; proprietary game
+// payloads and their editing JSON remain opaque bytes.
+service SerializationService {
+  rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
+  // Returns the complete editing-JSON contract for one format. Callers can
+  // use this before Detect/Convert to generate a strongly typed editor.
+  rpc GetFormatSchema(GetFormatSchemaRequest) returns (GetFormatSchemaResponse);
+  // Returns source-reviewed field purpose, game-runtime behavior, editing
+  // rules, and evidence. Schema-only coverage is explicit for unreviewed fields.
+  rpc GetFormatGuide(GetFormatGuideRequest) returns (GetFormatGuideResponse);
+  rpc Detect(DetectRequest) returns (DetectResponse);
+  rpc Convert(ConvertRequest) returns (ConvertResponse);
+  rpc Validate(ValidateRequest) returns (ValidateResponse);
+
+  rpc Upload(stream UploadRequest) returns (UploadResponse);
+  rpc Download(DownloadRequest) returns (stream DownloadResponse);
+  rpc DeleteBlob(DeleteBlobRequest) returns (DeleteBlobResponse);
+
+  rpc ListArchive(ListArchiveRequest) returns (ListArchiveResponse);
+  rpc ExtractArchiveEntry(ExtractArchiveEntryRequest) returns (ExtractArchiveEntryResponse);
+}
+
+enum Representation {
+  REPRESENTATION_UNSPECIFIED = 0;
+  REPRESENTATION_NATIVE = 1;
+  REPRESENTATION_EDITING_JSON = 2;
+}
+
+message FileRef {
+  string root_id = 1;
+  string relative_path = 2;
+}
+
+message BlobRef {
+  string id = 1;
+}
+
+message ArtifactAttachmentInput {
+  // A supported sidecar suffix appended to the primary input name, such as
+  // ".meta.json" or ".typetree.json".
+  string suffix = 1;
+  oneof location {
+    bytes inline_data = 2;
+    BlobRef blob = 3;
+    FileRef file = 4;
+  }
+}
+
+message ArtifactInput {
+  // Name is required for inline bytes and may override a blob's display name.
+  // It should include the original extension or double extension.
+  string name = 1;
+  oneof location {
+    bytes inline_data = 2;
+    BlobRef blob = 3;
+    FileRef file = 4;
+  }
+  repeated ArtifactAttachmentInput attachments = 5;
+}
+
+message ArtifactMetadata {
+  string name = 1;
+  string format_id = 2;
+  Representation representation = 3;
+  int64 size = 4;
+  string sha256 = 5;
+}
+
+message ArtifactResult {
+  ArtifactMetadata metadata = 1;
+  oneof location {
+    bytes inline_data = 2;
+    BlobRef blob = 3;
+  }
+  repeated ArtifactAttachmentResult attachments = 4;
+}
+
+message ArtifactAttachmentResult {
+  string suffix = 1;
+  string name = 2;
+  int64 size = 3;
+  string sha256 = 4;
+  oneof location {
+    bytes inline_data = 5;
+    BlobRef blob = 6;
+  }
+}
+
+message FormatCapability {
+  string id = 1;
+  string game = 2;
+  string file_type = 3;
+  repeated string native_suffixes = 4;
+  bool can_detect = 5;
+  bool can_convert = 6;
+  bool can_validate = 7;
+  bool is_archive = 8;
+  // Editing JSON is the representation described by GetFormatSchema.
+  bool has_editing_schema = 9;
+  string editing_schema_version = 10;
+  string editing_schema_id = 11;
+  string editing_schema_sha256 = 12;
+  bool has_format_guide = 13;
+  string format_guide_version = 14;
+  string format_guide_id = 15;
+  string format_guide_sha256 = 16;
+  // Unprefixed runtime_verified and serialization_verified record AI source
+  // review, not human approval. The human_ prefix is reserved for explicit
+  // human review. schema_only confirms only the editing JSON shape.
+  string format_guide_coverage = 17;
+}
+
+message GetCapabilitiesRequest {}
+
+message GetCapabilitiesResponse {
+  string api_version = 1;
+  repeated FormatCapability formats = 2;
+  repeated string root_ids = 3;
+  int64 max_inline_bytes = 4;
+  int64 max_blob_bytes = 5;
+  int64 max_total_blob_bytes = 6;
+  // Maximum number of committed and in-flight blobs sharing the store.
+  int64 max_blob_count = 7;
+  // Maximum UTF-8 byte length accepted for a blob display name.
+  int64 max_blob_name_bytes = 8;
+  // Roots that permit MCP-style installed output; root_ids includes these too.
+  repeated string writable_root_ids = 9;
+  // Independent maximum source bytes parsed for one archive listing. This is
+  // deliberately smaller than the general conversion input limit.
+  int64 max_archive_listing_bytes = 10;
+  // Maximum number of entries accepted while building one archive listing.
+  int64 max_archive_entries = 11;
+}
+
+message GetFormatSchemaRequest {
+  // Format IDs are the extensible IDs advertised by GetCapabilities.
+  string format_id = 1;
+}
+
+message GetFormatSchemaResponse {
+  string format_id = 1;
+  Representation representation = 2;
+  string schema_version = 3;
+  string schema_id = 4;
+  string dialect = 5;
+  string media_type = 6;
+  string sha256 = 7;
+  // UTF-8 JSON Schema bytes, not a protobuf Struct. This preserves numeric
+  // ranges and arbitrary JSON keywords for non-Go code generators.
+  bytes schema_json = 8;
+  repeated string native_suffixes = 9;
+}
+
+message GetFormatGuideRequest {
+  string format_id = 1;
+}
+
+message GetFormatGuideResponse {
+  string format_id = 1;
+  string guide_version = 2;
+  string guide_id = 3;
+  string media_type = 4;
+  string sha256 = 5;
+  string schema_id = 6;
+  string coverage = 7;
+  // UTF-8 application/vnd.meido.format-guide+json bytes. The guide includes
+  // field JSON paths, schema pointers, game usage, edit roles, risks, source
+  // evidence, invariants, workflow, warnings, structured command forms, and
+  // shared game-constant value sets when the format uses them.
+  bytes guide_json = 8;
+}
+
+message DetectRequest {
+  ArtifactInput input = 1;
+}
+
+message DetectResponse {
+  string format_id = 1;
+  string game = 2;
+  string file_type = 3;
+  Representation representation = 4;
+  string storage_format = 5;
+  string signature = 6;
+  int32 version = 7;
+  string name = 8;
+  int64 size = 9;
+}
+
+message ConvertRequest {
+  ArtifactInput input = 1;
+  // Empty format_id enables content detection.
+  string format_id = 2;
+  Representation target = 3;
+  // Results larger than max_inline_bytes are always returned as blobs.
+  bool prefer_blob = 4;
+}
+
+message ConvertResponse {
+  ArtifactResult result = 1;
+}
+
+message ValidateRequest {
+  ArtifactInput input = 1;
+  string format_id = 2;
+}
+
+message ValidateResponse {
+  bool valid = 1;
+  DetectResponse detection = 2;
+}
+
+message UploadMetadata {
+  string name = 1;
+}
+
+message UploadRequest {
+  // The first message must contain metadata; subsequent messages contain chunks.
+  oneof value {
+    UploadMetadata metadata = 1;
+    bytes chunk = 2;
+  }
+}
+
+message BlobMetadata {
+  string id = 1;
+  string name = 2;
+  int64 size = 3;
+  string sha256 = 4;
+  int64 created_unix = 5;
+  int64 expires_unix = 6;
+}
+
+message UploadResponse {
+  BlobMetadata blob = 1;
+}
+
+message DownloadRequest {
+  string blob_id = 1;
+}
+
+message DownloadResponse {
+  oneof value {
+    BlobMetadata metadata = 1;
+    bytes chunk = 2;
+  }
+}
+
+message DeleteBlobRequest {
+  string blob_id = 1;
+}
+
+message DeleteBlobResponse {
+  bool deleted = 1;
+}
+
+message ArchiveEntry {
+  string name = 1;
+  int64 size = 2;
+  string kind = 3;
+}
+
+message ListArchiveRequest {
+  ArtifactInput input = 1;
+  string format_id = 2;
+  // Zero uses the server default (128); servers cap larger values at 1000.
+  int32 page_size = 3;
+  // Token returned by the immediately preceding ListArchive call.
+  // Opaque server-signed cursor bound to the format and exact sorted archive
+  // listing. It becomes invalid if the archive changes or another archive is used.
+  string page_token = 4;
+}
+
+message ListArchiveResponse {
+  string format_id = 1;
+  repeated ArchiveEntry entries = 2;
+  // Empty when this is the final page.
+  string next_page_token = 3;
+}
+
+message ExtractArchiveEntryRequest {
+  ArtifactInput input = 1;
+  string format_id = 2;
+  string entry_name = 3;
+  bool prefer_blob = 4;
+}
+
+message ExtractArchiveEntryResponse {
+  ArtifactResult result = 1;
+}

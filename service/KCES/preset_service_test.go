@@ -54,7 +54,7 @@ func TestKCESPresetServiceDistinguishesLegacyAndCurrentFormats(t *testing.T) {
 	}
 
 	service := &PresetService{}
-	if err := service.ConvertPresetToJson(currentPath, jsonPath); err != nil {
+	if err := service.ConvertPresetToJson(TestConversionContext, currentPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertPresetToJson: %v", err)
 	}
 	if !IsKCESPresetJSONFile(jsonPath) {
@@ -67,7 +67,7 @@ func TestKCESPresetServiceDistinguishesLegacyAndCurrentFormats(t *testing.T) {
 	if !IsKCESPresetJSONFile(persetJSONPath) {
 		t.Fatal("early KCES .perset.json marker was not detected")
 	}
-	if err := service.ConvertJsonToPreset(jsonPath, backPath); err != nil {
+	if err := service.ConvertJsonToPreset(TestConversionContext, jsonPath, backPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJsonToPreset: %v", err)
 	}
 	back, err := service.ReadPresetFile(backPath)
@@ -89,7 +89,7 @@ func TestKCESPresetServiceDistinguishesLegacyAndCurrentFormats(t *testing.T) {
 	if !IsKCESPresetJSONFile(bomJSONPath) {
 		t.Fatal("BOM-prefixed KCES preset JSON marker was not detected")
 	}
-	if err := service.ConvertJsonToPreset(bomJSONPath, bomBackPath); err != nil {
+	if err := service.ConvertJsonToPreset(TestConversionContext, bomJSONPath, bomBackPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJsonToPreset(BOM): %v", err)
 	}
 	if _, err := service.ReadPresetFile(bomBackPath); err != nil {

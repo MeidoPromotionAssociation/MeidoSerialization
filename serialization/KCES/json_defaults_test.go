@@ -272,6 +272,8 @@ func TestJSONZeroValuesSurvivePublicPayloadEncodeDecode(t *testing.T) {
 	if err := json.Unmarshal([]byte(`{
 		"format":"kces-msgpack-lz4",
 		"extension":".dbconf",
+		"lengthPrefixed":true,
+		"storageVariant":"int32-length-lz4-messagepack",
 		"kind":"dynamic-bone-status",
 		"dynamicBoneStatus":{}
 	}`), &dynamicEnvelope); err != nil {
@@ -293,6 +295,8 @@ func TestJSONZeroValuesSurvivePublicPayloadEncodeDecode(t *testing.T) {
 	if err := json.Unmarshal([]byte(`{
 		"format":"kces-msgpack-lz4",
 		"extension":".dbcol",
+		"lengthPrefixed":true,
+		"storageVariant":"int32-length-lz4-messagepack",
 		"kind":"collider-package",
 		"colliderPackage":{
 			"colliders":[{"type":1,"collider":{}}]

@@ -224,21 +224,21 @@ func TestColliderEncodingValidationRejectsInvalidObjectsWithoutPanic(t *testing.
 	}{
 		{
 			name: "typed nil collider",
-			env: &KCESPayloadEnvelope{Extension: ".dbcol", Kind: PayloadKindColliderPackage, ColliderPackage: &ColliderPackage{
+			env: &KCESPayloadEnvelope{Format: PayloadFormatKCESMessagePack, Extension: ".dbcol", LengthPrefixed: true, StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindColliderPackage, ColliderPackage: &ColliderPackage{
 				Colliders: []ColliderRef{{Type: ColliderTypeSphere, Collider: typedNilSphere}},
 			}},
 			wantErr: "is nil (*ColliderSphere)",
 		},
 		{
 			name: "union tag mismatch",
-			env: &KCESPayloadEnvelope{Extension: ".dbcol", Kind: PayloadKindColliderPackage, ColliderPackage: &ColliderPackage{
+			env: &KCESPayloadEnvelope{Format: PayloadFormatKCESMessagePack, Extension: ".dbcol", LengthPrefixed: true, StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindColliderPackage, ColliderPackage: &ColliderPackage{
 				Colliders: []ColliderRef{{Type: ColliderTypePlane, Collider: &ColliderCapsule{}}},
 			}},
 			wantErr: "concrete type requires 1",
 		},
 		{
 			name: "limb collider must be MaidProp",
-			env: &KCESPayloadEnvelope{Extension: ".limbcol", Kind: PayloadKindLimbCollider, LimbCollider: &LimbColliderPackage{
+			env: &KCESPayloadEnvelope{Format: PayloadFormatKCESMessagePack, Extension: ".limbcol", LengthPrefixed: true, StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindLimbCollider, LimbCollider: &LimbColliderPackage{
 				Items: []LimbColliderItem{{Collider: &ColliderCapsule{}}},
 			}},
 			wantErr: "must be *ColliderMaidProp",
@@ -293,8 +293,8 @@ func TestLimbColliderDecodeUsesDeclaredMaidPropTypeWithoutInferringByWidth(t *te
 func TestColliderEncodingPreservesZeroVersions(t *testing.T) {
 	t.Run("generic package", func(t *testing.T) {
 		env := &KCESPayloadEnvelope{
-			Extension: ".dbcol",
-			Kind:      PayloadKindColliderPackage,
+			Format: PayloadFormatKCESMessagePack, Extension: ".dbcol", LengthPrefixed: true,
+			StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindColliderPackage,
 			ColliderPackage: &ColliderPackage{
 				Colliders:      []ColliderRef{{Type: ColliderTypePlane, Collider: &ColliderPlane{}}},
 				LimbEnableList: []ColliderState{{LimbType: 1, IsEnable: true}},
@@ -325,8 +325,8 @@ func TestColliderEncodingPreservesZeroVersions(t *testing.T) {
 
 	t.Run("limb package", func(t *testing.T) {
 		env := &KCESPayloadEnvelope{
-			Extension: ".limbcol",
-			Kind:      PayloadKindLimbCollider,
+			Format: PayloadFormatKCESMessagePack, Extension: ".limbcol", LengthPrefixed: true,
+			StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindLimbCollider,
 			LimbCollider: &LimbColliderPackage{
 				Items: []LimbColliderItem{{Collider: &ColliderMaidProp{}}},
 			},
@@ -355,8 +355,8 @@ func TestColliderEncodingPreservesZeroVersions(t *testing.T) {
 
 	t.Run("IK package", func(t *testing.T) {
 		env := &KCESPayloadEnvelope{
-			Extension: ".ikcol",
-			Kind:      PayloadKindIKCollider,
+			Format: PayloadFormatKCESMessagePack, Extension: ".ikcol", LengthPrefixed: true,
+			StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindIKCollider,
 			IKCollider: &IKColliderPackage{
 				Groups: []IKColliderGroup{{
 					Colliders: []ColliderRef{{Type: ColliderTypeSphere, Collider: &ColliderSphere{}}},
@@ -397,8 +397,8 @@ func TestMaidPropEncodingPreservesMPNFields(t *testing.T) {
 		EndRadiusMpnNameList:   []string{"stale-end"},
 	}
 	env := &KCESPayloadEnvelope{
-		Extension: ".limbcol",
-		Kind:      PayloadKindLimbCollider,
+		Format: PayloadFormatKCESMessagePack, Extension: ".limbcol", LengthPrefixed: true,
+		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindLimbCollider,
 		LimbCollider: &LimbColliderPackage{
 			Items: []LimbColliderItem{{Collider: maidProp}},
 		},
@@ -551,8 +551,8 @@ func TestMaidPropEncodingRejectsMPNOutsideInt32(t *testing.T) {
 		t.Fatal(err)
 	}
 	env := &KCESPayloadEnvelope{
-		Extension: ".limbcol",
-		Kind:      PayloadKindLimbCollider,
+		Format: PayloadFormatKCESMessagePack, Extension: ".limbcol", LengthPrefixed: true,
+		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindLimbCollider,
 		LimbCollider: &LimbColliderPackage{Items: []LimbColliderItem{{
 			Collider: &ColliderMaidProp{CenterMpnList: []int{int(tooLarge)}},
 		}}},

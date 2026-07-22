@@ -1,0 +1,129 @@
+{
+  "$id": "urn:meido-serialization:editing-json:v1:kces.paths",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Lossless editing JSON contract for kces.paths.",
+  "properties": {
+    "format": {
+      "description": "The marker for the paths.dat editing envelope.",
+      "title": "Editing format marker",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep kces-auto-paths.",
+      "x-meido-edit-role": "editing_metadata",
+      "x-meido-game-usage": "It identifies the JSON representation and is not a native field.",
+      "x-meido-risk": "low",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 685,
+          "line_start": 656,
+          "observation": "NativeFileManager reads paths.dat to obtain additional resource search paths before creating compatible catalogs.",
+          "path": "game/KCES 1.34.4/WfSystem.FileSystem/ResourceManagement/NativeFileManager.cs",
+          "symbol": "NativeFileManager.ReadAutoPathFile"
+        }
+      ]
+    },
+    "paths": {
+      "description": "Ordered resource directories or archive-related paths added to catalog discovery.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Search paths",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Use existing relative or installation-specific paths from the target build; preserve order and casing conventions.",
+      "x-meido-edit-role": "runtime_resource_search",
+      "x-meido-game-usage": "NativeFileManager inserts these paths into the resource search configuration.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 685,
+          "line_start": 656,
+          "observation": "NativeFileManager reads paths.dat to obtain additional resource search paths before creating compatible catalogs.",
+          "path": "game/KCES 1.34.4/WfSystem.FileSystem/ResourceManagement/NativeFileManager.cs",
+          "symbol": "NativeFileManager.ReadAutoPathFile"
+        }
+      ]
+    },
+    "signature": {
+      "description": "The BinaryWriter string identifying a paths.dat file.",
+      "title": "Paths signature",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep the exact value CM3D2_PATHS.",
+      "x-meido-edit-role": "format_marker",
+      "x-meido-game-usage": "NativeFileManager expects CM3D2_PATHS before reading version, count, and path strings.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 685,
+          "line_start": 656,
+          "observation": "NativeFileManager reads paths.dat to obtain additional resource search paths before creating compatible catalogs.",
+          "path": "game/KCES 1.34.4/WfSystem.FileSystem/ResourceManagement/NativeFileManager.cs",
+          "symbol": "NativeFileManager.ReadAutoPathFile"
+        }
+      ]
+    },
+    "trailingData": {
+      "contentEncoding": "base64",
+      "description": "Bytes after the declared path list.",
+      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+      "title": "Paths trailing bytes",
+      "type": [
+        "null",
+        "string"
+      ],
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Preserve unchanged trailingData.",
+      "x-meido-edit-role": "opaque_preserve",
+      "x-meido-game-usage": "No game consumer described in the reviewed source reads this region.",
+      "x-meido-risk": "critical"
+    },
+    "version": {
+      "description": "The path-list version, normally 1000.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "title": "Paths version",
+      "type": "integer",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Preserve the source value; use 1000 for a new KCES file.",
+      "x-meido-edit-role": "version_marker",
+      "x-meido-game-usage": "NativeFileManager reads the value as part of the file header before using the list.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 685,
+          "line_start": 656,
+          "observation": "NativeFileManager reads paths.dat to obtain additional resource search paths before creating compatible catalogs.",
+          "path": "game/KCES 1.34.4/WfSystem.FileSystem/ResourceManagement/NativeFileManager.cs",
+          "symbol": "NativeFileManager.ReadAutoPathFile"
+        }
+      ]
+    }
+  },
+  "required": [
+    "format",
+    "signature",
+    "version",
+    "paths"
+  ],
+  "title": "kces.paths editing JSON",
+  "type": "object",
+  "x-meido-format-id": "kces.paths",
+  "x-meido-native-suffixes": [
+    "paths.dat"
+  ],
+  "x-meido-representation": "editing_json",
+  "x-meido-schema-version": "1.0.0"
+}

@@ -57,92 +57,79 @@ var (
 )
 
 // Vector2 表示二维向量或UV坐标
-// Vector2 represents a two-dimensional vector or UV coordinate
 type Vector2 struct {
-	X float32 `json:"X"` // X 轴分量 / X-axis component
-	Y float32 `json:"Y"` // Y 轴分量 / Y-axis component
+	X float32 `json:"X"`
+	Y float32 `json:"Y"`
 }
 
 // Vector3 表示三维向量
-// Vector3 represents a three-dimensional vector
 type Vector3 struct {
-	X float32 `json:"X"` // X 轴分量 / X-axis component
-	Y float32 `json:"Y"` // Y 轴分量 / Y-axis component
-	Z float32 `json:"Z"` // Z 轴分量 / Z-axis component
+	X float32 `json:"X"`
+	Y float32 `json:"Y"`
+	Z float32 `json:"Z"`
 }
 
 // Quaternion 表示四元数
-// Quaternion represents a quaternion
 type Quaternion struct {
-	X float32 `json:"X"` // 四元数的 X 分量 / X component of the quaternion
-	Y float32 `json:"Y"` // 四元数的 Y 分量 / Y component of the quaternion
-	Z float32 `json:"Z"` // 四元数的 Z 分量 / Z component of the quaternion
-	W float32 `json:"W"` // 四元数的 W 分量 / W component of the quaternion
+	X float32 `json:"X"`
+	Y float32 `json:"Y"`
+	Z float32 `json:"Z"`
+	W float32 `json:"W"`
 }
 
 // PositionRotationScale 表示组合位置、旋转、缩放信息
-// PositionRotationScale represents combined position, rotation, and scale information
 type PositionRotationScale struct {
-	Position Vector3    `json:"Position"` // 位置 / Position
-	Rotation Quaternion `json:"Rotation"` // 旋转 / Rotation
-	Scale    Vector3    `json:"Scale"`    // 缩放 / Scale
+	Position Vector3    `json:"Position"` // 位置
+	Rotation Quaternion `json:"Rotation"` // 旋转
+	Scale    Vector3    `json:"Scale"`    // 缩放
 }
 
 // Vector4 表示四维向量
-// Vector4 represents a four-dimensional vector
 type Vector4 struct {
-	X float32 `json:"X"` // X 轴分量 / X-axis component
-	Y float32 `json:"Y"` // Y 轴分量 / Y-axis component
-	Z float32 `json:"Z"` // Z 轴分量 / Z-axis component
-	W float32 `json:"W"` // W 轴分量 / W-axis component
+	X float32 `json:"X"`
+	Y float32 `json:"Y"`
+	Z float32 `json:"Z"`
+	W float32 `json:"W"`
 }
 
 // Color 表示颜色（ARGB 顺序，与 Unity 序列化一致）
-// Color represents a color in ARGB order, matching Unity serialization
 type Color struct {
-	A float32 `json:"A"` // Alpha 分量 / Alpha component
-	R float32 `json:"R"` // 红色分量 / Red component
-	G float32 `json:"G"` // 绿色分量 / Green component
-	B float32 `json:"B"` // 蓝色分量 / Blue component
+	A float32 `json:"A"`
+	R float32 `json:"R"`
+	G float32 `json:"G"`
+	B float32 `json:"B"`
 }
 
 // Rect 表示矩形区域
-// Rect represents a rectangular region
 type Rect struct {
-	XMin float32 `json:"XMin"` // X 轴最小边界 / Minimum X bound
-	XMax float32 `json:"XMax"` // X 轴最大边界 / Maximum X bound
-	YMin float32 `json:"YMin"` // Y 轴最小边界 / Minimum Y bound
-	YMax float32 `json:"YMax"` // Y 轴最大边界 / Maximum Y bound
+	XMin float32 `json:"XMin"`
+	XMax float32 `json:"XMax"`
+	YMin float32 `json:"YMin"`
+	YMax float32 `json:"YMax"`
 }
 
 // KeyValuePairInt 表示 int32 键值对
-// KeyValuePairInt represents an int32 key-value pair
 type KeyValuePairInt struct {
-	Key   int32 `json:"Key"`   // 键 / Key
-	Value int32 `json:"Value"` // 值 / Value
+	Key   int32 `json:"Key"`
+	Value int32 `json:"Value"`
 }
 
 // Matrix4x4 表示4x4矩阵
-// Matrix4x4 represents a 4x4 matrix
 type Matrix4x4 [16]float32
 
 // AnimationCurve 用于存储 Keyframe 数组
-// AnimationCurve stores a Keyframe array
 type AnimationCurve struct {
-	Keyframes []Keyframe `json:"Keyframes"` // 按时间保存的关键帧 / Keyframes stored in time order
+	Keyframes []Keyframe `json:"Keyframes"`
 }
 
 // Keyframe 与 UnityEngine.Keyframe 对应
-// Keyframe corresponds to UnityEngine.Keyframe
 type Keyframe struct {
-	Time       float32 `json:"Time"`       // 关键帧时间 / Keyframe time
-	Value      float32 `json:"Value"`      // 关键帧值 / Keyframe value
-	InTangent  float32 `json:"InTangent"`  // 入切线 / Incoming tangent
-	OutTangent float32 `json:"OutTangent"` // 出切线 / Outgoing tangent
+	Time       float32 `json:"Time"`
+	Value      float32 `json:"Value"`
+	InTangent  float32 `json:"InTangent"`
+	OutTangent float32 `json:"OutTangent"`
 }
 
-// validateNonNegativeCount 拒绝游戏格式中不合法的负 Int32 集合计数
-// validateNonNegativeCount rejects negative Int32 collection counts that are invalid in the game formats
 func validateNonNegativeCount(name string, count int32) error {
 	if count < 0 {
 		return fmt.Errorf("%s is negative: %d", name, count)
@@ -150,8 +137,6 @@ func validateNonNegativeCount(name string, count int32) error {
 	return nil
 }
 
-// collectionCountInt32 将 Go 集合长度转换为游戏线格式使用的 Int32 计数
-// collectionCountInt32 converts a Go collection length to the Int32 count used by the game wire formats
 func collectionCountInt32(name string, length int) (int32, error) {
 	if int64(length) > int64(1<<31-1) {
 		return 0, fmt.Errorf("%s %d exceeds Int32", name, length)
@@ -159,13 +144,11 @@ func collectionCountInt32(name string, length int) (int32, error) {
 	return int32(length), nil
 }
 
-// makeCountedSliceForAppend 为线格式中的 Int32 计数创建较小的初始缓冲区
-// 它不会强加格式限制，有效的大集合仍可在读取时增长，而带有损坏超大计数的截断流无法在读取首个元素前强制分配数 GB 内存
 // makeCountedSliceForAppend creates a small initial buffer for an on-wire
-// Int32 count; it deliberately does not impose a format limit: valid large
+// Int32 count. It deliberately does not impose a format limit: valid large
 // collections can still grow as they are read, while a truncated stream with
 // a corrupt huge count cannot force a multi-gigabyte allocation before the
-// first element is available
+// first element is available.
 func makeCountedSliceForAppend[T any](count int32) []T {
 	if count <= 0 {
 		return make([]T, 0)
@@ -178,8 +161,6 @@ func makeCountedSliceForAppend[T any](count int32) []T {
 	return make([]T, 0, capacity)
 }
 
-// makeCountedMap 根据线格式计数创建容量受限的初始映射，避免损坏文件触发巨额预分配
-// makeCountedMap creates a map with a capped initial capacity from a wire count, preventing corrupt files from triggering excessive preallocation
 func makeCountedMap[K comparable, V any](count int32) map[K]V {
 	const maxInitialCapacity = 1024
 	capacity := int(count)
@@ -192,14 +173,10 @@ func makeCountedMap[K comparable, V any](count int32) map[K]V {
 }
 
 // 因为循环依赖问题，所以写在这里了
-// These helpers are placed here because of an import cycle
 
 // ReadAnimationCurve 读取 AnimationCurve：先读 int(个数)，若为 0 则返回空
-// ReadAnimationCurve reads the keyframe count first and returns an empty curve when it is 0
 func ReadAnimationCurve(reader *stream.BinaryReader) (AnimationCurve, error) {
-	// 读取 Keyframe 数量
-	// Read the Keyframe count
-	n, err := reader.ReadInt32()
+	n, err := reader.ReadInt32() // 读取 Keyframe 数量
 	if err != nil {
 		return AnimationCurve{}, fmt.Errorf("read curve keyCount failed: %w", err)
 	}
@@ -211,27 +188,19 @@ func ReadAnimationCurve(reader *stream.BinaryReader) (AnimationCurve, error) {
 	}
 	keyframes := makeCountedSliceForAppend[Keyframe](n)
 	for i := 0; i < int(n); i++ {
-		// 读取关键帧时间
-		// Read the keyframe time
-		t, err := reader.ReadFloat32()
+		t, err := reader.ReadFloat32() // 读取关键帧时间
 		if err != nil {
 			return AnimationCurve{}, fmt.Errorf("read keyframe time failed: %w", err)
 		}
-		// 读取关键帧值
-		// Read the keyframe value
-		v, err := reader.ReadFloat32()
+		v, err := reader.ReadFloat32() // 读取关键帧值
 		if err != nil {
 			return AnimationCurve{}, fmt.Errorf("read keyframe value failed: %w", err)
 		}
-		// 读取关键字入切线
-		// Read the incoming keyframe tangent
-		inT, err := reader.ReadFloat32()
+		inT, err := reader.ReadFloat32() // 读取关键字入切线
 		if err != nil {
 			return AnimationCurve{}, fmt.Errorf("read keyframe inTangent failed: %w", err)
 		}
-		// 读取关键字出切线
-		// Read the outgoing keyframe tangent
-		outT, err := reader.ReadFloat32()
+		outT, err := reader.ReadFloat32() // 读取关键字出切线
 		if err != nil {
 			return AnimationCurve{}, fmt.Errorf("read keyframe outTangent failed: %w", err)
 		}
@@ -241,44 +210,33 @@ func ReadAnimationCurve(reader *stream.BinaryReader) (AnimationCurve, error) {
 }
 
 // WriteAnimationCurve 写出 AnimationCurve：先写 int(个数)，然后依次写 time,value,inTangent,outTangent
-// WriteAnimationCurve writes the count first, followed by time, value, inTangent, and outTangent for each keyframe
 func WriteAnimationCurve(writer *stream.BinaryWriter, ac AnimationCurve) error {
 	count, err := collectionCountInt32("curve keyCount", len(ac.Keyframes))
 	if err != nil {
 		return err
 	}
-	// 写入 Keyframe 数量
-	// Write the Keyframe count
-	err = writer.WriteInt32(count)
+	err = writer.WriteInt32(count) // 写入 Keyframe 数量
 	if err != nil {
 		return fmt.Errorf("write curve keyCount failed: %w", err)
 	}
 
 	for _, k := range ac.Keyframes {
-		// 写入关键帧时间
-		// Write the keyframe time
-		err = writer.WriteFloat32(k.Time)
+		err = writer.WriteFloat32(k.Time) // 写入关键帧时间
 		if err != nil {
 			return fmt.Errorf("write keyframe time failed: %w", err)
 		}
 
-		// 写入关键帧值
-		// Write the keyframe value
-		err = writer.WriteFloat32(k.Value)
+		err = writer.WriteFloat32(k.Value) // 写入关键帧值
 		if err != nil {
 			return fmt.Errorf("write keyframe value failed: %w", err)
 		}
 
-		// 写入关键字入切线
-		// Write the incoming keyframe tangent
-		err = writer.WriteFloat32(k.InTangent)
+		err = writer.WriteFloat32(k.InTangent) // 写入关键字入切线
 		if err != nil {
 			return fmt.Errorf("write keyframe inTangent failed: %w", err)
 		}
 
-		// 写入关键字出切线
-		// Write the outgoing keyframe tangent
-		err = writer.WriteFloat32(k.OutTangent)
+		err = writer.WriteFloat32(k.OutTangent) // 写入关键字出切线
 		if err != nil {
 			return fmt.Errorf("write keyframe outTangent failed: %w", err)
 		}

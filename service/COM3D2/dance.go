@@ -2,6 +2,7 @@ package COM3D2
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -113,7 +114,10 @@ func (s *DanceService) WriteDanceObjectDataFile(path string, data *COM3D2.DanceO
 }
 
 // ConvertDanceObjectDataToJson 将 .bytes 转为 .json
-func (s *DanceService) ConvertDanceObjectDataToJson(inputPath, outputPath string) error {
+func (s *DanceService) ConvertDanceObjectDataToJson(ctx context.Context, inputPath, outputPath string, maxOutputBytes int64) error {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
 	if !strings.HasSuffix(strings.ToLower(outputPath), ".json") {
 		outputPath = outputPath + ".json"
 	}
@@ -123,42 +127,29 @@ func (s *DanceService) ConvertDanceObjectDataToJson(inputPath, outputPath string
 		return fmt.Errorf("failed to read dance object data: %w", err)
 	}
 
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal dance object data: %w", err)
+	if err := checkConversionContext(ctx); err != nil {
+		return err
 	}
-
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("unable to create output json file: %w", err)
+	if err := writeConversionJSON(ctx, outputPath, data, maxOutputBytes); err != nil {
+		return conversionOutputError("dance object JSON", err)
 	}
-	defer f.Close()
-
-	bw := bufio.NewWriter(f)
-	if _, err := bw.Write(jsonData); err != nil {
-		return fmt.Errorf("failed to write json: %w", err)
-	}
-	return bw.Flush()
+	return nil
 }
 
 // ConvertJsonToDanceObjectData 将 .json 转为 .bytes
-func (s *DanceService) ConvertJsonToDanceObjectData(inputPath, outputPath string) error {
+func (s *DanceService) ConvertJsonToDanceObjectData(ctx context.Context, inputPath, outputPath string, maxOutputBytes int64) error {
 	if strings.HasSuffix(strings.ToLower(outputPath), ".json") {
 		outputPath = strings.TrimSuffix(outputPath, ".json")
 	}
 
-	f, err := os.Open(inputPath)
-	if err != nil {
-		return fmt.Errorf("cannot open json file: %w", err)
-	}
-	defer f.Close()
-
 	var data *COM3D2.DanceObjectData
-	if err := json.NewDecoder(f).Decode(&data); err != nil {
+	if err := readConversionJSON(ctx, inputPath, &data); err != nil {
 		return fmt.Errorf("parsing json failed: %w", err)
 	}
-
-	return s.WriteDanceObjectDataFile(outputPath, data)
+	if err := writeConversionBinary(ctx, outputPath, maxOutputBytes, data.Dump); err != nil {
+		return conversionOutputError("dance object", err)
+	}
+	return nil
 }
 
 // ============================================================================
@@ -220,7 +211,10 @@ func (s *DanceService) WriteTimelineDataFile(path string, data *COM3D2.TimelineD
 }
 
 // ConvertTimelineDataToJson 将 timeline_data.bytes 转为 .json
-func (s *DanceService) ConvertTimelineDataToJson(inputPath, outputPath string) error {
+func (s *DanceService) ConvertTimelineDataToJson(ctx context.Context, inputPath, outputPath string, maxOutputBytes int64) error {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
 	if !strings.HasSuffix(strings.ToLower(outputPath), ".json") {
 		outputPath = outputPath + ".json"
 	}
@@ -230,40 +224,27 @@ func (s *DanceService) ConvertTimelineDataToJson(inputPath, outputPath string) e
 		return fmt.Errorf("failed to read timeline data: %w", err)
 	}
 
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal timeline data: %w", err)
+	if err := checkConversionContext(ctx); err != nil {
+		return err
 	}
-
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("unable to create output json file: %w", err)
+	if err := writeConversionJSON(ctx, outputPath, data, maxOutputBytes); err != nil {
+		return conversionOutputError("timeline JSON", err)
 	}
-	defer f.Close()
-
-	bw := bufio.NewWriter(f)
-	if _, err := bw.Write(jsonData); err != nil {
-		return fmt.Errorf("failed to write json: %w", err)
-	}
-	return bw.Flush()
+	return nil
 }
 
 // ConvertJsonToTimelineData 将 .json 转为 timeline_data.bytes
-func (s *DanceService) ConvertJsonToTimelineData(inputPath, outputPath string) error {
+func (s *DanceService) ConvertJsonToTimelineData(ctx context.Context, inputPath, outputPath string, maxOutputBytes int64) error {
 	if strings.HasSuffix(strings.ToLower(outputPath), ".json") {
 		outputPath = strings.TrimSuffix(outputPath, ".json")
 	}
 
-	f, err := os.Open(inputPath)
-	if err != nil {
-		return fmt.Errorf("cannot open json file: %w", err)
-	}
-	defer f.Close()
-
 	var data *COM3D2.TimelineData
-	if err := json.NewDecoder(f).Decode(&data); err != nil {
+	if err := readConversionJSON(ctx, inputPath, &data); err != nil {
 		return fmt.Errorf("parsing json failed: %w", err)
 	}
-
-	return s.WriteTimelineDataFile(outputPath, data)
+	if err := writeConversionBinary(ctx, outputPath, maxOutputBytes, data.Dump); err != nil {
+		return conversionOutputError("timeline", err)
+	}
+	return nil
 }

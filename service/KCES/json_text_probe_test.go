@@ -132,7 +132,7 @@ func TestFileTypeServiceStrictlyValidatesJSONTextEditingEnvelope(t *testing.T) {
 	}
 
 	out := filepath.Join(t.TempDir(), "out.nson")
-	if err := (&MiscService{}).ConvertJsonToMisc(path, out); err != nil {
+	if err := (&MiscService{}).ConvertJsonToMisc(TestConversionContext, path, out, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJsonToMisc: %v", err)
 	}
 	if got := bytes.TrimSpace(mustReadTestFile(t, out)); !bytes.Equal(got, []byte("{\n  \"ok\": true\n}")) {
@@ -143,7 +143,7 @@ func TestFileTypeServiceStrictlyValidatesJSONTextEditingEnvelope(t *testing.T) {
 	if err := os.WriteFile(path, bad, 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := (&MiscService{}).ConvertJsonToMisc(path, out); err == nil || !strings.Contains(err.Error(), "does not match") {
+	if err := (&MiscService{}).ConvertJsonToMisc(TestConversionContext, path, out, TestConversionMaxOutput); err == nil || !strings.Contains(err.Error(), "does not match") {
 		t.Fatalf("service accepted mismatched extension: %v", err)
 	}
 }
@@ -177,7 +177,7 @@ func TestFileTypeServiceRejectsUnknownFieldsInKCESOnlyEditingJSON(t *testing.T) 
 }
 
 func TestKCESPayloadEditingJSONRejectsFilenameExtensionMismatch(t *testing.T) {
-	data := []byte(`{"format":"kces-msgpack-lz4","extension":".db2conf","lengthPrefixed":true,"kind":"msgpack-json-string","text":"{}"}`)
+	data := []byte(`{"format":"kces-msgpack-lz4","extension":".db2conf","lengthPrefixed":true,"storageVariant":"int32-length-lz4-messagepack","kind":"msgpack-json-string","text":"{}"}`)
 	if _, err := decodeKCESPayloadEditingJSON(data, ".dbconf"); err == nil || !strings.Contains(err.Error(), "does not match") {
 		t.Fatalf("mismatched payload extension error = %v", err)
 	}

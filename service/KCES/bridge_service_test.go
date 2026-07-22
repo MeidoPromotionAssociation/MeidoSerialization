@@ -33,7 +33,7 @@ func TestGP03BridgeServiceJSONRoundTripAndFileTypeProbe(t *testing.T) {
 	}
 
 	service := &GP03BridgeService{}
-	if err := service.ConvertBridgeToJSON(inputPath, jsonPath); err != nil {
+	if err := service.ConvertBridgeToJSON(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertBridgeToJSON: %v", err)
 	}
 	var envelope serializationKCES.GP03BridgeFile
@@ -68,7 +68,7 @@ func TestGP03BridgeServiceJSONRoundTripAndFileTypeProbe(t *testing.T) {
 	if err := os.WriteFile(jsonPath, withBOM, 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := service.ConvertJSONToBridge(jsonPath, outputPath); err != nil {
+	if err := service.ConvertJSONToBridge(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJSONToBridge: %v", err)
 	}
 	decodedInput, err := serializationKCES.DecodeGP03Bridge(native)
@@ -134,7 +134,7 @@ func TestGP03BridgeServiceStrictJSONAndRouting(t *testing.T) {
 			if err := os.WriteFile(inputPath, body, 0644); err != nil {
 				t.Fatal(err)
 			}
-			if err := service.ConvertJSONToBridge(inputPath, outputPath); err == nil {
+			if err := service.ConvertJSONToBridge(TestConversionContext, inputPath, outputPath, TestConversionMaxOutput); err == nil {
 				t.Fatal("malformed bridge JSON was accepted")
 			}
 			if _, statErr := os.Stat(outputPath); !os.IsNotExist(statErr) {
@@ -153,7 +153,7 @@ func TestGP03BridgeServiceStrictJSONAndRouting(t *testing.T) {
 			if err := os.WriteFile(inputPath, body, 0644); err != nil {
 				t.Fatal(err)
 			}
-			if err := service.ConvertJSONToBridge(inputPath, outputPath); err != nil {
+			if err := service.ConvertJSONToBridge(TestConversionContext, inputPath, outputPath, TestConversionMaxOutput); err != nil {
 				t.Fatalf("representable opaque blobs rejected: %v", err)
 			}
 		})
@@ -181,7 +181,7 @@ func TestGP03BridgeServicePreservesAndReportsCOM3D2V2000(t *testing.T) {
 
 	service := &GP03BridgeService{}
 	jsonPath := path + ".json"
-	if err := service.ConvertBridgeToJSON(path, jsonPath); err != nil {
+	if err := service.ConvertBridgeToJSON(TestConversionContext, path, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatal(err)
 	}
 	jsonInfo, matched, err := (&FileTypeService{}).TryFileTypeDetermine(jsonPath)
@@ -189,7 +189,7 @@ func TestGP03BridgeServicePreservesAndReportsCOM3D2V2000(t *testing.T) {
 		t.Fatalf("v2000 JSON file type: matched=%v info=%+v err=%v", matched, jsonInfo, err)
 	}
 	backPath := filepath.Join(dir, "reverse-back.brd")
-	if err := service.ConvertJSONToBridge(jsonPath, backPath); err != nil {
+	if err := service.ConvertJSONToBridge(TestConversionContext, jsonPath, backPath, TestConversionMaxOutput); err != nil {
 		t.Fatal(err)
 	}
 	if back := mustReadTestFile(t, backPath); !bytes.Equal(back, native) {

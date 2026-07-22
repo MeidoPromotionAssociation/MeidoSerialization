@@ -36,13 +36,13 @@ func TestModelService(t *testing.T) {
 			}
 
 			// 3. Test ConvertModelToJson
-			err = s.ConvertModelToJson(inputPath, jsonPath)
+			err = s.ConvertModelToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput)
 			if err != nil {
 				t.Fatalf("ConvertModelToJson failed: %v", err)
 			}
 
 			// 4. Test ConvertJsonToModel
-			err = s.ConvertJsonToModel(jsonPath, backPath)
+			err = s.ConvertJsonToModel(TestConversionContext, jsonPath, backPath, TestConversionMaxOutput)
 			if err != nil {
 				t.Fatalf("ConvertJsonToModel failed: %v", err)
 			}

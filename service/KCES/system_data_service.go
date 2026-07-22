@@ -1,6 +1,7 @@
 package KCES
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -48,9 +49,16 @@ func (s *SystemDataService) ReadSystemDataFile(path string) (*serializationKCES.
 	return value, nil
 }
 
-func (s *SystemDataService) ConvertSystemDataToJSON(inputPath, outputPath string) error {
-	value, err := s.ReadSystemDataFile(inputPath)
+func (s *SystemDataService) ConvertSystemDataToJSON(ctx context.Context, inputPath, outputPath string, maxOutputBytes int64) error {
+	input, err := readConversionFile(ctx, inputPath)
 	if err != nil {
+		return fmt.Errorf("read KCES system.dat %q: %w", inputPath, err)
+	}
+	value, err := serializationKCES.DecodeKCESSystemData(input)
+	if err != nil {
+		return fmt.Errorf("parse KCES system.dat %q: %w", inputPath, err)
+	}
+	if err := checkConversionContext(ctx); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(value, "", "  ")
@@ -58,14 +66,14 @@ func (s *SystemDataService) ConvertSystemDataToJSON(inputPath, outputPath string
 		return fmt.Errorf("marshal KCES system.dat JSON: %w", err)
 	}
 	data = append(data, '\n')
-	if err := os.WriteFile(outputPath, data, 0644); err != nil {
+	if err := writeConversionFile(ctx, outputPath, data, maxOutputBytes); err != nil {
 		return fmt.Errorf("write KCES system.dat JSON %q: %w", outputPath, err)
 	}
 	return nil
 }
 
-func (s *SystemDataService) ConvertJSONToSystemData(inputPath, outputPath string) error {
-	data, err := os.ReadFile(inputPath)
+func (s *SystemDataService) ConvertJSONToSystemData(ctx context.Context, inputPath, outputPath string, maxOutputBytes int64) error {
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
 		return fmt.Errorf("read KCES system.dat JSON %q: %w", inputPath, err)
 	}
@@ -77,7 +85,10 @@ func (s *SystemDataService) ConvertJSONToSystemData(inputPath, outputPath string
 	if err != nil {
 		return fmt.Errorf("encode KCES system.dat JSON %q: %w", inputPath, err)
 	}
-	if err := os.WriteFile(outputPath, encoded, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, encoded, maxOutputBytes); err != nil {
 		return fmt.Errorf("write KCES system.dat %q: %w", outputPath, err)
 	}
 	return nil

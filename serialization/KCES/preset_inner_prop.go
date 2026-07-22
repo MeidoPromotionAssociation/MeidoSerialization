@@ -7,11 +7,10 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
 )
 
-// .preset 内 GP03_MPROP_LIST 和 GP03_MPROP 属性块的详细读写与校验实现
-// Detailed reader, writer, and validation implementation for GP03_MPROP_LIST and GP03_MPROP property blocks inside .preset
+// .preset 内 GP03_MPROP_LIST/GP03_MPROP 属性块的详细读写与校验实现。
+//
+// Detailed reader, writer, and validation implementation for GP03_MPROP_LIST/GP03_MPROP property blocks inside .preset.
 
-// DecodeKCESPresetPropertyData 解码 Maid.SerializeProp 写出的属性字典并保留已知列表结构后的字节
-// DecodeKCESPresetPropertyData decodes the property dictionary written by Maid.SerializeProp and preserves bytes after the known list layout
 func DecodeKCESPresetPropertyData(data []byte) (*KCESPresetPropertyList, error) {
 	r := newKCESPresetInnerReader(data)
 	signature, err := r.readString("KCES preset property-list signature")
@@ -55,8 +54,6 @@ func DecodeKCESPresetPropertyData(data []byte) (*KCESPresetPropertyList, error) 
 	return result, nil
 }
 
-// readKCESPresetProperty 按 MaidProp.Deserialize 的顺序读取一个 GP03_MPROP 块及其 PropBase 尾部
-// readKCESPresetProperty reads one GP03_MPROP block and its PropBase tail in MaidProp.Deserialize order
 func readKCESPresetProperty(r *kcesPresetInnerReader, path string) (KCESPresetProperty, error) {
 	value := KCESPresetProperty{}
 	var err error
@@ -116,8 +113,6 @@ func readKCESPresetProperty(r *kcesPresetInnerReader, path string) (KCESPresetPr
 	return value, nil
 }
 
-// readKCESPresetMaterialSlot 读取 MaidProp 材质属性字典中的一个 SlotPair 分组
-// readKCESPresetMaterialSlot reads one SlotPair group from the MaidProp material-property dictionary
 func readKCESPresetMaterialSlot(r *kcesPresetInnerReader, path string, version int32) (KCESPresetMaterialPropertySlot, error) {
 	value := KCESPresetMaterialPropertySlot{SlotValue: -1}
 	var err error
@@ -155,8 +150,6 @@ func readKCESPresetMaterialSlot(r *kcesPresetInnerReader, path string, version i
 	return value, nil
 }
 
-// readKCESPresetMaterialValue 按 MatPropSave.Deserialize 的顺序读取一个材质覆盖值
-// readKCESPresetMaterialValue reads one material override in MatPropSave.Deserialize order
 func readKCESPresetMaterialValue(r *kcesPresetInnerReader, path string) (KCESPresetMaterialPropertyValue, error) {
 	value := KCESPresetMaterialPropertyValue{}
 	var err error
@@ -175,8 +168,6 @@ func readKCESPresetMaterialValue(r *kcesPresetInnerReader, path string) (KCESPre
 	return value, nil
 }
 
-// readKCESPresetPropBase 按 PropBase.Deserialize 的布局读取继承字段并限制递归子属性深度
-// readKCESPresetPropBase reads inherited fields using the PropBase.Deserialize layout and bounds recursive sub-property depth
 func readKCESPresetPropBase(r *kcesPresetInnerReader, path string, version int32, mpnName string, depth int) (KCESPresetPropBase, error) {
 	value := KCESPresetPropBase{}
 	if depth > maxKCESPresetInnerDepth {
@@ -271,8 +262,6 @@ func readKCESPresetPropBase(r *kcesPresetInnerReader, path string, version int32
 	return value, nil
 }
 
-// readKCESPresetSavedTextureMap 读取带存在性布尔值的 savedTexDatas 字典并保留枚举顺序
-// readKCESPresetSavedTextureMap reads the presence-prefixed savedTexDatas dictionary and preserves enumeration order
 func readKCESPresetSavedTextureMap(r *kcesPresetInnerReader, path string, depth int) ([]KCESPresetNamedSavedTexture, error) {
 	present, err := r.br.ReadBool()
 	if err != nil {
@@ -301,8 +290,6 @@ func readKCESPresetSavedTextureMap(r *kcesPresetInnerReader, path string, depth 
 	return result, nil
 }
 
-// readKCESPresetSavedTexture 按 SavedTexData.Deserialize 的顺序读取一个纹理编辑状态
-// readKCESPresetSavedTexture reads one texture-edit state in SavedTexData.Deserialize order
 func readKCESPresetSavedTexture(r *kcesPresetInnerReader, path string, depth int) (KCESPresetSavedTextureData, error) {
 	value := KCESPresetSavedTextureData{}
 	var err error
@@ -341,8 +328,6 @@ func readKCESPresetSavedTexture(r *kcesPresetInnerReader, path string, depth int
 	return value, nil
 }
 
-// readKCESPresetTextureMasks 读取可空的 TexLay.MaskData 数组
-// readKCESPresetTextureMasks reads a nullable TexLay.MaskData array
 func readKCESPresetTextureMasks(r *kcesPresetInnerReader, path string) ([]KCESPresetTextureMask, error) {
 	present, err := r.br.ReadBool()
 	if err != nil {
@@ -372,8 +357,6 @@ func readKCESPresetTextureMasks(r *kcesPresetInnerReader, path string) ([]KCESPr
 	return result, nil
 }
 
-// readKCESPresetTextureTransforms 读取可空且项目不可为 nil 的 TexLay.TransTexData 列表
-// readKCESPresetTextureTransforms reads a nullable TexLay.TransTexData list whose entries are non-null
 func readKCESPresetTextureTransforms(r *kcesPresetInnerReader, path string, depth int) ([]*KCESPresetTextureTransform, error) {
 	present, err := r.br.ReadBool()
 	if err != nil {
@@ -397,8 +380,6 @@ func readKCESPresetTextureTransforms(r *kcesPresetInnerReader, path string, dept
 	return result, nil
 }
 
-// readKCESPresetTextureTransform 按 TexLay.TransTexData.Deserialize 的递归布局读取纹理变换
-// readKCESPresetTextureTransform reads a texture transform using the recursive TexLay.TransTexData.Deserialize layout
 func readKCESPresetTextureTransform(r *kcesPresetInnerReader, path string, depth int) (KCESPresetTextureTransform, error) {
 	value := KCESPresetTextureTransform{}
 	if depth > maxKCESPresetInnerDepth {
@@ -440,8 +421,6 @@ func readKCESPresetTextureTransform(r *kcesPresetInnerReader, path string, depth
 	return value, nil
 }
 
-// readKCESPresetInfinityColor 按 InfColData.Deserialize 的旧式 BinaryReader 布局读取无限色数据
-// readKCESPresetInfinityColor reads infinity-color data using the legacy BinaryReader layout of InfColData.Deserialize
 func readKCESPresetInfinityColor(r *kcesPresetInnerReader, path string, depth int) (KCESPresetInfinityColorData, error) {
 	value := KCESPresetInfinityColorData{}
 	var err error
@@ -494,8 +473,6 @@ func readKCESPresetInfinityColor(r *kcesPresetInnerReader, path string, depth in
 	return value, nil
 }
 
-// readKCESPresetInfinityPartsColor 读取 PartsColor 的九个参数以及带数量前缀的渐变点
-// readKCESPresetInfinityPartsColor reads the nine PartsColor parameters and its count-prefixed gradation points
 func readKCESPresetInfinityPartsColor(r *kcesPresetInnerReader, path string) (KCESPresetInfinityPartsColor, error) {
 	value := KCESPresetInfinityPartsColor{}
 	fields := []*int32{&value.MainHue, &value.MainChroma, &value.MainBrightness, &value.MainContrast, &value.ShadowRate, &value.ShadowHue, &value.ShadowChroma, &value.ShadowBrightness, &value.ShadowContrast}
@@ -524,8 +501,6 @@ func readKCESPresetInfinityPartsColor(r *kcesPresetInnerReader, path string) (KC
 	return value, nil
 }
 
-// readKCESPresetInfinityPoint 读取渐变点中的九个 PartsColor 参数
-// readKCESPresetInfinityPoint reads the nine PartsColor parameters of one gradation point
 func readKCESPresetInfinityPoint(r *kcesPresetInnerReader, path string) (KCESPresetInfinityPartsColorPoint, error) {
 	value := KCESPresetInfinityPartsColorPoint{}
 	fields := []*int32{&value.MainHue, &value.MainChroma, &value.MainBrightness, &value.MainContrast, &value.ShadowRate, &value.ShadowHue, &value.ShadowChroma, &value.ShadowBrightness, &value.ShadowContrast}
@@ -539,8 +514,6 @@ func readKCESPresetInfinityPoint(r *kcesPresetInnerReader, path string) (KCESPre
 	return value, nil
 }
 
-// readKCESPresetPartColorDef 按 PartColDef.LegacyDeserialize 的布局读取分部颜色定义
-// readKCESPresetPartColorDef reads a per-part color definition using the PartColDef.LegacyDeserialize layout
 func readKCESPresetPartColorDef(r *kcesPresetInnerReader, path string) (KCESPresetPartColorDef, error) {
 	value := KCESPresetPartColorDef{}
 	var err error
@@ -559,8 +532,6 @@ func readKCESPresetPartColorDef(r *kcesPresetInnerReader, path string) (KCESPres
 	return value, nil
 }
 
-// readKCESPresetGradationDef 按 GradaColDef.LegacyDeserialize 的布局读取渐变色定义
-// readKCESPresetGradationDef reads a gradation-color definition using the GradaColDef.LegacyDeserialize layout
 func readKCESPresetGradationDef(r *kcesPresetInnerReader, path string) (KCESPresetGradationColorDef, error) {
 	value := KCESPresetGradationColorDef{}
 	var err error
@@ -582,8 +553,6 @@ func readKCESPresetGradationDef(r *kcesPresetInnerReader, path string) (KCESPres
 	return value, nil
 }
 
-// readKCESPresetFloat32Array 读取游戏扩展方法写出的可空 Float32 数组
-// readKCESPresetFloat32Array reads a nullable Float32 array written by the game's extension method
 func readKCESPresetFloat32Array(r *kcesPresetInnerReader, path string) ([]float32, error) {
 	present, err := r.br.ReadBool()
 	if err != nil {
@@ -608,8 +577,6 @@ func readKCESPresetFloat32Array(r *kcesPresetInnerReader, path string) ([]float3
 	return result, nil
 }
 
-// readKCESPresetVector4Array 读取游戏扩展方法写出的可空 Unity Vector4 数组
-// readKCESPresetVector4Array reads a nullable Unity Vector4 array written by the game's extension method
 func readKCESPresetVector4Array(r *kcesPresetInnerReader, path string) ([]Vector4, error) {
 	present, err := r.br.ReadBool()
 	if err != nil {
@@ -634,8 +601,6 @@ func readKCESPresetVector4Array(r *kcesPresetInnerReader, path string) ([]Vector
 	return result, nil
 }
 
-// readKCESPresetCutoutMask 读取存在性布尔值及可选的 MaterialMgr.CutoutMask 三字段值
-// readKCESPresetCutoutMask reads a presence Boolean and the optional three-field MaterialMgr.CutoutMask value
 func readKCESPresetCutoutMask(r *kcesPresetInnerReader, path string) (*KCESPresetCutoutMask, error) {
 	present, err := r.br.ReadBool()
 	if err != nil {
@@ -657,8 +622,6 @@ func readKCESPresetCutoutMask(r *kcesPresetInnerReader, path string) (*KCESPrese
 	return value, nil
 }
 
-// readKCESPresetPartHides 读取可空的 TBodySkin.PartHide 列表
-// readKCESPresetPartHides reads a nullable TBodySkin.PartHide list
 func readKCESPresetPartHides(r *kcesPresetInnerReader, path string) ([]KCESPresetPartHide, error) {
 	present, err := r.br.ReadBool()
 	if err != nil {
@@ -688,8 +651,6 @@ func readKCESPresetPartHides(r *kcesPresetInnerReader, path string) ([]KCESPrese
 	return result, nil
 }
 
-// readKCESPresetSavedAttachPositions 读取可空的 SavedAttachData 列表并复用其槽位校验
-// readKCESPresetSavedAttachPositions reads a nullable SavedAttachData list and reuses its slot validation
 func readKCESPresetSavedAttachPositions(r *kcesPresetInnerReader, path string) ([]SavedAttachData, error) {
 	present, err := r.br.ReadBool()
 	if err != nil {
@@ -713,8 +674,6 @@ func readKCESPresetSavedAttachPositions(r *kcesPresetInnerReader, path string) (
 	return result, nil
 }
 
-// readKCESPresetHairLengths 读取可空的 SavedHairLength 列表
-// readKCESPresetHairLengths reads a nullable SavedHairLength list
 func readKCESPresetHairLengths(r *kcesPresetInnerReader, path string) ([]KCESPresetSavedHairLength, error) {
 	present, err := r.br.ReadBool()
 	if err != nil {
@@ -744,8 +703,6 @@ func readKCESPresetHairLengths(r *kcesPresetInnerReader, path string) ([]KCESPre
 	return result, nil
 }
 
-// readKCESPresetSubProperties 读取可空且允许 nil 项的递归 SubProp 列表
-// readKCESPresetSubProperties reads a nullable recursive SubProp list whose entries may be nil
 func readKCESPresetSubProperties(r *kcesPresetInnerReader, path string, version int32, mpnName string, depth int) ([]*KCESPresetSubProperty, error) {
 	present, err := r.br.ReadBool()
 	if err != nil {
@@ -778,8 +735,6 @@ func readKCESPresetSubProperties(r *kcesPresetInnerReader, path string, version 
 	return result, nil
 }
 
-// readKCESPresetSubProperty 按 SubProp.Deserialize 的版本布局读取专用字段和继承的 PropBase 块
-// readKCESPresetSubProperty reads dedicated fields and the inherited PropBase block using the versioned SubProp.Deserialize layout
 func readKCESPresetSubProperty(r *kcesPresetInnerReader, path string, version int32, mpnName string, depth int) (KCESPresetSubProperty, error) {
 	value := KCESPresetSubProperty{}
 	if depth > maxKCESPresetInnerDepth {
@@ -813,8 +768,6 @@ func readKCESPresetSubProperty(r *kcesPresetInnerReader, path string, version in
 	return value, nil
 }
 
-// EncodeKCESPresetPropertyData 编码 GP03_MPROP_LIST 属性字典并保留属性顺序、重复键和尾部字节
-// EncodeKCESPresetPropertyData encodes the GP03_MPROP_LIST property dictionary while preserving order, repeated keys, and trailing bytes
 func EncodeKCESPresetPropertyData(value *KCESPresetPropertyList) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil KCES preset property data")
@@ -857,8 +810,6 @@ func EncodeKCESPresetPropertyData(value *KCESPresetPropertyList) ([]byte, error)
 	return out.Bytes(), nil
 }
 
-// NewKCESPresetPropertyList 创建使用当前游戏签名和 1270 版本的空属性列表
-// NewKCESPresetPropertyList creates an empty property list using the current game signature and version 1270
 func NewKCESPresetPropertyList() *KCESPresetPropertyList {
 	return &KCESPresetPropertyList{
 		Signature: KCESPresetPropertyListSignature,
@@ -866,8 +817,6 @@ func NewKCESPresetPropertyList() *KCESPresetPropertyList {
 	}
 }
 
-// writeKCESPresetProperty 按 MaidProp.Serialize 的顺序写入一个属性及其 PropBase 尾部
-// writeKCESPresetProperty writes one property and its PropBase tail in MaidProp.Serialize order
 func writeKCESPresetProperty(bw *stream.BinaryWriter, value *KCESPresetProperty, path string) error {
 	if value == nil {
 		return fmt.Errorf("%s is nil", path)
@@ -902,8 +851,6 @@ func writeKCESPresetProperty(bw *stream.BinaryWriter, value *KCESPresetProperty,
 	return writeKCESPresetPropBase(bw, &value.Base, path+".base", version, value.Name, 0)
 }
 
-// writeKCESPresetMaterialSlot 按属性版本写入一个 SlotPair 分组，旧版本省略 SlotValue
-// writeKCESPresetMaterialSlot writes one SlotPair group according to the property version, omitting SlotValue for older versions
 func writeKCESPresetMaterialSlot(bw *stream.BinaryWriter, value *KCESPresetMaterialPropertySlot, path string, version int32) error {
 	if err := validateKCESPresetInnerString(value.SlotID, path+".slotId"); err != nil {
 		return err
@@ -944,12 +891,10 @@ func writeKCESPresetMaterialSlot(bw *stream.BinaryWriter, value *KCESPresetMater
 	return nil
 }
 
-// writeKCESPresetMaterialValue 按 MatPropSave.Serialize 的顺序写入一个材质覆盖值
-// writeKCESPresetMaterialValue writes one material override in MatPropSave.Serialize order
 func writeKCESPresetMaterialValue(bw *stream.BinaryWriter, value *KCESPresetMaterialPropertyValue, path string) error {
 	for _, field := range []struct {
-		name  string  // 用于错误路径的字段名称 / Field name used in error paths
-		value *string // 待验证的可空字段值 / Nullable field value to validate
+		name  string
+		value *string
 	}{{"propertyName", value.PropertyName}, {"typeName", value.TypeName}, {"value", value.Value}} {
 		if err := validateKCESPresetInnerNullableString(field.value, path+"."+field.name); err != nil {
 			return err
@@ -966,8 +911,6 @@ func writeKCESPresetMaterialValue(bw *stream.BinaryWriter, value *KCESPresetMate
 	return nil
 }
 
-// writeKCESPresetPropBase 按 PropBase.Serialize 的顺序写入继承字段并限制递归深度
-// writeKCESPresetPropBase writes inherited fields in PropBase.Serialize order and bounds recursive depth
 func writeKCESPresetPropBase(bw *stream.BinaryWriter, value *KCESPresetPropBase, path string, version int32, mpnName string, depth int) error {
 	if value == nil {
 		return fmt.Errorf("%s is nil", path)
@@ -1056,8 +999,6 @@ func writeKCESPresetPropBase(bw *stream.BinaryWriter, value *KCESPresetPropBase,
 	return writeKCESPresetSubProperties(bw, value.SubProperties, path+".subProperties", version, mpnName, depth)
 }
 
-// writeKCESPresetSavedTextureMap 写入可空的 savedTexDatas 字典并保持切片顺序
-// writeKCESPresetSavedTextureMap writes a nullable savedTexDatas dictionary while retaining slice order
 func writeKCESPresetSavedTextureMap(bw *stream.BinaryWriter, values []KCESPresetNamedSavedTexture, path string, depth int) error {
 	if err := bw.WriteBool(values != nil); err != nil {
 		return err
@@ -1087,8 +1028,6 @@ func writeKCESPresetSavedTextureMap(bw *stream.BinaryWriter, values []KCESPreset
 	return nil
 }
 
-// writeKCESPresetSavedTexture 按 SavedTexData.Serialize 的顺序写入一个纹理编辑状态
-// writeKCESPresetSavedTexture writes one texture-edit state in SavedTexData.Serialize order
 func writeKCESPresetSavedTexture(bw *stream.BinaryWriter, value *KCESPresetSavedTextureData, path string, depth int) error {
 	if err := validateKCESPresetInnerNullableString(value.InfinityColorLinkLayer, path+".infinityColorLinkLayer"); err != nil {
 		return err
@@ -1122,8 +1061,6 @@ func writeKCESPresetSavedTexture(bw *stream.BinaryWriter, value *KCESPresetSaved
 	return bw.WriteBool(value.UseAlphaMaskTransform)
 }
 
-// writeKCESPresetTextureMasks 写入带存在性布尔值的 TexLay.MaskData 数组
-// writeKCESPresetTextureMasks writes a presence-prefixed TexLay.MaskData array
 func writeKCESPresetTextureMasks(bw *stream.BinaryWriter, values []KCESPresetTextureMask, path string) error {
 	if err := bw.WriteBool(values != nil); err != nil {
 		return err
@@ -1151,8 +1088,6 @@ func writeKCESPresetTextureMasks(bw *stream.BinaryWriter, values []KCESPresetTex
 	return nil
 }
 
-// writeKCESPresetTextureTransforms 写入可空的 TexLay.TransTexData 列表并拒绝 nil 项
-// writeKCESPresetTextureTransforms writes a nullable TexLay.TransTexData list and rejects nil entries
 func writeKCESPresetTextureTransforms(bw *stream.BinaryWriter, values []*KCESPresetTextureTransform, path string, depth int) error {
 	if err := bw.WriteBool(values != nil); err != nil {
 		return err
@@ -1177,8 +1112,6 @@ func writeKCESPresetTextureTransforms(bw *stream.BinaryWriter, values []*KCESPre
 	return nil
 }
 
-// writeKCESPresetTextureTransform 按 TexLay.TransTexData.Serialize 的递归布局写入纹理变换
-// writeKCESPresetTextureTransform writes a texture transform using the recursive TexLay.TransTexData.Serialize layout
 func writeKCESPresetTextureTransform(bw *stream.BinaryWriter, value *KCESPresetTextureTransform, path string, depth int) error {
 	if depth > maxKCESPresetInnerDepth {
 		return fmt.Errorf("%s nesting exceeds limit %d", path, maxKCESPresetInnerDepth)
@@ -1213,8 +1146,6 @@ func writeKCESPresetTextureTransform(bw *stream.BinaryWriter, value *KCESPresetT
 	return nil
 }
 
-// writeKCESPresetInfinityColor 按 InfColData.Serialize 的旧式 BinaryWriter 布局写入无限色数据
-// writeKCESPresetInfinityColor writes infinity-color data using the legacy BinaryWriter layout of InfColData.Serialize
 func writeKCESPresetInfinityColor(bw *stream.BinaryWriter, value *KCESPresetInfinityColorData, path string, depth int) error {
 	if err := validateKCESPresetInnerString(value.ColorType, path+".colorType"); err != nil {
 		return err
@@ -1261,8 +1192,6 @@ func writeKCESPresetInfinityColor(bw *stream.BinaryWriter, value *KCESPresetInfi
 	return bw.WriteBool(value.GradationMugen)
 }
 
-// writeKCESPresetInfinityPartsColor 写入 PartsColor 的九个参数及其渐变点数组
-// writeKCESPresetInfinityPartsColor writes the nine PartsColor parameters and its gradation-point array
 func writeKCESPresetInfinityPartsColor(bw *stream.BinaryWriter, value *KCESPresetInfinityPartsColor, path string) error {
 	if err := validateKCESPresetInnerSliceLength(len(value.Gradation), path+".gradation"); err != nil {
 		return err
@@ -1283,8 +1212,6 @@ func writeKCESPresetInfinityPartsColor(bw *stream.BinaryWriter, value *KCESPrese
 	return nil
 }
 
-// writeKCESPresetInfinityPoint 写入渐变点中的九个 PartsColor 参数
-// writeKCESPresetInfinityPoint writes the nine PartsColor parameters of one gradation point
 func writeKCESPresetInfinityPoint(bw *stream.BinaryWriter, value *KCESPresetInfinityPartsColorPoint) error {
 	for _, field := range []int32{value.MainHue, value.MainChroma, value.MainBrightness, value.MainContrast, value.ShadowRate, value.ShadowHue, value.ShadowChroma, value.ShadowBrightness, value.ShadowContrast} {
 		if err := bw.WriteInt32(field); err != nil {
@@ -1294,8 +1221,6 @@ func writeKCESPresetInfinityPoint(bw *stream.BinaryWriter, value *KCESPresetInfi
 	return nil
 }
 
-// writeKCESPresetPartColorDef 按 PartColDef.LegacySerialize 的布局写入分部颜色定义
-// writeKCESPresetPartColorDef writes a per-part color definition using the PartColDef.LegacySerialize layout
 func writeKCESPresetPartColorDef(bw *stream.BinaryWriter, value *KCESPresetPartColorDef, path string) error {
 	if err := validateKCESPresetInnerNullableString(value.PartName, path+".partName"); err != nil {
 		return err
@@ -1312,8 +1237,6 @@ func writeKCESPresetPartColorDef(bw *stream.BinaryWriter, value *KCESPresetPartC
 	return bw.WriteFloat32(value.PatternRot)
 }
 
-// writeKCESPresetGradationDef 按 GradaColDef.LegacySerialize 的布局写入渐变色定义
-// writeKCESPresetGradationDef writes a gradation-color definition using the GradaColDef.LegacySerialize layout
 func writeKCESPresetGradationDef(bw *stream.BinaryWriter, value *KCESPresetGradationColorDef, path string) error {
 	if err := validateKCESPresetInnerNullableString(value.NotUse, path+".notUse"); err != nil {
 		return err
@@ -1333,8 +1256,6 @@ func writeKCESPresetGradationDef(bw *stream.BinaryWriter, value *KCESPresetGrada
 	return writeKCESPresetInfinityPartsColor(bw, &value.Color, path+".color")
 }
 
-// writeKCESPresetFloat32Array 按游戏扩展方法的布局写入可空 Float32 数组
-// writeKCESPresetFloat32Array writes a nullable Float32 array using the game's extension-method layout
 func writeKCESPresetFloat32Array(bw *stream.BinaryWriter, values []float32, path string) error {
 	if err := bw.WriteBool(values != nil); err != nil {
 		return err
@@ -1356,8 +1277,6 @@ func writeKCESPresetFloat32Array(bw *stream.BinaryWriter, values []float32, path
 	return nil
 }
 
-// writeKCESPresetVector4Array 按游戏扩展方法的布局写入可空 Unity Vector4 数组
-// writeKCESPresetVector4Array writes a nullable Unity Vector4 array using the game's extension-method layout
 func writeKCESPresetVector4Array(bw *stream.BinaryWriter, values []Vector4, path string) error {
 	if err := bw.WriteBool(values != nil); err != nil {
 		return err
@@ -1379,8 +1298,6 @@ func writeKCESPresetVector4Array(bw *stream.BinaryWriter, values []Vector4, path
 	return nil
 }
 
-// writeKCESPresetCutoutMask 写入存在性布尔值及可选的 MaterialMgr.CutoutMask 三字段值
-// writeKCESPresetCutoutMask writes a presence Boolean and the optional three-field MaterialMgr.CutoutMask value
 func writeKCESPresetCutoutMask(bw *stream.BinaryWriter, value *KCESPresetCutoutMask) error {
 	if err := bw.WriteBool(value != nil); err != nil {
 		return err
@@ -1397,8 +1314,6 @@ func writeKCESPresetCutoutMask(bw *stream.BinaryWriter, value *KCESPresetCutoutM
 	return bw.WriteBool(value.Enabled)
 }
 
-// writeKCESPresetPartHides 写入可空的 TBodySkin.PartHide 列表
-// writeKCESPresetPartHides writes a nullable TBodySkin.PartHide list
 func writeKCESPresetPartHides(bw *stream.BinaryWriter, values []KCESPresetPartHide, path string) error {
 	if err := bw.WriteBool(values != nil); err != nil {
 		return err
@@ -1426,8 +1341,6 @@ func writeKCESPresetPartHides(bw *stream.BinaryWriter, values []KCESPresetPartHi
 	return nil
 }
 
-// writeKCESPresetSavedAttachPositions 写入可空的 SavedAttachData 列表并复用其槽位校验
-// writeKCESPresetSavedAttachPositions writes a nullable SavedAttachData list and reuses its slot validation
 func writeKCESPresetSavedAttachPositions(bw *stream.BinaryWriter, values []SavedAttachData, path string) error {
 	if err := bw.WriteBool(values != nil); err != nil {
 		return err
@@ -1449,8 +1362,6 @@ func writeKCESPresetSavedAttachPositions(bw *stream.BinaryWriter, values []Saved
 	return nil
 }
 
-// writeKCESPresetHairLengths 写入可空的 SavedHairLength 列表
-// writeKCESPresetHairLengths writes a nullable SavedHairLength list
 func writeKCESPresetHairLengths(bw *stream.BinaryWriter, values []KCESPresetSavedHairLength, path string) error {
 	if err := bw.WriteBool(values != nil); err != nil {
 		return err
@@ -1478,8 +1389,6 @@ func writeKCESPresetHairLengths(bw *stream.BinaryWriter, values []KCESPresetSave
 	return nil
 }
 
-// writeKCESPresetSubProperties 写入可空且允许 nil 项的递归 SubProp 列表
-// writeKCESPresetSubProperties writes a nullable recursive SubProp list whose entries may be nil
 func writeKCESPresetSubProperties(bw *stream.BinaryWriter, values []*KCESPresetSubProperty, path string, version int32, mpnName string, depth int) error {
 	if err := bw.WriteBool(values != nil); err != nil {
 		return err
@@ -1507,8 +1416,6 @@ func writeKCESPresetSubProperties(bw *stream.BinaryWriter, values []*KCESPresetS
 	return nil
 }
 
-// writeKCESPresetSubProperty 按 SubProp.Serialize 的版本布局写入专用字段和继承的 PropBase 块
-// writeKCESPresetSubProperty writes dedicated fields and the inherited PropBase block using the versioned SubProp.Serialize layout
 func writeKCESPresetSubProperty(bw *stream.BinaryWriter, value *KCESPresetSubProperty, path string, version int32, mpnName string, depth int) error {
 	if depth > maxKCESPresetInnerDepth {
 		return fmt.Errorf("%s nesting exceeds limit %d", path, maxKCESPresetInnerDepth)
@@ -1543,8 +1450,6 @@ func writeKCESPresetSubProperty(bw *stream.BinaryWriter, value *KCESPresetSubPro
 	return writeKCESPresetPropBase(bw, &value.Base, path+".base", version, mpnName, depth)
 }
 
-// encodeKCESPresetEditBaseDataBlock 将 nil BaseData 映射为空字节块，否则编码完整 Standard MessagePack 值
-// encodeKCESPresetEditBaseDataBlock maps nil BaseData to an empty byte block and otherwise encodes the complete Standard MessagePack value
 func encodeKCESPresetEditBaseDataBlock(value *KCESPresetEditBaseData) ([]byte, error) {
 	if value == nil {
 		return nil, nil
@@ -1552,8 +1457,6 @@ func encodeKCESPresetEditBaseDataBlock(value *KCESPresetEditBaseData) ([]byte, e
 	return EncodeKCESPresetEditBaseData(value)
 }
 
-// encodeKCESPresetEditUnitDataBlock 将 nil UnitData 映射为空字节块，否则编码完整 Standard MessagePack 值
-// encodeKCESPresetEditUnitDataBlock maps nil UnitData to an empty byte block and otherwise encodes the complete Standard MessagePack value
 func encodeKCESPresetEditUnitDataBlock(value *KCESPresetEditUnitData) ([]byte, error) {
 	if value == nil {
 		return nil, nil

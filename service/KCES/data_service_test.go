@@ -22,7 +22,7 @@ func TestDataService_PskUsesFixedKCESSample(t *testing.T) {
 	outPath := filepath.Join(tmpDir, "default_skirt.psk")
 
 	service := &DataService{}
-	if err := service.ConvertDataToJson(sample, jsonPath); err != nil {
+	if err := service.ConvertDataToJson(TestConversionContext, sample, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertDataToJson: %v", err)
 	}
 	var decodedJSON serializationCOM3D2.Psk
@@ -37,7 +37,7 @@ func TestDataService_PskUsesFixedKCESSample(t *testing.T) {
 		t.Fatalf("invalid .psk json: %+v", decodedJSON)
 	}
 
-	if err := service.ConvertJsonToData(jsonPath, outPath); err != nil {
+	if err := service.ConvertJsonToData(TestConversionContext, jsonPath, outPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJsonToData: %v", err)
 	}
 	f, err := os.Open(outPath)

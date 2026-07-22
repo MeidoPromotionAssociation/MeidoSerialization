@@ -44,7 +44,7 @@ func TestBridgeSessionServiceStrictJSONRoundTripAndUInt64(t *testing.T) {
 	}
 
 	service := &BridgeSessionService{}
-	if err := service.ConvertBridgeSessionToJSON(input, jsonPath); err != nil {
+	if err := service.ConvertBridgeSessionToJSON(TestConversionContext, input, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertBridgeSessionToJSON: %v", err)
 	}
 	editingJSON, err := os.ReadFile(jsonPath)
@@ -57,7 +57,7 @@ func TestBridgeSessionServiceStrictJSONRoundTripAndUInt64(t *testing.T) {
 	if bytes.Contains(editingJSON, []byte("1.844674")) {
 		t.Fatalf("UInt64 max was rounded/scientific-notation encoded:\n%s", editingJSON)
 	}
-	if err := service.ConvertJSONToBridgeSession(jsonPath, output); err != nil {
+	if err := service.ConvertJSONToBridgeSession(TestConversionContext, jsonPath, output, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJSONToBridgeSession: %v", err)
 	}
 	roundTripBytes, err := os.ReadFile(output)
@@ -95,7 +95,7 @@ func TestBridgeSessionServiceAcceptsBOMAndRejectsLooseJSON(t *testing.T) {
 	if err := os.WriteFile(bomPath, bom, 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := service.ConvertJSONToBridgeSession(bomPath, filepath.Join(dir, "bom.vd")); err != nil {
+	if err := service.ConvertJSONToBridgeSession(TestConversionContext, bomPath, filepath.Join(dir, "bom.vd"), TestConversionMaxOutput); err != nil {
 		t.Fatalf("UTF-8 BOM should be accepted: %v", err)
 	}
 
@@ -122,7 +122,7 @@ func TestBridgeSessionServiceAcceptsBOMAndRejectsLooseJSON(t *testing.T) {
 			if err := os.WriteFile(input, data, 0644); err != nil {
 				t.Fatal(err)
 			}
-			if err := service.ConvertJSONToBridgeSession(input, output); err == nil {
+			if err := service.ConvertJSONToBridgeSession(TestConversionContext, input, output, TestConversionMaxOutput); err == nil {
 				t.Fatal("loose/invalid editing JSON unexpectedly converted")
 			}
 			if _, err := os.Stat(output); !os.IsNotExist(err) {
@@ -145,7 +145,7 @@ func TestBridgeSessionServiceAcceptsBOMAndRejectsLooseJSON(t *testing.T) {
 			if err := os.WriteFile(input, data, 0644); err != nil {
 				t.Fatal(err)
 			}
-			if err := service.ConvertJSONToBridgeSession(input, output); err != nil {
+			if err := service.ConvertJSONToBridgeSession(TestConversionContext, input, output, TestConversionMaxOutput); err != nil {
 				t.Fatalf("representable editing JSON rejected: %v", err)
 			}
 			binaryData, err := os.ReadFile(output)
@@ -229,7 +229,7 @@ func TestFileTypeServiceRecognizesBridgeSessionByPathContentAndJSONMarker(t *tes
 
 	nativePath := filepath.Join(dir, "bridge_session.vd")
 	jsonPath := nativePath + ".json"
-	if err := (&BridgeSessionService{}).ConvertBridgeSessionToJSON(nativePath, jsonPath); err != nil {
+	if err := (&BridgeSessionService{}).ConvertBridgeSessionToJSON(TestConversionContext, nativePath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatal(err)
 	}
 	jsonData, err := os.ReadFile(jsonPath)

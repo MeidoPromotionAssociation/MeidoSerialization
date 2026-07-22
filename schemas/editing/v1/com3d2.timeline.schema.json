@@ -1,0 +1,648 @@
+{
+  "$defs": {
+    "COM3D2_Color": {
+      "additionalProperties": false,
+      "properties": {
+        "A": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "B": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "G": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "R": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "A",
+        "R",
+        "G",
+        "B"
+      ],
+      "type": "object"
+    },
+    "COM3D2_EventParameter": {
+      "additionalProperties": false,
+      "properties": {
+        "Array": {
+          "items": {
+            "$ref": "#/$defs/COM3D2_EventParameter"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "ValBool": {
+          "type": "boolean"
+        },
+        "ValColor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/COM3D2_Color"
+            }
+          ]
+        },
+        "ValFloat": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "ValInt": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        },
+        "ValRect": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/COM3D2_Rect"
+            }
+          ]
+        },
+        "ValString": {
+          "type": "string"
+        },
+        "ValVect2": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/COM3D2_Vector2"
+            }
+          ]
+        },
+        "ValVect3": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/COM3D2_Vector3"
+            }
+          ]
+        },
+        "ValVect4": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/COM3D2_Vector4"
+            }
+          ]
+        },
+        "ValueType": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ValueType"
+      ],
+      "type": "object"
+    },
+    "COM3D2_KeyValuePairInt": {
+      "additionalProperties": false,
+      "properties": {
+        "Key": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        },
+        "Value": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "Key",
+        "Value"
+      ],
+      "type": "object"
+    },
+    "COM3D2_MethodData": {
+      "additionalProperties": false,
+      "properties": {
+        "ComponentName": {
+          "type": "string"
+        },
+        "MethodName": {
+          "type": "string"
+        },
+        "Params": {
+          "items": {
+            "$ref": "#/$defs/COM3D2_EventParameter"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "StartFrame": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "StartFrame",
+        "ComponentName",
+        "MethodName"
+      ],
+      "type": "object"
+    },
+    "COM3D2_Quaternion": {
+      "additionalProperties": false,
+      "properties": {
+        "W": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "X": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Y": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Z": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "X",
+        "Y",
+        "Z",
+        "W"
+      ],
+      "type": "object"
+    },
+    "COM3D2_Rect": {
+      "additionalProperties": false,
+      "properties": {
+        "XMax": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "XMin": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "YMax": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "YMin": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "XMin",
+        "XMax",
+        "YMin",
+        "YMax"
+      ],
+      "type": "object"
+    },
+    "COM3D2_Vector2": {
+      "additionalProperties": false,
+      "properties": {
+        "X": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Y": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "X",
+        "Y"
+      ],
+      "type": "object"
+    },
+    "COM3D2_Vector3": {
+      "additionalProperties": false,
+      "properties": {
+        "X": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Y": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Z": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "X",
+        "Y",
+        "Z"
+      ],
+      "type": "object"
+    },
+    "COM3D2_Vector4": {
+      "additionalProperties": false,
+      "properties": {
+        "W": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "X": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Y": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Z": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "X",
+        "Y",
+        "Z",
+        "W"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:meido-serialization:editing-json:v1:com3d2.timeline",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Lossless editing JSON contract for com3d2.timeline.",
+  "properties": {
+    "FrameRate": {
+      "description": "The frames-per-second value used for playback timing.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "title": "Timeline frame rate",
+      "type": "integer",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Use a positive value appropriate for the target timeline and update dependent event frames deliberately.",
+      "x-meido-edit-role": "runtime_timing",
+      "x-meido-game-usage": "The dance runtime converts frame indices to time using this value.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 275,
+          "line_start": 200,
+          "observation": "DanceMain loads timeline_data.bytes and uses track data together with the animation timeline runtime.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DanceMain.cs",
+          "symbol": "DanceMain.Load / timeline_data.bytes"
+        },
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 65,
+          "line_start": 35,
+          "observation": "Object tracks resolve slash-separated Unity object paths before animation data is applied.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/AMBinaryDataBaseObject.cs",
+          "symbol": "AMBinaryDataBaseObject.Deserialize"
+        }
+      ]
+    },
+    "TotalFrame": {
+      "description": "The total number of frames in the timeline.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "title": "Timeline frame count",
+      "type": "integer",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep it non-negative and consistent with every track's frame count.",
+      "x-meido-edit-role": "runtime_timing",
+      "x-meido-game-usage": "Dance playback uses it to bound track sampling and playback duration.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 275,
+          "line_start": 200,
+          "observation": "DanceMain loads timeline_data.bytes and uses track data together with the animation timeline runtime.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DanceMain.cs",
+          "symbol": "DanceMain.Load / timeline_data.bytes"
+        },
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 65,
+          "line_start": 35,
+          "observation": "Object tracks resolve slash-separated Unity object paths before animation data is applied.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/AMBinaryDataBaseObject.cs",
+          "symbol": "AMBinaryDataBaseObject.Deserialize"
+        }
+      ]
+    },
+    "Tracks": {
+      "description": "The ordered translation, rotation, property, and event track list.",
+      "items": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "ObjectTreePath": {
+                "type": "string"
+              },
+              "PosArray": {
+                "items": {
+                  "$ref": "#/$defs/COM3D2_Vector3"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "TotalFrame": {
+                "maximum": 2147483647,
+                "minimum": -2147483648,
+                "type": "integer"
+              },
+              "TrackID": {
+                "maximum": 2147483647,
+                "minimum": -2147483648,
+                "type": "integer"
+              },
+              "TypeName": {
+                "const": "Translation",
+                "type": "string"
+              }
+            },
+            "required": [
+              "TrackID",
+              "TotalFrame",
+              "ObjectTreePath",
+              "PosArray",
+              "TypeName"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "ObjectTreePath": {
+                "type": "string"
+              },
+              "QuaternionArray": {
+                "items": {
+                  "$ref": "#/$defs/COM3D2_Quaternion"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "TotalFrame": {
+                "maximum": 2147483647,
+                "minimum": -2147483648,
+                "type": "integer"
+              },
+              "TrackID": {
+                "maximum": 2147483647,
+                "minimum": -2147483648,
+                "type": "integer"
+              },
+              "TypeName": {
+                "const": "Rotation",
+                "type": "string"
+              }
+            },
+            "required": [
+              "TrackID",
+              "TotalFrame",
+              "ObjectTreePath",
+              "QuaternionArray",
+              "TypeName"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "ColorValArray": {
+                "items": {
+                  "$ref": "#/$defs/COM3D2_Color"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "ComponentName": {
+                "type": "string"
+              },
+              "FloatValArray": {
+                "items": {
+                  "maximum": 3.4028234663852886e+38,
+                  "minimum": -3.4028234663852886e+38,
+                  "type": "number"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "IndexArray": {
+                "items": {
+                  "$ref": "#/$defs/COM3D2_KeyValuePairInt"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "IntValArray": {
+                "items": {
+                  "maximum": 2147483647,
+                  "minimum": -2147483648,
+                  "type": "integer"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "ObjectTreePath": {
+                "type": "string"
+              },
+              "PropertyName": {
+                "type": "string"
+              },
+              "TotalFrame": {
+                "maximum": 2147483647,
+                "minimum": -2147483648,
+                "type": "integer"
+              },
+              "TrackID": {
+                "maximum": 2147483647,
+                "minimum": -2147483648,
+                "type": "integer"
+              },
+              "TypeName": {
+                "const": "Property",
+                "type": "string"
+              },
+              "ValueType": {
+                "maximum": 2147483647,
+                "minimum": -2147483648,
+                "type": "integer"
+              },
+              "Vec3ValArray": {
+                "items": {
+                  "$ref": "#/$defs/COM3D2_Vector3"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              }
+            },
+            "required": [
+              "TrackID",
+              "TotalFrame",
+              "ObjectTreePath",
+              "ValueType",
+              "ComponentName",
+              "PropertyName",
+              "IndexArray",
+              "TypeName"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "MethodDataArray": {
+                "items": {
+                  "$ref": "#/$defs/COM3D2_MethodData"
+                },
+                "type": [
+                  "null",
+                  "array"
+                ]
+              },
+              "ObjectTreePath": {
+                "type": "string"
+              },
+              "TotalFrame": {
+                "maximum": 2147483647,
+                "minimum": -2147483648,
+                "type": "integer"
+              },
+              "TrackID": {
+                "maximum": 2147483647,
+                "minimum": -2147483648,
+                "type": "integer"
+              },
+              "TypeName": {
+                "const": "Event",
+                "type": "string"
+              }
+            },
+            "required": [
+              "TrackID",
+              "TotalFrame",
+              "ObjectTreePath",
+              "MethodDataArray",
+              "TypeName"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "title": "Typed timeline tracks",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Preserve track IDs, type tags, object paths, and sample counts.",
+      "x-meido-edit-role": "runtime_program",
+      "x-meido-game-usage": "Each track resolves an object path and applies its samples or invokes events while the timeline advances.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 275,
+          "line_start": 200,
+          "observation": "DanceMain loads timeline_data.bytes and uses track data together with the animation timeline runtime.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DanceMain.cs",
+          "symbol": "DanceMain.Load / timeline_data.bytes"
+        },
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 65,
+          "line_start": 35,
+          "observation": "Object tracks resolve slash-separated Unity object paths before animation data is applied.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/AMBinaryDataBaseObject.cs",
+          "symbol": "AMBinaryDataBaseObject.Deserialize"
+        }
+      ]
+    }
+  },
+  "required": [
+    "TotalFrame",
+    "FrameRate",
+    "Tracks"
+  ],
+  "title": "com3d2.timeline editing JSON",
+  "type": "object",
+  "x-meido-format-id": "com3d2.timeline",
+  "x-meido-native-suffixes": [
+    ".bytes"
+  ],
+  "x-meido-representation": "editing_json",
+  "x-meido-schema-version": "1.0.0"
+}

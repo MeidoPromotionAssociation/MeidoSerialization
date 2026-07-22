@@ -1,0 +1,90 @@
+{
+  "$defs": {
+    "COM3D2_DanceObjectEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "ObjectName": {
+          "type": "string"
+        },
+        "ObjectReferenceTrackIDList": {
+          "items": {
+            "maximum": 2147483647,
+            "minimum": -2147483648,
+            "type": "integer"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "ResourcesPath": {
+          "type": "string"
+        },
+        "TargetMaidNo": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer"
+        },
+        "TopObjectName": {
+          "type": "string"
+        },
+        "TreePath": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "TargetMaidNo",
+        "ObjectName",
+        "TopObjectName",
+        "ResourcesPath",
+        "TreePath",
+        "ObjectReferenceTrackIDList"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:meido-serialization:editing-json:v1:com3d2.object_data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Lossless editing JSON contract for com3d2.object_data.",
+  "properties": {
+    "Entries": {
+      "description": "The ordered table of target maid, object, resource, hierarchy path, and referenced track IDs.",
+      "items": {
+        "$ref": "#/$defs/COM3D2_DanceObjectEntry"
+      },
+      "title": "Dance object entries",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep names and paths valid for the target scene and preserve track-ID relationships.",
+      "x-meido-edit-role": "runtime_reference_table",
+      "x-meido-game-usage": "DanceObjectDataBinary resolves each entry to a GameObject and attaches the listed timeline tracks.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 130,
+          "line_start": 6,
+          "observation": "The dance loader maps object names and resource paths to referenced track IDs and resolves them in the scene, creating or locating objects as necessary.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DanceObjectDataBinary.cs",
+          "symbol": "DanceObjectDataBinary.Load/Save"
+        }
+      ]
+    }
+  },
+  "required": [
+    "Entries"
+  ],
+  "title": "com3d2.object_data editing JSON",
+  "type": "object",
+  "x-meido-format-id": "com3d2.object_data",
+  "x-meido-native-suffixes": [
+    ".bytes"
+  ],
+  "x-meido-representation": "editing_json",
+  "x-meido-schema-version": "1.0.0"
+}

@@ -41,13 +41,13 @@ func TestPresetService(t *testing.T) {
 			}
 
 			// 3. Test ConvertPresetToJson
-			err = s.ConvertPresetToJson(inputPath, jsonPath)
+			err = s.ConvertPresetToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput)
 			if err != nil {
 				t.Fatalf("ConvertPresetToJson failed: %v", err)
 			}
 
 			// 4. Test ConvertJsonToPreset
-			err = s.ConvertJsonToPreset(jsonPath, backPath)
+			err = s.ConvertJsonToPreset(TestConversionContext, jsonPath, backPath, TestConversionMaxOutput)
 			if err != nil {
 				t.Fatalf("ConvertJsonToPreset failed: %v", err)
 			}
@@ -159,7 +159,7 @@ func TestPresetServiceExpandsCOM3D25EmbeddedPresetData(t *testing.T) {
 	if err := service.WritePresetFile(nativePath, value); err != nil {
 		t.Fatalf("WritePresetFile: %v", err)
 	}
-	if err := service.ConvertPresetToJson(nativePath, jsonPath); err != nil {
+	if err := service.ConvertPresetToJson(TestConversionContext, nativePath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertPresetToJson: %v", err)
 	}
 	jsonData, err := os.ReadFile(jsonPath)
@@ -176,7 +176,7 @@ func TestPresetServiceExpandsCOM3D25EmbeddedPresetData(t *testing.T) {
 			t.Fatalf("COM3D2.5 preset JSON lacks typed field %s: %s", required, jsonData)
 		}
 	}
-	if err := service.ConvertJsonToPreset(jsonPath, backPath); err != nil {
+	if err := service.ConvertJsonToPreset(TestConversionContext, jsonPath, backPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJsonToPreset: %v", err)
 	}
 	back, err := service.ReadPresetFile(backPath)

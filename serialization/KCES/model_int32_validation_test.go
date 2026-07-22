@@ -143,6 +143,7 @@ func modelInt32FieldTests() []modelInt32FieldTest {
 func validModelForInt32Test() Model {
 	return Model{
 		Version:          modelFixVersion,
+		ModelName:        "root",
 		TransData:        []TransData{{Name: "root", ParentNo: -1}},
 		BoneNames:        []string{"root"},
 		MaterialFileName: []string{},

@@ -1,0 +1,1380 @@
+{
+  "$defs": {
+    "KCES_BlendData": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "norm": {
+          "items": {
+            "$ref": "#/$defs/KCES_Vector3"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "tan": {
+          "items": {
+            "$ref": "#/$defs/KCES_Vector4"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "v_index": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "vert": {
+          "items": {
+            "$ref": "#/$defs/KCES_Vector3"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "v_index",
+        "vert",
+        "norm",
+        "tan"
+      ],
+      "type": "object"
+    },
+    "KCES_SkinThickness": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "groups": {
+          "additionalProperties": {
+            "$ref": "#/$defs/KCES_ThicknessGroup"
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "use": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "use",
+        "groups"
+      ],
+      "type": "object"
+    },
+    "KCES_ThicknessDefPerAngle": {
+      "additionalProperties": false,
+      "properties": {
+        "angleDgree": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "defaultDistance": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "vidx": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "angleDgree",
+        "vidx",
+        "defaultDistance"
+      ],
+      "type": "object"
+    },
+    "KCES_ThicknessGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "endBoneName": {
+          "type": "string"
+        },
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "groupName": {
+          "type": "string"
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "points": {
+          "items": {
+            "$ref": "#/$defs/KCES_ThicknessPoint"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "startBoneName": {
+          "type": "string"
+        },
+        "stepAngleDgree": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "groupName",
+        "startBoneName",
+        "endBoneName",
+        "stepAngleDgree",
+        "points"
+      ],
+      "type": "object"
+    },
+    "KCES_ThicknessPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "distanceParAngle": {
+          "items": {
+            "$ref": "#/$defs/KCES_ThicknessDefPerAngle"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "ratioSegmentStartToEnd": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "targetBoneName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "targetBoneName",
+        "ratioSegmentStartToEnd",
+        "distanceParAngle"
+      ],
+      "type": "object"
+    },
+    "KCES_TransData": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "isSCL": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "paretnNo": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "pos": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "rot": {
+          "$ref": "#/$defs/KCES_Vector4"
+        },
+        "scale": {
+          "$ref": "#/$defs/KCES_Vector3"
+        }
+      },
+      "required": [
+        "name",
+        "paretnNo",
+        "isSCL",
+        "pos",
+        "rot",
+        "scale"
+      ],
+      "type": "object"
+    },
+    "KCES_Vector3": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "x": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "y": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "z": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "z"
+      ],
+      "type": "object"
+    },
+    "KCES_Vector4": {
+      "additionalProperties": false,
+      "properties": {
+        "fieldCount": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
+        "futureSlots": {
+          "items": {
+            "contentEncoding": "base64",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nilSlots": {
+          "items": {
+            "maximum": 9223372036854775807,
+            "minimum": -9223372036854775808,
+            "type": "integer",
+            "x-meido-integer-bits": 64,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "nullElements": {
+          "additionalProperties": {
+            "items": {
+              "type": "boolean"
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "nullMapValueKeys": {
+          "additionalProperties": {
+            "items": {
+              "contentEncoding": "base64",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "type": [
+              "null",
+              "array"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "w": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "x": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "y": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "z": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "z",
+        "w"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:meido-serialization:editing-json:v1:kces.model",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Lossless editing JSON contract for kces.model.",
+  "properties": {
+    "boneNames": {
+      "description": "The ordered names paired with bone indices in the mesh and transform data.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Bone name table",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Do not reorder or rename entries without rewriting all dependent weights and paths.",
+      "x-meido-edit-role": "runtime_skeleton",
+      "x-meido-game-usage": "Skinning and attachment code resolves weighted bones through this table.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 175,
+          "line_start": 10,
+          "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "symbol": "Parts.Model"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 243,
+          "line_start": 24,
+          "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "symbol": "PartsModelManager.CreateModel"
+        }
+      ]
+    },
+    "fieldCount": {
+      "description": "Stored MessagePack field-width metadata.",
+      "maximum": 9223372036854775807,
+      "minimum": -9223372036854775808,
+      "title": "Model indexed field count",
+      "type": [
+        "null",
+        "integer"
+      ],
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Preserve it when editing an existing model.",
+      "x-meido-edit-role": "serialization_metadata",
+      "x-meido-game-usage": "It preserves compatibility with models containing future keys.",
+      "x-meido-integer-bits": 64,
+      "x-meido-integer-signed": true,
+      "x-meido-risk": "high"
+    },
+    "fileName": {
+      "description": "The logical .model file name stored in the record.",
+      "title": "Model file name",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Use the deployed .model name with its expected extension and case convention.",
+      "x-meido-edit-role": "resource_identity",
+      "x-meido-game-usage": "The parts manager uses it as the model resource name.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 175,
+          "line_start": 10,
+          "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "symbol": "Parts.Model"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 243,
+          "line_start": 24,
+          "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "symbol": "PartsModelManager.CreateModel"
+        }
+      ]
+    },
+    "futureSlots": {
+      "description": "Raw indexed values beyond the known Parts.Model keys.",
+      "items": {
+        "contentEncoding": "base64",
+        "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+        "type": [
+          "null",
+          "string"
+        ]
+      },
+      "title": "Model future slots",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Preserve every future slot.",
+      "x-meido-edit-role": "opaque_preserve",
+      "x-meido-game-usage": "The current model loader does not interpret future slots.",
+      "x-meido-risk": "critical"
+    },
+    "id": {
+      "description": "The unsigned identifier used by parts resource lookup.",
+      "maximum": 18446744073709551615,
+      "minimum": 0,
+      "title": "Model resource ID",
+      "type": "integer",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep it consistent with the target file-name/hash convention.",
+      "x-meido-edit-role": "resource_identity",
+      "x-meido-game-usage": "PartsModelManager registers and resolves model records by their resource identity.",
+      "x-meido-integer-bits": 64,
+      "x-meido-integer-signed": false,
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 175,
+          "line_start": 10,
+          "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "symbol": "Parts.Model"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 243,
+          "line_start": 24,
+          "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "symbol": "PartsModelManager.CreateModel"
+        }
+      ]
+    },
+    "materialFileName": {
+      "description": "The ordered material file-name slots used by the model renderer.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Material resource names",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep the number and order aligned with mesh submaterials and deploy the referenced .mate files.",
+      "x-meido-edit-role": "runtime_resource_reference",
+      "x-meido-game-usage": "PartsModelManager resolves these names through the material manager.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 175,
+          "line_start": 10,
+          "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "symbol": "Parts.Model"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 243,
+          "line_start": 24,
+          "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "symbol": "PartsModelManager.CreateModel"
+        }
+      ]
+    },
+    "meshfileName": {
+      "description": "The separate mesh resource referenced by the model description, normally a .mmesh asset.",
+      "title": "Mesh resource name",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Ensure the referenced mesh exists in the same target catalog and keep the spelling exact.",
+      "x-meido-edit-role": "resource_reference",
+      "x-meido-game-usage": "The loader resolves this resource to obtain vertex, index, and skin data.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 175,
+          "line_start": 10,
+          "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "symbol": "Parts.Model"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 243,
+          "line_start": 24,
+          "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "symbol": "PartsModelManager.CreateModel"
+        }
+      ]
+    },
+    "modelName": {
+      "description": "The exact transData[].name selected as the VirtualHierarchy that receives the SkinnedMeshRenderer.",
+      "title": "Render-root transform selector",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep it equal to exactly one transData[].name. It is not a display name; when renaming the selected transform, update modelName and every dependent bone/reference together.",
+      "x-meido-edit-role": "runtime_selector",
+      "x-meido-game-usage": "PartsModelManager names the outer object from fileName, then compares every created transform name with modelName and dereferences the selected hierarchy without a null check.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 175,
+          "line_start": 10,
+          "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "symbol": "Parts.Model"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 243,
+          "line_start": 24,
+          "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "symbol": "PartsModelManager.CreateModel"
+        }
+      ]
+    },
+    "morphs": {
+      "description": "Blend-shape records containing named vertex deltas and ranges.",
+      "items": {
+        "$ref": "#/$defs/KCES_BlendData"
+      },
+      "title": "Morph records",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Preserve vertex indices and delta-array lengths; edit only with the companion mesh in view.",
+      "x-meido-edit-role": "runtime_morph",
+      "x-meido-game-usage": "The model loader applies these records to facial or body deformation targets.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 175,
+          "line_start": 10,
+          "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "symbol": "Parts.Model"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 243,
+          "line_start": 24,
+          "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "symbol": "PartsModelManager.CreateModel"
+        }
+      ]
+    },
+    "nilSlots": {
+      "description": "Sparse nil markers for indexed nested values.",
+      "items": {
+        "maximum": 9223372036854775807,
+        "minimum": -9223372036854775808,
+        "type": "integer",
+        "x-meido-integer-bits": 64,
+        "x-meido-integer-signed": true
+      },
+      "title": "Model nil-slot metadata",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Preserve unchanged.",
+      "x-meido-edit-role": "serialization_metadata",
+      "x-meido-game-usage": "They preserve MessagePack shape rather than model semantics.",
+      "x-meido-risk": "high"
+    },
+    "nullElements": {
+      "additionalProperties": {
+        "items": {
+          "type": "boolean"
+        },
+        "type": [
+          "null",
+          "array"
+        ]
+      },
+      "description": "Positions of null nested records retained by the lossless codec.",
+      "title": "Model null-element metadata",
+      "type": [
+        "null",
+        "object"
+      ],
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Preserve unchanged.",
+      "x-meido-edit-role": "serialization_metadata",
+      "x-meido-game-usage": "The game serializer distinguishes null array elements from omitted values.",
+      "x-meido-risk": "high"
+    },
+    "nullMapValueKeys": {
+      "additionalProperties": {
+        "items": {
+          "contentEncoding": "base64",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "type": [
+          "null",
+          "array"
+        ]
+      },
+      "description": "Map keys whose values were explicitly nil on the wire.",
+      "title": "Model null-map metadata",
+      "type": [
+        "null",
+        "object"
+      ],
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Preserve unchanged.",
+      "x-meido-edit-role": "serialization_metadata",
+      "x-meido-game-usage": "They preserve indexed/map fidelity for skin-thickness and morph structures.",
+      "x-meido-risk": "high"
+    },
+    "rootNil": {
+      "description": "Whether the standalone model root was nil.",
+      "title": "MessagePack nil root",
+      "type": "boolean",
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Keep rootNil and required model fields consistent.",
+      "x-meido-edit-role": "serialization_metadata",
+      "x-meido-game-usage": "A nil root is not an empty model and cannot be loaded as a normal Parts.Model.",
+      "x-meido-risk": "critical"
+    },
+    "shadowModeFlags": {
+      "description": "The shadow enum value: 0 Default, 1 CastShadow, or 2 NoCastShadow.",
+      "maximum": 9223372036854775807,
+      "minimum": -9223372036854775808,
+      "title": "Shadow mode",
+      "type": "integer",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Use only values supported by the target build and verify the resulting renderer mode.",
+      "x-meido-edit-role": "runtime_enum",
+      "x-meido-game-usage": "The renderer applies this value when configuring model shadow behavior.",
+      "x-meido-integer-bits": 64,
+      "x-meido-integer-signed": true,
+      "x-meido-risk": "medium",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 175,
+          "line_start": 10,
+          "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "symbol": "Parts.Model"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 243,
+          "line_start": 24,
+          "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "symbol": "PartsModelManager.CreateModel"
+        }
+      ]
+    },
+    "skinThick": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/KCES_SkinThickness"
+        }
+      ],
+      "description": "Optional groups and angle-dependent distance values used by skin-thickness processing.",
+      "title": "Skin-thickness data",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep group names, point indices, and angle ranges coherent with the mesh.",
+      "x-meido-edit-role": "runtime_geometry",
+      "x-meido-game-usage": "The model system uses this data to adjust surface thickness around selected bones or vertices.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 175,
+          "line_start": 10,
+          "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "symbol": "Parts.Model"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 243,
+          "line_start": 24,
+          "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "symbol": "PartsModelManager.CreateModel"
+        }
+      ]
+    },
+    "trailingData": {
+      "contentEncoding": "base64",
+      "description": "Bytes after the first compressed MessagePack value.",
+      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+      "title": "Model trailing bytes",
+      "type": [
+        "null",
+        "string"
+      ],
+      "x-meido-confidence": "serialization_only",
+      "x-meido-edit-guidance": "Preserve unchanged trailingData.",
+      "x-meido-edit-role": "opaque_preserve",
+      "x-meido-game-usage": "PartsModelManager does not consume this region.",
+      "x-meido-risk": "critical"
+    },
+    "transData": {
+      "description": "Indexed local transform and parent-index records for the model skeleton.",
+      "items": {
+        "$ref": "#/$defs/KCES_TransData"
+      },
+      "title": "Bone transform records",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Preserve order, valid parent indices, and finite position/rotation/scale values.",
+      "x-meido-edit-role": "runtime_skeleton",
+      "x-meido-game-usage": "The loader builds the bone hierarchy from these records before skinning.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 175,
+          "line_start": 10,
+          "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "symbol": "Parts.Model"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 243,
+          "line_start": 24,
+          "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "symbol": "PartsModelManager.CreateModel"
+        }
+      ]
+    },
+    "version": {
+      "description": "The indexed MessagePack version, fixed at 1001 by the current Parts.Model constructor.",
+      "maximum": 9223372036854775807,
+      "minimum": -9223372036854775808,
+      "title": "Model version",
+      "type": "integer",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Preserve the source value and do not mix fields from a different model generation.",
+      "x-meido-edit-role": "version_marker",
+      "x-meido-game-usage": "PartsUtility.Deserialize\u003cModel\u003e uses the versioned object while loading model metadata.",
+      "x-meido-integer-bits": 64,
+      "x-meido-integer-signed": true,
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 175,
+          "line_start": 10,
+          "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "symbol": "Parts.Model"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 243,
+          "line_start": 24,
+          "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "symbol": "PartsModelManager.CreateModel"
+        }
+      ]
+    }
+  },
+  "required": [
+    "version",
+    "id",
+    "fileName",
+    "meshfileName",
+    "modelName",
+    "transData",
+    "boneNames",
+    "materialFileName",
+    "morphs",
+    "skinThick",
+    "shadowModeFlags"
+  ],
+  "title": "kces.model editing JSON",
+  "type": "object",
+  "x-meido-format-id": "kces.model",
+  "x-meido-native-suffixes": [
+    ".model"
+  ],
+  "x-meido-representation": "editing_json",
+  "x-meido-schema-version": "1.0.0"
+}

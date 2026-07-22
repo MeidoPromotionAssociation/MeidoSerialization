@@ -1,6 +1,7 @@
 package KCES
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
@@ -68,7 +69,10 @@ func IsKCESRawUnityBytesJSONFile(path string) bool {
 	return header.Format == RawUnityObjectFormat
 }
 
-func (s *RawUnityObjectService) ConvertRawUnityObjectToJson(inputPath string, outputPath string) error {
+func (s *RawUnityObjectService) ConvertRawUnityObjectToJson(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
 	envelope, err := s.ReadRawUnityObjectFile(inputPath)
 	if err != nil {
 		return err
@@ -78,14 +82,17 @@ func (s *RawUnityObjectService) ConvertRawUnityObjectToJson(inputPath string, ou
 		return fmt.Errorf("marshal KCES raw Unity object json: %w", err)
 	}
 	data = append(data, '\n')
-	if err := os.WriteFile(outputPath, data, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	if err := writeConversionFile(ctx, outputPath, data, maxOutputBytes); err != nil {
 		return fmt.Errorf("write %q: %w", outputPath, err)
 	}
 	return nil
 }
 
-func (s *RawUnityObjectService) ConvertJsonToRawUnityObject(inputPath string, outputPath string) error {
-	data, err := os.ReadFile(inputPath)
+func (s *RawUnityObjectService) ConvertJsonToRawUnityObject(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
 		return fmt.Errorf("read %q: %w", inputPath, err)
 	}
@@ -93,7 +100,14 @@ func (s *RawUnityObjectService) ConvertJsonToRawUnityObject(inputPath string, ou
 	if err != nil {
 		return fmt.Errorf("parse KCES raw Unity object json: %w", err)
 	}
-	if err := os.WriteFile(outputPath, raw, 0644); err != nil {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
+	budget, err := newConversionBudget(ctx, maxOutputBytes)
+	if err != nil {
+		return err
+	}
+	if err := budget.WriteFile(outputPath, raw, 0644); err != nil {
 		return fmt.Errorf("write %q: %w", outputPath, err)
 	}
 	meta := rawAssetMeta{
@@ -107,12 +121,20 @@ func (s *RawUnityObjectService) ConvertJsonToRawUnityObject(inputPath string, ou
 		SerializedFileVersion: envelope.SerializedFileVersion,
 	}
 	if hasRawAssetMeta(meta) {
-		if err := writeRawAssetMeta(outputPath, meta); err != nil {
+		metaData, err := marshalRawAssetMeta(meta)
+		if err != nil {
+			return err
+		}
+		if err := budget.WriteFile(assetMetaPath(outputPath), metaData, 0644); err != nil {
 			return fmt.Errorf("write %q: %w", assetMetaPath(outputPath), err)
 		}
 	}
 	if envelope.TypeTree != nil {
-		if err := writeRawUnityTypeTreeEnvelope(outputPath, envelope.TypeTree); err != nil {
+		typeTreeData, err := marshalRawUnityTypeTreeEnvelope(envelope.TypeTree)
+		if err != nil {
+			return err
+		}
+		if err := budget.WriteFile(typeTreeSidecarPath(outputPath), typeTreeData, 0644); err != nil {
 			return fmt.Errorf("write %q: %w", typeTreeSidecarPath(outputPath), err)
 		}
 	}

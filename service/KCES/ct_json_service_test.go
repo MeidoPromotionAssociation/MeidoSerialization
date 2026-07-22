@@ -174,13 +174,13 @@ func TestCtService_FixedSamplesJSONRoundTrip(t *testing.T) {
 			tmpDir := t.TempDir()
 			jsonPath := filepath.Join(tmpDir, sample.file+".json")
 			outPath := filepath.Join(tmpDir, sample.file)
-			if err := service.ConvertCtToJson(inputPath, jsonPath); err != nil {
+			if err := service.ConvertCtToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 				t.Fatalf("ConvertCtToJson: %v", err)
 			}
 			if !IsKCESCtJSONFile(jsonPath) {
 				t.Fatalf("converted JSON was not detected as KCES .ct JSON")
 			}
-			if err := service.ConvertJsonToCt(jsonPath, outPath); err != nil {
+			if err := service.ConvertJsonToCt(TestConversionContext, jsonPath, outPath, TestConversionMaxOutput); err != nil {
 				t.Fatalf("ConvertJsonToCt: %v", err)
 			}
 			assertCtSemanticallyEqual(t, inputPath, outPath)

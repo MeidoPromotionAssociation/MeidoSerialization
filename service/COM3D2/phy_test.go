@@ -36,13 +36,13 @@ func TestPhyService(t *testing.T) {
 			}
 
 			// 3. Test ConvertPhyToJson
-			err = s.ConvertPhyToJson(inputPath, jsonPath)
+			err = s.ConvertPhyToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput)
 			if err != nil {
 				t.Fatalf("ConvertPhyToJson failed: %v", err)
 			}
 
 			// 4. Test ConvertJsonToPhy
-			err = s.ConvertJsonToPhy(jsonPath, backPath)
+			err = s.ConvertJsonToPhy(TestConversionContext, jsonPath, backPath, TestConversionMaxOutput)
 			if err != nil {
 				t.Fatalf("ConvertJsonToPhy failed: %v", err)
 			}

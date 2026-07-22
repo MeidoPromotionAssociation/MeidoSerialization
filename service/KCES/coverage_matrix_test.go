@@ -34,7 +34,7 @@ func assertGeneratedCtJSONRouteSamples(t *testing.T, pattern string) {
 			path := path
 			t.Run(filepath.Base(path)+".json", func(t *testing.T) {
 				jsonPath := filepath.Join(t.TempDir(), filepath.Base(path)+".json")
-				if err := service.ConvertCtToJson(path, jsonPath); err != nil {
+				if err := service.ConvertCtToJson(TestConversionContext, path, jsonPath, TestConversionMaxOutput); err != nil {
 					t.Fatalf("ConvertCtToJson: %v", err)
 				}
 				if !IsKCESCtJSONFile(jsonPath) {

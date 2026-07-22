@@ -36,13 +36,13 @@ func TestAnmService(t *testing.T) {
 			}
 
 			// 3. Test ConvertAnmToJson
-			err = s.ConvertAnmToJson(inputPath, jsonPath)
+			err = s.ConvertAnmToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput)
 			if err != nil {
 				t.Fatalf("ConvertAnmToJson failed: %v", err)
 			}
 
 			// 4. Test ConvertJsonToAnm
-			err = s.ConvertJsonToAnm(jsonPath, backPath)
+			err = s.ConvertJsonToAnm(TestConversionContext, jsonPath, backPath, TestConversionMaxOutput)
 			if err != nil {
 				t.Fatalf("ConvertJsonToAnm failed: %v", err)
 			}

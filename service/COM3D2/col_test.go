@@ -36,13 +36,13 @@ func TestColService(t *testing.T) {
 			}
 
 			// 3. Test ConvertColToJson
-			err = s.ConvertColToJson(inputPath, jsonPath)
+			err = s.ConvertColToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput)
 			if err != nil {
 				t.Fatalf("ConvertColToJson failed: %v", err)
 			}
 
 			// 4. Test ConvertJsonToCol
-			err = s.ConvertJsonToCol(jsonPath, backPath)
+			err = s.ConvertJsonToCol(TestConversionContext, jsonPath, backPath, TestConversionMaxOutput)
 			if err != nil {
 				t.Fatalf("ConvertJsonToCol failed: %v", err)
 			}

@@ -1,6 +1,7 @@
 package KCES
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -36,17 +37,17 @@ func IsKCESDataJSONFile(path string) bool {
 // 这样避免重复实现二进制格式逻辑 / This avoids duplicating binary format logic
 type DataService struct{}
 
-func (s *DataService) ConvertDataToJson(inputPath string, outputPath string) error {
+func (s *DataService) ConvertDataToJson(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
 	switch strings.ToLower(filepath.Ext(inputPath)) {
 	case ".psk":
 		service := &COM3D2Service.PskService{}
-		return service.ConvertPskToJson(inputPath, outputPath)
+		return service.ConvertPskToJson(ctx, inputPath, outputPath, maxOutputBytes)
 	default:
 		return fmt.Errorf("unsupported KCES shared data file type: %s", filepath.Ext(inputPath))
 	}
 }
 
-func (s *DataService) ConvertJsonToData(inputPath string, outputPath string) error {
+func (s *DataService) ConvertJsonToData(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
 	ext := strings.ToLower(filepath.Ext(strings.TrimSuffix(inputPath, filepath.Ext(inputPath))))
 	if ext == "" || ext == ".json" {
 		ext = strings.ToLower(filepath.Ext(outputPath))
@@ -54,7 +55,7 @@ func (s *DataService) ConvertJsonToData(inputPath string, outputPath string) err
 	switch ext {
 	case ".psk":
 		service := &COM3D2Service.PskService{}
-		return service.ConvertJsonToPsk(inputPath, outputPath)
+		return service.ConvertJsonToPsk(ctx, inputPath, outputPath, maxOutputBytes)
 	default:
 		return fmt.Errorf("unsupported KCES shared data JSON type: %s", ext)
 	}

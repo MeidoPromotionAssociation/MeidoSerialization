@@ -2,6 +2,7 @@ package COM3D2
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -69,7 +70,10 @@ func (m *PhyService) WritePhyFile(path string, phyData *COM3D2.Phy) error {
 }
 
 // ConvertPhyToJson 接收输入文件路径和输出文件路径，将输入文件转换为 .json 文件
-func (m *PhyService) ConvertPhyToJson(inputPath string, outputPath string) error {
+func (m *PhyService) ConvertPhyToJson(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	if err := checkConversionContext(ctx); err != nil {
+		return err
+	}
 	if strings.HasSuffix(outputPath, ".phy") {
 		outputPath = strings.TrimSuffix(outputPath, ".phy") + ".phy.json"
 	}
@@ -79,48 +83,27 @@ func (m *PhyService) ConvertPhyToJson(inputPath string, outputPath string) error
 		return fmt.Errorf("failed to read phy file: %w", err)
 	}
 
-	jsonData, err := json.Marshal(phyData)
-	if err != nil {
-		return fmt.Errorf("failed to marshal phy data: %w", err)
+	if err := checkConversionContext(ctx); err != nil {
+		return err
 	}
-
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("unable to create phy.json file: %w", err)
+	if err := writeConversionJSON(ctx, outputPath, phyData, maxOutputBytes); err != nil {
+		return conversionOutputError("phy JSON", err)
 	}
-	defer func() {
-		if closeErr := f.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("error closing output file: %w", closeErr)
-		}
-	}()
-
-	bw := bufio.NewWriter(f)
-	if _, err := bw.Write(jsonData); err != nil {
-		return fmt.Errorf("failed to write to phy.json file: %w", err)
-	}
-	if err := bw.Flush(); err != nil {
-		return fmt.Errorf("an error occurred while flush bufio: %w", err)
-	}
-
 	return nil
 }
 
 // ConvertJsonToPhy 接收输入文件路径和输出文件路径，将输入文件转换为 .phy 文件
-func (m *PhyService) ConvertJsonToPhy(inputPath string, outputPath string) error {
+func (m *PhyService) ConvertJsonToPhy(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
 	if strings.HasSuffix(outputPath, ".json") {
 		outputPath = strings.TrimSuffix(outputPath, ".json") + ".phy"
 	}
 
-	f, err := os.Open(inputPath)
-	if err != nil {
-		return fmt.Errorf("cannot open phy.json file: %w", err)
-	}
-	defer f.Close()
-
 	var phyData *COM3D2.Phy
-	if err := json.NewDecoder(f).Decode(&phyData); err != nil {
+	if err := readConversionJSON(ctx, inputPath, &phyData); err != nil {
 		return fmt.Errorf("parsing the phy.json file failed: %w", err)
 	}
-
-	return m.WritePhyFile(outputPath, phyData)
+	if err := writeConversionBinary(ctx, outputPath, maxOutputBytes, phyData.Dump); err != nil {
+		return conversionOutputError("phy", err)
+	}
+	return nil
 }

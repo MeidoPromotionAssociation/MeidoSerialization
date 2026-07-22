@@ -1,0 +1,527 @@
+{
+  "$defs": {
+    "COM3D2_AnimationCurve": {
+      "additionalProperties": false,
+      "properties": {
+        "Keyframes": {
+          "items": {
+            "$ref": "#/$defs/COM3D2_Keyframe"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "Keyframes"
+      ],
+      "type": "object"
+    },
+    "COM3D2_BoneValue": {
+      "additionalProperties": false,
+      "properties": {
+        "BoneName": {
+          "type": "string"
+        },
+        "Value": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "BoneName",
+        "Value"
+      ],
+      "type": "object"
+    },
+    "COM3D2_Keyframe": {
+      "additionalProperties": false,
+      "properties": {
+        "InTangent": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "OutTangent": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Time": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "Value": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "Time",
+        "Value",
+        "InTangent",
+        "OutTangent"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:meido-serialization:editing-json:v1:com3d2.phy",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Lossless editing JSON contract for com3d2.phy.",
+  "properties": {
+    "ColliderFileName": {
+      "description": "The lower-case base name of the .col resource associated with this physics file.",
+      "title": "Collider resource name",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep it aligned with the deployed .col file name.",
+      "x-meido-edit-role": "resource_reference",
+      "x-meido-game-usage": "DynamicBone records it while loading the collider list and uses it as the current collider reference.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 230,
+          "line_start": 9,
+          "observation": "The physics writer and reader serialize root, partial-bone modes, base values, AnimationCurves, end behavior, gravity, force, collider references, exclusions, and freeze axis.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "symbol": "DynamicBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    },
+    "CollidersCount": {
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "Damping": {
+      "description": "The global damping scalar before optional curve or partial-bone overrides.",
+      "maximum": 3.4028234663852886e+38,
+      "minimum": -3.4028234663852886e+38,
+      "title": "Base damping",
+      "type": "number",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep values in the source game's expected range and edit the matching EnablePartial and curve fields together.",
+      "x-meido-edit-role": "runtime_numeric",
+      "x-meido-game-usage": "The solver uses it to reduce particle motion; the distribution curve multiplies or varies it along the chain.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 230,
+          "line_start": 9,
+          "observation": "The physics writer and reader serialize root, partial-bone modes, base values, AnimationCurves, end behavior, gravity, force, collider references, exclusions, and freeze axis.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "symbol": "DynamicBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    },
+    "DampingDistrib": {
+      "$ref": "#/$defs/COM3D2_AnimationCurve"
+    },
+    "Elasticity": {
+      "description": "The global elasticity scalar for restoring particle positions.",
+      "maximum": 3.4028234663852886e+38,
+      "minimum": -3.4028234663852886e+38,
+      "title": "Base elasticity",
+      "type": "number",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Adjust with its distribution and partial mode as one group.",
+      "x-meido-edit-role": "runtime_numeric",
+      "x-meido-game-usage": "DynamicBone applies it during particle integration, optionally using a distribution curve.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 230,
+          "line_start": 9,
+          "observation": "The physics writer and reader serialize root, partial-bone modes, base values, AnimationCurves, end behavior, gravity, force, collider references, exclusions, and freeze axis.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "symbol": "DynamicBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    },
+    "ElasticityDistrib": {
+      "$ref": "#/$defs/COM3D2_AnimationCurve"
+    },
+    "EnablePartialDamping": {
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "EnablePartialElasticity": {
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "EnablePartialInert": {
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "EnablePartialRadius": {
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "EnablePartialStiffness": {
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "EndLength": {
+      "description": "The length of a generated terminal particle when the chain has no child.",
+      "maximum": 3.4028234663852886e+38,
+      "minimum": -3.4028234663852886e+38,
+      "title": "Virtual end length",
+      "type": "number",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Treat EndLength and EndOffset as an either/or terminal strategy.",
+      "x-meido-edit-role": "topology_parameter",
+      "x-meido-game-usage": "A positive value creates a virtual end in the bone direction; EndOffset is the alternate explicit offset.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 230,
+          "line_start": 9,
+          "observation": "The physics writer and reader serialize root, partial-bone modes, base values, AnimationCurves, end behavior, gravity, force, collider references, exclusions, and freeze axis.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "symbol": "DynamicBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    },
+    "EndOffset": {
+      "items": {
+        "maximum": 3.4028234663852886e+38,
+        "minimum": -3.4028234663852886e+38,
+        "type": "number"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "type": "array"
+    },
+    "ExclusionsCount": {
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "type": "integer"
+    },
+    "Force": {
+      "description": "A constant force added to particle integration.",
+      "items": {
+        "maximum": 3.4028234663852886e+38,
+        "minimum": -3.4028234663852886e+38,
+        "type": "number"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "title": "External force vector",
+      "type": "array",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep the magnitude modest; large values can cause tunneling or explosive motion.",
+      "x-meido-edit-role": "runtime_vector",
+      "x-meido-game-usage": "Unlike gravity, it is not used to preserve an initial gravity direction.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 230,
+          "line_start": 9,
+          "observation": "The physics writer and reader serialize root, partial-bone modes, base values, AnimationCurves, end behavior, gravity, force, collider references, exclusions, and freeze axis.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "symbol": "DynamicBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    },
+    "FreezeAxis": {
+      "description": "The axis constraint enum used when projecting particle motion.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "title": "Freeze axis",
+      "type": "integer",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Use only 0..3 and remember that the axes are local to each parent transform.",
+      "x-meido-edit-role": "runtime_enum",
+      "x-meido-game-usage": "The solver supports None=0, X=1, Y=2, and Z=3 in the parent-bone local frame.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 230,
+          "line_start": 9,
+          "observation": "The physics writer and reader serialize root, partial-bone modes, base values, AnimationCurves, end behavior, gravity, force, collider references, exclusions, and freeze axis.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "symbol": "DynamicBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    },
+    "Gravity": {
+      "description": "The gravity vector applied to the chain.",
+      "items": {
+        "maximum": 3.4028234663852886e+38,
+        "minimum": -3.4028234663852886e+38,
+        "type": "number"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "title": "Gravity vector",
+      "type": "array",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Edit all three components together and verify stability at the target scale.",
+      "x-meido-edit-role": "runtime_vector",
+      "x-meido-game-usage": "DynamicBone adds it to particle integration after transforming it into the simulation context.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 230,
+          "line_start": 9,
+          "observation": "The physics writer and reader serialize root, partial-bone modes, base values, AnimationCurves, end behavior, gravity, force, collider references, exclusions, and freeze axis.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "symbol": "DynamicBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    },
+    "Inert": {
+      "description": "The global inertia scalar controlling how much particles follow parent motion.",
+      "maximum": 3.4028234663852886e+38,
+      "minimum": -3.4028234663852886e+38,
+      "title": "Base inertia",
+      "type": "number",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep it coherent with EnablePartialInert and PartialInert.",
+      "x-meido-edit-role": "runtime_numeric",
+      "x-meido-game-usage": "DynamicBone applies it during integration and can replace it with partial per-bone values.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 230,
+          "line_start": 9,
+          "observation": "The physics writer and reader serialize root, partial-bone modes, base values, AnimationCurves, end behavior, gravity, force, collider references, exclusions, and freeze axis.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "symbol": "DynamicBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    },
+    "InertDistrib": {
+      "$ref": "#/$defs/COM3D2_AnimationCurve"
+    },
+    "PartialDamping": {
+      "items": {
+        "$ref": "#/$defs/COM3D2_BoneValue"
+      },
+      "type": [
+        "null",
+        "array"
+      ]
+    },
+    "PartialElasticity": {
+      "items": {
+        "$ref": "#/$defs/COM3D2_BoneValue"
+      },
+      "type": [
+        "null",
+        "array"
+      ]
+    },
+    "PartialInert": {
+      "items": {
+        "$ref": "#/$defs/COM3D2_BoneValue"
+      },
+      "type": [
+        "null",
+        "array"
+      ]
+    },
+    "PartialRadius": {
+      "items": {
+        "$ref": "#/$defs/COM3D2_BoneValue"
+      },
+      "type": [
+        "null",
+        "array"
+      ]
+    },
+    "PartialStiffness": {
+      "items": {
+        "$ref": "#/$defs/COM3D2_BoneValue"
+      },
+      "type": [
+        "null",
+        "array"
+      ]
+    },
+    "Radius": {
+      "description": "The base collision radius used by the particle solver.",
+      "maximum": 3.4028234663852886e+38,
+      "minimum": -3.4028234663852886e+38,
+      "title": "Particle radius",
+      "type": "number",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Use non-negative values and validate against the target model scale.",
+      "x-meido-edit-role": "runtime_numeric",
+      "x-meido-game-usage": "It expands the effective particle volume before collider correction.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 230,
+          "line_start": 9,
+          "observation": "The physics writer and reader serialize root, partial-bone modes, base values, AnimationCurves, end behavior, gravity, force, collider references, exclusions, and freeze axis.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "symbol": "DynamicBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    },
+    "RadiusDistrib": {
+      "$ref": "#/$defs/COM3D2_AnimationCurve"
+    },
+    "RootName": {
+      "description": "The transform name at which the dynamic particle chain starts.",
+      "title": "Simulation root bone",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Use a bone that exists on the target body and keep its case as stored by the game.",
+      "x-meido-edit-role": "resource_identity",
+      "x-meido-game-usage": "DynamicBone resolves this root before creating particles and applying the parameters.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 230,
+          "line_start": 9,
+          "observation": "The physics writer and reader serialize root, partial-bone modes, base values, AnimationCurves, end behavior, gravity, force, collider references, exclusions, and freeze axis.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "symbol": "DynamicBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    },
+    "Signature": {
+      "description": "The CM3D21_PHY header string.",
+      "title": "Physics signature",
+      "type": "string",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep CM3D21_PHY.",
+      "x-meido-edit-role": "format_marker",
+      "x-meido-game-usage": "DynamicBone validates it before applying the settings.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 230,
+          "line_start": 9,
+          "observation": "The physics writer and reader serialize root, partial-bone modes, base values, AnimationCurves, end behavior, gravity, force, collider references, exclusions, and freeze axis.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "symbol": "DynamicBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    },
+    "Stiffness": {
+      "description": "The global stiffness scalar controlling resistance to bending.",
+      "maximum": 3.4028234663852886e+38,
+      "minimum": -3.4028234663852886e+38,
+      "title": "Base stiffness",
+      "type": "number",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Change incrementally and test at multiple animation speeds.",
+      "x-meido-edit-role": "runtime_numeric",
+      "x-meido-game-usage": "The solver uses it to retain the initial bone-chain shape.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 230,
+          "line_start": 9,
+          "observation": "The physics writer and reader serialize root, partial-bone modes, base values, AnimationCurves, end behavior, gravity, force, collider references, exclusions, and freeze axis.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "symbol": "DynamicBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    },
+    "StiffnessDistrib": {
+      "$ref": "#/$defs/COM3D2_AnimationCurve"
+    },
+    "Version": {
+      "description": "The build-specific integer passed to curve and collider readers.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "title": "Physics version",
+      "type": "integer",
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Preserve an existing value; use the target game's value for new files.",
+      "x-meido-edit-role": "version_marker",
+      "x-meido-game-usage": "The game writes 24800 in the reviewed build; older files may contain another build number.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "COM3D2 2.48.0",
+          "kind": "game_source",
+          "line_end": 230,
+          "line_start": 9,
+          "observation": "The physics writer and reader serialize root, partial-bone modes, base values, AnimationCurves, end behavior, gravity, force, collider references, exclusions, and freeze axis.",
+          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "symbol": "DynamicBone.SerializeWrite/SerializeRead"
+        }
+      ]
+    }
+  },
+  "required": [
+    "Signature",
+    "Version",
+    "RootName",
+    "EnablePartialDamping",
+    "PartialDamping",
+    "Damping",
+    "DampingDistrib",
+    "EnablePartialElasticity",
+    "PartialElasticity",
+    "Elasticity",
+    "ElasticityDistrib",
+    "EnablePartialStiffness",
+    "PartialStiffness",
+    "Stiffness",
+    "StiffnessDistrib",
+    "EnablePartialInert",
+    "PartialInert",
+    "Inert",
+    "InertDistrib",
+    "EnablePartialRadius",
+    "PartialRadius",
+    "Radius",
+    "RadiusDistrib",
+    "EndLength",
+    "EndOffset",
+    "Gravity",
+    "Force",
+    "ColliderFileName",
+    "CollidersCount",
+    "ExclusionsCount",
+    "FreezeAxis"
+  ],
+  "title": "com3d2.phy editing JSON",
+  "type": "object",
+  "x-meido-format-id": "com3d2.phy",
+  "x-meido-native-suffixes": [
+    ".phy"
+  ],
+  "x-meido-representation": "editing_json",
+  "x-meido-schema-version": "1.0.0"
+}

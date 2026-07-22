@@ -8,43 +8,37 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
 )
 
-// maid_collider.bytes 与 maid_collider_touch.bytes
-// KCES 系统资源中的女仆胶囊碰撞体列表，Unity 导入后对应同名 TextAsset
-// 载荷是无签名的 BinaryWriter 数据，依次保存 Int32 数量、骨骼路径与六个定长数值字段
+// maid_collider.bytes / maid_collider_touch.bytes
+// KCES 系统资源中的女仆胶囊碰撞体列表；Unity 导入后对应同名 TextAsset。
+// 载荷是无签名的 BinaryWriter 数据：Int32 数量，随后为骨骼路径与六个定长数值字段。
 //
-// KCES system-resource lists of maid capsule colliders imported by Unity as same-named TextAssets
-// The payload is signatureless BinaryWriter data storing an Int32 count followed by a bone path and six fixed-width numeric fields per entry
+// maid_collider.bytes / maid_collider_touch.bytes
+// KCES system-resource lists of maid capsule colliders, imported by Unity as same-named TextAssets.
+// The payload is signatureless BinaryWriter data: an Int32 count followed by a bone path and six fixed-width numeric fields per entry.
 
 const MaidColliderFormat = "kces-maid-capsule-colliders"
 
 const (
-	// maidColliderFixedBytes 是中心 XYZ、方向、高度和半径的固定字节数
-	// maidColliderFixedBytes is the fixed byte count for center XYZ, direction, height, and radius
-	maidColliderFixedBytes = 6 * 4
+	maidColliderFixedBytes = 6 * 4 // center xyz, direction, height, radius
 )
 
-// MaidColliderFile 表示 MaidColliderCollect 读取的自定义 BinaryReader 载荷
-// 在 System AssetBundle 中，这些 TextAsset 名为 maid_collider 和 maid_collider_touch，源资源名另带 .bytes
-// MaidColliderFile represents the custom BinaryReader payload consumed by MaidColliderCollect
-// In the System AssetBundle these TextAssets are named maid_collider and maid_collider_touch, while source resource names additionally use .bytes
+// MaidColliderFile represents the custom BinaryReader payload consumed by
+// MaidColliderCollect. In the System AssetBundle these TextAssets are named
+// maid_collider and maid_collider_touch (the source resource names add .bytes).
 type MaidColliderFile struct {
-	Format       string                `json:"format"`                 // JSON 表示格式标识 / JSON representation format identifier
-	Colliders    []MaidCapsuleCollider `json:"colliders"`              // 胶囊碰撞体列表 / Capsule-collider list
-	TrailingData []byte                `json:"trailingData,omitempty"` // 游戏读取声明条目后忽略的尾部字节 / Trailing bytes ignored by the game after reading the declared entries
+	Format       string                `json:"format"`
+	Colliders    []MaidCapsuleCollider `json:"colliders"`
+	TrailingData []byte                `json:"trailingData,omitempty"`
 }
 
-// MaidCapsuleCollider 表示一个绑定到骨骼路径的 Unity 胶囊碰撞体
-// MaidCapsuleCollider represents one Unity capsule collider bound to a bone path
 type MaidCapsuleCollider struct {
-	BonePath  string  `json:"bonePath"`  // 相对于角色根节点的骨骼路径 / Bone path relative to the character root
-	Center    Vector3 `json:"center"`    // 胶囊碰撞体局部中心 / Local center of the capsule collider
-	Direction int32   `json:"direction"` // Unity CapsuleCollider.direction 主轴枚举 / Unity CapsuleCollider.direction primary-axis enum
-	Height    float32 `json:"height"`    // 胶囊高度 / Capsule height
-	Radius    float32 `json:"radius"`    // 胶囊半径 / Capsule radius
+	BonePath  string  `json:"bonePath"`
+	Center    Vector3 `json:"center"`
+	Direction int32   `json:"direction"`
+	Height    float32 `json:"height"`
+	Radius    float32 `json:"radius"`
 }
 
-// DecodeMaidCollider 解码无签名的女仆胶囊碰撞体列表并保留尾部字节
-// DecodeMaidCollider decodes a signatureless maid capsule-collider list and preserves trailing bytes
 func DecodeMaidCollider(data []byte) (*MaidColliderFile, error) {
 	if len(data) < 4 {
 		return nil, fmt.Errorf("maid collider payload is too short: %d", len(data))
@@ -58,8 +52,9 @@ func DecodeMaidCollider(data []byte) (*MaidColliderFile, error) {
 	if count < 0 {
 		return nil, fmt.Errorf("negative maid collider count %d", count)
 	}
-	// 每个条目至少需要一个 7 位字符串长度字节和六个定长值，因此在按不可信数量分配前先检查容量
-	// Every entry needs at least one 7-bit string-length byte plus six fixed-width values, so check capacity before allocating from the untrusted count
+	// Every entry needs at least one 7-bit string-length byte plus its six
+	// fixed-width values. Check before allocating from the attacker-controlled
+	// count.
 	if int64(count) > int64(r.Len())/(1+maidColliderFixedBytes) {
 		return nil, fmt.Errorf("maid collider count %d cannot fit in %d remaining bytes", count, r.Len())
 	}
@@ -103,8 +98,6 @@ func DecodeMaidCollider(data []byte) (*MaidColliderFile, error) {
 	return result, nil
 }
 
-// EncodeMaidCollider 编码无签名的女仆胶囊碰撞体列表及保留尾部字节
-// EncodeMaidCollider encodes a signatureless maid capsule-collider list and its preserved trailing bytes
 func EncodeMaidCollider(value *MaidColliderFile) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil maid collider payload")
