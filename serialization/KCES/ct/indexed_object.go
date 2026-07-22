@@ -11,22 +11,24 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
-// indexedObjectField describes one exported MessagePack slot. The codec
-// library already handles the actual value conversion; this small descriptor
-// only lets us retain the array width and raw slots that are newer than the Go
-// model.
+// indexedObjectField 描述一个导出的 MessagePack 槽位
+// 编解码库负责实际值转换，此描述符只用于保留数组宽度和新于 Go 模型的原始槽位
+// indexedObjectField describes one exported MessagePack slot
+// The codec library handles actual value conversion while this descriptor only retains array width and raw slots newer than the Go model
 type indexedObjectField struct {
-	index []int
-	name  string
+	index []int  // reflect.FieldByIndex 使用的嵌套字段路径 / Nested field path used by reflect.FieldByIndex
+	name  string // 用于错误信息的 JSON 或 Go 字段名称 / JSON or Go field name used in errors
 }
 
+// indexedObjectLayout 缓存一个 Go 结构体映射到 MessagePack-CSharp int-key 数组的反射布局
+// indexedObjectLayout caches the reflection layout mapping one Go struct to a MessagePack-CSharp int-key array
 type indexedObjectLayout struct {
-	typ           reflect.Type
-	metadataIndex int
-	metadataPtr   bool
-	metadataTyped bool
-	fields        []indexedObjectField
-	label         string
+	typ           reflect.Type         // 模型结构体类型 / Model struct type
+	metadataIndex int                  // 外层元数据字段的直接结构体索引 / Direct struct index of the outer metadata field
+	metadataPtr   bool                 // 元数据字段是否为指针 / Whether the metadata field is a pointer
+	metadataTyped bool                 // 元数据是否支持嵌套 null 标注 / Whether the metadata supports nested null annotations
+	fields        []indexedObjectField // 按线格式 Key 顺序展平的已知字段 / Known fields flattened in wire-key order
+	label         string               // 用于校验错误的类型标签 / Type label used in validation errors
 }
 
 var (
@@ -36,18 +38,19 @@ var (
 	typedIndexedObjectMetadataPtrType = reflect.PointerTo(typedIndexedObjectMetadataType)
 	codecRawType                      = reflect.TypeOf(codec.Raw{})
 	emptyInterfaceType                = reflect.TypeOf((*interface{})(nil)).Elem()
-	indexedObjectLayouts              sync.Map // map[reflect.Type]*indexedObjectLayout
+	// indexedObjectLayouts 按 reflect.Type 缓存已验证布局
+	// indexedObjectLayouts caches validated layouts by reflect.Type
+	indexedObjectLayouts sync.Map
 )
 
-// EncodeIndexedObjectSelf is the shared codec.Selfer implementation for
-// MessagePack-CSharp int-key contracts. Known fields are still encoded by
-// ugorji/codec. This adapter only restores a decoded short width and appends
-// already-validated future slots as codec.Raw values.
-//
-// Types using this helper must embed IndexedObjectMetadata with codec:"-" and
-// expose the normal codec:",toarray" marker. The surrounding encoder must have
-// MsgpackHandle.Raw enabled; EncodeIndexedMsgpack does that safely after this
-// helper has validated every raw future slot.
+// EncodeIndexedObjectSelf 是 MessagePack-CSharp int-key 契约共用的 codec.Selfer 编码实现
+// 已知字段仍由 ugorji/codec 编码，此适配器只恢复解码出的短宽度并以 codec.Raw 追加已校验未来槽位
+// 使用者必须嵌入带 codec:"-" 的 IndexedObjectMetadata 并公开 codec:",toarray" 标记
+// 外层编码器还必须启用 MsgpackHandle.Raw，EncodeIndexedMsgpack 会在本函数校验所有原始未来槽位后安全完成该设置
+// EncodeIndexedObjectSelf is the shared codec.Selfer encoder for MessagePack-CSharp int-key contracts
+// Known fields remain encoded by ugorji/codec while this adapter only restores a decoded short width and appends validated future slots as codec.Raw
+// Users must embed IndexedObjectMetadata with codec:"-" and expose the codec:",toarray" marker
+// The surrounding encoder must also enable MsgpackHandle.Raw, which EncodeIndexedMsgpack safely does after this function validates every raw future slot
 func EncodeIndexedObjectSelf(e *codec.Encoder, value interface{}) {
 	rv, layout, err := indexedObjectValue(value)
 	if err != nil {
@@ -87,11 +90,12 @@ func EncodeIndexedObjectSelf(e *codec.Encoder, value interface{}) {
 	e.MustEncode(values)
 }
 
-// DecodeIndexedObjectSelf is the decoding half of EncodeIndexedObjectSelf.
-// ugorji/codec splits the array into codec.Raw elements, so extension values,
-// duplicate map keys inside a future slot, and non-canonical number markers
-// remain byte-for-byte intact. Each known element is then decoded by the same
-// library into its declared Go field type.
+// DecodeIndexedObjectSelf 是 EncodeIndexedObjectSelf 对应的解码实现
+// ugorji/codec 将数组拆成 codec.Raw 项，因此未来槽位内的扩展值、重复映射键和非标准数值标记可逐字节保留
+// 每个已知项随后由同一编解码库解码到声明的 Go 字段类型
+// DecodeIndexedObjectSelf is the decoding counterpart of EncodeIndexedObjectSelf
+// ugorji/codec splits the array into codec.Raw entries so extension values, duplicate map keys inside future slots, and non-canonical numeric markers remain byte-for-byte intact
+// Each known entry is then decoded by the same codec library into its declared Go field type
 func DecodeIndexedObjectSelf(d *codec.Decoder, value interface{}) {
 	rv, layout, err := indexedObjectValue(value)
 	if err != nil {
@@ -101,9 +105,10 @@ func DecodeIndexedObjectSelf(d *codec.Decoder, value interface{}) {
 	var slots []codec.Raw
 	d.MustDecode(&slots)
 
-	// Decoding into a reused value must have the same result as decoding into a
-	// freshly allocated C# contract: omitted keys retain their wire-model zero
-	// value, not stale Go data and not constructor/migration defaults.
+	// 解码到复用值必须与解码到新分配 C# 契约结果一致
+	// 缺失 Key 保持线模型零值，而不是旧 Go 数据或构造及迁移默认值
+	// Decoding into a reused value must match decoding into a freshly allocated C# contract
+	// Omitted keys retain wire-model zero values rather than stale Go data or constructor and migration defaults
 	for _, field := range layout.fields {
 		fv := rv.FieldByIndex(field.index)
 		fv.Set(reflect.Zero(fv.Type()))
@@ -124,7 +129,8 @@ func DecodeIndexedObjectSelf(d *codec.Decoder, value interface{}) {
 		raw := []byte(slots[slot])
 		isNil := isRawMessagePackNil(raw)
 		if isNil {
-			// ugorji represents a nil captured in codec.Raw as an empty slice.
+			// ugorji 将 codec.Raw 捕获的 nil 表示为空切片
+			// ugorji represents nil captured in codec.Raw as an empty slice
 			raw = []byte{0xc0}
 		}
 		field := rv.FieldByIndex(layout.fields[slot].index)
@@ -143,11 +149,12 @@ func DecodeIndexedObjectSelf(d *codec.Decoder, value interface{}) {
 	setIndexedObjectMetadataField(metadataField, layout, metadata)
 }
 
-// decodeIndexedObjectKnownField keeps ugorji/codec responsible for ordinary
-// values, while matching MessagePack-CSharp's ReadSingle conversion for Go
-// float32 fields. ugorji deliberately rejects a finite float64 that overflows
-// float32; the CLR conversion used by the game instead produces +/-Infinity.
-// MessagePack-CSharp also accepts integer markers in ReadSingle.
+// decodeIndexedObjectKnownField 让 ugorji/codec 处理普通值，同时为 Go float32 字段匹配 MessagePack-CSharp ReadSingle 转换
+// ugorji 会拒绝溢出 float32 的有限 float64，而游戏使用的 CLR 转换会产生正负 Infinity
+// MessagePack-CSharp ReadSingle 也接受整数标记
+// decodeIndexedObjectKnownField leaves ordinary values to ugorji/codec while matching MessagePack-CSharp ReadSingle conversion for Go float32 fields
+// ugorji rejects finite float64 values that overflow float32 while the CLR conversion used by the game produces positive or negative Infinity
+// MessagePack-CSharp ReadSingle also accepts integer markers
 func decodeIndexedObjectKnownField(raw []byte, field reflect.Value) error {
 	if field.Kind() == reflect.Float32 {
 		value, err := decodeMessagePackSingle(raw)
@@ -180,6 +187,8 @@ func decodeIndexedObjectKnownField(raw []byte, field reflect.Value) error {
 	return DecodeMsgpack(raw, field.Addr().Interface())
 }
 
+// decodeMessagePackSingle 将 nil、浮点或任一整数 MessagePack 值按 ReadSingle 规则转换为 float32
+// decodeMessagePackSingle converts nil, floating-point, or any integer MessagePack value to float32 using ReadSingle rules
 func decodeMessagePackSingle(raw []byte) (float32, error) {
 	if isRawMessagePackNil(raw) {
 		return 0, nil
@@ -218,6 +227,8 @@ func decodeMessagePackSingle(raw []byte) (float32, error) {
 	}
 }
 
+// indexedObjectValue 验证输入为非 nil 结构体指针并返回值及缓存布局
+// indexedObjectValue verifies that input is a non-nil struct pointer and returns its value and cached layout
 func indexedObjectValue(value interface{}) (reflect.Value, *indexedObjectLayout, error) {
 	rv := reflect.ValueOf(value)
 	if !rv.IsValid() || rv.Kind() != reflect.Ptr || rv.IsNil() {
@@ -234,6 +245,8 @@ func indexedObjectValue(value interface{}) (reflect.Value, *indexedObjectLayout,
 	return rv, layout, nil
 }
 
+// indexedObjectLayoutFor 构建并缓存结构体的 toarray、元数据及展平字段布局
+// indexedObjectLayoutFor builds and caches the toarray marker, metadata, and flattened field layout of a struct
 func indexedObjectLayoutFor(typ reflect.Type) (*indexedObjectLayout, error) {
 	if cached, ok := indexedObjectLayouts.Load(typ); ok {
 		return cached.(*indexedObjectLayout), nil
@@ -265,7 +278,9 @@ func indexedObjectLayoutFor(typ reflect.Type) (*indexedObjectLayout, error) {
 			layout.metadataTyped = isTypedMetadata
 			continue
 		}
-		if field.PkgPath != "" { // unexported marker or implementation detail
+		// 未导出字段是标记或实现细节，不占用线格式槽位
+		// Unexported fields are markers or implementation details and do not occupy wire slots
+		if field.PkgPath != "" {
 			continue
 		}
 		if strings.Split(codecTag, ",")[0] == "-" {
@@ -295,11 +310,12 @@ func indexedObjectLayoutFor(typ reflect.Type) (*indexedObjectLayout, error) {
 	return actual.(*indexedObjectLayout), nil
 }
 
-// indexedObjectInlineFields flattens explicitly tagged embedded value structs.
-// MessagePack-CSharp int-key contracts frequently inherit a base class whose
-// keys precede the derived class keys. Go models represent that shape with an
-// embedded struct; keeping the flattening here lets those models use the same
-// width/null/future-slot machinery as ordinary indexed objects.
+// indexedObjectInlineFields 展平显式标注 inline 的嵌入值结构体
+// MessagePack-CSharp int-key 契约常继承 Key 位于派生类之前的基类，Go 模型以嵌入结构体表示该形状
+// 在此展平使这些模型可与普通 indexed object 共用宽度、null 和未来槽位机制
+// indexedObjectInlineFields flattens embedded value structs explicitly tagged inline
+// MessagePack-CSharp int-key contracts often inherit a base class whose keys precede derived keys, represented by embedded structs in Go
+// Flattening here lets those models share width, null, and future-slot machinery with ordinary indexed objects
 func indexedObjectInlineFields(typ reflect.Type, prefix []int, label string) ([]indexedObjectField, error) {
 	fields := make([]indexedObjectField, 0, typ.NumField())
 	for index := 0; index < typ.NumField(); index++ {
@@ -329,6 +345,8 @@ func indexedObjectInlineFields(typ reflect.Type, prefix []int, label string) ([]
 	return fields, nil
 }
 
+// indexedObjectJSONFieldName 返回用于错误信息的 JSON 字段名，缺失时回退到 Go 名称
+// indexedObjectJSONFieldName returns the JSON field name used in errors and falls back to the Go name when absent
 func indexedObjectJSONFieldName(field reflect.StructField) string {
 	name := field.Name
 	if jsonName := strings.Split(field.Tag.Get("json"), ",")[0]; jsonName != "" && jsonName != "-" {
@@ -337,6 +355,8 @@ func indexedObjectJSONFieldName(field reflect.StructField) string {
 	return name
 }
 
+// codecTagHasOption 判断 codec 标签在主名称之后是否包含指定选项
+// codecTagHasOption reports whether a codec tag contains the requested option after its primary name
 func codecTagHasOption(tag, option string) bool {
 	parts := strings.Split(tag, ",")
 	for _, part := range parts[1:] {
@@ -347,6 +367,8 @@ func codecTagHasOption(tag, option string) bool {
 	return false
 }
 
+// indexedObjectMetadataValue 将指针或值形式的新旧元数据统一转换为 TypedIndexedObjectMetadata
+// indexedObjectMetadataValue normalizes pointer or value forms of legacy and typed metadata into TypedIndexedObjectMetadata
 func indexedObjectMetadataValue(field reflect.Value, pointer bool) TypedIndexedObjectMetadata {
 	if field.Type() == typedIndexedObjectMetadataType {
 		return field.Interface().(TypedIndexedObjectMetadata)
@@ -369,6 +391,8 @@ func indexedObjectMetadataValue(field reflect.Value, pointer bool) TypedIndexedO
 	return TypedIndexedObjectMetadata{FieldCount: legacy.FieldCount, FutureSlots: legacy.FutureSlots}
 }
 
+// setIndexedObjectMetadataField 将统一元数据写回模型声明的新旧指针或值字段
+// setIndexedObjectMetadataField writes normalized metadata back to the legacy or typed pointer or value field declared by the model
 func setIndexedObjectMetadataField(field reflect.Value, layout *indexedObjectLayout, metadata TypedIndexedObjectMetadata) {
 	hasValue := typedIndexedObjectMetadataHasValue(metadata)
 	if layout.metadataTyped {
@@ -394,10 +418,14 @@ func setIndexedObjectMetadataField(field reflect.Value, layout *indexedObjectLay
 	field.Set(reflect.ValueOf(legacy))
 }
 
+// typedIndexedObjectMetadataHasValue 判断元数据是否包含任何需要保留的线格式差异
+// typedIndexedObjectMetadataHasValue reports whether metadata contains any wire difference that must be preserved
 func typedIndexedObjectMetadataHasValue(metadata TypedIndexedObjectMetadata) bool {
 	return metadata.FieldCount != nil || len(metadata.FutureSlots) != 0 || len(metadata.NilSlots) != 0 || len(metadata.NullElements) != 0 || len(metadata.NullMapValueKeys) != 0
 }
 
+// validateTypedIndexedObjectMetadata 验证每种 null 标注只引用存在的已知槽位且彼此不冲突
+// validateTypedIndexedObjectMetadata verifies that each null annotation references an existing known slot and does not conflict with another annotation
 func validateTypedIndexedObjectMetadata(metadata TypedIndexedObjectMetadata, count, known int, label string) error {
 	annotations := make(map[int]string)
 	claim := func(slot int, kind string) error {
@@ -431,6 +459,8 @@ func validateTypedIndexedObjectMetadata(metadata TypedIndexedObjectMetadata, cou
 	return nil
 }
 
+// indexedObjectKnownWireValue 根据槽位 null 标注构造已知字段应写出的线格式值
+// indexedObjectKnownWireValue constructs the wire value for a known field according to its slot null annotation
 func indexedObjectKnownWireValue(field reflect.Value, slot int, metadata TypedIndexedObjectMetadata, label, fieldName string) (interface{}, error) {
 	if intSliceContains(metadata.NilSlots, slot) {
 		if !field.IsZero() {
@@ -447,6 +477,8 @@ func indexedObjectKnownWireValue(field reflect.Value, slot int, metadata TypedIn
 	return field.Interface(), nil
 }
 
+// indexedObjectNullElementWireValue 将值切片或数组中标注的零值项目恢复为 MessagePack nil
+// indexedObjectNullElementWireValue restores annotated zero-valued entries of a value slice or array as MessagePack nil
 func indexedObjectNullElementWireValue(field reflect.Value, flags []bool, label string, slot int, fieldName string) (interface{}, error) {
 	if field.Kind() != reflect.Slice && field.Kind() != reflect.Array {
 		return nil, fmt.Errorf("%s nullElements slot %d (%s) requires a slice or array, got %s", label, slot, fieldName, field.Type())
@@ -478,6 +510,8 @@ func indexedObjectNullElementWireValue(field reflect.Value, flags []bool, label 
 	return values, nil
 }
 
+// indexedObjectNullMapWireValue 将值映射中由完整原始 Key 标注的零值恢复为 MessagePack nil
+// indexedObjectNullMapWireValue restores zero values in a value map as MessagePack nil using complete raw key annotations
 func indexedObjectNullMapWireValue(field reflect.Value, rawKeys [][]byte, label string, slot int, fieldName string) (interface{}, error) {
 	if field.Kind() != reflect.Map {
 		return nil, fmt.Errorf("%s nullMapValueKeys slot %d (%s) requires a map, got %s", label, slot, fieldName, field.Type())
@@ -537,6 +571,8 @@ func indexedObjectNullMapWireValue(field reflect.Value, rawKeys [][]byte, label 
 	return wireMap.Interface(), nil
 }
 
+// captureIndexedObjectNestedNulls 从已知集合槽位的原始值中捕获 Go 值类型无法表达的嵌套 nil
+// captureIndexedObjectNestedNulls captures nested nil values from a known collection slot when its Go value type cannot express them
 func captureIndexedObjectNestedNulls(metadata *TypedIndexedObjectMetadata, slot int, raw []byte, fieldType reflect.Type, label, fieldName string) error {
 	switch fieldType.Kind() {
 	case reflect.Slice, reflect.Array:
@@ -576,6 +612,8 @@ func captureIndexedObjectNestedNulls(metadata *TypedIndexedObjectMetadata, slot 
 	return nil
 }
 
+// decodeNullMapValueKeys 找出值映射中值为 nil 的 Key 并以确定顺序返回各 Key 的完整 MessagePack 字节
+// decodeNullMapValueKeys finds keys whose values are nil in a value map and returns complete MessagePack bytes for each key in deterministic order
 func decodeNullMapValueKeys(raw []byte, mapType reflect.Type, label string, slot int, fieldName string) ([][]byte, error) {
 	count, err := messagePackMapLength(raw)
 	if err != nil {
@@ -606,6 +644,8 @@ func decodeNullMapValueKeys(raw []byte, mapType reflect.Type, label string, slot
 	return keys, nil
 }
 
+// typeCanRepresentNil 判断 Go 类型自身是否能表示 nil
+// typeCanRepresentNil reports whether a Go type can represent nil directly
 func typeCanRepresentNil(typ reflect.Type) bool {
 	switch typ.Kind() {
 	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
@@ -615,10 +655,14 @@ func typeCanRepresentNil(typ reflect.Type) bool {
 	}
 }
 
+// isRawMessagePackNil 判断 codec.Raw 的空切片或单字节 0xc0 是否表示 MessagePack nil
+// isRawMessagePackNil reports whether an empty codec.Raw slice or single byte 0xc0 represents MessagePack nil
 func isRawMessagePackNil(raw []byte) bool {
 	return len(raw) == 0 || (len(raw) == 1 && raw[0] == 0xc0)
 }
 
+// intSliceContains 判断整数切片是否包含目标槽位索引
+// intSliceContains reports whether an integer slice contains the target slot index
 func intSliceContains(values []int, target int) bool {
 	for _, value := range values {
 		if value == target {
@@ -628,6 +672,8 @@ func intSliceContains(values []int, target int) bool {
 	return false
 }
 
+// hasTrueFlag 判断布尔标志切片中是否至少有一项为 true
+// hasTrueFlag reports whether a Boolean flag slice contains at least one true entry
 func hasTrueFlag(flags []bool) bool {
 	for _, flag := range flags {
 		if flag {
@@ -637,6 +683,8 @@ func hasTrueFlag(flags []bool) bool {
 	return false
 }
 
+// trimFalseFlags 删除布尔切片尾部无意义的 false，并在全 false 时返回 nil
+// trimFalseFlags removes insignificant trailing false values from a Boolean slice and returns nil when all entries are false
 func trimFalseFlags(flags []bool) []bool {
 	last := len(flags)
 	for last > 0 && !flags[last-1] {

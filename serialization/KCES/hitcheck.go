@@ -9,23 +9,24 @@ import (
 )
 
 // .hitcheck (HitCheck)
-// KCES/COM3D2 身体与头发使用的球形碰撞检测列表。文件以 BinaryWriter 字符串签名和 Int32 条目数开头，
-// 随后逐项保存响应类型、半径、对象与父骨骼名称、局部位置和用途标记；该格式没有版本字段。
-//
+// KCES/COM3D2 身体与头发使用的球形碰撞检测列表，文件以 BinaryWriter 字符串签名和 Int32 条目数开头
+// 随后逐项保存响应类型、半径、对象与父骨骼名称、局部位置和用途标记，该格式没有版本字段
 // .hitcheck (HitCheck)
-// Spherical collision-check list used by KCES/COM3D2 bodies and hair. A BinaryWriter string signature and Int32 entry count
-// are followed by response type, radius, object and parent-bone names, local position, and usage flags; the format has no version field.
+// Spherical collision-check list used by KCES/COM3D2 bodies and hair, beginning with a BinaryWriter string signature and Int32 entry count
+// Each entry then stores response type, radius, object and parent-bone names, local position, and usage flags, and the format has no version field
 
 const HitCheckSignature = "HitCheck"
 
-// HitCheck 表示 KCES hitcheck 二进制文件 / HitCheck represents a KCES hitcheck binary file
+// HitCheck 表示 KCES hitcheck 二进制文件
+// HitCheck represents a KCES hitcheck binary file
 type HitCheck struct {
 	Signature    string          `json:"signature"`              // 文件签名，通常为 HitCheck / File signature, usually HitCheck
 	Entries      []HitCheckEntry `json:"entries"`                // hitcheck 条目列表 / Hitcheck entry list
-	TrailingData []byte          `json:"trailingData,omitempty"` // Bytes ignored by the game after count entries / 游戏读取 count 项后忽略的字节
+	TrailingData []byte          `json:"trailingData,omitempty"` // 游戏读取 count 项后忽略的尾部字节 / Trailing bytes ignored by the game after reading count entries
 }
 
-// HitCheckEntry 表示一个 hitcheck 球形检测条目 / HitCheckEntry represents one spherical hitcheck entry
+// HitCheckEntry 表示一个 hitcheck 球形检测条目
+// HitCheckEntry represents one spherical hitcheck entry
 type HitCheckEntry struct {
 	Type      int32   `json:"type"`      // 碰撞响应类型：0=通常球，1=头部等特殊球 / Collision response type: 0=normal sphere, 1=head/special sphere
 	Radius    float32 `json:"radius"`    // 半径，对应游戏 THitSphere.len / Radius, matching game THitSphere.len
@@ -37,6 +38,8 @@ type HitCheckEntry struct {
 	RL        int32   `json:"rl"`        // 左右标记，对应游戏 THitSphere.RL / Left/right marker, matching game THitSphere.RL
 }
 
+// DecodeHitCheck 解码 hitcheck 球形检测列表并保留游戏忽略的尾部数据
+// DecodeHitCheck decodes a hitcheck sphere list and preserves trailing data ignored by the game
 func DecodeHitCheck(data []byte) (*HitCheck, error) {
 	reader := bytes.NewReader(data)
 	br := stream.NewBinaryReader(reader)
@@ -56,8 +59,8 @@ func DecodeHitCheck(data []byte) (*HitCheck, error) {
 	if count < 0 {
 		return nil, fmt.Errorf("negative hitcheck entry count %d", count)
 	}
-	// Even with two empty strings, one entry needs 34 bytes. Bound the
-	// attacker-controlled count before allocating the output slice.
+	// 即使两个字符串均为空，一个条目也至少需要 34 字节，因此在分配输出切片前限制不可信的数量
+	// Even with two empty strings, one entry needs at least 34 bytes, so bound the untrusted count before allocating the output slice
 	const minimumHitCheckEntrySize = 34
 	if int64(count) > int64(reader.Len()/minimumHitCheckEntrySize) {
 		return nil, fmt.Errorf("hitcheck entry count %d exceeds remaining data capacity %d", count, reader.Len()/minimumHitCheckEntrySize)
@@ -85,6 +88,8 @@ func DecodeHitCheck(data []byte) (*HitCheck, error) {
 	return out, nil
 }
 
+// EncodeHitCheck 编码 hitcheck 球形检测列表及其保留的尾部数据
+// EncodeHitCheck encodes a hitcheck sphere list and its preserved trailing data
 func EncodeHitCheck(value *HitCheck) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil hitcheck")
@@ -122,12 +127,14 @@ func EncodeHitCheck(value *HitCheck) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// NewHitCheck explicitly creates the current recognized file header. Existing
-// decoded values are never defaulted or upgraded during encoding.
+// NewHitCheck 显式创建当前识别的文件头，编码已有解码值时不会补默认值或升级
+// NewHitCheck explicitly creates the current recognized file header, while existing decoded values are never defaulted or upgraded during encoding
 func NewHitCheck() *HitCheck {
 	return &HitCheck{Signature: HitCheckSignature}
 }
 
+// readHitCheckEntry 读取指定索引的球形检测条目
+// readHitCheckEntry reads the spherical hitcheck entry at the specified index
 func readHitCheckEntry(br *stream.BinaryReader, index int) (HitCheckEntry, error) {
 	typ, err := br.ReadInt32()
 	if err != nil {
@@ -174,6 +181,8 @@ func readHitCheckEntry(br *stream.BinaryReader, index int) (HitCheckEntry, error
 	}, nil
 }
 
+// writeHitCheckEntry 写入指定索引的球形检测条目
+// writeHitCheckEntry writes the spherical hitcheck entry at the specified index
 func writeHitCheckEntry(bw *stream.BinaryWriter, entry *HitCheckEntry, index int) error {
 	if err := bw.WriteInt32(entry.Type); err != nil {
 		return fmt.Errorf("write hitcheck[%d].type: %w", index, err)

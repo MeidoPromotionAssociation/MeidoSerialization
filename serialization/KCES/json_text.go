@@ -8,12 +8,13 @@ import (
 	"strings"
 )
 
-// KCES 明文 JSON 扩展名的统一无损编解码与调度层；支持列表由各扩展名文件声明。
-//
-// Unified lossless codec and dispatcher for KCES plain-JSON extensions; each extension file declares its support descriptor.
+// KCES 明文 JSON 扩展名的统一无损编解码与调度层，支持列表由各扩展名文件声明
+// Unified lossless codec and dispatcher for KCES plain-JSON extensions, with each extension file declaring its support descriptor
 
+// kcesJSONTextDescriptor 描述一个受支持的 KCES 明文 JSON 扩展名
+// kcesJSONTextDescriptor describes one supported KCES plain-JSON extension
 type kcesJSONTextDescriptor struct {
-	Extension string
+	Extension string // 文件扩展名 / File extension
 }
 
 var kcesJSONTextDescriptors = [...]kcesJSONTextDescriptor{
@@ -36,13 +37,16 @@ var kcesJSONTextDescriptorByExtension = func() map[string]kcesJSONTextDescriptor
 	return result
 }()
 
-// KCESJSONText 表示 KCES 明文 JSON 资源的封套 / KCESJSONText represents an envelope for KCES plain JSON resources
+// KCESJSONText 表示 KCES 明文 JSON 资源的封套
+// KCESJSONText represents an envelope for KCES plain JSON resources
 type KCESJSONText struct {
 	Extension string          `json:"extension"`      // 原始扩展名，如 .undressdat / Original extension such as .undressdat
 	Text      string          `json:"text,omitempty"` // 原始 JSON 文本；未编辑 json 时逐字节重用 / Original JSON text, reused byte-for-byte while json is unchanged
 	JSON      json.RawMessage `json:"json"`           // 规范化后的 JSON 内容 / Normalized JSON content
 }
 
+// DecodeKCESJSONText 校验并解码受支持扩展名的明文 JSON，同时保留原始文本
+// DecodeKCESJSONText validates and decodes plain JSON for a supported extension while preserving the original text
 func DecodeKCESJSONText(data []byte, extension string) (*KCESJSONText, error) {
 	ext := NormalizeKCESJSONTextExtension(extension)
 	if ext == "" {
@@ -66,6 +70,8 @@ func DecodeKCESJSONText(data []byte, extension string) (*KCESJSONText, error) {
 	}, nil
 }
 
+// EncodeKCESJSONText 在内容未变时复用原始文本，否则写出缩进后的规范 JSON
+// EncodeKCESJSONText reuses the original text when the content is unchanged or writes normalized indented JSON otherwise
 func EncodeKCESJSONText(value *KCESJSONText) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil KCES JSON text")
@@ -101,10 +107,14 @@ func EncodeKCESJSONText(value *KCESJSONText) ([]byte, error) {
 	return indented.Bytes(), nil
 }
 
+// IsKCESJSONTextExtension 判断扩展名或路径是否属于受支持的 KCES 明文 JSON 格式
+// IsKCESJSONTextExtension reports whether an extension or path belongs to a supported KCES plain-JSON format
 func IsKCESJSONTextExtension(extension string) bool {
 	return NormalizeKCESJSONTextExtension(extension) != ""
 }
 
+// NormalizeKCESJSONTextExtension 从路径或扩展名提取规范化的受支持扩展名
+// NormalizeKCESJSONTextExtension extracts a normalized supported extension from a path or extension
 func NormalizeKCESJSONTextExtension(pathOrExt string) string {
 	lower := strings.ToLower(strings.TrimSpace(filepath.ToSlash(pathOrExt)))
 	if lower == "" {

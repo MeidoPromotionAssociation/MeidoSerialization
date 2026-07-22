@@ -468,7 +468,7 @@ func cloneBridgeSessionForTest(value *KCESBridgeSession) *KCESBridgeSession {
 			data.HideMenuFileIDs = []uint64{}
 		}
 		if value.SessionData.HideMenuFileNames != nil {
-			names := append([]string(nil), (*value.SessionData.HideMenuFileNames)...)
+			names := append([]string(nil), *value.SessionData.HideMenuFileNames...)
 			if *value.SessionData.HideMenuFileNames != nil && names == nil {
 				names = []string{}
 			}

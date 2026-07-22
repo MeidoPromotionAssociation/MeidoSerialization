@@ -14,208 +14,270 @@ import (
 // CM3D2_PRESET
 // 角色预设文件
 //
-//有两种 PRESET 一种 CM3D2_PRESET 一种 CM3D2_PRESET_S， CM3D2_PRESET_S 已官方废弃（不支持、不解析）
+// 有两种 PRESET，一种是 CM3D2_PRESET，另一种是 CM3D2_PRESET_S，CM3D2_PRESET_S 已被官方废弃（不支持、不解析）
 //
 // - 版本范围：
-//	 1 ≤ version < 1560 某些官方预设文件（支持）
-//   * CM3D2 的 1560 ≤ version < 20000（支持）
-//   * COM3D2 使用 20000 ≤ version < 30000（支持）
-//   * COM3D2.5 的 version ≥ 30000（支持）
+//   - 1 <= version < 1560：某些官方预设文件（支持）
+//   - CM3D2 的 1560 <= version < 20000（支持）
+//   - COM3D2 使用 20000 <= version < 30000（支持）
+//   - COM3D2.5 的 version >= 30000（支持）
 //
-//   COM3D2 和 COM3D2.5 的 Preset 无结构差异，但 COM3D2 会拒绝读取版本大于等于 30000 的文件
-//	 COM3D2.5 则无读取版本校验
+// COM3D2 和 COM3D2.5 的 Preset 无结构差异，但 COM3D2 会拒绝读取版本大于等于 30000 的文件
+// COM3D2.5 则无读取版本校验
 //
 // 子块版本差异（与实际内容功能相关）
 //
 // 1) CM3D2_MPROP_LIST（属性列表版本）
-// - version < 4：列表项前没有写入“键名”（MPN 字符串）
-// - version ≥ 4：每个属性项前新增写入“键名”（MPN 字符串）
+//   - version < 4：列表项前没有写入“键名”（MPN 字符串）
+//   - version >= 4：每个属性项前新增写入“键名”（MPN 字符串）
 //
 // 2) CM3D2_MPROP（单个属性版本）
-// - version < 101：无 temp_value
-// - version ≥ 101：新增 temp_value
-// - version < 200：无子属性与附加数据（SubProps/皮肤位置/附着位置/材质属性）
-// - version ≥ 200：新增
-//   * SubProps（子属性数组）
-//   * 皮肤位置（SkinPositions）
-//   * 顶点附着位置（AttachPositions）
-//   * 材质属性（MaterialProps）
-// - version < 204：头部材质 ZTest 字段命名旧（读取时会被迁移为 _ZTest2，并调整值）
-// - version ≥ 204：材质 ZTest 字段使用新命名/_ZTest2 规则
-// - version < 211：SubProp 无 TexMulAlpha
-// - version ≥ 211：SubProp 新增 TexMulAlpha
-// - version < 213：无骨骼长度（BoneLengths）块
-// - version ≥ 213：新增 BoneLengths 块
+//   - version < 101：无 temp_value
+//   - version >= 101：新增 temp_value
+//   - version < 200：无子属性与附加数据（子属性数组SubProps/皮肤位置SkinPositions/附着位置AttachPositions/材质属性MaterialProps）
+//   - version >= 200：新增 SubProps（子属性数组）、皮肤位置（SkinPositions）、顶点附着位置（AttachPositions） 和 材质属性（MaterialProps）
+//   - version < 204：头部材质 ZTest 字段命名旧（读取时会被迁移为 _ZTest2，并调整值）
+//   - version >= 204：材质 ZTest 字段使用新命名和 _ZTest2 规则
+//   - version < 211：SubProp 无 TexMulAlpha
+//   - version >= 211：SubProp 新增 TexMulAlpha
+//   - version < 213：无骨骼长度 BoneLengths 块
+//   - version >= 213：新增 BoneLengths 块
 //
 // 3) CM3D2_MULTI_COL（多颜色版本）
-// - version ≤ 1200：旧格式（固定顺序的若干部件，历史上有 7 或 9 项的差异）
-// - version > 1200：新格式（以部件名列举，直到读到 "MAX" 终止）
+//   - version <= 1200：旧格式（固定顺序的若干部件，历史上有 7 或 9 项的差异）
+//   - version > 1200：新格式（以部件名列举，直到读到 "MAX" 终止）
 //
 // 4) CM3D2_MAID_BODY（身体块版本）
-// - 当前仅签名+版本，无后续字段；
+//   - 当前仅签名和版本，无后续字段
+// CM3D2_PRESET
+// Character preset file
+//
+// There are two PRESET signatures, CM3D2_PRESET and CM3D2_PRESET_S, and the officially retired CM3D2_PRESET_S format is neither supported nor parsed
+//
+// - Version ranges:
+//   - 1 <= version < 1560: some official preset files, supported
+//   - 1560 <= version < 20000: CM3D2, supported
+//   - 20000 <= version < 30000: COM3D2, supported
+//   - version >= 30000: COM3D2.5, supported
+//
+// COM3D2 and COM3D2.5 presets have the same structure, but COM3D2 rejects files whose version is at least 30000
+// COM3D2.5 performs no preset version check while reading
+//
+// Sub-block version differences that affect actual content
+//
+// 1) CM3D2_MPROP_LIST property-list version
+//   - version < 4: no key name MPN string precedes a list entry
+//   - version >= 4: each property entry is preceded by a key name MPN string
+//
+// 2) CM3D2_MPROP individual-property version
+//   - version < 101: no temp_value
+//   - version >= 101: temp_value is present
+//   - version < 200: no SubProps, SkinPositions, AttachPositions, or MaterialProps extension data
+//   - version >= 200: SubProps, SkinPositions, AttachPositions, and MaterialProps are present
+//   - version < 204: the head-material ZTest property uses its old name and is migrated to _ZTest2 with an adjusted value while reading
+//   - version >= 204: the material ZTest property follows the new _ZTest2 naming rule
+//   - version < 211: SubProp has no TexMulAlpha
+//   - version >= 211: SubProp includes TexMulAlpha
+//   - version < 213: no BoneLengths block
+//   - version >= 213: the BoneLengths block is present
+//
+// 3) CM3D2_MULTI_COL multi-color version
+//   - version <= 1200: legacy layout with a fixed part order and historical seven-entry or nine-entry variants
+//   - version > 1200: current layout listing part names until the MAX terminator
+//
+// 4) CM3D2_MAID_BODY body-block version
+//   - The current block contains only its signature and version
 
-// 预设类型常量
+// 以下常量定义预设应用范围
+// The following constants define the preset application scope
 const (
-	PresetTypeWear = 0 // 衣服
-	PresetTypeBody = 1 // 身体
-	PresetTypeAll  = 2 // 全部
+	// PresetTypeWear 表示仅应用服装属性
+	// PresetTypeWear applies clothing properties only
+	PresetTypeWear = 0
+	// PresetTypeBody 表示仅应用身体属性
+	// PresetTypeBody applies body properties only
+	PresetTypeBody = 1
+	// PresetTypeAll 表示应用全部属性
+	// PresetTypeAll applies all properties
+	PresetTypeAll = 2
 )
 
 // Preset 表示角色预设数据
+// Preset represents character preset data
 type Preset struct {
-	Signature          string              `json:"Signature"`          // "CM3D2_PRESET"
-	Version            int32               `json:"Version"`            // 版本号  大于等于 30000 的是 COM3D2.5 格式，大于等于 1560 且小于 20000 的是 CM3D2 格式，版本号介于 20000 到 30000 之间的是 COM3D2 格式
-	PresetType         int32               `json:"PresetType"`         // 预设类型：0=衣服, 1=身体, 2=全部
-	ThumbLength        int32               `json:"ThumbLength"`        // 略缩图数据长度
-	ThumbData          []byte              `json:"ThumbData"`          // 略缩图数据，PNG格式
-	PresetPropertyList *PresetPropertyList `json:"PresetPropertyList"` // 预设属性列表
-	MultiColor         *MultiColor         `json:"MultiColor"`         // 颜色设置
-	BodyProperty       *BodyProperty       `json:"BodyProperty"`       // 身体属性
+	Signature          string              `json:"Signature"`          // 文件签名 CM3D2_PRESET / File signature CM3D2_PRESET
+	Version            int32               `json:"Version"`            // 预设格式版本 / Preset format version
+	PresetType         int32               `json:"PresetType"`         // 预设类型，0 为服装、1 为身体、2 为全部 / Preset type where 0 is wear, 1 is body, and 2 is all
+	ThumbLength        int32               `json:"ThumbLength"`        // 线格式中的 PNG 缩略图字节数 / PNG thumbnail byte count on the wire
+	ThumbData          []byte              `json:"ThumbData"`          // PNG 缩略图数据 / PNG thumbnail data
+	PresetPropertyList *PresetPropertyList `json:"PresetPropertyList"` // 预设属性列表 / Preset property list
+	MultiColor         *MultiColor         `json:"MultiColor"`         // 部件颜色设置 / Part color settings
+	BodyProperty       *BodyProperty       `json:"BodyProperty"`       // 身体块数据 / Body-block data
 }
 
 // PresetMetadata 表示仅包含略缩图的的角色预设数据，不包含实际数据
+// PresetMetadata represents character preset header and thumbnail data without the actual property data
 type PresetMetadata struct {
-	Signature   string `json:"Signature"`   // "CM3D2_PRESET"
-	Version     int32  `json:"Version"`     // 版本号
-	PresetType  int32  `json:"PresetType"`  // 预设类型：0=衣服, 1=身体, 2=全部
-	ThumbLength int32  `json:"ThumbLength"` // 略缩图数据长度
-	ThumbData   []byte `json:"ThumbData"`   // 略缩图数据，PNG格式
+	Signature   string `json:"Signature"`   // 文件签名 CM3D2_PRESET / File signature CM3D2_PRESET
+	Version     int32  `json:"Version"`     // 预设格式版本 / Preset format version
+	PresetType  int32  `json:"PresetType"`  // 预设类型，0 为服装、1 为身体、2 为全部 / Preset type where 0 is wear, 1 is body, and 2 is all
+	ThumbLength int32  `json:"ThumbLength"` // 线格式中的 PNG 缩略图字节数 / PNG thumbnail byte count on the wire
+	ThumbData   []byte `json:"ThumbData"`   // PNG 缩略图数据 / PNG thumbnail data
 }
 
 // PresetPropertyList 表示预设属性列表
+// PresetPropertyList represents a preset property list
 type PresetPropertyList struct {
-	Signature        string                    `json:"Signature"`                 // "CM3D2_MPROP_LIST"
-	Version          int32                     `json:"Version"`                   // 版本号
-	PropertyCount    int32                     `json:"PropertyCount"`             // 属性数量
-	PresetProperties map[string]PresetProperty `json:"PresetProperties"`          // 属性映射表
-	PropertyOrder    []string                  `json:"PropertyOrder,omitempty"`   // 保留 wire 中主属性的顺序
-	MaidPropOther    []NamedPresetProperty     `json:"MaidPropOther"`             // COM3D2.5 扩展属性
-	PartsColorOther  *MultiColor               `json:"PartsColorOther,omitempty"` // COM3D2.5 另一身体体系的 CM3D2_MULTI_COL
-	CRCPreset        *kces.ExpandedKCESPreset  `json:"CRCPreset,omitempty"`       // KCES VirtualDirectory preset
+	Signature        string                    `json:"Signature"`                 // 文件签名 CM3D2_MPROP_LIST / File signature CM3D2_MPROP_LIST
+	Version          int32                     `json:"Version"`                   // 属性列表格式版本 / Property-list format version
+	PropertyCount    int32                     `json:"PropertyCount"`             // 线格式中的主属性数量 / Main-property count on the wire
+	PresetProperties map[string]PresetProperty `json:"PresetProperties"`          // 以前置 MPN 键名索引的主属性映射 / Main-property map indexed by the leading MPN key
+	PropertyOrder    []string                  `json:"PropertyOrder,omitempty"`   // 主属性在线格式中的顺序 / Main-property order on the wire
+	MaidPropOther    []NamedPresetProperty     `json:"MaidPropOther"`             // COM3D2.5 扩展属性及其前置键名 / COM3D2.5 extension properties and their leading keys
+	PartsColorOther  *MultiColor               `json:"PartsColorOther,omitempty"` // COM3D2.5 另一身体体系的 CM3D2_MULTI_COL 块 / CM3D2_MULTI_COL block for COM3D2.5's other body system
+	CRCPreset        *kces.ExpandedKCESPreset  `json:"CRCPreset,omitempty"`       // COM3D2.5 保存的 KCES VirtualDirectory 预设块 / KCES VirtualDirectory preset block stored by COM3D2.5
 }
 
-// NamedPresetProperty 保留 MPROP_LIST 中属性前置键及其顺序。
+// NamedPresetProperty 保留 MPROP_LIST 中属性的前置键及其顺序
+// NamedPresetProperty preserves a property's leading key and order in MPROP_LIST
 type NamedPresetProperty struct {
-	Key      string         `json:"Key"`
-	Property PresetProperty `json:"Property"`
+	Key      string         `json:"Key"`      // 属性前置键名 / Leading property key
+	Property PresetProperty `json:"Property"` // 属性数据 / Property data
 }
 
 // PresetProperty 表示单个属性
+// PresetProperty represents one property
 type PresetProperty struct {
-	Signature                string                               `json:"Signature"`     // "CM3D2_MPROP"
-	Version                  int32                                `json:"Version"`       // 版本号
-	Index                    int32                                `json:"Index"`         // 索引
-	Name                     string                               `json:"Name"`          // 名称
-	Type                     int32                                `json:"Type"`          // 类型
-	DefaultValue             int32                                `json:"DefaultValue"`  // 默认值
-	Value                    int32                                `json:"Value"`         // 当前值
-	TempValue                int32                                `json:"TempValue"`     // 临时值
-	LinkMaxValue             int32                                `json:"LinkMaxValue"`  // 链接最大值
-	FileName                 string                               `json:"FileName"`      // 文件名
-	FileNameRID              int32                                `json:"FileNameRID"`   // 文件名哈希值  this.strFileName.ToLower().GetHashCode();
-	IsDut                    bool                                 `json:"IsDut"`         // 是否使用
-	Max                      int32                                `json:"Max"`           // 最大值
-	Min                      int32                                `json:"Min"`           // 最小值
-	SubProps                 []*SubProp                           `json:"SubProps"`      // 子属性列表；nil 元素对应 wire 中的 exists=false
-	SkinPositions            map[int]BoneAttachPosEntry           `json:"SkinPositions"` // 皮肤位置 slotID -> (RID, BoneAttachPos)
-	SkinPositionOrder        []int                                `json:"SkinPositionOrder,omitempty"`
-	AttachPositions          map[int]map[string]VtxAttachPosEntry `json:"AttachPositions"` // 附件位置 slotID -> name -> (RID, VtxAttachPos)
-	AttachPositionOrder      []int                                `json:"AttachPositionOrder,omitempty"`
-	AttachPositionNameOrders map[int][]string                     `json:"AttachPositionNameOrders,omitempty"`
-	// AttachPositionSlotNames preserves the COM3D2.5 v2003+ SlotID name
-	// written once per outer AttachPositions entry, including an empty map.
-	AttachPositionSlotNames map[int]string           `json:"AttachPositionSlotNames,omitempty"`
-	MaterialProps           map[int]MatPropSaveEntry `json:"MaterialProps"` // 材质属性 slotID -> (RID, MatPropSave)
-	MaterialPropOrder       []int                    `json:"MaterialPropOrder,omitempty"`
-	BoneLengths             map[int]BoneLengthEntry  `json:"BoneLengths"` // 骨骼长度 slotID -> (RID, map[name]len)
-	BoneLengthOrder         []int                    `json:"BoneLengthOrder,omitempty"`
-	IsCrcParts              bool                     `json:"IsCrcParts"` // CRC/GP03 部件标记
+	Signature                string                               `json:"Signature"`                          // 文件签名 CM3D2_MPROP / File signature CM3D2_MPROP
+	Version                  int32                                `json:"Version"`                            // 属性格式版本 / Property format version
+	Index                    int32                                `json:"Index"`                              // 线格式中的 MPN 索引，游戏随后按 Name 重新解析 / MPN index on the wire, subsequently reparsed by the game from Name
+	Name                     string                               `json:"Name"`                               // MPN 枚举名称 / MPN enum name
+	Type                     int32                                `json:"Type"`                               // 属性类别编号 / Property category number
+	DefaultValue             int32                                `json:"DefaultValue"`                       // 默认值 / Default value
+	Value                    int32                                `json:"Value"`                              // 当前值 / Current value
+	TempValue                int32                                `json:"TempValue"`                          // 编辑中的临时值 / Temporary editing value
+	LinkMaxValue             int32                                `json:"LinkMaxValue"`                       // 限制当前值上限的关联属性索引，0 表示无关联 / Linked property index that caps the current value, with 0 meaning none
+	FileName                 string                               `json:"FileName"`                           // 属性所选菜单文件名 / Menu filename selected by the property
+	FileNameRID              int32                                `json:"FileNameRID"`                        // 线格式中的小写文件名哈希，游戏会为非空文件名重新计算 / Lowercase filename hash on the wire, recalculated by the game for a nonempty filename
+	IsDut                    bool                                 `json:"IsDut"`                              // 属性待处理标志，游戏反序列化后强制设为 true / Property pending-processing flag, forced to true by the game after deserialization
+	Max                      int32                                `json:"Max"`                                // 最大值 / Maximum value
+	Min                      int32                                `json:"Min"`                                // 最小值 / Minimum value
+	SubProps                 []*SubProp                           `json:"SubProps"`                           // 子属性列表，nil 元素对应线格式中的 exists=false / Sub-property list where a nil element represents exists=false on the wire
+	SkinPositions            map[int]BoneAttachPosEntry           `json:"SkinPositions"`                      // 按 slotID 索引的皮肤位置映射 / Skin-position map indexed by slotID
+	SkinPositionOrder        []int                                `json:"SkinPositionOrder,omitempty"`        // 皮肤位置在线格式中的槽位顺序 / Skin-position slot order on the wire
+	AttachPositions          map[int]map[string]VtxAttachPosEntry `json:"AttachPositions"`                    // 按 slotID 和附着点名索引的顶点附着位置 / Vertex attachment positions indexed by slotID and attachment-point name
+	AttachPositionOrder      []int                                `json:"AttachPositionOrder,omitempty"`      // 顶点附着位置在线格式中的槽位顺序 / Vertex-attachment slot order on the wire
+	AttachPositionNameOrders map[int][]string                     `json:"AttachPositionNameOrders,omitempty"` // 各槽位附着点在线格式中的名称顺序 / Attachment-point name order on the wire for each slot
+	AttachPositionSlotNames  map[int]string                       `json:"AttachPositionSlotNames,omitempty"`  // v2003 起每个顶点附着槽位写入的槽位名，包括空映射 / Slot name written for each vertex-attachment slot since v2003, including an empty map
+	MaterialProps            map[int]MatPropSaveEntry             `json:"MaterialProps"`                      // 按 slotID 索引的材质属性覆盖 / Material-property overrides indexed by slotID
+	MaterialPropOrder        []int                                `json:"MaterialPropOrder,omitempty"`        // 材质属性在线格式中的槽位顺序 / Material-property slot order on the wire
+	BoneLengths              map[int]BoneLengthEntry              `json:"BoneLengths"`                        // 按 slotID 索引的骨骼长度设置 / Bone-length settings indexed by slotID
+	BoneLengthOrder          []int                                `json:"BoneLengthOrder,omitempty"`          // 骨骼长度在线格式中的槽位顺序 / Bone-length slot order on the wire
+	IsCrcParts               bool                                 `json:"IsCrcParts"`                         // CRC、CRX 或 GP03 部件标志 / CRC, CRX, or GP03 part flag
 }
 
+// BoneAttachPosEntry 保存槽位皮肤位置及其来源菜单哈希
+// BoneAttachPosEntry stores a slot skin position and its source-menu hash
 type BoneAttachPosEntry struct {
-	SlotName      string        `json:"SlotName,omitempty"`
-	RID           int32         `json:"RID"`           // C# KeyValuePair<int, BoneAttachPos>.Key
-	BoneAttachPos BoneAttachPos `json:"BoneAttachPos"` // C# ...Value
+	SlotName      string        `json:"SlotName,omitempty"` // v2003 起在线格式中用于解析槽位枚举的名称 / Name used to resolve the slot enum on the wire since v2003
+	RID           int32         `json:"RID"`                // 来源菜单文件名哈希，用于确认数据属于当前菜单项 / Source-menu filename hash used to verify that the data belongs to the current menu item
+	BoneAttachPos BoneAttachPos `json:"BoneAttachPos"`      // 皮肤位置数据 / Skin-position data
 }
 
+// VtxAttachPosEntry 保存顶点附着位置及其来源菜单哈希
+// VtxAttachPosEntry stores a vertex attachment position and its source-menu hash
 type VtxAttachPosEntry struct {
-	RID          int32        `json:"RID"`
-	VtxAttachPos VtxAttachPos `json:"VtxAttachPos"`
+	RID          int32        `json:"RID"`          // 来源菜单文件名哈希，用于确认数据属于当前菜单项 / Source-menu filename hash used to verify that the data belongs to the current menu item
+	VtxAttachPos VtxAttachPos `json:"VtxAttachPos"` // 顶点附着位置数据 / Vertex attachment-position data
 }
 
+// MatPropSaveEntry 保存材质属性覆盖及其来源菜单哈希
+// MatPropSaveEntry stores a material-property override and its source-menu hash
 type MatPropSaveEntry struct {
-	SlotName    string      `json:"SlotName,omitempty"`
-	RID         int32       `json:"RID"`
-	MatPropSave MatPropSave `json:"MatPropSave"`
+	SlotName    string      `json:"SlotName,omitempty"` // v2003 起在线格式中用于解析槽位枚举的名称 / Name used to resolve the slot enum on the wire since v2003
+	RID         int32       `json:"RID"`                // 来源菜单文件名哈希，用于确认数据属于当前菜单项 / Source-menu filename hash used to verify that the data belongs to the current menu item
+	MatPropSave MatPropSave `json:"MatPropSave"`        // 材质属性覆盖数据 / Material-property override data
 }
 
+// BoneLengthEntry 保存槽位骨骼长度设置及其来源菜单哈希
+// BoneLengthEntry stores slot bone-length settings and their source-menu hash
 type BoneLengthEntry struct {
-	SlotName    string             `json:"SlotName,omitempty"`
-	RID         int32              `json:"RID"`
-	Lengths     map[string]float32 `json:"Lengths"`
-	LengthOrder []string           `json:"LengthOrder,omitempty"`
+	SlotName    string             `json:"SlotName,omitempty"`    // v2003 起在线格式中用于解析槽位枚举的名称 / Name used to resolve the slot enum on the wire since v2003
+	RID         int32              `json:"RID"`                   // 来源菜单文件名哈希，用于确认数据属于当前菜单项 / Source-menu filename hash used to verify that the data belongs to the current menu item
+	Lengths     map[string]float32 `json:"Lengths"`               // 按骨骼名索引的长度值 / Length values indexed by bone name
+	LengthOrder []string           `json:"LengthOrder,omitempty"` // 骨骼名称在线格式中的顺序 / Bone-name order on the wire
 }
 
 // SubProp 表示子属性
+// SubProp represents a sub-property
 type SubProp struct {
-	IsDut       bool    `json:"IsDut"`       // 是否使用
-	FileName    string  `json:"FileName"`    // 文件名
-	FileNameRID int32   `json:"FileNameRID"` // 文件名哈希值
-	TexMulAlpha float32 `json:"TexMulAlpha"` // 纹理乘法透明度
+	IsDut       bool    `json:"IsDut"`       // 子属性待处理标志，游戏读取后强制设为 true / Sub-property pending-processing flag, forced to true by the game after reading
+	FileName    string  `json:"FileName"`    // 子属性所选菜单文件名 / Menu filename selected by the sub-property
+	FileNameRID int32   `json:"FileNameRID"` // 线格式中的小写文件名哈希，游戏读取后重新计算 / Lowercase filename hash on the wire, recalculated by the game after reading
+	TexMulAlpha float32 `json:"TexMulAlpha"` // 纹理合成透明度倍率 / Texture-composition alpha multiplier
 }
 
 // BoneAttachPos 表示骨骼附着位置
+// BoneAttachPos represents a bone attachment position
 type BoneAttachPos struct {
-	Enable      bool                  `json:"Enable"`                // 是否启用
-	PosRotScale PositionRotationScale `json:"PositionRotationScale"` // 位置、旋转、缩放
+	Enable      bool                  `json:"Enable"`                // 是否启用 / Whether the position is enabled
+	PosRotScale PositionRotationScale `json:"PositionRotationScale"` // 局部位置、旋转和缩放 / Local position, rotation, and scale
 }
 
 // VtxAttachPos 表示顶点附着位置
+// VtxAttachPos represents a vertex attachment position
 type VtxAttachPos struct {
-	Enable      bool                  `json:"Enable"`                // 是否启用
-	VtxCount    int32                 `json:"VtxCount"`              // 顶点数量
-	VtxIdx      int32                 `json:"VtxIdx"`                // 顶点索引
-	PosRotScale PositionRotationScale `json:"PositionRotationScale"` // 位置、旋转、缩放
+	Enable      bool                  `json:"Enable"`                // 是否启用 / Whether the attachment is enabled
+	VtxCount    int32                 `json:"VtxCount"`              // 创建附着数据时的网格顶点数，用于拒绝不匹配的网格 / Mesh vertex count when the attachment was created, used to reject a mismatched mesh
+	VtxIdx      int32                 `json:"VtxIdx"`                // 目标顶点索引 / Target vertex index
+	PosRotScale PositionRotationScale `json:"PositionRotationScale"` // 相对于目标顶点的位置、旋转和缩放 / Position, rotation, and scale relative to the target vertex
 }
 
 // MatPropSave 表示材质属性保存
+// MatPropSave represents a saved material-property override
 type MatPropSave struct {
-	MatId    int32  `json:"MatId"`    // 材质编号
-	PropName string `json:"PropName"` // 属性名称
-	TypeName string `json:"TypeName"` // 类型名称
-	Value    string `json:"Value"`    // 属性值
+	MatId    int32  `json:"MatId"`    // 槽位内的材质索引 / Material index within the slot
+	PropName string `json:"PropName"` // 着色器属性名称 / Shader property name
+	TypeName string `json:"TypeName"` // 游戏用于解释 Value 的属性类型名 / Property type name used by the game to interpret Value
+	Value    string `json:"Value"`    // 字符串编码的属性值 / String-encoded property value
 }
 
 // MultiColor 表示多颜色设置
+// MultiColor represents multi-color settings
 type MultiColor struct {
-	Signature   string       `json:"Signature"`   // "CM3D2_MULTI_COL"
-	Version     int32        `json:"Version"`     // 版本号
+	Signature   string       `json:"Signature"`   // 文件签名 CM3D2_MULTI_COL / File signature CM3D2_MULTI_COL
+	Version     int32        `json:"Version"`     // 多颜色格式版本 / Multi-color format version
 	PartCount   int32        `json:"PartCount"`   // wire 头部颜色数量；新布局读取时游戏忽略该值 / Wire header count; ignored by the new-layout reader
 	PartNames   []string     `json:"PartNames"`   // 新布局中每项的原始名称及顺序；旧布局无名称 / Raw names/order in the new layout; absent in the legacy layout
 	PartsColors []PartsColor `json:"PartsColors"` // wire 上实际存在的颜色，不展开游戏默认值 / Colors physically present on the wire, without game defaults
 }
 
 // PartsColor 表示部件颜色
+// PartsColor represents one part color
 type PartsColor struct {
-	IsUse            bool  `json:"IsUse"`            // 是否使用
-	MainHue          int32 `json:"MainHue"`          // 主色相
-	MainChroma       int32 `json:"MainChroma"`       // 主色度
-	MainBrightness   int32 `json:"MainBrightness"`   // 主亮度
-	MainContrast     int32 `json:"MainContrast"`     // 主对比度
-	ShadowRate       int32 `json:"ShadowRate"`       // 阴影比例
-	ShadowHue        int32 `json:"ShadowHue"`        // 阴影色相
-	ShadowChroma     int32 `json:"ShadowChroma"`     // 阴影色度
-	ShadowBrightness int32 `json:"ShadowBrightness"` // 阴影亮度
-	ShadowContrast   int32 `json:"ShadowContrast"`   // 阴影对比度
+	IsUse            bool  `json:"IsUse"`            // 是否启用该部件颜色 / Whether this part color is enabled
+	MainHue          int32 `json:"MainHue"`          // 主色相 / Main hue
+	MainChroma       int32 `json:"MainChroma"`       // 主色度 / Main chroma
+	MainBrightness   int32 `json:"MainBrightness"`   // 主亮度 / Main brightness
+	MainContrast     int32 `json:"MainContrast"`     // 主对比度 / Main contrast
+	ShadowRate       int32 `json:"ShadowRate"`       // 阴影混合比例 / Shadow blend rate
+	ShadowHue        int32 `json:"ShadowHue"`        // 阴影色相 / Shadow hue
+	ShadowChroma     int32 `json:"ShadowChroma"`     // 阴影色度 / Shadow chroma
+	ShadowBrightness int32 `json:"ShadowBrightness"` // 阴影亮度 / Shadow brightness
+	ShadowContrast   int32 `json:"ShadowContrast"`   // 阴影对比度 / Shadow contrast
 }
 
 // BodyProperty 表示身体属性
+// BodyProperty represents the body block
 type BodyProperty struct {
-	Signature string `json:"Signature"` // "CM3D2_MAID_BODY"
-	Version   int32  `json:"Version"`   // 版本号
-	// 是的确实没有别的东西
+	Signature string `json:"Signature"` // 文件签名 CM3D2_MAID_BODY / File signature CM3D2_MAID_BODY
+	Version   int32  `json:"Version"`   // 身体块格式版本 / Body-block format version
+	// 是的，确实没有其他内容
+	// Yes, there really is nothing else
 }
 
+// validatePresetSignature 验证读取或写出的块签名是否为预期值
+// validatePresetSignature verifies that a block signature being read or written has the expected value
 func validatePresetSignature(field, got, want string) error {
 	if got != want {
 		return fmt.Errorf("invalid %s signature: expected %q, got %q", field, want, got)
@@ -223,6 +285,8 @@ func validatePresetSignature(field, got, want string) error {
 	return nil
 }
 
+// validatePresetCount 验证线格式中的 Int32 集合数量不是负数
+// validatePresetCount verifies that an Int32 collection count on the wire is not negative
 func validatePresetCount(field string, count int32) error {
 	if count < 0 {
 		return fmt.Errorf("invalid %s: %d", field, count)
@@ -230,18 +294,26 @@ func validatePresetCount(field string, count int32) error {
 	return nil
 }
 
+// presetPropertyHasIsCrcParts 判断属性版本是否包含 IsCrcParts 字段
+// presetPropertyHasIsCrcParts reports whether a property version includes the IsCrcParts field
 func presetPropertyHasIsCrcParts(version int32) bool {
 	return (version >= 2001 && version < 20000) || version >= 30000
 }
 
+// presetPropertyHasSlotNames 判断属性版本是否在数字槽位 ID 后包含槽位名称
+// presetPropertyHasSlotNames reports whether a property version includes a slot name after each numeric slot ID
 func presetPropertyHasSlotNames(version int32) bool {
 	return (version >= 2003 && version < 20000) || version >= 30000
 }
 
+// presetPropertyListHasExtensions 判断属性列表版本是否包含 COM3D2.5 扩展块
+// presetPropertyListHasExtensions reports whether a property-list version includes the COM3D2.5 extension blocks
 func presetPropertyListHasExtensions(version int32) bool {
 	return (version >= 2001 && version < 20000) || version >= 30000
 }
 
+// readPresetByteBlock 读取以 Int32 字节数为前缀的预设二进制块
+// readPresetByteBlock reads a preset binary block prefixed by an Int32 byte count
 func readPresetByteBlock(reader *stream.BinaryReader, field string) ([]byte, error) {
 	length, err := reader.ReadInt32()
 	if err != nil {
@@ -260,6 +332,8 @@ func readPresetByteBlock(reader *stream.BinaryReader, field string) ([]byte, err
 	return data, nil
 }
 
+// writePresetByteBlock 写入以 Int32 字节数为前缀的预设二进制块
+// writePresetByteBlock writes a preset binary block prefixed by an Int32 byte count
 func writePresetByteBlock(writer *stream.BinaryWriter, field string, data []byte) error {
 	length, err := collectionCountInt32(field+" length", len(data))
 	if err != nil {
@@ -276,11 +350,15 @@ func writePresetByteBlock(writer *stream.BinaryWriter, field string, data []byte
 	return nil
 }
 
+// validatePresetMapLength 验证映射表项数可由线格式中的 Int32 表示
+// validatePresetMapLength verifies that a map entry count is representable by an Int32 on the wire
 func validatePresetMapLength(field string, length int) error {
 	_, err := collectionCountInt32(field, length)
 	return err
 }
 
+// validatePresetSlotID 验证 Go int 槽位 ID 可由线格式中的 Int32 表示
+// validatePresetSlotID verifies that a Go int slot ID is representable by an Int32 on the wire
 func validatePresetSlotID(field string, slot int) error {
 	if int64(slot) < -1<<31 || int64(slot) > 1<<31-1 {
 		return fmt.Errorf("invalid %s slotID: %d is outside Int32", field, slot)
@@ -288,6 +366,8 @@ func validatePresetSlotID(field string, slot int) error {
 	return nil
 }
 
+// readPresetSlot 读取数字槽位 ID，并在版本支持时继续读取槽位名称
+// readPresetSlot reads a numeric slot ID followed by a slot name when the version supports it
 func readPresetSlot(reader *stream.BinaryReader, version int32, field string) (int, string, error) {
 	slotID, err := reader.ReadInt32()
 	if err != nil {
@@ -304,6 +384,7 @@ func readPresetSlot(reader *stream.BinaryReader, version int32, field string) (i
 }
 
 // ReadPreset 从 r 中读取 Preset
+// ReadPreset reads a Preset from r
 func ReadPreset(r io.Reader) (*Preset, error) {
 	reader := stream.NewBinaryReader(r)
 	p, err := readPreset(reader)
@@ -318,11 +399,13 @@ func ReadPreset(r io.Reader) (*Preset, error) {
 	return p, nil
 }
 
-// readPreset 解析一个 preset 对象但不检查 EOF，供有明确外层边界的内部格式复用。
+// readPreset 解析一个 preset 对象但不检查 EOF，供有明确外层边界的内部格式复用
+// readPreset parses one preset object without checking EOF so formats with an explicit outer boundary can reuse it
 func readPreset(reader *stream.BinaryReader) (*Preset, error) {
 	p := &Preset{}
 
-	// 1. signature
+	// 1. 签名
+	// 1. Signature
 	sig, err := reader.ReadString()
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset signature failed: %w", err)
@@ -332,21 +415,24 @@ func readPreset(reader *stream.BinaryReader) (*Preset, error) {
 	}
 	p.Signature = sig
 
-	// 2. version
+	// 2. 版本
+	// 2. Version
 	version, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset version failed: %w", err)
 	}
 	p.Version = version
 
-	// 3. presetType
+	// 3. 预设类型
+	// 3. Preset type
 	presetType, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset presetType failed: %w", err)
 	}
 	p.PresetType = presetType
 
-	// 4. ThumbLength
+	// 4. 缩略图长度
+	// 4. Thumbnail length
 	thumbLength, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset ThumbLength failed: %w", err)
@@ -356,7 +442,8 @@ func readPreset(reader *stream.BinaryReader) (*Preset, error) {
 	}
 	p.ThumbLength = thumbLength
 
-	// 5. ThumbData
+	// 5. 缩略图数据
+	// 5. Thumbnail data
 	if p.ThumbLength > 0 {
 		p.ThumbData, err = reader.ReadBytes(int(p.ThumbLength))
 		if err != nil {
@@ -364,13 +451,15 @@ func readPreset(reader *stream.BinaryReader) (*Preset, error) {
 		}
 	}
 
-	// 6. listMprop
+	// 6. 属性列表
+	// 6. Property list
 	p.PresetPropertyList, err = readPresetPropertyList(reader)
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset PresetPropertyList failed: %w", err)
 	}
 
-	// 7. MultiColor
+	// 7. 多颜色块
+	// 7. Multi-color block
 	if version >= 2 && (version < 2000 || 10000 <= version) {
 		mc, err := readMultiColor(reader)
 		if err != nil {
@@ -379,7 +468,8 @@ func readPreset(reader *stream.BinaryReader) (*Preset, error) {
 		p.MultiColor = mc
 	}
 
-	// 8. Body
+	// 8. 身体块
+	// 8. Body block
 	if version >= 200 && (version < 2000 || 10000 <= version) {
 		bp, err := readBodyProperty(reader)
 		if err != nil {
@@ -392,10 +482,12 @@ func readPreset(reader *stream.BinaryReader) (*Preset, error) {
 }
 
 // ReadPresetMetadata 从 r 中读取 PresetMetadata
+// ReadPresetMetadata reads PresetMetadata from r
 func ReadPresetMetadata(reader *stream.BinaryReader) (*PresetMetadata, error) {
 	p := &PresetMetadata{}
 
-	// 1. signature
+	// 1. 签名
+	// 1. Signature
 	sig, err := reader.ReadString()
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset signature failed: %w", err)
@@ -405,21 +497,24 @@ func ReadPresetMetadata(reader *stream.BinaryReader) (*PresetMetadata, error) {
 	}
 	p.Signature = sig
 
-	// 2. version
+	// 2. 版本
+	// 2. Version
 	version, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset version failed: %w", err)
 	}
 	p.Version = version
 
-	// 3. presetType
+	// 3. 预设类型
+	// 3. Preset type
 	presetType, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset presetType failed: %w", err)
 	}
 	p.PresetType = presetType
 
-	// 4. ThumbLength
+	// 4. 缩略图长度
+	// 4. Thumbnail length
 	thumbLength, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset ThumbLength failed: %w", err)
@@ -429,7 +524,8 @@ func ReadPresetMetadata(reader *stream.BinaryReader) (*PresetMetadata, error) {
 	}
 	p.ThumbLength = thumbLength
 
-	// 5. ThumbData
+	// 5. 缩略图数据
+	// 5. Thumbnail data
 	if p.ThumbLength > 0 {
 		p.ThumbData, err = reader.ReadBytes(int(p.ThumbLength))
 		if err != nil {
@@ -441,10 +537,12 @@ func ReadPresetMetadata(reader *stream.BinaryReader) (*PresetMetadata, error) {
 }
 
 // readPresetPropertyList 从 r 中读取 PresetPropertyList
+// readPresetPropertyList reads a PresetPropertyList from r
 func readPresetPropertyList(reader *stream.BinaryReader) (*PresetPropertyList, error) {
 	ppl := &PresetPropertyList{PresetProperties: map[string]PresetProperty{}}
 
-	// 1. signature
+	// 1. 签名
+	// 1. Signature
 	sig, err := reader.ReadString()
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset PresetPropertyList signature failed: %w", err)
@@ -454,14 +552,16 @@ func readPresetPropertyList(reader *stream.BinaryReader) (*PresetPropertyList, e
 	}
 	ppl.Signature = sig
 
-	// 2. version
+	// 2. 版本
+	// 2. Version
 	version, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset PresetPropertyList version failed: %w", err)
 	}
 	ppl.Version = version
 
-	//3. PropertyCount
+	// 3. 属性数量
+	// 3. Property count
 	count, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset PresetPropertyList propertyCount failed: %w", err)
@@ -471,12 +571,14 @@ func readPresetPropertyList(reader *stream.BinaryReader) (*PresetPropertyList, e
 	}
 	ppl.PropertyCount = count
 
-	// 4. PresetProperties
+	// 4. 预设属性
+	// 4. Preset properties
 	for i := 0; i < int(count); i++ {
 		var key string
 		hasStoredKey := version >= 4
 		if hasStoredKey {
 			// 新版：SerializeProp 会先写 key（MPN 名称字符串）
+			// The current layout writes the key MPN name string first in SerializeProp
 			k, err := reader.ReadString()
 			if err != nil {
 				return nil, fmt.Errorf("read Prop key[%d] failed: %w", i, err)
@@ -489,6 +591,7 @@ func readPresetPropertyList(reader *stream.BinaryReader) (*PresetPropertyList, e
 		}
 		if !hasStoredKey {
 			// 旧版未写 key，用 prop.Name 作为 key
+			// The legacy layout has no stored key, so use prop.Name as the key
 			key = prop.Name
 		}
 		if _, exists := ppl.PresetProperties[key]; exists {
@@ -545,11 +648,13 @@ func readPresetPropertyList(reader *stream.BinaryReader) (*PresetPropertyList, e
 	return ppl, nil
 }
 
-// 读取单个属性：MaidProp.Deserialize（格式对齐 MaidProp.Serialize）
+// readPresetProperty 按 MaidProp.Deserialize 的布局读取单个属性，格式与 MaidProp.Serialize 对齐
+// readPresetProperty reads one property using the MaidProp.Deserialize layout corresponding to MaidProp.Serialize
 func readPresetProperty(reader *stream.BinaryReader) (*PresetProperty, error) {
 	prop := &PresetProperty{}
 
-	// 1. signature
+	// 1. 签名
+	// 1. Signature
 	sig, err := reader.ReadString()
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset PresetProperty signature failed: %w", err)
@@ -559,21 +664,24 @@ func readPresetProperty(reader *stream.BinaryReader) (*PresetProperty, error) {
 	}
 	prop.Signature = sig
 
-	// 2. version
+	// 2. 版本
+	// 2. Version
 	ver, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read .Preset PresetProperty version failed: %w", err)
 	}
 	prop.Version = ver
 
-	// 3. index
+	// 3. 索引
+	// 3. Index
 	idx, err := reader.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read prop.idx failed: %w", err)
 	}
 	prop.Index = idx
 
-	// 4. name
+	// 4. 名称
+	// 4. Name
 	name, err := reader.ReadString()
 	if err != nil {
 		return nil, fmt.Errorf("read prop.name failed: %w", err)
@@ -581,6 +689,7 @@ func readPresetProperty(reader *stream.BinaryReader) (*PresetProperty, error) {
 	prop.Name = name
 
 	// 5. 基本数值
+	// 5. Basic values
 	if prop.Type, err = reader.ReadInt32(); err != nil {
 		return nil, fmt.Errorf("read prop.type failed: %w", err)
 	}
@@ -615,6 +724,7 @@ func readPresetProperty(reader *stream.BinaryReader) (*PresetProperty, error) {
 	}
 
 	// 子属性（ver >= 200）
+	// Sub-properties for ver >= 200
 	if ver >= 200 {
 		cnt, err := reader.ReadInt32()
 		if err != nil {
@@ -914,7 +1024,8 @@ func readPresetProperty(reader *stream.BinaryReader) (*PresetProperty, error) {
 	return prop, nil
 }
 
-// 读取多颜色 wire，不执行 MaidParts.DeserializePre 的默认色展开。
+// readMultiColor 读取多颜色线格式，不执行 MaidParts.DeserializePre 的默认色展开
+// readMultiColor reads the multi-color wire format without expanding the defaults applied by MaidParts.DeserializePre
 func readMultiColor(reader *stream.BinaryReader) (*MultiColor, error) {
 	mc := &MultiColor{}
 
@@ -956,8 +1067,8 @@ func readMultiColor(reader *stream.BinaryReader) (*MultiColor, error) {
 		return mc, nil
 	}
 
-	// The current layout is terminated by MAX and does not use PartCount to
-	// bound this loop. Retain names, duplicates, order, and future enum names.
+	// 新布局由 MAX 终止，不使用 PartCount 限制循环，并保留名称、重复项、顺序和未来新增的枚举名
+	// The current layout is terminated by MAX and does not use PartCount to bound this loop, preserving names, duplicates, order, and future enum names
 	for entry := int32(0); ; entry++ {
 		name, err := reader.ReadString()
 		if err != nil {
@@ -976,8 +1087,8 @@ func readMultiColor(reader *stream.BinaryReader) (*MultiColor, error) {
 	return mc, nil
 }
 
-// DecodeMultiColorBlock decodes one complete CM3D2_MULTI_COL byte block. It
-// is used both by top-level presets and by COM3D2.5's PartsColorOther field.
+// DecodeMultiColorBlock 解码一个完整的 CM3D2_MULTI_COL 字节块，供顶层预设和 COM3D2.5 的 PartsColorOther 字段共用
+// DecodeMultiColorBlock decodes one complete CM3D2_MULTI_COL byte block for both top-level presets and COM3D2.5's PartsColorOther field
 func DecodeMultiColorBlock(data []byte) (*MultiColor, error) {
 	r := bytes.NewReader(data)
 	value, err := readMultiColor(stream.NewBinaryReader(r))
@@ -990,8 +1101,8 @@ func DecodeMultiColorBlock(data []byte) (*MultiColor, error) {
 	return value, nil
 }
 
-// EncodeMultiColorBlock writes one complete CM3D2_MULTI_COL byte block while
-// retaining the version and old/new layout stored in value.
+// EncodeMultiColorBlock 写入一个完整的 CM3D2_MULTI_COL 字节块，并保留 value 中的版本与新旧布局
+// EncodeMultiColorBlock writes one complete CM3D2_MULTI_COL byte block while retaining the version and current or legacy layout stored in value
 func EncodeMultiColorBlock(value *MultiColor) ([]byte, error) {
 	var out bytes.Buffer
 	if err := dumpMultiColor(stream.NewBinaryWriter(&out), value); err != nil {
@@ -1000,6 +1111,8 @@ func EncodeMultiColorBlock(value *MultiColor) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
+// readPartsColor 按 MaidParts.PartsColor 的线格式读取一个部件颜色并返回字段数量
+// readPartsColor reads one part color using the MaidParts.PartsColor wire layout and returns its field count
 func readPartsColor(reader *stream.BinaryReader, pc *PartsColor) (int, error) {
 	var err error
 	if pc.IsUse, err = reader.ReadBool(); err != nil {
@@ -1035,7 +1148,8 @@ func readPartsColor(reader *stream.BinaryReader, pc *PartsColor) (int, error) {
 	return 10, nil
 }
 
-// 读取身体块：Maid.DeserializeBodyRead
+// readBodyProperty 按 Maid.DeserializeBodyRead 的布局读取仅含签名和版本的身体块
+// readBodyProperty reads the signature-and-version-only body block using the Maid.DeserializeBodyRead layout
 func readBodyProperty(reader *stream.BinaryReader) (*BodyProperty, error) {
 	bp := &BodyProperty{}
 	sig, err := reader.ReadString()
@@ -1052,9 +1166,12 @@ func readBodyProperty(reader *stream.BinaryReader) (*BodyProperty, error) {
 	}
 	bp.Version = ver
 	// 该块目前没有更多字段
+	// This block currently has no additional fields
 	return bp, nil
 }
 
+// orderedPresetPropertyKeys 合并属性映射与保存的线格式顺序并验证二者一致
+// orderedPresetPropertyKeys merges the property map with its saved wire order and verifies their consistency
 func orderedPresetPropertyKeys(ppl *PresetPropertyList) ([]string, error) {
 	if err := validatePresetMapLength("PresetPropertyList propertyCount", len(ppl.PresetProperties)); err != nil {
 		return nil, err
@@ -1062,14 +1179,20 @@ func orderedPresetPropertyKeys(ppl *PresetPropertyList) ([]string, error) {
 	return utilities.MergeOrderedMapKeys(ppl.PresetProperties, ppl.PropertyOrder, "PresetPropertyList PropertyOrder")
 }
 
+// orderedPresetIntMapKeys 合并 int 键映射与保存的线格式顺序并验证二者一致
+// orderedPresetIntMapKeys merges an int-keyed map with its saved wire order and verifies their consistency
 func orderedPresetIntMapKeys[V any](values map[int]V, order []int, label string) ([]int, error) {
 	return utilities.MergeOrderedMapKeys(values, order, label+" order")
 }
 
+// orderedPresetStringMapKeys 合并字符串键映射与保存的线格式顺序并验证二者一致
+// orderedPresetStringMapKeys merges a string-keyed map with its saved wire order and verifies their consistency
 func orderedPresetStringMapKeys[V any](values map[string]V, order []string, label string) ([]string, error) {
 	return utilities.MergeOrderedMapKeys(values, order, label+" order")
 }
 
+// validatePresetPropertyForDump 验证属性数据满足其版本门槛、数量范围和顺序约束
+// validatePresetPropertyForDump verifies that property data satisfies its version gates, count ranges, and ordering constraints
 func validatePresetPropertyForDump(pp *PresetProperty) error {
 	if pp == nil {
 		return fmt.Errorf("PresetProperty is nil")
@@ -1182,6 +1305,8 @@ func validatePresetPropertyForDump(pp *PresetProperty) error {
 	return nil
 }
 
+// validatePresetPropertyListForDump 验证属性列表及其扩展块可被当前版本完整写出并返回主属性顺序
+// validatePresetPropertyListForDump verifies that a property list and its extension blocks can be fully written by the current version and returns the main-property order
 func validatePresetPropertyListForDump(ppl *PresetPropertyList) ([]string, error) {
 	if ppl == nil {
 		return nil, fmt.Errorf("PresetPropertyList is nil")
@@ -1220,6 +1345,8 @@ func validatePresetPropertyListForDump(ppl *PresetPropertyList) ([]string, error
 	return keys, nil
 }
 
+// encodePresetPropertyListExtensionBlocks 编码 PartsColorOther 和 CRCPreset 的长度前缀载荷
+// encodePresetPropertyListExtensionBlocks encodes the length-prefixed payloads for PartsColorOther and CRCPreset
 func encodePresetPropertyListExtensionBlocks(ppl *PresetPropertyList) (partsColorOtherData, crcPresetData []byte, err error) {
 	if ppl.PartsColorOther != nil {
 		partsColorOtherData, err = EncodeMultiColorBlock(ppl.PartsColorOther)
@@ -1242,6 +1369,8 @@ func encodePresetPropertyListExtensionBlocks(ppl *PresetPropertyList) (partsColo
 	return partsColorOtherData, crcPresetData, nil
 }
 
+// validatePresetForDump 验证预设的签名、缩略图长度以及由版本控制的子块
+// validatePresetForDump verifies the preset signature, thumbnail length, and version-gated sub-blocks
 func validatePresetForDump(p *Preset) error {
 	if p == nil {
 		return fmt.Errorf("Preset is nil")
@@ -1283,6 +1412,8 @@ func validatePresetForDump(p *Preset) error {
 	return nil
 }
 
+// writePresetSlot 写入数字槽位 ID，并在版本支持时继续写入槽位名称
+// writePresetSlot writes a numeric slot ID followed by a slot name when the version supports it
 func writePresetSlot(writer *stream.BinaryWriter, version int32, field string, slot int, slotName string) error {
 	if err := validatePresetSlotID(field, slot); err != nil {
 		return err
@@ -1298,6 +1429,8 @@ func writePresetSlot(writer *stream.BinaryWriter, version int32, field string, s
 	return nil
 }
 
+// Dump 将 Preset 写入 w
+// Dump writes the Preset to w
 func (p *Preset) Dump(w io.Writer) error {
 	if err := validatePresetForDump(p); err != nil {
 		return fmt.Errorf("write .Preset failed: %w", err)
@@ -1305,22 +1438,26 @@ func (p *Preset) Dump(w io.Writer) error {
 	p.ThumbLength = int32(len(p.ThumbData))
 	writer := stream.NewBinaryWriter(w)
 
-	// 1. signature
+	// 1. 签名
+	// 1. Signature
 	if err := writer.WriteString(p.Signature); err != nil {
 		return fmt.Errorf("write preset signature failed: %w", err)
 	}
 
-	// 2. version
+	// 2. 版本
+	// 2. Version
 	if err := writer.WriteInt32(p.Version); err != nil {
 		return fmt.Errorf("write preset version failed: %w", err)
 	}
 
-	// 3. presetType
+	// 3. 预设类型
+	// 3. Preset type
 	if err := writer.WriteInt32(p.PresetType); err != nil {
 		return fmt.Errorf("write preset type failed: %w", err)
 	}
 
-	// 4. thumb
+	// 4. 缩略图
+	// 4. Thumbnail
 	if len(p.ThumbData) > 0 {
 		if err := writer.WriteInt32(int32(len(p.ThumbData))); err != nil {
 			return fmt.Errorf("write thumb length failed: %w", err)
@@ -1334,19 +1471,22 @@ func (p *Preset) Dump(w io.Writer) error {
 		}
 	}
 
-	// 5. mprop list
+	// 5. 属性列表
+	// 5. Property list
 	if err := dumpPresetPropertyList(writer, p.PresetPropertyList); err != nil {
 		return fmt.Errorf("write PresetPropertyList failed: %w", err)
 	}
 
-	// 6. multicolor
+	// 6. 多颜色块
+	// 6. Multi-color block
 	if p.Version >= 2 && (p.Version < 2000 || 10000 <= p.Version) {
 		if err := dumpMultiColor(writer, p.MultiColor); err != nil {
 			return fmt.Errorf("write MultiColor failed: %w", err)
 		}
 	}
 
-	// 7. body
+	// 7. 身体块
+	// 7. Body block
 	if p.Version >= 200 && (p.Version < 2000 || 10000 <= p.Version) {
 		if err := dumpBodyProperty(writer, p.BodyProperty); err != nil {
 			return fmt.Errorf("write Body failed: %w", err)
@@ -1356,7 +1496,8 @@ func (p *Preset) Dump(w io.Writer) error {
 	return nil
 }
 
-// 写入属性列表：Maid.SerializeProp
+// dumpPresetPropertyList 按 Maid.SerializeProp 的布局写入属性列表
+// dumpPresetPropertyList writes a property list using the Maid.SerializeProp layout
 func dumpPresetPropertyList(writer *stream.BinaryWriter, ppl *PresetPropertyList) error {
 	keys, err := validatePresetPropertyListForDump(ppl)
 	if err != nil {
@@ -1380,12 +1521,15 @@ func dumpPresetPropertyList(writer *stream.BinaryWriter, ppl *PresetPropertyList
 	for _, k := range keys {
 		v := ppl.PresetProperties[k]
 		// 仅当列表版本 >= 4 时写 key（MPN 字符串）
+		// Write the key MPN string only when the list version is at least 4
 		if ppl.Version >= 4 {
 			if err := writer.WriteString(k); err != nil {
 				return fmt.Errorf("write prop key failed: %w", err)
 			}
 		}
-		prop := v // copy
+		// 复制映射值以取得可传递给写出函数的指针
+		// Copy the map value to obtain a pointer that can be passed to the writer
+		prop := v
 		if err := writePresetProperty(writer, &prop); err != nil {
 			return fmt.Errorf("write prop '%s' failed: %w", k, err)
 		}
@@ -1419,7 +1563,8 @@ func dumpPresetPropertyList(writer *stream.BinaryWriter, ppl *PresetPropertyList
 	return nil
 }
 
-// 写入单个属性：MaidProp.Serialize
+// writePresetProperty 按 MaidProp.Serialize 的布局写入单个属性
+// writePresetProperty writes one property using the MaidProp.Serialize layout
 func writePresetProperty(writer *stream.BinaryWriter, pp *PresetProperty) error {
 	if err := validatePresetPropertyForDump(pp); err != nil {
 		return fmt.Errorf("write PresetProperty failed: %w", err)
@@ -1447,6 +1592,7 @@ func writePresetProperty(writer *stream.BinaryWriter, pp *PresetProperty) error 
 		return fmt.Errorf("write prop value failed: %w", err)
 	}
 	// ver >= 101 才写 TempValue
+	// Write TempValue only when ver >= 101
 	if ver >= 101 {
 		if err := writer.WriteInt32(pp.TempValue); err != nil {
 			return fmt.Errorf("write prop temp value failed: %w", err)
@@ -1471,8 +1617,10 @@ func writePresetProperty(writer *stream.BinaryWriter, pp *PresetProperty) error 
 		return fmt.Errorf("write prop min failed: %w", err)
 	}
 	// 仅当 ver >= 200 时才写入子属性与附加块（与读取保持一致）
+	// Write sub-properties and extension blocks only when ver >= 200 to match the reader
 	if ver >= 200 {
 		// 子属性
+		// Sub-properties
 		nSub := int32(len(pp.SubProps))
 		if err := writer.WriteInt32(nSub); err != nil {
 			return fmt.Errorf("write prop sub count failed: %w", err)
@@ -1496,6 +1644,7 @@ func writePresetProperty(writer *stream.BinaryWriter, pp *PresetProperty) error 
 				return fmt.Errorf("write prop sub file name rid failed: %w", err)
 			}
 			// ver >= 211 才写 TexMulAlpha
+			// Write TexMulAlpha only when ver >= 211
 			if ver >= 211 {
 				if err := writer.WriteFloat32(sp.TexMulAlpha); err != nil {
 					return fmt.Errorf("write prop sub tex mul alpha failed: %w", err)
@@ -1726,6 +1875,8 @@ func writePresetProperty(writer *stream.BinaryWriter, pp *PresetProperty) error 
 	return nil
 }
 
+// validateMultiColorForDump 验证多颜色数据符合其新旧布局和 MAX 终止符约束
+// validateMultiColorForDump verifies that multi-color data satisfies its current or legacy layout and MAX terminator constraints
 func validateMultiColorForDump(mc *MultiColor) error {
 	if mc == nil {
 		return fmt.Errorf("MultiColor is nil")
@@ -1756,7 +1907,8 @@ func validateMultiColorForDump(mc *MultiColor) error {
 	return nil
 }
 
-// 写入多颜色：按存储版本忠实写回旧/新布局。
+// dumpMultiColor 按保存的版本忠实写回新布局或旧布局
+// dumpMultiColor faithfully writes the current or legacy layout selected by the stored version
 func dumpMultiColor(writer *stream.BinaryWriter, mc *MultiColor) error {
 	if err := validateMultiColorForDump(mc); err != nil {
 		return fmt.Errorf("write MultiColor failed: %w", err)
@@ -1794,6 +1946,8 @@ func dumpMultiColor(writer *stream.BinaryWriter, mc *MultiColor) error {
 	return nil
 }
 
+// writePartsColor 按 MaidParts.PartsColor 的线格式写入一个部件颜色
+// writePartsColor writes one part color using the MaidParts.PartsColor wire layout
 func writePartsColor(writer *stream.BinaryWriter, color *PartsColor) error {
 	if err := writer.WriteBool(color.IsUse); err != nil {
 		return err
@@ -1809,7 +1963,8 @@ func writePartsColor(writer *stream.BinaryWriter, color *PartsColor) error {
 	return nil
 }
 
-// 写入身体块：Maid.SerializeBody（仅头+版本）
+// dumpBodyProperty 按 Maid.SerializeBody 的布局写入仅含签名和版本的身体块
+// dumpBodyProperty writes the signature-and-version-only body block using the Maid.SerializeBody layout
 func dumpBodyProperty(writer *stream.BinaryWriter, bp *BodyProperty) error {
 	if bp == nil {
 		return fmt.Errorf("write Body failed: BodyProperty is nil")

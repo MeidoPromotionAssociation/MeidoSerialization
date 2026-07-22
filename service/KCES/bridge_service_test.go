@@ -125,7 +125,7 @@ func TestGP03BridgeServiceStrictJSONAndRouting(t *testing.T) {
 	for name, body := range map[string][]byte{
 		"unknown":      unknown,
 		"trailing":     trailing,
-		"invalid utf8": []byte{'{', '"', 'x', '"', ':', '"', 0xff, '"', '}'},
+		"invalid utf8": {'{', '"', 'x', '"', ':', '"', 0xff, '"', '}'},
 	} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()

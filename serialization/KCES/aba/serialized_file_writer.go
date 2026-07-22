@@ -10,35 +10,38 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
-// SerializedFileWriter 用于生成 Unity SerializedFile v22 格式。
-// 支持写入 TextAsset、Texture2D、原始对象和 Unity AssetBundle 容器对象；生成的文件可被 KCES 游戏通过 AssetBundle.LoadFromFile 加载。
-//
-// SerializedFileWriter generates Unity SerializedFile v22 data.
-// It supports TextAsset, Texture2D, raw objects, and Unity AssetBundle container objects; KCES can load the generated file through AssetBundle.LoadFromFile.
+// SerializedFileWriter 用于生成 Unity SerializedFile v22 格式
+// 支持写入 TextAsset、Texture2D、原始对象和 Unity AssetBundle 容器对象，生成的文件可被 KCES 游戏通过 AssetBundle.LoadFromFile 加载
+// SerializedFileWriter generates Unity SerializedFile v22 data
+// It supports TextAsset, Texture2D, raw objects, and Unity AssetBundle container objects; KCES can load generated files through AssetBundle.LoadFromFile
 type SerializedFileWriter struct {
-	UnityVersion   string             // Unity 版本字符串（如 "2021.3.37f1"）/ Unity version string such as "2021.3.37f1"
-	TargetPlatform uint32             // 目标平台 ID（5=Windows Standalone）/ Target platform ID, 5 means Windows Standalone
+	UnityVersion   string             // Unity 版本字符串，如 "2021.3.37f1" / Unity version string such as "2021.3.37f1"
+	TargetPlatform uint32             // 目标平台 ID，5 表示 Windows Standalone / Target platform ID, with 5 meaning Windows Standalone
 	objects        []sfObject         // 待写入的对象列表 / Object list to write
 	nextPathId     int64              // 下一次自动分配的 PathID / Next automatically allocated PathID
 	usedPathIds    map[int64]struct{} // 已占用的 PathID 集合 / Set of already used PathIDs
 	err            error              // 延迟到 Write 返回的构建错误 / Build error deferred until Write
 }
 
-// sfObject 表示待写入的序列化对象 / sfObject represents one serialized object to write
+// sfObject 表示待写入的一个序列化对象
+// sfObject represents one serialized object to write
 type sfObject struct {
 	pathId   int64  // 对象 PathID / Object PathID
-	classId  int32  // Unity ClassID / Unity ClassID
+	classId  int32  // Unity 类 ID / Unity class ID
 	name     string // 对象内部 m_Name / Internal object m_Name
 	loadName string // AssetBundle m_Container 加载名 / AssetBundle m_Container load name
 	data     []byte // 序列化后的对象数据 / Serialized object data
 }
 
 const (
-	sfVersion       uint32 = 22
-	defaultPlatform uint32 = 5 // Windows Standalone
+	sfVersion uint32 = 22
+	// defaultPlatform 是 Windows Standalone 的 TargetPlatform 值
+	// defaultPlatform is the TargetPlatform value for Windows Standalone
+	defaultPlatform uint32 = 5
 )
 
-// NewSerializedFileWriter 创建一个新的 SerializedFile 写入器
+// NewSerializedFileWriter 创建一个新的 SerializedFile v22 写入器并验证 Unity 版本
+// NewSerializedFileWriter creates a new SerializedFile v22 writer and validates the Unity version
 func NewSerializedFileWriter(unityVersion string) *SerializedFileWriter {
 	if unityVersion == "" {
 		unityVersion = "2021.3.37f1"
@@ -55,25 +58,30 @@ func NewSerializedFileWriter(unityVersion string) *SerializedFileWriter {
 	return w
 }
 
-// AddTextAsset 添加一个 TextAsset 对象。
-// name 为资源名称（如 "xxx.menuassets"），script 为 m_Script 数据。
-// 返回分配的 PathId。
+// AddTextAsset 添加一个 TextAsset 对象，name 是资源名称，script 是 m_Script 数据
+// 返回分配的 PathID
+// AddTextAsset adds a TextAsset whose name is the resource name and whose script is m_Script data
+// It returns the allocated PathID
 func (w *SerializedFileWriter) AddTextAsset(name string, script []byte) int64 {
 	return w.AddTextAssetWithLoadName(name, name, script)
 }
 
-// AddTextAssetWithPathID 使用首选 PathID 添加 TextAsset / AddTextAssetWithPathID adds a TextAsset using a preferred PathID
-// 重打包已解包 .aba 时用于保留内部 Unity PPtr 引用 / Used when repacking extracted .aba files so internal Unity PPtr references keep pointing at the same objects
+// AddTextAssetWithPathID 使用首选 PathID 添加 TextAsset
+// 重打包已解包 .aba 时可用它保留内部 Unity PPtr 引用指向相同对象
+// AddTextAssetWithPathID adds a TextAsset using a preferred PathID
+// It can preserve internal Unity PPtr targets when repacking extracted .aba files
 func (w *SerializedFileWriter) AddTextAssetWithPathID(name string, script []byte, pathID int64) int64 {
 	return w.AddTextAssetWithLoadNameAndPathID(name, name, script, pathID)
 }
 
-// AddTextAssetWithLoadName 添加内部 m_Name 可不同于 LoadAsset key 的 TextAsset / AddTextAssetWithLoadName adds a TextAsset whose internal m_Name can differ from the AssetBundle m_Container key used for LoadAsset
+// AddTextAssetWithLoadName 添加内部 m_Name 可不同于 AssetBundle m_Container LoadAsset 键的 TextAsset
+// AddTextAssetWithLoadName adds a TextAsset whose internal m_Name can differ from the AssetBundle m_Container key used by LoadAsset
 func (w *SerializedFileWriter) AddTextAssetWithLoadName(name string, loadName string, script []byte) int64 {
 	return w.AddTextAssetWithLoadNameAndPathID(name, loadName, script, 0)
 }
 
-// AddTextAssetWithLoadNameAndPathID 添加带独立 m_Name、加载 key 和首选 PathID 的 TextAsset / AddTextAssetWithLoadNameAndPathID adds a TextAsset with separate internal m_Name, AssetBundle load key, and preferred PathID
+// AddTextAssetWithLoadNameAndPathID 添加带独立 m_Name、AssetBundle 加载键和首选 PathID 的 TextAsset
+// AddTextAssetWithLoadNameAndPathID adds a TextAsset with separate internal m_Name, AssetBundle load key, and preferred PathID
 func (w *SerializedFileWriter) AddTextAssetWithLoadNameAndPathID(name string, loadName string, script []byte, pathID int64) int64 {
 	data, err := encodeTextAssetData(name, script)
 	if err != nil {
@@ -91,24 +99,28 @@ func (w *SerializedFileWriter) AddTextAssetWithLoadNameAndPathID(name string, lo
 	return actualPathID
 }
 
-// AddTexture2D 添加一个 Texture2D 对象。
-// name 为资源名称，imageData 为 RGBA32 像素数据，width/height 为尺寸。
-// 返回分配的 PathId。
+// AddTexture2D 添加一个 Texture2D 对象，imageData 是 RGBA32 像素数据，width 和 height 是尺寸
+// 返回分配的 PathID
+// AddTexture2D adds a Texture2D with RGBA32 imageData and the supplied width and height
+// It returns the allocated PathID
 func (w *SerializedFileWriter) AddTexture2D(name string, width, height int, imageData []byte) int64 {
 	return w.AddTexture2DWithLoadName(name, name, width, height, imageData)
 }
 
-// AddTexture2DWithPathID 使用首选 PathID 添加生成的 Texture2D / AddTexture2DWithPathID adds a generated Texture2D with a preferred PathID
+// AddTexture2DWithPathID 使用首选 PathID 添加生成的 Texture2D
+// AddTexture2DWithPathID adds a generated Texture2D with a preferred PathID
 func (w *SerializedFileWriter) AddTexture2DWithPathID(name string, width, height int, imageData []byte, pathID int64) int64 {
 	return w.AddTexture2DWithLoadNameAndPathID(name, name, width, height, imageData, pathID)
 }
 
-// AddTexture2DWithLoadName 添加内部 m_Name 可不同于 LoadAsset key 的 Texture2D / AddTexture2DWithLoadName adds a generated Texture2D whose internal m_Name can differ from the AssetBundle m_Container key used for LoadAsset
+// AddTexture2DWithLoadName 添加内部 m_Name 可不同于 AssetBundle m_Container LoadAsset 键的 Texture2D
+// AddTexture2DWithLoadName adds a generated Texture2D whose internal m_Name can differ from the AssetBundle m_Container key used by LoadAsset
 func (w *SerializedFileWriter) AddTexture2DWithLoadName(name string, loadName string, width, height int, imageData []byte) int64 {
 	return w.AddTexture2DWithLoadNameAndPathID(name, loadName, width, height, imageData, 0)
 }
 
-// AddTexture2DWithLoadNameAndPathID 添加带独立 m_Name、加载 key 和首选 PathID 的 Texture2D / AddTexture2DWithLoadNameAndPathID adds a generated Texture2D with separate internal m_Name, AssetBundle load key, and preferred PathID
+// AddTexture2DWithLoadNameAndPathID 添加带独立 m_Name、AssetBundle 加载键和首选 PathID 的 Texture2D
+// AddTexture2DWithLoadNameAndPathID adds a generated Texture2D with separate internal m_Name, AssetBundle load key, and preferred PathID
 func (w *SerializedFileWriter) AddTexture2DWithLoadNameAndPathID(name string, loadName string, width, height int, imageData []byte, pathID int64) int64 {
 	data, err := encodeTexture2DData(w.UnityVersion, name, width, height, imageData)
 	if err != nil {
@@ -126,24 +138,28 @@ func (w *SerializedFileWriter) AddTexture2DWithLoadNameAndPathID(name string, lo
 	return actualPathID
 }
 
-// AddRawObject 添加一个原始数据对象（如 Mesh）。
-// 返回分配的 PathId。
+// AddRawObject 添加一个原始数据对象，如 Mesh，并返回分配的 PathID
+// AddRawObject adds a raw data object such as Mesh and returns the allocated PathID
 func (w *SerializedFileWriter) AddRawObject(classId int32, name string, data []byte) int64 {
 	return w.AddRawObjectWithLoadNameAndPathID(classId, name, name, data, 0)
 }
 
-// AddRawObjectWithPathID 使用首选 PathID 添加原始 Unity 序列化对象 / AddRawObjectWithPathID adds a raw serialized Unity object with a preferred PathID
-// 如果请求的 PathID 为 0 或已占用，会重新分配以保持 SerializedFile 有效 / If the requested PathID is zero or already used, a fresh PathID is allocated to keep the SerializedFile valid
+// AddRawObjectWithPathID 使用首选 PathID 添加原始 Unity 序列化对象
+// 如果请求的 PathID 为零或已占用，会重新分配以保持 SerializedFile 有效
+// AddRawObjectWithPathID adds a raw serialized Unity object with a preferred PathID
+// If the requested PathID is zero or already used, a fresh PathID is allocated to keep the SerializedFile valid
 func (w *SerializedFileWriter) AddRawObjectWithPathID(classId int32, name string, data []byte, pathID int64) int64 {
 	return w.AddRawObjectWithLoadNameAndPathID(classId, name, name, data, pathID)
 }
 
-// AddRawObjectWithLoadName 添加内部 m_Name 可不同于 LoadAsset key 的原始 Unity 对象 / AddRawObjectWithLoadName adds a raw serialized Unity object whose internal m_Name can differ from the AssetBundle m_Container key used for LoadAsset
+// AddRawObjectWithLoadName 添加内部 m_Name 可不同于 AssetBundle m_Container LoadAsset 键的原始 Unity 对象
+// AddRawObjectWithLoadName adds a raw serialized Unity object whose internal m_Name can differ from the AssetBundle m_Container key used by LoadAsset
 func (w *SerializedFileWriter) AddRawObjectWithLoadName(classId int32, name string, loadName string, data []byte) int64 {
 	return w.AddRawObjectWithLoadNameAndPathID(classId, name, loadName, data, 0)
 }
 
-// AddRawObjectWithLoadNameAndPathID 添加带独立 m_Name、加载 key 和首选 PathID 的原始 Unity 对象 / AddRawObjectWithLoadNameAndPathID adds a raw serialized Unity object with separate internal m_Name, AssetBundle load key, and preferred PathID
+// AddRawObjectWithLoadNameAndPathID 添加带独立 m_Name、AssetBundle 加载键和首选 PathID 的原始 Unity 对象
+// AddRawObjectWithLoadNameAndPathID adds a raw serialized Unity object with separate internal m_Name, AssetBundle load key, and preferred PathID
 func (w *SerializedFileWriter) AddRawObjectWithLoadNameAndPathID(classId int32, name string, loadName string, data []byte, pathID int64) int64 {
 	if rawObjectHasLeadingName(classId) {
 		if rewritten, err := rewriteLeadingAlignedName(data, name); err == nil {
@@ -161,6 +177,8 @@ func (w *SerializedFileWriter) AddRawObjectWithLoadNameAndPathID(classId int32, 
 	return actualPathID
 }
 
+// nonEmptyLoadName 返回非空的 AssetBundle 加载键，空值时回退到对象名称
+// nonEmptyLoadName returns a non-empty AssetBundle load key, falling back to the object name
 func nonEmptyLoadName(loadName string, name string) string {
 	if loadName != "" {
 		return loadName
@@ -168,6 +186,8 @@ func nonEmptyLoadName(loadName string, name string) string {
 	return name
 }
 
+// allocatePathID 分配下一个未使用的正数 PathID
+// allocatePathID allocates the next unused positive PathID
 func (w *SerializedFileWriter) allocatePathID() int64 {
 	w.ensurePathIDState()
 	for w.nextPathId == 0 || w.isPathIDUsed(w.nextPathId) {
@@ -179,12 +199,16 @@ func (w *SerializedFileWriter) allocatePathID() int64 {
 	return pathID
 }
 
+// setError 保存第一个构建错误，使公开添加方法可以延迟到 Write 返回错误
+// setError stores the first build error so public add methods can defer failure until Write
 func (w *SerializedFileWriter) setError(err error) {
 	if w.err == nil {
 		w.err = err
 	}
 }
 
+// reserveOrAllocatePathID 保留可用的首选 PathID，否则分配新的 PathID
+// reserveOrAllocatePathID reserves an available preferred PathID or allocates a new one
 func (w *SerializedFileWriter) reserveOrAllocatePathID(pathID int64) int64 {
 	w.ensurePathIDState()
 	if pathID == 0 || w.isPathIDUsed(pathID) {
@@ -197,6 +221,8 @@ func (w *SerializedFileWriter) reserveOrAllocatePathID(pathID int64) int64 {
 	return pathID
 }
 
+// nextAvailablePathID 查找不与已占用集合冲突的下一个 PathID
+// nextAvailablePathID finds the next PathID that does not conflict with the used set
 func (w *SerializedFileWriter) nextAvailablePathID() int64 {
 	w.ensurePathIDState()
 	pathID := w.nextPathId
@@ -210,6 +236,8 @@ func (w *SerializedFileWriter) nextAvailablePathID() int64 {
 	return pathID
 }
 
+// ensurePathIDState 初始化 PathID 游标和已占用集合
+// ensurePathIDState initializes the PathID cursor and used set
 func (w *SerializedFileWriter) ensurePathIDState() {
 	if w.nextPathId == 0 {
 		w.nextPathId = 1
@@ -222,11 +250,15 @@ func (w *SerializedFileWriter) ensurePathIDState() {
 	}
 }
 
+// isPathIDUsed 判断 PathID 是否已被对象占用
+// isPathIDUsed reports whether a PathID is already used by an object
 func (w *SerializedFileWriter) isPathIDUsed(pathID int64) bool {
 	_, ok := w.usedPathIds[pathID]
 	return ok
 }
 
+// rawObjectHasLeadingName 判断当前支持的原始对象布局是否以对齐 m_Name 开始
+// rawObjectHasLeadingName reports whether a supported raw-object layout begins with an aligned m_Name
 func rawObjectHasLeadingName(classId int32) bool {
 	switch classId {
 	case ClassIDMaterial,
@@ -247,6 +279,8 @@ func rawObjectHasLeadingName(classId int32) bool {
 	}
 }
 
+// rewriteLeadingAlignedName 替换原始对象开头的对齐 m_Name，同时保留其余字节
+// rewriteLeadingAlignedName replaces the leading aligned m_Name while preserving all remaining bytes
 func rewriteLeadingAlignedName(data []byte, name string) ([]byte, error) {
 	r := binaryio.NewEndianReader(data, binary.LittleEndian)
 	if _, err := r.ReadAlignedString(); err != nil {
@@ -262,8 +296,8 @@ func rewriteLeadingAlignedName(data []byte, name string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// Write 将所有对象写入为完整的 SerializedFile v22 格式。
-// 自动追加 AssetBundle 对象（ClassID 142）作为 m_Container 映射。
+// Write 将所有对象写入完整的 SerializedFile v22 格式，并自动追加 ClassID 142 AssetBundle 对象作为 m_Container 映射
+// Write emits a complete SerializedFile v22 and appends a ClassID 142 AssetBundle object containing the m_Container mapping
 func (w *SerializedFileWriter) Write(out io.Writer) error {
 	if w == nil {
 		return fmt.Errorf("nil SerializedFileWriter")
@@ -286,7 +320,8 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 		}
 	}
 
-	// 追加 AssetBundle 对象
+	// 追加一个保存 m_Container 加载映射的 AssetBundle 对象
+	// Append an AssetBundle object containing the m_Container load mapping
 	containerData, err := w.encodeAssetBundleObject()
 	if err != nil {
 		return fmt.Errorf("encode AssetBundle object: %w", err)
@@ -301,28 +336,34 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 		data:    containerData,
 	})
 
-	// 收集所有 classId（去重）
+	// 按首次出现顺序收集唯一 class ID
+	// Collect unique class IDs in first-seen order
 	classIds := collectClassIds(allObjects)
 
-	// 构建 metadata
+	// 首次构建 metadata 以确定其长度
+	// Build metadata once to determine its length
 	metadataBuf, err := w.buildMetadata(allObjects, classIds)
 	if err != nil {
 		return fmt.Errorf("build metadata: %w", err)
 	}
 
-	// 计算 header 大小（v22 固定 48 字节）
+	// v22 Header 固定为 48 字节
+	// The v22 Header is fixed at 48 bytes
 	headerSize := 48
 
-	// 数据区偏移需要对齐到 16 字节
+	// 数据区起点对齐到 16 字节
+	// Align the data-section start to 16 bytes
 	dataOffset := binaryio.AlignOffset(headerSize+len(metadataBuf), 16)
 
-	// 构建数据区（每个对象数据 8 字节对齐）
+	// 构建数据区并将每个对象起点对齐到八字节
+	// Build the data section with every object start aligned to eight bytes
 	dataBuf, objectOffsets, err := buildDataSection(allObjects)
 	if err != nil {
 		return fmt.Errorf("build data section: %w", err)
 	}
 
-	// 更新 metadata 中的 offset/size
+	// 使用最终对象偏移重新构建 metadata
+	// Rebuild metadata with final object offsets
 	metadataBuf, err = w.buildMetadataWithOffsets(allObjects, classIds, objectOffsets)
 	if err != nil {
 		return fmt.Errorf("build metadata with offsets: %w", err)
@@ -338,9 +379,12 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 		return err
 	}
 
-	// 写入 header（Big-Endian）
+	// 以 Big-Endian 构建 SerializedFile Header
+	// Build the SerializedFile Header in Big-Endian order
 	var header bytes.Buffer
 	hw := binaryio.NewEndianWriter(&header, binary.BigEndian)
+	// v22 的四个旧头部数值依次为 MetadataSize、FileSize、Version 和 DataOffset，其中除 Version 外均写零
+	// The four legacy v22 header numbers are MetadataSize, FileSize, Version, and DataOffset in order, with all but Version written as zero
 	if err := hw.WriteUInt32(0); err != nil { // MetadataSize (legacy; zero for v22)
 		return fmt.Errorf("write header metadata size: %w", err)
 	}
@@ -353,13 +397,16 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 	if err := hw.WriteUInt32(0); err != nil { // DataOffset (legacy; zero for v22)
 		return fmt.Errorf("write header data offset: %w", err)
 	}
+	// 对象和 metadata 使用 Little-Endian，随后写入三个填充字节
+	// Object data and metadata use Little-Endian, followed by three padding bytes
 	if err := hw.WriteByte(0); err != nil { // Endianness = Little
 		return fmt.Errorf("write header endianness: %w", err)
 	}
 	if err := hw.WriteZeroes(3); err != nil { // padding
 		return fmt.Errorf("write header padding: %w", err)
 	}
-	// v22 extended header
+	// v22 扩展头依次保存 MetadataSize、Int64 FileSize、Int64 DataOffset 和未使用的 Int64 零值
+	// The v22 extended header stores MetadataSize, Int64 FileSize, Int64 DataOffset, and an unused Int64 zero in order
 	if err := hw.WriteUInt32(metadataSize); err != nil { // MetadataSize
 		return fmt.Errorf("write extended header metadata size: %w", err)
 	}
@@ -379,7 +426,8 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 	if err := writeAbaBytes(out, metadataBuf); err != nil {
 		return fmt.Errorf("write metadata: %w", err)
 	}
-	// 填充到 dataOffset
+	// 在 metadata 后写零填充直到 DataOffset
+	// Write zero padding after metadata up to DataOffset
 	padding := dataOffset - headerSize - len(metadataBuf)
 	if padding > 0 {
 		if err := writeAbaBytes(out, make([]byte, padding)); err != nil {
@@ -392,10 +440,14 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 	return nil
 }
 
+// buildMetadata 构建对象偏移暂为零的 metadata，用于计算布局
+// buildMetadata builds metadata with provisional zero object offsets for layout calculation
 func (w *SerializedFileWriter) buildMetadata(objects []sfObject, classIds []int32) ([]byte, error) {
 	return w.buildMetadataWithOffsets(objects, classIds, nil)
 }
 
+// buildMetadataWithOffsets 构建包含 SerializedTypes、AssetInfos 和空尾部表的 Little-Endian v22 metadata
+// buildMetadataWithOffsets builds Little-Endian v22 metadata containing SerializedTypes, AssetInfos, and empty tail tables
 func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, classIds []int32, offsets []int64) ([]byte, error) {
 	if offsets != nil && len(offsets) != len(objects) {
 		return nil, fmt.Errorf("object offset count %d does not match object count %d", len(offsets), len(objects))
@@ -411,22 +463,26 @@ func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, clas
 	var buf bytes.Buffer
 	bw := binaryio.NewEndianWriter(&buf, binary.LittleEndian)
 
-	// UnityVersion (null-terminated)
-	if err := bw.WriteNullString(w.UnityVersion); err != nil {
+	// metadata 首先保存 NUL 结尾的 UnityVersion
+	// Metadata begins with NUL-terminated UnityVersion
+	if err := bw.WriteNullString(w.UnityVersion); err != nil { // UnityVersion (null-terminated)
 		return nil, fmt.Errorf("write unity version: %w", err)
 	}
 
-	// TargetPlatform
-	if err := bw.WriteUInt32(w.TargetPlatform); err != nil {
+	// 随后保存 TargetPlatform
+	// TargetPlatform follows
+	if err := bw.WriteUInt32(w.TargetPlatform); err != nil { // TargetPlatform
 		return nil, fmt.Errorf("write target platform: %w", err)
 	}
 
-	// TypeTreeEnabled = false（不写类型树，游戏通过 ClassID 识别）
+	// TypeTreeEnabled 写为 false，不嵌入类型树，由 Unity 通过 class ID 识别内置对象
+	// TypeTreeEnabled is false with no embedded tree, allowing Unity to identify built-in objects by class ID
 	if err := bw.WriteByte(0); err != nil {
 		return nil, fmt.Errorf("write type tree enabled: %w", err)
 	}
 
-	// TypeCount
+	// 写入 SerializedTypes 数量，各 v22 类型记录依次包含 TypeId、IsStrippedType、ScriptTypeIndex、条件 ScriptIdHash 和 TypeHash
+	// Write SerializedTypes count; each v22 type record contains TypeId, IsStrippedType, ScriptTypeIndex, conditional ScriptIdHash, and TypeHash in order
 	if err := bw.WriteInt32(typeCount); err != nil {
 		return nil, fmt.Errorf("write type count: %w", err)
 	}
@@ -450,12 +506,14 @@ func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, clas
 		}
 	}
 
-	// AssetInfos count
+	// SerializedTypes 后写入 AssetInfos 数量和对象表
+	// Write AssetInfos count and object table after SerializedTypes
 	if err := bw.WriteInt32(objectCount); err != nil {
 		return nil, fmt.Errorf("write asset info count: %w", err)
 	}
 	for i, obj := range objects {
-		// 4-byte align before each entry
+		// v22 每个对象表条目前对齐到四字节
+		// Align to four bytes before each v22 object-table entry
 		if err := bw.Align(4); err != nil {
 			return nil, fmt.Errorf("align asset info[%d]: %w", i, err)
 		}
@@ -485,60 +543,71 @@ func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, clas
 		}
 	}
 
-	// ScriptTypes count = 0. SerializedFile metadata stores this table between
-	// AssetInfos and ExternalFiles even when no MonoBehaviour script references
-	// are present.
+	// SerializedFile metadata 即使没有 MonoBehaviour 脚本引用，也在 AssetInfos 与 ExternalFiles 之间保存 ScriptTypes 计数，本写入器写零
+	// SerializedFile metadata stores ScriptTypes count between AssetInfos and ExternalFiles even without MonoBehaviour references; this writer emits zero
 	if err := bw.WriteUInt32(0); err != nil {
 		return nil, fmt.Errorf("write script type count: %w", err)
 	}
 
-	// ExternalFiles count = 0
+	// ExternalFiles 数量写零
+	// ExternalFiles count is zero
 	if err := bw.WriteUInt32(0); err != nil {
 		return nil, fmt.Errorf("write external file count: %w", err)
 	}
 
-	// RefTypes count = 0
+	// RefTypes 数量写零
+	// RefTypes count is zero
 	if err := bw.WriteUInt32(0); err != nil {
 		return nil, fmt.Errorf("write ref type count: %w", err)
 	}
 
-	// UserInformation (empty string)
+	// UserInformation 写为空 NUL 结尾字符串
+	// UserInformation is an empty NUL-terminated string
 	if err := bw.WriteByte(0); err != nil {
 		return nil, fmt.Errorf("write user information: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
+// encodeAssetBundleObject 编码包含所有用户对象加载名和 PPtr 的 Unity AssetBundle 容器对象
+// encodeAssetBundleObject encodes a Unity AssetBundle container object with load names and PPtrs for all user objects
 func (w *SerializedFileWriter) encodeAssetBundleObject() ([]byte, error) {
 	containerCount, err := int32WireLength("AssetBundle m_Container count", uint64(len(w.objects)))
 	if err != nil {
 		return nil, err
 	}
-	// AssetBundle 对象的最小序列化：m_Name + m_Container
+	// 按 KCES 使用的内置 AssetBundle TypeTree 顺序写入对象字段
+	// Write object fields in the built-in AssetBundle TypeTree order used by KCES
 	var buf bytes.Buffer
 	bw := binaryio.NewEndianWriter(&buf, binary.LittleEndian)
 
-	// m_Name (aligned string)
+	// m_Name 是对齐字符串
+	// m_Name is an aligned string
 	if err := bw.WriteAlignedString("CAB-generated"); err != nil {
 		return nil, fmt.Errorf("write AssetBundle m_Name: %w", err)
 	}
 
-	// m_PreloadTable (empty array)
+	// m_PreloadTable 写为空数组
+	// m_PreloadTable is an empty array
 	if err := bw.WriteUInt32(0); err != nil {
 		return nil, fmt.Errorf("write AssetBundle m_PreloadTable size: %w", err)
 	}
 
-	// m_Container (map: name → PPtr)
+	// m_Container 将加载名映射到对象 PPtr
+	// m_Container maps load names to object PPtrs
 	if err := bw.WriteInt32(containerCount); err != nil {
 		return nil, fmt.Errorf("write AssetBundle m_Container size: %w", err)
 	}
 	for _, obj := range w.objects {
-		// key: string
+		// map 键是对齐加载名字符串
+		// The map key is an aligned load-name string
 		loadName := nonEmptyLoadName(obj.loadName, obj.name)
 		if err := bw.WriteAlignedString(loadName); err != nil {
 			return nil, fmt.Errorf("write AssetBundle m_Container key %q: %w", loadName, err)
 		}
 		// value: AssetInfo { preloadIndex, preloadSize, asset PPtr }
+		// map 值依次保存零 preloadIndex、零 preloadSize、当前文件 fileIndex 和对象 pathID
+		// The map value stores zero preloadIndex, zero preloadSize, current-file fileIndex, and object pathID in order
 		if err := bw.WriteUInt32(0); err != nil { // preloadIndex
 			return nil, fmt.Errorf("write AssetBundle m_Container[%q].preloadIndex: %w", loadName, err)
 		}
@@ -553,7 +622,8 @@ func (w *SerializedFileWriter) encodeAssetBundleObject() ([]byte, error) {
 		}
 	}
 
-	// m_MainAsset (AssetInfo: preloadIndex, preloadSize, asset PPtr)
+	// m_MainAsset 写为所有字段为零的空 AssetInfo
+	// m_MainAsset is a null AssetInfo with all fields set to zero
 	if err := bw.WriteUInt32(0); err != nil {
 		return nil, fmt.Errorf("write AssetBundle m_MainAsset preload index: %w", err)
 	}
@@ -567,22 +637,26 @@ func (w *SerializedFileWriter) encodeAssetBundleObject() ([]byte, error) {
 		return nil, fmt.Errorf("write AssetBundle m_MainAsset path id: %w", err)
 	}
 
-	// m_RuntimeCompatibility
+	// m_RuntimeCompatibility 写零
+	// m_RuntimeCompatibility is zero
 	if err := bw.WriteUInt32(0); err != nil {
 		return nil, fmt.Errorf("write AssetBundle m_RuntimeCompatibility: %w", err)
 	}
 
-	// m_AssetBundleName
+	// m_AssetBundleName 写为空字符串
+	// m_AssetBundleName is an empty string
 	if err := bw.WriteAlignedString(""); err != nil {
 		return nil, fmt.Errorf("write AssetBundle m_AssetBundleName: %w", err)
 	}
 
-	// m_Dependencies (empty)
+	// m_Dependencies 写为空数组
+	// m_Dependencies is an empty array
 	if err := bw.WriteUInt32(0); err != nil {
 		return nil, fmt.Errorf("write AssetBundle m_Dependencies size: %w", err)
 	}
 
-	// m_IsStreamedSceneAssetBundle
+	// m_IsStreamedSceneAssetBundle 写为 false 并按 TypeTree 对齐
+	// m_IsStreamedSceneAssetBundle is false and aligned according to the TypeTree
 	if err := bw.WriteByte(0); err != nil {
 		return nil, fmt.Errorf("write AssetBundle m_IsStreamedSceneAssetBundle: %w", err)
 	}
@@ -590,9 +664,10 @@ func (w *SerializedFileWriter) encodeAssetBundleObject() ([]byte, error) {
 		return nil, fmt.Errorf("align AssetBundle m_IsStreamedSceneAssetBundle: %w", err)
 	}
 
-	// These fields are present in every KCES sample from Unity 2020.2 through
-	// Unity 2022.3. Omitting them leaves a truncated AssetBundle object that
-	// Unity's built-in type tree cannot deserialize.
+	// Unity 2020.2 至 2022.3 的全部 KCES 样本都含 m_ExplicitDataLayout、m_PathFlags 和 m_SceneHashes
+	// 省略这些字段会产生 Unity 内置 TypeTree 无法反序列化的截断 AssetBundle 对象
+	// Every KCES sample from Unity 2020.2 through 2022.3 contains m_ExplicitDataLayout, m_PathFlags, and m_SceneHashes
+	// Omitting them leaves a truncated AssetBundle object that Unity's built-in TypeTree cannot deserialize
 	if err := bw.WriteInt32(0); err != nil { // m_ExplicitDataLayout
 		return nil, fmt.Errorf("write AssetBundle m_ExplicitDataLayout: %w", err)
 	}
@@ -605,6 +680,8 @@ func (w *SerializedFileWriter) encodeAssetBundleObject() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// encodeTextAssetData 按内置 TypeTree 顺序编码 TextAsset 的 m_Name 和 m_Script
+// encodeTextAssetData encodes TextAsset m_Name and m_Script in built-in TypeTree order
 func encodeTextAssetData(name string, script []byte) ([]byte, error) {
 	scriptLength, err := int32WireLength("TextAsset m_Script length", uint64(len(script)))
 	if err != nil {
@@ -613,12 +690,14 @@ func encodeTextAssetData(name string, script []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	bw := binaryio.NewEndianWriter(&buf, binary.LittleEndian)
 
-	// m_Name (aligned string)
+	// m_Name 是对齐字符串
+	// m_Name is an aligned string
 	if err := bw.WriteAlignedString(name); err != nil {
 		return nil, fmt.Errorf("write TextAsset m_Name: %w", err)
 	}
 
-	// m_Script (byte array: length + data + align)
+	// m_Script 依次保存长度、字节数据和四字节对齐填充
+	// m_Script stores length, byte data, and four-byte alignment padding in order
 	if err := bw.WriteInt32(scriptLength); err != nil {
 		return nil, fmt.Errorf("write TextAsset m_Script length: %w", err)
 	}
@@ -632,6 +711,8 @@ func encodeTextAssetData(name string, script []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// encodeTexture2DData 按 KCES 对应 Unity 版本的内置 TypeTree 编码内联 RGBA32 Texture2D
+// encodeTexture2DData encodes an inline RGBA32 Texture2D using the built-in TypeTree for the corresponding KCES Unity version
 func encodeTexture2DData(unityVersion string, name string, width, height int, imageData []byte) ([]byte, error) {
 	if width <= 0 || height <= 0 {
 		return nil, fmt.Errorf("invalid Texture2D dimensions %dx%d", width, height)
@@ -662,17 +743,19 @@ func encodeTexture2DData(unityVersion string, name string, width, height int, im
 	var buf bytes.Buffer
 	bw := binaryio.NewEndianWriter(&buf, binary.LittleEndian)
 
-	// m_Name
+	// m_Name 是对齐字符串
+	// m_Name is an aligned string
 	if err := bw.WriteAlignedString(name); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_Name: %w", err)
 	}
 
-	// m_ForcedFallbackFormat (int)
+	// m_ForcedFallbackFormat 写为 RGBA32 枚举值
+	// m_ForcedFallbackFormat is the RGBA32 enum value
 	if err := bw.WriteUInt32(uint32(TextureFormatRGBA32)); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_ForcedFallbackFormat: %w", err)
 	}
-	// m_DownscaleFallback and m_IsAlphaChannelOptional are adjacent bools;
-	// AlignBytes is attached to the second field in KCES Unity type trees.
+	// m_DownscaleFallback 与 m_IsAlphaChannelOptional 是相邻 bool，KCES Unity TypeTree 将 AlignBytes 附在第二个字段上
+	// m_DownscaleFallback and m_IsAlphaChannelOptional are adjacent booleans, with AlignBytes attached to the second field in KCES Unity TypeTrees
 	if err := bw.WriteByte(0); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_DownscaleFallback: %w", err)
 	}
@@ -683,37 +766,43 @@ func encodeTexture2DData(unityVersion string, name string, width, height int, im
 		return nil, fmt.Errorf("align Texture2D m_IsAlphaChannelOptional: %w", err)
 	}
 
-	// m_Width
+	// m_Width 保存像素宽度
+	// m_Width stores pixel width
 	if err := bw.WriteInt32(int32(width)); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_Width: %w", err)
 	}
-	// m_Height
+	// m_Height 保存像素高度
+	// m_Height stores pixel height
 	if err := bw.WriteInt32(int32(height)); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_Height: %w", err)
 	}
 
-	// m_CompleteImageSize
+	// m_CompleteImageSize 保存内联 RGBA32 数据长度
+	// m_CompleteImageSize stores inline RGBA32 data length
 	if err := bw.WriteInt32(imageDataLength); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_CompleteImageSize: %w", err)
 	}
 
-	// m_MipsStripped
+	// m_MipsStripped 写零
+	// m_MipsStripped is zero
 	if err := bw.WriteInt32(0); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_MipsStripped: %w", err)
 	}
 
-	// m_TextureFormat = 4 (RGBA32)
+	// m_TextureFormat 写为 4，即 RGBA32
+	// m_TextureFormat is 4 for RGBA32
 	if err := bw.WriteInt32(4); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_TextureFormat: %w", err)
 	}
 
-	// m_MipCount
+	// m_MipCount 写为单层
+	// m_MipCount is one
 	if err := bw.WriteInt32(1); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_MipCount: %w", err)
 	}
 
-	// m_IsReadable, m_IsPreProcessed and the version-specific mipmap-limit
-	// flag are serialized before m_StreamingMipmaps.
+	// m_IsReadable、m_IsPreProcessed 和版本特定的 mipmap limit 字段位于 m_StreamingMipmaps 之前
+	// m_IsReadable, m_IsPreProcessed, and version-specific mipmap-limit fields are serialized before m_StreamingMipmaps
 	if err := bw.WriteByte(1); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_IsReadable: %w", err)
 	}
@@ -721,73 +810,86 @@ func encodeTexture2DData(unityVersion string, name string, width, height int, im
 		return nil, fmt.Errorf("write Texture2D m_IsPreProcessed: %w", err)
 	}
 	if newMipmapLimitLayout {
-		if err := bw.WriteByte(0); err != nil { // m_IgnoreMipmapLimit
+		// Unity 2022.3 写 m_IgnoreMipmapLimit 并随后写 m_MipmapLimitGroupName
+		// Unity 2022.3 writes m_IgnoreMipmapLimit followed by m_MipmapLimitGroupName
+		if err := bw.WriteByte(0); err != nil {
 			return nil, fmt.Errorf("write Texture2D m_IgnoreMipmapLimit: %w", err)
 		}
 		if err := bw.Align(4); err != nil {
 			return nil, fmt.Errorf("align Texture2D m_IgnoreMipmapLimit: %w", err)
 		}
-		if err := bw.WriteAlignedString(""); err != nil { // m_MipmapLimitGroupName
+		if err := bw.WriteAlignedString(""); err != nil {
 			return nil, fmt.Errorf("write Texture2D m_MipmapLimitGroupName: %w", err)
 		}
 	} else {
-		if err := bw.WriteByte(0); err != nil { // m_IgnoreMasterTextureLimit
+		// Unity 2020.2 与 2021.3 使用旧 m_IgnoreMasterTextureLimit 字段
+		// Unity 2020.2 and 2021.3 use the legacy m_IgnoreMasterTextureLimit field
+		if err := bw.WriteByte(0); err != nil {
 			return nil, fmt.Errorf("write Texture2D m_IgnoreMasterTextureLimit: %w", err)
 		}
 	}
 
-	if err := bw.WriteByte(0); err != nil { // m_StreamingMipmaps
+	// m_StreamingMipmaps 写为 false 并对齐到四字节
+	// m_StreamingMipmaps is false and aligned to four bytes
+	if err := bw.WriteByte(0); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_StreamingMipmaps: %w", err)
 	}
 	if err := bw.Align(4); err != nil {
 		return nil, fmt.Errorf("align Texture2D m_StreamingMipmaps: %w", err)
 	}
 
-	// m_StreamingMipmapsPriority
+	// m_StreamingMipmapsPriority 写零
+	// m_StreamingMipmapsPriority is zero
 	if err := bw.WriteInt32(0); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_StreamingMipmapsPriority: %w", err)
 	}
 
-	// m_ImageCount
+	// m_ImageCount 写为一张图像
+	// m_ImageCount is one image
 	if err := bw.WriteInt32(1); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_ImageCount: %w", err)
 	}
 
-	// m_TextureDimension
-	if err := bw.WriteInt32(2); err != nil { // 2D
+	// m_TextureDimension 写为 2D 枚举值 2
+	// m_TextureDimension is the 2D enum value 2
+	if err := bw.WriteInt32(2); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_TextureDimension: %w", err)
 	}
 
-	// m_TextureSettings
-	if err := bw.WriteInt32(1); err != nil { // filterMode
+	// m_TextureSettings 依次写 filterMode、aniso、mipBias、wrapU、wrapV 和 wrapW
+	// m_TextureSettings writes filterMode, aniso, mipBias, wrapU, wrapV, and wrapW in order
+	if err := bw.WriteInt32(1); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_TextureSettings.filterMode: %w", err)
 	}
-	if err := bw.WriteInt32(0); err != nil { // aniso
+	if err := bw.WriteInt32(0); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_TextureSettings.aniso: %w", err)
 	}
-	if err := bw.WriteFloat32(0); err != nil { // mipBias
+	if err := bw.WriteFloat32(0); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_TextureSettings.mipBias: %w", err)
 	}
-	if err := bw.WriteInt32(0); err != nil { // wrapU
+	if err := bw.WriteInt32(0); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_TextureSettings.wrapU: %w", err)
 	}
-	if err := bw.WriteInt32(0); err != nil { // wrapV
+	if err := bw.WriteInt32(0); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_TextureSettings.wrapV: %w", err)
 	}
-	if err := bw.WriteInt32(0); err != nil { // wrapW
+	if err := bw.WriteInt32(0); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_TextureSettings.wrapW: %w", err)
 	}
 
-	// m_LightmapFormat
+	// m_LightmapFormat 写零
+	// m_LightmapFormat is zero
 	if err := bw.WriteInt32(0); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_LightmapFormat: %w", err)
 	}
-	// m_ColorSpace
-	if err := bw.WriteInt32(1); err != nil { // Linear
+	// m_ColorSpace 写为 Linear 枚举值 1
+	// m_ColorSpace is the Linear enum value 1
+	if err := bw.WriteInt32(1); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_ColorSpace: %w", err)
 	}
 
-	// m_PlatformBlob (empty)
+	// m_PlatformBlob 写为空并对齐
+	// m_PlatformBlob is empty and aligned
 	if err := bw.WriteUInt32(0); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_PlatformBlob length: %w", err)
 	}
@@ -795,7 +897,8 @@ func encodeTexture2DData(unityVersion string, name string, width, height int, im
 		return nil, fmt.Errorf("align Texture2D m_PlatformBlob: %w", err)
 	}
 
-	// image data (byte array)
+	// image data 保存长度、内联 RGBA32 字节和四字节对齐填充
+	// image data stores length, inline RGBA32 bytes, and four-byte alignment padding
 	if err := bw.WriteInt32(imageDataLength); err != nil {
 		return nil, fmt.Errorf("write Texture2D image data length: %w", err)
 	}
@@ -806,7 +909,8 @@ func encodeTexture2DData(unityVersion string, name string, width, height int, im
 		return nil, fmt.Errorf("align Texture2D image data: %w", err)
 	}
 
-	// m_StreamData (offset=0, size=0, path="")
+	// m_StreamData 的 offset、size 和 path 均写零值，因为图像数据已内联
+	// m_StreamData offset, size, and path are zero values because image data is inline
 	if err := bw.WriteUInt64(0); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_StreamData offset: %w", err)
 	}
@@ -820,10 +924,10 @@ func encodeTexture2DData(unityVersion string, name string, width, height int, im
 	return buf.Bytes(), nil
 }
 
-// validateSerializedFileUnityVersion limits generated built-in object layouts
-// to the Unity lines observed in KCES samples. Raw object bytes are interpreted
-// by Unity according to this version string, so silently accepting an unknown
-// line can make an otherwise byte-identical repack unreadable.
+// validateSerializedFileUnityVersion 将生成的内置对象布局限制为 KCES 样本中观察到的 Unity 版本线
+// Unity 会按该版本字符串解释原始对象字节，静默接受未知版本可能使其余字节完全相同的重打包文件无法读取
+// validateSerializedFileUnityVersion limits generated built-in object layouts to Unity lines observed in KCES samples
+// Unity interprets raw object bytes according to this version string, so accepting an unknown line could make an otherwise byte-identical repack unreadable
 func validateSerializedFileUnityVersion(unityVersion string) error {
 	major, minor, err := parseUnityMajorMinor(unityVersion)
 	if err != nil {
@@ -835,6 +939,8 @@ func validateSerializedFileUnityVersion(unityVersion string) error {
 	return fmt.Errorf("unsupported KCES Unity version %q: supported lines are 2020.2, 2021.3, and 2022.3", unityVersion)
 }
 
+// texture2DUsesMipmapLimitGroup 判断 Texture2D 是否使用 Unity 2022 的 mipmap limit group 布局
+// texture2DUsesMipmapLimitGroup reports whether Texture2D uses the Unity 2022 mipmap-limit-group layout
 func texture2DUsesMipmapLimitGroup(unityVersion string) (bool, error) {
 	if err := validateSerializedFileUnityVersion(unityVersion); err != nil {
 		return false, err
@@ -843,6 +949,8 @@ func texture2DUsesMipmapLimitGroup(unityVersion string) (bool, error) {
 	return major >= 2022, nil
 }
 
+// parseUnityMajorMinor 从 Unity 版本字符串开头解析 major 和 minor 数字
+// parseUnityMajorMinor parses major and minor numbers from the start of a Unity version string
 func parseUnityMajorMinor(unityVersion string) (int, int, error) {
 	var major, minor int
 	if n, err := fmt.Sscanf(unityVersion, "%d.%d", &major, &minor); err != nil || n != 2 {
@@ -851,6 +959,8 @@ func parseUnityMajorMinor(unityVersion string) (int, int, error) {
 	return major, minor, nil
 }
 
+// buildDataSection 将对象数据按八字节边界排列，并返回各对象相对于数据区的偏移
+// buildDataSection lays out object data on eight-byte boundaries and returns offsets relative to the data section
 func buildDataSection(objects []sfObject) ([]byte, []int64, error) {
 	var buf bytes.Buffer
 	bw := binaryio.NewEndianWriter(&buf, binary.LittleEndian)
@@ -870,6 +980,8 @@ func buildDataSection(objects []sfObject) ([]byte, []int64, error) {
 	return buf.Bytes(), offsets, nil
 }
 
+// collectClassIds 按首次出现顺序返回对象使用的唯一 class ID
+// collectClassIds returns unique class IDs used by objects in first-seen order
 func collectClassIds(objects []sfObject) []int32 {
 	seen := map[int32]bool{}
 	var ids []int32
@@ -882,6 +994,8 @@ func collectClassIds(objects []sfObject) []int32 {
 	return ids
 }
 
+// classIdIndex 返回 class ID 在 SerializedTypes 列表中的索引，未找到时返回 -1
+// classIdIndex returns a class ID index in SerializedTypes or -1 when absent
 func classIdIndex(classIds []int32, id int32) int32 {
 	for i, cid := range classIds {
 		if cid == id {

@@ -9,25 +9,29 @@ import (
 )
 
 // ============================================================================
-// DanceObjectData — maid_data.bytes / item_data.bytes / event_data.bytes 共用格式
+// DanceObjectData 是 maid_data.bytes、item_data.bytes、event_data.bytes 的共用格式
+// DanceObjectData is the shared format for maid_data.bytes, item_data.bytes, and event_data.bytes
 // ============================================================================
 
-// DanceObjectData 舞蹈对象数据，用于描述舞蹈场景中的物体引用关系
+// DanceObjectData 是舞蹈对象数据，用于描述舞蹈场景中的物体引用关系
+// DanceObjectData is dance-object data describing object references in a dance scene
 type DanceObjectData struct {
-	Entries []DanceObjectEntry `json:"Entries"` // 对象条目列表
+	Entries []DanceObjectEntry `json:"Entries"` // 对象条目列表 / Object entry list
 }
 
-// DanceObjectEntry 单个舞蹈对象条目
+// DanceObjectEntry 表示单个舞蹈对象条目
+// DanceObjectEntry represents one dance-object entry
 type DanceObjectEntry struct {
-	TargetMaidNo               int32   `json:"TargetMaidNo"`               // 目标女仆编号
-	ObjectName                 string  `json:"ObjectName"`                 // 对象名称
-	TopObjectName              string  `json:"TopObjectName"`              // 顶层对象名称
-	ResourcesPath              string  `json:"ResourcesPath"`              // 资源路径
-	TreePath                   string  `json:"TreePath"`                   // 对象树路径
-	ObjectReferenceTrackIDList []int32 `json:"ObjectReferenceTrackIDList"` // 引用的轨道 ID 列表
+	TargetMaidNo               int32   `json:"TargetMaidNo"`               // 目标女仆编号 / Target maid number
+	ObjectName                 string  `json:"ObjectName"`                 // 对象名称 / Object name
+	TopObjectName              string  `json:"TopObjectName"`              // 顶层对象名称 / Top-level object name
+	ResourcesPath              string  `json:"ResourcesPath"`              // 资源路径 / Resource path
+	TreePath                   string  `json:"TreePath"`                   // 对象树路径 / Object-tree path
+	ObjectReferenceTrackIDList []int32 `json:"ObjectReferenceTrackIDList"` // 引用的轨道 ID 列表 / Referenced track ID list
 }
 
 // ReadDanceObjectData 从 r 中读取舞蹈对象数据
+// ReadDanceObjectData reads dance-object data from r
 func ReadDanceObjectData(r io.Reader) (*DanceObjectData, error) {
 	reader := stream.NewBinaryReader(r)
 
@@ -93,6 +97,7 @@ func ReadDanceObjectData(r io.Reader) (*DanceObjectData, error) {
 }
 
 // Dump 将舞蹈对象数据写出到 w
+// Dump writes dance-object data to w
 func (d *DanceObjectData) Dump(w io.Writer) error {
 	if d == nil {
 		return fmt.Errorf("nil DanceObjectData")
@@ -144,42 +149,60 @@ func (d *DanceObjectData) Dump(w io.Writer) error {
 }
 
 // ============================================================================
-// TimelineData — timeline_data.bytes 格式
+// TimelineData 是 timeline_data.bytes 格式
+// TimelineData is the timeline_data.bytes format
 // ============================================================================
 
 const (
-	TimelineSignature = "BaseData" // 时间线文件头标识
-	TimelineFinish    = "Finish"   // 时间线结束标识
-	TrackTranslation  = "Translation"
-	TrackRotation     = "Rotation"
-	TrackProperty     = "Property"
-	TrackEvent        = "Event"
+	// TimelineSignature 是时间线文件头标识
+	// TimelineSignature is the timeline file header marker
+	TimelineSignature = "BaseData"
+	// TimelineFinish 是时间线结束标识
+	// TimelineFinish is the timeline end marker
+	TimelineFinish   = "Finish"
+	TrackTranslation = "Translation"
+	TrackRotation    = "Rotation"
+	TrackProperty    = "Property"
+	TrackEvent       = "Event"
 )
 
-// TimelineData 舞蹈时间线数据
+// TimelineData 表示舞蹈时间线数据
+// TimelineData represents dance timeline data
 type TimelineData struct {
-	TotalFrame int32           `json:"TotalFrame"` // 总帧数
-	FrameRate  int32           `json:"FrameRate"`  // 帧率
-	Tracks     []TimelineTrack `json:"Tracks"`     // 轨道列表
+	TotalFrame int32           `json:"TotalFrame"` // 总帧数 / Total frame count
+	FrameRate  int32           `json:"FrameRate"`  // 帧率 / Frame rate
+	Tracks     []TimelineTrack `json:"Tracks"`     // 轨道列表 / Track list
 }
 
-// TimelineTrack 时间线轨道接口
+// TimelineTrack 表示时间线轨道接口
+// TimelineTrack represents the timeline-track interface
 type TimelineTrack interface {
+	// GetTypeName 返回游戏轨道类型字符串
+	// GetTypeName returns the game track-type string
 	GetTypeName() string
+	// read 从当前流读取轨道载荷，不读取外层类型字符串
+	// read reads the track payload from the current stream position without the outer type string
 	read(reader *stream.BinaryReader) error
+	// write 写入外层类型字符串和轨道载荷
+	// write writes the outer type string and track payload
 	write(writer *stream.BinaryWriter) error
 }
 
-// TranslationTrack 位移轨道
+// TranslationTrack 表示位移轨道
+// TranslationTrack represents a translation track
 type TranslationTrack struct {
-	TrackID        int32     `json:"TrackID"`        // 轨道 ID
-	TotalFrame     int32     `json:"TotalFrame"`     // 总帧数
-	ObjectTreePath string    `json:"ObjectTreePath"` // 对象树路径
-	PosArray       []Vector3 `json:"PosArray"`       // 每帧位置数组
+	TrackID        int32     `json:"TrackID"`        // 轨道 ID / Track ID
+	TotalFrame     int32     `json:"TotalFrame"`     // 总帧数 / Total frame count
+	ObjectTreePath string    `json:"ObjectTreePath"` // 对象树路径 / Object-tree path
+	PosArray       []Vector3 `json:"PosArray"`       // 每帧位置数组 / Per-frame position array
 }
 
+// GetTypeName 返回位移轨道标识 Translation
+// GetTypeName returns the Translation track identifier
 func (t *TranslationTrack) GetTypeName() string { return TrackTranslation }
 
+// read 读取轨道 ID、帧数、对象路径和每帧 Vector3 位移
+// read reads the track ID, frame count, object path, and per-frame Vector3 translations
 func (t *TranslationTrack) read(reader *stream.BinaryReader) error {
 	var err error
 	t.TrackID, err = reader.ReadInt32()
@@ -218,6 +241,8 @@ func (t *TranslationTrack) read(reader *stream.BinaryReader) error {
 	return nil
 }
 
+// write 写入位移轨道类型标识及其所有帧数据
+// write writes the translation track identifier and all frame data
 func (t *TranslationTrack) write(writer *stream.BinaryWriter) error {
 	if err := writer.WriteString(TrackTranslation); err != nil {
 		return err
@@ -245,16 +270,21 @@ func (t *TranslationTrack) write(writer *stream.BinaryWriter) error {
 	return nil
 }
 
-// RotationTrack 旋转轨道
+// RotationTrack 表示旋转轨道
+// RotationTrack represents a rotation track
 type RotationTrack struct {
-	TrackID         int32        `json:"TrackID"`         // 轨道 ID
-	TotalFrame      int32        `json:"TotalFrame"`      // 总帧数
-	ObjectTreePath  string       `json:"ObjectTreePath"`  // 对象树路径
-	QuaternionArray []Quaternion `json:"QuaternionArray"` // 每帧四元数数组
+	TrackID         int32        `json:"TrackID"`         // 轨道 ID / Track ID
+	TotalFrame      int32        `json:"TotalFrame"`      // 总帧数 / Total frame count
+	ObjectTreePath  string       `json:"ObjectTreePath"`  // 对象树路径 / Object-tree path
+	QuaternionArray []Quaternion `json:"QuaternionArray"` // 每帧四元数数组 / Per-frame quaternion array
 }
 
+// GetTypeName 返回旋转轨道标识 Rotation
+// GetTypeName returns the Rotation track identifier
 func (t *RotationTrack) GetTypeName() string { return TrackRotation }
 
+// read 读取轨道 ID、帧数、对象路径和每帧 Quaternion 旋转
+// read reads the track ID, frame count, object path, and per-frame Quaternion rotations
 func (t *RotationTrack) read(reader *stream.BinaryReader) error {
 	var err error
 	t.TrackID, err = reader.ReadInt32()
@@ -297,6 +327,8 @@ func (t *RotationTrack) read(reader *stream.BinaryReader) error {
 	return nil
 }
 
+// write 写入旋转轨道类型标识及其所有帧数据
+// write writes the rotation track identifier and all frame data
 func (t *RotationTrack) write(writer *stream.BinaryWriter) error {
 	if err := writer.WriteString(TrackRotation); err != nil {
 		return err
@@ -327,23 +359,28 @@ func (t *RotationTrack) write(writer *stream.BinaryWriter) error {
 	return nil
 }
 
-// PropertyTrack 属性轨道（支持 Integer/Float/Vector3/Color 四种值类型）
+// PropertyTrack 表示支持 Integer、Float、Vector3、Color 四种值类型的属性轨道
+// PropertyTrack represents a property track supporting Integer, Float, Vector3, and Color values
 type PropertyTrack struct {
-	TrackID        int32             `json:"TrackID"`                 // 轨道 ID
-	TotalFrame     int32             `json:"TotalFrame"`              // 总帧数
-	ObjectTreePath string            `json:"ObjectTreePath"`          // 对象树路径
-	ValueType      int32             `json:"ValueType"`               // 值类型枚举（AMPropertyTrack.ValueType）：0=Integer, 2=Float, 5=Vector3, 6=Color
-	ComponentName  string            `json:"ComponentName"`           // 组件名称
-	PropertyName   string            `json:"PropertyName"`            // 属性名称
-	IntValArray    []int32           `json:"IntValArray,omitempty"`   // 整数值数组（ValueType=0）
-	FloatValArray  []float32         `json:"FloatValArray,omitempty"` // 浮点值数组（ValueType=2）
-	Vec3ValArray   []Vector3         `json:"Vec3ValArray,omitempty"`  // 三维向量数组（ValueType=5）
-	ColorValArray  []Color           `json:"ColorValArray,omitempty"` // 颜色数组（ValueType=6）
-	IndexArray     []KeyValuePairInt `json:"IndexArray"`              // 压缩索引数组
+	TrackID        int32             `json:"TrackID"`                 // 轨道 ID / Track ID
+	TotalFrame     int32             `json:"TotalFrame"`              // 总帧数 / Total frame count
+	ObjectTreePath string            `json:"ObjectTreePath"`          // 对象树路径 / Object-tree path
+	ValueType      int32             `json:"ValueType"`               // AMPropertyTrack.ValueType 值类型枚举，0=Integer、2=Float、5=Vector3、6=Color / AMPropertyTrack.ValueType enum, 0=Integer, 2=Float, 5=Vector3, 6=Color
+	ComponentName  string            `json:"ComponentName"`           // 组件名称 / Component name
+	PropertyName   string            `json:"PropertyName"`            // 属性名称 / Property name
+	IntValArray    []int32           `json:"IntValArray,omitempty"`   // ValueType=0 的整数值数组 / Integer value array for ValueType=0
+	FloatValArray  []float32         `json:"FloatValArray,omitempty"` // ValueType=2 的浮点值数组 / Float value array for ValueType=2
+	Vec3ValArray   []Vector3         `json:"Vec3ValArray,omitempty"`  // ValueType=5 的三维向量数组 / Vector3 value array for ValueType=5
+	ColorValArray  []Color           `json:"ColorValArray,omitempty"` // ValueType=6 的颜色数组 / Color value array for ValueType=6
+	IndexArray     []KeyValuePairInt `json:"IndexArray"`              // 压缩索引数组 / Compression index array
 }
 
+// GetTypeName 返回属性轨道标识 Property
+// GetTypeName returns the Property track identifier
 func (t *PropertyTrack) GetTypeName() string { return TrackProperty }
 
+// read 读取属性轨道公共字段、按值类型选择的值数组和索引数组
+// read reads common property-track fields, the value array selected by type, and the index array
 func (t *PropertyTrack) read(reader *stream.BinaryReader) error {
 	var err error
 	t.TrackID, err = reader.ReadInt32()
@@ -372,7 +409,9 @@ func (t *PropertyTrack) read(reader *stream.BinaryReader) error {
 	}
 
 	switch t.ValueType {
-	case 0: // Integer
+	case 0:
+		// 整数值类型
+		// Integer value
 		valCount, err := readPropertyValueCount(reader)
 		if err != nil {
 			return err
@@ -385,7 +424,9 @@ func (t *PropertyTrack) read(reader *stream.BinaryReader) error {
 			}
 			t.IntValArray = append(t.IntValArray, value)
 		}
-	case 2: // Float
+	case 2:
+		// 浮点值类型
+		// Float value
 		valCount, err := readPropertyValueCount(reader)
 		if err != nil {
 			return err
@@ -398,7 +439,9 @@ func (t *PropertyTrack) read(reader *stream.BinaryReader) error {
 			}
 			t.FloatValArray = append(t.FloatValArray, value)
 		}
-	case 5: // Vector3
+	case 5:
+		// 三维向量类型
+		// Vector3 value
 		valCount, err := readPropertyValueCount(reader)
 		if err != nil {
 			return err
@@ -420,7 +463,9 @@ func (t *PropertyTrack) read(reader *stream.BinaryReader) error {
 			}
 			t.Vec3ValArray = append(t.Vec3ValArray, value)
 		}
-	case 6: // Color
+	case 6:
+		// 颜色类型
+		// Color value
 		valCount, err := readPropertyValueCount(reader)
 		if err != nil {
 			return err
@@ -471,6 +516,8 @@ func (t *PropertyTrack) read(reader *stream.BinaryReader) error {
 	return nil
 }
 
+// readPropertyValueCount 读取并验证属性轨道值数组数量
+// readPropertyValueCount reads and validates the property-track value-array count
 func readPropertyValueCount(reader *stream.BinaryReader) (int32, error) {
 	count, err := reader.ReadInt32()
 	if err != nil {
@@ -482,6 +529,8 @@ func readPropertyValueCount(reader *stream.BinaryReader) (int32, error) {
 	return count, nil
 }
 
+// write 写入属性轨道公共字段、值数组和压缩索引数组
+// write writes the property-track common fields, value array, and compressed index array
 func (t *PropertyTrack) write(writer *stream.BinaryWriter) error {
 	if err := writer.WriteString(TrackProperty); err != nil {
 		return err
@@ -573,27 +622,32 @@ func (t *PropertyTrack) write(writer *stream.BinaryWriter) error {
 	return nil
 }
 
-// EventParameter 事件参数（递归结构，支持数组嵌套）
+// EventParameter 表示支持数组嵌套的递归事件参数
+// EventParameter represents a recursive event parameter supporting nested arrays
 type EventParameter struct {
-	ValueType int32            `json:"ValueType"`           // 值类型枚举
-	ValBool   bool             `json:"ValBool,omitempty"`   // Boolean 值（ValueType=13）
-	ValInt    int32            `json:"ValInt,omitempty"`    // Integer/Long 值（ValueType=0,1）
-	ValFloat  float32          `json:"ValFloat,omitempty"`  // Float/Double 值（ValueType=2,3）
-	ValVect2  *Vector2         `json:"ValVect2,omitempty"`  // Vector2 值（ValueType=4）
-	ValVect3  *Vector3         `json:"ValVect3,omitempty"`  // Vector3 值（ValueType=5）
-	ValVect4  *Vector4         `json:"ValVect4,omitempty"`  // Vector4 值（ValueType=6）
-	ValColor  *Color           `json:"ValColor,omitempty"`  // Color 值（ValueType=7）
-	ValRect   *Rect            `json:"ValRect,omitempty"`   // Rect 值（ValueType=8）
-	ValString string           `json:"ValString,omitempty"` // String/Char/Object 值（ValueType=9,10,11）
-	Array     []EventParameter `json:"Array,omitempty"`     // 数组值（ValueType=12）
+	ValueType int32            `json:"ValueType"`           // 值类型枚举 / Value-type enum
+	ValBool   bool             `json:"ValBool,omitempty"`   // ValueType=13 的 Boolean 值 / Boolean value for ValueType=13
+	ValInt    int32            `json:"ValInt,omitempty"`    // ValueType=0 或 1 的 Integer 或 Long 值 / Integer or Long value for ValueType=0 or 1
+	ValFloat  float32          `json:"ValFloat,omitempty"`  // ValueType=2 或 3 的 Float 或 Double 值 / Float or Double value for ValueType=2 or 3
+	ValVect2  *Vector2         `json:"ValVect2,omitempty"`  // ValueType=4 的 Vector2 值 / Vector2 value for ValueType=4
+	ValVect3  *Vector3         `json:"ValVect3,omitempty"`  // ValueType=5 的 Vector3 值 / Vector3 value for ValueType=5
+	ValVect4  *Vector4         `json:"ValVect4,omitempty"`  // ValueType=6 的 Vector4 值 / Vector4 value for ValueType=6
+	ValColor  *Color           `json:"ValColor,omitempty"`  // ValueType=7 的 Color 值 / Color value for ValueType=7
+	ValRect   *Rect            `json:"ValRect,omitempty"`   // ValueType=8 的 Rect 值 / Rect value for ValueType=8
+	ValString string           `json:"ValString,omitempty"` // ValueType=9、10、11 的 String、Char 或 Object 值 / String, Char, or Object value for ValueType=9, 10, or 11
+	Array     []EventParameter `json:"Array,omitempty"`     // ValueType=12 的数组值 / Array value for ValueType=12
 }
 
 const maxEventParameterDepth = 256
 
+// readEventParameter 读取一个事件参数并限制递归深度
+// readEventParameter reads one event parameter with a recursion-depth limit
 func readEventParameter(reader *stream.BinaryReader) (EventParameter, error) {
 	return readEventParameterDepth(reader, 0)
 }
 
+// readEventParameterDepth 按 ValueType 读取标量或递归数组参数
+// readEventParameterDepth reads a scalar or recursively nested array according to ValueType
 func readEventParameterDepth(reader *stream.BinaryReader, depth int) (EventParameter, error) {
 	var p EventParameter
 	var err error
@@ -606,7 +660,9 @@ func readEventParameterDepth(reader *stream.BinaryReader, depth int) (EventParam
 		return p, fmt.Errorf("read EventParameter.ValueType failed: %w", err)
 	}
 
-	if p.ValueType == 12 { // Array
+	// 数组类型
+	// Array value
+	if p.ValueType == 12 {
 		count, err := reader.ReadInt32()
 		if err != nil {
 			return p, err
@@ -626,18 +682,26 @@ func readEventParameterDepth(reader *stream.BinaryReader, depth int) (EventParam
 	}
 
 	switch p.ValueType {
-	case 0, 1: // Integer, Long
+	case 0, 1:
+		// Integer 或 Long
+		// Integer or Long
 		p.ValInt, err = reader.ReadInt32()
-	case 2, 3: // Float, Double
+	case 2, 3:
+		// Float 或 Double
+		// Float or Double
 		p.ValFloat, err = reader.ReadFloat32()
-	case 4: // Vector2
+	case 4:
+		// 二维向量类型
+		// Vector2 value
 		v := &Vector2{}
 		v.X, err = reader.ReadFloat32()
 		if err == nil {
 			v.Y, err = reader.ReadFloat32()
 		}
 		p.ValVect2 = v
-	case 5: // Vector3
+	case 5:
+		// 三维向量类型
+		// Vector3 value
 		v := &Vector3{}
 		v.X, err = reader.ReadFloat32()
 		if err == nil {
@@ -647,7 +711,9 @@ func readEventParameterDepth(reader *stream.BinaryReader, depth int) (EventParam
 			v.Z, err = reader.ReadFloat32()
 		}
 		p.ValVect3 = v
-	case 6: // Vector4
+	case 6:
+		// 四维向量类型
+		// Vector4 value
 		v := &Vector4{}
 		v.X, err = reader.ReadFloat32()
 		if err == nil {
@@ -660,7 +726,9 @@ func readEventParameterDepth(reader *stream.BinaryReader, depth int) (EventParam
 			v.W, err = reader.ReadFloat32()
 		}
 		p.ValVect4 = v
-	case 7: // Color
+	case 7:
+		// 颜色类型
+		// Color value
 		c := &Color{}
 		c.A, err = reader.ReadFloat32()
 		if err == nil {
@@ -673,7 +741,9 @@ func readEventParameterDepth(reader *stream.BinaryReader, depth int) (EventParam
 			c.B, err = reader.ReadFloat32()
 		}
 		p.ValColor = c
-	case 8: // Rect
+	case 8:
+		// 矩形类型
+		// Rect value
 		r := &Rect{}
 		r.XMin, err = reader.ReadFloat32()
 		if err == nil {
@@ -686,11 +756,17 @@ func readEventParameterDepth(reader *stream.BinaryReader, depth int) (EventParam
 			r.YMax, err = reader.ReadFloat32()
 		}
 		p.ValRect = r
-	case 9, 10: // String, Char
+	case 9, 10:
+		// String 或 Char
+		// String or Char
 		p.ValString, err = reader.ReadString()
-	case 13: // Boolean
+	case 13:
+		// 布尔类型
+		// Boolean value
 		p.ValBool, err = reader.ReadBool()
-	case 11: // Object (stored as tree path string)
+	case 11:
+		// Object 以对象树路径字符串保存
+		// Object stored as an object-tree path string
 		p.ValString, err = reader.ReadString()
 	}
 
@@ -700,10 +776,14 @@ func readEventParameterDepth(reader *stream.BinaryReader, depth int) (EventParam
 	return p, nil
 }
 
+// writeEventParameter 写入一个事件参数并限制递归深度
+// writeEventParameter writes one event parameter with a recursion-depth limit
 func writeEventParameter(writer *stream.BinaryWriter, p EventParameter) error {
 	return writeEventParameterDepth(writer, p, 0)
 }
 
+// writeEventParameterDepth 按 ValueType 写入标量或递归数组参数
+// writeEventParameterDepth writes a scalar or recursively nested array according to ValueType
 func writeEventParameterDepth(writer *stream.BinaryWriter, p EventParameter, depth int) error {
 	if depth >= maxEventParameterDepth {
 		return fmt.Errorf("EventParameter nesting exceeds %d", maxEventParameterDepth)
@@ -712,7 +792,9 @@ func writeEventParameterDepth(writer *stream.BinaryWriter, p EventParameter, dep
 		return err
 	}
 
-	if p.ValueType == 12 { // Array
+	// 数组类型
+	// Array value
+	if p.ValueType == 12 {
 		count, err := collectionCountInt32("EventParameter array count", len(p.Array))
 		if err != nil {
 			return err
@@ -787,24 +869,30 @@ func writeEventParameterDepth(writer *stream.BinaryWriter, p EventParameter, dep
 	return nil
 }
 
-// MethodData 事件方法数据
+// MethodData 表示事件方法数据
+// MethodData represents event method data
 type MethodData struct {
-	StartFrame    int32            `json:"StartFrame"`       // 触发帧
-	ComponentName string           `json:"ComponentName"`    // 组件名称
-	MethodName    string           `json:"MethodName"`       // 方法名称
-	Params        []EventParameter `json:"Params,omitempty"` // 方法参数列表
+	StartFrame    int32            `json:"StartFrame"`       // 触发帧 / Trigger frame
+	ComponentName string           `json:"ComponentName"`    // 组件名称 / Component name
+	MethodName    string           `json:"MethodName"`       // 方法名称 / Method name
+	Params        []EventParameter `json:"Params,omitempty"` // 方法参数列表 / Method parameter list
 }
 
-// EventTrack 事件轨道
+// EventTrack 表示事件轨道
+// EventTrack represents an event track
 type EventTrack struct {
-	TrackID         int32        `json:"TrackID"`         // 轨道 ID
-	TotalFrame      int32        `json:"TotalFrame"`      // 总帧数
-	ObjectTreePath  string       `json:"ObjectTreePath"`  // 对象树路径
-	MethodDataArray []MethodData `json:"MethodDataArray"` // 方法数据数组
+	TrackID         int32        `json:"TrackID"`         // 轨道 ID / Track ID
+	TotalFrame      int32        `json:"TotalFrame"`      // 总帧数 / Total frame count
+	ObjectTreePath  string       `json:"ObjectTreePath"`  // 对象树路径 / Object-tree path
+	MethodDataArray []MethodData `json:"MethodDataArray"` // 方法数据数组 / Method data array
 }
 
+// GetTypeName 返回事件轨道标识 Event
+// GetTypeName returns the Event track identifier
 func (t *EventTrack) GetTypeName() string { return TrackEvent }
 
+// read 读取事件轨道公共字段和方法数据数组
+// read reads the event-track common fields and method-data array
 func (t *EventTrack) read(reader *stream.BinaryReader) error {
 	var err error
 	t.TrackID, err = reader.ReadInt32()
@@ -870,6 +958,8 @@ func (t *EventTrack) read(reader *stream.BinaryReader) error {
 	return nil
 }
 
+// write 写入事件轨道类型标识、公共字段和方法数据数组
+// write writes the event-track identifier, common fields, and method-data array
 func (t *EventTrack) write(writer *stream.BinaryWriter) error {
 	if err := writer.WriteString(TrackEvent); err != nil {
 		return err
@@ -917,10 +1007,12 @@ func (t *EventTrack) write(writer *stream.BinaryWriter) error {
 }
 
 // ============================================================================
-// TimelineData 顶层 Read/Dump
+// TimelineData 顶层 Read 和 Dump
+// Top-level TimelineData Read and Dump
 // ============================================================================
 
 // ReadTimelineData 从 r 中读取一个 timeline_data.bytes 文件
+// ReadTimelineData reads one timeline_data.bytes file from r
 func ReadTimelineData(r io.Reader) (*TimelineData, error) {
 	reader := stream.NewBinaryReader(r)
 
@@ -975,6 +1067,7 @@ func ReadTimelineData(r io.Reader) (*TimelineData, error) {
 }
 
 // Dump 将 TimelineData 写出到 w
+// Dump writes TimelineData to w
 func (d *TimelineData) Dump(w io.Writer) error {
 	if err := validateTimelineDataForDump(d); err != nil {
 		return err
@@ -1003,6 +1096,8 @@ func (d *TimelineData) Dump(w io.Writer) error {
 	return nil
 }
 
+// validateTimelineDataForDump 检查时间线帧数、轨道类型、数组长度和事件参数是否可写入游戏格式
+// validateTimelineDataForDump checks timeline counts, track types, array lengths, and event parameters before writing the game format
 func validateTimelineDataForDump(data *TimelineData) error {
 	if data == nil {
 		return fmt.Errorf("nil TimelineData")
@@ -1066,6 +1161,8 @@ func validateTimelineDataForDump(data *TimelineData) error {
 	return nil
 }
 
+// validateTrackFrameArray 验证轨道声明帧数与实际帧数组长度一致
+// validateTrackFrameArray verifies that the declared track frame count matches the frame-array length
 func validateTrackFrameArray(path string, totalFrame int32, arrayLength int) error {
 	if err := validateNonNegativeCount(path+".TotalFrame", totalFrame); err != nil {
 		return err
@@ -1076,6 +1173,8 @@ func validateTrackFrameArray(path string, totalFrame int32, arrayLength int) err
 	return nil
 }
 
+// validatePropertyTrackForDump 验证属性值类型对应的数组和压缩索引数量
+// validatePropertyTrackForDump validates the value array selected by the property type and the compressed index count
 func validatePropertyTrackForDump(path string, track *PropertyTrack) error {
 	lengths := map[int32]int{
 		0: len(track.IntValArray),
@@ -1100,6 +1199,8 @@ func validatePropertyTrackForDump(path string, track *PropertyTrack) error {
 	return nil
 }
 
+// validateEventParameterForDump 递归验证事件参数的数组深度、值类型和复合值指针
+// validateEventParameterForDump recursively validates event-array depth, value types, and composite-value pointers
 func validateEventParameterForDump(path string, parameter EventParameter, depth int) error {
 	if depth >= maxEventParameterDepth {
 		return fmt.Errorf("%s nesting exceeds %d", path, maxEventParameterDepth)
@@ -1144,30 +1245,34 @@ func validateEventParameterForDump(path string, parameter EventParameter, depth 
 }
 
 // ============================================================================
-// JSON 反序列化（多态轨道）
+// JSON 反序列化使用多态轨道
+// JSON deserialization uses polymorphic tracks
 // ============================================================================
 
-// timelineDataJSON 用于 JSON 反序列化的中间结构
+// timelineDataJSON 是用于 JSON 反序列化的中间结构
+// timelineDataJSON is the intermediate structure used for JSON deserialization
 type timelineDataJSON struct {
-	TotalFrame int32             `json:"TotalFrame"`
-	FrameRate  int32             `json:"FrameRate"`
-	Tracks     []json.RawMessage `json:"Tracks"`
+	TotalFrame int32             `json:"TotalFrame"` // 时间线总帧数 / Total timeline frames
+	FrameRate  int32             `json:"FrameRate"`  // 每秒帧数 / Frames per second
+	Tracks     []json.RawMessage `json:"Tracks"`     // 原始轨道对象 / Raw track objects
 }
 
 // trackTypeProbe 用于探测轨道类型
+// trackTypeProbe is used to probe a track type
 type trackTypeProbe struct {
-	TypeName string `json:"TypeName"`
+	TypeName string `json:"TypeName"` // 轨道类型标识 / Track type identifier
 }
 
 // MarshalJSON 序列化 TimelineData 时为每个轨道附加 TypeName 字段
+// MarshalJSON adds a TypeName field to each track while serializing TimelineData
 func (d *TimelineData) MarshalJSON() ([]byte, error) {
 	if d == nil {
 		return []byte("null"), nil
 	}
 	out := struct {
-		TotalFrame int32             `json:"TotalFrame"`
-		FrameRate  int32             `json:"FrameRate"`
-		Tracks     []json.RawMessage `json:"Tracks"`
+		TotalFrame int32             `json:"TotalFrame"` // 时间线总帧数 / Total timeline frames
+		FrameRate  int32             `json:"FrameRate"`  // 每秒帧数 / Frames per second
+		Tracks     []json.RawMessage `json:"Tracks"`     // 编码后的轨道对象 / Encoded track objects
 	}{
 		TotalFrame: d.TotalFrame,
 		FrameRate:  d.FrameRate,
@@ -1205,6 +1310,8 @@ func (d *TimelineData) MarshalJSON() ([]byte, error) {
 	return json.Marshal(out)
 }
 
+// timelineTrackTypeName 返回轨道具体实现对应的 JSON 类型标识
+// timelineTrackTypeName returns the JSON type identifier for a concrete track implementation
 func timelineTrackTypeName(track TimelineTrack) (string, error) {
 	switch value := track.(type) {
 	case *TranslationTrack:
@@ -1232,7 +1339,8 @@ func timelineTrackTypeName(track TimelineTrack) (string, error) {
 	}
 }
 
-// UnmarshalJSON 反序列化 TimelineData，根据 TypeName 字段创建对应的轨道实现
+// UnmarshalJSON 反序列化 TimelineData，并根据 TypeName 字段创建对应的轨道实现
+// UnmarshalJSON deserializes TimelineData and creates the corresponding track implementation from TypeName
 func (d *TimelineData) UnmarshalJSON(data []byte) error {
 	var raw timelineDataJSON
 	if err := json.Unmarshal(data, &raw); err != nil {

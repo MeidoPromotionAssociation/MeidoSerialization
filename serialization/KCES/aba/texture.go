@@ -30,7 +30,8 @@ const (
 	TextureFormatRGBA64 int32 = 72
 )
 
-// Texture2DData 是导出所需的 Unity Texture2D 有用字段子集 / Texture2DData is the useful subset of Unity Texture2D needed for export
+// Texture2DData 是导出 Unity Texture2D 所需的字段子集
+// Texture2DData is the subset of Unity Texture2D fields needed for export
 type Texture2DData struct {
 	Name          string        // 贴图名称 / Texture name
 	Width         int           // 贴图宽度 / Texture width
@@ -41,31 +42,31 @@ type Texture2DData struct {
 	StreamData    StreamingInfo // 外部流式数据引用 / External streamed data reference
 }
 
-// StreamingInfo 指向 .aba sidecar 文件中保存的贴图载荷。
-//
-// StreamingInfo points to texture payload stored in an .aba sidecar file.
+// StreamingInfo 指向 .aba sidecar 文件中保存的贴图载荷
+// StreamingInfo points to texture payload stored in an .aba sidecar file
 type StreamingInfo struct {
 	Offset int64  // sidecar 文件内偏移 / Offset inside the sidecar file
 	Size   uint32 // 数据大小 / Data size
 	Path   string // sidecar 文件路径 / Sidecar file path
 }
 
-// AbaFileResolver 解析同一 AssetBundle 内的非序列化文件，典型用途是读取 Texture2D 的 .resS 载荷。
-//
-// AbaFileResolver resolves non-serialized files in the same AssetBundle, typically Texture2D .resS payload data.
+// AbaFileResolver 解析同一 AssetBundle 内的非序列化文件，典型用途是读取 Texture2D 的 .resS 载荷
+// AbaFileResolver resolves non-serialized files in the same AssetBundle, typically Texture2D .resS payload data
 type AbaFileResolver func(name string) ([]byte, error)
 
-// AbaFileRangeResolver 解析非序列化 .aba 条目中的字节范围。Texture2D m_StreamData 通常指向大型 .resS sidecar，范围读取可避免每张贴图都加载整文件。
-//
-// AbaFileRangeResolver resolves a byte range within a non-serialized .aba entry. Texture2D m_StreamData commonly points into a large .resS sidecar, and range reads avoid loading the whole file for every texture.
+// AbaFileRangeResolver 解析非序列化 .aba 条目中的字节范围，Texture2D m_StreamData 通常指向大型 .resS sidecar，因此范围读取可避免每张贴图加载整文件
+// AbaFileRangeResolver resolves a byte range within a non-serialized .aba entry; Texture2D m_StreamData commonly points into a large .resS sidecar, so range reads avoid loading the whole file for every texture
 type AbaFileRangeResolver func(name string, offset int64, size int64) ([]byte, error)
 
-// abaRangeResolverAdapter 在整文件 resolver 和范围 resolver 之间适配 / abaRangeResolverAdapter adapts between whole-file and range resolvers
+// abaRangeResolverAdapter 在整文件 resolver 和范围 resolver 之间适配
+// abaRangeResolverAdapter adapts between whole-file and range resolvers
 type abaRangeResolverAdapter struct {
 	whole   AbaFileResolver      // 整文件读取 resolver / Whole-file resolver
 	rangeFn AbaFileRangeResolver // 范围读取 resolver / Range-read resolver
 }
 
+// ResolveAbaFile 使用整文件 resolver 读取指定 .aba 条目
+// ResolveAbaFile reads an .aba entry using the whole-file resolver
 func (r abaRangeResolverAdapter) ResolveAbaFile(name string) ([]byte, error) {
 	if r.whole == nil {
 		return nil, fmt.Errorf(".aba file resolver is not available")
@@ -73,6 +74,8 @@ func (r abaRangeResolverAdapter) ResolveAbaFile(name string) ([]byte, error) {
 	return r.whole(name)
 }
 
+// ResolveAbaFileRange 读取指定 .aba 条目的字节范围，缺少范围 resolver 时回退到整文件读取
+// ResolveAbaFileRange reads a byte range from an .aba entry and falls back to whole-file reading when no range resolver is available
 func (r abaRangeResolverAdapter) ResolveAbaFileRange(name string, offset int64, size int64) ([]byte, error) {
 	if r.rangeFn != nil {
 		return r.rangeFn(name, offset, size)
@@ -91,8 +94,8 @@ func (r abaRangeResolverAdapter) ResolveAbaFileRange(name string, offset int64, 
 	return append([]byte(nil), data[offset:end]...), nil
 }
 
-// GetTexture2DData decodes Texture2D metadata and returns its raw encoded
-// picture data. If image data is stored in m_StreamData, resolver is used.
+// GetTexture2DData 解码 Texture2D 元数据并返回原始编码图像数据，m_StreamData 中的外部数据通过 resolver 读取
+// GetTexture2DData decodes Texture2D metadata and returns raw encoded image data, resolving external m_StreamData through resolver
 func (af *AssetsFile) GetTexture2DData(info *AssetInfo, resolver AbaFileResolver) (*Texture2DData, error) {
 	var rangeResolver AbaFileRangeResolver
 	if resolver != nil {
@@ -101,7 +104,8 @@ func (af *AssetsFile) GetTexture2DData(info *AssetInfo, resolver AbaFileResolver
 	return af.GetTexture2DDataRange(info, rangeResolver)
 }
 
-// GetTexture2DDataRange is the range-read variant of GetTexture2DData.
+// GetTexture2DDataRange 是 GetTexture2DData 的范围读取版本
+// GetTexture2DDataRange is the range-read variant of GetTexture2DData
 func (af *AssetsFile) GetTexture2DDataRange(info *AssetInfo, resolver AbaFileRangeResolver) (*Texture2DData, error) {
 	root, err := af.ReadAssetValue(info)
 	if err != nil {
@@ -162,6 +166,8 @@ doneTextureDataCheck:
 	return tex, nil
 }
 
+// readStreamingInfo 从 TypeTreeValue 读取 Texture2D.m_StreamData 的 offset、size 和 path
+// readStreamingInfo reads offset, size, and path from Texture2D.m_StreamData represented by TypeTreeValue
 func readStreamingInfo(stream *TypeTreeValue) (StreamingInfo, error) {
 	var info StreamingInfo
 	if stream == nil {
@@ -191,6 +197,8 @@ func readStreamingInfo(stream *TypeTreeValue) (StreamingInfo, error) {
 	return info, nil
 }
 
+// normalizeStreamDataPath 将 Unity stream data 路径转换为 .aba 条目查找所需的文件名
+// normalizeStreamDataPath converts a Unity stream-data path to the file name used for .aba entry lookup
 func normalizeStreamDataPath(p string) string {
 	p = strings.TrimSpace(p)
 	if p == "" || p == "." {
@@ -205,7 +213,8 @@ func normalizeStreamDataPath(p string) string {
 	return path.Base(strings.ReplaceAll(p, "\\", "/"))
 }
 
-// WriteTexturePNG converts a Unity Texture2D payload to PNG via ImageMagick.
+// WriteTexturePNG 通过 ImageMagick 将 Unity Texture2D 载荷转换为 PNG 文件
+// WriteTexturePNG converts a Unity Texture2D payload to a PNG file through ImageMagick
 func WriteTexturePNG(tex *Texture2DData, outPath string) error {
 	if tex == nil {
 		return fmt.Errorf("nil texture")
@@ -228,9 +237,8 @@ func WriteTexturePNG(tex *Texture2DData, outPath string) error {
 	return nil
 }
 
-// WriteTexturePNGTo converts a Unity Texture2D payload and writes the PNG to
-// an already-open destination. Keeping ImageMagick on stdout lets callers use
-// os.Root-backed files without asking the external process to reopen a path.
+// WriteTexturePNGTo 转换 Unity Texture2D 载荷并写入已打开的目标，ImageMagick 输出到 stdout 以便调用方使用受 os.Root 管理的文件
+// WriteTexturePNGTo converts a Unity Texture2D payload and writes the PNG to an open destination; keeping ImageMagick on stdout lets callers use os.Root-backed files without reopening a path in the external process
 func WriteTexturePNGTo(tex *Texture2DData, out io.Writer) error {
 	if tex == nil {
 		return fmt.Errorf("nil texture")
@@ -263,7 +271,8 @@ func WriteTexturePNGTo(tex *Texture2DData, out io.Writer) error {
 	return nil
 }
 
-// TexturePNGBytes converts a Unity Texture2D payload to PNG bytes via ImageMagick.
+// TexturePNGBytes 通过 ImageMagick 将 Unity Texture2D 载荷转换为 PNG 字节
+// TexturePNGBytes converts a Unity Texture2D payload to PNG bytes through ImageMagick
 func TexturePNGBytes(tex *Texture2DData) ([]byte, error) {
 	var out bytes.Buffer
 	if err := WriteTexturePNGTo(tex, &out); err != nil {
@@ -272,6 +281,8 @@ func TexturePNGBytes(tex *Texture2DData) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
+// textureInputForMagick 根据 Unity TextureFormat 选择 ImageMagick 输入格式和字节
+// textureInputForMagick selects the ImageMagick input format and bytes for a Unity TextureFormat
 func textureInputForMagick(tex *Texture2DData) (string, []byte, error) {
 	switch tex.TextureFormat {
 	case TextureFormatDXT1, TextureFormatDXT5, TextureFormatBC4, TextureFormatBC5, TextureFormatBC6H, TextureFormatBC7:
@@ -294,6 +305,8 @@ func textureInputForMagick(tex *Texture2DData) (string, []byte, error) {
 	}
 }
 
+// isRawMagickInputFormat 判断 ImageMagick 输入是否为需要尺寸参数的原始像素格式
+// isRawMagickInputFormat reports whether an ImageMagick input is a raw pixel format requiring dimensions
 func isRawMagickInputFormat(format string) bool {
 	switch format {
 	case "rgb", "rgba", "bgra", "gray":
@@ -303,6 +316,8 @@ func isRawMagickInputFormat(format string) bool {
 	}
 }
 
+// argbToRGBA 将每个像素的 ARGB 通道顺序转换为 RGBA
+// argbToRGBA converts each pixel from ARGB channel order to RGBA
 func argbToRGBA(data []byte) []byte {
 	out := make([]byte, len(data))
 	for i := 0; i+3 < len(data); i += 4 {
@@ -314,6 +329,8 @@ func argbToRGBA(data []byte) []byte {
 	return out
 }
 
+// makeDDS 为压缩纹理载荷补充 DDS 头，已有 DDS 数据则原样返回
+// makeDDS adds a DDS header to compressed texture payloads and returns existing DDS data unchanged
 func makeDDS(tex *Texture2DData) []byte {
 	if len(tex.ImageData) >= 4 && string(tex.ImageData[:4]) == "DDS " {
 		return tex.ImageData
@@ -326,6 +343,8 @@ func makeDDS(tex *Texture2DData) []byte {
 	return append(header, tex.ImageData...)
 }
 
+// createLegacyDDSHeader 创建使用传统 FourCC 的 DDS 头
+// createLegacyDDSHeader creates a DDS header using the legacy FourCC representation
 func createLegacyDDSHeader(width, height int, format int32, mipCount int, dataLen int) []byte {
 	if mipCount <= 0 {
 		mipCount = 1
@@ -364,6 +383,8 @@ func createLegacyDDSHeader(width, height int, format int32, mipCount int, dataLe
 	return buf
 }
 
+// createDX10DDSHeader 创建包含 DX10 扩展头的 DDS 头
+// createDX10DDSHeader creates a DDS header with a DX10 extension header
 func createDX10DDSHeader(width, height int, format int32, mipCount int, dataLen int) []byte {
 	if mipCount <= 0 {
 		mipCount = 1
@@ -372,13 +393,17 @@ func createDX10DDSHeader(width, height int, format int32, mipCount int, dataLen 
 	le := binary.LittleEndian
 	dx10 := make([]byte, 20)
 	le.PutUint32(dx10[0:4], dxgiFormat(format))
-	le.PutUint32(dx10[4:8], 3) // D3D10_RESOURCE_DIMENSION_TEXTURE2D
+	// DX10 扩展头声明 D3D10 资源维度为 Texture2D
+	// The DX10 extension header declares the D3D10 resource dimension as Texture2D
+	le.PutUint32(dx10[4:8], 3)
 	le.PutUint32(dx10[8:12], 0)
 	le.PutUint32(dx10[12:16], 1)
 	le.PutUint32(dx10[16:20], 0)
 	return append(buf, dx10...)
 }
 
+// requiresDX10DDS 判断纹理格式是否必须使用 DDS DX10 扩展头
+// requiresDX10DDS reports whether a texture format requires the DDS DX10 extension header
 func requiresDX10DDS(format int32) bool {
 	switch format {
 	case TextureFormatBC4, TextureFormatBC5, TextureFormatBC6H, TextureFormatBC7:
@@ -388,21 +413,33 @@ func requiresDX10DDS(format int32) bool {
 	}
 }
 
+// dxgiFormat 将 Unity 压缩纹理格式转换为 DXGI 格式编号
+// dxgiFormat converts a Unity compressed texture format to its DXGI format number
 func dxgiFormat(format int32) uint32 {
 	switch format {
 	case TextureFormatBC4:
-		return 80 // DXGI_FORMAT_BC4_UNORM
+		// BC4 无符号归一化格式
+		// BC4 unsigned normalized format
+		return 80
 	case TextureFormatBC5:
-		return 83 // DXGI_FORMAT_BC5_UNORM
+		// BC5 无符号归一化格式
+		// BC5 unsigned normalized format
+		return 83
 	case TextureFormatBC6H:
-		return 95 // DXGI_FORMAT_BC6H_UF16
+		// BC6H 半精度无符号浮点格式
+		// BC6H half-precision unsigned-float format
+		return 95
 	case TextureFormatBC7:
-		return 98 // DXGI_FORMAT_BC7_UNORM
+		// BC7 无符号归一化格式
+		// BC7 unsigned normalized format
+		return 98
 	default:
 		return 0
 	}
 }
 
+// textureFormatName 返回 Unity TextureFormat 的可读名称
+// textureFormatName returns a readable name for a Unity TextureFormat value
 func textureFormatName(format int32) string {
 	switch format {
 	case TextureFormatAlpha8:
@@ -436,7 +473,8 @@ func textureFormatName(format int32) string {
 	}
 }
 
-// WriteDDS writes the raw Unity texture payload wrapped in a DDS header.
+// WriteDDS 将原始 Unity 纹理载荷包裹 DDS 头后写入文件
+// WriteDDS writes the raw Unity texture payload wrapped in a DDS header
 func WriteDDS(tex *Texture2DData, outPath string) error {
 	if tex == nil {
 		return fmt.Errorf("nil texture")
@@ -447,8 +485,8 @@ func WriteDDS(tex *Texture2DData, outPath string) error {
 	return nil
 }
 
-// WriteRawMagickInput is a small debugging helper used by tests and callers
-// that need to inspect ImageMagick input bytes.
+// WriteRawMagickInput 将供 ImageMagick 使用的原始输入字节写入目标，便于测试和调试
+// WriteRawMagickInput writes the raw bytes prepared for ImageMagick to a destination for tests and debugging
 func WriteRawMagickInput(tex *Texture2DData, w io.Writer) error {
 	if tex == nil {
 		return fmt.Errorf("nil texture")

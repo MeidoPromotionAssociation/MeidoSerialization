@@ -81,8 +81,8 @@ func TestVirtualDirectoryPreservesNestedWireMetadata(t *testing.T) {
 
 func TestVirtualDirectoryPreservesShortVirtualFiles(t *testing.T) {
 	for _, fields := range [][]interface{}{
-		[]interface{}{},
-		[]interface{}{int64(HeaderSize)},
+		{},
+		{int64(HeaderSize)},
 	} {
 		root := []interface{}{
 			int64(0),

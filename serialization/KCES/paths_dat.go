@@ -9,12 +9,11 @@ import (
 )
 
 // paths.dat (CM3D2_PATHS)
-// KCES 原生资源搜索路径列表，由 NativeFileManager.ReadAutoPathFile 读取。
-// 布局为 BinaryWriter 字符串签名、Int32 版本、Int32 数量及对应数量的字符串；当前版本为 1000。
-//
+// KCES 原生资源搜索路径列表，由 NativeFileManager.ReadAutoPathFile 读取
+// 布局为 BinaryWriter 字符串签名、Int32 版本、Int32 数量及对应数量的字符串，当前版本为 1000
 // paths.dat (CM3D2_PATHS)
-// KCES native resource search-path list consumed by NativeFileManager.ReadAutoPathFile.
-// The layout is a BinaryWriter string signature, Int32 version, Int32 count, and that many strings; the current version is 1000.
+// KCES native resource search-path list consumed by NativeFileManager.ReadAutoPathFile
+// The layout is a BinaryWriter string signature, Int32 version, Int32 count, and that many strings, with current version 1000
 
 const (
 	KCESPathsFormat    = "kces-auto-paths"
@@ -22,18 +21,18 @@ const (
 	kcesPathsVersion   = int32(1000)
 )
 
-// KCESPathsFile is the paths.dat list consumed by
-// NativeFileManager.ReadAutoPathFile:
-//
-//	.NET string signature, int32 version, int32 count, count .NET strings.
+// KCESPathsFile 表示 NativeFileManager.ReadAutoPathFile 读取的 paths.dat 路径列表，依次包含 .NET 字符串签名、Int32 版本、Int32 数量和对应数量的 .NET 字符串
+// KCESPathsFile represents the paths.dat list consumed by NativeFileManager.ReadAutoPathFile, containing a .NET string signature, Int32 version, Int32 count, and that many .NET strings
 type KCESPathsFile struct {
-	Format       string   `json:"format"`
-	Signature    string   `json:"signature"`
-	Version      int32    `json:"version"`
-	Paths        []string `json:"paths"`
-	TrailingData []byte   `json:"trailingData,omitempty"`
+	Format       string   `json:"format"`                 // JSON 表示格式标识 / JSON representation format identifier
+	Signature    string   `json:"signature"`              // 文件签名 CM3D2_PATHS / File signature CM3D2_PATHS
+	Version      int32    `json:"version"`                // 路径列表格式版本 / Path-list format version
+	Paths        []string `json:"paths"`                  // 原生资源搜索路径 / Native resource search paths
+	TrailingData []byte   `json:"trailingData,omitempty"` // 游戏读取声明路径后忽略的尾部字节 / Trailing bytes ignored by the game after reading the declared paths
 }
 
+// DecodeKCESPaths 解码 paths.dat 路径列表并保留游戏忽略的尾部数据
+// DecodeKCESPaths decodes a paths.dat path list and preserves trailing data ignored by the game
 func DecodeKCESPaths(data []byte) (*KCESPathsFile, error) {
 	r := bytes.NewReader(data)
 	signature, err := binaryio.ReadString(r)
@@ -51,7 +50,8 @@ func DecodeKCESPaths(data []byte) (*KCESPathsFile, error) {
 	if count < 0 {
 		return nil, fmt.Errorf("negative paths.dat count %d", count)
 	}
-	// Every BinaryWriter string requires at least one length byte.
+	// 每个 BinaryWriter 字符串至少需要一个长度字节
+	// Every BinaryWriter string requires at least one length byte
 	if int64(count) > int64(r.Len()) {
 		return nil, fmt.Errorf("paths.dat count %d cannot fit in %d remaining bytes", count, r.Len())
 	}
@@ -79,6 +79,8 @@ func DecodeKCESPaths(data []byte) (*KCESPathsFile, error) {
 	return result, nil
 }
 
+// EncodeKCESPaths 编码 paths.dat 路径列表及其保留的尾部数据
+// EncodeKCESPaths encodes a paths.dat path list and its preserved trailing data
 func EncodeKCESPaths(value *KCESPathsFile) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil paths.dat value")
@@ -114,6 +116,8 @@ func EncodeKCESPaths(value *KCESPathsFile) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
+// NewKCESPathsFile 创建使用当前签名和版本的新路径列表
+// NewKCESPathsFile creates a new path list with the current signature and version
 func NewKCESPathsFile() *KCESPathsFile {
 	return &KCESPathsFile{
 		Format:    KCESPathsFormat,

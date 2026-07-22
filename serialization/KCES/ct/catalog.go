@@ -7,9 +7,10 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
-// CatalogKind identifies the two concrete catalog layouts used by KCES.
-// The empty value is accepted only when reading legacy JSON and means the
-// historical 12-slot AssetBundleCatalog layout.
+// CatalogKind 标识 KCES 使用的两种具体 catalog 布局
+// 空值仅用于兼容旧 JSON，并表示历史默认的 12 槽 AssetBundleCatalog 布局
+// CatalogKind identifies the two concrete catalog layouts used by KCES
+// The empty value is accepted only for legacy JSON and denotes the historical default 12-slot AssetBundleCatalog layout
 type CatalogKind string
 
 const (
@@ -17,105 +18,94 @@ const (
 	CatalogKindVirtualAsset CatalogKind = "virtualAsset"
 )
 
-// AssetBundleCatalog is the backward-compatible Go catalog envelope. Kind
-// selects either C# AssetBundleCatalog's 12-slot layout or VirtualAssetCatalog's
-// 10-slot local-mode layout; the historical type name and assetBundle JSON fields
-// are retained so existing callers and JSON remain readable.
-//
-// MessagePack 布局（[Key(N)] 对应数组下标）：
-//
-//	[0]  version           int          固定 1000
-//	[1]  catalogType       CatalogType  资源分类标志位
-//	[2]  packageType       CatalogPackageType  包类型
-//	[3]  priority          int          加载优先级
-//	[4]  name              string       catalog 名称
-//	[5]  subName           string       子名称
-//	[6]  hash              uint64       catalog 自身的 hash
-//	[7]  createTime        int64        创建时间戳
-//	[8]  isEncrypted       bool         是否加密（abap）
-//	[9]  resourceFileNames []string     关联的资源文件名（如 "{name}.aba"）
-//	[10] extensionList     []string     扩展名列表（如 ".menuassets", ".tex"）
-//	[11] items             []Item       资源索引条目
+// AssetBundleCatalog 是兼容既有 API 和 JSON 的 Go catalog 容器
+// Kind 选择 C# AssetBundleCatalog 的 12 槽布局或 VirtualAssetCatalog 的 10 槽本地资源布局，类型名及 AssetBundle 专用字段因兼容性而保留
+// 两种布局的 Key(0) 至 Key(7) 依次为 version、catalogType、packageType、priority、name、subName、hash、createTime
+// AssetBundleCatalog 的 Key(8) 至 Key(11) 依次为 isEncrypted、resourceFileNames、extensionList、items
+// VirtualAssetCatalog 的 Key(8) 和 Key(9) 依次为 extensionList、items
+// AssetBundleCatalog is a Go catalog envelope kept compatible with existing APIs and JSON
+// Kind selects either the 12-slot C# AssetBundleCatalog layout or the 10-slot local-resource VirtualAssetCatalog layout; the type name and AssetBundle-specific fields remain for compatibility
+// Keys 0 through 7 in both layouts are version, catalogType, packageType, priority, name, subName, hash, and createTime
+// Keys 8 through 11 in AssetBundleCatalog are isEncrypted, resourceFileNames, extensionList, and items
+// Keys 8 and 9 in VirtualAssetCatalog are extensionList and items
 type AssetBundleCatalog struct {
-	MessagePackRootMetadata
-	IndexedObjectMetadata
-	Kind                  CatalogKind          `json:"kind,omitempty"`                  // catalog wire variant; empty is legacy JSON for assetBundle / catalog 线格式；空值表示旧 JSON 的 assetBundle
-	Version               int                  `json:"version"`                         // 当前游戏通常写 1000；解码和重编码时原样保留 / The current game normally writes 1000; decoding and re-encoding preserve the stored value
-	CatalogType           CatalogType          `json:"catalogType"`                     // 资源分类标志位 Flags 枚举，如 Parts=4096 / Resource category flag enum such as Parts=4096
-	PackageType           CatalogPackageType   `json:"packageType"`                     // 包类型枚举，如 Base=0, Plugin=1 / Package type enum such as Base=0, Plugin=1
-	Priority              int                  `json:"priority"`                        // 加载优先级，数值越大优先级越高 / Load priority, higher values load earlier
-	Name                  string               `json:"name"`                            // catalog 名称，通常与 .ct 文件名一致且不含扩展名 / Catalog name, usually matching the .ct file name without extension
-	NameIsNil             bool                 `json:"nameIsNil,omitempty"`             // Key(4) was MessagePack nil / Key(4) 为 MessagePack nil
-	SubName               string               `json:"subName"`                         // 子名称，通常为空 / Sub name, usually empty
-	SubNameIsNil          bool                 `json:"subNameIsNil,omitempty"`          // Key(5) was MessagePack nil / Key(5) 为 MessagePack nil
-	Hash                  uint64               `json:"hash"`                            // catalog 稳定标识；.aba 通常使用 name.aba 的忽略大小写 hash / Stable catalog identifier; .aba catalogs commonly hash name.aba
-	CreateTime            int64                `json:"createTime"`                      // 创建时间戳 / Creation timestamp
-	IsEncrypted           bool                 `json:"isEncrypted"`                     // 是否为加密包 abap 格式 / Whether this is an encrypted abap package
-	ResourceFileNames     []string             `json:"resourceFileNames"`               // 关联的资源文件名列表，如 name.aba / Related resource file-name list such as name.aba
-	ResourceFileNameNulls []bool               `json:"resourceFileNameNulls,omitempty"` // nil string elements in resourceFileNames / resourceFileNames 中的 nil 字符串
-	ExtensionList         []string             `json:"extensionList"`                   // 扩展名列表，每个扩展名对应 .ct 中一个同名 ExtensionNameList 文件 / Extension list, each extension maps to a same-name ExtensionNameList virtual file
-	ExtensionListNulls    []bool               `json:"extensionListNulls,omitempty"`    // nil string elements in extensionList / extensionList 中的 nil 字符串
-	Items                 []CatalogItem        `json:"items"`                           // 资源索引条目数组；游戏通常按 hash 排序，序列化器保留原顺序 / Resource index item array; the game normally sorts by hash, while this serializer preserves stored order
-	ItemNulls             []bool               `json:"itemNulls,omitempty"`             // nil class elements in items / items 中的 nil 类元素
-	VirtualItems          []VirtualCatalogItem `json:"virtualItems,omitempty"`          // local-mode 资源条目；仅 virtualAsset kind 可用 / Local-mode items, valid only for virtualAsset kind
-	VirtualItemNulls      []bool               `json:"virtualItemNulls,omitempty"`      // nil class elements in virtualItems / virtualItems 中的 nil 类元素
+	MessagePackRootMetadata                      // 根 nil 与尾随字节元数据 / Root nil and trailing-byte metadata
+	IndexedObjectMetadata                        // indexed object 宽度与未来槽位元数据 / Indexed-object width and future-slot metadata
+	Kind                    CatalogKind          `json:"kind,omitempty"`                  // 具体 catalog 线格式，空值表示旧 JSON 的 AssetBundle 布局 / Concrete catalog wire layout; empty denotes the AssetBundle layout for legacy JSON
+	Version                 int                  `json:"version"`                         // 当前游戏通常写 1000；解码和重编码时原样保留 / The current game normally writes 1000; decoding and re-encoding preserve the stored value
+	CatalogType             CatalogType          `json:"catalogType"`                     // HasCatalogType 使用的资源分类标志位 / Resource-category flags used by HasCatalogType
+	PackageType             CatalogPackageType   `json:"packageType"`                     // 用于 catalog 排序及补丁类型判断的包类型 / Package type used for catalog ordering and patch classification
+	Priority                int                  `json:"priority"`                        // CatalogUtility.Compare 在类型和包类型之后比较的排序值 / Ordering value compared by CatalogUtility.Compare after catalog and package types
+	Name                    string               `json:"name"`                            // ICatalog 名称，也是排序相同时的最终比较键 / ICatalog name and final comparison key when earlier ordering fields match
+	NameIsNil               bool                 `json:"nameIsNil,omitempty"`             // Key(4) 在线格式中为 MessagePack nil / Key(4) was MessagePack nil on the wire
+	SubName                 string               `json:"subName"`                         // PluginPatch 计算依赖 catalog 名称时使用的子名称 / Sub-name used when PluginPatch computes its prerequisite catalog name
+	SubNameIsNil            bool                 `json:"subNameIsNil,omitempty"`          // Key(5) 在线格式中为 MessagePack nil / Key(5) was MessagePack nil on the wire
+	Hash                    uint64               `json:"hash"`                            // ICatalog 哈希，游戏在补丁依赖筛选中使用 / ICatalog hash used by the game for patch-dependency filtering
+	CreateTime              int64                `json:"createTime"`                      // 通过 ICatalog 暴露的 Int64 创建时间值 / Int64 creation-time value exposed through ICatalog
+	IsEncrypted             bool                 `json:"isEncrypted"`                     // 是否在初始化资源包时进入补丁解密流程 / Whether asset bundles enter the patch-decryption path during initialization
+	ResourceFileNames       []string             `json:"resourceFileNames"`               // 按 ResourceIndex 引用的资源包文件名 / Resource-bundle file names referenced by ResourceIndex
+	ResourceFileNameNulls   []bool               `json:"resourceFileNameNulls,omitempty"` // resourceFileNames 中在线格式为 nil 的字符串元素 / String elements in resourceFileNames that were nil on the wire
+	ExtensionList           []string             `json:"extensionList"`                   // 对应 .ct 中同名 ExtensionNameList 虚拟文件的扩展名列表 / Extension list naming corresponding ExtensionNameList virtual files in the .ct container
+	ExtensionListNulls      []bool               `json:"extensionListNulls,omitempty"`    // extensionList 中在线格式为 nil 的字符串元素 / String elements in extensionList that were nil on the wire
+	Items                   []CatalogItem        `json:"items"`                           // AssetBundle 条目，游戏按哈希二分查找，序列化器保留原顺序 / AssetBundle items searched by hash in the game; the serializer preserves stored order
+	ItemNulls               []bool               `json:"itemNulls,omitempty"`             // items 中在线格式为 nil 的类元素 / Class elements in items that were nil on the wire
+	VirtualItems            []VirtualCatalogItem `json:"virtualItems,omitempty"`          // 仅用于 VirtualAsset 布局的本地资源条目 / Local-resource items used only by the VirtualAsset layout
+	VirtualItemNulls        []bool               `json:"virtualItemNulls,omitempty"`      // virtualItems 中在线格式为 nil 的类元素 / Class elements in virtualItems that were nil on the wire
 }
 
-// CatalogItem 表示 catalog 中的单个资源索引条目 / CatalogItem represents one resource index item in the catalog
-// 对应 C# AssetBundleCatalog.Item，MessagePack indexed array / Matches C# AssetBundleCatalog.Item as a MessagePack indexed array:
-//
-//	[0] resourceIndex  int     指向 resourceFileNames 的索引
-//	[1] name           string  资源名称（如 "xxx.menuassets"）
-//	[2] hash           uint64  资源名称的 FNV-1a ignore-case hash
+// CatalogItem 表示 C# AssetBundleCatalog.Item 的单个资源索引条目
+// MessagePack indexed array 依次保存 resourceIndex、name 和 hash
+// CatalogItem represents one resource index entry from C# AssetBundleCatalog.Item
+// Its MessagePack indexed array stores resourceIndex, name, and hash in that order
 type CatalogItem struct {
-	IndexedObjectMetadata
-	ResourceIndex int    `json:"resourceIndex"` // 指向 AssetBundleCatalog.ResourceFileNames 的索引 / Index into AssetBundleCatalog.ResourceFileNames
-	Name          string `json:"name"`          // 资源名称，游戏通过此名称加载资源 / Resource name used by the game to load the asset
-	NameIsNil     bool   `json:"nameIsNil,omitempty"`
-	Hash          uint64 `json:"hash"` // 资源名称的 FNV-1a 64-bit ignore-case hash，用于快速查找 / FNV-1a 64-bit ignore-case hash of the resource name for fast lookup
+	IndexedObjectMetadata        // indexed object 宽度与未来槽位元数据 / Indexed-object width and future-slot metadata
+	ResourceIndex         int    `json:"resourceIndex"`       // 指向 AssetBundleCatalog.ResourceFileNames 的索引 / Index into AssetBundleCatalog.ResourceFileNames
+	Name                  string `json:"name"`                // ResourceLocation 的主键和内部标识 / Primary key and internal identifier of the ResourceLocation
+	NameIsNil             bool   `json:"nameIsNil,omitempty"` // name 在线格式中为 MessagePack nil / name was MessagePack nil on the wire
+	Hash                  uint64 `json:"hash"`                // 游戏用于二分查找和统一资源索引的条目哈希 / Item hash used by the game for binary search and the unified resource index
 }
 
-// VirtualCatalogItem maps WfSystem.Catalog.VirtualAssetCatalog.Item.
-// MessagePack indexed-array layout: [assetPath, name, hash].
+// VirtualCatalogItem 对应 WfSystem.Catalog.VirtualAssetCatalog.Item
+// MessagePack indexed array 依次保存 assetPath、name 和 hash
+// VirtualCatalogItem maps WfSystem.Catalog.VirtualAssetCatalog.Item
+// Its MessagePack indexed array stores assetPath, name, and hash in that order
 type VirtualCatalogItem struct {
-	IndexedObjectMetadata
-	AssetPath      string `json:"assetPath"` // Unity project-local asset path / Unity 工程内资源路径
-	AssetPathIsNil bool   `json:"assetPathIsNil,omitempty"`
-	Name           string `json:"name"` // resource lookup name / 资源查找名称
-	NameIsNil      bool   `json:"nameIsNil,omitempty"`
-	Hash           uint64 `json:"hash"` // case-insensitive hash of Name / Name 的忽略大小写哈希
+	IndexedObjectMetadata        // indexed object 宽度与未来槽位元数据 / Indexed-object width and future-slot metadata
+	AssetPath             string `json:"assetPath"`                // 本地 ResourceLocation 使用的 Unity 工程资源路径 / Unity project asset path used as the local ResourceLocation internal ID
+	AssetPathIsNil        bool   `json:"assetPathIsNil,omitempty"` // assetPath 在线格式中为 MessagePack nil / assetPath was MessagePack nil on the wire
+	Name                  string `json:"name"`                     // 本地 ResourceLocation 的主键 / Primary key of the local ResourceLocation
+	NameIsNil             bool   `json:"nameIsNil,omitempty"`      // name 在线格式中为 MessagePack nil / name was MessagePack nil on the wire
+	Hash                  uint64 `json:"hash"`                     // 游戏用于二分查找和统一资源索引的条目哈希 / Item hash used by the game for binary search and the unified resource index
 }
 
-// ExtensionNameList 表示 .ct 中按扩展名分组的资源名称列表 / ExtensionNameList represents resource names grouped by extension inside a .ct file
-// 对应 C# AssetBundleCatalog.ExtensionNameList，MessagePack indexed array / Matches C# AssetBundleCatalog.ExtensionNameList as a MessagePack indexed array:
-//
-//	[0] extention  string  扩展名（如 ".menuassets"）
-//	[1] data       []Pack  名称+hash 列表
-//
-// 游戏通过 GetFileNameListFromExtension 获取某扩展名下的所有资源名 / The game uses GetFileNameListFromExtension to enumerate resource names for an extension
+// ExtensionNameList 表示 .ct 中按扩展名分组的资源名称列表，对应 C# AssetBundleCatalog.ExtensionNameList
+// MessagePack indexed array 依次保存 extention 和 data，游戏通过 GetFileNameListFromExtension 读取相应虚拟文件
+// ExtensionNameList represents resource names grouped by extension in a .ct file and maps C# AssetBundleCatalog.ExtensionNameList
+// Its MessagePack indexed array stores extention and data in that order, and the game reads the corresponding virtual file through GetFileNameListFromExtension
 type ExtensionNameList struct {
-	MessagePackRootMetadata
-	IndexedObjectMetadata
-	Extension      string              `json:"extention"` // 扩展名，如 .menuassets、.tex、.model，字段名保留游戏 extention 拼写 / Extension such as .menuassets, .tex, or .model, keeping the game's extention spelling
-	ExtensionIsNil bool                `json:"extensionIsNil,omitempty"`
-	Data           []ExtensionNamePack `json:"data"` // 该扩展名下的所有资源名称及其 hash / Resource names and hashes under this extension
-	DataNulls      []bool              `json:"dataNulls,omitempty"`
+	MessagePackRootMetadata                     // 根 nil 与尾随字节元数据 / Root nil and trailing-byte metadata
+	IndexedObjectMetadata                       // indexed object 宽度与未来槽位元数据 / Indexed-object width and future-slot metadata
+	Extension               string              `json:"extention"`                // 线格式中的 extention 值，当前游戏枚举路径未读取此字段 / Wire extention value, not read by the current game's enumeration path
+	ExtensionIsNil          bool                `json:"extensionIsNil,omitempty"` // extention 在线格式中为 MessagePack nil / extention was MessagePack nil on the wire
+	Data                    []ExtensionNamePack `json:"data"`                     // 游戏枚举并返回名称的 Pack 数组 / Pack array whose names are enumerated and returned by the game
+	DataNulls               []bool              `json:"dataNulls,omitempty"`      // data 中在线格式为 nil 的 Pack 元素 / Pack elements in data that were nil on the wire
 }
 
-// ExtensionNamePack 表示 ExtensionNameList 中的单个条目 / ExtensionNamePack represents one item in ExtensionNameList
-// 对应 C# AssetBundleCatalog.ExtensionNameList.Pack，MessagePack indexed array / Matches C# AssetBundleCatalog.ExtensionNameList.Pack as a MessagePack indexed array:
-//
-//	[0] name  string  资源名称（不含扩展名）
-//	[1] hash  uint64  名称的 FNV-1a ignore-case hash
+// ExtensionNamePack 表示 ExtensionNameList 中的单个条目，对应 C# AssetBundleCatalog.ExtensionNameList.Pack
+// MessagePack indexed array 依次保存 name 和 hash
+// ExtensionNamePack represents one ExtensionNameList entry and maps C# AssetBundleCatalog.ExtensionNameList.Pack
+// Its MessagePack indexed array stores name and hash in that order
 type ExtensionNamePack struct {
-	IndexedObjectMetadata
-	Name      string `json:"name"` // 资源名称 / Resource name
-	NameIsNil bool   `json:"nameIsNil,omitempty"`
-	Hash      uint64 `json:"hash"` // 名称的 FNV-1a 64-bit ignore-case hash / FNV-1a 64-bit ignore-case hash of the name
+	IndexedObjectMetadata        // indexed object 宽度与未来槽位元数据 / Indexed-object width and future-slot metadata
+	Name                  string `json:"name"`                // GameResource 枚举扩展名文件列表时返回的资源名称 / Resource name returned when GameResource enumerates an extension file list
+	NameIsNil             bool   `json:"nameIsNil,omitempty"` // name 在线格式中为 MessagePack nil / name was MessagePack nil on the wire
+	Hash                  uint64 `json:"hash"`                // 线格式中保存的哈希，当前游戏枚举路径未读取此字段 / Hash stored on the wire, not read by the current game's enumeration path
 }
 
-// CatalogType 资源分类标志位枚举（Flags）。
+// CatalogType 是资源分类标志位枚举（Flags）
 // 对应 C# WfSystem.Catalog.CatalogType
+// CatalogType is the resource-category flag enumeration
+// It maps C# WfSystem.Catalog.CatalogType
 type CatalogType int
 
 const (
@@ -134,8 +124,10 @@ const (
 	CatalogTypeParts     CatalogType = 4096
 )
 
-// CatalogPackageType 包类型枚举。
+// CatalogPackageType 是包类型枚举
 // 对应 C# WfSystem.Catalog.CatalogPackageType
+// CatalogPackageType is the package-type enumeration
+// It maps C# WfSystem.Catalog.CatalogPackageType
 type CatalogPackageType int
 
 const (
@@ -147,17 +139,18 @@ const (
 	PackageTypeExtraPatch  CatalogPackageType = 5
 )
 
-// DecodeCatalog decodes one uncompressed catalog root. The concrete class is
-// inferred from Key(8), whose wire type is disjoint: bool for
-// AssetBundleCatalog and string[]/nil for VirtualAssetCatalog. Arrays shorter
-// than nine slots are genuinely ambiguous and require DecodeCatalogWithKind.
+// DecodeCatalog 解码一个未压缩的 catalog 根值
+// 当数组至少包含 Key(8) 时，根据该槽位的线格式类型区分 AssetBundleCatalog 和 VirtualAssetCatalog；少于九槽的数组无法自动区分
+// DecodeCatalog decodes one uncompressed catalog root
+// When Key(8) exists its wire type distinguishes AssetBundleCatalog from VirtualAssetCatalog; arrays shorter than nine slots are ambiguous and require DecodeCatalogWithKind
 func DecodeCatalog(data []byte) (*AssetBundleCatalog, error) {
 	return decodeCatalog(data, nil)
 }
 
-// DecodeCatalogWithKind decodes a catalog using the concrete C# class chosen
-// by the caller. This is required for short indexed arrays and is also the
-// lossless route for future arrays whose width alone cannot identify a type.
+// DecodeCatalogWithKind 按调用方指定的 C# 具体类布局解码 catalog
+// 短 indexed array 必须使用此函数，未来数组的宽度无法单独识别类型时也应使用此函数
+// DecodeCatalogWithKind decodes a catalog using the concrete C# class layout selected by the caller
+// It is required for short indexed arrays and for future arrays whose width alone cannot identify a type
 func DecodeCatalogWithKind(data []byte, kind CatalogKind) (*AssetBundleCatalog, error) {
 	normalized, err := normalizedCatalogKind(kind)
 	if err != nil {
@@ -166,6 +159,8 @@ func DecodeCatalogWithKind(data []byte, kind CatalogKind) (*AssetBundleCatalog, 
 	return decodeCatalog(data, &normalized)
 }
 
+// decodeCatalog 解码 catalog 根值并保留根值之后的尾随字节
+// decodeCatalog decodes a catalog root and preserves bytes following the root value
 func decodeCatalog(data []byte, forcedKind *CatalogKind) (*AssetBundleCatalog, error) {
 	root, trailing, err := SplitFirstMsgpackValue(data)
 	if err != nil {
@@ -202,6 +197,8 @@ func decodeCatalog(data []byte, forcedKind *CatalogKind) (*AssetBundleCatalog, e
 	return value, nil
 }
 
+// inferCatalogKind 根据 Key(8) 的原始 MessagePack 标记推断 catalog 布局
+// inferCatalogKind infers the catalog layout from the raw MessagePack marker at Key(8)
 func inferCatalogKind(fields []codec.Raw) (CatalogKind, error) {
 	if len(fields) < 9 {
 		return "", fmt.Errorf("catalog array(%d) does not contain Key(8); concrete kind is ambiguous, use DecodeCatalogWithKind", len(fields))
@@ -216,6 +213,8 @@ func inferCatalogKind(fields []codec.Raw) (CatalogKind, error) {
 	return "", fmt.Errorf("catalog Key(8) marker cannot identify a concrete kind")
 }
 
+// DecodeCatalogFromCt 从 ContentTable 的 catalog 虚拟文件解码 catalog
+// DecodeCatalogFromCt decodes the catalog virtual file from ContentTable
 func DecodeCatalogFromCt(table *ContentTable) (*AssetBundleCatalog, error) {
 	data, err := decodeContentTableMessagePackFile(table, "catalog")
 	if err != nil {
@@ -224,6 +223,8 @@ func DecodeCatalogFromCt(table *ContentTable) (*AssetBundleCatalog, error) {
 	return DecodeCatalog(data)
 }
 
+// DecodeCatalogFromCtWithKind 从 ContentTable 的 catalog 虚拟文件按指定布局解码 catalog
+// DecodeCatalogFromCtWithKind decodes the catalog virtual file from ContentTable using the selected layout
 func DecodeCatalogFromCtWithKind(table *ContentTable, kind CatalogKind) (*AssetBundleCatalog, error) {
 	data, err := decodeContentTableMessagePackFile(table, "catalog")
 	if err != nil {
@@ -232,6 +233,8 @@ func DecodeCatalogFromCtWithKind(table *ContentTable, kind CatalogKind) (*AssetB
 	return DecodeCatalogWithKind(data, kind)
 }
 
+// decodeCatalogFields 将 catalog indexed array 的已知槽位转换为 Go 模型并保留未知槽位
+// decodeCatalogFields converts known slots of a catalog indexed array to the Go model while preserving unknown slots
 func decodeCatalogFields(fields []codec.Raw, kind CatalogKind) (*AssetBundleCatalog, error) {
 	known := 12
 	if kind == CatalogKindVirtualAsset {
@@ -302,9 +305,10 @@ func decodeCatalogFields(fields []codec.Raw, kind CatalogKind) (*AssetBundleCata
 	return value, nil
 }
 
-// EncodeCatalog preserves the selected indexed-object width, future slots,
-// nullable class/string elements, and bytes after the root value. It never
-// invokes OnBeforeSerialize or rewrites version.
+// EncodeCatalog 保留选定的 indexed object 宽度、未来槽位、可空类或字符串元素以及根值后的字节
+// 函数不会调用 OnBeforeSerialize，也不会重写 Version
+// EncodeCatalog preserves the selected indexed-object width, future slots, nullable class or string elements, and bytes after the root value
+// It never invokes OnBeforeSerialize or rewrites Version
 func EncodeCatalog(cat *AssetBundleCatalog) ([]byte, error) {
 	if cat == nil {
 		return []byte{0xc0}, nil
@@ -335,6 +339,8 @@ func EncodeCatalog(cat *AssetBundleCatalog) ([]byte, error) {
 	return append(encoded, canonical.TrailingData...), nil
 }
 
+// encodeCatalogFields 按 AssetBundleCatalog 或 VirtualAssetCatalog 的布局构造已知槽位
+// encodeCatalogFields builds known slots using the AssetBundleCatalog or VirtualAssetCatalog layout
 func encodeCatalogFields(cat *AssetBundleCatalog) ([]interface{}, error) {
 	common := []indexedKnownField{
 		{name: "version", value: int64(cat.Version), populated: cat.Version != 0},
@@ -382,6 +388,8 @@ func encodeCatalogFields(cat *AssetBundleCatalog) ([]interface{}, error) {
 	return buildIndexedObject(known, cat.IndexedObjectMetadata, "AssetBundleCatalog")
 }
 
+// DecodeExtensionNameList 解码一个 ExtensionNameList 根值并保留尾随字节
+// DecodeExtensionNameList decodes one ExtensionNameList root and preserves trailing bytes
 func DecodeExtensionNameList(data []byte) (*ExtensionNameList, error) {
 	root, trailing, err := SplitFirstMsgpackValue(data)
 	if err != nil {
@@ -415,6 +423,8 @@ func DecodeExtensionNameList(data []byte) (*ExtensionNameList, error) {
 	return value, nil
 }
 
+// DecodeExtensionNameListFromCt 从 ContentTable 中按扩展名读取并解码 ExtensionNameList
+// DecodeExtensionNameListFromCt reads and decodes an ExtensionNameList from ContentTable by extension name
 func DecodeExtensionNameListFromCt(table *ContentTable, extension string) (*ExtensionNameList, error) {
 	data, err := decodeContentTableMessagePackFile(table, extension)
 	if err != nil {
@@ -423,6 +433,8 @@ func DecodeExtensionNameListFromCt(table *ContentTable, extension string) (*Exte
 	return DecodeExtensionNameList(data)
 }
 
+// EncodeExtensionNameList 将 ExtensionNameList 编码为 MessagePack 并保留根值后的字节
+// EncodeExtensionNameList encodes ExtensionNameList as MessagePack while preserving bytes after the root value
 func EncodeExtensionNameList(enl *ExtensionNameList) ([]byte, error) {
 	if enl == nil {
 		return []byte{0xc0}, nil
@@ -455,6 +467,8 @@ func EncodeExtensionNameList(enl *ExtensionNameList) ([]byte, error) {
 	return append(encoded, enl.TrailingData...), nil
 }
 
+// decodeContentTableMessagePackFile 提取并解压 ContentTable 中的 MessagePack 虚拟文件
+// decodeContentTableMessagePackFile extracts and decompresses a MessagePack virtual file from ContentTable
 func decodeContentTableMessagePackFile(table *ContentTable, name string) ([]byte, error) {
 	if table == nil {
 		return nil, fmt.Errorf("nil ContentTable")
@@ -470,6 +484,8 @@ func decodeContentTableMessagePackFile(table *ContentTable, name string) ([]byte
 	return decoded, nil
 }
 
+// decodeCatalogItemsRaw 解码 AssetBundle 条目数组并记录 nil 元素
+// decodeCatalogItemsRaw decodes the AssetBundle item array and records nil elements
 func decodeCatalogItemsRaw(raw codec.Raw) ([]CatalogItem, []bool, error) {
 	values, isNil, err := decodeRawArrayOrNil(raw, "catalog items")
 	if err != nil || isNil {
@@ -503,6 +519,8 @@ func decodeCatalogItemsRaw(raw codec.Raw) ([]CatalogItem, []bool, error) {
 	return items, trimFalseNullFlags(nulls), nil
 }
 
+// decodeVirtualCatalogItemsRaw 解码 VirtualAsset 条目数组并记录 nil 元素
+// decodeVirtualCatalogItemsRaw decodes the VirtualAsset item array and records nil elements
 func decodeVirtualCatalogItemsRaw(raw codec.Raw) ([]VirtualCatalogItem, []bool, error) {
 	values, isNil, err := decodeRawArrayOrNil(raw, "virtual catalog items")
 	if err != nil || isNil {
@@ -536,6 +554,8 @@ func decodeVirtualCatalogItemsRaw(raw codec.Raw) ([]VirtualCatalogItem, []bool, 
 	return items, trimFalseNullFlags(nulls), nil
 }
 
+// decodeExtensionNamePacksRaw 解码 ExtensionNameList 的 Pack 数组并记录 nil 元素
+// decodeExtensionNamePacksRaw decodes an ExtensionNameList Pack array and records nil elements
 func decodeExtensionNamePacksRaw(raw codec.Raw) ([]ExtensionNamePack, []bool, error) {
 	values, isNil, err := decodeRawArrayOrNil(raw, "ExtensionNameList data")
 	if err != nil || isNil {
@@ -566,6 +586,8 @@ func decodeExtensionNamePacksRaw(raw codec.Raw) ([]ExtensionNamePack, []bool, er
 	return packs, trimFalseNullFlags(nulls), nil
 }
 
+// encodeCatalogItemsValue 编码 AssetBundle 条目数组并恢复 nil 元素
+// encodeCatalogItemsValue encodes an AssetBundle item array and restores nil elements
 func encodeCatalogItemsValue(items []CatalogItem, nulls []bool) (interface{}, error) {
 	if items == nil {
 		if len(nulls) != 0 {
@@ -593,6 +615,8 @@ func encodeCatalogItemsValue(items []CatalogItem, nulls []bool) (interface{}, er
 	return result, nil
 }
 
+// encodeVirtualCatalogItemsValue 编码 VirtualAsset 条目数组并恢复 nil 元素
+// encodeVirtualCatalogItemsValue encodes a VirtualAsset item array and restores nil elements
 func encodeVirtualCatalogItemsValue(items []VirtualCatalogItem, nulls []bool) (interface{}, error) {
 	if items == nil {
 		if len(nulls) != 0 {
@@ -620,6 +644,8 @@ func encodeVirtualCatalogItemsValue(items []VirtualCatalogItem, nulls []bool) (i
 	return result, nil
 }
 
+// encodeExtensionNamePacksValue 编码 ExtensionNameList 的 Pack 数组并恢复 nil 元素
+// encodeExtensionNamePacksValue encodes an ExtensionNameList Pack array and restores nil elements
 func encodeExtensionNamePacksValue(packs []ExtensionNamePack, nulls []bool) (interface{}, error) {
 	if packs == nil {
 		if len(nulls) != 0 {
@@ -647,6 +673,8 @@ func encodeExtensionNamePacksValue(packs []ExtensionNamePack, nulls []bool) (int
 	return result, nil
 }
 
+// encodeCatalogItem 编码一个 AssetBundle catalog 条目并校验其线格式字段
+// encodeCatalogItem encodes one AssetBundle catalog item and validates its wire fields
 func encodeCatalogItem(item *CatalogItem, label string) ([]interface{}, error) {
 	if err := validateInt32Field(item.ResourceIndex, label+" resourceIndex"); err != nil {
 		return nil, err
@@ -662,6 +690,8 @@ func encodeCatalogItem(item *CatalogItem, label string) ([]interface{}, error) {
 	return buildIndexedObject(known, item.IndexedObjectMetadata, label)
 }
 
+// encodeVirtualCatalogItem 编码一个 VirtualAsset catalog 条目并校验其线格式字段
+// encodeVirtualCatalogItem encodes one VirtualAsset catalog item and validates its wire fields
 func encodeVirtualCatalogItem(item *VirtualCatalogItem, label string) ([]interface{}, error) {
 	if err := validateNullableString(item.AssetPath, item.AssetPathIsNil, label+" assetPath"); err != nil {
 		return nil, err
@@ -677,6 +707,8 @@ func encodeVirtualCatalogItem(item *VirtualCatalogItem, label string) ([]interfa
 	return buildIndexedObject(known, item.IndexedObjectMetadata, label)
 }
 
+// encodeExtensionNamePack 编码一个 ExtensionNameList Pack 条目并校验其线格式字段
+// encodeExtensionNamePack encodes one ExtensionNameList Pack item and validates its wire fields
 func encodeExtensionNamePack(pack *ExtensionNamePack, label string) ([]interface{}, error) {
 	if err := validateNullableString(pack.Name, pack.NameIsNil, label+" name"); err != nil {
 		return nil, err
@@ -688,12 +720,16 @@ func encodeExtensionNamePack(pack *ExtensionNamePack, label string) ([]interface
 	return buildIndexedObject(known, pack.IndexedObjectMetadata, label)
 }
 
+// indexedKnownField 描述一个 indexed object 的已知槽位及其丢弃检查状态
+// indexedKnownField describes one known indexed-object slot and its discard-check state
 type indexedKnownField struct {
-	name      string
-	value     interface{}
-	populated bool
+	name      string      // 校验错误中使用的字段名 / Field name used in validation errors
+	value     interface{} // 写入该槽位的 MessagePack 值 / MessagePack value written to the slot
+	populated bool        // 缩短数组时该槽位是否包含不可丢弃的数据 / Whether the slot contains data that cannot be discarded when shortening the array
 }
 
+// buildIndexedObject 按保留的数组宽度组合已知槽位与未来槽位
+// buildIndexedObject combines known and future slots using the retained array width
 func buildIndexedObject(known []indexedKnownField, metadata IndexedObjectMetadata, label string) ([]interface{}, error) {
 	count, err := resolveIndexedObjectFieldCount(metadata.FieldCount, len(known), metadata.FutureSlots, label)
 	if err != nil {
@@ -714,6 +750,8 @@ func buildIndexedObject(known []indexedKnownField, metadata IndexedObjectMetadat
 	return result, nil
 }
 
+// setIndexedObjectMetadata 根据解码数组记录非标准宽度与未来槽位
+// setIndexedObjectMetadata records non-canonical width and future slots from a decoded array
 func setIndexedObjectMetadata(metadata *IndexedObjectMetadata, fields []codec.Raw, known int) {
 	if len(fields) != known {
 		count := len(fields)
@@ -724,6 +762,8 @@ func setIndexedObjectMetadata(metadata *IndexedObjectMetadata, fields []codec.Ra
 	}
 }
 
+// decodeRawArrayOrNil 解码原始 MessagePack 数组并单独报告 nil
+// decodeRawArrayOrNil decodes a raw MessagePack array and reports nil separately
 func decodeRawArrayOrNil(raw codec.Raw, label string) ([]codec.Raw, bool, error) {
 	if isRawMsgpackNil(raw) {
 		return nil, true, nil
@@ -732,6 +772,8 @@ func decodeRawArrayOrNil(raw codec.Raw, label string) ([]codec.Raw, bool, error)
 	return values, false, err
 }
 
+// decodeRawInt32 将原始 MessagePack 整数解码并限制到 Int32 范围
+// decodeRawInt32 decodes a raw MessagePack integer and constrains it to the Int32 range
 func decodeRawInt32(raw codec.Raw, label string) (int, error) {
 	value, err := decodeRawInterface(raw, label)
 	if err != nil {
@@ -744,6 +786,8 @@ func decodeRawInt32(raw codec.Raw, label string) (int, error) {
 	return decoded, nil
 }
 
+// decodeRawInt64 将原始 MessagePack 整数解码为有符号 Int64
+// decodeRawInt64 decodes a raw MessagePack integer as signed Int64
 func decodeRawInt64(raw codec.Raw, label string) (int64, error) {
 	value, err := decodeRawInterface(raw, label)
 	if err != nil {
@@ -756,6 +800,8 @@ func decodeRawInt64(raw codec.Raw, label string) (int64, error) {
 	return decoded, nil
 }
 
+// decodeRawUint64 将原始 MessagePack 整数解码为 UInt64
+// decodeRawUint64 decodes a raw MessagePack integer as UInt64
 func decodeRawUint64(raw codec.Raw, label string) (uint64, error) {
 	value, err := decodeRawInterface(raw, label)
 	if err != nil {
@@ -768,6 +814,8 @@ func decodeRawUint64(raw codec.Raw, label string) (uint64, error) {
 	return decoded, nil
 }
 
+// decodeRawBool 解码一个原始 MessagePack 布尔值
+// decodeRawBool decodes one raw MessagePack boolean value
 func decodeRawBool(raw codec.Raw, label string) (bool, error) {
 	value, err := decodeRawInterface(raw, label)
 	if err != nil {
@@ -780,6 +828,8 @@ func decodeRawBool(raw codec.Raw, label string) (bool, error) {
 	return decoded, nil
 }
 
+// decodeRawNullableString 解码字符串，并以独立标志保留 MessagePack nil
+// decodeRawNullableString decodes a string and preserves MessagePack nil in a separate flag
 func decodeRawNullableString(raw codec.Raw, label string) (string, bool, error) {
 	if isRawMsgpackNil(raw) {
 		return "", true, nil
@@ -794,6 +844,8 @@ func decodeRawNullableString(raw codec.Raw, label string) (string, bool, error) 
 	return value, false, nil
 }
 
+// decodeRawNullableStringSlice 解码可为 nil 的字符串数组及其 nil 元素标志
+// decodeRawNullableStringSlice decodes a nullable string array and flags its nil elements
 func decodeRawNullableStringSlice(raw codec.Raw, label string) ([]string, []bool, error) {
 	values, isNil, err := decodeRawArrayOrNil(raw, label)
 	if err != nil || isNil {
@@ -810,6 +862,8 @@ func decodeRawNullableStringSlice(raw codec.Raw, label string) ([]string, []bool
 	return strings, trimFalseNullFlags(nulls), nil
 }
 
+// decodeRawInterface 将恰好一个原始 MessagePack 值解码为通用 Go 值
+// decodeRawInterface decodes exactly one raw MessagePack value into a generic Go value
 func decodeRawInterface(raw codec.Raw, label string) (interface{}, error) {
 	var value interface{}
 	if err := decodeSingleRawMsgpackValue(raw, &value, label); err != nil {
@@ -818,6 +872,8 @@ func decodeRawInterface(raw codec.Raw, label string) (interface{}, error) {
 	return value, nil
 }
 
+// encodeNullableStringSlice 编码字符串数组并按标志恢复 nil 元素
+// encodeNullableStringSlice encodes a string array and restores nil elements from flags
 func encodeNullableStringSlice(values []string, nulls []bool, label string) (interface{}, error) {
 	if values == nil {
 		if len(nulls) != 0 {
@@ -844,6 +900,8 @@ func encodeNullableStringSlice(values []string, nulls []bool, label string) (int
 	return result, nil
 }
 
+// validateNullableString 校验字符串与其 nil 标志一致并包含有效 UTF-8
+// validateNullableString validates that a string agrees with its nil flag and contains valid UTF-8
 func validateNullableString(value string, isNil bool, label string) error {
 	if isNil {
 		if value != "" {
@@ -857,6 +915,8 @@ func validateNullableString(value string, isNil bool, label string) error {
 	return nil
 }
 
+// nullableStringValue 按 nil 标志返回字符串或 nil 的可编码值
+// nullableStringValue returns an encodable string or nil according to the nil flag
 func nullableStringValue(value string, isNil bool) interface{} {
 	if isNil {
 		return nil
@@ -864,6 +924,8 @@ func nullableStringValue(value string, isNil bool) interface{} {
 	return value
 }
 
+// validateNullFlags 校验 nil 标志数量不超过对应数组长度
+// validateNullFlags validates that nil flags do not exceed the corresponding array length
 func validateNullFlags(flags []bool, count int, label string) error {
 	if len(flags) > count {
 		return fmt.Errorf("%s has %d entries for %d values", label, len(flags), count)
@@ -871,10 +933,14 @@ func validateNullFlags(flags []bool, count int, label string) error {
 	return nil
 }
 
+// nullFlagAt 返回给定索引是否被标记为线格式 nil
+// nullFlagAt reports whether an index is marked as wire nil
 func nullFlagAt(flags []bool, index int) bool {
 	return index < len(flags) && flags[index]
 }
 
+// trimFalseNullFlags 删除最后一个 true 之后没有信息量的 false 标志
+// trimFalseNullFlags removes uninformative false flags after the final true entry
 func trimFalseNullFlags(flags []bool) []bool {
 	last := -1
 	for i, value := range flags {
@@ -888,18 +954,26 @@ func trimFalseNullFlags(flags []bool) []bool {
 	return flags[:last+1]
 }
 
+// isRawMsgpackNil 识别显式 0xc0 以及 ugorji 使用的空切片 nil 表示
+// isRawMsgpackNil recognizes explicit 0xc0 and ugorji's empty-slice nil representation
 func isRawMsgpackNil(raw []byte) bool {
 	return len(raw) == 0 || (len(raw) == 1 && raw[0] == 0xc0)
 }
 
+// isMsgpackStringMarker 判断标记是否开始一个 MessagePack 字符串
+// isMsgpackStringMarker reports whether a marker begins a MessagePack string
 func isMsgpackStringMarker(marker byte) bool {
 	return marker >= 0xa0 && marker <= 0xbf || marker == 0xd9 || marker == 0xda || marker == 0xdb
 }
 
+// indexedObjectMetadataHasWirePayload 判断元数据是否包含必须保留的线格式形状
+// indexedObjectMetadataHasWirePayload reports whether metadata contains wire shape that must be preserved
 func indexedObjectMetadataHasWirePayload(metadata IndexedObjectMetadata) bool {
 	return metadata.FieldCount != nil || len(metadata.FutureSlots) != 0
 }
 
+// catalogHasWirePayload 判断 catalog 是否包含会被根 nil 丢弃的线格式数据
+// catalogHasWirePayload reports whether a catalog contains wire data that root nil would discard
 func catalogHasWirePayload(cat *AssetBundleCatalog) bool {
 	return indexedObjectMetadataHasWirePayload(cat.IndexedObjectMetadata) ||
 		cat.Version != 0 || cat.CatalogType != 0 || cat.PackageType != 0 || cat.Priority != 0 ||
@@ -911,26 +985,36 @@ func catalogHasWirePayload(cat *AssetBundleCatalog) bool {
 		cat.VirtualItems != nil || len(cat.VirtualItemNulls) != 0
 }
 
+// catalogItemHasWirePayload 判断 AssetBundle 条目是否包含不可由 nil 元素表示的数据
+// catalogItemHasWirePayload reports whether an AssetBundle item contains data that a nil element cannot represent
 func catalogItemHasWirePayload(item *CatalogItem) bool {
 	return indexedObjectMetadataHasWirePayload(item.IndexedObjectMetadata) ||
 		item.ResourceIndex != 0 || item.Name != "" || item.NameIsNil || item.Hash != 0
 }
 
+// virtualCatalogItemHasWirePayload 判断 VirtualAsset 条目是否包含不可由 nil 元素表示的数据
+// virtualCatalogItemHasWirePayload reports whether a VirtualAsset item contains data that a nil element cannot represent
 func virtualCatalogItemHasWirePayload(item *VirtualCatalogItem) bool {
 	return indexedObjectMetadataHasWirePayload(item.IndexedObjectMetadata) ||
 		item.AssetPath != "" || item.AssetPathIsNil || item.Name != "" || item.NameIsNil || item.Hash != 0
 }
 
+// extensionNameListHasWirePayload 判断 ExtensionNameList 是否包含会被根 nil 丢弃的数据
+// extensionNameListHasWirePayload reports whether ExtensionNameList contains data that root nil would discard
 func extensionNameListHasWirePayload(value *ExtensionNameList) bool {
 	return indexedObjectMetadataHasWirePayload(value.IndexedObjectMetadata) ||
 		value.Extension != "" || value.ExtensionIsNil || value.Data != nil || len(value.DataNulls) != 0
 }
 
+// extensionNamePackHasWirePayload 判断 Pack 是否包含不可由 nil 元素表示的数据
+// extensionNamePackHasWirePayload reports whether a Pack contains data that a nil element cannot represent
 func extensionNamePackHasWirePayload(value *ExtensionNamePack) bool {
 	return indexedObjectMetadataHasWirePayload(value.IndexedObjectMetadata) ||
 		value.Name != "" || value.NameIsNil || value.Hash != 0
 }
 
+// toUint64 将支持的非负 MessagePack 整数转换为 UInt64
+// toUint64 converts a supported non-negative MessagePack integer to UInt64
 func toUint64(v interface{}) (uint64, bool) {
 	switch n := v.(type) {
 	case uint64:
@@ -951,10 +1035,10 @@ func toUint64(v interface{}) (uint64, bool) {
 	return 0, false
 }
 
-// ValidateCatalog checks only wire representability and fields that would be
-// silently discarded by the selected concrete layout. Runtime lookup rules,
-// enum membership, hashes, sorting, and resource-index validity belong to the
-// game and are deliberately not enforced here.
+// ValidateCatalog 只校验线格式可表示性以及所选具体布局会静默丢弃的字段
+// 运行时查找规则、枚举成员、哈希、排序和资源索引有效性属于游戏逻辑，本函数不会强制检查
+// ValidateCatalog checks only wire representability and fields that the selected concrete layout would silently discard
+// Runtime lookup rules, enum membership, hashes, sorting, and resource-index validity belong to the game and are deliberately not enforced here
 func ValidateCatalog(cat *AssetBundleCatalog) error {
 	if cat == nil {
 		return nil
@@ -1012,6 +1096,8 @@ func ValidateCatalog(cat *AssetBundleCatalog) error {
 	return err
 }
 
+// normalizedCatalogKind 将兼容旧 JSON 的空 Kind 解析为 AssetBundle 布局
+// normalizedCatalogKind resolves an empty Kind from legacy JSON to the AssetBundle layout
 func normalizedCatalogKind(kind CatalogKind) (CatalogKind, error) {
 	switch kind {
 	case "", CatalogKindAssetBundle:
@@ -1023,6 +1109,8 @@ func normalizedCatalogKind(kind CatalogKind) (CatalogKind, error) {
 	}
 }
 
+// ValidateExtensionNameList 校验 ExtensionNameList 能按保留的 indexed object 形状编码
+// ValidateExtensionNameList validates that ExtensionNameList can be encoded with its retained indexed-object shape
 func ValidateExtensionNameList(enl *ExtensionNameList) error {
 	if enl == nil {
 		return nil
