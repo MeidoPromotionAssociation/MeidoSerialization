@@ -6,13 +6,11 @@ import (
 	"strings"
 )
 
-// .dsbconf 与 .dslconf 共用的 MagicaCloth 参数模型。
-//
-// MagicaCloth parameter model shared by .dsbconf and .dslconf.
+// .dsbconf 与 .dslconf 共用的 MagicaCloth 参数模型
+// MagicaCloth parameter model shared by .dsbconf and .dslconf
 
-// DecodeClothParamsFile 解码使用 ClothParams wire 的 .dsbconf 或 .dslconf 文件。
-//
-// DecodeClothParamsFile decodes a .dsbconf or .dslconf file that uses the ClothParams wire model.
+// DecodeClothParamsFile 解码使用 ClothParams 线格式的 .dsbconf 或 .dslconf 文件
+// DecodeClothParamsFile decodes a .dsbconf or .dslconf file that uses the ClothParams wire model
 func DecodeClothParamsFile(data []byte, extension string) (*ClothParams, error) {
 	ext := NormalizeKCESPayloadExtension(extension)
 	if ext != KCESDSBConfExtension && ext != KCESDSLConfExtension {
@@ -28,9 +26,8 @@ func DecodeClothParamsFile(data []byte, extension string) (*ClothParams, error) 
 	return env.ClothParams, nil
 }
 
-// EncodeClothParamsFile 编码使用 ClothParams wire 的 .dsbconf 或 .dslconf 文件；空扩展名默认使用 .dsbconf。
-//
-// EncodeClothParamsFile encodes a .dsbconf or .dslconf file using the ClothParams wire model; an empty extension defaults to .dsbconf.
+// EncodeClothParamsFile 编码使用 ClothParams 线格式的 .dsbconf 或 .dslconf 文件，空扩展名默认使用 .dsbconf
+// EncodeClothParamsFile encodes a .dsbconf or .dslconf file using the ClothParams wire model, with an empty extension defaulting to .dsbconf
 func EncodeClothParamsFile(params *ClothParams, extension string) ([]byte, error) {
 	ext := NormalizeKCESPayloadExtension(extension)
 	if strings.TrimSpace(extension) == "" {
@@ -49,17 +46,20 @@ func EncodeClothParamsFile(params *ClothParams, extension string) ([]byte, error
 	return EncodeKCESPayload(env)
 }
 
-// BezierParam 对应 MagicaCloth.BezierParam / BezierParam corresponds to MagicaCloth.BezierParam
+// BezierParam 对应 MagicaCloth.BezierParam
+// BezierParam corresponds to MagicaCloth.BezierParam
 type BezierParam struct {
-	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"`
-	StartValue             float32 `json:"startValue"`    // 起始值 / Start value
-	EndValue               float32 `json:"endValue"`      // 结束值 / End value
-	UseEndValue            bool    `json:"useEndValue"`   // 是否使用结束值 / Whether the end value is used
-	CurveValue             float32 `json:"curveValue"`    // 曲线值 / Curve value
-	UseCurveValue          bool    `json:"useCurveValue"` // 是否使用曲线值 / Whether the curve value is used
+	_struct                struct{}    `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	*IndexedObjectMetadata `codec:"-"` // 索引对象的线格式元数据 / Indexed-object wire metadata
+	StartValue             float32     `json:"startValue"`    // 起始值 / Start value
+	EndValue               float32     `json:"endValue"`      // 结束值 / End value
+	UseEndValue            bool        `json:"useEndValue"`   // 是否使用结束值 / Whether the end value is used
+	CurveValue             float32     `json:"curveValue"`    // 曲线值 / Curve value
+	UseCurveValue          bool        `json:"useCurveValue"` // 是否使用曲线值 / Whether the curve value is used
 }
 
+// newBezierParam 按游戏字段顺序创建一个 BezierParam 值
+// newBezierParam creates a BezierParam value in the game's field order
 func newBezierParam(start, end float32, useEnd bool, curve float32, useCurve bool) BezierParam {
 	return BezierParam{
 		StartValue:    start,
@@ -70,6 +70,8 @@ func newBezierParam(start, end float32, useEnd bool, curve float32, useCurve boo
 	}
 }
 
+// ClothTeleportMode 表示 MagicaCloth 的传送处理模式
+// ClothTeleportMode represents a MagicaCloth teleport handling mode
 type ClothTeleportMode int32
 
 const (
@@ -77,6 +79,8 @@ const (
 	ClothTeleportModeKeep
 )
 
+// ClothAdjustMode 表示 MagicaCloth 的位置调整模式
+// ClothAdjustMode represents a MagicaCloth position adjustment mode
 type ClothAdjustMode int32
 
 const (
@@ -86,6 +90,8 @@ const (
 	ClothAdjustModeYZMove
 )
 
+// ClothPenetrationMode 表示 MagicaCloth 的穿透修正模式
+// ClothPenetrationMode represents a MagicaCloth penetration-correction mode
 type ClothPenetrationMode int32
 
 const (
@@ -93,6 +99,8 @@ const (
 	ClothPenetrationModeColliderPenetration
 )
 
+// ClothPenetrationAxis 表示 MagicaCloth 的穿透修正轴
+// ClothPenetrationAxis represents a MagicaCloth penetration-correction axis
 type ClothPenetrationAxis int32
 
 const (
@@ -104,11 +112,13 @@ const (
 	ClothPenetrationAxisInverseZ
 )
 
-// ClothParams 对应 MagicaCloth.ClothParams / ClothParams corresponds to MagicaCloth.ClothParams
-// MessagePack-CSharp 以 Key(0)..Key(82) 的 indexed array 写入，Key(4)、Key(5)、Key(56) 是当前游戏类型中的空洞并需要保留 / MessagePack-CSharp writes keys 0..82 as an indexed array, with sparse holes at Key(4), Key(5), and Key(56)
+// ClothParams 对应 MagicaCloth.ClothParams
+// MessagePack-CSharp 以 Key(0) 至 Key(82) 的 indexed array 写入，Key(4)、Key(5) 和 Key(56) 是当前游戏类型中的空洞并需要保留
+// ClothParams corresponds to MagicaCloth.ClothParams
+// MessagePack-CSharp writes Key(0) through Key(82) as an indexed array with sparse holes at Key(4), Key(5), and Key(56) that must be preserved
 type ClothParams struct {
-	_struct                          struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata           `codec:"-"`
+	_struct                          struct{}             `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	*IndexedObjectMetadata           `codec:"-"`          // 索引对象的线格式元数据 / Indexed-object wire metadata
 	Radius                           BezierParam          `json:"radius"`                           // 粒子半径曲线参数 / Particle radius curve parameter
 	Mass                             BezierParam          `json:"mass"`                             // 质量曲线参数 / Mass curve parameter
 	UseGravity                       bool                 `json:"useGravity"`                       // 是否使用重力 / Whether gravity is enabled
@@ -194,10 +204,8 @@ type ClothParams struct {
 	ClampRotationVelocityLimit       float32              `json:"clampRotationVelocityLimit"`       // 旋转约束速度上限 / Rotation clamp velocity limit
 }
 
-// NewClothParams returns the same field defaults as MagicaCloth.ClothParams's
-// C# field initializers. Use this when constructing a configuration directly
-// in Go. MessagePack decoding and JSON unmarshalling deliberately retain only
-// supplied wire/editing fields and do not run this constructor.
+// NewClothParams 返回与 MagicaCloth.ClothParams 的 C# 字段初始化器相同的默认值，直接在 Go 中创建配置时应使用此函数，MessagePack 解码和 JSON 反序列化只保留提供的线格式或编辑字段，不会运行此构造逻辑
+// NewClothParams returns the same field defaults as the C# field initializers of MagicaCloth.ClothParams for direct Go construction, while MessagePack decoding and JSON unmarshalling deliberately retain only supplied wire or editing fields and do not run this constructor
 func NewClothParams() *ClothParams {
 	return &ClothParams{
 		Radius:                           newBezierParam(0.02, 0.02, true, 0, false),
@@ -266,8 +274,8 @@ func NewClothParams() *ClothParams {
 	}
 }
 
-// UnmarshalJSON keeps omitted editing fields at their wire-model zero values.
-// Call NewClothParams explicitly when creating a new current-game object.
+// UnmarshalJSON 将省略的编辑字段保持在线格式模型零值，新建当前游戏对象时应显式调用 NewClothParams
+// UnmarshalJSON keeps omitted editing fields at their wire-model zero values, and NewClothParams should be called explicitly for a new current-game object
 func (p *ClothParams) UnmarshalJSON(data []byte) error {
 	type plainClothParams ClothParams
 	var value plainClothParams
@@ -278,6 +286,8 @@ func (p *ClothParams) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// validateClothParamsForEncoding 验证由 C# Int32 或 Int32 底层枚举保存的布料字段
+// validateClothParamsForEncoding validates cloth fields stored as C# Int32 values or enums with an Int32 underlying type
 func validateClothParamsForEncoding(params *ClothParams) error {
 	return nil
 }

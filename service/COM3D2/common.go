@@ -491,7 +491,8 @@ func mapJSONToFileType(header FileHeader, fileInfo FileInfo) (FileInfo, error) {
 	return fileInfo, nil
 }
 
-// detectNEI 尝试通过解密并校验签名来识别 NEI 文件
+// detectNEI 尝试通过解密并校验签名来识别 NEI 文件。
+// detectNEI attempts to identify an NEI file by decrypting it and validating its signature.
 func detectNEI(rs io.ReadSeeker) (bool, error) {
 	// 读取整个文件（NEI 需要完整密文以解密）
 	data, err := io.ReadAll(rs)
@@ -504,17 +505,17 @@ func detectNEI(rs io.ReadSeeker) (bool, error) {
 	}
 
 	// 快速过滤：长度至少包含 1 字节 extraLen 和 4 字节 ivSeed
-	if len(data) < 5 {
+	if int64(len(data)) < 5 {
 		return false, nil
 	}
-	dataLen := len(data) - 5
+	dataLen := int64(len(data)) - 5
 	if dataLen <= 0 || dataLen%aes.BlockSize != 0 {
 		return false, nil
 	}
 	// 检查额外填充长度是否在合理范围 [0, blockSize)
 	ivSeed := data[dataLen+1 : dataLen+5]
-	extraLen := int(data[dataLen] ^ ivSeed[0])
-	if extraLen < 0 || extraLen >= aes.BlockSize {
+	extraLen := int64(data[dataLen] ^ ivSeed[0])
+	if extraLen >= aes.BlockSize {
 		return false, nil
 	}
 	// 通过底层解析器进行严格校验（含解密与魔数校验）

@@ -396,10 +396,10 @@
       "properties": {
         "Indices": {
           "items": {
-            "maximum": 9223372036854775807,
-            "minimum": -9223372036854775808,
+            "maximum": 2147483647,
+            "minimum": -2147483648,
             "type": "integer",
-            "x-meido-integer-bits": 64,
+            "x-meido-integer-bits": 32,
             "x-meido-integer-signed": true
           },
           "type": [

@@ -462,11 +462,8 @@ func TestGeneratedSchemasPublishExact64BitIntegerBounds(t *testing.T) {
 	}
 }
 
-func TestKCESSchemaRootsUseFixedWidthIntegerTypes(t *testing.T) {
+func TestSchemaRootsUseFixedWidthIntegerTypes(t *testing.T) {
 	for _, spec := range formatSpecs() {
-		if !strings.HasPrefix(spec.id, "kces.") {
-			continue
-		}
 		if err := validateFixedWidthIntegerTypes(spec.root); err != nil {
 			t.Errorf("%s: %v", spec.id, err)
 		}
@@ -478,7 +475,7 @@ func TestKCESSchemaRootsUseFixedWidthIntegerTypes(t *testing.T) {
 	}
 }
 
-func TestGeneratedKCESIntegerWidthsMatchWireTypes(t *testing.T) {
+func TestGeneratedIntegerWidthsMatchWireTypes(t *testing.T) {
 	tests := []struct {
 		name     string
 		formatID string
@@ -512,6 +509,26 @@ func TestGeneratedKCESIntegerWidthsMatchWireTypes(t *testing.T) {
 			name: "catalog hash", formatID: "kces.ct",
 			path: []string{"$defs", definitionName(typeOf[serializationKCESCT.AssetBundleCatalog]()), "properties", "hash"},
 			bits: "64", signed: false, minimum: "0", maximum: "18446744073709551615",
+		},
+		{
+			name: "animation property index", formatID: "com3d2.anm",
+			path: []string{"$defs", definitionName(typeOf[serializationCOM3D2.PropertyCurve]()), "properties", "PropertyIndex"},
+			bits: "32", signed: true, minimum: "-2147483648", maximum: "2147483647",
+		},
+		{
+			name: "model morph index", formatID: "com3d2.model",
+			path: []string{"$defs", definitionName(typeOf[serializationCOM3D2.MorphData]()), "properties", "Indices", "items"},
+			bits: "32", signed: true, minimum: "-2147483648", maximum: "2147483647",
+		},
+		{
+			name: "preset slot order", formatID: "com3d2.preset",
+			path: []string{"$defs", definitionName(typeOf[serializationCOM3D2.PresetProperty]()), "properties", "SkinPositionOrder", "items"},
+			bits: "32", signed: true, minimum: "-2147483648", maximum: "2147483647",
+		},
+		{
+			name: "preset attach RID", formatID: "com3d2.preset",
+			path: []string{"$defs", definitionName(typeOf[serializationCOM3D2.BoneAttachPosEntry]()), "properties", "RID"},
+			bits: "32", signed: true, minimum: "-2147483648", maximum: "2147483647",
 		},
 	}
 	for _, test := range tests {

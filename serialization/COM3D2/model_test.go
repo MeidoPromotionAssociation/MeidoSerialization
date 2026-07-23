@@ -200,10 +200,10 @@ func TestModelDumpRejectsContradictoryLayoutsBeforeWriting(t *testing.T) {
 		}},
 		{name: "nil morph", mutate: func(value *Model) { value.MorphData = []*MorphData{nil} }},
 		{name: "morph parallel length mismatch", mutate: func(value *Model) {
-			value.MorphData = []*MorphData{{Indices: []int{0}}}
+			value.MorphData = []*MorphData{{Indices: []int32{0}}}
 		}},
 		{name: "morph index outside uint16", mutate: func(value *Model) {
-			value.MorphData = []*MorphData{{Indices: []int{1 << 16}, Vertex: []Vector3{{}}, Normals: []Vector3{{}}}}
+			value.MorphData = []*MorphData{{Indices: []int32{1 << 16}, Vertex: []Vector3{{}}, Normals: []Vector3{{}}}}
 		}},
 		{name: "old version morph tangents", mutate: func(value *Model) {
 			value.Version = 2001

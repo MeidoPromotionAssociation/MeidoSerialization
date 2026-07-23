@@ -122,7 +122,7 @@ func TestHashConsistency(t *testing.T) {
 func TestManualHash(t *testing.T) {
 	h := NameHashUTF16("a")
 	if h != 0x89be207bddf13e3 {
-		t.Errorf("Hash mismatch for 'a': expected %x, got %x", 0x89be207bddf13e3, h)
+		t.Errorf("Hash mismatch for 'a': expected %x, got %x", uint64(0x89be207bddf13e3), h)
 	}
 	t.Logf("Hash of 'a': %x", h)
 }

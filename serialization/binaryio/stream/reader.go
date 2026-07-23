@@ -137,10 +137,10 @@ func (br *BinaryReader) ReadString() (string, error) {
 
 	// 如果长度小于 64 字节，直接复用内部 buffer
 	var buf []byte
-	if length <= len(br.buffer) {
+	if length <= int32(len(br.buffer)) {
 		buf = br.buffer[:length]
 	} else {
-		buf, err = br.ReadBytes(length)
+		buf, err = br.ReadBytes(int64(length))
 		if err != nil {
 			return "", err
 		}
@@ -156,7 +156,7 @@ func (br *BinaryReader) ReadString() (string, error) {
 }
 
 // read7BitEncodedInt 读取 7-bit 编码的整数
-func (br *BinaryReader) read7BitEncodedInt() (int, error) {
+func (br *BinaryReader) read7BitEncodedInt() (int32, error) {
 	var count uint32
 	for byteIndex := 0; byteIndex < 5; byteIndex++ {
 		b, err := br.ReadByte()
@@ -170,14 +170,14 @@ func (br *BinaryReader) read7BitEncodedInt() (int, error) {
 		}
 		count |= uint32(b&0x7F) << (7 * byteIndex)
 		if (b & 0x80) == 0 {
-			return int(count), nil
+			return int32(count), nil
 		}
 	}
 	return 0, errors.New("format error: bad 7-bit int32")
 }
 
 // ReadBytes 读取指定数量的字节
-func (br *BinaryReader) ReadBytes(count int) ([]byte, error) {
+func (br *BinaryReader) ReadBytes(count int64) ([]byte, error) {
 	if count < 0 {
 		return nil, errors.New("count cannot be negative")
 	}
@@ -186,7 +186,7 @@ func (br *BinaryReader) ReadBytes(count int) ([]byte, error) {
 		return []byte{}, nil
 	}
 
-	limited := &io.LimitedReader{R: br.R, N: int64(count)}
+	limited := &io.LimitedReader{R: br.R, N: count}
 	buf, err := io.ReadAll(limited)
 	if err != nil {
 		return buf, err
@@ -286,14 +286,14 @@ func (br *BinaryReader) PeekString() (string, error) {
 		return "", errors.New("peekString: underlying reader does not support Peek (wrap it with bufio.NewReader)")
 	}
 
-	var stringLength int // 解析出的字符串长度
-	var shift int        // 当前位偏移量
-	var prefixLen int    // 长度前缀占用了多少个字节
+	var stringLength int32 // 解析出的字符串长度
+	var shift uint32       // 当前位偏移量
+	var prefixLen int32    // 长度前缀占用了多少个字节
 
 	for {
 		// Peek 字节直到找到 7-bit 整数的结尾
 		// 每次多 Peek 一个字节来检查
-		bSlice, err := peeker.Peek(prefixLen + 1)
+		bSlice, err := peeker.Peek(int(prefixLen + 1))
 		if err != nil {
 			return "", err
 		}
@@ -305,7 +305,7 @@ func (br *BinaryReader) PeekString() (string, error) {
 		}
 
 		// 7-Bit 解码
-		stringLength |= (int(b) & 0x7F) << shift
+		stringLength |= int32(b&0x7F) << shift
 		shift += 7
 
 		// 如果最高位是 0，说明整数结束
@@ -327,9 +327,12 @@ func (br *BinaryReader) PeekString() (string, error) {
 	}
 
 	// Peek 完整的数据 (长度前缀 + 字符串内容)
-	totalLen := prefixLen + stringLength
+	totalLen := int64(prefixLen) + int64(stringLength)
+	if totalLen > int64(^uint(0)>>1) {
+		return "", fmt.Errorf("peekString: total length %d exceeds platform index range", totalLen)
+	}
 
-	data, err := peeker.Peek(totalLen)
+	data, err := peeker.Peek(int(totalLen))
 	if err != nil {
 		if errors.Is(err, bufio.ErrBufferFull) {
 			return "", fmt.Errorf("peekString: string length (%d) exceeds buffer size (increase buffer size)", totalLen)

@@ -30,8 +30,8 @@ func NewEndianWriter(w io.Writer, order binary.ByteOrder) *EndianWriter {
 }
 
 // Len 返回当前已写入偏移 / Len returns the current written offset.
-func (w *EndianWriter) Len() int {
-	return int(w.pos)
+func (w *EndianWriter) Len() int64 {
+	return w.pos
 }
 
 // Bytes 在底层 writer 是 bytes.Buffer 时返回其字节，否则返回 nil / Bytes returns underlying bytes when the writer is a bytes.Buffer, otherwise nil.
@@ -74,11 +74,22 @@ func (w *EndianWriter) WriteBytes(value []byte) error {
 }
 
 // WriteZeroes 写入 count 个零字节 / WriteZeroes writes count zero bytes.
-func (w *EndianWriter) WriteZeroes(count int) error {
+func (w *EndianWriter) WriteZeroes(count int64) error {
 	if count <= 0 {
 		return nil
 	}
-	return w.WriteBytes(make([]byte, count))
+	var zeroes [4096]byte
+	for count > 0 {
+		chunk := int64(len(zeroes))
+		if count < chunk {
+			chunk = count
+		}
+		if err := w.WriteBytes(zeroes[:chunk]); err != nil {
+			return err
+		}
+		count -= chunk
+	}
+	return nil
 }
 
 // WriteNullString 写入字符串原始字节并追加 null 结尾 / WriteNullString writes raw string bytes followed by a null byte.
@@ -149,13 +160,13 @@ func (w *EndianWriter) WriteAlignedString(value string) error {
 }
 
 // Align 填充缓冲区到下一个对齐边界 / Align pads the buffer to the next alignment boundary.
-func (w *EndianWriter) Align(alignment int) error {
+func (w *EndianWriter) Align(alignment int64) error {
 	target := AlignOffset(w.Len(), alignment)
 	return w.WriteZeroes(target - w.Len())
 }
 
 // AlignOffset 将 n 向上取整到下一个对齐边界 / AlignOffset returns n rounded up to the next alignment boundary.
-func AlignOffset(n int, alignment int) int {
+func AlignOffset(n int64, alignment int64) int64 {
 	if alignment <= 0 {
 		return n
 	}

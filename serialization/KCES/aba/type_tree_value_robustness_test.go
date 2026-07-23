@@ -96,7 +96,7 @@ func TestReadAssetValueRejectsNilInputs(t *testing.T) {
 
 func TestTypeTreeRealSampleConsumptionProfile(t *testing.T) {
 	files := smallAbaTestFiles(t)
-	remainders := map[int]int{}
+	remainders := map[int64]int{}
 	objects := 0
 	maxChildren := 0
 	maxBytes := 0
@@ -145,10 +145,10 @@ func TestTypeTreeRealSampleConsumptionProfile(t *testing.T) {
 				if next != int64(len(tt.Nodes)) {
 					t.Fatalf("readTypeTreeValue(%s:%s PathID=%d) stopped at node %d/%d", filePath, dir.Name, info.PathId, next, len(tt.Nodes))
 				}
-				if r.Pos() > len(objectData) {
+				if r.Pos() > int64(len(objectData)) {
 					t.Fatalf("readTypeTreeValue(%s:%s PathID=%d) aligned past object: pos=%d size=%d", filePath, dir.Name, info.PathId, r.Pos(), len(objectData))
 				}
-				remainders[len(objectData)-r.Pos()]++
+				remainders[int64(len(objectData))-r.Pos()]++
 				profileTypeTreeValue(root, &maxChildren, &maxBytes)
 				objects++
 			}
@@ -156,11 +156,11 @@ func TestTypeTreeRealSampleConsumptionProfile(t *testing.T) {
 		_ = f.Close()
 	}
 
-	keys := make([]int, 0, len(remainders))
+	keys := make([]int64, 0, len(remainders))
 	for remaining := range remainders {
 		keys = append(keys, remaining)
 	}
-	sort.Ints(keys)
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
 	for _, remaining := range keys {
 		t.Logf("object remainder %d bytes: %d objects", remaining, remainders[remaining])
 	}

@@ -94,13 +94,13 @@ func (bw *BinaryWriter) WriteFloat64(value float64) error {
 // WriteString 写入长度前缀的 UTF-8 字符串（与 C# BinaryWriter 兼容）
 func (bw *BinaryWriter) WriteString(value string) error {
 	// 计算 UTF-8 字节长度
-	length := len(value)
-	if uint64(length) > uint64(1<<31-1) {
+	length := int64(len(value))
+	if length > math.MaxInt32 {
 		return fmt.Errorf("string byte length %d exceeds Int32", length)
 	}
 
 	// 写入 7-bit 编码的长度
-	if err := bw.write7BitEncodedInt(length); err != nil {
+	if err := bw.write7BitEncodedInt(int32(length)); err != nil {
 		return err
 	}
 
@@ -113,7 +113,7 @@ func (bw *BinaryWriter) WriteString(value string) error {
 }
 
 // write7BitEncodedInt 写入 7-bit 编码的整数
-func (bw *BinaryWriter) write7BitEncodedInt(value int) error {
+func (bw *BinaryWriter) write7BitEncodedInt(value int32) error {
 	v := uint32(value)
 	for v >= 0x80 {
 		if err := bw.WriteByte(byte(v | 0x80)); err != nil {

@@ -12,15 +12,16 @@ import (
 )
 
 // system.dat
-// KCES 用户系统数据容器，使用 VirtualDirectory 保存 EditData 下的界面、调色板和颜色预设等虚拟文件。
-// 外层使用 KCES VirtualDirectory 版本控制；已知虚拟文件按各自 MessagePack 布局解析，未知文件逐字节保留。
-//
+// KCES 用户系统数据容器，使用 VirtualDirectory 保存 EditData 下的界面、调色板和颜色预设等虚拟文件
+// 外层使用 KCES VirtualDirectory 版本控制，已知虚拟文件按各自 MessagePack 布局解析，未知文件逐字节保留
 // system.dat
-// KCES user system-data container using VirtualDirectory to store UI, palette, and color-preset virtual files below EditData.
-// The outer layer uses KCES VirtualDirectory versioning; known virtual files use their MessagePack schemas and unknown files are preserved byte-for-byte.
+// KCES user system-data container using VirtualDirectory to store UI, palette, and color-preset virtual files below EditData
+// The outer layer uses KCES VirtualDirectory versioning, known virtual files use their MessagePack schemas, and unknown files are preserved byte-for-byte
 
 const KCESSystemDataFormat = "kces-system-data"
 
+// KCESEditDataKind 标识游戏根据 system.dat 虚拟路径选择的已知 EditData 载荷模式
+// KCESEditDataKind identifies a known EditData payload schema selected by the game from its system.dat virtual path
 type KCESEditDataKind string
 
 const (
@@ -40,43 +41,44 @@ const (
 	kcesGradPointsDataNamePrefix       = "GradSv"
 )
 
-// KCESSystemData is the semantic view of system.dat's VirtualDirectory.
-// Known EditData payloads are typed, while every unrecognized virtual file is
-// retained byte-for-byte in ExtraFiles so a JSON or programmatic round trip
-// does not discard game data introduced by another subsystem or future build.
+// KCESSystemData 是 system.dat 的 VirtualDirectory 语义视图
+// 已知 EditData 载荷公开为强类型，其他虚拟文件逐字节保存在 ExtraFiles 中，避免 JSON 或程序往返丢弃其他子系统及未来版本的数据
+// KCESSystemData is the semantic view of the system.dat VirtualDirectory
+// Known EditData payloads are typed while every other virtual file is retained byte-for-byte in ExtraFiles so JSON or programmatic round trips do not discard data from other subsystems or future builds
 type KCESSystemData struct {
-	Format         string                                 `json:"format"`
-	Version        int32                                  `json:"version"`
-	Versionless    bool                                   `json:"versionless,omitempty"`
-	FilesOnly      bool                                   `json:"filesOnly,omitempty"`
-	DirectoriesNil bool                                   `json:"directoriesNil,omitempty"`
-	FilesNil       bool                                   `json:"filesNil,omitempty"`
-	FieldCount     *int32                                 `json:"fieldCount,omitempty"`
-	FutureSlots    [][]byte                               `json:"futureSlots,omitempty"`
-	Directories    map[string]ct.VirtualDirectoryMetadata `json:"directories,omitempty"`
-	VirtualFiles   map[string]ct.VirtualFileMetadata      `json:"virtualFiles,omitempty"`
-	EditData       []KCESEditDataFile                     `json:"editData,omitempty"`
-	ExtraFiles     map[string][]byte                      `json:"extraFiles,omitempty"`
+	Format         string                                 `json:"format"`                   // 库的可编辑表示标识，不写入游戏文件 / Library editing-representation identifier, not written to the game file
+	Version        int32                                  `json:"version"`                  // VirtualDirectory 对象版本 / VirtualDirectory object version
+	Versionless    bool                                   `json:"versionless,omitempty"`    // 原始 VirtualDirectory 是否缺少版本槽位 / Whether the original VirtualDirectory omitted its version slot
+	FilesOnly      bool                                   `json:"filesOnly,omitempty"`      // 原始根对象是否采用仅文件兼容布局 / Whether the original root object used the files-only compatibility layout
+	DirectoriesNil bool                                   `json:"directoriesNil,omitempty"` // 原始目录集合是否为 MessagePack nil / Whether the original directory collection was MessagePack nil
+	FilesNil       bool                                   `json:"filesNil,omitempty"`       // 原始文件集合是否为 MessagePack nil / Whether the original file collection was MessagePack nil
+	FieldCount     *int32                                 `json:"fieldCount,omitempty"`     // 原始 VirtualDirectory indexed object 的槽位数 / Slot count of the original VirtualDirectory indexed object
+	FutureSlots    [][]byte                               `json:"futureSlots,omitempty"`    // 当前模型未知的后续 VirtualDirectory 槽位原始值 / Raw later VirtualDirectory slot values unknown to the current model
+	Directories    map[string]ct.VirtualDirectoryMetadata `json:"directories,omitempty"`    // 各虚拟目录的线格式元数据 / Wire metadata for each virtual directory
+	VirtualFiles   map[string]ct.VirtualFileMetadata      `json:"virtualFiles,omitempty"`   // 各虚拟文件的线格式元数据 / Wire metadata for each virtual file
+	EditData       []KCESEditDataFile                     `json:"editData,omitempty"`       // 按虚拟路径识别并解码的 EditData 文件 / EditData files recognized and decoded by virtual path
+	ExtraFiles     map[string][]byte                      `json:"extraFiles,omitempty"`     // 未识别虚拟文件的原始载荷 / Raw payloads of unrecognized virtual files
 }
 
-// KCESEditDataFile is one recognized file below system.dat/EditData. Kind and
-// Path are both retained deliberately: Path carries the save-slot index and
-// Kind prevents an editing JSON document from silently interpreting one typed
-// object as another.
+// KCESEditDataFile 表示 system.dat 的 EditData 目录下一个已识别文件
+// Path 保留存档槽位索引，Kind 防止编辑后的 JSON 将一种强类型对象静默解释为另一种
+// KCESEditDataFile represents one recognized file below the EditData directory in system.dat
+// Path retains the save-slot index while Kind prevents edited JSON from silently interpreting one typed object as another
 type KCESEditDataFile struct {
-	Path             string                   `json:"path"`
-	Kind             KCESEditDataKind         `json:"kind"`
-	PresetPanelNames *PresetPanelNameSaveData `json:"presetPanelNames,omitempty"`
-	PaletteColor     *PaletteColorSaveData    `json:"paletteColor,omitempty"`
-	GradPoints       *GradPointsData          `json:"gradPoints,omitempty"`
-	MoveablePanel    *MoveablePanelSaveData   `json:"moveablePanel,omitempty"`
-	PresetOrderList  *ColorPresetOrderList    `json:"presetOrderList,omitempty"`
-	ColorPreset      *ColorPreset             `json:"colorPreset,omitempty"`
+	Path             string                   `json:"path"`                       // 游戏用于选择解析器的完整 VirtualDirectory 路径 / Complete VirtualDirectory path used by the game to select a parser
+	Kind             KCESEditDataKind         `json:"kind"`                       // 从路径确定的强类型载荷种类 / Typed payload kind determined from the path
+	PresetPanelNames *PresetPanelNameSaveData `json:"presetPanelNames,omitempty"` // 预设面板框名称载荷，仅用于对应种类 / Preset-panel box-name payload used only for its matching kind
+	PaletteColor     *PaletteColorSaveData    `json:"paletteColor,omitempty"`     // 调色板颜色槽载荷，仅用于对应种类 / Palette-color slot payload used only for its matching kind
+	GradPoints       *GradPointsData          `json:"gradPoints,omitempty"`       // 渐变控制点载荷，仅用于对应种类 / Gradation control-point payload used only for its matching kind
+	MoveablePanel    *MoveablePanelSaveData   `json:"moveablePanel,omitempty"`    // 可移动面板状态载荷，仅用于对应种类 / Moveable-panel state payload used only for its matching kind
+	PresetOrderList  *ColorPresetOrderList    `json:"presetOrderList,omitempty"`  // 颜色预设顺序载荷，仅用于对应种类 / Color-preset order payload used only for its matching kind
+	ColorPreset      *ColorPreset             `json:"colorPreset,omitempty"`      // 用户颜色预设载荷，仅用于对应种类 / User color-preset payload used only for its matching kind
 }
 
-// KCESEditDataKindForPath returns the schema consumed by the game for an exact
-// VirtualDirectory path. Unknown EditData files deliberately return an empty
-// kind and stay opaque.
+// KCESEditDataKindForPath 返回游戏对给定精确 VirtualDirectory 路径采用的载荷模式
+// 未知 EditData 文件有意返回空种类并保持不透明
+// KCESEditDataKindForPath returns the payload schema consumed by the game for an exact VirtualDirectory path
+// Unknown EditData files deliberately return an empty kind and remain opaque
 func KCESEditDataKindForPath(path string) KCESEditDataKind {
 	if path == kcesPresetPanelNameSaveDataPath {
 		return KCESEditDataPresetPanelNames
@@ -93,9 +95,10 @@ func KCESEditDataKindForPath(path string) KCESEditDataKind {
 		if relative == "preset_orderlist" || strings.HasSuffix(relative, "/preset_orderlist") {
 			return KCESEditDataPresetOrderList
 		}
-		// PresetSaveDirectory always contributes at least one directory name
-		// before the preset ID. Every non-order-list file in that directory is
-		// passed to CustomColorPresetBase.Deserializ by the game.
+		// PresetSaveDirectory 在预设 ID 前至少会加入一个目录名
+		// 游戏会将该目录中顺序列表以外的每个文件传给 CustomColorPresetBase.Deserializ
+		// PresetSaveDirectory always contributes at least one directory name before the preset ID
+		// The game passes every non-order-list file in that directory to CustomColorPresetBase.Deserializ
 		lastSlash := strings.LastIndexByte(relative, '/')
 		if lastSlash > 0 && lastSlash < len(relative)-1 {
 			return KCESEditDataColorPreset
@@ -111,6 +114,8 @@ func KCESEditDataKindForPath(path string) KCESEditDataKind {
 	return ""
 }
 
+// hasNonNegativeDecimalSuffix 判断字符串是否由给定前缀和至少一位十进制数字组成
+// hasNonNegativeDecimalSuffix reports whether a string consists of the given prefix followed by at least one decimal digit
 func hasNonNegativeDecimalSuffix(value, prefix string) bool {
 	if !strings.HasPrefix(value, prefix) || len(value) == len(prefix) {
 		return false
@@ -123,10 +128,10 @@ func hasNonNegativeDecimalSuffix(value, prefix string) bool {
 	return true
 }
 
-// DecodeKCESSystemData validates a VirtualDirectory container and decodes all
-// the strongly typed EditData schemas known to KCES 1.34.4. A malformed known file is an
-// error rather than an opaque fallback because the game will select that same
-// parser by its virtual path and fail while loading system.dat.
+// DecodeKCESSystemData 验证 VirtualDirectory 容器并解码 KCES 1.34.4 已知的所有强类型 EditData 模式
+// 已知路径中的畸形文件会返回错误而不会退回不透明数据，因为游戏也会按该路径选择同一解析器并在加载 system.dat 时失败
+// DecodeKCESSystemData validates a VirtualDirectory container and decodes every strongly typed EditData schema known to KCES 1.34.4
+// A malformed file at a known path returns an error instead of falling back to opaque data because the game selects the same parser by path and fails while loading system.dat
 func DecodeKCESSystemData(data []byte) (*KCESSystemData, error) {
 	table, err := ct.ReadContentTable(bytes.NewReader(data))
 	if err != nil {
@@ -181,8 +186,8 @@ func DecodeKCESSystemData(data []byte) (*KCESSystemData, error) {
 	return result, nil
 }
 
-// EncodeKCESSystemData writes the VirtualDirectory representation without
-// changing or defaulting the stored version.
+// EncodeKCESSystemData 写入 VirtualDirectory 表示而不更改或补默认存储版本
+// EncodeKCESSystemData writes the VirtualDirectory representation without changing or defaulting the stored version
 func EncodeKCESSystemData(value *KCESSystemData) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil KCES system.dat")
@@ -285,6 +290,8 @@ func EncodeKCESSystemData(value *KCESSystemData) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
+// NewKCESSystemData 创建显式使用当前 VirtualDirectory 版本 1000 的空系统数据
+// NewKCESSystemData creates empty system data explicitly using the current VirtualDirectory version 1000
 func NewKCESSystemData() *KCESSystemData {
 	return &KCESSystemData{
 		Format:  KCESSystemDataFormat,
@@ -292,6 +299,8 @@ func NewKCESSystemData() *KCESSystemData {
 	}
 }
 
+// validateEditDataUnion 确认已识别文件只设置与其 Kind 对应的强类型载荷
+// validateEditDataUnion verifies that a recognized file sets only the typed payload matching its Kind
 func validateEditDataUnion(entry *KCESEditDataFile, kind KCESEditDataKind) error {
 	if entry == nil {
 		return fmt.Errorf("nil EditData entry")
@@ -317,6 +326,8 @@ func validateEditDataUnion(entry *KCESEditDataFile, kind KCESEditDataKind) error
 	return nil
 }
 
+// validateSystemVirtualPath 拒绝不能安全表示为相对正斜杠 VirtualDirectory 路径的名称
+// validateSystemVirtualPath rejects names that cannot safely represent relative forward-slash VirtualDirectory paths
 func validateSystemVirtualPath(path string) error {
 	if path == "" {
 		return fmt.Errorf("virtual path is empty")

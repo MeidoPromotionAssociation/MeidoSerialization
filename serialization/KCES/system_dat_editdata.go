@@ -9,52 +9,45 @@ import (
 	"unicode/utf8"
 )
 
-// system.dat 的共通 EditData MessagePack 实现，包含预设面板名称、调色板颜色及共享读取器。
-// 这些对象没有独立磁盘扩展名，只作为 VirtualDirectory 内部虚拟文件存在。
-//
-// Shared EditData MessagePack implementation for system.dat, including preset-panel names, palette colors, and the shared reader.
-// These objects have no standalone disk extension and exist only as virtual files inside VirtualDirectory.
+// system.dat 的共通 EditData MessagePack 实现，包含预设面板名称、调色板颜色及共享读取器
+// 这些对象没有独立磁盘扩展名，只作为 VirtualDirectory 内部虚拟文件存在
+// Shared EditData MessagePack implementation for system.dat, including preset-panel names, palette colors, and the shared reader
+// These objects have no standalone disk extension and exist only as virtual files inside VirtualDirectory
 
-// PresetPanelNameSaveData is the raw MessagePack payload stored at
-// EditData/PresetPanelNameSaveData::SceneEdit::savedata in system.dat.
-//
-// The C# object is an indexed MessagePack object with one field:
-//
-//	[Key(0)] List<string> BoxNameList
-//
-// A list element is a *string because MessagePack-CSharp's string formatter
-// accepts nil. PresetPanel.LoadBoxName deliberately treats a nil entry as a
-// missing name and falls back to "BOX<n>".
+// PresetPanelNameSaveData 表示 system.dat 中 EditData/PresetPanelNameSaveData::SceneEdit::savedata 的原始 MessagePack 载荷
+// C# 对象是只有 Key 0 BoxNameList 的 indexed object，列表项使用指针是因为 MessagePack-CSharp 字符串格式化器接受 nil
+// PresetPanel.LoadBoxName 会把 nil 项视为缺失名称并回退到 BOX 加序号的默认名称
+// PresetPanelNameSaveData represents the raw MessagePack payload stored at EditData/PresetPanelNameSaveData::SceneEdit::savedata in system.dat
+// The C# object is an indexed object containing only BoxNameList at Key 0, and list elements use pointers because the MessagePack-CSharp string formatter accepts nil
+// PresetPanel.LoadBoxName treats a nil entry as a missing name and falls back to a BOX name with its number
 type PresetPanelNameSaveData struct {
-	MessagePackRootMetadata
-	BoxNameList []*string `json:"boxNameList"`
-	FieldCount  *int32    `json:"fieldCount,omitempty"`
-	FutureSlots [][]byte  `json:"futureSlots,omitempty"`
+	MessagePackRootMetadata           // 根值 nil 与尾部字节元数据 / Root nil and trailing-byte metadata
+	BoxNameList             []*string `json:"boxNameList"`           // Key 0 的可空名称列表，nil 项触发游戏默认名称 / Nullable name list at Key 0 whose nil entries trigger game defaults
+	FieldCount              *int32    `json:"fieldCount,omitempty"`  // 原始 indexed object 的槽位数，标准宽度 1 时可省略 / Slot count of the original indexed object, omittable for the standard width of 1
+	FutureSlots             [][]byte  `json:"futureSlots,omitempty"` // Key 1 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 1
 }
 
-// PaletteColorSaveData is the raw MessagePack payload stored at
-// EditData/PaletteColorSave{index} in system.dat.
-//
-// Its indexed MessagePack layout is [color, index, isSave]. The game currently
-// defines color keys 0 through 8, but the field itself is a public
-// Dictionary<int,int>. Unknown keys are therefore preserved for forward
-// compatibility without imposing the consumer's expected key set.
+// PaletteColorSaveData 表示 system.dat 中 EditData/PaletteColorSave 加索引文件的原始 MessagePack 载荷
+// indexed object 依次保存 color、index 和 isSave，游戏当前定义颜色键 0 至 8，但字段本身是公开的 Dictionary<int,int>
+// 因此未知键会为向前兼容而保留，不强制限定消费者当前使用的键集合
+// PaletteColorSaveData represents the raw MessagePack payload stored in an EditData/PaletteColorSave file suffixed by its index in system.dat
+// Its indexed object stores color, index, and isSave in order, and the game currently defines color keys 0 through 8 while exposing the field as Dictionary<int,int>
+// Unknown keys are therefore preserved for forward compatibility without imposing the consumer's current expected key set
 type PaletteColorSaveData struct {
-	MessagePackRootMetadata
-	Color       map[int32]int32 `json:"color"`
-	Index       int32           `json:"index"`
-	IsSave      int32           `json:"isSave"`
-	FieldCount  *int32          `json:"fieldCount,omitempty"`
-	FutureSlots [][]byte        `json:"futureSlots,omitempty"`
+	MessagePackRootMetadata                 // 根值 nil 与尾部字节元数据 / Root nil and trailing-byte metadata
+	Color                   map[int32]int32 `json:"color"`                 // Key 0 的颜色参数字典，索引 0 至 3 为基础色、4 至 7 为阴影色、8 为阴影比例 / Color-parameter map at Key 0 with indices 0 through 3 for base color, 4 through 7 for shadow color, and 8 for shadow rate
+	Index                   int32           `json:"index"`                 // Key 1 的调色板槽位索引 / Palette slot index at Key 1
+	IsSave                  int32           `json:"isSave"`                // Key 2 的保存状态，游戏构造未保存项时为 0、保存项时为 1 / Save state at Key 2, constructed as 0 for unsaved and 1 for saved entries by the game
+	FieldCount              *int32          `json:"fieldCount,omitempty"`  // 原始 indexed object 的槽位数，标准宽度 3 时可省略 / Slot count of the original indexed object, omittable for the standard width of 3
+	FutureSlots             [][]byte        `json:"futureSlots,omitempty"` // Key 3 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 3
 }
 
 const simpleEditDataMaxDepth = 256
 
-// DecodePresetPanelNameSaveData decodes one uncompressed, unprefixed
-// MessagePack value. The codec library finds the root boundary; bytes after it
-// are retained in TrailingData. Future indexed object fields inside the root
-// array are consumed like the game's formatter and retained verbatim in
-// FutureSlots for lossless re-encoding.
+// DecodePresetPanelNameSaveData 解码一个未压缩且无长度前缀的 PresetPanelNameSaveData MessagePack 值
+// 根值之后的字节保存在 TrailingData 中，根数组内的未来 indexed object 字段按游戏格式化器方式消费并原样保存在 FutureSlots 中
+// DecodePresetPanelNameSaveData decodes one uncompressed and unprefixed PresetPanelNameSaveData MessagePack value
+// Bytes after the root are retained in TrailingData while future indexed object fields inside the root array are consumed like the game formatter and retained verbatim in FutureSlots
 func DecodePresetPanelNameSaveData(data []byte) (*PresetPanelNameSaveData, error) {
 	r := simpleEditDataReader{data: data}
 	if r.tryReadNil() {
@@ -62,8 +55,10 @@ func DecodePresetPanelNameSaveData(data []byte) (*PresetPanelNameSaveData, error
 		if err != nil {
 			return nil, err
 		}
-		// DynamicObjectTypeBuilder returns null for a nil class. PresetPanel
-		// handles that result as absent data and creates BOX1..BOX10 defaults.
+		// DynamicObjectTypeBuilder 对 nil 类返回 null
+		// PresetPanel 将其视为缺失数据并创建 BOX1 至 BOX10 默认名称
+		// DynamicObjectTypeBuilder returns null for a nil class
+		// PresetPanel treats that result as absent data and creates BOX1 through BOX10 defaults
 		if len(trailing) != 0 {
 			return &PresetPanelNameSaveData{MessagePackRootMetadata: MessagePackRootMetadata{RootNil: true, TrailingData: trailing}}, nil
 		}
@@ -104,9 +99,10 @@ func DecodePresetPanelNameSaveData(data []byte) (*PresetPanelNameSaveData, error
 	return value, nil
 }
 
-// EncodePresetPanelNameSaveData emits the indexed-object width represented by
-// FieldCount and FutureSlots. A nil object is encoded as MessagePack nil,
-// matching the C# class formatter. The caller and its slice are never modified.
+// EncodePresetPanelNameSaveData 按 FieldCount 与 FutureSlots 表示的 indexed object 宽度编码面板名称
+// nil 对象按 C# 类格式化器行为编码为 MessagePack nil，调用者及其切片不会被修改
+// EncodePresetPanelNameSaveData encodes panel names using the indexed object width represented by FieldCount and FutureSlots
+// A nil object is encoded as MessagePack nil to match the C# class formatter, and neither the caller nor its slice is modified
 func EncodePresetPanelNameSaveData(value *PresetPanelNameSaveData) ([]byte, error) {
 	if value == nil {
 		return []byte{0xc0}, nil
@@ -158,10 +154,10 @@ func EncodePresetPanelNameSaveData(value *PresetPanelNameSaveData) ([]byte, erro
 	return appendMessagePackRootTrailing(out, value.MessagePackRootMetadata), nil
 }
 
-// DecodePaletteColorSaveData decodes one uncompressed, unprefixed MessagePack
-// value. Short indexed arrays retain the C# parameterless constructor's zero
-// defaults for absent fields. Nullable dictionaries and unknown/missing keys
-// are retained without applying SaveDataToLayerFreeColor behavior.
+// DecodePaletteColorSaveData 解码一个未压缩且无长度前缀的 PaletteColorSaveData MessagePack 值
+// 短 indexed array 对缺失字段保留 C# 无参构造函数的零值，可空字典及未知或缺失键会原样保留而不应用 SaveDataToLayerFreeColor 行为
+// DecodePaletteColorSaveData decodes one uncompressed and unprefixed PaletteColorSaveData MessagePack value
+// Short indexed arrays retain the C# parameterless constructor zero values for absent fields while nullable dictionaries and unknown or missing keys are preserved without applying SaveDataToLayerFreeColor behavior
 func DecodePaletteColorSaveData(data []byte) (*PaletteColorSaveData, error) {
 	r := simpleEditDataReader{data: data}
 	if r.tryReadNil() {
@@ -222,10 +218,10 @@ func DecodePaletteColorSaveData(data []byte) (*PaletteColorSaveData, error) {
 	return value, nil
 }
 
-// EncodePaletteColorSaveData emits the indexed-object width represented by
-// FieldCount and FutureSlots. Dictionary keys are sorted numerically for
-// deterministic output; the source map is only read and is never reordered or
-// mutated.
+// EncodePaletteColorSaveData 按 FieldCount 与 FutureSlots 表示的 indexed object 宽度编码调色板颜色
+// 字典键按数值排序以得到确定输出，源映射只读且不会被重排或修改
+// EncodePaletteColorSaveData encodes palette colors using the indexed object width represented by FieldCount and FutureSlots
+// Dictionary keys are sorted numerically for deterministic output while the source map is only read and is never reordered or mutated
 func EncodePaletteColorSaveData(value *PaletteColorSaveData) ([]byte, error) {
 	if value == nil {
 		return []byte{0xc0}, nil
@@ -285,6 +281,8 @@ func EncodePaletteColorSaveData(value *PaletteColorSaveData) ([]byte, error) {
 	return appendMessagePackRootTrailing(out, value.MessagePackRootMetadata), nil
 }
 
+// resolveIndexedFieldCount 解析 indexed object 宽度并验证 FutureSlots 数量及每个原始值的完整性
+// resolveIndexedFieldCount resolves an indexed object width and validates the FutureSlots count and completeness of every raw value
 func resolveIndexedFieldCount(stored *int32, known int64, futureSlots [][]byte, path string) (int64, error) {
 	if int64(len(futureSlots)) > math.MaxInt32 {
 		return 0, fmt.Errorf("%s futureSlots has %d values, exceeding the C# Int32 array-header limit", path, len(futureSlots))
@@ -314,6 +312,8 @@ func resolveIndexedFieldCount(stored *int32, known int64, futureSlots [][]byte, 
 	return fieldCount, nil
 }
 
+// validateRawMessagePackValue 验证字节切片恰好包含一个完整 MessagePack 值
+// validateRawMessagePackValue verifies that a byte slice contains exactly one complete MessagePack value
 func validateRawMessagePackValue(data []byte, path string) error {
 	if len(data) == 0 {
 		return fmt.Errorf("%s is empty; one complete MessagePack value is required", path)
@@ -328,15 +328,21 @@ func validateRawMessagePackValue(data []byte, path string) error {
 	return nil
 }
 
+// simpleEditDataReader 提供 system.dat 小型载荷所需的有界 MessagePack 读取操作
+// simpleEditDataReader provides bounded MessagePack reads needed by small system.dat payloads
 type simpleEditDataReader struct {
-	data []byte
-	pos  int64
+	data []byte // 完整输入字节 / Complete input bytes
+	pos  int64  // 下一个待读取字节的位置 / Position of the next byte to read
 }
 
+// remaining 返回尚未消费的输入字节数
+// remaining returns the number of unconsumed input bytes
 func (r *simpleEditDataReader) remaining() int64 {
 	return int64(len(r.data)) - r.pos
 }
 
+// tryReadNil 在当前位置为 MessagePack nil 时消费它并返回 true
+// tryReadNil consumes MessagePack nil at the current position and reports whether it was present
 func (r *simpleEditDataReader) tryReadNil() bool {
 	if r.remaining() > 0 && r.data[r.pos] == 0xc0 {
 		r.pos++
@@ -345,6 +351,8 @@ func (r *simpleEditDataReader) tryReadNil() bool {
 	return false
 }
 
+// requireEOF 确认当前值之后没有未消费字节
+// requireEOF verifies that no unconsumed bytes remain after the current value
 func (r *simpleEditDataReader) requireEOF(name string) error {
 	if remaining := r.remaining(); remaining != 0 {
 		return fmt.Errorf("%s has %d trailing bytes", name, remaining)
@@ -352,15 +360,19 @@ func (r *simpleEditDataReader) requireEOF(name string) error {
 	return nil
 }
 
+// requirePossibleValues 按每个 MessagePack 值至少占一字节的条件在循环前限制数量
+// requirePossibleValues bounds a count before iteration using the fact that every MessagePack value occupies at least one byte
 func (r *simpleEditDataReader) requirePossibleValues(count int64, path string) error {
-	// Every MessagePack value occupies at least one byte. This both catches a
-	// truncated array32 bomb before looping and bounds work by the input size.
+	// 每个 MessagePack 值至少占一个字节，这可在循环前捕获截断的巨大 array32，并按输入大小限制工作量
+	// Every MessagePack value occupies at least one byte, catching a truncated huge array32 before looping and bounding work by input size
 	if count > r.remaining() {
 		return fmt.Errorf("%s count %d exceeds the %d remaining bytes", path, count, r.remaining())
 	}
 	return nil
 }
 
+// readByte 读取单个字节并在输入耗尽时返回带路径错误
+// readByte reads one byte and returns a path-qualified error when input is exhausted
 func (r *simpleEditDataReader) readByte(path string) (byte, error) {
 	if r.remaining() < 1 {
 		return 0, fmt.Errorf("read %s: unexpected EOF", path)
@@ -370,6 +382,8 @@ func (r *simpleEditDataReader) readByte(path string) (byte, error) {
 	return b, nil
 }
 
+// readBytes 读取指定长度的连续字节而不复制并推进当前位置
+// readBytes reads a contiguous byte range without copying and advances the current position
 func (r *simpleEditDataReader) readBytes(length int64, path string) ([]byte, error) {
 	if length < 0 || length > r.remaining() {
 		return nil, fmt.Errorf("read %s: need %d bytes, only %d remain", path, length, r.remaining())
@@ -379,6 +393,8 @@ func (r *simpleEditDataReader) readBytes(length int64, path string) ([]byte, err
 	return value, nil
 }
 
+// readArrayLength 读取 fixarray、array16 或 array32 的元素数量
+// readArrayLength reads an element count from fixarray, array16, or array32
 func (r *simpleEditDataReader) readArrayLength(path string) (int64, error) {
 	marker, err := r.readByte(path + " array header")
 	if err != nil {
@@ -404,6 +420,8 @@ func (r *simpleEditDataReader) readArrayLength(path string) (int64, error) {
 	}
 }
 
+// readMapLength 读取 fixmap、map16 或 map32 的键值对数量
+// readMapLength reads a pair count from fixmap, map16, or map32
 func (r *simpleEditDataReader) readMapLength(path string) (int64, error) {
 	marker, err := r.readByte(path + " map header")
 	if err != nil {
@@ -429,6 +447,8 @@ func (r *simpleEditDataReader) readMapLength(path string) (int64, error) {
 	}
 }
 
+// readNullableStringList 读取可为 nil 且项目也可为 nil 的 MessagePack 字符串数组
+// readNullableStringList reads a MessagePack string array that may be nil and whose entries may also be nil
 func (r *simpleEditDataReader) readNullableStringList(path string) ([]*string, error) {
 	if r.tryReadNil() {
 		return nil, nil
@@ -456,6 +476,8 @@ func (r *simpleEditDataReader) readNullableStringList(path string) ([]*string, e
 	return result, nil
 }
 
+// readString 读取 MessagePack 字符串，并按 MessagePack-CSharp 的替换回退方式规范化畸形 UTF-8
+// readString reads a MessagePack string and normalizes malformed UTF-8 using the replacement fallback behavior of MessagePack-CSharp
 func (r *simpleEditDataReader) readString(path string) (string, error) {
 	marker, err := r.readByte(path + " string header")
 	if err != nil {
@@ -491,14 +513,17 @@ func (r *simpleEditDataReader) readString(path string) (string, error) {
 		return "", err
 	}
 	if !utf8.Valid(payload) {
-		// MessagePackReader.ReadString uses new UTF8Encoding(false), whose
-		// default DecoderReplacementFallback converts malformed input to U+FFFD.
-		// Normalize the same way instead of rejecting bytes the game can read.
+		// MessagePackReader.ReadString 使用 new UTF8Encoding(false)，其默认 DecoderReplacementFallback 会把畸形输入转换为 U+FFFD
+		// 此处采用相同规范化方式，而不拒绝游戏能够读取的字节
+		// MessagePackReader.ReadString uses new UTF8Encoding(false), whose default DecoderReplacementFallback converts malformed input to U+FFFD
+		// The same normalization is applied here instead of rejecting bytes the game can read
 		return strings.ToValidUTF8(string(payload), "\uFFFD"), nil
 	}
 	return string(payload), nil
 }
 
+// readInt32Map 读取可空的 Int32 到 Int32 字典并拒绝重复键
+// readInt32Map reads a nullable Int32-to-Int32 dictionary and rejects duplicate keys
 func (r *simpleEditDataReader) readInt32Map(path string) (map[int32]int32, error) {
 	if r.tryReadNil() {
 		return nil, nil
@@ -528,6 +553,8 @@ func (r *simpleEditDataReader) readInt32Map(path string) (map[int32]int32, error
 	return result, nil
 }
 
+// readInt32 接受 MessagePack 的整数编码并要求最终值位于游戏 Int32 范围内
+// readInt32 accepts MessagePack integer encodings and requires the final value to fit the game Int32 range
 func (r *simpleEditDataReader) readInt32(path string) (int32, error) {
 	marker, err := r.readByte(path)
 	if err != nil {
@@ -604,10 +631,10 @@ func (r *simpleEditDataReader) readInt32(path string) (int32, error) {
 	return int32(signed), nil
 }
 
-// skipValue mirrors MessagePackReader.Skip while locating the end of a future
-// indexed-object field. The complete byte range is then retained by the caller;
-// it may contain any valid MessagePack value, including nested arrays, maps,
-// binary, and extensions.
+// skipValue 在定位未来 indexed object 字段末尾时镜像 MessagePackReader.Skip
+// 调用者随后保留完整字节范围，其中可包含嵌套数组、映射、二进制和扩展等任意有效 MessagePack 值
+// skipValue mirrors MessagePackReader.Skip while locating the end of a future indexed object field
+// The caller then retains the complete byte range which may contain any valid MessagePack value including nested arrays, maps, binary data, and extensions
 func (r *simpleEditDataReader) skipValue(depth int64) error {
 	if depth >= simpleEditDataMaxDepth {
 		return fmt.Errorf("MessagePack nesting exceeds %d", simpleEditDataMaxDepth)
@@ -658,7 +685,9 @@ func (r *simpleEditDataReader) skipValue(depth int64) error {
 		if readErr != nil {
 			return readErr
 		}
-		payloadLength = int64(length) + 1 // type code
+		// 扩展载荷前还有一个类型代码字节
+		// One type-code byte precedes the extension payload
+		payloadLength = int64(length) + 1
 	case 0xc8:
 		length, readErr := r.readBytes(2, "ext16 length")
 		if readErr != nil {
@@ -681,7 +710,9 @@ func (r *simpleEditDataReader) skipValue(depth int64) error {
 	case 0xcd, 0xd1:
 		payloadLength = 2
 	case 0xd4:
-		payloadLength = 2 // type code + one payload byte
+		// fixext1 包含一个类型代码字节和一个载荷字节
+		// fixext1 contains one type-code byte and one payload byte
+		payloadLength = 2
 	case 0xd5:
 		payloadLength = 3
 	case 0xd6:
@@ -729,6 +760,8 @@ func (r *simpleEditDataReader) skipValue(depth int64) error {
 	return err
 }
 
+// skipValues 跳过数组元素或映射键值，并在递归前按剩余字节限制数量
+// skipValues skips array elements or map keys and values while bounding their count by remaining bytes before recursion
 func (r *simpleEditDataReader) skipValues(count int64, isMap bool, depth int64) error {
 	values := count
 	if isMap {
@@ -747,6 +780,8 @@ func (r *simpleEditDataReader) skipValues(count int64, isMap bool, depth int64) 
 	return nil
 }
 
+// simpleEditDataAppendArrayHeader 以可表示长度的最短 MessagePack 数组头追加元素数量
+// simpleEditDataAppendArrayHeader appends an element count using the shortest MessagePack array header that can represent it
 func simpleEditDataAppendArrayHeader(dst []byte, length int64) []byte {
 	switch {
 	case length <= 15:
@@ -760,6 +795,8 @@ func simpleEditDataAppendArrayHeader(dst []byte, length int64) []byte {
 	}
 }
 
+// simpleEditDataAppendMapHeader 以可表示长度的最短 MessagePack 映射头追加键值对数量
+// simpleEditDataAppendMapHeader appends a pair count using the shortest MessagePack map header that can represent it
 func simpleEditDataAppendMapHeader(dst []byte, length int64) []byte {
 	switch {
 	case length <= 15:
@@ -773,8 +810,10 @@ func simpleEditDataAppendMapHeader(dst []byte, length int64) []byte {
 	}
 }
 
+// simpleEditDataAppendString 以可表示 UTF-8 字节长度的最短 MessagePack 字符串头追加值
+// simpleEditDataAppendString appends a value using the shortest MessagePack string header that can represent its UTF-8 byte length
 func simpleEditDataAppendString(dst []byte, value string) []byte {
-	length := len(value)
+	length := int64(len(value))
 	switch {
 	case length <= 31:
 		dst = append(dst, 0xa0|byte(length))
@@ -789,6 +828,8 @@ func simpleEditDataAppendString(dst []byte, value string) []byte {
 	return append(dst, value...)
 }
 
+// simpleEditDataAppendInt32 以可表示给定 Int32 值的最短 MessagePack 整数形式追加值
+// simpleEditDataAppendInt32 appends a value using the shortest MessagePack integer form that can represent the given Int32
 func simpleEditDataAppendInt32(dst []byte, value int32) []byte {
 	switch {
 	case value >= 0 && value <= 0x7f:
@@ -809,7 +850,7 @@ func simpleEditDataAppendInt32(dst []byte, value int32) []byte {
 		return append(dst, 0xd1, byte(int16(value)>>8), byte(int16(value)))
 	default:
 		dst = append(dst, 0xd2, 0, 0, 0, 0)
-		binary.BigEndian.PutUint32(dst[len(dst)-4:], uint32(int32(value)))
+		binary.BigEndian.PutUint32(dst[len(dst)-4:], uint32(value))
 		return dst
 	}
 }

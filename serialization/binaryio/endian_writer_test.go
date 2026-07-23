@@ -86,9 +86,9 @@ func (shortWriter) Write(p []byte) (int, error) {
 
 func TestAlignOffset(t *testing.T) {
 	tests := []struct {
-		n         int
-		alignment int
-		want      int
+		n         int64
+		alignment int64
+		want      int64
 	}{
 		{n: 0, alignment: 16, want: 0},
 		{n: 1, alignment: 16, want: 16},

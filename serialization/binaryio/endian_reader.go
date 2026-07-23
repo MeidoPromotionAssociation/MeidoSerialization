@@ -10,7 +10,7 @@ import (
 // EndianReader 以可配置字节序从内存字节切片读取基础类型 / EndianReader reads primitive values from an in-memory byte slice with a configurable byte order.
 type EndianReader struct {
 	data  []byte
-	pos   int
+	pos   int64
 	order binary.ByteOrder
 }
 
@@ -20,7 +20,7 @@ func NewEndianReader(data []byte, order binary.ByteOrder) *EndianReader {
 }
 
 // NewEndianReaderAt 创建从指定偏移开始读取的 EndianReader / NewEndianReaderAt creates an EndianReader starting at the requested offset.
-func NewEndianReaderAt(data []byte, pos int, order binary.ByteOrder) *EndianReader {
+func NewEndianReaderAt(data []byte, pos int64, order binary.ByteOrder) *EndianReader {
 	if order == nil {
 		order = binary.LittleEndian
 	}
@@ -28,21 +28,22 @@ func NewEndianReaderAt(data []byte, pos int, order binary.ByteOrder) *EndianRead
 }
 
 // Pos 返回当前读取偏移 / Pos returns the current read offset.
-func (r *EndianReader) Pos() int {
+func (r *EndianReader) Pos() int64 {
 	return r.pos
 }
 
 // Len 返回底层数据长度 / Len returns the length of the backing data.
-func (r *EndianReader) Len() int {
-	return len(r.data)
+func (r *EndianReader) Len() int64 {
+	return int64(len(r.data))
 }
 
 // Remaining 返回从当前偏移开始仍可读取的字节数 / Remaining returns the number of readable bytes from the current offset.
-func (r *EndianReader) Remaining() int {
-	if r.pos < 0 || r.pos >= len(r.data) {
+func (r *EndianReader) Remaining() int64 {
+	length := int64(len(r.data))
+	if r.pos < 0 || r.pos >= length {
 		return 0
 	}
-	return len(r.data) - r.pos
+	return length - r.pos
 }
 
 // ByteOrder 返回当前数值字节序 / ByteOrder returns the current numeric byte order.
@@ -141,16 +142,17 @@ func (r *EndianReader) ReadFloat64() (float64, error) {
 
 // ReadFull 将 len(buf) 个字节复制到 buf / ReadFull copies len(buf) bytes into buf.
 func (r *EndianReader) ReadFull(buf []byte) error {
-	if err := r.require(len(buf)); err != nil {
+	length := int64(len(buf))
+	if err := r.require(length); err != nil {
 		return err
 	}
-	copy(buf, r.data[r.pos:r.pos+len(buf)])
-	r.pos += len(buf)
+	copy(buf, r.data[r.pos:r.pos+length])
+	r.pos += length
 	return nil
 }
 
 // ReadBytes 读取 n 个字节并返回新切片 / ReadBytes reads n bytes into a new slice.
-func (r *EndianReader) ReadBytes(n int) ([]byte, error) {
+func (r *EndianReader) ReadBytes(n int64) ([]byte, error) {
 	if n < 0 {
 		return nil, fmt.Errorf("negative byte count: %d", n)
 	}
@@ -165,11 +167,11 @@ func (r *EndianReader) ReadBytes(n int) ([]byte, error) {
 
 // ReadNullString 从当前偏移读取 null 结尾字符串 / ReadNullString reads a null-terminated string from the current offset.
 func (r *EndianReader) ReadNullString() (string, error) {
-	if r.pos < 0 || r.pos > len(r.data) {
+	if r.pos < 0 || r.pos > int64(len(r.data)) {
 		return "", io.ErrUnexpectedEOF
 	}
 	start := r.pos
-	for r.pos < len(r.data) {
+	for r.pos < int64(len(r.data)) {
 		if r.data[r.pos] == 0 {
 			s := string(r.data[start:r.pos])
 			r.pos++
@@ -190,7 +192,7 @@ func (r *EndianReader) ReadAlignedString() (string, error) {
 	if length < 0 {
 		return "", fmt.Errorf("negative aligned string length: %d", length)
 	}
-	n := int(length)
+	n := int64(length)
 	if err := r.require(n); err != nil {
 		return "", err
 	}
@@ -205,22 +207,23 @@ func (r *EndianReader) ReadAlignedString() (string, error) {
 }
 
 // Skip 前移读取偏移，并在底层数据末尾截断 / Skip advances the read offset and clamps at the end of the backing data.
-func (r *EndianReader) Skip(n int) {
+func (r *EndianReader) Skip(n int64) {
 	if n <= 0 {
 		return
 	}
 	if r.pos < 0 {
 		r.pos = 0
 	}
-	if n >= len(r.data)-r.pos {
-		r.pos = len(r.data)
+	length := int64(len(r.data))
+	if n >= length-r.pos {
+		r.pos = length
 		return
 	}
 	r.pos += n
 }
 
 // Align 将读取偏移前移到下一个对齐边界 / Align advances the read offset to the next alignment boundary.
-func (r *EndianReader) Align(alignment int) {
+func (r *EndianReader) Align(alignment int64) {
 	if alignment <= 1 {
 		return
 	}
@@ -236,11 +239,12 @@ func (r *EndianReader) Align4() {
 }
 
 // require 检查从当前偏移读取 n 个字节是否安全 / require checks whether n bytes can be read safely from the current offset.
-func (r *EndianReader) require(n int) error {
+func (r *EndianReader) require(n int64) error {
 	if n < 0 {
 		return fmt.Errorf("negative byte count: %d", n)
 	}
-	if r.pos < 0 || r.pos > len(r.data) || n > len(r.data)-r.pos {
+	length := int64(len(r.data))
+	if r.pos < 0 || r.pos > length || n > length-r.pos {
 		return io.ErrUnexpectedEOF
 	}
 	return nil

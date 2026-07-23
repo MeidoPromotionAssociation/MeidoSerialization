@@ -218,7 +218,7 @@ func TestTimelineDumpRejectsContradictoryOrNilFieldsBeforeWriting(t *testing.T) 
 
 func TestTimelineDumpRejectsExcessiveEventParameterNesting(t *testing.T) {
 	parameter := EventParameter{ValueType: 0}
-	for i := 0; i < maxEventParameterDepth; i++ {
+	for i := int64(0); i < maxEventParameterDepth; i++ {
 		parameter = EventParameter{ValueType: 12, Array: []EventParameter{parameter}}
 	}
 	data := &TimelineData{Tracks: []TimelineTrack{&EventTrack{MethodDataArray: []MethodData{{Params: []EventParameter{parameter}}}}}}

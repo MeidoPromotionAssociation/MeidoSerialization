@@ -10,9 +10,10 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
-// .assets / Unity SerializedFile
-// AssetBundle 内部的实际资源容器，包含类型树、对象元数据和资源数据。
-// 文件头使用 Big-Endian；后续字段的字节序由 Endianness 指定。结构如下：
+// .assets 与 Unity SerializedFile
+// AssetBundle 内部的实际资源容器，包含类型树、对象元数据和资源数据
+// 文件头使用 Big-Endian，后续字段的字节序由 Endianness 指定
+// 结构如下
 //
 //	[Header]
 //	  - MetadataSize: uint32（元数据块大小，不含 header）
@@ -21,7 +22,6 @@ import (
 //	  - DataOffset: uint32（第一个资源数据的偏移，v22+ 为 int64）
 //	  - Endianness: byte（0=Little-Endian, 1=Big-Endian）+ 3 padding
 //	  - (v22+: MetadataSize uint32, FileSize int64, DataOffset int64, 8 unused)
-//
 //	[Metadata]（按 Endianness 编码）
 //	  - UnityVersion: null-terminated string
 //	  - TargetPlatform: uint32
@@ -32,9 +32,10 @@ import (
 //	  - RefTypes[]: 引用类型（v21+）
 //	  - UserInformation: string
 //
-// .assets / Unity SerializedFile
-// The actual resource container inside an AssetBundle, holding type trees, object metadata, and asset data.
-// The header is Big-Endian; Endianness selects the byte order of subsequent fields. Its layout is:
+// .assets and Unity SerializedFile
+// The actual resource container inside an AssetBundle, holding type trees, object metadata, and asset data
+// The header is Big-Endian; Endianness selects the byte order of subsequent fields
+// Its layout is:
 //
 //	[Header]
 //	  - MetadataSize: uint32 (metadata size excluding the header)
@@ -42,26 +43,30 @@ import (
 //	  - Version: uint32 serialized-file format version
 //	  - DataOffset: uint32, or int64 for version 22 and later
 //	  - Endianness: byte (0=Little-Endian, 1=Big-Endian) plus three padding bytes
-//
 //	[Metadata] (encoded according to Endianness)
 //	  - UnityVersion, target platform, type-tree flag and definitions
 //	  - AssetInfos, external references, version-21+ reference types, and user information
+
+// AssetsFile 表示一个已解析的 Unity SerializedFile
+// AssetsFile represents one parsed Unity SerializedFile
 type AssetsFile struct {
 	Header   AssetsFileHeader // 文件头 / File header
-	Metadata AssetsMetadata   // 元数据（类型树 + 资源列表）/ Metadata including type trees and asset list
-	Data     []byte           // 原始文件数据（用于按偏移读取资源）/ Raw file bytes used to read assets by offset
+	Metadata AssetsMetadata   // 包含类型树和资源列表的元数据 / Metadata including type trees and asset list
+	Data     []byte           // 用于按偏移读取资源的原始文件数据 / Raw file bytes used to read assets by offset
 }
 
-// AssetsFileHeader 表示 Unity 序列化文件头 / AssetsFileHeader represents a Unity serialized file header
+// AssetsFileHeader 表示 Unity 序列化文件头
+// AssetsFileHeader represents a Unity serialized file header
 type AssetsFileHeader struct {
 	MetadataSize uint32 // 元数据块大小 / Metadata block size
 	FileSize     int64  // 整个文件大小 / Total file size
-	Version      uint32 // 序列化格式版本（常见：17-22）/ Serialized file format version, commonly 17-22
+	Version      uint32 // 序列化格式版本，当前支持 12 至 22 / Serialized file format version, currently supporting 12 through 22
 	DataOffset   int64  // 资源数据区起始偏移 / Start offset of the asset data area
-	Endianness   bool   // true=Big-Endian, false=Little-Endian / true=Big-Endian, false=Little-Endian
+	Endianness   bool   // true 表示 Big-Endian，false 表示 Little-Endian / true means Big-Endian and false means Little-Endian
 }
 
-// AssetsMetadata 包含类型树和资源信息 / AssetsMetadata contains type trees and asset metadata
+// AssetsMetadata 包含类型树、资源信息和 metadata 尾部
+// AssetsMetadata contains type trees, asset metadata, and the metadata tail
 type AssetsMetadata struct {
 	UnityVersion    string                            // Unity 版本字符串 / Unity version string
 	TargetPlatform  uint32                            // 目标平台 ID / Target platform ID
@@ -76,58 +81,64 @@ type AssetsMetadata struct {
 	TrailingData    []byte                            // UserInformation 之后的未解析字节 / Unparsed bytes following UserInformation
 }
 
-// TypeTreeType 表示一个类型的类型树定义 / TypeTreeType represents the type tree definition for one Unity type
+// TypeTreeType 表示一个 Unity 类型的 TypeTree 定义
+// TypeTreeType represents the TypeTree definition for one Unity type
 type TypeTreeType struct {
-	TypeId           int32          // 类型 ID（如 28=Texture2D, 49=TextAsset）/ Class ID such as 28=Texture2D and 49=TextAsset
+	TypeId           int32          // 类型 ID，如 28=Texture2D、49=TextAsset / Class ID such as 28=Texture2D and 49=TextAsset
 	IsStrippedType   bool           // 是否被剥离 / Whether this type is stripped
 	ScriptTypeIndex  int16          // 脚本类型索引，-1 表示无脚本 / Script type index, with -1 meaning no script
-	ScriptIdHash     [16]byte       // 脚本 ID 哈希（v13+, MonoBehaviour）/ Script ID hash for v13+ MonoBehaviour
+	ScriptIdHash     [16]byte       // v13+ 脚本类型按条件保存的脚本 ID 哈希 / Conditionally stored script ID hash for script types in v13+
 	TypeHash         [16]byte       // 类型哈希 / Type hash
-	Nodes            []TypeTreeNode // 类型树节点列表（仅当 TypeTreeEnabled=true）/ Type tree node list, present only when TypeTreeEnabled is true
+	Nodes            []TypeTreeNode // 仅在 TypeTreeEnabled 为 true 时保存的类型树节点 / Type-tree nodes stored only when TypeTreeEnabled is true
 	StringBuffer     []byte         // 字符串缓冲区 / String buffer
-	TypeDependencies []int32        // 普通类型依赖（v21+ 且启用 TypeTree）/ Ordinary type dependencies for v21+ with TypeTree enabled
+	TypeDependencies []int32        // v21+ 且启用 TypeTree 时的普通类型依赖 / Ordinary type dependencies for v21+ with TypeTree enabled
 	ClassName        string         // 引用类型类名 / Referenced type class name
 	Namespace        string         // 引用类型命名空间 / Referenced type namespace
 	AssemblyName     string         // 引用类型程序集名 / Referenced type assembly name
 }
 
-// TypeTreeNode 表示类型树中的一个节点 / TypeTreeNode represents one node in a Unity type tree
+// TypeTreeNode 表示 Unity TypeTree 中的一个节点
+// TypeTreeNode represents one node in a Unity TypeTree
 type TypeTreeNode struct {
 	Version     uint16 // 节点版本 / Node version
 	Level       byte   // 层级深度 / Tree depth level
-	TypeFlags   byte   // 类型标志（0x01=IsArray）/ Type flags, 0x01 means IsArray
+	TypeFlags   byte   // 类型标志，0x01 表示 IsArray / Type flags, with 0x01 meaning IsArray
 	TypeStrOff  uint32 // 类型名在字符串缓冲区中的偏移 / Offset of the type name in the string buffer
 	NameStrOff  uint32 // 字段名在字符串缓冲区中的偏移 / Offset of the field name in the string buffer
-	ByteSize    int32  // 字段字节大小（-1 表示可变长度）/ Field byte size, -1 means variable length
+	ByteSize    int32  // 字段字节大小，-1 表示可变长度 / Field byte size, with -1 meaning variable length
 	Index       int32  // 在父节点中的索引 / Index within the parent node
-	MetaFlags   uint32 // 元标志（0x4000=AlignBytes）/ Metadata flags, 0x4000 means AlignBytes
+	MetaFlags   uint32 // 元标志，0x4000 表示 AlignBytes / Metadata flags, with 0x4000 meaning AlignBytes
 	RefTypeHash uint64 // v19+ 引用类型哈希 / Referenced-type hash in v19+
 }
 
-// LocalSerializedObjectIdentifier 标识 metadata 中的本地脚本对象 / LocalSerializedObjectIdentifier identifies a local script object in metadata
+// LocalSerializedObjectIdentifier 标识 metadata 中的本地脚本对象
+// LocalSerializedObjectIdentifier identifies a local script object in metadata
 type LocalSerializedObjectIdentifier struct {
 	LocalSerializedFileIndex int32 // 本地序列化文件索引 / Local serialized-file index
 	LocalIdentifierInFile    int64 // 文件内对象 ID / Local object identifier in the file
 }
 
-// AssetInfo 表示单个资源的元信息 / AssetInfo represents metadata for one asset object
+// AssetInfo 表示单个序列化对象的元信息
+// AssetInfo represents metadata for one serialized asset object
 type AssetInfo struct {
-	PathId        int64  // 资源路径 ID（唯一标识）/ Asset PathID, unique within the file
+	PathId        int64  // 文件内唯一标识资源的路径 ID / Asset PathID unique within the file
 	ByteOffset    int64  // 相对于 DataOffset 的偏移 / Offset relative to DataOffset
 	ByteSize      uint32 // 资源数据大小 / Asset data size
 	TypeIdOrIndex int32  // Serialized type 标识；v16+ 必须是 TypeTreeTypes 数组索引 / Serialized type identifier; v16+ must index TypeTreeTypes
-	TypeId        int32  // 实际类型 ID（解析后填充）/ Actual class ID filled after parsing
+	TypeId        int32  // 解析后填充的实际类型 ID / Actual class ID filled after parsing
 }
 
-// ExternalFile 表示外部文件引用 / ExternalFile represents an external file reference
+// ExternalFile 表示 SerializedFile 的外部文件引用
+// ExternalFile represents an external file reference from a SerializedFile
 type ExternalFile struct {
 	AssetPath string   // 缓存资源虚拟路径 / Virtual cached-asset path
-	Guid      [16]byte // GUID / GUID
+	Guid      [16]byte // 外部文件 GUID / External file GUID
 	Type      int32    // 引用类型 / Reference type
 	PathName  string   // 路径名 / Path name
 }
 
-// ReadAssetsFile 从字节数据中解析 Unity AssetsFile
+// ReadAssetsFile 从字节数据中解析 Unity SerializedFile，并校验头部、metadata 边界和对象范围
+// ReadAssetsFile parses a Unity SerializedFile from bytes and validates its header, metadata bounds, and object ranges
 func ReadAssetsFile(data []byte) (*AssetsFile, error) {
 	af := &AssetsFile{Data: data}
 
@@ -135,7 +146,8 @@ func ReadAssetsFile(data []byte) (*AssetsFile, error) {
 		return nil, fmt.Errorf("data too short for assets file header: %d bytes", len(data))
 	}
 
-	// 1. 读取 header（始终 Big-Endian）
+	// 首先以 Big-Endian 读取固定头部
+	// First read the fixed header in Big-Endian order
 	headerReader := binaryio.NewEndianReader(data, binary.BigEndian)
 	metadataSize, err := headerReader.ReadUInt32()
 	if err != nil {
@@ -174,7 +186,8 @@ func ReadAssetsFile(data []byte) (*AssetsFile, error) {
 		return nil, fmt.Errorf("unsupported serialized file version %d (supported: 12-22)", af.Header.Version)
 	}
 
-	// v22+ 有扩展 header
+	// v22 及以上追加扩展头部字段
+	// Version 22 and later append extended header fields
 	if af.Header.Version >= 22 {
 		af.Header.MetadataSize, err = headerReader.ReadUInt32()
 		if err != nil {
@@ -203,10 +216,10 @@ func ReadAssetsFile(data []byte) (*AssetsFile, error) {
 	if af.Header.FileSize != int64(len(data)) {
 		return nil, fmt.Errorf("serialized file size %d does not match input length %d", af.Header.FileSize, len(data))
 	}
-	if af.Header.DataOffset < int64(headerReader.Pos()) || af.Header.DataOffset > af.Header.FileSize {
+	if af.Header.DataOffset < headerReader.Pos() || af.Header.DataOffset > af.Header.FileSize {
 		return nil, fmt.Errorf("invalid serialized data offset %d for file size %d", af.Header.DataOffset, af.Header.FileSize)
 	}
-	metadataStart := int64(headerReader.Pos())
+	metadataStart := headerReader.Pos()
 	metadataEnd := metadataStart + int64(af.Header.MetadataSize)
 	if metadataEnd < metadataStart || metadataEnd > af.Header.FileSize {
 		return nil, fmt.Errorf("serialized metadata range [%d, %d) exceeds declared file size %d", metadataStart, metadataEnd, af.Header.FileSize)
@@ -215,7 +228,8 @@ func ReadAssetsFile(data []byte) (*AssetsFile, error) {
 		return nil, fmt.Errorf("serialized metadata end %d exceeds data offset %d", metadataEnd, af.Header.DataOffset)
 	}
 
-	// 2. 确定字节序
+	// 根据 Endianness 确定 metadata 和对象字段的字节序
+	// Select metadata and object byte order from Endianness
 	var order binary.ByteOrder
 	if af.Header.Endianness {
 		order = binary.BigEndian
@@ -223,10 +237,9 @@ func ReadAssetsFile(data []byte) (*AssetsFile, error) {
 		order = binary.LittleEndian
 	}
 
-	// 3. 读取 Metadata
-	// Give the metadata parser a bounded slice. It can therefore never consume
-	// alignment padding or object bytes even if an inner count/string is forged.
-	metadata := data[int64(metadataStart):int64(metadataEnd)]
+	// 在限定的 metadata 切片中解析，伪造的内部计数或字符串无法越过对齐填充和对象数据
+	// Parse a bounded metadata slice so forged inner counts or strings cannot consume alignment padding or object bytes
+	metadata := data[metadataStart:metadataEnd]
 	if err := af.readMetadata(metadata, 0, order); err != nil {
 		return nil, fmt.Errorf("read metadata failed: %w", err)
 	}
@@ -237,7 +250,8 @@ func ReadAssetsFile(data []byte) (*AssetsFile, error) {
 	return af, nil
 }
 
-// GetAssetData 读取指定资源的原始数据
+// GetAssetData 按 DataOffset、ByteOffset 和 ByteSize 提取指定资源的原始数据
+// GetAssetData extracts raw data for an asset using DataOffset, ByteOffset, and ByteSize
 func (af *AssetsFile) GetAssetData(info *AssetInfo) ([]byte, error) {
 	if af == nil || info == nil {
 		return nil, fmt.Errorf("nil assets file or asset info")
@@ -258,10 +272,11 @@ func (af *AssetsFile) GetAssetData(info *AssetInfo) ([]byte, error) {
 		return nil, fmt.Errorf("asset data out of bounds: start=%d size=%d in %d bytes", start, size, len(af.Data))
 	}
 	end := start + size
-	return af.Data[int64(start):int64(end)], nil
+	return af.Data[start:end], nil
 }
 
-// GetAssetsByType 返回指定类型 ID 的所有资源
+// GetAssetsByType 返回指定 Unity class ID 的所有资源元信息
+// GetAssetsByType returns metadata for all assets with the specified Unity class ID
 func (af *AssetsFile) GetAssetsByType(typeId int32) []AssetInfo {
 	var result []AssetInfo
 	for _, info := range af.Metadata.AssetInfos {
@@ -272,7 +287,8 @@ func (af *AssetsFile) GetAssetsByType(typeId int32) []AssetInfo {
 	return result
 }
 
-// GetAssetInfoByPathID returns the asset metadata with the requested PathID.
+// GetAssetInfoByPathID 按 PathID 查找资源元信息
+// GetAssetInfoByPathID finds asset metadata by PathID
 func (af *AssetsFile) GetAssetInfoByPathID(pathID int64) *AssetInfo {
 	for i := range af.Metadata.AssetInfos {
 		if af.Metadata.AssetInfos[i].PathId == pathID {
@@ -282,29 +298,31 @@ func (af *AssetsFile) GetAssetInfoByPathID(pathID int64) *AssetInfo {
 	return nil
 }
 
-// readMetadata 从已限定范围的字节切片中读取 Unity SerializedFile 元数据。
-// readMetadata reads Unity SerializedFile metadata from an already bounded byte slice.
+// readMetadata 按 SerializedFile 版本读取 metadata 主体和尾部表
+// readMetadata reads the metadata body and tail tables according to the SerializedFile version
 func (af *AssetsFile) readMetadata(data []byte, pos int64, order binary.ByteOrder) error {
 	if pos < 0 || pos > int64(len(data)) {
 		return fmt.Errorf("metadata position %d is outside %d bytes", pos, len(data))
 	}
-	r := binaryio.NewEndianReaderAt(data, int(pos), order)
+	r := binaryio.NewEndianReaderAt(data, pos, order)
 
-	// 1. UnityVersion (null-terminated)
+	// 首先读取 NUL 结尾的 UnityVersion
+	// First read the NUL-terminated UnityVersion
 	ver, err := r.ReadNullString()
 	if err != nil {
 		return fmt.Errorf("read unity version failed: %w", err)
 	}
 	af.Metadata.UnityVersion = ver
 
-	// 2. TargetPlatform
+	// 随后读取 TargetPlatform
+	// Then read TargetPlatform
 	af.Metadata.TargetPlatform, err = r.ReadUInt32()
 	if err != nil {
 		return fmt.Errorf("read target platform failed: %w", err)
 	}
 
-	// 3. TypeTreeEnabled. Before format 13 the type tree is always present and
-	// there is no enable byte in metadata.
+	// v13 以前 TypeTree 始终存在，metadata 中没有 TypeTreeEnabled 字节
+	// Before format 13 the TypeTree is always present and metadata has no TypeTreeEnabled byte
 	if af.Header.Version >= 13 {
 		b, err := r.ReadByte()
 		if err != nil {
@@ -315,12 +333,13 @@ func (af *AssetsFile) readMetadata(data []byte, pos int64, order binary.ByteOrde
 		af.Metadata.TypeTreeEnabled = true
 	}
 
-	// 4. TypeTreeTypes
+	// 读取 TypeTreeTypes 数组
+	// Read the TypeTreeTypes array
 	typeCount, err := r.ReadInt32()
 	if err != nil {
 		return fmt.Errorf("read type count failed: %w", err)
 	}
-	if err := validateMetadataCount("type", typeCount, int64(r.Remaining()), minimumSerializedTypeSize(af.Header.Version, af.Metadata.TypeTreeEnabled, false)); err != nil {
+	if err := validateMetadataCount("type", typeCount, r.Remaining(), minimumSerializedTypeSize(af.Header.Version, af.Metadata.TypeTreeEnabled, false)); err != nil {
 		return err
 	}
 	af.Metadata.TypeTreeTypes = makeABACountedSliceForAppend[TypeTreeType](int64(typeCount))
@@ -332,9 +351,10 @@ func (af *AssetsFile) readMetadata(data []byte, pos int64, order binary.ByteOrde
 		af.Metadata.TypeTreeTypes = append(af.Metadata.TypeTreeTypes, tt)
 	}
 
-	// 5. BigIDEnabled. Unity formats 7 through 13 store this int32 between
-	// SerializedTypes and the object count. A non-zero value changes legacy
-	// PathIDs from int32 to int64; format 14 made int64 PathIDs unconditional.
+	// Unity 格式 7 至 13 在 SerializedTypes 与对象数量之间保存 BigIDEnabled
+	// 非零值使旧 PathID 从 Int32 变为 Int64，格式 14 起 Int64 PathID 固定存在
+	// Unity formats 7 through 13 store BigIDEnabled between SerializedTypes and the object count
+	// A non-zero value changes legacy PathIDs from Int32 to Int64; format 14 makes Int64 PathIDs unconditional
 	if af.Header.Version >= 7 && af.Header.Version < 14 {
 		af.Metadata.BigIDEnabled, err = r.ReadInt32()
 		if err != nil {
@@ -342,12 +362,13 @@ func (af *AssetsFile) readMetadata(data []byte, pos int64, order binary.ByteOrde
 		}
 	}
 
-	// 6. AssetInfos
+	// 读取 AssetInfos 数组
+	// Read the AssetInfos array
 	assetCount, err := r.ReadInt32()
 	if err != nil {
 		return fmt.Errorf("read asset count failed: %w", err)
 	}
-	if err := validateMetadataCount("asset", assetCount, int64(r.Remaining()), minimumAssetInfoSize(af.Header.Version, af.Metadata.BigIDEnabled != 0)); err != nil {
+	if err := validateMetadataCount("asset", assetCount, r.Remaining(), minimumAssetInfoSize(af.Header.Version, af.Metadata.BigIDEnabled != 0)); err != nil {
 		return err
 	}
 	af.Metadata.AssetInfos = makeABACountedSliceForAppend[AssetInfo](int64(assetCount))
@@ -359,17 +380,18 @@ func (af *AssetsFile) readMetadata(data []byte, pos int64, order binary.ByteOrde
 		af.Metadata.AssetInfos = append(af.Metadata.AssetInfos, info)
 	}
 
-	// A LocalSerializedObjectIdentifier (script type) array precedes external
-	// references in supported Unity formats. Parse the standards-compliant tail
-	// first. Older versions of this Go writer accidentally omitted the empty
-	// script-count field; retain a narrowly-scoped fallback only for its exact
-	// zero-count shape so existing generated files remain readable.
+	// 支持的 Unity 格式在外部引用前包含 LocalSerializedObjectIdentifier 脚本类型数组
+	// 先解析标准尾部；旧版 Go 写入器曾省略空脚本计数字段，因此仅对精确的零计数形状保留有限回退以继续读取既有生成文件
+	// Supported Unity formats place a LocalSerializedObjectIdentifier script-type array before external references
+	// Parse the standards-compliant tail first; older Go writers omitted the empty script-count field, so a narrowly scoped fallback handles only its exact zero-count shape
 	tailPos := r.Pos()
-	tail, err := af.readMetadataTail(data, int64(tailPos), order, true)
-	const legacyGoWriterTailSize = 4 + 4 + 1 // external count + ref count + empty UserInformation
-	if err != nil && af.Header.Version >= 17 && len(data)-tailPos == legacyGoWriterTailSize &&
+	tail, err := af.readMetadataTail(data, tailPos, order, true)
+	// 旧写入器尾部仅含 ExternalFiles 数量、RefTypes 数量和空 UserInformation
+	// The legacy writer tail contains only ExternalFiles count, RefTypes count, and empty UserInformation
+	const legacyGoWriterTailSize = 4 + 4 + 1
+	if err != nil && af.Header.Version >= 17 && int64(len(data))-tailPos == legacyGoWriterTailSize &&
 		order.Uint32(data[tailPos:tailPos+4]) == 0 && data[len(data)-1] == 0 {
-		legacyTail, legacyErr := af.readMetadataTail(data, int64(tailPos), order, false)
+		legacyTail, legacyErr := af.readMetadataTail(data, tailPos, order, false)
 		if legacyErr == nil {
 			tail = legacyTail
 			err = nil
@@ -386,32 +408,34 @@ func (af *AssetsFile) readMetadata(data []byte, pos int64, order binary.ByteOrde
 	return nil
 }
 
+// assetsMetadataTail 保存 metadata 尾部各表及其后的未解析字节
+// assetsMetadataTail stores metadata tail tables and bytes following them
 type assetsMetadataTail struct {
-	ScriptTypes     []LocalSerializedObjectIdentifier
-	ExternalFiles   []ExternalFile
-	RefTypes        []TypeTreeType
-	UserInformation string
-	TrailingData    []byte
+	ScriptTypes     []LocalSerializedObjectIdentifier // 本地脚本对象标识数组 / Local script-object identifiers
+	ExternalFiles   []ExternalFile                    // 外部文件引用数组 / External file references
+	RefTypes        []TypeTreeType                    // v20+ 引用类型数组 / Referenced type array for v20+
+	UserInformation string                            // 尾部 NUL 结尾用户信息 / NUL-terminated user information at the tail
+	TrailingData    []byte                            // 用户信息之后的原始字节 / Raw bytes following user information
 }
 
-// readMetadataTail 从已校验的位置读取 SerializedFile 元数据尾部。
-// readMetadataTail reads the SerializedFile metadata tail from a validated position.
+// readMetadataTail 读取脚本类型、外部文件、引用类型和 UserInformation 尾部
+// readMetadataTail reads the script types, external files, reference types, and UserInformation tail
 func (af *AssetsFile) readMetadataTail(data []byte, pos int64, order binary.ByteOrder, hasScriptTypeCount bool) (assetsMetadataTail, error) {
 	var tail assetsMetadataTail
 	if pos < 0 || pos > int64(len(data)) {
 		return tail, fmt.Errorf("metadata tail position %d is outside %d bytes", pos, len(data))
 	}
-	r := binaryio.NewEndianReaderAt(data, int(pos), order)
+	r := binaryio.NewEndianReaderAt(data, pos, order)
 	if hasScriptTypeCount {
 		scriptCount, err := r.ReadInt32()
 		if err != nil {
 			return tail, fmt.Errorf("read script type count failed: %w", err)
 		}
-		entrySize := 8
+		entrySize := int64(8)
 		if af.Header.Version >= 14 {
 			entrySize = 12
 		}
-		if err := validateMetadataCount("script type", scriptCount, int64(r.Remaining()), int64(entrySize)); err != nil {
+		if err := validateMetadataCount("script type", scriptCount, r.Remaining(), entrySize); err != nil {
 			return tail, err
 		}
 		tail.ScriptTypes = makeABACountedSliceForAppend[LocalSerializedObjectIdentifier](int64(scriptCount))
@@ -428,7 +452,7 @@ func (af *AssetsFile) readMetadataTail(data []byte, pos int64, order binary.Byte
 	if err != nil {
 		return tail, fmt.Errorf("read external count failed: %w", err)
 	}
-	if err := validateMetadataCount("external file", extCount, int64(r.Remaining()), 22); err != nil {
+	if err := validateMetadataCount("external file", extCount, r.Remaining(), 22); err != nil {
 		return tail, err
 	}
 	externals := makeABACountedSliceForAppend[ExternalFile](int64(extCount))
@@ -451,7 +475,7 @@ func (af *AssetsFile) readMetadataTail(data []byte, pos int64, order binary.Byte
 			return tail, fmt.Errorf("metadata has no room for UserInformation after %d reference types", refTypeCount)
 		}
 		minimumSize := minimumSerializedTypeSize(af.Header.Version, af.Metadata.TypeTreeEnabled, true)
-		if err := validateMetadataCount("reference type", refTypeCount, int64(r.Remaining()-1), minimumSize); err != nil {
+		if err := validateMetadataCount("reference type", refTypeCount, r.Remaining()-1, minimumSize); err != nil {
 			return tail, err
 		}
 		tail.RefTypes = makeABACountedSliceForAppend[TypeTreeType](int64(refTypeCount))
@@ -477,20 +501,23 @@ func (af *AssetsFile) readMetadataTail(data []byte, pos int64, order binary.Byte
 	return tail, nil
 }
 
-// readTypeTreeType 读取单个类型树类型定义
+// readTypeTreeType 按格式版本读取一个 SerializedType 或引用类型定义
+// readTypeTreeType reads one SerializedType or referenced-type definition according to the format version
 func (af *AssetsFile) readTypeTreeType(r *binaryio.EndianReader, tt *TypeTreeType, isRefType bool) error {
 	var err error
 	v := af.Header.Version
 	tt.ScriptTypeIndex = -1
 
-	// TypeId
+	// 类型定义首先保存 TypeId
+	// The type definition begins with TypeId
 	typeId, err := r.ReadInt32()
 	if err != nil {
 		return err
 	}
 	tt.TypeId = typeId
 
-	// IsStrippedType was added in format 16.
+	// IsStrippedType 自格式 16 起存在
+	// IsStrippedType was added in format 16
 	if v >= 16 {
 		b, err := r.ReadByte()
 		if err != nil {
@@ -499,7 +526,8 @@ func (af *AssetsFile) readTypeTreeType(r *binaryio.EndianReader, tt *TypeTreeTyp
 		tt.IsStrippedType = b != 0
 	}
 
-	// ScriptTypeIndex (v17+)
+	// ScriptTypeIndex 自格式 17 起存在
+	// ScriptTypeIndex is present in format 17 and later
 	if v >= 17 {
 		idx, err := r.ReadInt16()
 		if err != nil {
@@ -508,8 +536,8 @@ func (af *AssetsFile) readTypeTreeType(r *binaryio.EndianReader, tt *TypeTreeTyp
 		tt.ScriptTypeIndex = idx
 	}
 
-	// ScriptIdHash (v13+). Before v16 script types use a negative class ID;
-	// from v16 onward MonoBehaviour is identified by class ID 114.
+	// ScriptIdHash 自格式 13 起按脚本类型条件存在，v16 以前脚本类型使用负 class ID，v16 起 MonoBehaviour 使用 class ID 114
+	// ScriptIdHash is conditionally present for script types from format 13; before v16 script types use a negative class ID, while v16 and later identify MonoBehaviour with class ID 114
 	if v >= 13 {
 		if (isRefType && tt.ScriptTypeIndex >= 0) || (v < 16 && typeId < 0) || (v >= 16 && typeId == 114) {
 			if err := r.ReadFull(tt.ScriptIdHash[:]); err != nil {
@@ -518,17 +546,20 @@ func (af *AssetsFile) readTypeTreeType(r *binaryio.EndianReader, tt *TypeTreeTyp
 		}
 	}
 
-	// TypeHash
+	// TypeHash 自格式 13 起固定存在
+	// TypeHash is always present from format 13
 	if v >= 13 {
 		if err := r.ReadFull(tt.TypeHash[:]); err != nil {
 			return err
 		}
 	}
 
-	// TypeTree nodes (仅当 TypeTreeEnabled)
+	// 仅在 TypeTreeEnabled 时读取 TypeTree 节点
+	// Read TypeTree nodes only when TypeTreeEnabled
 	if af.Metadata.TypeTreeEnabled {
 		if v >= 12 {
-			// Blob format: nodeCount + stringBufferSize + nodes + stringBuffer
+			// v12+ blob 依次保存 nodeCount、stringBufferSize、nodes 和 stringBuffer
+			// The v12+ blob stores nodeCount, stringBufferSize, nodes, and stringBuffer in order
 			nodeCount, err := r.ReadInt32()
 			if err != nil {
 				return err
@@ -541,16 +572,16 @@ func (af *AssetsFile) readTypeTreeType(r *binaryio.EndianReader, tt *TypeTreeTyp
 			if nodeCount < 0 {
 				return fmt.Errorf("negative type tree node count %d", nodeCount)
 			}
-			nodeSize := 24
+			nodeSize := int64(24)
 			if v >= 19 {
 				nodeSize = 32
 			}
 			if strBufSize < 0 {
 				return fmt.Errorf("negative type tree string buffer size %d", strBufSize)
 			}
-			nodeBytes := int64(nodeCount) * int64(nodeSize)
+			nodeBytes := int64(nodeCount) * nodeSize
 			required := nodeBytes + int64(strBufSize)
-			if nodeBytes < 0 || required < nodeBytes || required > int64(r.Remaining()) {
+			if nodeBytes < 0 || required < nodeBytes || required > r.Remaining() {
 				return fmt.Errorf("type tree nodes/string buffer require %d bytes but only %d metadata bytes remain", required, r.Remaining())
 			}
 
@@ -563,7 +594,7 @@ func (af *AssetsFile) readTypeTreeType(r *binaryio.EndianReader, tt *TypeTreeTyp
 				tt.Nodes = append(tt.Nodes, node)
 			}
 
-			if int64(strBufSize) > int64(r.Remaining()) {
+			if int64(strBufSize) > r.Remaining() {
 				return fmt.Errorf("type tree string buffer size %d exceeds remaining metadata %d", strBufSize, r.Remaining())
 			}
 			tt.StringBuffer = make([]byte, int64(strBufSize))
@@ -592,7 +623,7 @@ func (af *AssetsFile) readTypeTreeType(r *binaryio.EndianReader, tt *TypeTreeTyp
 			if err != nil {
 				return err
 			}
-			if depCount < 0 || int64(depCount) > int64(r.Remaining())/4 {
+			if depCount < 0 || int64(depCount) > r.Remaining()/4 {
 				return fmt.Errorf("invalid type dependency count %d with %d bytes remaining", depCount, r.Remaining())
 			}
 			tt.TypeDependencies = makeABACountedSliceForAppend[int32](int64(depCount))
@@ -609,7 +640,8 @@ func (af *AssetsFile) readTypeTreeType(r *binaryio.EndianReader, tt *TypeTreeTyp
 	return nil
 }
 
-// readTypeTreeNodeBlob 读取 blob 格式的类型树节点
+// readTypeTreeNodeBlob 读取固定宽度 blob 格式的 TypeTree 节点
+// readTypeTreeNodeBlob reads one fixed-width blob-format TypeTree node
 func (af *AssetsFile) readTypeTreeNodeBlob(r *binaryio.EndianReader, node *TypeTreeNode) error {
 	var err error
 	node.Version, err = r.ReadUInt16()
@@ -644,7 +676,8 @@ func (af *AssetsFile) readTypeTreeNodeBlob(r *binaryio.EndianReader, node *TypeT
 	if err != nil {
 		return err
 	}
-	// v19+ 有额外的 8 字节（RefTypeHash）
+	// v19 及以上追加八字节 RefTypeHash
+	// Version 19 and later append an eight-byte RefTypeHash
 	if af.Header.Version >= 19 {
 		node.RefTypeHash, err = r.ReadUInt64()
 		return err
@@ -652,20 +685,23 @@ func (af *AssetsFile) readTypeTreeNodeBlob(r *binaryio.EndianReader, node *TypeT
 	return nil
 }
 
-// readAssetInfo 读取单个资源信息
+// readAssetInfo 按格式版本读取一个对象表条目并解析其实际 class ID
+// readAssetInfo reads one object-table entry according to the format version and resolves its actual class ID
 func (af *AssetsFile) readAssetInfo(r *binaryio.EndianReader, info *AssetInfo) error {
 	v := af.Header.Version
 
-	// Format 14 introduced both unconditional int64 PathIDs and the 4-byte
-	// alignment before each object-table entry. Legacy BigID entries are int64
-	// too, but remain unaligned on the wire.
+	// 格式 14 同时引入固定 Int64 PathID 和每个对象表条目前的四字节对齐
+	// 旧 BigID 条目也使用 Int64，但在线格式中不对齐
+	// Format 14 introduced unconditional Int64 PathIDs and four-byte alignment before each object-table entry
+	// Legacy BigID entries also use Int64 but remain unaligned on the wire
 	if v >= 14 {
 		if err := alignMetadata4(r, "asset info"); err != nil {
 			return err
 		}
 	}
 
-	// PathId
+	// PathId 在 v14+ 或旧 BigID 布局中为 Int64，否则为 Int32
+	// PathId is Int64 in v14+ or legacy BigID layouts and Int32 otherwise
 	if v >= 14 || af.Metadata.BigIDEnabled != 0 {
 		pid, err := r.ReadInt64()
 		if err != nil {
@@ -680,7 +716,8 @@ func (af *AssetsFile) readAssetInfo(r *binaryio.EndianReader, info *AssetInfo) e
 		info.PathId = int64(pid)
 	}
 
-	// ByteOffset
+	// ByteOffset 在 v22+ 为 UInt64，否则为 UInt32
+	// ByteOffset is UInt64 in v22+ and UInt32 otherwise
 	if v >= 22 {
 		off, err := r.ReadUInt64()
 		if err != nil {
@@ -698,22 +735,24 @@ func (af *AssetsFile) readAssetInfo(r *binaryio.EndianReader, info *AssetInfo) e
 		info.ByteOffset = int64(off)
 	}
 
-	// ByteSize
+	// ByteSize 固定为 UInt32
+	// ByteSize is always UInt32
 	size, err := r.ReadUInt32()
 	if err != nil {
 		return err
 	}
 	info.ByteSize = size
 
-	// TypeIdOrIndex
+	// 随后读取 TypeIdOrIndex
+	// Then read TypeIdOrIndex
 	typeIdx, err := r.ReadInt32()
 	if err != nil {
 		return err
 	}
 	info.TypeIdOrIndex = typeIdx
 
-	// Resolve the actual class ID. Before v16 the int32 field is a serialized
-	// type identifier and the following int16 stores the class ID explicitly.
+	// v16 起 TypeIdOrIndex 索引 TypeTreeTypes，v16 以前该 Int32 是 serialized type 标识，后续 Int16 显式保存 class ID
+	// From v16 TypeIdOrIndex indexes TypeTreeTypes; before v16 the Int32 is a serialized-type identifier followed by an explicit Int16 class ID
 	if v >= 16 {
 		if typeIdx < 0 || int64(typeIdx) >= int64(len(af.Metadata.TypeTreeTypes)) {
 			return fmt.Errorf("type tree index %d out of range [0, %d)", typeIdx, len(af.Metadata.TypeTreeTypes))
@@ -727,14 +766,16 @@ func (af *AssetsFile) readAssetInfo(r *binaryio.EndianReader, info *AssetInfo) e
 		info.TypeId = int32(classID)
 	}
 
-	// ScriptTypeIndex (v16-)
+	// v16 及以前还有一个当前模型不保留的 Int16 ScriptTypeIndex
+	// Version 16 and earlier include an Int16 ScriptTypeIndex not retained by this model
 	if v <= 16 {
 		if err := skipMetadataBytes(r, 2, "asset script type index"); err != nil {
 			return err
 		}
 	}
 
-	// Stripped (v15-v16)
+	// v15 至 v16 还有一个当前模型不保留的 Stripped 字节
+	// Versions 15 through 16 include a Stripped byte not retained by this model
 	if v >= 15 && v <= 16 {
 		if err := skipMetadataBytes(r, 1, "asset stripped flag"); err != nil {
 			return err
@@ -744,6 +785,8 @@ func (af *AssetsFile) readAssetInfo(r *binaryio.EndianReader, info *AssetInfo) e
 	return nil
 }
 
+// validateMetadataCount 使用剩余字节与最小条目宽度校验 metadata 数组计数
+// validateMetadataCount validates a metadata array count against remaining bytes and minimum entry width
 func validateMetadataCount(name string, count int32, remaining int64, minimumEntrySize int64) error {
 	if count < 0 {
 		return fmt.Errorf("negative %s count %d", name, count)
@@ -751,75 +794,87 @@ func validateMetadataCount(name string, count int32, remaining int64, minimumEnt
 	if minimumEntrySize <= 0 {
 		minimumEntrySize = 1
 	}
-	if int64(count) > int64(remaining)/int64(minimumEntrySize) {
+	if int64(count) > remaining/minimumEntrySize {
 		return fmt.Errorf("%s count %d cannot fit in %d remaining metadata bytes (minimum entry size %d)", name, count, remaining, minimumEntrySize)
 	}
 	return nil
 }
 
+// minimumSerializedTypeSize 返回 SerializedType 可使用的保守最小宽度
+// 条件存在的 ScriptIdHash 被有意省略，使该值保持下界
+// minimumSerializedTypeSize returns a conservative minimum width for SerializedType
+// The conditionally present ScriptIdHash is deliberately omitted so the result remains a lower bound
 func minimumSerializedTypeSize(version uint32, typeTreeEnabled bool, isRefType bool) int64 {
-	size := int64(4) // class ID
+	size := int64(4)
 	if version >= 16 {
-		size++ // IsStrippedType
+		size++
 	}
 	if version >= 17 {
-		size += 2 // ScriptTypeIndex
+		size += 2
 	}
 	if version >= 13 {
-		size += 16 // TypeHash; conditional ScriptIdHash is deliberately omitted
+		size += 16
 	}
 	if typeTreeEnabled {
-		size += 8 // node count + string buffer size; both may be zero
+		size += 8
 	}
 	if typeTreeEnabled && version >= 21 {
 		if isRefType {
-			size += 3 // class, namespace, and assembly NUL terminators
+			size += 3
 		} else {
-			size += 4 // dependency count; entries may be empty
+			size += 4
 		}
 	}
 	return size
 }
 
+// minimumAssetInfoSize 返回指定版本对象表条目的最小线格式宽度
+// minimumAssetInfoSize returns the minimum wire width of an object-table entry for a format version
 func minimumAssetInfoSize(version uint32, bigIDEnabled bool) int64 {
-	size := int64(4) // PathID before v14
+	size := int64(4)
 	if version >= 14 || bigIDEnabled {
 		size = 8
 	}
 	if version >= 22 {
-		size += 8 // ByteOffset
+		size += 8
 	} else {
 		size += 4
 	}
-	size += 8 // ByteSize + TypeIdOrIndex
+	size += 8
 	if version < 16 {
-		size += 2 // class ID
+		size += 2
 	}
 	if version <= 16 {
-		size += 2 // ScriptTypeIndex
+		size += 2
 	}
 	if version >= 15 && version <= 16 {
-		size++ // stripped flag
+		size++
 	}
 	return size
 }
 
+// skipMetadataBytes 在边界校验后跳过指定数量的 metadata 字节
+// skipMetadataBytes skips a number of metadata bytes after bounds validation
 func skipMetadataBytes(r *binaryio.EndianReader, count int64, what string) error {
-	if count < 0 || count > int64(r.Remaining()) {
+	if count < 0 || count > r.Remaining() {
 		return fmt.Errorf("%s requires %d bytes but only %d metadata bytes remain", what, count, r.Remaining())
 	}
-	r.Skip(int(count))
+	r.Skip(count)
 	return nil
 }
 
+// alignMetadata4 将 metadata reader 推进到四字节边界
+// alignMetadata4 advances the metadata reader to a four-byte boundary
 func alignMetadata4(r *binaryio.EndianReader, what string) error {
 	padding := (4 - r.Pos()%4) % 4
-	if err := skipMetadataBytes(r, int64(padding), what+" alignment"); err != nil {
+	if err := skipMetadataBytes(r, padding, what+" alignment"); err != nil {
 		return err
 	}
 	return nil
 }
 
+// validateTypeTreeStringOffsets 校验所有本地 TypeTree 类型名和字段名偏移
+// validateTypeTreeStringOffsets validates every local TypeTree type-name and field-name offset
 func validateTypeTreeStringOffsets(tt *TypeTreeType) error {
 	for i := range tt.Nodes {
 		if err := validateTypeTreeStringOffset("type", int64(i), tt.Nodes[i].TypeStrOff, tt.StringBuffer); err != nil {
@@ -832,10 +887,11 @@ func validateTypeTreeStringOffsets(tt *TypeTreeType) error {
 	return nil
 }
 
+// validateTypeTreeStringOffset 校验本地字符串偏移存在 NUL 终止符，并保留公共字符串表偏移
+// validateTypeTreeStringOffset validates NUL termination for local string offsets and preserves common-table offsets
 func validateTypeTreeStringOffset(kind string, nodeIndex int64, offset uint32, stringBuffer []byte) error {
-	// High-bit offsets address Unity's built-in common string table, which is
-	// external to the per-type StringBuffer. Keep those values opaque so new
-	// Unity common strings remain forward-compatible.
+	// 最高位偏移指向每类型 StringBuffer 之外的 Unity 内置公共字符串表，因此保持不透明以兼容未来新增公共字符串
+	// High-bit offsets address Unity's built-in common string table outside the per-type StringBuffer, so they remain opaque for forward compatibility with new common strings
 	if offset&0x80000000 != 0 {
 		return nil
 	}
@@ -848,6 +904,8 @@ func validateTypeTreeStringOffset(kind string, nodeIndex int64, offset uint32, s
 	return nil
 }
 
+// validateAssetInfos 校验对象 PathID 唯一、数据范围有效且互不重叠
+// validateAssetInfos validates unique object PathIDs and valid non-overlapping data ranges
 func (af *AssetsFile) validateAssetInfos() error {
 	if af.Header.DataOffset < 0 || af.Header.DataOffset > af.Header.FileSize {
 		return fmt.Errorf("data offset %d is outside file size %d", af.Header.DataOffset, af.Header.FileSize)
@@ -855,10 +913,10 @@ func (af *AssetsFile) validateAssetInfos() error {
 	dataSize := af.Header.FileSize - af.Header.DataOffset
 	seenPathIDs := make(map[int64]int64, len(af.Metadata.AssetInfos))
 	type objectRange struct {
-		start  int64
-		end    int64
-		pathID int64
-		index  int64
+		start  int64 // 相对于数据区的范围起点 / Range start relative to the data section
+		end    int64 // 相对于数据区的范围终点 / Range end relative to the data section
+		pathID int64 // 诊断信息中的对象 PathID / Object PathID used in diagnostics
+		index  int64 // AssetInfos 中的对象索引 / Object index in AssetInfos
 	}
 	ranges := make([]objectRange, 0, len(af.Metadata.AssetInfos))
 	for i := range af.Metadata.AssetInfos {
@@ -900,7 +958,8 @@ func (af *AssetsFile) validateAssetInfos() error {
 	return nil
 }
 
-// readExternalFile 读取外部文件引用
+// readLocalSerializedObjectIdentifier 读取一个本地脚本对象标识，并按版本处理 PathID 宽度与对齐
+// readLocalSerializedObjectIdentifier reads one local script-object identifier with versioned PathID width and alignment
 func (af *AssetsFile) readLocalSerializedObjectIdentifier(r *binaryio.EndianReader) (LocalSerializedObjectIdentifier, error) {
 	var identifier LocalSerializedObjectIdentifier
 	index, err := r.ReadInt32()
@@ -920,8 +979,11 @@ func (af *AssetsFile) readLocalSerializedObjectIdentifier(r *binaryio.EndianRead
 	return identifier, err
 }
 
+// readExternalFile 读取一个外部文件引用记录
+// readExternalFile reads one external-file reference record
 func (af *AssetsFile) readExternalFile(r *binaryio.EndianReader, ext *ExternalFile) error {
-	// Empty string (v6+)
+	// v6 及以上首先保存通常为空的 AssetPath 字符串
+	// Version 6 and later begin with the usually empty AssetPath string
 	if af.Header.Version >= 6 {
 		assetPath, err := r.ReadNullString()
 		if err != nil {
@@ -930,19 +992,22 @@ func (af *AssetsFile) readExternalFile(r *binaryio.EndianReader, ext *ExternalFi
 		ext.AssetPath = assetPath
 	}
 
-	// GUID
+	// 随后保存 16 字节 GUID
+	// Then comes the 16-byte GUID
 	if err := r.ReadFull(ext.Guid[:]); err != nil {
 		return err
 	}
 
-	// Type
+	// GUID 后保存 Int32 Type
+	// GUID is followed by Int32 Type
 	t, err := r.ReadInt32()
 	if err != nil {
 		return err
 	}
 	ext.Type = t
 
-	// PathName
+	// 记录以 NUL 结尾的 PathName 收尾
+	// The record ends with NUL-terminated PathName
 	path, err := r.ReadNullString()
 	if err != nil {
 		return err

@@ -470,7 +470,7 @@ func TestPresetPropertyRejectsBoneLengthsBeforeVersion213(t *testing.T) {
 		Signature: PresetPropertySignature,
 		Version:   212,
 		Name:      "body",
-		BoneLengths: map[int]BoneLengthEntry{
+		BoneLengths: map[int32]BoneLengthEntry{
 			1: {Lengths: map[string]float32{"Bip01": 1}},
 		},
 	}
@@ -803,22 +803,22 @@ func TestPresetPropertyPreservesNestedMapOrders(t *testing.T) {
 	property := &PresetProperty{
 		Signature:         PresetPropertySignature,
 		Version:           30000,
-		SkinPositions:     map[int]BoneAttachPosEntry{1: {SlotName: "one"}, 2: {SlotName: "two"}},
-		SkinPositionOrder: []int{2, 1},
-		AttachPositions: map[int]map[string]VtxAttachPosEntry{
+		SkinPositions:     map[int32]BoneAttachPosEntry{1: {SlotName: "one"}, 2: {SlotName: "two"}},
+		SkinPositionOrder: []int32{2, 1},
+		AttachPositions: map[int32]map[string]VtxAttachPosEntry{
 			3: {"a": {}, "z": {}},
 			4: {},
 		},
-		AttachPositionOrder:      []int{4, 3},
-		AttachPositionNameOrders: map[int][]string{4: {}, 3: {"z", "a"}},
-		AttachPositionSlotNames:  map[int]string{3: "three", 4: "four"},
-		MaterialProps:            map[int]MatPropSaveEntry{5: {SlotName: "five"}, 6: {SlotName: "six"}},
-		MaterialPropOrder:        []int{6, 5},
-		BoneLengths: map[int]BoneLengthEntry{
+		AttachPositionOrder:      []int32{4, 3},
+		AttachPositionNameOrders: map[int32][]string{4: {}, 3: {"z", "a"}},
+		AttachPositionSlotNames:  map[int32]string{3: "three", 4: "four"},
+		MaterialProps:            map[int32]MatPropSaveEntry{5: {SlotName: "five"}, 6: {SlotName: "six"}},
+		MaterialPropOrder:        []int32{6, 5},
+		BoneLengths: map[int32]BoneLengthEntry{
 			7: {SlotName: "seven", Lengths: map[string]float32{"a": 1, "z": 2}, LengthOrder: []string{"z", "a"}},
 			8: {SlotName: "eight", Lengths: map[string]float32{}},
 		},
-		BoneLengthOrder: []int{8, 7},
+		BoneLengthOrder: []int32{8, 7},
 	}
 	if err := validatePresetPropertyForDump(property); err != nil {
 		t.Fatalf("validatePresetPropertyForDump: %v", err)
@@ -863,7 +863,7 @@ func TestPresetOrderMetadataToleratesMapEdits(t *testing.T) {
 		t.Fatalf("property keys = %q, want b,a,c", got)
 	}
 
-	intKeys, err := orderedPresetIntMapKeys(map[int]struct{}{1: {}, 2: {}, 3: {}}, []int{2, 99}, "test ints")
+	intKeys, err := orderedPresetIntMapKeys(map[int32]struct{}{1: {}, 2: {}, 3: {}}, []int32{2, 99}, "test ints")
 	if err != nil {
 		t.Fatalf("orderedPresetIntMapKeys: %v", err)
 	}

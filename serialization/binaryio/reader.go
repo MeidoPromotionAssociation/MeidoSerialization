@@ -20,7 +20,7 @@ func ReadByte(r io.Reader) (byte, error) {
 }
 
 // ReadBytes 读取 n 个字节
-func ReadBytes(r io.Reader, n int) ([]byte, error) {
+func ReadBytes(r io.Reader, n int64) ([]byte, error) {
 	if n < 0 {
 		return nil, fmt.Errorf("negative byte count: %d", n)
 	}
@@ -31,7 +31,7 @@ func ReadBytes(r io.Reader, n int) ([]byte, error) {
 	// Do not allocate n bytes up front. Lengths in game files are untrusted,
 	// and a truncated stream with a very large declared length must not cause
 	// a similarly large allocation before we can discover the truncation.
-	limited := &io.LimitedReader{R: r, N: int64(n)}
+	limited := &io.LimitedReader{R: r, N: n}
 	buf, err := io.ReadAll(limited)
 	if err != nil {
 		return buf, err
@@ -166,7 +166,7 @@ func ReadString(r io.Reader) (string, error) {
 
 	// 对于 Go 来说，由于 string 本身就是 UTF-8，我们可以简化处理。
 	// ReadBytes 渐进读取，避免不可信的大长度在截断输入上触发巨量预分配。
-	buffer, err := ReadBytes(r, int(stringLength))
+	buffer, err := ReadBytes(r, int64(stringLength))
 	if err != nil {
 		return "", err
 	}
@@ -259,14 +259,14 @@ func PeekString(r io.Reader) (string, error) {
 		return "", fmt.Errorf("peekString: the reader is not peekable, wrap it with bufio.Reader first")
 	}
 
-	var stringLength int // 解析出的字符串长度
-	var shift int        // 当前位偏移量
-	var prefixLen int    // 长度前缀占用了多少个字节
+	var stringLength int32 // 解析出的字符串长度
+	var shift uint32       // 当前位偏移量
+	var prefixLen int32    // 长度前缀占用了多少个字节
 
 	for {
 		// Peek 字节直到找到 7-bit 整数的结尾
 		// 每次多 Peek 一个字节来检查
-		bSlice, err := br.Peek(prefixLen + 1)
+		bSlice, err := br.Peek(int(prefixLen + 1))
 		if err != nil {
 			return "", err
 		}
@@ -278,7 +278,7 @@ func PeekString(r io.Reader) (string, error) {
 		}
 
 		// 7-Bit 解码逻辑
-		stringLength |= (int(b) & 0x7F) << shift
+		stringLength |= int32(b&0x7F) << shift
 		shift += 7
 
 		// 如果最高位是 0，说明整数结束
@@ -299,10 +299,13 @@ func PeekString(r io.Reader) (string, error) {
 		return "", nil
 	}
 
-	totalLen := prefixLen + stringLength
+	totalLen := int64(prefixLen) + int64(stringLength)
+	if totalLen > int64(^uint(0)>>1) {
+		return "", fmt.Errorf("peekString: total length %d exceeds platform index range", totalLen)
+	}
 
 	// 尝试 Peek 所有数据
-	data, err := br.Peek(totalLen)
+	data, err := br.Peek(int(totalLen))
 	if err != nil {
 		if errors.Is(err, bufio.ErrBufferFull) {
 			return "", fmt.Errorf("peekString: string length (%d) exceeds buffer size (increase buffer size)", totalLen)

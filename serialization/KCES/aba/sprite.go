@@ -13,11 +13,14 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
 )
 
-// AssetResolver 解析 Unity PPtr 引用 / AssetResolver resolves Unity PPtr references
-// fileID 0 表示当前 AssetsFile，正数 fileID 是从 1 开始的外部依赖索引 / fileID 0 is the current AssetsFile, while positive file IDs are one-based external dependency indexes
+// AssetResolver 解析 Unity PPtr 引用
+// fileID 0 表示当前 AssetsFile，正数 fileID 是从 1 开始的外部依赖索引
+// AssetResolver resolves Unity PPtr references
+// fileID zero denotes the current AssetsFile, while positive file IDs are one-based external dependency indexes
 type AssetResolver func(relativeTo *AssetsFile, fileID int32, pathID int64) (*AssetsFile, *AssetInfo, error)
 
-// SpriteExport 描述从 Texture2D 或 SpriteAtlas 裁剪出的 Sprite / SpriteExport describes a Sprite cropped from a Texture2D or SpriteAtlas
+// SpriteExport 描述从 Texture2D 或 SpriteAtlas 裁剪出的 Sprite
+// SpriteExport describes a Sprite cropped from a Texture2D or SpriteAtlas
 type SpriteExport struct {
 	Name        string         // Sprite 名称 / Sprite name
 	Texture     *Texture2DData // 源 Texture2D 数据 / Source Texture2D data
@@ -25,7 +28,8 @@ type SpriteExport struct {
 	SettingsRaw uint32         // Unity SpriteSettings 原始位标志 / Raw Unity SpriteSettings flags
 }
 
-// SpriteRect 使用 Unity 贴图坐标，原点在左下角 / SpriteRect uses Unity texture coordinates with the origin at the lower-left corner
+// SpriteRect 使用原点位于左下角的 Unity 贴图坐标
+// SpriteRect uses Unity texture coordinates with the origin at the lower-left corner
 type SpriteRect struct {
 	X      float32 // 左下角 X 坐标 / Lower-left X coordinate
 	Y      float32 // 左下角 Y 坐标 / Lower-left Y coordinate
@@ -33,19 +37,22 @@ type SpriteRect struct {
 	Height float32 // 高度 / Height
 }
 
-// unityPPtr 表示 Unity 序列化对象引用 / unityPPtr represents a Unity serialized object reference
+// unityPPtr 表示 Unity 序列化对象引用
+// unityPPtr represents a Unity serialized object reference
 type unityPPtr struct {
 	FileID int32 // 文件 ID，0 表示当前文件 / File ID, zero means current file
 	PathID int64 // 路径 ID / Path ID
 }
 
-// spriteRenderDataKey 表示 SpriteAtlas m_RenderDataMap 的键 / spriteRenderDataKey represents a SpriteAtlas m_RenderDataMap key
+// spriteRenderDataKey 表示 SpriteAtlas m_RenderDataMap 的复合键
+// spriteRenderDataKey represents a composite SpriteAtlas m_RenderDataMap key
 type spriteRenderDataKey struct {
-	GUID   [4]uint32 // Sprite render data GUID / Sprite render data GUID
+	GUID   [4]uint32 // Sprite 渲染数据 GUID / Sprite render-data GUID
 	Second int64     // 复合 key 的 second 部分 / Second part of the composite key
 }
 
-// DefaultAssetResolver 只解析同一 AssetsFile 内部引用 / DefaultAssetResolver resolves references within the same AssetsFile only
+// DefaultAssetResolver 只解析同一 AssetsFile 内部引用
+// DefaultAssetResolver resolves references within the same AssetsFile only
 func DefaultAssetResolver(relativeTo *AssetsFile, fileID int32, pathID int64) (*AssetsFile, *AssetInfo, error) {
 	if pathID == 0 {
 		return nil, nil, fmt.Errorf("null PPtr")
@@ -63,9 +70,8 @@ func DefaultAssetResolver(relativeTo *AssetsFile, fileID int32, pathID int64) (*
 	return relativeTo, info, nil
 }
 
-// AbaAssetResolver 返回可解析 .aba 内全部序列化文件的 resolver；map key 应包含 .aba 目录名或文件基名。
-//
-// AbaAssetResolver returns a resolver for all serialized files in an .aba; map keys should include .aba directory names or file basenames.
+// AbaAssetResolver 返回可解析 .aba 内全部序列化文件的 resolver，映射键应包含 .aba 目录名或文件基名
+// AbaAssetResolver returns a resolver for all serialized files in an .aba; map keys should include .aba directory names or file basenames
 func AbaAssetResolver(files map[string]*AssetsFile) AssetResolver {
 	return func(relativeTo *AssetsFile, fileID int32, pathID int64) (*AssetsFile, *AssetInfo, error) {
 		if pathID == 0 {
@@ -124,10 +130,10 @@ func AbaAssetResolver(files map[string]*AssetsFile) AssetResolver {
 	}
 }
 
-// lookupAbaAssetFile resolves an external-file name without depending on
-// map iteration order. Case-sensitive normalized matches take precedence over
-// case-insensitive matches; multiple distinct AssetsFiles are always rejected
-// as ambiguous. Multiple aliases that point to the same AssetsFile are safe.
+// lookupAbaAssetFile 以不依赖映射遍历顺序的方式解析外部文件名
+// 规范化后区分大小写的匹配优先于忽略大小写匹配，多个不同 AssetsFile 会被视为歧义，指向同一 AssetsFile 的多个别名是安全的
+// lookupAbaAssetFile resolves an external-file name without depending on map iteration order
+// Case-sensitive normalized matches take precedence over case-insensitive matches; multiple distinct AssetsFiles are rejected as ambiguous, while aliases pointing to the same AssetsFile are safe
 func lookupAbaAssetFile(files map[string]*AssetsFile, name string) (*AssetsFile, bool, error) {
 	fullName := normalizeAbaAssetPath(name)
 	if fullName == "" {
@@ -154,14 +160,14 @@ func lookupAbaAssetFile(files map[string]*AssetsFile, name string) (*AssetsFile,
 		return matches
 	}
 
-	// Prefer the complete normalized path. This preserves Unity's external
-	// file identity when two directories contain same-named assets files.
+	// 优先匹配完整规范路径，以便两个目录含同名 assets 文件时保留 Unity 外部文件身份
+	// Prefer the complete normalized path to preserve Unity external-file identity when two directories contain same-named assets files
 	matches := find(fullName, false, false)
 	if len(matches) == 0 {
 		matches = find(fullName, true, false)
 	}
-	// Older callers often index .aba files by basename only. Retain that
-	// compatibility as a final fallback after complete-path matching.
+	// 旧调用方常仅按基名索引 .aba 文件，因此在完整路径匹配后保留基名作为最后兼容回退
+	// Older callers often index .aba files only by basename, so retain basename matching as the final compatibility fallback after full-path matching
 	if len(matches) == 0 {
 		baseName := path.Base(fullName)
 		matches = find(baseName, false, true)
@@ -178,6 +184,8 @@ func lookupAbaAssetFile(files map[string]*AssetsFile, name string) (*AssetsFile,
 	return nil, false, nil
 }
 
+// normalizeAbaAssetPath 将 Unity archive 路径规范化为 .aba 内部相对路径
+// normalizeAbaAssetPath normalizes a Unity archive path to an .aba-internal relative path
 func normalizeAbaAssetPath(p string) string {
 	p = strings.TrimSpace(p)
 	if p == "" || p == "." {
@@ -197,8 +205,10 @@ func normalizeAbaAssetPath(p string) string {
 	return p
 }
 
-// GetSpriteExport 将 Unity Sprite 解析为 Texture2D、裁剪矩形和 SpriteSettings / GetSpriteExport resolves a Unity Sprite to a Texture2D, crop rectangle, and SpriteSettings
-// 支持直接 m_RD.texture 引用和通过 m_RenderDataMap 的 SpriteAtlas 间接引用 / It supports direct m_RD.texture references and SpriteAtlas indirection through m_RenderDataMap
+// GetSpriteExport 将 Unity Sprite 解析为 Texture2D、裁剪矩形和 SpriteSettings
+// 支持直接 m_RD.texture 引用和通过 m_RenderDataMap 的 SpriteAtlas 间接引用
+// GetSpriteExport resolves a Unity Sprite to a Texture2D, crop rectangle, and SpriteSettings
+// It supports direct m_RD.texture references and SpriteAtlas indirection through m_RenderDataMap
 func (af *AssetsFile) GetSpriteExport(info *AssetInfo, resolver AssetResolver, streamResolver AbaFileResolver) (*SpriteExport, error) {
 	var rangeResolver AbaFileRangeResolver
 	if streamResolver != nil {
@@ -207,7 +217,8 @@ func (af *AssetsFile) GetSpriteExport(info *AssetInfo, resolver AssetResolver, s
 	return af.GetSpriteExportRange(info, resolver, rangeResolver)
 }
 
-// GetSpriteExportRange 是 GetSpriteExport 的范围读取版本 / GetSpriteExportRange is the range-read variant of GetSpriteExport
+// GetSpriteExportRange 是 GetSpriteExport 的 sidecar 范围读取版本
+// GetSpriteExportRange is the sidecar range-read variant of GetSpriteExport
 func (af *AssetsFile) GetSpriteExportRange(info *AssetInfo, resolver AssetResolver, streamResolver AbaFileRangeResolver) (*SpriteExport, error) {
 	if resolver == nil {
 		resolver = DefaultAssetResolver
@@ -242,6 +253,8 @@ func (af *AssetsFile) GetSpriteExportRange(info *AssetInfo, resolver AssetResolv
 	return &SpriteExport{Name: name, Texture: tex, Rect: atlasRect, SettingsRaw: atlasSettings}, nil
 }
 
+// resolveSpriteViaAtlas 使用 m_RenderDataKey 在引用或当前文件的 SpriteAtlas 中查找 Sprite 渲染数据
+// resolveSpriteViaAtlas uses m_RenderDataKey to find Sprite render data in a referenced or current-file SpriteAtlas
 func (af *AssetsFile) resolveSpriteViaAtlas(root *TypeTreeValue, resolver AssetResolver, streamResolver AbaFileRangeResolver) (*Texture2DData, SpriteRect, uint32, error) {
 	spriteKey, ok := readRenderDataKey(root.Field("m_RenderDataKey"))
 	if !ok {
@@ -274,6 +287,8 @@ func (af *AssetsFile) resolveSpriteViaAtlas(root *TypeTreeValue, resolver AssetR
 	return nil, SpriteRect{}, 0, fmt.Errorf("SpriteAtlas render data not found")
 }
 
+// resolveSpriteInAtlas 在一个 SpriteAtlas 的 m_RenderDataMap 中解析匹配键对应的贴图、矩形和设置
+// resolveSpriteInAtlas resolves the texture, rectangle, and settings for a matching key in one SpriteAtlas m_RenderDataMap
 func (af *AssetsFile) resolveSpriteInAtlas(atlasInfo *AssetInfo, key spriteRenderDataKey, resolver AssetResolver, streamResolver AbaFileRangeResolver) (*Texture2DData, SpriteRect, uint32, error) {
 	root, err := af.ReadAssetValue(atlasInfo)
 	if err != nil {
@@ -306,6 +321,8 @@ func (af *AssetsFile) resolveSpriteInAtlas(atlasInfo *AssetInfo, key spriteRende
 	return nil, SpriteRect{}, 0, fmt.Errorf("m_RenderDataMap has no matching key")
 }
 
+// resolveTexture2D 解析 PPtr 并确认目标对象是 Texture2D 后读取其图像数据
+// resolveTexture2D resolves a PPtr and reads image data after verifying that the target object is Texture2D
 func resolveTexture2D(relativeTo *AssetsFile, pptr unityPPtr, resolver AssetResolver, streamResolver AbaFileRangeResolver) (*Texture2DData, error) {
 	texAF, texInfo, err := resolver(relativeTo, pptr.FileID, pptr.PathID)
 	if err != nil {
@@ -317,8 +334,10 @@ func resolveTexture2D(relativeTo *AssetsFile, pptr unityPPtr, resolver AssetReso
 	return texAF.GetTexture2DDataRange(texInfo, streamResolver)
 }
 
-// WriteSpritePNG 将 Sprite 裁剪结果导出为 PNG / WriteSpritePNG exports a Sprite crop as PNG
-// 贴图解压和最终裁剪、翻转、旋转交给 ImageMagick 处理 / Texture decompression and final crop, flip, and rotate are delegated to ImageMagick
+// WriteSpritePNG 将 Sprite 裁剪结果导出为 PNG
+// 贴图解压和最终裁剪、翻转、旋转交给 ImageMagick 处理
+// WriteSpritePNG exports a Sprite crop as PNG
+// Texture decompression and final crop, flip, and rotation are delegated to ImageMagick
 func WriteSpritePNG(sprite *SpriteExport, outPath string) error {
 	if sprite == nil {
 		return fmt.Errorf("nil sprite")
@@ -344,9 +363,8 @@ func WriteSpritePNG(sprite *SpriteExport, outPath string) error {
 	return nil
 }
 
-// WriteSpritePNGTo writes a cropped Sprite PNG to an already-open
-// destination. ImageMagick emits to stdout so callers can retain filesystem
-// confinement with an os.Root-backed file handle.
+// WriteSpritePNGTo 将裁剪后的 Sprite PNG 写入已打开的目标，ImageMagick 输出到 stdout 以便调用方保留 os.Root 文件系统约束
+// WriteSpritePNGTo writes a cropped Sprite PNG to an open destination; ImageMagick emits to stdout so callers can retain filesystem confinement with an os.Root-backed handle
 func WriteSpritePNGTo(sprite *SpriteExport, out io.Writer) error {
 	if sprite == nil {
 		return fmt.Errorf("nil sprite")
@@ -389,6 +407,8 @@ func WriteSpritePNGTo(sprite *SpriteExport, out io.Writer) error {
 	return nil
 }
 
+// spriteCropGeometry 将 Unity 左下原点矩形转换为 ImageMagick 左上原点裁剪参数
+// spriteCropGeometry converts a Unity lower-left-origin rectangle to ImageMagick upper-left-origin crop geometry
 func spriteCropGeometry(tex *Texture2DData, rect SpriteRect) string {
 	x := int64(math.Round(float64(rect.X)))
 	y := int64(tex.Height) - int64(math.Round(float64(rect.Y+rect.Height)))
@@ -413,6 +433,8 @@ func spriteCropGeometry(tex *Texture2DData, rect SpriteRect) string {
 	return fmt.Sprintf("%dx%d+%d+%d", w, h, x, y)
 }
 
+// spriteMagickOrientationArgs 根据 SpriteSettings 的 packed 位和 packing rotation 位生成翻转或旋转参数
+// spriteMagickOrientationArgs builds flip or rotation arguments from the packed and packing-rotation bits of SpriteSettings
 func spriteMagickOrientationArgs(settingsRaw uint32) []string {
 	if settingsRaw&1 == 0 {
 		return nil
@@ -431,6 +453,8 @@ func spriteMagickOrientationArgs(settingsRaw uint32) []string {
 	}
 }
 
+// readPPtr 从 TypeTreeValue 的 m_FileID 和 m_PathID 字段读取 Unity PPtr
+// readPPtr reads a Unity PPtr from m_FileID and m_PathID fields in TypeTreeValue
 func readPPtr(v *TypeTreeValue) (unityPPtr, bool) {
 	if v == nil {
 		return unityPPtr{}, false
@@ -443,6 +467,8 @@ func readPPtr(v *TypeTreeValue) (unityPPtr, bool) {
 	return unityPPtr{FileID: int32(fileID), PathID: pathID}, true
 }
 
+// readRenderDataKey 从 Sprite 的 m_RenderDataKey 嵌套 pair 读取 GUID 和第二键值
+// readRenderDataKey reads the GUID and second key value from a Sprite m_RenderDataKey nested pair
 func readRenderDataKey(v *TypeTreeValue) (spriteRenderDataKey, bool) {
 	if v == nil {
 		return spriteRenderDataKey{}, false
@@ -458,6 +484,8 @@ func readRenderDataKey(v *TypeTreeValue) (spriteRenderDataKey, bool) {
 	return spriteRenderDataKey{GUID: guid, Second: second}, true
 }
 
+// readAtlasMapKey 从 SpriteAtlas m_RenderDataMap 的 first 键读取 GUID 和第二键值
+// readAtlasMapKey reads the GUID and second key value from a SpriteAtlas m_RenderDataMap first key
 func readAtlasMapKey(v *TypeTreeValue) (spriteRenderDataKey, bool) {
 	if v == nil {
 		return spriteRenderDataKey{}, false
@@ -473,6 +501,8 @@ func readAtlasMapKey(v *TypeTreeValue) (spriteRenderDataKey, bool) {
 	return spriteRenderDataKey{GUID: guid, Second: second}, true
 }
 
+// readGUID 从四个 TypeTree 子节点读取 Unity GUID 的 UInt32 分量
+// readGUID reads the four UInt32 components of a Unity GUID from TypeTree child nodes
 func readGUID(v *TypeTreeValue) ([4]uint32, bool) {
 	var out [4]uint32
 	if v == nil || len(v.Children) < 4 {
@@ -488,6 +518,8 @@ func readGUID(v *TypeTreeValue) ([4]uint32, bool) {
 	return out, true
 }
 
+// readSpriteRect 从 x、y、width 和 height 字段读取有效的正尺寸矩形
+// readSpriteRect reads a valid positive-size rectangle from x, y, width, and height fields
 func readSpriteRect(v *TypeTreeValue) (SpriteRect, bool) {
 	if v == nil {
 		return SpriteRect{}, false
@@ -502,6 +534,8 @@ func readSpriteRect(v *TypeTreeValue) (SpriteRect, bool) {
 	return SpriteRect{X: x, Y: y, Width: w, Height: h}, true
 }
 
+// fullSpriteRect 返回覆盖完整 Texture2D 的左下原点矩形
+// fullSpriteRect returns a lower-left-origin rectangle covering an entire Texture2D
 func fullSpriteRect(tex *Texture2DData) SpriteRect {
 	if tex == nil {
 		return SpriteRect{}
@@ -509,6 +543,8 @@ func fullSpriteRect(tex *Texture2DData) SpriteRect {
 	return SpriteRect{Width: float32(tex.Width), Height: float32(tex.Height)}
 }
 
+// readUint32Field 读取可转换为整数的字段并返回其 UInt32 位值，失败时返回零
+// readUint32Field reads an integer-convertible field as UInt32 bits and returns zero on failure
 func readUint32Field(v *TypeTreeValue) uint32 {
 	if v == nil {
 		return 0
@@ -520,6 +556,8 @@ func readUint32Field(v *TypeTreeValue) uint32 {
 	return uint32(n)
 }
 
+// collectAtlasMapEntries 递归收集形状符合 m_RenderDataMap 键值 pair 的节点
+// collectAtlasMapEntries recursively collects nodes shaped like m_RenderDataMap key-value pairs
 func collectAtlasMapEntries(v *TypeTreeValue) []*TypeTreeValue {
 	var out []*TypeTreeValue
 	var walk func(*TypeTreeValue)
