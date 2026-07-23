@@ -14,6 +14,8 @@
       "x-meido-edit-guidance": "Keep it consistent with the game's hash function and MaterialName; let a format-aware writer recalculate it when supported.",
       "x-meido-edit-role": "derived_identity",
       "x-meido-game-usage": "ImportCM indexes the entry by this value and then checks that the resolved material name matches.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
       "x-meido-risk": "critical",
       "x-meido-source-evidence": [
         {
@@ -123,6 +125,8 @@
       "x-meido-edit-guidance": "Preserve the source value; use the target game's known version for new files.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "The reviewed reader consumes it for layout compatibility; it does not use it as the render queue.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
       "x-meido-risk": "high",
       "x-meido-source-evidence": [
         {

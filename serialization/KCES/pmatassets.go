@@ -22,7 +22,7 @@ import "fmt"
 type PriorityMaterial struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
-	Version                int     `json:"version"`     // 版本号，固定为 1000 / Version value, fixed to 1000
+	Version                int32   `json:"version"`     // 版本号，固定为 1000 / Version value, fixed to 1000
 	ID                     uint64  `json:"id"`          // 材质 ID，通常为 fileName 去扩展名后小写的 FNV hash / Material ID, usually lowercase extensionless fileName FNV hash
 	FileName               string  `json:"fileName"`    // 材质文件名，如 xxx.pmat / Material file name such as xxx.pmat
 	RenderQueue            float32 `json:"renderQueue"` // 渲染队列值，控制渲染顺序 / Render queue value controlling draw order
@@ -59,9 +59,6 @@ func DecodePriorityMaterial(arr []interface{}) (*PriorityMaterial, error) {
 	if err := decodeRawMsgpackArray(arr, pm, "PriorityMaterial"); err != nil {
 		return nil, err
 	}
-	if err := validateGameInt32Fields(pm); err != nil {
-		return nil, fmt.Errorf("decode PriorityMaterial integer field: %w", err)
-	}
 	return pm, nil
 }
 
@@ -88,9 +85,6 @@ func DecodePriorityMaterialAssets(data []byte) (*PriorityMaterialAssets, error) 
 	if err := decodeCompressedMsgpack(data, assets, "PriorityMaterialAssets"); err != nil {
 		return nil, err
 	}
-	if err := validateGameInt32Fields(assets); err != nil {
-		return nil, fmt.Errorf("decode PriorityMaterialAssets integer field: %w", err)
-	}
 	return assets, nil
 }
 
@@ -101,9 +95,6 @@ func EncodePriorityMaterialAssets(assets *PriorityMaterialAssets) ([]byte, error
 	}
 	normalized := *assets
 	normalized.Assets = cloneSlicePreserveNil(assets.Assets)
-	if err := validateGameInt32Fields(&normalized); err != nil {
-		return nil, fmt.Errorf("encode PriorityMaterialAssets integer field: %w", err)
-	}
 	return encodeCompressedMsgpack(&normalized, "PriorityMaterialAssets")
 }
 

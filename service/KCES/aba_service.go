@@ -73,7 +73,7 @@ func (s *AbaService) ListAba(path string) ([]aba.AssetEntry, error) {
 		if !dir.IsSerialized() {
 			continue
 		}
-		data, err := abaFile.GetFileData(i)
+		data, err := abaFile.GetFileData(int64(i))
 		if err != nil {
 			return nil, fmt.Errorf("read serialized .aba entry %q at directory index %d: %w", dir.Name, i, err)
 		}
@@ -97,12 +97,13 @@ func (s *AbaService) UnpackAba(abaPath string, outDir string) error {
 	if outDir == "" {
 		outDir = abaPath + "_unpacked"
 	}
-	rawAbaPaths := make(map[int]string)
+	rawAbaPaths := make(map[int64]string)
 	claimedOutputPaths := make(map[string]string)
 	if err := claimExtractionPaths(claimedOutputPaths, "UnityFS .aba metadata", abaMetaFileName); err != nil {
 		return err
 	}
 	for i, dir := range abaFile.BlockInfo.DirectoryInfos {
+		directoryIndex := int64(i)
 		if dir.IsSerialized() {
 			continue
 		}
@@ -113,17 +114,18 @@ func (s *AbaService) UnpackAba(abaPath string, outDir string) error {
 		if err := claimExtractionPaths(claimedOutputPaths, ".aba entry "+dir.Name, relPath); err != nil {
 			return err
 		}
-		rawAbaPaths[i] = relPath
+		rawAbaPaths[directoryIndex] = relPath
 	}
 
-	serialized := make(map[int]*aba.AssetsFile)
+	serialized := make(map[int64]*aba.AssetsFile)
 	serializedByName := make(map[string]*aba.AssetsFile)
-	containerMaps := make(map[int]map[int64]string)
+	containerMaps := make(map[int64]map[int64]string)
 	for i, dir := range abaFile.BlockInfo.DirectoryInfos {
+		directoryIndex := int64(i)
 		if !dir.IsSerialized() {
 			continue
 		}
-		data, err := abaFile.GetFileData(i)
+		data, err := abaFile.GetFileData(directoryIndex)
 		if err != nil {
 			return fmt.Errorf("read file %q from .aba failed: %w", dir.Name, err)
 		}
@@ -131,14 +133,14 @@ func (s *AbaService) UnpackAba(abaPath string, outDir string) error {
 		if err != nil {
 			return fmt.Errorf("parse AssetsFile %q failed: %w", dir.Name, err)
 		}
-		serialized[i] = af
+		serialized[directoryIndex] = af
 		serializedByName[dir.Name] = af
 		serializedByName[filepath.Base(dir.Name)] = af
 		containerNames, err := af.GetAssetBundleContainerMap()
 		if err != nil {
 			return fmt.Errorf("read AssetBundle container map from %q: %w", dir.Name, err)
 		}
-		containerMaps[i] = containerNames
+		containerMaps[directoryIndex] = containerNames
 	}
 	resolver := aba.AbaAssetResolver(serializedByName)
 	streamResolver := abaFile.GetFileDataRangeByName
@@ -162,20 +164,21 @@ func (s *AbaService) UnpackAba(abaPath string, outDir string) error {
 	}
 
 	for i, dir := range abaFile.BlockInfo.DirectoryInfos {
+		directoryIndex := int64(i)
 		if !dir.IsSerialized() {
 			// 非序列化文件（如多 GiB 的 .resS）使用范围 API 流式提取，
 			// 避免 GetFileData 的单次内存上限和整文件分配。
-			if err := writeRawAbaDirectory(root, abaFile, dir, rawAbaPaths[i]); err != nil {
+			if err := writeRawAbaDirectory(root, abaFile, dir, rawAbaPaths[directoryIndex]); err != nil {
 				return fmt.Errorf("write raw .aba entry %q: %w", dir.Name, err)
 			}
 			continue
 		}
 
-		af := serialized[i]
+		af := serialized[directoryIndex]
 		if af == nil {
 			return fmt.Errorf("serialized .aba entry %q at directory index %d was not loaded", dir.Name, i)
 		}
-		if err := unpackAssetsFile(root, dir.Name, abaFile, af, containerMaps[i], resolver, streamResolver, claimedOutputPaths); err != nil {
+		if err := unpackAssetsFile(root, dir.Name, abaFile, af, containerMaps[directoryIndex], resolver, streamResolver, claimedOutputPaths); err != nil {
 			return err
 		}
 	}

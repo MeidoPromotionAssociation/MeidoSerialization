@@ -285,7 +285,7 @@ func (r *kcesPresetInnerReader) readNullableString(path string) (*string, error)
 	return &value, nil
 }
 
-func (r *kcesPresetInnerReader) readCount(path string, minimumBytes int) (int, error) {
+func (r *kcesPresetInnerReader) readCount(path string, minimumBytes int64) (int64, error) {
 	count, err := r.br.ReadInt32()
 	if err != nil {
 		return 0, fmt.Errorf("read %s: %w", path, err)
@@ -293,10 +293,10 @@ func (r *kcesPresetInnerReader) readCount(path string, minimumBytes int) (int, e
 	if count < 0 {
 		return 0, fmt.Errorf("negative %s %d", path, count)
 	}
-	if minimumBytes > 0 && int64(count) > int64(r.r.Len()/minimumBytes) {
+	if minimumBytes > 0 && int64(count) > int64(r.r.Len())/minimumBytes {
 		return 0, fmt.Errorf("%s %d cannot fit in %d remaining bytes", path, count, r.r.Len())
 	}
-	return int(count), nil
+	return int64(count), nil
 }
 
 func (r *kcesPresetInnerReader) readBlob(path string) ([]byte, error) {
@@ -344,7 +344,7 @@ func writeKCESPresetInnerNullableString(bw *stream.BinaryWriter, value *string) 
 	return nil
 }
 
-func validateKCESPresetInnerSliceLength(length int, path string) error {
+func validateKCESPresetInnerSliceLength(length int64, path string) error {
 	if uint64(length) > uint64(math.MaxInt32) {
 		return fmt.Errorf("%s length %d exceeds Int32", path, length)
 	}
@@ -443,17 +443,17 @@ func EncodeKCESPresetColorData(value *KCESPresetColorData) ([]byte, error) {
 		return nil, fmt.Errorf("invalid KCES preset color signature %q", signature)
 	}
 	version := value.Version
-	if err := validateKCESPresetInnerSliceLength(len(value.LegacyParts), "KCES preset color legacyParts"); err != nil {
+	if err := validateKCESPresetInnerSliceLength(int64(len(value.LegacyParts)), "KCES preset color legacyParts"); err != nil {
 		return nil, err
 	}
-	if err := validateKCESPresetInnerSliceLength(len(value.PartNames), "KCES preset color partNames"); err != nil {
+	if err := validateKCESPresetInnerSliceLength(int64(len(value.PartNames)), "KCES preset color partNames"); err != nil {
 		return nil, err
 	}
 	if value.PartCount < 0 {
 		return nil, fmt.Errorf("negative KCES preset color partCount %d", value.PartCount)
 	}
 	if version <= 1200 {
-		if int(value.PartCount) != len(value.LegacyParts) {
+		if int64(value.PartCount) != int64(len(value.LegacyParts)) {
 			return nil, fmt.Errorf("KCES preset legacy color partCount %d does not match legacyParts length %d", value.PartCount, len(value.LegacyParts))
 		}
 		if len(value.PartNames) != 0 {
@@ -607,18 +607,12 @@ func readKCESPresetVector2Int(r *kcesPresetInnerReader, path string) (Vector2Int
 	if err != nil {
 		return Vector2Int{}, fmt.Errorf("read %s.y: %w", path, err)
 	}
-	return Vector2Int{X: int(x), Y: int(y)}, nil
+	return Vector2Int{X: x, Y: y}, nil
 }
 
 func writeKCESPresetVector2Int(bw *stream.BinaryWriter, value Vector2Int) error {
-	if err := requireInt32("KCES preset Vector2Int.x", value.X); err != nil {
+	if err := bw.WriteInt32(value.X); err != nil {
 		return err
 	}
-	if err := requireInt32("KCES preset Vector2Int.y", value.Y); err != nil {
-		return err
-	}
-	if err := bw.WriteInt32(int32(value.X)); err != nil {
-		return err
-	}
-	return bw.WriteInt32(int32(value.Y))
+	return bw.WriteInt32(value.Y)
 }

@@ -96,7 +96,7 @@ func WriteAba(w io.Writer, entries []AbaFileEntry, opts *AbaWriteOptions) error 
 	// 写出时重新编码，避免为整个 .aba 文件保留第二份大切片。
 	var blockInfos []BlockInfo
 	var compressedDataSize int64
-	err := forEachAbaDataBlock(entries, func(index int, block []byte) error {
+	err := forEachAbaDataBlock(entries, func(index int64, block []byte) error {
 		if _, err := int32WireLength("data block count", uint64(index)+1); err != nil {
 			return fmt.Errorf("data block count exceeds Int32 wire range")
 		}
@@ -227,12 +227,12 @@ func WriteAba(w io.Writer, entries []AbaFileEntry, opts *AbaWriteOptions) error 
 		return fmt.Errorf("write block and dir info: %w", err)
 	}
 	blockIndex := 0
-	err = forEachAbaDataBlock(entries, func(index int, block []byte) error {
+	err = forEachAbaDataBlock(entries, func(index int64, block []byte) error {
 		info, encoded, err := encodeAbaDataBlock(block, options.Compress)
 		if err != nil {
 			return err
 		}
-		if index >= len(blockInfos) || info != blockInfos[index] {
+		if index >= int64(len(blockInfos)) || info != blockInfos[index] {
 			return fmt.Errorf("data block %d changed between encoding passes", index)
 		}
 		if err := writeAbaBytes(w, encoded); err != nil {
@@ -260,7 +260,7 @@ func validateAbaHeaderString(field, value string) error {
 // forEachAbaDataBlock exposes the concatenated entry stream in bounded
 // UnityFS blocks. The scratch storage is reused and is valid only until fn
 // returns.
-func forEachAbaDataBlock(entries []AbaFileEntry, fn func(index int, block []byte) error) error {
+func forEachAbaDataBlock(entries []AbaFileEntry, fn func(index int64, block []byte) error) error {
 	if fn == nil {
 		return fmt.Errorf("data block callback is nil")
 	}
@@ -268,7 +268,7 @@ func forEachAbaDataBlock(entries []AbaFileEntry, fn func(index int, block []byte
 	scratch := make([]byte, blockSize)
 	entryIndex := 0
 	entryOffset := 0
-	blockIndex := 0
+	blockIndex := int64(0)
 	producedData := false
 
 	for {

@@ -376,7 +376,7 @@ func TestKCESSampleVersionFamiliesUseMatchingHeadersAndPreserveTargetPlatform(t 
 				if !entry.IsSerialized() {
 					continue
 				}
-				data, readErr := abaFile.GetFileData(i)
+				data, readErr := abaFile.GetFileData(int64(i))
 				if readErr != nil {
 					t.Fatalf("GetFileData: %v", readErr)
 				}
@@ -421,7 +421,7 @@ func TestUnpackAbaWritesSourceUnityVersionContext(t *testing.T) {
 		if !entry.IsSerialized() {
 			continue
 		}
-		data, readErr := abaFile.GetFileData(i)
+		data, readErr := abaFile.GetFileData(int64(i))
 		if readErr != nil {
 			t.Fatalf("GetFileData: %v", readErr)
 		}

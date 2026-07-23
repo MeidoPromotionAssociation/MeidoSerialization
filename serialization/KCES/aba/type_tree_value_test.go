@@ -48,7 +48,7 @@ func TestReadTypeTreeValue_AlignsNestedArrayNode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readTypeTreeValue: %v", err)
 	}
-	if next != len(tt.Nodes) {
+	if next != int64(len(tt.Nodes)) {
 		t.Fatalf("next node = %d, want %d", next, len(tt.Nodes))
 	}
 	values, ok := root.Field("values").Bytes()
@@ -80,7 +80,7 @@ func TestReadAssetValue_ArrayAlignmentRealSamples(t *testing.T) {
 				if !dir.IsSerialized() {
 					continue
 				}
-				data, err := abaFile.GetFileData(dirIndex)
+				data, err := abaFile.GetFileData(int64(dirIndex))
 				if err != nil {
 					t.Fatalf("GetFileData(%q): %v", dir.Name, err)
 				}

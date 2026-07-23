@@ -280,15 +280,17 @@ func inferRawUnityObjectName(path string, data []byte, meta rawAssetMeta) string
 	return strings.TrimSuffix(name, filepath.Ext(name))
 }
 
+// readRawUnityLeadingName 读取 Unity 原始对象开头的受限长度名称。
+// readRawUnityLeadingName reads the bounded length-prefixed name at the start of a raw Unity object.
 func readRawUnityLeadingName(data []byte) (string, bool) {
 	if len(data) < 4 {
 		return "", false
 	}
-	n := int(binary.LittleEndian.Uint32(data[:4]))
-	if n <= 0 || n > 4096 || 4+n > len(data) {
+	nameLength := int64(binary.LittleEndian.Uint32(data[:4]))
+	if nameLength <= 0 || nameLength > 4096 || 4+nameLength > int64(len(data)) {
 		return "", false
 	}
-	name := string(data[4 : 4+n])
+	name := string(data[4 : 4+nameLength])
 	for _, r := range name {
 		if r < 0x20 && r != '\t' && r != '\n' && r != '\r' {
 			return "", false

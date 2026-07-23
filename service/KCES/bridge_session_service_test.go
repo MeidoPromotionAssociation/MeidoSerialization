@@ -15,7 +15,7 @@ import (
 )
 
 func TestBridgeSessionServiceStrictJSONRoundTripAndUInt64(t *testing.T) {
-	fieldCount := 4
+	fieldCount := int32(4)
 	value := &serializationKCES.KCESBridgeSession{
 		Format:            serializationKCES.KCESBridgeSessionFormat,
 		ContainerVersion:  serializationKCES.KCESBridgeSessionContainerVersion,

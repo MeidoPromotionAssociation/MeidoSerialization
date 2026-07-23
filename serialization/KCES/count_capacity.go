@@ -15,7 +15,7 @@ func makeKCESCountedSliceForAppend[T any](count uint64) []T {
 	if capacity > kcesInitialCollectionCapacity {
 		capacity = kcesInitialCollectionCapacity
 	}
-	return make([]T, 0, int(capacity))
+	return make([]T, 0, int64(capacity))
 }
 
 func makeKCESCountedMap[K comparable, V any](count uint64) map[K]V {
@@ -23,5 +23,5 @@ func makeKCESCountedMap[K comparable, V any](count uint64) map[K]V {
 	if capacity > kcesInitialCollectionCapacity {
 		capacity = kcesInitialCollectionCapacity
 	}
-	return make(map[K]V, int(capacity))
+	return make(map[K]V, int64(capacity))
 }

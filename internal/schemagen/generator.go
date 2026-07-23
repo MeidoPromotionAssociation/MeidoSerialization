@@ -75,6 +75,11 @@ func Generate(formatID string) (Document, error) {
 	if selected == nil {
 		return Document{}, fmt.Errorf("no editing schema is registered for %q", formatID)
 	}
+	if strings.HasPrefix(id, "kces.") {
+		if err := validateFixedWidthIntegerTypes(selected.root); err != nil {
+			return Document{}, fmt.Errorf("validate fixed-width integer types for %s: %w", id, err)
+		}
+	}
 
 	root, definitions := buildReflectSchema(selected.root)
 	if selected.customize != nil {

@@ -38,6 +38,8 @@
       "x-meido-edit-guidance": "Do not hand-edit it; let the writer recalculate it after Commands changes.",
       "x-meido-edit-role": "derived",
       "x-meido-game-usage": "The compiler calculates it from the encoded Commands. The interpreter consumes it as header data but terminates command parsing by argument counts and the zero terminator.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
       "x-meido-risk": "high",
       "x-meido-source-evidence": [
         {
@@ -571,6 +573,8 @@
       "x-meido-edit-guidance": "Preserve an existing value; use 1000 when creating a COM3D2 2.48.0 menu.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "The reviewed compiler writes 1000. The current interpreter reads it for alignment but does not select a different command grammar from it.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
       "x-meido-risk": "high",
       "x-meido-source-evidence": [
         {

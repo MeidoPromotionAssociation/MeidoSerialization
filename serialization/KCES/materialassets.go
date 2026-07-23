@@ -25,7 +25,7 @@ import "fmt"
 type Material struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
-	Version                int           `json:"version"`      // 存储的版本；当前游戏 FixVersion 为 1000 / Stored version; current-game FixVersion is 1000
+	Version                int32         `json:"version"`      // 存储的版本；当前游戏 FixVersion 为 1000 / Stored version; current-game FixVersion is 1000
 	ID                     uint64        `json:"id"`           // 材质 ID，通常为 fileName 去扩展名后小写的 FNV hash / Material ID, usually lowercase extensionless fileName FNV hash
 	FileName               string        `json:"fileName"`     // 材质文件名，如 "xxx.mate" / Material file name, for example "xxx.mate"
 	ShaderName             string        `json:"shaderName"`   // Unity shader 名称 / Unity shader name
@@ -40,7 +40,7 @@ type Material struct {
 type TextureProp struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
-	Type                   int     `json:"type"`     // 属性类型枚举值，如 0=_MainTex, 1=_BumpMap / Property type enum, e.g. 0=_MainTex, 1=_BumpMap
+	Type                   int32   `json:"type"`     // 属性类型枚举值，如 0=_MainTex, 1=_BumpMap / Property type enum, e.g. 0=_MainTex, 1=_BumpMap
 	FileName               string  `json:"fileName"` // 纹理文件名 / Texture file name
 	Ox                     float32 `json:"ox"`       // 纹理偏移 X / Texture offset X
 	Oy                     float32 `json:"oy"`       // 纹理偏移 Y / Texture offset Y
@@ -53,7 +53,7 @@ type TextureProp struct {
 type ColorProp struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
-	Type                   int     `json:"type"` // 属性类型枚举值，如 100=_Color, 101=_ShadowColor / Property type enum, e.g. 100=_Color, 101=_ShadowColor
+	Type                   int32   `json:"type"` // 属性类型枚举值，如 100=_Color, 101=_ShadowColor / Property type enum, e.g. 100=_Color, 101=_ShadowColor
 	R                      float32 `json:"r"`    // 红色分量 (0.0~1.0) / Red channel (0.0 to 1.0)
 	G                      float32 `json:"g"`    // 绿色分量 / Green channel
 	B                      float32 `json:"b"`    // 蓝色分量 / Blue channel
@@ -65,7 +65,7 @@ type ColorProp struct {
 type VectorProp struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
-	Type                   int     `json:"type"` // 属性类型枚举值 / Property type enum value
+	Type                   int32   `json:"type"` // 属性类型枚举值 / Property type enum value
 	X                      float32 `json:"x"`    // 向量 X 分量 / Vector X component
 	Y                      float32 `json:"y"`    // 向量 Y 分量 / Vector Y component
 	Z                      float32 `json:"z"`    // 向量 Z 分量 / Vector Z component
@@ -77,7 +77,7 @@ type VectorProp struct {
 type FloatProp struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
-	Type                   int     `json:"type"` // 属性类型枚举值，如 200=_Shininess, 202=_OutlineWidth / Property type enum, e.g. 200=_Shininess, 202=_OutlineWidth
+	Type                   int32   `json:"type"` // 属性类型枚举值，如 200=_Shininess, 202=_OutlineWidth / Property type enum, e.g. 200=_Shininess, 202=_OutlineWidth
 	V                      float32 `json:"v"`    // 浮点值 / Float value
 }
 
@@ -106,9 +106,6 @@ func DecodeMaterialAssets(data []byte) (*MaterialAssets, error) {
 	if err := decodeCompressedMsgpack(data, assets, "MaterialAssets"); err != nil {
 		return nil, err
 	}
-	if err := validateGameInt32Fields(assets); err != nil {
-		return nil, fmt.Errorf("decode MaterialAssets integer field: %w", err)
-	}
 	return assets, nil
 }
 
@@ -119,9 +116,6 @@ func EncodeMaterialAssets(assets *MaterialAssets) ([]byte, error) {
 	}
 	normalized := *assets
 	normalized.Assets = cloneSlicePreserveNil(assets.Assets)
-	if err := validateGameInt32Fields(&normalized); err != nil {
-		return nil, fmt.Errorf("encode MaterialAssets integer field: %w", err)
-	}
 	return encodeCompressedMsgpack(&normalized, "MaterialAssets")
 }
 

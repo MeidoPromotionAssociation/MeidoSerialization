@@ -6,7 +6,9 @@
         "classId": {
           "maximum": 2147483647,
           "minimum": -2147483648,
-          "type": "integer"
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
         },
         "format": {
           "type": "string"
@@ -137,6 +139,8 @@
       "x-meido-edit-guidance": "Preserve it when round-tripping extracted data.",
       "x-meido-edit-role": "version_context",
       "x-meido-game-usage": "It identifies the source bundle context rather than changing the object payload itself.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": false,
       "x-meido-risk": "medium",
       "x-meido-source-evidence": [
         {
@@ -160,6 +164,8 @@
       "x-meido-edit-guidance": "Preserve the source value; changing it without rewriting dataBase64 makes the object undecodable.",
       "x-meido-edit-role": "runtime_type_identity",
       "x-meido-game-usage": "Unity uses ClassID to choose the object reader and TypeTree interpretation.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
       "x-meido-risk": "critical",
       "x-meido-source-evidence": [
         {
@@ -359,6 +365,8 @@
       "x-meido-edit-guidance": "Preserve it unless rebuilding the full container.",
       "x-meido-edit-role": "version_context",
       "x-meido-game-usage": "Unity's serialized-file reader uses it with the type and platform metadata.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": false,
       "x-meido-risk": "high",
       "x-meido-source-evidence": [
         {
@@ -385,6 +393,8 @@
       "x-meido-edit-guidance": "Preserve the original value unless rebuilding the complete serialized file.",
       "x-meido-edit-role": "runtime_metadata",
       "x-meido-game-usage": "Unity may use platform metadata while loading the object.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": false,
       "x-meido-risk": "high",
       "x-meido-source-evidence": [
         {

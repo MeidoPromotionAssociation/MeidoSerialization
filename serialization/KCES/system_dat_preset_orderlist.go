@@ -39,9 +39,9 @@ const (
 // the serialized object, so this lossless payload layer preserves them.
 type ColorPresetOrderList struct {
 	MessagePackRootMetadata
-	Version     int       `json:"version"`
+	Version     int32     `json:"version"`
 	IDOrderList []*string `json:"idOrderList"`
-	FieldCount  *int      `json:"fieldCount,omitempty"`
+	FieldCount  *int32    `json:"fieldCount,omitempty"`
 	FutureSlots [][]byte  `json:"futureSlots,omitempty"`
 }
 
@@ -91,7 +91,7 @@ func DecodeColorPresetOrderList(data []byte) (*ColorPresetOrderList, error) {
 
 	value := &ColorPresetOrderList{}
 	if fieldCount != 2 {
-		storedFieldCount := fieldCount
+		storedFieldCount := int32(fieldCount)
 		value.FieldCount = &storedFieldCount
 	}
 	if fieldCount > 2 {
@@ -109,7 +109,7 @@ func DecodeColorPresetOrderList(data []byte) (*ColorPresetOrderList, error) {
 			return nil, err
 		}
 	}
-	for field := 2; field < fieldCount; field++ {
+	for field := int64(2); field < fieldCount; field++ {
 		start := r.pos
 		if err := r.skipValue(0); err != nil {
 			return nil, fmt.Errorf("skip ColorPresetOrderList future Key(%d): %w", field, err)
@@ -151,11 +151,9 @@ func EncodeColorPresetOrderList(value *ColorPresetOrderList) ([]byte, error) {
 	if fieldCount < 2 && value.IDOrderList != nil {
 		return nil, fmt.Errorf("ColorPresetOrderList fieldCount %d would discard idOrderList", fieldCount)
 	}
-	if err := requireInt32("ColorPresetOrderList.version", value.Version); err != nil {
-		return nil, err
-	}
-	if uint64(len(value.IDOrderList)) > math.MaxUint32 {
-		return nil, fmt.Errorf("ColorPresetOrderList.idOrderList length %d exceeds the MessagePack array32 limit", len(value.IDOrderList))
+
+	if int64(len(value.IDOrderList)) > math.MaxInt32 {
+		return nil, fmt.Errorf("ColorPresetOrderList.idOrderList length %d exceeds the C# Int32 array-header limit", len(value.IDOrderList))
 	}
 	for index, id := range value.IDOrderList {
 		if id == nil {
@@ -177,7 +175,7 @@ func EncodeColorPresetOrderList(value *ColorPresetOrderList) ([]byte, error) {
 		if value.IDOrderList == nil {
 			raw = append(raw, 0xc0)
 		} else {
-			raw = simpleEditDataAppendArrayHeader(raw, len(value.IDOrderList))
+			raw = simpleEditDataAppendArrayHeader(raw, int64(len(value.IDOrderList)))
 			for _, id := range value.IDOrderList {
 				if id == nil {
 					raw = append(raw, 0xc0)
@@ -219,7 +217,7 @@ func readColorPresetOrderStringList(r *simpleEditDataReader) ([]*string, error) 
 	}
 
 	result := makeKCESCountedSliceForAppend[*string](uint64(count))
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		if r.tryReadNil() {
 			result = append(result, nil)
 			continue

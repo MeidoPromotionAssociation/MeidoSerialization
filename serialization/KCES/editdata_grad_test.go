@@ -17,7 +17,7 @@ func TestDecodeGradPointsDataHandwrittenWire(t *testing.T) {
 	}
 
 	want := &GradPointsData{
-		GradPointParam: []map[int]int{{
+		GradPointParam: []map[int32]int32{{
 			0: 10, 1: 20, 2: 30, 3: 40, 4: 50,
 			5: 60, 6: 70, 7: 80, 8: 90,
 		}},
@@ -34,12 +34,12 @@ func TestDecodeGradPointsDataHandwrittenWire(t *testing.T) {
 }
 
 func TestEncodeGradPointsDataCanonicalWireAndNoMutation(t *testing.T) {
-	values := map[int]int{}
-	for key := 8; key >= 0; key-- {
+	values := map[int32]int32{}
+	for key := int32(8); key >= 0; key-- {
 		values[key] = (key + 1) * 10
 	}
 	input := &GradPointsData{
-		GradPointParam:        []map[int]int{values},
+		GradPointParam:        []map[int32]int32{values},
 		ControlPointPosValue:  []float32{0.25},
 		GradaPointPosRates:    []float32{-1.5, 2.5},
 		EditMPN:               -2147483648,
@@ -70,7 +70,7 @@ func TestEncodeGradPointsDataCanonicalWireAndNoMutation(t *testing.T) {
 
 func TestGradPointsDataEmptyAndLegacySlots(t *testing.T) {
 	input := &GradPointsData{
-		GradPointParam:        []map[int]int{},
+		GradPointParam:        []map[int32]int32{},
 		ControlPointPosValue:  []float32{},
 		GradaPointPosRates:    []float32{3.25},
 		EditMPN:               7,
@@ -99,7 +99,7 @@ func TestGradPointsDataPreservesAllFloat32BitPatterns(t *testing.T) {
 	// MessagePackReader.ReadSingle accepts every IEEE-754 single value. Do not
 	// silently impose a finite-only rule that is absent from the game format.
 	input := &GradPointsData{
-		GradPointParam:        []map[int]int{gradTestColorMap()},
+		GradPointParam:        []map[int32]int32{gradTestColorMap()},
 		ControlPointPosValue:  []float32{math.Float32frombits(0x7fc01234)},
 		GradaPointPosRates:    []float32{float32(math.Inf(1)), float32(math.Inf(-1))},
 		PointRangeAfterRates:  []float32{float32(math.Inf(1))},
@@ -174,11 +174,11 @@ func TestEncodeGradPointsDataCollectionHeaders(t *testing.T) {
 
 	t.Run("map16", func(t *testing.T) {
 		color := gradTestColorMap()
-		for key := 9; key < 16; key++ {
+		for key := int32(9); key < 16; key++ {
 			color[key] = key * 2
 		}
 		value := &GradPointsData{
-			GradPointParam:        []map[int]int{color},
+			GradPointParam:        []map[int32]int32{color},
 			ControlPointPosValue:  []float32{0},
 			GradaPointPosRates:    []float32{},
 			PointRangeAfterRates:  []float32{0},
@@ -321,7 +321,7 @@ func TestDecodeGradPointsDataRejectsMalformedWire(t *testing.T) {
 
 func TestGradPointsDataPreservesIndependentCollectionLengths(t *testing.T) {
 	base := &GradPointsData{
-		GradPointParam:        []map[int]int{gradTestColorMap()},
+		GradPointParam:        []map[int32]int32{gradTestColorMap()},
 		ControlPointPosValue:  []float32{0},
 		GradaPointPosRates:    []float32{},
 		PointRangeAfterRates:  []float32{0},
@@ -355,7 +355,7 @@ func TestGradPointsDataPreservesIndependentCollectionLengths(t *testing.T) {
 
 func TestEncodeGradPointsDataValidationAndInt32Bounds(t *testing.T) {
 	valid := &GradPointsData{
-		GradPointParam:        []map[int]int{gradTestColorMap()},
+		GradPointParam:        []map[int32]int32{gradTestColorMap()},
 		ControlPointPosValue:  []float32{0},
 		GradaPointPosRates:    []float32{},
 		PointRangeAfterRates:  []float32{0},
@@ -434,38 +434,7 @@ func TestEncodeGradPointsDataValidationAndInt32Bounds(t *testing.T) {
 		}
 	})
 
-	if strconvIntSizeForGradTest() > 32 {
-		t.Run("edit MPN overflow", func(t *testing.T) {
-			value := gradTestClone(valid)
-			value.EditMPN = int(int64(math.MaxInt32) + 1)
-			if _, err := EncodeGradPointsData(value); err == nil || !strings.Contains(err.Error(), "Int32") {
-				t.Fatalf("got error %v, want Int32 overflow", err)
-			}
-		})
-		t.Run("isSave underflow", func(t *testing.T) {
-			value := gradTestClone(valid)
-			value.IsSave = int(int64(math.MinInt32) - 1)
-			if _, err := EncodeGradPointsData(value); err == nil || !strings.Contains(err.Error(), "Int32") {
-				t.Fatalf("got error %v, want Int32 overflow", err)
-			}
-		})
-		t.Run("map value overflow", func(t *testing.T) {
-			value := gradTestClone(valid)
-			value.GradPointParam[0][0] = int(int64(math.MaxInt32) + 1)
-			if _, err := EncodeGradPointsData(value); err == nil || !strings.Contains(err.Error(), "Int32") {
-				t.Fatalf("got error %v, want Int32 overflow", err)
-			}
-		})
-		t.Run("map key overflow", func(t *testing.T) {
-			value := gradTestClone(valid)
-			value.GradPointParam[0][int(int64(math.MaxInt32)+1)] = 1
-			if _, err := EncodeGradPointsData(value); err == nil || !strings.Contains(err.Error(), "Int32") {
-				t.Fatalf("got error %v, want Int32 overflow", err)
-			}
-		})
-	}
-
-	for _, bound := range []int{math.MinInt32, math.MaxInt32} {
+	for _, bound := range []int32{math.MinInt32, math.MaxInt32} {
 		value := gradTestClone(valid)
 		value.EditMPN = bound
 		value.IsSave = bound
@@ -601,9 +570,9 @@ func gradTestMapListOverflowValue() []byte {
 	return wire
 }
 
-func gradTestColorMap() map[int]int {
-	value := make(map[int]int, 9)
-	for i := 0; i < 9; i++ {
+func gradTestColorMap() map[int32]int32 {
+	value := make(map[int32]int32, 9)
+	for i := int32(0); i < 9; i++ {
 		value[i] = i
 	}
 	return value
@@ -614,12 +583,12 @@ func gradTestClone(src *GradPointsData) *GradPointsData {
 		return nil
 	}
 	dst := *src
-	dst.GradPointParam = make([]map[int]int, len(src.GradPointParam))
+	dst.GradPointParam = make([]map[int32]int32, len(src.GradPointParam))
 	for i, values := range src.GradPointParam {
 		if values == nil {
 			continue
 		}
-		dst.GradPointParam[i] = make(map[int]int, len(values))
+		dst.GradPointParam[i] = make(map[int32]int32, len(values))
 		for key, value := range values {
 			dst.GradPointParam[i][key] = value
 		}
@@ -629,8 +598,4 @@ func gradTestClone(src *GradPointsData) *GradPointsData {
 	dst.PointRangeAfterRates = append([]float32{}, src.PointRangeAfterRates...)
 	dst.PointRangeBeforeRates = append([]float32{}, src.PointRangeBeforeRates...)
 	return &dst
-}
-
-func strconvIntSizeForGradTest() int {
-	return 32 << (^uint(0) >> 63)
 }

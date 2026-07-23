@@ -33,7 +33,7 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 	validMorph := func() BlendData {
 		return BlendData{
 			Name:   "morph",
-			VIndex: []int{0},
+			VIndex: []int32{0},
 			Vert:   []Vector3{{}},
 			Norm:   []Vector3{{}},
 			Tan:    []Vector4{{}},
@@ -75,7 +75,7 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 			name: "parent out of range",
 			model: func() Model {
 				model := validModelForStructureTest()
-				model.TransData[0].ParentNo = len(model.TransData)
+				model.TransData[0].ParentNo = int32(len(model.TransData))
 				return model
 			},
 			want: "transData[0].paretnNo",
@@ -282,7 +282,7 @@ func TestEncodeModelDoesNotGuessExternalMeshVertexUpperBound(t *testing.T) {
 	model := validModelForStructureTest()
 	model.Morphs = []BlendData{{
 		Name:   "external-mesh-bound",
-		VIndex: []int{1 << 30},
+		VIndex: []int32{1 << 30},
 		Vert:   []Vector3{{}},
 		Norm:   []Vector3{{}},
 		Tan:    []Vector4{{}},

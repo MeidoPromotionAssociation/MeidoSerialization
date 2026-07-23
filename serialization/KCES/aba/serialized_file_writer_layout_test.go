@@ -232,7 +232,7 @@ func TestSerializedFileWriter_RejectsInvalidTextureAndUnknownUnityLine(t *testin
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := encodeTexture2DData(tc.version, "invalid.tex", tc.width, tc.height, tc.imageData); err == nil {
+			if _, err := encodeTexture2DData(tc.version, "invalid.tex", int64(tc.width), int64(tc.height), tc.imageData); err == nil {
 				t.Fatal("encodeTexture2DData unexpectedly succeeded")
 			}
 		})
@@ -268,7 +268,7 @@ func sampleTypeTree(t *testing.T, sample string, classID int32) TypeTreeType {
 		if !dir.IsSerialized() {
 			continue
 		}
-		data, err := abaFile.GetFileData(i)
+		data, err := abaFile.GetFileData(int64(i))
 		if err != nil {
 			t.Fatalf("GetFileData(%q): %v", dir.Name, err)
 		}
@@ -294,7 +294,7 @@ func decodeObjectWithTypeTree(t *testing.T, tt *TypeTreeType, data []byte) *Type
 	if err != nil {
 		t.Fatalf("decode generated object with real KCES type tree: %v", err)
 	}
-	if next != len(tt.Nodes) {
+	if next != int64(len(tt.Nodes)) {
 		t.Fatalf("type tree stopped at node %d/%d", next, len(tt.Nodes))
 	}
 	if r.Remaining() != 0 {

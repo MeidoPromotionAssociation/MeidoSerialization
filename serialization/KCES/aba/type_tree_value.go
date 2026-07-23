@@ -47,7 +47,7 @@ func (af *AssetsFile) ReadAssetValue(info *AssetInfo) (*TypeTreeValue, error) {
 	if err != nil {
 		return nil, err
 	}
-	if next != len(tt.Nodes) {
+	if next != int64(len(tt.Nodes)) {
 		return nil, fmt.Errorf("type tree for class %d stopped at node %d/%d", info.TypeId, next, len(tt.Nodes))
 	}
 	if r.Remaining() != 0 {
@@ -67,8 +67,8 @@ func (af *AssetsFile) typeTreeForAsset(info *AssetInfo) (*TypeTreeType, error) {
 		return nil, fmt.Errorf("assets file does not contain type tree metadata")
 	}
 	if af.Header.Version >= 16 {
-		idx := int(info.TypeIdOrIndex)
-		if idx < 0 || idx >= len(af.Metadata.TypeTreeTypes) {
+		idx := int64(info.TypeIdOrIndex)
+		if idx < 0 || idx >= int64(len(af.Metadata.TypeTreeTypes)) {
 			return nil, fmt.Errorf("type tree index %d out of range", idx)
 		}
 		return &af.Metadata.TypeTreeTypes[idx], nil
@@ -88,14 +88,14 @@ func (af *AssetsFile) byteOrder() binary.ByteOrder {
 	return binary.LittleEndian
 }
 
-func readTypeTreeValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int) (*TypeTreeValue, int, error) {
+func readTypeTreeValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int64) (*TypeTreeValue, int64, error) {
 	if tt == nil {
 		return nil, idx, fmt.Errorf("nil type tree")
 	}
 	if r == nil {
 		return nil, idx, fmt.Errorf("nil type tree reader")
 	}
-	if idx < 0 || idx >= len(tt.Nodes) {
+	if idx < 0 || idx >= int64(len(tt.Nodes)) {
 		return nil, idx, io.ErrUnexpectedEOF
 	}
 	node := &tt.Nodes[idx]
@@ -117,7 +117,7 @@ func readTypeTreeValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int) (*Ty
 	}
 
 	next := idx + 1
-	if next < len(tt.Nodes) && tt.Nodes[next].Level > node.Level {
+	if next < int64(len(tt.Nodes)) && tt.Nodes[next].Level > node.Level {
 		if isArrayNode(node, v.TypeName) {
 			arr, n, err := readArrayValue(tt, r, idx, v)
 			if err != nil {
@@ -127,7 +127,7 @@ func readTypeTreeValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int) (*Ty
 			v.Children = arr.Children
 			v.Value = arr.Value
 		} else {
-			for next < len(tt.Nodes) && tt.Nodes[next].Level > node.Level {
+			for next < int64(len(tt.Nodes)) && tt.Nodes[next].Level > node.Level {
 				child, n, err := readTypeTreeValue(tt, r, next)
 				if err != nil {
 					return nil, n, err
@@ -148,10 +148,10 @@ func readTypeTreeValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int) (*Ty
 	return v, next, nil
 }
 
-func readArrayValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int, v *TypeTreeValue) (*TypeTreeValue, int, error) {
+func readArrayValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int64, v *TypeTreeValue) (*TypeTreeValue, int64, error) {
 	node := &tt.Nodes[idx]
 	next := idx + 1
-	if next >= len(tt.Nodes) {
+	if next >= int64(len(tt.Nodes)) {
 		return v, next, fmt.Errorf("array %s has no Array node", v.Name)
 	}
 
@@ -180,15 +180,15 @@ func readArrayValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int, v *Type
 		return nil
 	}
 
-	if next >= len(tt.Nodes) {
+	if next >= int64(len(tt.Nodes)) {
 		return v, next, fmt.Errorf("array %s missing size node", v.Name)
 	}
 	sizeNodeIdx := next
 	if tt.GetTypeTreeString(&tt.Nodes[sizeNodeIdx], false) != "size" {
-		for sizeNodeIdx < len(tt.Nodes) && tt.Nodes[sizeNodeIdx].Level > node.Level && tt.GetTypeTreeString(&tt.Nodes[sizeNodeIdx], false) != "size" {
+		for sizeNodeIdx < int64(len(tt.Nodes)) && tt.Nodes[sizeNodeIdx].Level > node.Level && tt.GetTypeTreeString(&tt.Nodes[sizeNodeIdx], false) != "size" {
 			sizeNodeIdx++
 		}
-		if sizeNodeIdx >= len(tt.Nodes) || tt.Nodes[sizeNodeIdx].Level <= node.Level {
+		if sizeNodeIdx >= int64(len(tt.Nodes)) || tt.Nodes[sizeNodeIdx].Level <= node.Level {
 			return v, next, fmt.Errorf("array %s missing size node", v.Name)
 		}
 	}
@@ -200,13 +200,13 @@ func readArrayValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int, v *Type
 	if sizeRaw < 0 {
 		return nil, sizeNodeIdx + 1, fmt.Errorf("negative array size %d for %s", sizeRaw, v.Name)
 	}
-	size := int(sizeRaw)
+	size := int64(sizeRaw)
 
 	dataNodeIdx := sizeNodeIdx + 1
-	for dataNodeIdx < len(tt.Nodes) && tt.Nodes[dataNodeIdx].Level > node.Level && tt.GetTypeTreeString(&tt.Nodes[dataNodeIdx], false) != "data" {
+	for dataNodeIdx < int64(len(tt.Nodes)) && tt.Nodes[dataNodeIdx].Level > node.Level && tt.GetTypeTreeString(&tt.Nodes[dataNodeIdx], false) != "data" {
 		dataNodeIdx++
 	}
-	if dataNodeIdx >= len(tt.Nodes) || tt.Nodes[dataNodeIdx].Level <= node.Level {
+	if dataNodeIdx >= int64(len(tt.Nodes)) || tt.Nodes[dataNodeIdx].Level <= node.Level {
 		return nil, skipSubtree(tt, idx), fmt.Errorf("array %s missing data node", v.Name)
 	}
 
@@ -226,7 +226,7 @@ func readArrayValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int, v *Type
 	}
 
 	if isByteElement(elemType) && elemNext == dataNodeIdx+1 {
-		buf, err := r.ReadBytes(size)
+		buf, err := r.ReadBytes(int(size))
 		if err != nil {
 			return nil, elemNext, err
 		}
@@ -238,7 +238,7 @@ func readArrayValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int, v *Type
 	}
 
 	v.Children = makeABACountedSliceForAppend[*TypeTreeValue](size)
-	for i := 0; i < size; i++ {
+	for i := int64(0); i < size; i++ {
 		before := r.Pos()
 		child, _, err := readTypeTreeValue(tt, r, dataNodeIdx)
 		if err != nil {
@@ -270,7 +270,7 @@ func readPrimitiveValue(r *binaryio.EndianReader, v *TypeTreeValue) error {
 		if err != nil {
 			return err
 		}
-		if size < 0 || int(size) > r.Remaining() {
+		if size < 0 || int64(size) > int64(r.Remaining()) {
 			return fmt.Errorf("invalid TypelessData size %d", size)
 		}
 		buf, err := r.ReadBytes(int(size))
@@ -347,8 +347,8 @@ func alignReader4(r *binaryio.EndianReader) error {
 	return nil
 }
 
-func minimumTypeTreeValueBytes(tt *TypeTreeType, idx int) int {
-	if tt == nil || idx < 0 || idx >= len(tt.Nodes) {
+func minimumTypeTreeValueBytes(tt *TypeTreeType, idx int64) int64 {
+	if tt == nil || idx < 0 || idx >= int64(len(tt.Nodes)) {
 		return 0
 	}
 	node := &tt.Nodes[idx]
@@ -367,14 +367,14 @@ func minimumTypeTreeValueBytes(tt *TypeTreeType, idx int) int {
 	}
 
 	next := idx + 1
-	if next >= len(tt.Nodes) || tt.Nodes[next].Level <= node.Level {
+	if next >= int64(len(tt.Nodes)) || tt.Nodes[next].Level <= node.Level {
 		return 0
 	}
 	if isArrayNode(node, typeName) {
 		return 4
 	}
-	total := 0
-	for next < len(tt.Nodes) && tt.Nodes[next].Level > node.Level {
+	total := int64(0)
+	for next < int64(len(tt.Nodes)) && tt.Nodes[next].Level > node.Level {
 		total += minimumTypeTreeValueBytes(tt, next)
 		next = skipSubtree(tt, next)
 	}
@@ -411,10 +411,10 @@ func isByteElement(typeName string) bool {
 	}
 }
 
-func skipSubtree(tt *TypeTreeType, idx int) int {
+func skipSubtree(tt *TypeTreeType, idx int64) int64 {
 	level := tt.Nodes[idx].Level
 	idx++
-	for idx < len(tt.Nodes) && tt.Nodes[idx].Level > level {
+	for idx < int64(len(tt.Nodes)) && tt.Nodes[idx].Level > level {
 		idx++
 	}
 	return idx
@@ -460,8 +460,6 @@ func (v *TypeTreeValue) Int64() (int64, bool) {
 	switch x := v.Value.(type) {
 	case int64:
 		return x, true
-	case int:
-		return int64(x), true
 	case uint32:
 		return int64(x), true
 	case uint64:
@@ -484,14 +482,7 @@ func (v *TypeTreeValue) UInt64() (uint64, bool) {
 		return x, true
 	case uint32:
 		return uint64(x), true
-	case uint:
-		return uint64(x), true
 	case int64:
-		if x < 0 {
-			return 0, false
-		}
-		return uint64(x), true
-	case int:
 		if x < 0 {
 			return 0, false
 		}

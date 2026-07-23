@@ -18,12 +18,12 @@ const CtEnvelopeFormat = "kces-content-table"
 // catalog 和 ExtensionNameList 会解码为类型化结构，其他虚拟文件以 base64 保留 / catalog and ExtensionNameList entries are decoded into typed structures while other virtual files are preserved as base64 payloads
 type CtEnvelope struct {
 	Format             string                                 `json:"format"`                       // 封套格式标识，固定为 kces-content-table / Envelope format marker, fixed to kces-content-table
-	Version            int                                    `json:"version"`                      // VirtualDirectory 版本号 / VirtualDirectory version
+	Version            int32                                  `json:"version"`                      // VirtualDirectory 版本号 / VirtualDirectory version
 	Versionless        bool                                   `json:"versionless,omitempty"`        // Historical root [directories, files] layout / 历史根 [目录, 文件] 布局
 	FilesOnly          bool                                   `json:"filesOnly,omitempty"`          // Historical root [version, files] layout / 历史根 [版本, 文件] 布局
 	DirectoriesNil     bool                                   `json:"directoriesNil,omitempty"`     // Root allDirectorys was nil / 根 allDirectorys 为 nil
 	FilesNil           bool                                   `json:"filesNil,omitempty"`           // Root allFiles was nil / 根 allFiles 为 nil
-	FieldCount         *int                                   `json:"fieldCount,omitempty"`         // Non-canonical root indexed-array width / 非标准根槽数
+	FieldCount         *int32                                 `json:"fieldCount,omitempty"`         // Non-canonical root indexed-array width / 非标准根槽数
 	FutureSlots        [][]byte                               `json:"futureSlots,omitempty"`        // Verbatim future root MessagePack values / 根未来 MessagePack 值
 	Directories        map[string]ct.VirtualDirectoryMetadata `json:"directories,omitempty"`        // Per-child layout metadata, including empty directories / 子目录布局元数据（含空目录）
 	VirtualFiles       map[string]ct.VirtualFileMetadata      `json:"virtualFiles,omitempty"`       // Position-independent VirtualFile short/future slots / 与偏移无关的 VirtualFile 短/未来槽位
@@ -258,7 +258,9 @@ func buildContentTableFromCtEnvelope(envelope *CtEnvelope) (*ct.ContentTable, er
 	if err != nil {
 		return nil, fmt.Errorf("compress catalog: %w", err)
 	}
-	table.AddFile("catalog", compressedCatalog)
+	if err := table.AddFile("catalog", compressedCatalog); err != nil {
+		return nil, err
+	}
 	delete(rawFiles, "catalog")
 
 	seenExt := map[string]struct{}{}
@@ -283,7 +285,9 @@ func buildContentTableFromCtEnvelope(envelope *CtEnvelope) (*ct.ContentTable, er
 			if err != nil {
 				return nil, fmt.Errorf("compress ExtensionNameList %q: %w", ext, err)
 			}
-			table.AddFile(ext, compressed)
+			if err := table.AddFile(ext, compressed); err != nil {
+				return nil, err
+			}
 			delete(rawFiles, ext)
 			continue
 		}
@@ -292,7 +296,9 @@ func buildContentTableFromCtEnvelope(envelope *CtEnvelope) (*ct.ContentTable, er
 		if !ok {
 			return nil, fmt.Errorf("missing ExtensionNameList %q", ext)
 		}
-		table.AddFile(ext, data)
+		if err := table.AddFile(ext, data); err != nil {
+			return nil, err
+		}
 		delete(rawFiles, ext)
 	}
 
@@ -315,7 +321,9 @@ func buildContentTableFromCtEnvelope(envelope *CtEnvelope) (*ct.ContentTable, er
 		}
 		sort.Strings(names)
 		for _, name := range names {
-			table.AddFile(name, rawFiles[name])
+			if err := table.AddFile(name, rawFiles[name]); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if err := table.ApplyVirtualFileMetadata(envelope.VirtualFiles); err != nil {

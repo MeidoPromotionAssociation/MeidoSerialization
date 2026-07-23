@@ -17,13 +17,13 @@ func TestKCESSystemDataRoundTripAllKnownEditDataAndOpaqueFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	colors := make(map[int]int, 10)
-	for key := 0; key <= 8; key++ {
+	colors := make(map[int32]int32, 10)
+	for key := int32(0); key <= 8; key++ {
 		colors[key] = key * 100
 	}
 	colors[99] = -99
-	gradColors := make(map[int]int, 9)
-	for key := 0; key <= 8; key++ {
+	gradColors := make(map[int32]int32, 9)
+	for key := int32(0); key <= 8; key++ {
 		gradColors[key] = key
 	}
 	value := &KCESSystemData{
@@ -34,7 +34,7 @@ func TestKCESSystemDataRoundTripAllKnownEditDataAndOpaqueFiles(t *testing.T) {
 				Path: "EditData/GradSv2",
 				Kind: KCESEditDataGradPoints,
 				GradPoints: &GradPointsData{
-					GradPointParam:        []map[int]int{gradColors},
+					GradPointParam:        []map[int32]int32{gradColors},
 					ControlPointPosValue:  []float32{0.25},
 					GradaPointPosRates:    []float32{0.75},
 					EditMPN:               7,
@@ -208,7 +208,7 @@ func TestKCESSystemDataPreservesRootNilReferencePayloads(t *testing.T) {
 }
 
 func TestKCESSystemDataPreservesStoredVersion(t *testing.T) {
-	for _, version := range []int{-1, 0, 999, 1000, 1001} {
+	for _, version := range []int32{-1, 0, 999, 1000, 1001} {
 		value := &KCESSystemData{Version: version}
 		encoded, err := EncodeKCESSystemData(value)
 		if err != nil {
@@ -225,8 +225,8 @@ func TestKCESSystemDataPreservesStoredVersion(t *testing.T) {
 }
 
 func TestKCESSystemDataPreservesVersionlessVirtualDirectory(t *testing.T) {
-	rootFieldCount := 3
-	fileFieldCount := 3
+	rootFieldCount := int32(3)
+	fileFieldCount := int32(3)
 	value := &KCESSystemData{
 		Format:      KCESSystemDataFormat,
 		Versionless: true,
@@ -269,8 +269,8 @@ func TestKCESSystemDataPreservesVersionlessVirtualDirectory(t *testing.T) {
 }
 
 func TestEncodeKCESSystemDataValidation(t *testing.T) {
-	validColors := make(map[int]int, 9)
-	for i := 0; i <= 8; i++ {
+	validColors := make(map[int32]int32, 9)
+	for i := int32(0); i <= 8; i++ {
 		validColors[i] = i
 	}
 	validPalette := &PaletteColorSaveData{Color: validColors}

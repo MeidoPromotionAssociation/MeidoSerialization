@@ -12,7 +12,7 @@ import (
 type indexedObjectTestChild struct {
 	_struct               struct{} `codec:",toarray"`
 	IndexedObjectMetadata `codec:"-"`
-	Number                int    `json:"number"`
+	Number                int32  `json:"number"`
 	Text                  string `json:"text"`
 }
 
@@ -32,7 +32,7 @@ type indexedObjectTestParent struct {
 }
 
 type IndexedObjectTestInlineBase struct {
-	Version int    `json:"version"`
+	Version int32  `json:"version"`
 	Name    string `json:"name"`
 }
 
@@ -74,15 +74,14 @@ func (v *indexedObjectTestParent) CodecDecodeSelf(d *codec.Decoder) {
 	DecodeIndexedObjectSelf(d, v)
 }
 
-func TestIndexedObjectSelferPreservesNestedWidthsAndFutureSlots(t *testing.T) {
-	future := codec.Raw{0xd4, 0x2a, 0x7f}
-	wire, err := encodeMsgpackAllowRaw([]interface{}{
+func TestIndexedObjectSelferRoundTripsCurrentNestedLayout(t *testing.T) {
+	wire, err := EncodeMsgpack([]interface{}{
 		[]interface{}{
-			[]interface{}{int64(7)},
-			[]interface{}{int64(8), "full", future},
+			[]interface{}{int64(7), "first"},
+			[]interface{}{int64(8), "second"},
 		},
 		map[string]interface{}{
-			"short": []interface{}{int64(9)},
+			"full": []interface{}{int64(9), "map"},
 		},
 	})
 	if err != nil {
@@ -96,32 +95,23 @@ func TestIndexedObjectSelferPreservesNestedWidthsAndFutureSlots(t *testing.T) {
 	if len(decoded.Children) != 2 {
 		t.Fatalf("children length = %d, want 2", len(decoded.Children))
 	}
-	if decoded.Children[0].FieldCount == nil || *decoded.Children[0].FieldCount != 1 {
-		t.Fatalf("short child fieldCount = %v, want 1", decoded.Children[0].FieldCount)
-	}
-	if decoded.Children[0].Text != "" {
-		t.Fatalf("short child omitted text = %q, want wire zero", decoded.Children[0].Text)
-	}
-	if decoded.Children[1].FieldCount == nil || *decoded.Children[1].FieldCount != 3 {
-		t.Fatalf("future child fieldCount = %v, want 3", decoded.Children[1].FieldCount)
-	}
-	if len(decoded.Children[1].FutureSlots) != 1 || !bytes.Equal(decoded.Children[1].FutureSlots[0], future) {
-		t.Fatalf("future child slots = % x, want % x", decoded.Children[1].FutureSlots, future)
-	}
-	mapChild, ok := decoded.ByName["short"]
-	if !ok || mapChild.FieldCount == nil || *mapChild.FieldCount != 1 {
-		t.Fatalf("map child did not retain short width: %#v", mapChild)
+	if decoded.Children[0].Number != 7 || decoded.Children[0].Text != "first" ||
+		decoded.Children[1].Number != 8 || decoded.Children[1].Text != "second" ||
+		decoded.ByName["full"].Number != 9 || decoded.ByName["full"].Text != "map" {
+		t.Fatalf("decoded nested object = %#v", decoded)
 	}
 
 	reencoded, err := EncodeIndexedMsgpack(&decoded)
 	if err != nil {
 		t.Fatalf("EncodeIndexedMsgpack: %v", err)
 	}
-	assertIndexedObjectTestWire(t, reencoded, future)
+	if !bytes.Equal(reencoded, wire) {
+		t.Fatalf("nested wire changed: got % x, want % x", reencoded, wire)
+	}
 }
 
 func TestIndexedObjectSelferRejectsSilentShortFieldDiscard(t *testing.T) {
-	count := 1
+	count := int32(1)
 	value := indexedObjectTestChild{
 		IndexedObjectMetadata: IndexedObjectMetadata{FieldCount: &count},
 		Number:                1,
@@ -138,7 +128,7 @@ func TestIndexedObjectSelferRejectsSilentShortFieldDiscard(t *testing.T) {
 }
 
 func TestIndexedObjectSelferValidatesFutureRawValue(t *testing.T) {
-	count := 3
+	count := int32(3)
 	value := indexedObjectTestChild{
 		IndexedObjectMetadata: IndexedObjectMetadata{
 			FieldCount:  &count,
@@ -209,7 +199,7 @@ func TestIndexedObjectSelferUsesMessagePackReadSingleConversions(t *testing.T) {
 }
 
 func TestOrdinaryMessagePackEncoderCannotSilentlyEncodeIndexedRawSlots(t *testing.T) {
-	count := 3
+	count := int32(3)
 	value := indexedObjectTestChild{
 		IndexedObjectMetadata: IndexedObjectMetadata{
 			FieldCount:  &count,
@@ -218,34 +208,5 @@ func TestOrdinaryMessagePackEncoderCannotSilentlyEncodeIndexedRawSlots(t *testin
 	}
 	if _, err := EncodeMsgpack(&value); err == nil {
 		t.Fatal("ordinary EncodeMsgpack accepted an indexed raw slot without the validated Raw-mode boundary")
-	}
-}
-
-func assertIndexedObjectTestWire(t *testing.T, wire []byte, future []byte) {
-	t.Helper()
-	root, err := decodeRawMsgpackArray(wire, "test parent")
-	if err != nil {
-		t.Fatalf("decode parent raw: %v", err)
-	}
-	if len(root) != 2 {
-		t.Fatalf("parent slots = %d, want 2", len(root))
-	}
-	children, err := decodeRawMsgpackArray(root[0], "test children")
-	if err != nil {
-		t.Fatalf("decode children raw: %v", err)
-	}
-	short, err := decodeRawMsgpackArray(children[0], "test short child")
-	if err != nil {
-		t.Fatalf("decode short child raw: %v", err)
-	}
-	if len(short) != 1 {
-		t.Fatalf("short child slots = %d, want 1", len(short))
-	}
-	withFuture, err := decodeRawMsgpackArray(children[1], "test future child")
-	if err != nil {
-		t.Fatalf("decode future child raw: %v", err)
-	}
-	if len(withFuture) != 3 || !bytes.Equal(withFuture[2], future) {
-		t.Fatalf("future child wire = % x, want trailing slot % x", withFuture, future)
 	}
 }

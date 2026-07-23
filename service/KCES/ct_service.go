@@ -192,7 +192,9 @@ func newContentTableFromGameWindowsDirectory(dirPath string) (*ct.ContentTable, 
 		if readErr != nil {
 			return nil, fmt.Errorf("read source file %q: %w", source.diskPath, readErr)
 		}
-		table.AddFile(source.virtualName, data)
+		if err := table.AddFile(source.virtualName, data); err != nil {
+			return nil, err
+		}
 	}
 	return table, nil
 }

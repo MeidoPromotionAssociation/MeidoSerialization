@@ -107,7 +107,9 @@
     "CalcTime": {
       "maximum": 2147483647,
       "minimum": -2147483648,
-      "type": "integer"
+      "type": "integer",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true
     },
     "Gravity": {
       "$ref": "#/$defs/COM3D2_Vector3",
@@ -291,6 +293,8 @@
       "x-meido-edit-guidance": "Preserve the source value and do not remove groups without checking the target build.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "Versions at or above the reviewed threshold contain the group records; older versions omit them.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
       "x-meido-risk": "high",
       "x-meido-source-evidence": [
         {

@@ -37,12 +37,12 @@ const (
 // exposed through SessionData; every other virtual file is retained verbatim.
 type KCESBridgeSession struct {
 	Format                  string                                 `json:"format"`
-	ContainerVersion        int                                    `json:"containerVersion"`
+	ContainerVersion        int32                                  `json:"containerVersion"`
 	ContainerVersionless    bool                                   `json:"containerVersionless,omitempty"`
 	ContainerFilesOnly      bool                                   `json:"containerFilesOnly,omitempty"`
 	ContainerDirectoriesNil bool                                   `json:"containerDirectoriesNil,omitempty"`
 	ContainerFilesNil       bool                                   `json:"containerFilesNil,omitempty"`
-	ContainerFieldCount     *int                                   `json:"containerFieldCount,omitempty"`
+	ContainerFieldCount     *int32                                 `json:"containerFieldCount,omitempty"`
 	ContainerFutureSlots    [][]byte                               `json:"containerFutureSlots,omitempty"`
 	ContainerDirectories    map[string]ct.VirtualDirectoryMetadata `json:"containerDirectories,omitempty"`
 	ContainerVirtualFiles   map[string]ct.VirtualFileMetadata      `json:"containerVirtualFiles,omitempty"`
@@ -65,8 +65,8 @@ type KCESBridgeSession struct {
 // later KCES build while still validating their framing and nesting depth.
 type KCESBridgeSessionData struct {
 	MessagePackRootMetadata
-	FieldCount        *int      `json:"fieldCount,omitempty"`
-	Version           int       `json:"version"`
+	FieldCount        *int32    `json:"fieldCount,omitempty"`
+	Version           int32     `json:"version"`
 	SessionID         string    `json:"sessionId"`
 	SessionIDIsNil    bool      `json:"sessionIdIsNil,omitempty"`
 	HideMenuFileIDs   []uint64  `json:"hideMenuFileIds"`
@@ -77,7 +77,7 @@ type KCESBridgeSessionData struct {
 // NewKCESBridgeSession creates a current-format object explicitly. Decoders do
 // not call this constructor or inject any of these defaults.
 func NewKCESBridgeSession(sessionID string) *KCESBridgeSession {
-	fieldCount := 3
+	fieldCount := int32(3)
 	return &KCESBridgeSession{
 		Format:            KCESBridgeSessionFormat,
 		ContainerVersion:  KCESBridgeSessionContainerVersion,
@@ -185,17 +185,23 @@ func EncodeKCESBridgeSession(value *KCESBridgeSession) ([]byte, error) {
 		Raw:            make([]byte, ct.HeaderSize),
 		Files:          make(map[string]ct.VirtualFile),
 	}
-	table.AddFile(kcesBridgeSessionDataFile, rawSessionData)
+	if err := table.AddFile(kcesBridgeSessionDataFile, rawSessionData); err != nil {
+		return nil, err
+	}
 	rawSessionID := value.SessionIDFileData
 	if rawSessionID == nil && value.SessionData != nil && !value.SessionData.SessionIDIsNil {
 		rawSessionID = []byte(value.SessionData.SessionID)
 	}
-	table.AddFile(kcesBridgeSessionIDFile, append([]byte(nil), rawSessionID...))
+	if err := table.AddFile(kcesBridgeSessionIDFile, append([]byte(nil), rawSessionID...)); err != nil {
+		return nil, err
+	}
 	for name, payload := range value.ExtraFiles {
 		if name == kcesBridgeSessionDataFile || name == kcesBridgeSessionIDFile {
 			return nil, fmt.Errorf("extraFiles contains reserved virtual file %q", name)
 		}
-		table.AddFile(name, append([]byte(nil), payload...))
+		if err := table.AddFile(name, append([]byte(nil), payload...)); err != nil {
+			return nil, err
+		}
 	}
 	if err := table.ApplyVirtualFileMetadata(value.ContainerVirtualFiles); err != nil {
 		return nil, fmt.Errorf("KCES bridge session: %w", err)
@@ -228,7 +234,7 @@ func decodeKCESBridgeSessionData(data []byte) (*KCESBridgeSessionData, error) {
 		return nil, err
 	}
 
-	storedFieldCount := fieldCount
+	storedFieldCount := int32(fieldCount)
 	result := &KCESBridgeSessionData{FieldCount: &storedFieldCount}
 	if fieldCount >= 1 {
 		result.Version, err = reader.readInt32("EditBridgeSessionData.version")
@@ -256,7 +262,7 @@ func decodeKCESBridgeSessionData(data []byte) (*KCESBridgeSessionData, error) {
 				return nil, err
 			}
 			result.HideMenuFileIDs = makeKCESCountedSliceForAppend[uint64](uint64(setCount))
-			for i := 0; i < setCount; i++ {
+			for i := int64(0); i < setCount; i++ {
 				id, readErr := readKCESBridgeSessionUInt64(&reader, fmt.Sprintf("EditBridgeSessionData.hideMenuFileIds[%d]", i))
 				if readErr != nil {
 					return nil, readErr
@@ -268,7 +274,7 @@ func decodeKCESBridgeSessionData(data []byte) (*KCESBridgeSessionData, error) {
 	if fieldCount > 3 {
 		result.FutureSlots = makeKCESCountedSliceForAppend[[]byte](uint64(fieldCount - 3))
 	}
-	for key := 3; key < fieldCount; key++ {
+	for key := int64(3); key < fieldCount; key++ {
 		start := reader.pos
 		if err := reader.skipValue(0); err != nil {
 			return nil, fmt.Errorf("EditBridgeSessionData future Key(%d): %w", key, err)
@@ -307,11 +313,6 @@ func encodeKCESBridgeSessionData(value *KCESBridgeSessionData) ([]byte, error) {
 	if fieldCount < 3 && value.HideMenuFileIDs != nil {
 		return nil, fmt.Errorf("fieldCount %d would discard hideMenuFileIds", fieldCount)
 	}
-	if fieldCount >= 1 {
-		if err := requireInt32("EditBridgeSessionData.version", value.Version); err != nil {
-			return nil, err
-		}
-	}
 	if fieldCount >= 2 && !value.SessionIDIsNil {
 		if !utf8.ValidString(value.SessionID) {
 			return nil, fmt.Errorf("sessionId is not valid UTF-8")
@@ -323,8 +324,8 @@ func encodeKCESBridgeSessionData(value *KCESBridgeSessionData) ([]byte, error) {
 	if fieldCount >= 2 && value.SessionIDIsNil && value.SessionID != "" {
 		return nil, fmt.Errorf("sessionIdIsNil would discard non-empty sessionId")
 	}
-	if uint64(len(value.HideMenuFileIDs)) > math.MaxUint32 {
-		return nil, fmt.Errorf("hideMenuFileIds has %d items, exceeding the MessagePack array32 limit", len(value.HideMenuFileIDs))
+	if int64(len(value.HideMenuFileIDs)) > math.MaxInt32 {
+		return nil, fmt.Errorf("hideMenuFileIds has %d items, exceeding the C# Int32 array-header limit", len(value.HideMenuFileIDs))
 	}
 
 	out := simpleEditDataAppendArrayHeader(nil, fieldCount)
@@ -342,7 +343,7 @@ func encodeKCESBridgeSessionData(value *KCESBridgeSessionData) ([]byte, error) {
 		if value.HideMenuFileIDs == nil {
 			out = append(out, 0xc0)
 		} else {
-			out = simpleEditDataAppendArrayHeader(out, len(value.HideMenuFileIDs))
+			out = simpleEditDataAppendArrayHeader(out, int64(len(value.HideMenuFileIDs)))
 			for _, id := range value.HideMenuFileIDs {
 				out = appendKCESBridgeSessionUInt64(out, id)
 			}

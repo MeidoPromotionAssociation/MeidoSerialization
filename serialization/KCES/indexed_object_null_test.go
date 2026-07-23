@@ -101,10 +101,10 @@ func TestModelPreservesNilStringElementsAndNullMapValues(t *testing.T) {
 		t.Fatalf("EncodeModel: %v", err)
 	}
 	root := decodeCompressedIndexedTestArray(t, reencoded)
-	for _, slot := range []int{2, 3, 4, 10} {
+	for _, slot := range []int32{2, 3, 4, 10} {
 		assertRawNil(t, root[slot], "Model scalar slot")
 	}
-	for _, slot := range []int{5, 6, 7, 8} {
+	for _, slot := range []int32{5, 6, 7, 8} {
 		elements := decodeIndexedTestArray(t, root[slot])
 		assertRawNil(t, elements[0], "Model array element")
 	}
@@ -184,21 +184,21 @@ func assertMaterialNullWire(t *testing.T, data []byte) {
 	assertRawNil(t, colors[0], "Material colorProps[0]")
 }
 
-func assertNilSlot(t *testing.T, metadata *IndexedObjectMetadata, slot int) {
+func assertNilSlot(t *testing.T, metadata *IndexedObjectMetadata, slot int32) {
 	t.Helper()
 	if metadata == nil || !containsInt(metadata.NilSlots, slot) {
 		t.Fatalf("nilSlots = %#v, want slot %d", metadata, slot)
 	}
 }
 
-func assertNullElement(t *testing.T, metadata *IndexedObjectMetadata, slot, element int) {
+func assertNullElement(t *testing.T, metadata *IndexedObjectMetadata, slot int32, element int) {
 	t.Helper()
 	if metadata == nil || len(metadata.NullElements[slot]) <= element || !metadata.NullElements[slot][element] {
 		t.Fatalf("nullElements = %#v, want slot %d element %d", metadata, slot, element)
 	}
 }
 
-func assertNullMapKey(t *testing.T, metadata *IndexedObjectMetadata, slot int, key string) {
+func assertNullMapKey(t *testing.T, metadata *IndexedObjectMetadata, slot int32, key string) {
 	t.Helper()
 	if metadata == nil {
 		t.Fatalf("nil metadata, want null map key %q", key)
@@ -212,7 +212,7 @@ func assertNullMapKey(t *testing.T, metadata *IndexedObjectMetadata, slot int, k
 	t.Fatalf("nullMapValueKeys = % x, want key %q", metadata.NullMapValueKeys[slot], key)
 }
 
-func assertNullMapUint64Key(t *testing.T, metadata *IndexedObjectMetadata, slot int, key uint64) {
+func assertNullMapUint64Key(t *testing.T, metadata *IndexedObjectMetadata, slot int32, key uint64) {
 	t.Helper()
 	if metadata == nil {
 		t.Fatalf("nil metadata, want null map key %d", key)
@@ -245,7 +245,7 @@ func ctDecodeOne(data []byte, out interface{}) error {
 	return ct.DecodeMsgpack(data, out)
 }
 
-func containsInt(values []int, target int) bool {
+func containsInt(values []int32, target int32) bool {
 	for _, value := range values {
 		if value == target {
 			return true

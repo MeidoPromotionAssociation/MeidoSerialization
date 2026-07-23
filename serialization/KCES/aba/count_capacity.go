@@ -5,7 +5,7 @@ package aba
 // collection that is representable on the wire and present in the input.
 const abaInitialCollectionCapacity = 1024
 
-func makeABACountedSliceForAppend[T any](count int) []T {
+func makeABACountedSliceForAppend[T any](count int64) []T {
 	capacity := count
 	if capacity > abaInitialCollectionCapacity {
 		capacity = abaInitialCollectionCapacity
@@ -13,7 +13,7 @@ func makeABACountedSliceForAppend[T any](count int) []T {
 	return make([]T, 0, capacity)
 }
 
-func makeABACountedMap[K comparable, V any](count int) map[K]V {
+func makeABACountedMap[K comparable, V any](count int64) map[K]V {
 	capacity := count
 	if capacity > abaInitialCollectionCapacity {
 		capacity = abaInitialCollectionCapacity

@@ -236,7 +236,7 @@ func TestCompressedMessagePackNilRootRejectsDiscardedPayload(t *testing.T) {
 	if _, err := EncodeMaterialAssets(&MaterialAssets{RootNil: true, FileName: "lost.materialassets"}); err == nil {
 		t.Fatal("rootNil silently discarded populated MaterialAssets fields")
 	}
-	zero := 0
+	zero := int32(0)
 	if _, err := EncodeMenuAssets(&MenuAssets{
 		RootNil: true,
 		IndexedObjectMetadata: &IndexedObjectMetadata{

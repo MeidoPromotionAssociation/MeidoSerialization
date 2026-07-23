@@ -402,13 +402,13 @@ func decodeIndexedTestArray(t *testing.T, data []byte) []codec.Raw {
 	if err != nil {
 		t.Fatalf("decode indexed test array: %v; wire=% x", err, data)
 	}
-	if consumed != len(data) {
+	if consumed != int64(len(data)) {
 		t.Fatalf("indexed test array consumed %d of %d bytes", consumed, len(data))
 	}
 	return slots
 }
 
-func assertIndexedMetadata(t *testing.T, metadata *IndexedObjectMetadata, count int, future ...[]byte) {
+func assertIndexedMetadata(t *testing.T, metadata *IndexedObjectMetadata, count int32, future ...[]byte) {
 	t.Helper()
 	if metadata == nil || metadata.FieldCount == nil || *metadata.FieldCount != count {
 		t.Fatalf("indexed metadata = %#v, want fieldCount %d", metadata, count)

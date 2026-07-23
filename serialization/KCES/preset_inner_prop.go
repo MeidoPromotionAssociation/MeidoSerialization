@@ -33,7 +33,7 @@ func DecodeKCESPresetPropertyData(data []byte) (*KCESPresetPropertyList, error) 
 		Version:    version,
 		Properties: makeKCESCountedSliceForAppend[KCESPresetNamedProperty](uint64(count)),
 	}
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		path := fmt.Sprintf("KCES preset properties[%d]", index)
 		key, err := r.readString(path + ".key")
 		if err != nil {
@@ -98,7 +98,7 @@ func readKCESPresetProperty(r *kcesPresetInnerReader, path string) (KCESPresetPr
 		return value, err
 	}
 	value.MaterialProperties = makeKCESCountedSliceForAppend[KCESPresetMaterialPropertySlot](uint64(materialCount))
-	for index := 0; index < materialCount; index++ {
+	for index := int64(0); index < materialCount; index++ {
 		slotPath := fmt.Sprintf("%s.materialProperties[%d]", path, index)
 		slot, err := readKCESPresetMaterialSlot(r, slotPath, value.Version)
 		if err != nil {
@@ -131,7 +131,7 @@ func readKCESPresetMaterialSlot(r *kcesPresetInnerReader, path string, version i
 		return value, err
 	}
 	value.Properties = makeKCESCountedSliceForAppend[KCESPresetNamedMaterialProperty](uint64(count))
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		itemPath := fmt.Sprintf("%s.properties[%d]", path, index)
 		key, err := r.readString(itemPath + ".key")
 		if err != nil {
@@ -168,7 +168,7 @@ func readKCESPresetMaterialValue(r *kcesPresetInnerReader, path string) (KCESPre
 	return value, nil
 }
 
-func readKCESPresetPropBase(r *kcesPresetInnerReader, path string, version int32, mpnName string, depth int) (KCESPresetPropBase, error) {
+func readKCESPresetPropBase(r *kcesPresetInnerReader, path string, version int32, mpnName string, depth int64) (KCESPresetPropBase, error) {
 	value := KCESPresetPropBase{}
 	if depth > maxKCESPresetInnerDepth {
 		return value, fmt.Errorf("%s nesting exceeds limit %d", path, maxKCESPresetInnerDepth)
@@ -262,7 +262,7 @@ func readKCESPresetPropBase(r *kcesPresetInnerReader, path string, version int32
 	return value, nil
 }
 
-func readKCESPresetSavedTextureMap(r *kcesPresetInnerReader, path string, depth int) ([]KCESPresetNamedSavedTexture, error) {
+func readKCESPresetSavedTextureMap(r *kcesPresetInnerReader, path string, depth int64) ([]KCESPresetNamedSavedTexture, error) {
 	present, err := r.br.ReadBool()
 	if err != nil {
 		return nil, fmt.Errorf("read %s presence: %w", path, err)
@@ -275,7 +275,7 @@ func readKCESPresetSavedTextureMap(r *kcesPresetInnerReader, path string, depth 
 		return nil, err
 	}
 	result := makeKCESCountedSliceForAppend[KCESPresetNamedSavedTexture](uint64(count))
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		itemPath := fmt.Sprintf("%s[%d]", path, index)
 		key, err := r.readString(itemPath + ".key")
 		if err != nil {
@@ -290,7 +290,7 @@ func readKCESPresetSavedTextureMap(r *kcesPresetInnerReader, path string, depth 
 	return result, nil
 }
 
-func readKCESPresetSavedTexture(r *kcesPresetInnerReader, path string, depth int) (KCESPresetSavedTextureData, error) {
+func readKCESPresetSavedTexture(r *kcesPresetInnerReader, path string, depth int64) (KCESPresetSavedTextureData, error) {
 	value := KCESPresetSavedTextureData{}
 	var err error
 	if value.UseLayer, err = r.br.ReadBool(); err != nil {
@@ -341,7 +341,7 @@ func readKCESPresetTextureMasks(r *kcesPresetInnerReader, path string) ([]KCESPr
 		return nil, err
 	}
 	result := makeKCESCountedSliceForAppend[KCESPresetTextureMask](uint64(count))
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		itemPath := fmt.Sprintf("%s[%d]", path, index)
 		entry := KCESPresetTextureMask{}
 		entry.Name, err = r.readNullableString(itemPath + ".name")
@@ -357,7 +357,7 @@ func readKCESPresetTextureMasks(r *kcesPresetInnerReader, path string) ([]KCESPr
 	return result, nil
 }
 
-func readKCESPresetTextureTransforms(r *kcesPresetInnerReader, path string, depth int) ([]*KCESPresetTextureTransform, error) {
+func readKCESPresetTextureTransforms(r *kcesPresetInnerReader, path string, depth int64) ([]*KCESPresetTextureTransform, error) {
 	present, err := r.br.ReadBool()
 	if err != nil {
 		return nil, fmt.Errorf("read %s presence: %w", path, err)
@@ -370,7 +370,7 @@ func readKCESPresetTextureTransforms(r *kcesPresetInnerReader, path string, dept
 		return nil, err
 	}
 	result := makeKCESCountedSliceForAppend[*KCESPresetTextureTransform](uint64(count))
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		value, err := readKCESPresetTextureTransform(r, fmt.Sprintf("%s[%d]", path, index), depth+1)
 		if err != nil {
 			return nil, err
@@ -380,7 +380,7 @@ func readKCESPresetTextureTransforms(r *kcesPresetInnerReader, path string, dept
 	return result, nil
 }
 
-func readKCESPresetTextureTransform(r *kcesPresetInnerReader, path string, depth int) (KCESPresetTextureTransform, error) {
+func readKCESPresetTextureTransform(r *kcesPresetInnerReader, path string, depth int64) (KCESPresetTextureTransform, error) {
 	value := KCESPresetTextureTransform{}
 	if depth > maxKCESPresetInnerDepth {
 		return value, fmt.Errorf("%s nesting exceeds limit %d", path, maxKCESPresetInnerDepth)
@@ -421,7 +421,7 @@ func readKCESPresetTextureTransform(r *kcesPresetInnerReader, path string, depth
 	return value, nil
 }
 
-func readKCESPresetInfinityColor(r *kcesPresetInnerReader, path string, depth int) (KCESPresetInfinityColorData, error) {
+func readKCESPresetInfinityColor(r *kcesPresetInnerReader, path string, depth int64) (KCESPresetInfinityColorData, error) {
 	value := KCESPresetInfinityColorData{}
 	var err error
 	if value.Independent, err = r.br.ReadBool(); err != nil {
@@ -446,7 +446,7 @@ func readKCESPresetInfinityColor(r *kcesPresetInnerReader, path string, depth in
 			return value, err
 		}
 		value.PartColors = makeKCESCountedSliceForAppend[KCESPresetPartColorDef](uint64(count))
-		for index := 0; index < count; index++ {
+		for index := int64(0); index < count; index++ {
 			itemPath := fmt.Sprintf("%s.partColors[%d]", path, index)
 			entry, readErr := readKCESPresetPartColorDef(r, itemPath)
 			if readErr != nil {
@@ -491,7 +491,7 @@ func readKCESPresetInfinityPartsColor(r *kcesPresetInnerReader, path string) (KC
 	if count > 0 {
 		value.Gradation = makeKCESCountedSliceForAppend[KCESPresetInfinityPartsColorPoint](uint64(count))
 	}
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		point, err := readKCESPresetInfinityPoint(r, fmt.Sprintf("%s.gradation[%d]", path, index))
 		if err != nil {
 			return value, err
@@ -566,7 +566,7 @@ func readKCESPresetFloat32Array(r *kcesPresetInnerReader, path string) ([]float3
 		return nil, err
 	}
 	result := makeKCESCountedSliceForAppend[float32](uint64(count))
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		value, readErr := readKCESPresetFloat32(r, fmt.Sprintf("%s[%d]", path, index))
 		err = readErr
 		if err != nil {
@@ -590,7 +590,7 @@ func readKCESPresetVector4Array(r *kcesPresetInnerReader, path string) ([]Vector
 		return nil, err
 	}
 	result := makeKCESCountedSliceForAppend[Vector4](uint64(count))
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		value, readErr := readKCESPresetVector4(r, fmt.Sprintf("%s[%d]", path, index))
 		err = readErr
 		if err != nil {
@@ -635,7 +635,7 @@ func readKCESPresetPartHides(r *kcesPresetInnerReader, path string) ([]KCESPrese
 		return nil, err
 	}
 	result := makeKCESCountedSliceForAppend[KCESPresetPartHide](uint64(count))
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		itemPath := fmt.Sprintf("%s[%d]", path, index)
 		entry := KCESPresetPartHide{}
 		entry.PartName, err = r.readNullableString(itemPath + ".partName")
@@ -664,7 +664,7 @@ func readKCESPresetSavedAttachPositions(r *kcesPresetInnerReader, path string) (
 		return nil, err
 	}
 	result := makeKCESCountedSliceForAppend[SavedAttachData](uint64(count))
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		value, err := decodeSavedAttachItemWithSlotValidator(r.br, r.r, index, validateKCESPresetInnerString)
 		if err != nil {
 			return nil, fmt.Errorf("read %s[%d]: %w", path, index, err)
@@ -687,7 +687,7 @@ func readKCESPresetHairLengths(r *kcesPresetInnerReader, path string) ([]KCESPre
 		return nil, err
 	}
 	result := makeKCESCountedSliceForAppend[KCESPresetSavedHairLength](uint64(count))
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		itemPath := fmt.Sprintf("%s[%d]", path, index)
 		entry := KCESPresetSavedHairLength{}
 		entry.PartName, err = r.readNullableString(itemPath + ".partName")
@@ -703,7 +703,7 @@ func readKCESPresetHairLengths(r *kcesPresetInnerReader, path string) ([]KCESPre
 	return result, nil
 }
 
-func readKCESPresetSubProperties(r *kcesPresetInnerReader, path string, version int32, mpnName string, depth int) ([]*KCESPresetSubProperty, error) {
+func readKCESPresetSubProperties(r *kcesPresetInnerReader, path string, version int32, mpnName string, depth int64) ([]*KCESPresetSubProperty, error) {
 	present, err := r.br.ReadBool()
 	if err != nil {
 		return nil, fmt.Errorf("read %s presence: %w", path, err)
@@ -716,7 +716,7 @@ func readKCESPresetSubProperties(r *kcesPresetInnerReader, path string, version 
 		return nil, err
 	}
 	result := makeKCESCountedSliceForAppend[*KCESPresetSubProperty](uint64(count))
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		itemPath := fmt.Sprintf("%s[%d]", path, index)
 		exists, err := r.br.ReadBool()
 		if err != nil {
@@ -735,7 +735,7 @@ func readKCESPresetSubProperties(r *kcesPresetInnerReader, path string, version 
 	return result, nil
 }
 
-func readKCESPresetSubProperty(r *kcesPresetInnerReader, path string, version int32, mpnName string, depth int) (KCESPresetSubProperty, error) {
+func readKCESPresetSubProperty(r *kcesPresetInnerReader, path string, version int32, mpnName string, depth int64) (KCESPresetSubProperty, error) {
 	value := KCESPresetSubProperty{}
 	if depth > maxKCESPresetInnerDepth {
 		return value, fmt.Errorf("%s nesting exceeds limit %d", path, maxKCESPresetInnerDepth)
@@ -777,7 +777,7 @@ func EncodeKCESPresetPropertyData(value *KCESPresetPropertyList) ([]byte, error)
 		return nil, fmt.Errorf("invalid KCES preset property-list signature %q", signature)
 	}
 	version := value.Version
-	if err := validateKCESPresetInnerSliceLength(len(value.Properties), "KCES preset properties"); err != nil {
+	if err := validateKCESPresetInnerSliceLength(int64(len(value.Properties)), "KCES preset properties"); err != nil {
 		return nil, err
 	}
 	var out bytes.Buffer
@@ -829,7 +829,7 @@ func writeKCESPresetProperty(bw *stream.BinaryWriter, value *KCESPresetProperty,
 	if err := validateKCESPresetInnerString(value.Name, path+".name"); err != nil {
 		return err
 	}
-	if err := validateKCESPresetInnerSliceLength(len(value.MaterialProperties), path+".materialProperties"); err != nil {
+	if err := validateKCESPresetInnerSliceLength(int64(len(value.MaterialProperties)), path+".materialProperties"); err != nil {
 		return err
 	}
 	writeErrors := []error{
@@ -855,7 +855,7 @@ func writeKCESPresetMaterialSlot(bw *stream.BinaryWriter, value *KCESPresetMater
 	if err := validateKCESPresetInnerString(value.SlotID, path+".slotId"); err != nil {
 		return err
 	}
-	if err := validateKCESPresetInnerSliceLength(len(value.Properties), path+".properties"); err != nil {
+	if err := validateKCESPresetInnerSliceLength(int64(len(value.Properties)), path+".properties"); err != nil {
 		return err
 	}
 	if version < 2002 && value.SlotValue != -1 {
@@ -911,7 +911,7 @@ func writeKCESPresetMaterialValue(bw *stream.BinaryWriter, value *KCESPresetMate
 	return nil
 }
 
-func writeKCESPresetPropBase(bw *stream.BinaryWriter, value *KCESPresetPropBase, path string, version int32, mpnName string, depth int) error {
+func writeKCESPresetPropBase(bw *stream.BinaryWriter, value *KCESPresetPropBase, path string, version int32, mpnName string, depth int64) error {
 	if value == nil {
 		return fmt.Errorf("%s is nil", path)
 	}
@@ -999,14 +999,14 @@ func writeKCESPresetPropBase(bw *stream.BinaryWriter, value *KCESPresetPropBase,
 	return writeKCESPresetSubProperties(bw, value.SubProperties, path+".subProperties", version, mpnName, depth)
 }
 
-func writeKCESPresetSavedTextureMap(bw *stream.BinaryWriter, values []KCESPresetNamedSavedTexture, path string, depth int) error {
+func writeKCESPresetSavedTextureMap(bw *stream.BinaryWriter, values []KCESPresetNamedSavedTexture, path string, depth int64) error {
 	if err := bw.WriteBool(values != nil); err != nil {
 		return err
 	}
 	if values == nil {
 		return nil
 	}
-	if err := validateKCESPresetInnerSliceLength(len(values), path); err != nil {
+	if err := validateKCESPresetInnerSliceLength(int64(len(values)), path); err != nil {
 		return err
 	}
 	if err := bw.WriteInt32(int32(len(values))); err != nil {
@@ -1028,7 +1028,7 @@ func writeKCESPresetSavedTextureMap(bw *stream.BinaryWriter, values []KCESPreset
 	return nil
 }
 
-func writeKCESPresetSavedTexture(bw *stream.BinaryWriter, value *KCESPresetSavedTextureData, path string, depth int) error {
+func writeKCESPresetSavedTexture(bw *stream.BinaryWriter, value *KCESPresetSavedTextureData, path string, depth int64) error {
 	if err := validateKCESPresetInnerNullableString(value.InfinityColorLinkLayer, path+".infinityColorLinkLayer"); err != nil {
 		return err
 	}
@@ -1068,7 +1068,7 @@ func writeKCESPresetTextureMasks(bw *stream.BinaryWriter, values []KCESPresetTex
 	if values == nil {
 		return nil
 	}
-	if err := validateKCESPresetInnerSliceLength(len(values), path); err != nil {
+	if err := validateKCESPresetInnerSliceLength(int64(len(values)), path); err != nil {
 		return err
 	}
 	if err := bw.WriteInt32(int32(len(values))); err != nil {
@@ -1088,14 +1088,14 @@ func writeKCESPresetTextureMasks(bw *stream.BinaryWriter, values []KCESPresetTex
 	return nil
 }
 
-func writeKCESPresetTextureTransforms(bw *stream.BinaryWriter, values []*KCESPresetTextureTransform, path string, depth int) error {
+func writeKCESPresetTextureTransforms(bw *stream.BinaryWriter, values []*KCESPresetTextureTransform, path string, depth int64) error {
 	if err := bw.WriteBool(values != nil); err != nil {
 		return err
 	}
 	if values == nil {
 		return nil
 	}
-	if err := validateKCESPresetInnerSliceLength(len(values), path); err != nil {
+	if err := validateKCESPresetInnerSliceLength(int64(len(values)), path); err != nil {
 		return err
 	}
 	if err := bw.WriteInt32(int32(len(values))); err != nil {
@@ -1112,7 +1112,7 @@ func writeKCESPresetTextureTransforms(bw *stream.BinaryWriter, values []*KCESPre
 	return nil
 }
 
-func writeKCESPresetTextureTransform(bw *stream.BinaryWriter, value *KCESPresetTextureTransform, path string, depth int) error {
+func writeKCESPresetTextureTransform(bw *stream.BinaryWriter, value *KCESPresetTextureTransform, path string, depth int64) error {
 	if depth > maxKCESPresetInnerDepth {
 		return fmt.Errorf("%s nesting exceeds limit %d", path, maxKCESPresetInnerDepth)
 	}
@@ -1146,14 +1146,14 @@ func writeKCESPresetTextureTransform(bw *stream.BinaryWriter, value *KCESPresetT
 	return nil
 }
 
-func writeKCESPresetInfinityColor(bw *stream.BinaryWriter, value *KCESPresetInfinityColorData, path string, depth int) error {
+func writeKCESPresetInfinityColor(bw *stream.BinaryWriter, value *KCESPresetInfinityColorData, path string, depth int64) error {
 	if err := validateKCESPresetInnerString(value.ColorType, path+".colorType"); err != nil {
 		return err
 	}
 	if err := validateKCESPresetInnerString(value.PartsColorType, path+".partsColorType"); err != nil {
 		return err
 	}
-	if err := validateKCESPresetInnerSliceLength(len(value.PartColors), path+".partColors"); err != nil {
+	if err := validateKCESPresetInnerSliceLength(int64(len(value.PartColors)), path+".partColors"); err != nil {
 		return err
 	}
 	if err := bw.WriteBool(value.Independent); err != nil {
@@ -1193,7 +1193,7 @@ func writeKCESPresetInfinityColor(bw *stream.BinaryWriter, value *KCESPresetInfi
 }
 
 func writeKCESPresetInfinityPartsColor(bw *stream.BinaryWriter, value *KCESPresetInfinityPartsColor, path string) error {
-	if err := validateKCESPresetInnerSliceLength(len(value.Gradation), path+".gradation"); err != nil {
+	if err := validateKCESPresetInnerSliceLength(int64(len(value.Gradation)), path+".gradation"); err != nil {
 		return err
 	}
 	for _, field := range []int32{value.MainHue, value.MainChroma, value.MainBrightness, value.MainContrast, value.ShadowRate, value.ShadowHue, value.ShadowChroma, value.ShadowBrightness, value.ShadowContrast} {
@@ -1263,7 +1263,7 @@ func writeKCESPresetFloat32Array(bw *stream.BinaryWriter, values []float32, path
 	if values == nil {
 		return nil
 	}
-	if err := validateKCESPresetInnerSliceLength(len(values), path); err != nil {
+	if err := validateKCESPresetInnerSliceLength(int64(len(values)), path); err != nil {
 		return err
 	}
 	if err := bw.WriteInt32(int32(len(values))); err != nil {
@@ -1284,7 +1284,7 @@ func writeKCESPresetVector4Array(bw *stream.BinaryWriter, values []Vector4, path
 	if values == nil {
 		return nil
 	}
-	if err := validateKCESPresetInnerSliceLength(len(values), path); err != nil {
+	if err := validateKCESPresetInnerSliceLength(int64(len(values)), path); err != nil {
 		return err
 	}
 	if err := bw.WriteInt32(int32(len(values))); err != nil {
@@ -1321,7 +1321,7 @@ func writeKCESPresetPartHides(bw *stream.BinaryWriter, values []KCESPresetPartHi
 	if values == nil {
 		return nil
 	}
-	if err := validateKCESPresetInnerSliceLength(len(values), path); err != nil {
+	if err := validateKCESPresetInnerSliceLength(int64(len(values)), path); err != nil {
 		return err
 	}
 	if err := bw.WriteInt32(int32(len(values))); err != nil {
@@ -1348,14 +1348,14 @@ func writeKCESPresetSavedAttachPositions(bw *stream.BinaryWriter, values []Saved
 	if values == nil {
 		return nil
 	}
-	if err := validateKCESPresetInnerSliceLength(len(values), path); err != nil {
+	if err := validateKCESPresetInnerSliceLength(int64(len(values)), path); err != nil {
 		return err
 	}
 	if err := bw.WriteInt32(int32(len(values))); err != nil {
 		return err
 	}
 	for index := range values {
-		if err := encodeSavedAttachItemWithSlotValidator(bw, &values[index], index, validateKCESPresetInnerString); err != nil {
+		if err := encodeSavedAttachItemWithSlotValidator(bw, &values[index], int64(index), validateKCESPresetInnerString); err != nil {
 			return fmt.Errorf("write %s[%d]: %w", path, index, err)
 		}
 	}
@@ -1369,7 +1369,7 @@ func writeKCESPresetHairLengths(bw *stream.BinaryWriter, values []KCESPresetSave
 	if values == nil {
 		return nil
 	}
-	if err := validateKCESPresetInnerSliceLength(len(values), path); err != nil {
+	if err := validateKCESPresetInnerSliceLength(int64(len(values)), path); err != nil {
 		return err
 	}
 	if err := bw.WriteInt32(int32(len(values))); err != nil {
@@ -1389,14 +1389,14 @@ func writeKCESPresetHairLengths(bw *stream.BinaryWriter, values []KCESPresetSave
 	return nil
 }
 
-func writeKCESPresetSubProperties(bw *stream.BinaryWriter, values []*KCESPresetSubProperty, path string, version int32, mpnName string, depth int) error {
+func writeKCESPresetSubProperties(bw *stream.BinaryWriter, values []*KCESPresetSubProperty, path string, version int32, mpnName string, depth int64) error {
 	if err := bw.WriteBool(values != nil); err != nil {
 		return err
 	}
 	if values == nil {
 		return nil
 	}
-	if err := validateKCESPresetInnerSliceLength(len(values), path); err != nil {
+	if err := validateKCESPresetInnerSliceLength(int64(len(values)), path); err != nil {
 		return err
 	}
 	if err := bw.WriteInt32(int32(len(values))); err != nil {
@@ -1416,7 +1416,7 @@ func writeKCESPresetSubProperties(bw *stream.BinaryWriter, values []*KCESPresetS
 	return nil
 }
 
-func writeKCESPresetSubProperty(bw *stream.BinaryWriter, value *KCESPresetSubProperty, path string, version int32, mpnName string, depth int) error {
+func writeKCESPresetSubProperty(bw *stream.BinaryWriter, value *KCESPresetSubProperty, path string, version int32, mpnName string, depth int64) error {
 	if depth > maxKCESPresetInnerDepth {
 		return fmt.Errorf("%s nesting exceeds limit %d", path, maxKCESPresetInnerDepth)
 	}

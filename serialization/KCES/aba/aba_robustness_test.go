@@ -496,7 +496,7 @@ func TestAbaEmptyAndDuplicateEntryNamesRoundTripByIndex(t *testing.T) {
 		if abaFile.BlockInfo.DirectoryInfos[i].Name != entry.Name {
 			t.Fatalf("directory[%d] name = %q, want %q", i, abaFile.BlockInfo.DirectoryInfos[i].Name, entry.Name)
 		}
-		data, err := abaFile.GetFileData(i)
+		data, err := abaFile.GetFileData(int64(i))
 		if err != nil {
 			t.Fatalf("GetFileData(%d): %v", i, err)
 		}
@@ -570,7 +570,7 @@ func TestAbaSampleMetadataBounds(t *testing.T) {
 		t.Skip("no .aba test files found")
 	}
 
-	var versions = make(map[uint32]int)
+	var versions = make(map[uint32]int32)
 	var maxBlocks, maxDirs int
 	var maxEntry int64
 	for _, path := range files {

@@ -234,6 +234,8 @@
       "x-meido-edit-guidance": "Preserve the source value. Use 2001 for a new KCES-to-COM3D2_5 bridge and 2000 only when reproducing the reverse exporter.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "The reader consumes this integer for the outer layout but the reviewed ImportPresetGP03 path does not branch on its value.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
       "x-meido-risk": "critical",
       "x-meido-source-evidence": [
         {

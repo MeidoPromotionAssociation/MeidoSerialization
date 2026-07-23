@@ -2,7 +2,6 @@ package KCES
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"math"
 	"reflect"
@@ -30,7 +29,7 @@ func TestColorPresetHandWrittenCurrentWireRoundTrip(t *testing.T) {
 	raw = colorPresetTestAppendInt32(raw, 158) // MPN.hairf in KCES 1.34.4
 	raw = colorPresetTestAppendString(raw, "Layer")
 	raw = append(raw, 0xc0) // nullable viewName
-	raw = colorPresetTestAppendInt32(raw, int(ColorPresetPackColorAndAlpha))
+	raw = colorPresetTestAppendInt32(raw, int32(ColorPresetPackColorAndAlpha))
 	raw = colorPresetTestAppendArray(raw, 1)
 	raw = colorPresetTestAppendLayerColor(raw, 1, 2, -3, 4, 5, 6, -7, 8, 9)
 	raw = colorPresetTestAppendArray(raw, 1)
@@ -53,7 +52,7 @@ func TestColorPresetHandWrittenCurrentWireRoundTrip(t *testing.T) {
 		t.Fatalf("root callback/private fields = %#v", got)
 	}
 	pack := got.ColorPackList[0]
-	if !reflect.DeepEqual(pack.MPNs, []int{158}) || !reflect.DeepEqual(pack.MPNNames, []string{"hairf"}) || !pack.AllowedMPNOverride {
+	if !reflect.DeepEqual(pack.MPNs, []int32{158}) || !reflect.DeepEqual(pack.MPNNames, []string{"hairf"}) || !pack.AllowedMPNOverride {
 		t.Fatalf("pack MPN/private fields = %#v", pack)
 	}
 	if pack.ViewName != nil || len(pack.ColorList) != 1 || len(pack.GradationColorList) != 1 {
@@ -125,7 +124,7 @@ func TestColorPresetPrivateLz4BlockArrayThreshold(t *testing.T) {
 }
 
 func TestColorPresetVersionsAndMPNFieldsArePreserved(t *testing.T) {
-	for _, version := range []int{-1, 0, 1002, 1003, ColorPresetVersion, 1005} {
+	for _, version := range []int32{-1, 0, 1002, 1003, ColorPresetVersion, 1005} {
 		t.Run("root_version_"+fmt.Sprint(version), func(t *testing.T) {
 			got, err := DecodeColorPreset(colorPresetTestMinimalRoot(version, colorPresetTestGUID, nil))
 			if err != nil {
@@ -151,7 +150,7 @@ func TestColorPresetVersionsAndMPNFieldsArePreserved(t *testing.T) {
 			Version: 1003,
 			ColorPackList: []*ColorPresetColorPack{{
 				Version:            -1,
-				MPNs:               []int{158, -1, 164},
+				MPNs:               []int32{158, -1, 164},
 				LayerName:          &layer,
 				Type:               ColorPresetPackOnlyAlpha,
 				ColorList:          []*ColorPresetLayerFreeColor{},
@@ -185,12 +184,12 @@ func TestColorPresetVersionsAndMPNFieldsArePreserved(t *testing.T) {
 	})
 
 	t.Run("hand-written mismatched fields are not migrated", func(t *testing.T) {
-		pack := colorPresetTestMinimalPack([]int{158}, []string{"skin"})
+		pack := colorPresetTestMinimalPack([]int32{158}, []string{"skin"})
 		got, err := DecodeColorPreset(colorPresetTestMinimalRoot(1002, colorPresetTestGUID, pack))
 		if err != nil {
 			t.Fatalf("DecodeColorPreset: %v", err)
 		}
-		if !reflect.DeepEqual(got.ColorPackList[0].MPNs, []int{158}) ||
+		if !reflect.DeepEqual(got.ColorPackList[0].MPNs, []int32{158}) ||
 			!reflect.DeepEqual(got.ColorPackList[0].MPNNames, []string{"skin"}) {
 			t.Fatalf("decoder applied MPN callback: %#v", got.ColorPackList[0])
 		}
@@ -277,7 +276,7 @@ func TestColorPresetMissingGUIDDoesNotGenerateImplicitIdentity(t *testing.T) {
 
 func TestColorPresetNullableShortAndFutureSlots(t *testing.T) {
 	t.Run("root and pack future slots are consumed and preserved", func(t *testing.T) {
-		pack := colorPresetTestMinimalPack([]int{158}, []string{"hairf"})
+		pack := colorPresetTestMinimalPack([]int32{158}, []string{"hairf"})
 		pack[0] = 0x9b // array(11)
 		pack = append(pack, 0x82, 0xa1, 'a', 0x91, 0xc0, 0xa1, 'b', 0xd6, 0x2a, 0, 0, 0, 7)
 		raw := colorPresetTestMinimalRoot(ColorPresetVersion, colorPresetTestGUID, pack)
@@ -287,7 +286,7 @@ func TestColorPresetNullableShortAndFutureSlots(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DecodeColorPreset(future slots) error = %v", err)
 		}
-		if len(got.ColorPackList) != 1 || !reflect.DeepEqual(got.ColorPackList[0].MPNs, []int{158}) {
+		if len(got.ColorPackList) != 1 || !reflect.DeepEqual(got.ColorPackList[0].MPNs, []int32{158}) {
 			t.Fatalf("future-slot decode = %#v", got)
 		}
 		if got.FieldCount == nil || *got.FieldCount != 8 || len(got.FutureSlots) != 1 || got.ColorPackList[0].FieldCount == nil || *got.ColorPackList[0].FieldCount != 11 || len(got.ColorPackList[0].FutureSlots) != 1 {
@@ -442,7 +441,7 @@ func TestColorPresetInt32BoundariesAndFloatBits(t *testing.T) {
 	}
 	value.ColorPackList = []*ColorPresetColorPack{{
 		Version:            -1,
-		MPNs:               []int{158},
+		MPNs:               []int32{158},
 		Type:               ColorPresetPackColorAndAlpha,
 		ColorList:          []*ColorPresetLayerFreeColor{layer},
 		GradationColorList: []*ColorPresetGradationColor{grad},
@@ -464,17 +463,11 @@ func TestColorPresetInt32BoundariesAndFloatBits(t *testing.T) {
 		t.Fatalf("private IEEE-754 bits changed: alpha=%08x grad=%#v", math.Float32bits(gotPack.Alpha), gotPack.GradationColorList[0])
 	}
 
-	if strconvIntSizeForColorPresetTest() > 32 {
-		overflow := int(int64(math.MaxInt32) + 1)
-		value.ColorPackList[0].ColorList[0].BaseColor.Hue = overflow
-		if _, err := EncodeColorPreset(value); err == nil || !strings.Contains(err.Error(), "Int32") {
-			t.Fatalf("EncodeColorPreset(Int32 overflow) error = %v", err)
-		}
-	}
 }
 
 func TestColorPresetPreservesEveryNestedFutureSlot(t *testing.T) {
-	rootFields, packFields, layerFields, freeFields, gradFields, sliderFields := 8, 11, 5, 6, 8, 2
+	rootFields, packFields, layerFields := int32(8), int32(11), int32(5)
+	freeFields, gradFields, sliderFields := int32(6), int32(8), int32(2)
 	base := &ColorPresetFreeColor{
 		Version:     1000,
 		Hue:         1,
@@ -506,7 +499,7 @@ func TestColorPresetPreservesEveryNestedFutureSlot(t *testing.T) {
 	}
 	pack := &ColorPresetColorPack{
 		Version:            1001,
-		MPNs:               []int{158},
+		MPNs:               []int32{158},
 		ColorList:          []*ColorPresetLayerFreeColor{layer},
 		GradationColorList: []*ColorPresetGradationColor{gradation},
 		MPNNames:           []string{"hairf"},
@@ -538,7 +531,7 @@ func TestColorPresetPreservesEveryNestedFutureSlot(t *testing.T) {
 }
 
 func TestColorPresetReadSingleAndCanonicalFloat32(t *testing.T) {
-	pack := colorPresetTestMinimalPack([]int{158}, []string{"hairf"})
+	pack := colorPresetTestMinimalPack([]int32{158}, []string{"hairf"})
 	// Replace the canonical alpha float32 at the known final three fields with
 	// an integer accepted by MessagePackReader.ReadSingle.
 	const trailingAllowedAndNames = 1 + 1 + 1 + len("hairf")
@@ -599,7 +592,7 @@ func TestColorPresetRejectsMalformedAndUnsafeWire(t *testing.T) {
 	})
 }
 
-func colorPresetTestMinimalRoot(version int, guid string, pack []byte) []byte {
+func colorPresetTestMinimalRoot(version int32, guid string, pack []byte) []byte {
 	raw := colorPresetTestAppendArray(nil, 7)
 	raw = colorPresetTestAppendInt32(raw, version)
 	raw = append(raw, 0xc0, 0xc0, 0xc2, 0xc2)
@@ -619,7 +612,7 @@ func colorPresetTestRootWithPackListMarker(marker byte) []byte {
 	return colorPresetTestAppendString(raw, colorPresetTestGUID)
 }
 
-func colorPresetTestMinimalPack(mpns []int, names []string) []byte {
+func colorPresetTestMinimalPack(mpns []int32, names []string) []byte {
 	raw := colorPresetTestAppendArray(nil, 10)
 	raw = colorPresetTestAppendInt32(raw, ColorPresetPackVersion)
 	raw = colorPresetTestAppendArray(raw, len(mpns))
@@ -627,7 +620,7 @@ func colorPresetTestMinimalPack(mpns []int, names []string) []byte {
 		raw = colorPresetTestAppendInt32(raw, mpn)
 	}
 	raw = append(raw, 0xc0, 0xc0)
-	raw = colorPresetTestAppendInt32(raw, int(ColorPresetPackOnlyAlpha))
+	raw = colorPresetTestAppendInt32(raw, int32(ColorPresetPackOnlyAlpha))
 	raw = colorPresetTestAppendArray(raw, 0)
 	raw = colorPresetTestAppendArray(raw, 0)
 	raw = colorPresetTestAppendFloat32(raw, 0)
@@ -639,15 +632,8 @@ func colorPresetTestMinimalPack(mpns []int, names []string) []byte {
 	return raw
 }
 
-func colorPresetTestMinimalPackVersion(version int) []byte {
-	raw := colorPresetTestMinimalPack([]int{158}, []string{"hairf"})
-	// array(10) + uint16 version; all test versions use the same three-byte form.
-	binary.BigEndian.PutUint16(raw[2:4], uint16(version))
-	return raw
-}
-
 func colorPresetTestMinimalPackShort() []byte {
-	raw := colorPresetTestMinimalPack([]int{158}, []string{"hairf"})
+	raw := colorPresetTestMinimalPack([]int32{158}, []string{"hairf"})
 	// Remove Key(9) and change array(10) to array(9).
 	nameWireLength := 1 + 1 + len("hairf")
 	raw = raw[:len(raw)-nameWireLength]
@@ -661,7 +647,7 @@ func colorPresetTestPackWithNestedShortDefaults() []byte {
 	raw = colorPresetTestAppendArray(raw, 1)
 	raw = colorPresetTestAppendInt32(raw, 158)
 	raw = append(raw, 0xc0, 0xc0)
-	raw = colorPresetTestAppendInt32(raw, int(ColorPresetPackColorAndAlpha))
+	raw = colorPresetTestAppendInt32(raw, int32(ColorPresetPackColorAndAlpha))
 	raw = colorPresetTestAppendArray(raw, 1)
 	raw = colorPresetTestAppendArray(raw, 0) // LayerFreeColor constructor defaults
 	raw = colorPresetTestAppendArray(raw, 1)
@@ -676,7 +662,7 @@ func colorPresetTestPackWithNilMPNs() []byte {
 	raw := colorPresetTestAppendArray(nil, 10)
 	raw = colorPresetTestAppendInt32(raw, ColorPresetPackVersion)
 	raw = append(raw, 0xc0, 0xc0, 0xc0) // mpns, layerName, viewName
-	raw = colorPresetTestAppendInt32(raw, int(ColorPresetPackColorAndAlpha))
+	raw = colorPresetTestAppendInt32(raw, int32(ColorPresetPackColorAndAlpha))
 	raw = colorPresetTestAppendArray(raw, 0)
 	raw = colorPresetTestAppendArray(raw, 0)
 	raw = colorPresetTestAppendFloat32(raw, 0)
@@ -684,7 +670,7 @@ func colorPresetTestPackWithNilMPNs() []byte {
 	return colorPresetTestAppendArray(raw, 0)
 }
 
-func colorPresetTestAppendLayerColor(dst []byte, values ...int) []byte {
+func colorPresetTestAppendLayerColor(dst []byte, values ...int32) []byte {
 	dst = colorPresetTestAppendArray(dst, 4)
 	dst = colorPresetTestAppendInt32(dst, ColorPresetColorVersion)
 	dst = colorPresetTestAppendFreeColor(dst, values[0:4]...)
@@ -692,7 +678,7 @@ func colorPresetTestAppendLayerColor(dst []byte, values ...int) []byte {
 	return colorPresetTestAppendInt32(dst, values[8])
 }
 
-func colorPresetTestAppendFreeColor(dst []byte, values ...int) []byte {
+func colorPresetTestAppendFreeColor(dst []byte, values ...int32) []byte {
 	dst = colorPresetTestAppendArray(dst, 5)
 	dst = colorPresetTestAppendInt32(dst, ColorPresetColorVersion)
 	for _, value := range values {
@@ -721,7 +707,7 @@ func colorPresetTestAppendArray(dst []byte, count int) []byte {
 	panic("test helper only supports fixarray")
 }
 
-func colorPresetTestAppendInt32(dst []byte, value int) []byte {
+func colorPresetTestAppendInt32(dst []byte, value int32) []byte {
 	return simpleEditDataAppendInt32(dst, value)
 }
 
@@ -746,17 +732,6 @@ func colorPresetTestCompress(t *testing.T, raw []byte) []byte {
 	return wire
 }
 
-func colorPresetTestItoa(value int) string {
-	if value == 1002 {
-		return "1002"
-	}
-	return "1005"
-}
-
-func strconvIntSizeForColorPresetTest() int {
-	return 32 << (^uint(0) >> 63)
-}
-
 func cloneColorPresetTestValue(value *ColorPreset) *ColorPreset {
 	if value == nil {
 		return nil
@@ -779,7 +754,7 @@ func cloneColorPresetTestValue(value *ColorPreset) *ColorPreset {
 			}
 			packClone := *pack
 			if pack.MPNs != nil {
-				packClone.MPNs = append(make([]int, 0, len(pack.MPNs)), pack.MPNs...)
+				packClone.MPNs = append(make([]int32, 0, len(pack.MPNs)), pack.MPNs...)
 			}
 			if pack.MPNNames != nil {
 				packClone.MPNNames = append(make([]string, 0, len(pack.MPNNames)), pack.MPNNames...)

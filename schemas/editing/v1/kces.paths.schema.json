@@ -98,6 +98,8 @@
       "x-meido-edit-guidance": "Preserve the source value; use 1000 for a new KCES file.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "NativeFileManager reads the value as part of the file header before using the list.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
       "x-meido-risk": "high",
       "x-meido-source-evidence": [
         {

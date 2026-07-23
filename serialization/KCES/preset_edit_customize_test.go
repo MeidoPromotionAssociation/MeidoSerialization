@@ -8,7 +8,7 @@ import (
 )
 
 func TestKCESPresetEditCustomizeDataTypedRoundTrip(t *testing.T) {
-	fieldCount := 4
+	fieldCount := int32(4)
 	id := "embedded"
 	warpoint := "HairPoint"
 	colorPreset, err := NewColorPreset("12345678-1234-1234-1234-123456789abc")

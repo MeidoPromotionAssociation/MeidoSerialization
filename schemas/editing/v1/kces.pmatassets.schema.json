@@ -4,13 +4,13 @@
       "additionalProperties": false,
       "properties": {
         "fieldCount": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": [
             "null",
             "integer"
           ],
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
         "fileName": {
@@ -39,10 +39,10 @@
         },
         "nilSlots": {
           "items": {
-            "maximum": 9223372036854775807,
-            "minimum": -9223372036854775808,
+            "maximum": 2147483647,
+            "minimum": -2147483648,
             "type": "integer",
-            "x-meido-integer-bits": 64,
+            "x-meido-integer-bits": 32,
             "x-meido-integer-signed": true
           },
           "type": [
@@ -98,10 +98,10 @@
           "x-meido-integer-signed": false
         },
         "version": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": "integer",
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         }
       },
@@ -158,8 +158,8 @@
     },
     "fieldCount": {
       "description": "Stored indexed-array width metadata.",
-      "maximum": 9223372036854775807,
-      "minimum": -9223372036854775808,
+      "maximum": 2147483647,
+      "minimum": -2147483648,
       "title": "Container field count",
       "type": [
         "null",
@@ -169,7 +169,7 @@
       "x-meido-edit-guidance": "Preserve unchanged.",
       "x-meido-edit-role": "serialization_metadata",
       "x-meido-game-usage": "It preserves future container fields.",
-      "x-meido-integer-bits": 64,
+      "x-meido-integer-bits": 32,
       "x-meido-integer-signed": true,
       "x-meido-risk": "high"
     },
@@ -227,10 +227,10 @@
     "nilSlots": {
       "description": "Sparse indexed-array nil markers.",
       "items": {
-        "maximum": 9223372036854775807,
-        "minimum": -9223372036854775808,
+        "maximum": 2147483647,
+        "minimum": -2147483648,
         "type": "integer",
-        "x-meido-integer-bits": 64,
+        "x-meido-integer-bits": 32,
         "x-meido-integer-signed": true
       },
       "title": "Container nil-slot metadata",

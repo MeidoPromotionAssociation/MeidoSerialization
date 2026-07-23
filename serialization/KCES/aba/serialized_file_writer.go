@@ -94,22 +94,22 @@ func (w *SerializedFileWriter) AddTextAssetWithLoadNameAndPathID(name string, lo
 // AddTexture2D 添加一个 Texture2D 对象。
 // name 为资源名称，imageData 为 RGBA32 像素数据，width/height 为尺寸。
 // 返回分配的 PathId。
-func (w *SerializedFileWriter) AddTexture2D(name string, width, height int, imageData []byte) int64 {
+func (w *SerializedFileWriter) AddTexture2D(name string, width, height int64, imageData []byte) int64 {
 	return w.AddTexture2DWithLoadName(name, name, width, height, imageData)
 }
 
 // AddTexture2DWithPathID 使用首选 PathID 添加生成的 Texture2D / AddTexture2DWithPathID adds a generated Texture2D with a preferred PathID
-func (w *SerializedFileWriter) AddTexture2DWithPathID(name string, width, height int, imageData []byte, pathID int64) int64 {
+func (w *SerializedFileWriter) AddTexture2DWithPathID(name string, width, height int64, imageData []byte, pathID int64) int64 {
 	return w.AddTexture2DWithLoadNameAndPathID(name, name, width, height, imageData, pathID)
 }
 
 // AddTexture2DWithLoadName 添加内部 m_Name 可不同于 LoadAsset key 的 Texture2D / AddTexture2DWithLoadName adds a generated Texture2D whose internal m_Name can differ from the AssetBundle m_Container key used for LoadAsset
-func (w *SerializedFileWriter) AddTexture2DWithLoadName(name string, loadName string, width, height int, imageData []byte) int64 {
+func (w *SerializedFileWriter) AddTexture2DWithLoadName(name string, loadName string, width, height int64, imageData []byte) int64 {
 	return w.AddTexture2DWithLoadNameAndPathID(name, loadName, width, height, imageData, 0)
 }
 
 // AddTexture2DWithLoadNameAndPathID 添加带独立 m_Name、加载 key 和首选 PathID 的 Texture2D / AddTexture2DWithLoadNameAndPathID adds a generated Texture2D with separate internal m_Name, AssetBundle load key, and preferred PathID
-func (w *SerializedFileWriter) AddTexture2DWithLoadNameAndPathID(name string, loadName string, width, height int, imageData []byte, pathID int64) int64 {
+func (w *SerializedFileWriter) AddTexture2DWithLoadNameAndPathID(name string, loadName string, width, height int64, imageData []byte, pathID int64) int64 {
 	data, err := encodeTexture2DData(w.UnityVersion, name, width, height, imageData)
 	if err != nil {
 		w.setError(fmt.Errorf("encode Texture2D %q: %w", name, err))
@@ -632,7 +632,7 @@ func encodeTextAssetData(name string, script []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func encodeTexture2DData(unityVersion string, name string, width, height int, imageData []byte) ([]byte, error) {
+func encodeTexture2DData(unityVersion string, name string, width, height int64, imageData []byte) ([]byte, error) {
 	if width <= 0 || height <= 0 {
 		return nil, fmt.Errorf("invalid Texture2D dimensions %dx%d", width, height)
 	}
@@ -644,9 +644,6 @@ func encodeTexture2DData(unityVersion string, name string, width, height int, im
 		return nil, fmt.Errorf("Texture2D dimensions %dx%d exceed inline RGBA32 size limit", width, height)
 	}
 	expectedSize := uint64(width) * uint64(height) * bytesPerPixel
-	if expectedSize > uint64(int(^uint(0)>>1)) {
-		return nil, fmt.Errorf("Texture2D image size %d exceeds platform int capacity", expectedSize)
-	}
 	if uint64(len(imageData)) != expectedSize {
 		return nil, fmt.Errorf("Texture2D RGBA32 data size %d does not match %dx%d (%d bytes)", len(imageData), width, height, expectedSize)
 	}
@@ -843,8 +840,8 @@ func texture2DUsesMipmapLimitGroup(unityVersion string) (bool, error) {
 	return major >= 2022, nil
 }
 
-func parseUnityMajorMinor(unityVersion string) (int, int, error) {
-	var major, minor int
+func parseUnityMajorMinor(unityVersion string) (int64, int64, error) {
+	var major, minor int64
 	if n, err := fmt.Sscanf(unityVersion, "%d.%d", &major, &minor); err != nil || n != 2 {
 		return 0, 0, fmt.Errorf("invalid Unity version %q", unityVersion)
 	}

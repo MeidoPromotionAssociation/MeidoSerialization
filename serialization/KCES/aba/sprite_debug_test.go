@@ -15,7 +15,7 @@ func TestSpriteAtlasDebugSample(t *testing.T) {
 		if !dir.IsSerialized() {
 			continue
 		}
-		fileData, err := abaFile.GetFileData(i)
+		fileData, err := abaFile.GetFileData(int64(i))
 		if err != nil {
 			t.Fatal(err)
 		}

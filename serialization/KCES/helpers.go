@@ -16,6 +16,8 @@ import (
 //
 // MessagePack-root, LZ4 Block Array, and primitive conversion helpers shared by KCES formats.
 
+// messagePackTrailingCarrier 由顶层游戏记录实现，用于保存在 MessagePack-CSharp 格式化器结果之后仍未读取的字节。这些字节位于索引对象之外，不能成为额外的结构体槽位。
+//
 // messagePackTrailingCarrier is implemented by top-level game records whose
 // formatter result may be followed by bytes that MessagePack-CSharp leaves
 // unread. The bytes are outside the indexed object itself and therefore must
@@ -30,23 +32,27 @@ type messagePackRootCarrier interface {
 	setMessagePackRootNil(bool)
 }
 
+// MessagePackRootMetadata 与 ct 共用，使所有面向 MessagePack 的模型采用一致的 JSON 和 wire 元数据形状。
+//
 // MessagePackRootMetadata is shared with ct so all MessagePack-facing models
 // use one JSON/wire annotation shape.
 type MessagePackRootMetadata = ct.MessagePackRootMetadata
 
+// IndexedObjectMetadata 保存解码后的 MessagePack-CSharp 整数键数组的精确宽度、未来原始槽位以及可空元素标记。
+//
 // IndexedObjectMetadata records a decoded MessagePack-CSharp int-key array's
-// exact width and raw slots newer than this library's typed model.
+// exact width, future raw slots, and nullable-element markers.
 type IndexedObjectMetadata = ct.TypedIndexedObjectMetadata
 
-func messagePackRootTrailingAfterParsed(data []byte, parsed int, name string) ([]byte, error) {
-	if parsed < 0 || parsed > len(data) {
+func messagePackRootTrailingAfterParsed(data []byte, parsed int64, name string) ([]byte, error) {
+	if parsed < 0 || parsed > int64(len(data)) {
 		return nil, fmt.Errorf("decode %s parser consumed invalid byte count %d of %d", name, parsed, len(data))
 	}
 	root, trailing, err := ct.SplitFirstMsgpackValue(data)
 	if err != nil {
 		return nil, fmt.Errorf("decode %s root MessagePack value: %w", name, err)
 	}
-	if len(root) != parsed {
+	if int64(len(root)) != parsed {
 		return nil, fmt.Errorf("decode %s parser consumed %d bytes but MessagePack library reports a %d-byte root value", name, parsed, len(root))
 	}
 	return trailing, nil
@@ -93,8 +99,8 @@ func decodeCompressedMsgpack(data []byte, out interface{}, name string) error {
 	if err := ct.DecodeMsgpack(root, out); err != nil {
 		return fmt.Errorf("decode %s msgpack: %w", name, err)
 	}
-	if carrier, ok := out.(messagePackTrailingCarrier); ok {
-		carrier.setMessagePackTrailing(append([]byte(nil), trailing...))
+	if trailingCarrier, ok := out.(messagePackTrailingCarrier); ok {
+		trailingCarrier.setMessagePackTrailing(append([]byte(nil), trailing...))
 	}
 	return nil
 }
@@ -216,34 +222,6 @@ func decodeRawMsgpackArray(arr []interface{}, out interface{}, name string) erro
 	return nil
 }
 
-func toIntVal(v interface{}) (int, bool) {
-	maxInt := int(^uint(0) >> 1)
-	minInt := -maxInt - 1
-	switch n := v.(type) {
-	case json.Number:
-		i, err := strconv.ParseInt(n.String(), 10, 0)
-		return int(i), err == nil
-	case int64:
-		if n < int64(minInt) || n > int64(maxInt) {
-			return 0, false
-		}
-		return int(n), true
-	case uint64:
-		if n > uint64(maxInt) {
-			return 0, false
-		}
-		return int(n), true
-	case int:
-		return n, true
-	case uint:
-		if uint64(n) > uint64(maxInt) {
-			return 0, false
-		}
-		return int(n), true
-	}
-	return 0, false
-}
-
 func toUint64Val(v interface{}) (uint64, bool) {
 	switch n := v.(type) {
 	case json.Number:
@@ -255,13 +233,6 @@ func toUint64Val(v interface{}) (uint64, bool) {
 		if n < 0 {
 			return 0, false
 		}
-		return uint64(n), true
-	case int:
-		if n < 0 {
-			return 0, false
-		}
-		return uint64(n), true
-	case uint:
 		return uint64(n), true
 	}
 	return 0, false
@@ -310,29 +281,6 @@ func toFloat64(v interface{}) (float64, bool) {
 	return 0, false
 }
 
-func toInt64Val(v interface{}) (int64, bool) {
-	switch n := v.(type) {
-	case json.Number:
-		i, err := strconv.ParseInt(n.String(), 10, 64)
-		return i, err == nil
-	case int64:
-		return n, true
-	case uint64:
-		if n > math.MaxInt64 {
-			return 0, false
-		}
-		return int64(n), true
-	case int:
-		return int64(n), true
-	case uint:
-		if uint64(n) > math.MaxInt64 {
-			return 0, false
-		}
-		return int64(n), true
-	}
-	return 0, false
-}
-
 func toBool(v interface{}) (bool, bool) {
 	if b, ok := v.(bool); ok {
 		return b, true
@@ -347,8 +295,8 @@ func toStringVal(v interface{}) (string, bool) {
 	return "", false
 }
 
-func padSlice(arr []interface{}, size int) []interface{} {
-	if len(arr) >= size {
+func padSlice(arr []interface{}, size int64) []interface{} {
+	if int64(len(arr)) >= size {
 		return arr
 	}
 	padded := make([]interface{}, size)
@@ -361,8 +309,8 @@ func float32ToUint32Bits(f float32) uint32 {
 	return math.Float32bits(f)
 }
 
-func jsonNumberForFloat(v float64, bitSize int) json.Number {
-	s := strconv.FormatFloat(v, 'g', -1, bitSize)
+func jsonNumberForFloat(v float64, bitSize int64) json.Number {
+	s := strconv.FormatFloat(v, 'g', -1, int(bitSize))
 	if !strings.ContainsAny(s, ".eE") {
 		s += ".0"
 	}

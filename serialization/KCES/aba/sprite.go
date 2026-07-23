@@ -15,7 +15,7 @@ import (
 
 // AssetResolver 解析 Unity PPtr 引用 / AssetResolver resolves Unity PPtr references
 // fileID 0 表示当前 AssetsFile，正数 fileID 是从 1 开始的外部依赖索引 / fileID 0 is the current AssetsFile, while positive file IDs are one-based external dependency indexes
-type AssetResolver func(relativeTo *AssetsFile, fileID int, pathID int64) (*AssetsFile, *AssetInfo, error)
+type AssetResolver func(relativeTo *AssetsFile, fileID int32, pathID int64) (*AssetsFile, *AssetInfo, error)
 
 // SpriteExport 描述从 Texture2D 或 SpriteAtlas 裁剪出的 Sprite / SpriteExport describes a Sprite cropped from a Texture2D or SpriteAtlas
 type SpriteExport struct {
@@ -35,7 +35,7 @@ type SpriteRect struct {
 
 // unityPPtr 表示 Unity 序列化对象引用 / unityPPtr represents a Unity serialized object reference
 type unityPPtr struct {
-	FileID int   // 文件 ID，0 表示当前文件 / File ID, zero means current file
+	FileID int32 // 文件 ID，0 表示当前文件 / File ID, zero means current file
 	PathID int64 // 路径 ID / Path ID
 }
 
@@ -46,7 +46,7 @@ type spriteRenderDataKey struct {
 }
 
 // DefaultAssetResolver 只解析同一 AssetsFile 内部引用 / DefaultAssetResolver resolves references within the same AssetsFile only
-func DefaultAssetResolver(relativeTo *AssetsFile, fileID int, pathID int64) (*AssetsFile, *AssetInfo, error) {
+func DefaultAssetResolver(relativeTo *AssetsFile, fileID int32, pathID int64) (*AssetsFile, *AssetInfo, error) {
 	if pathID == 0 {
 		return nil, nil, fmt.Errorf("null PPtr")
 	}
@@ -67,7 +67,7 @@ func DefaultAssetResolver(relativeTo *AssetsFile, fileID int, pathID int64) (*As
 //
 // AbaAssetResolver returns a resolver for all serialized files in an .aba; map keys should include .aba directory names or file basenames.
 func AbaAssetResolver(files map[string]*AssetsFile) AssetResolver {
-	return func(relativeTo *AssetsFile, fileID int, pathID int64) (*AssetsFile, *AssetInfo, error) {
+	return func(relativeTo *AssetsFile, fileID int32, pathID int64) (*AssetsFile, *AssetInfo, error) {
 		if pathID == 0 {
 			return nil, nil, fmt.Errorf("null PPtr")
 		}
@@ -83,8 +83,8 @@ func AbaAssetResolver(files map[string]*AssetsFile) AssetResolver {
 		}
 		if relativeTo != nil {
 			depIdx := fileID - 1
-			if depIdx >= 0 && depIdx < len(relativeTo.Metadata.ExternalFiles) {
-				depName := normalizeAbaAssetPath(relativeTo.Metadata.ExternalFiles[depIdx].PathName)
+			if depIdx >= 0 && int64(depIdx) < int64(len(relativeTo.Metadata.ExternalFiles)) {
+				depName := normalizeAbaAssetPath(relativeTo.Metadata.ExternalFiles[int64(depIdx)].PathName)
 				if depName != "" {
 					af, matched, err := lookupAbaAssetFile(files, depName)
 					if err != nil {
@@ -390,10 +390,10 @@ func WriteSpritePNGTo(sprite *SpriteExport, out io.Writer) error {
 }
 
 func spriteCropGeometry(tex *Texture2DData, rect SpriteRect) string {
-	x := int(math.Round(float64(rect.X)))
-	y := tex.Height - int(math.Round(float64(rect.Y+rect.Height)))
-	w := int(rect.Width)
-	h := int(rect.Height)
+	x := int64(math.Round(float64(rect.X)))
+	y := int64(tex.Height) - int64(math.Round(float64(rect.Y+rect.Height)))
+	w := int64(rect.Width)
+	h := int64(rect.Height)
 	if w < 1 {
 		w = 1
 	}
@@ -403,11 +403,11 @@ func spriteCropGeometry(tex *Texture2DData, rect SpriteRect) string {
 	if tex.Width <= 0 || tex.Height <= 0 {
 		return ""
 	}
-	x = clampInt(x, 0, tex.Width-1)
-	y = clampInt(y, 0, tex.Height-1)
-	w = clampInt(w, 1, tex.Width-x)
-	h = clampInt(h, 1, tex.Height-y)
-	if x == 0 && y == 0 && w == tex.Width && h == tex.Height {
+	x = clampInt64(x, 0, int64(tex.Width)-1)
+	y = clampInt64(y, 0, int64(tex.Height)-1)
+	w = clampInt64(w, 1, int64(tex.Width)-x)
+	h = clampInt64(h, 1, int64(tex.Height)-y)
+	if x == 0 && y == 0 && w == int64(tex.Width) && h == int64(tex.Height) {
 		return ""
 	}
 	return fmt.Sprintf("%dx%d+%d+%d", w, h, x, y)
@@ -437,10 +437,10 @@ func readPPtr(v *TypeTreeValue) (unityPPtr, bool) {
 	}
 	fileID, okFile := v.Field("m_FileID").Int64()
 	pathID, okPath := v.Field("m_PathID").Int64()
-	if !okFile || !okPath {
+	if !okFile || !okPath || fileID < math.MinInt32 || fileID > math.MaxInt32 {
 		return unityPPtr{}, false
 	}
-	return unityPPtr{FileID: int(fileID), PathID: pathID}, true
+	return unityPPtr{FileID: int32(fileID), PathID: pathID}, true
 }
 
 func readRenderDataKey(v *TypeTreeValue) (spriteRenderDataKey, bool) {
@@ -480,7 +480,7 @@ func readGUID(v *TypeTreeValue) ([4]uint32, bool) {
 	}
 	for i := 0; i < 4; i++ {
 		n, ok := v.Children[i].Int64()
-		if !ok {
+		if !ok || n < 0 || n > math.MaxUint32 {
 			return out, false
 		}
 		out[i] = uint32(n)
@@ -514,7 +514,7 @@ func readUint32Field(v *TypeTreeValue) uint32 {
 		return 0
 	}
 	n, ok := v.Int64()
-	if !ok {
+	if !ok || n < 0 || n > math.MaxUint32 {
 		return 0
 	}
 	return uint32(n)
@@ -541,7 +541,9 @@ func collectAtlasMapEntries(v *TypeTreeValue) []*TypeTreeValue {
 	return out
 }
 
-func clampInt(v, min, max int) int {
+// clampInt64 将 Int64 值限制在包含端点的范围内；空范围返回下限。
+// clampInt64 clamps an Int64 value to an inclusive range; an empty range returns the lower bound.
+func clampInt64(v, min, max int64) int64 {
 	if max < min {
 		return min
 	}

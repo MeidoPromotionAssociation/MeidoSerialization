@@ -4,13 +4,13 @@
       "additionalProperties": false,
       "properties": {
         "fieldCount": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": [
             "null",
             "integer"
           ],
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
         "futureSlots": {
@@ -67,10 +67,10 @@
           ]
         },
         "version": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": "integer",
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         }
       },
@@ -88,13 +88,13 @@
           "type": "boolean"
         },
         "FieldCount": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": [
             "null",
             "integer"
           ],
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
         "FilesNil": {
@@ -118,10 +118,10 @@
           ]
         },
         "Version": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": "integer",
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
         "Versionless": {
@@ -137,13 +137,13 @@
       "additionalProperties": false,
       "properties": {
         "FieldCount": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": [
             "null",
             "integer"
           ],
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
         "FutureSlots": {
@@ -182,13 +182,13 @@
       "type": "boolean"
     },
     "containerFieldCount": {
-      "maximum": 9223372036854775807,
-      "minimum": -9223372036854775808,
+      "maximum": 2147483647,
+      "minimum": -2147483648,
       "type": [
         "null",
         "integer"
       ],
-      "x-meido-integer-bits": 64,
+      "x-meido-integer-bits": 32,
       "x-meido-integer-signed": true
     },
     "containerFilesNil": {
@@ -213,15 +213,15 @@
     },
     "containerVersion": {
       "description": "The outer container version, normally 1000 for KCES bridge sessions.",
-      "maximum": 9223372036854775807,
-      "minimum": -9223372036854775808,
+      "maximum": 2147483647,
+      "minimum": -2147483648,
       "title": "VirtualDirectory version",
       "type": "integer",
       "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve the decoded value; use 1000 for a newly created current session.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "VirtualDirectory uses this version during MessagePack serialization and migration callbacks.",
-      "x-meido-integer-bits": 64,
+      "x-meido-integer-bits": 32,
       "x-meido-integer-signed": true,
       "x-meido-risk": "high",
       "x-meido-source-evidence": [

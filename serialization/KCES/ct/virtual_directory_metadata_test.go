@@ -95,7 +95,7 @@ func TestVirtualDirectoryPreservesShortVirtualFiles(t *testing.T) {
 			t.Fatalf("ReadContentTable(%v) error = %v", fields, err)
 		}
 		file := table.Files["empty.bin"]
-		if file.FieldCount == nil || *file.FieldCount != len(fields) || file.Size != 0 {
+		if file.FieldCount == nil || *file.FieldCount != int32(len(fields)) || file.Size != 0 {
 			t.Fatalf("short VirtualFile %v decoded as %#v", fields, file)
 		}
 		var out bytes.Buffer
@@ -106,14 +106,14 @@ func TestVirtualDirectoryPreservesShortVirtualFiles(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ReadContentTable(round trip %v) error = %v", fields, err)
 		}
-		if got := roundTrip.Files["empty.bin"]; got.FieldCount == nil || *got.FieldCount != len(fields) || got.Size != 0 {
+		if got := roundTrip.Files["empty.bin"]; got.FieldCount == nil || *got.FieldCount != int32(len(fields)) || got.Size != 0 {
 			t.Fatalf("short VirtualFile width changed: %#v", got)
 		}
 	}
 }
 
 func TestVirtualDirectoryRejectsMalformedFutureSlot(t *testing.T) {
-	fieldCount := 4
+	fieldCount := int32(4)
 	table := &ContentTable{
 		Version:     0,
 		FieldCount:  &fieldCount,

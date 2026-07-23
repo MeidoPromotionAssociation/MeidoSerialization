@@ -36,7 +36,7 @@ var dbconfPayloadDescriptor = kcesPayloadDescriptor{
 type DynamicBoneStatus struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
-	Version                int                         `json:"version"`             // 版本号，通常为 1000 / Version value, usually 1000
+	Version                int32                       `json:"version"`             // 版本号，通常为 1000 / Version value, usually 1000
 	Damping                float32                     `json:"damping"`             // 阻尼值 / Damping value
 	DampingKeyFrames       []DynamicBoneAnimationFrame `json:"dampingKeyFrames"`    // 阻尼动画关键帧 / Damping animation keyframes
 	Elasticity             float32                     `json:"elasticity"`          // 弹性值 / Elasticity value
@@ -51,7 +51,7 @@ type DynamicBoneStatus struct {
 	EndOffset              Vector3                     `json:"endOffset"`           // 末端偏移 / End offset
 	Gravity                Vector3                     `json:"gravity"`             // 重力向量 / Gravity vector
 	Force                  Vector3                     `json:"force"`               // 外力向量 / External force vector
-	FreezeAxis             int                         `json:"freezeAxis"`          // 冻结轴枚举 / Freeze-axis enum
+	FreezeAxis             int32                       `json:"freezeAxis"`          // 冻结轴枚举 / Freeze-axis enum
 }
 
 // DynamicBoneAnimationFrame 表示 DynamicBoneStatus 的一个动画关键帧。
@@ -131,10 +131,7 @@ func EncodeDynamicBoneStatusFile(status *DynamicBoneStatus) ([]byte, error) {
 }
 
 func validateDynamicBoneStatusForEncoding(status *DynamicBoneStatus) error {
-	if err := requireInt32("dynamicBoneStatus.version", status.Version); err != nil {
-		return err
-	}
-	return requireInt32("dynamicBoneStatus.freezeAxis", status.FreezeAxis)
+	return nil
 }
 
 func normalizeDynamicBoneStatusForEncoding(status *DynamicBoneStatus) *DynamicBoneStatus {

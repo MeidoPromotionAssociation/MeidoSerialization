@@ -32,7 +32,7 @@ type MoveablePanelSaveData struct {
 	MessagePackRootMetadata
 	MoveablePanelPosition    []MoveablePanelPositionEntry    `json:"moveablePanelPosition"`
 	MoveablePanelActiveState []MoveablePanelActiveStateEntry `json:"moveablePanelActiveState"`
-	FieldCount               *int                            `json:"fieldCount,omitempty"`
+	FieldCount               *int32                          `json:"fieldCount,omitempty"`
 	FutureSlots              [][]byte                        `json:"futureSlots,omitempty"`
 }
 
@@ -90,13 +90,13 @@ func DecodeMoveablePanelSaveData(data []byte) (*MoveablePanelSaveData, error) {
 
 	value := &MoveablePanelSaveData{}
 	if fieldCount != 2 {
-		storedFieldCount := fieldCount
+		storedFieldCount := int32(fieldCount)
 		value.FieldCount = &storedFieldCount
 	}
 	if fieldCount > 2 {
 		value.FutureSlots = makeKCESCountedSliceForAppend[[]byte](uint64(fieldCount - 2))
 	}
-	for field := 0; field < fieldCount; field++ {
+	for field := int64(0); field < fieldCount; field++ {
 		start := reader.pos
 		switch field {
 		case 0:
@@ -159,7 +159,7 @@ func EncodeMoveablePanelSaveData(value *MoveablePanelSaveData) ([]byte, error) {
 		if value.MoveablePanelPosition == nil {
 			out = append(out, 0xc0)
 		} else {
-			out = appendMoveablePanelArrayHeader(out, len(value.MoveablePanelPosition))
+			out = appendMoveablePanelArrayHeader(out, int64(len(value.MoveablePanelPosition)))
 			for index, entry := range value.MoveablePanelPosition {
 				out = appendMoveablePanelArrayHeader(out, 2)
 				if entry.PanelNameIsNil {
@@ -184,7 +184,7 @@ func EncodeMoveablePanelSaveData(value *MoveablePanelSaveData) ([]byte, error) {
 		if value.MoveablePanelActiveState == nil {
 			out = append(out, 0xc0)
 		} else {
-			out = appendMoveablePanelArrayHeader(out, len(value.MoveablePanelActiveState))
+			out = appendMoveablePanelArrayHeader(out, int64(len(value.MoveablePanelActiveState)))
 			for index, entry := range value.MoveablePanelActiveState {
 				out = appendMoveablePanelArrayHeader(out, 2)
 				if entry.PanelNameIsNil {
@@ -244,23 +244,23 @@ func validateMoveablePanelSaveData(value *MoveablePanelSaveData) error {
 
 type moveablePanelMessagePackReader struct {
 	data []byte
-	pos  int
+	pos  int64
 }
 
 func (reader *moveablePanelMessagePackReader) tryReadNil() bool {
-	if reader.pos < len(reader.data) && reader.data[reader.pos] == 0xc0 {
+	if reader.pos < int64(len(reader.data)) && reader.data[reader.pos] == 0xc0 {
 		reader.pos++
 		return true
 	}
 	return false
 }
 
-func (reader *moveablePanelMessagePackReader) remaining() int {
-	return len(reader.data) - reader.pos
+func (reader *moveablePanelMessagePackReader) remaining() int64 {
+	return int64(len(reader.data)) - reader.pos
 }
 
 func (reader *moveablePanelMessagePackReader) readByte(label string) (byte, error) {
-	if reader.pos >= len(reader.data) {
+	if reader.pos >= int64(len(reader.data)) {
 		return 0, fmt.Errorf("%s: unexpected EOF", label)
 	}
 	value := reader.data[reader.pos]
@@ -268,7 +268,7 @@ func (reader *moveablePanelMessagePackReader) readByte(label string) (byte, erro
 	return value, nil
 }
 
-func (reader *moveablePanelMessagePackReader) readBytes(length int, label string) ([]byte, error) {
+func (reader *moveablePanelMessagePackReader) readBytes(length int64, label string) ([]byte, error) {
 	if length < 0 || length > reader.remaining() {
 		return nil, fmt.Errorf("%s: unexpected EOF (need %d bytes, have %d)", label, length, reader.remaining())
 	}
@@ -277,7 +277,7 @@ func (reader *moveablePanelMessagePackReader) readBytes(length int, label string
 	return value, nil
 }
 
-func (reader *moveablePanelMessagePackReader) readArrayHeader(label string) (int, error) {
+func (reader *moveablePanelMessagePackReader) readArrayHeader(label string) (int64, error) {
 	code, err := reader.readByte(label)
 	if err != nil {
 		return 0, err
@@ -301,7 +301,7 @@ func (reader *moveablePanelMessagePackReader) readArrayHeader(label string) (int
 	default:
 		return 0, fmt.Errorf("%s: expected MessagePack array, got code 0x%02x", label, code)
 	}
-	return simpleEditDataLengthToInt(uint32(count), label)
+	return int64(count), nil
 }
 
 func (reader *moveablePanelMessagePackReader) readPositionList() ([]MoveablePanelPositionEntry, error) {
@@ -316,7 +316,7 @@ func (reader *moveablePanelMessagePackReader) readPositionList() ([]MoveablePane
 		return nil, fmt.Errorf("position list: unexpected EOF before %d entries", count)
 	}
 	result := makeKCESCountedSliceForAppend[MoveablePanelPositionEntry](uint64(count))
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		pairCount, err := reader.readArrayHeader(fmt.Sprintf("position entry %d KeyValuePair", index))
 		if err != nil {
 			return nil, err
@@ -349,7 +349,7 @@ func (reader *moveablePanelMessagePackReader) readActiveStateList() ([]MoveableP
 		return nil, fmt.Errorf("active-state list: unexpected EOF before %d entries", count)
 	}
 	result := makeKCESCountedSliceForAppend[MoveablePanelActiveStateEntry](uint64(count))
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		pairCount, err := reader.readArrayHeader(fmt.Sprintf("active-state entry %d KeyValuePair", index))
 		if err != nil {
 			return nil, err
@@ -406,7 +406,7 @@ func (reader *moveablePanelMessagePackReader) readString(label string) (string, 
 	if length > uint64(reader.remaining()) {
 		return "", false, fmt.Errorf("%s: unexpected EOF (string length %d, have %d)", label, length, reader.remaining())
 	}
-	bytes, err := reader.readBytes(int(length), label)
+	bytes, err := reader.readBytes(int64(length), label)
 	if err != nil {
 		return "", false, err
 	}
@@ -422,7 +422,7 @@ func (reader *moveablePanelMessagePackReader) readVector3(label string) (Vector3
 	if err != nil {
 		return Vector3{}, err
 	}
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		if err := reader.skipValue(0); err != nil {
 			return Vector3{}, fmt.Errorf("%s component %d: %w", label, index, err)
 		}
@@ -531,7 +531,7 @@ func (reader *moveablePanelMessagePackReader) readBool(label string) (bool, erro
 
 // skipValue mirrors MessagePackReader.Skip for unknown indexed-object fields
 // and Vector3 components, while retaining an explicit recursion limit.
-func (reader *moveablePanelMessagePackReader) skipValue(depth int) error {
+func (reader *moveablePanelMessagePackReader) skipValue(depth int64) error {
 	if depth >= moveablePanelMaxMessagePackDepth {
 		return fmt.Errorf("MessagePack nesting exceeds %d", moveablePanelMaxMessagePackDepth)
 	}
@@ -544,15 +544,15 @@ func (reader *moveablePanelMessagePackReader) skipValue(depth int) error {
 	case code <= 0x7f, code >= 0xe0, code == 0xc0, code == 0xc2, code == 0xc3:
 		return nil
 	case code >= 0xa0 && code <= 0xbf:
-		_, err = reader.readBytes(int(code&0x1f), "skipped fixstr")
+		_, err = reader.readBytes(int64(code&0x1f), "skipped fixstr")
 		return err
 	case code >= 0x90 && code <= 0x9f:
-		return reader.skipArray(int(code&0x0f), depth)
+		return reader.skipArray(int64(code&0x0f), depth)
 	case code >= 0x80 && code <= 0x8f:
-		return reader.skipMap(int(code&0x0f), depth)
+		return reader.skipMap(int64(code&0x0f), depth)
 	}
 
-	fixedPayload := map[byte]int{
+	fixedPayload := map[byte]int64{
 		0xca: 4, 0xcb: 8,
 		0xcc: 1, 0xcd: 2, 0xce: 4, 0xcf: 8,
 		0xd0: 1, 0xd1: 2, 0xd2: 4, 0xd3: 8,
@@ -573,7 +573,7 @@ func (reader *moveablePanelMessagePackReader) skipValue(depth int) error {
 		if err != nil {
 			return err
 		}
-		length := int(lengthByte)
+		length := int64(lengthByte)
 		if code == 0xc7 { // ext8 includes a type-code byte.
 			length++
 		}
@@ -604,32 +604,26 @@ func (reader *moveablePanelMessagePackReader) skipValue(depth int) error {
 		if err != nil {
 			return err
 		}
-		return reader.skipArray(int(binary.BigEndian.Uint16(bytes)), depth)
+		return reader.skipArray(int64(binary.BigEndian.Uint16(bytes)), depth)
 	case 0xdd:
 		bytes, err := reader.readBytes(4, "skipped array32 length")
 		if err != nil {
 			return err
 		}
-		count, err := simpleEditDataLengthToInt(binary.BigEndian.Uint32(bytes), "skipped array32")
-		if err != nil {
-			return err
-		}
+		count := int64(binary.BigEndian.Uint32(bytes))
 		return reader.skipArray(count, depth)
 	case 0xde:
 		bytes, err := reader.readBytes(2, "skipped map16 length")
 		if err != nil {
 			return err
 		}
-		return reader.skipMap(int(binary.BigEndian.Uint16(bytes)), depth)
+		return reader.skipMap(int64(binary.BigEndian.Uint16(bytes)), depth)
 	case 0xdf:
 		bytes, err := reader.readBytes(4, "skipped map32 length")
 		if err != nil {
 			return err
 		}
-		count, err := simpleEditDataLengthToInt(binary.BigEndian.Uint32(bytes), "skipped map32")
-		if err != nil {
-			return err
-		}
+		count := int64(binary.BigEndian.Uint32(bytes))
 		return reader.skipMap(count, depth)
 	case 0xc1:
 		return fmt.Errorf("reserved MessagePack code 0xc1")
@@ -642,15 +636,15 @@ func (reader *moveablePanelMessagePackReader) skipBytePayload(length uint64) err
 	if length > uint64(reader.remaining()) {
 		return fmt.Errorf("skipped payload: unexpected EOF (need %d bytes, have %d)", length, reader.remaining())
 	}
-	reader.pos += int(length)
+	reader.pos += int64(length)
 	return nil
 }
 
-func (reader *moveablePanelMessagePackReader) skipArray(count, depth int) error {
+func (reader *moveablePanelMessagePackReader) skipArray(count, depth int64) error {
 	if count > reader.remaining() {
 		return fmt.Errorf("skipped array: unexpected EOF before %d entries", count)
 	}
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		if err := reader.skipValue(depth + 1); err != nil {
 			return fmt.Errorf("skipped array item %d: %w", index, err)
 		}
@@ -658,11 +652,11 @@ func (reader *moveablePanelMessagePackReader) skipArray(count, depth int) error 
 	return nil
 }
 
-func (reader *moveablePanelMessagePackReader) skipMap(count, depth int) error {
+func (reader *moveablePanelMessagePackReader) skipMap(count, depth int64) error {
 	if count > reader.remaining()/2 {
 		return fmt.Errorf("skipped map: unexpected EOF before %d entries", count)
 	}
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		if err := reader.skipValue(depth + 1); err != nil {
 			return fmt.Errorf("skipped map key %d: %w", index, err)
 		}
@@ -673,7 +667,7 @@ func (reader *moveablePanelMessagePackReader) skipMap(count, depth int) error {
 	return nil
 }
 
-func appendMoveablePanelArrayHeader(out []byte, count int) []byte {
+func appendMoveablePanelArrayHeader(out []byte, count int64) []byte {
 	switch {
 	case count < 16:
 		return append(out, 0x90|byte(count))
@@ -688,7 +682,7 @@ func appendMoveablePanelString(out []byte, value string) ([]byte, error) {
 	if !utf8.ValidString(value) {
 		return nil, fmt.Errorf("value is not valid UTF-8")
 	}
-	length := len(value)
+	length := int64(len(value))
 	switch {
 	case length < 32:
 		out = append(out, 0xa0|byte(length))
@@ -696,7 +690,7 @@ func appendMoveablePanelString(out []byte, value string) ([]byte, error) {
 		out = append(out, 0xd9, byte(length))
 	case length <= math.MaxUint16:
 		out = append(out, 0xda, byte(length>>8), byte(length))
-	case uint64(length) <= math.MaxUint32:
+	case length <= math.MaxUint32:
 		out = append(out, 0xdb, byte(length>>24), byte(length>>16), byte(length>>8), byte(length))
 	default:
 		return nil, fmt.Errorf("string length %d exceeds MessagePack str32", length)

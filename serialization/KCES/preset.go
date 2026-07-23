@@ -39,12 +39,12 @@ const (
 // inspect or rebuild them without applying the game's version migrations.
 type KCESPreset struct {
 	Format                  string                                 `json:"format"`
-	ContainerVersion        int                                    `json:"containerVersion"`
+	ContainerVersion        int32                                  `json:"containerVersion"`
 	ContainerVersionless    bool                                   `json:"containerVersionless,omitempty"`
 	ContainerFilesOnly      bool                                   `json:"containerFilesOnly,omitempty"`
 	ContainerDirectoriesNil bool                                   `json:"containerDirectoriesNil,omitempty"`
 	ContainerFilesNil       bool                                   `json:"containerFilesNil,omitempty"`
-	ContainerFieldCount     *int                                   `json:"containerFieldCount,omitempty"`
+	ContainerFieldCount     *int32                                 `json:"containerFieldCount,omitempty"`
 	ContainerFutureSlots    [][]byte                               `json:"containerFutureSlots,omitempty"`
 	ContainerDirectories    map[string]ct.VirtualDirectoryMetadata `json:"containerDirectories,omitempty"`
 	ContainerVirtualFiles   map[string]ct.VirtualFileMetadata      `json:"containerVirtualFiles,omitempty"`
@@ -59,7 +59,7 @@ type KCESPreset struct {
 type KCESPresetCore struct {
 	_struct                struct{} `codec:",toarray"`
 	*IndexedObjectMetadata `codec:"-"`
-	Version                int    `json:"version"`
+	Version                int32  `json:"version"`
 	PropData               []byte `json:"propData"`
 	ColorData              []byte `json:"colorData"`
 	BodyData               []byte `json:"bodyData"`
@@ -77,7 +77,7 @@ func (c *KCESPresetCore) setMessagePackRootNil(value bool)   { c.RootNil = value
 type KCESPresetMeta struct {
 	_struct                struct{} `codec:",toarray"`
 	*IndexedObjectMetadata `codec:"-"`
-	Version                int               `json:"version"`
+	Version                int32             `json:"version"`
 	Data                   map[string]string `json:"metaData"`
 	RootNil                bool              `codec:"-" json:"rootNil,omitempty"`
 	TrailingData           []byte            `codec:"-" json:"trailingData,omitempty"`
@@ -121,9 +121,6 @@ func DecodeKCESPreset(data []byte) (*KCESPreset, error) {
 	if err := decodeCompressedMsgpack(coreRaw, core, "KCES preset maiddata"); err != nil {
 		return nil, fmt.Errorf("decode KCES preset %q: %w", kcesPresetMaidDataFile, err)
 	}
-	if err := requireInt32("maidData.version", core.Version); err != nil {
-		return nil, fmt.Errorf("decode KCES preset %q: %w", kcesPresetMaidDataFile, err)
-	}
 	if err := validateKCESPresetCore(core); err != nil {
 		return nil, fmt.Errorf("decode KCES preset %q: %w", kcesPresetMaidDataFile, err)
 	}
@@ -150,9 +147,6 @@ func DecodeKCESPreset(data []byte) (*KCESPreset, error) {
 		}
 		meta := &KCESPresetMeta{}
 		if err := decodeCompressedMsgpack(metaRaw, meta, "KCES preset meta"); err != nil {
-			return nil, fmt.Errorf("decode KCES preset %q: %w", kcesPresetMetaFile, err)
-		}
-		if err := requireInt32("meta.version", meta.Version); err != nil {
 			return nil, fmt.Errorf("decode KCES preset %q: %w", kcesPresetMetaFile, err)
 		}
 		preset.Meta = meta
@@ -212,14 +206,15 @@ func EncodeKCESPreset(preset *KCESPreset) ([]byte, error) {
 		Raw:            make([]byte, ct.HeaderSize),
 		Files:          make(map[string]ct.VirtualFile),
 	}
-	table.AddFile(kcesPresetThumbnailFile, append([]byte(nil), preset.Thumbnail...))
-	table.AddFile(kcesPresetMaidDataFile, maidData)
+	if err := table.AddFile(kcesPresetThumbnailFile, append([]byte(nil), preset.Thumbnail...)); err != nil {
+		return nil, err
+	}
+	if err := table.AddFile(kcesPresetMaidDataFile, maidData); err != nil {
+		return nil, err
+	}
 
 	if preset.Meta != nil {
 		meta := *preset.Meta
-		if err := requireInt32("meta.version", meta.Version); err != nil {
-			return nil, fmt.Errorf("KCES preset meta: %w", err)
-		}
 		if meta.Data != nil {
 			meta.Data = cloneStringMap(meta.Data)
 		}
@@ -227,7 +222,9 @@ func EncodeKCESPreset(preset *KCESPreset) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		table.AddFile(kcesPresetMetaFile, metaData)
+		if err := table.AddFile(kcesPresetMetaFile, metaData); err != nil {
+			return nil, err
+		}
 	}
 
 	for name, fileData := range preset.ExtraFiles {
@@ -235,7 +232,9 @@ func EncodeKCESPreset(preset *KCESPreset) ([]byte, error) {
 		case kcesPresetThumbnailFile, kcesPresetMaidDataFile, kcesPresetMetaFile:
 			return nil, fmt.Errorf("KCES preset extraFiles contains reserved virtual file %q", name)
 		}
-		table.AddFile(name, append([]byte(nil), fileData...))
+		if err := table.AddFile(name, append([]byte(nil), fileData...)); err != nil {
+			return nil, err
+		}
 	}
 	if err := table.ApplyVirtualFileMetadata(preset.ContainerVirtualFiles); err != nil {
 		return nil, fmt.Errorf("KCES preset: %w", err)
@@ -257,7 +256,7 @@ func validateKCESPresetCore(core *KCESPresetCore) error {
 	// rejecting or rebuilding an old/future/malformed inner block here would
 	// prevent faithful outer serialization and would incorrectly make this
 	// container codec perform the game's version handling.
-	return requireInt32("version", core.Version)
+	return nil
 }
 
 // NewKCESPresetCore creates the three explicit current wire blocks used by a

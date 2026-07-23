@@ -46,7 +46,7 @@ func TestReadContentTable(t *testing.T) {
 					t.Errorf("GetFileData(%q) failed: %v", name, err)
 					continue
 				}
-				if len(raw) != vf.Size {
+				if int32(len(raw)) != vf.Size {
 					t.Errorf("GetFileData(%q): got %d bytes, want %d", name, len(raw), vf.Size)
 				}
 			}

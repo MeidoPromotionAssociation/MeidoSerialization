@@ -49,7 +49,7 @@ func TestReadAssetsFile(t *testing.T) {
 				if !dir.IsSerialized() {
 					continue
 				}
-				data, err := abaFile.GetFileData(i)
+				data, err := abaFile.GetFileData(int64(i))
 				if err != nil {
 					t.Errorf("GetFileData failed: %v", err)
 					continue
@@ -67,7 +67,7 @@ func TestReadAssetsFile(t *testing.T) {
 				t.Logf("  Types: %d, Assets: %d", len(af.Metadata.TypeTreeTypes), len(af.Metadata.AssetInfos))
 
 				// 统计每种类型的资源数量
-				typeCount := make(map[int32]int)
+				typeCount := make(map[int32]int32)
 				for _, asset := range af.Metadata.AssetInfos {
 					typeCount[asset.TypeId]++
 				}
@@ -106,7 +106,7 @@ func TestReadAssetsFile_Summary(t *testing.T) {
 			if !dir.IsSerialized() {
 				continue
 			}
-			data, err := abaFile.GetFileData(i)
+			data, err := abaFile.GetFileData(int64(i))
 			if err != nil {
 				fmt.Printf("  FAIL GetFileData %s/%s: %v\n", filepath.Base(filePath), dir.Name, err)
 				continue

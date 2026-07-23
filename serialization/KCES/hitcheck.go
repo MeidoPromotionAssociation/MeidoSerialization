@@ -67,7 +67,7 @@ func DecodeHitCheck(data []byte) (*HitCheck, error) {
 		Signature: signature,
 		Entries:   make([]HitCheckEntry, 0, count),
 	}
-	for i := 0; i < int(count); i++ {
+	for i := int64(0); i < int64(count); i++ {
 		entry, err := readHitCheckEntry(br, i)
 		if err != nil {
 			return nil, err
@@ -109,7 +109,7 @@ func EncodeHitCheck(value *HitCheck) ([]byte, error) {
 	}
 
 	for i := range value.Entries {
-		if err := writeHitCheckEntry(bw, &value.Entries[i], i); err != nil {
+		if err := writeHitCheckEntry(bw, &value.Entries[i], int64(i)); err != nil {
 			return nil, err
 		}
 	}
@@ -118,7 +118,6 @@ func EncodeHitCheck(value *HitCheck) ([]byte, error) {
 			return nil, fmt.Errorf("write hitcheck trailing data: %w", err)
 		}
 	}
-
 	return buf.Bytes(), nil
 }
 
@@ -128,7 +127,7 @@ func NewHitCheck() *HitCheck {
 	return &HitCheck{Signature: HitCheckSignature}
 }
 
-func readHitCheckEntry(br *stream.BinaryReader, index int) (HitCheckEntry, error) {
+func readHitCheckEntry(br *stream.BinaryReader, index int64) (HitCheckEntry, error) {
 	typ, err := br.ReadInt32()
 	if err != nil {
 		return HitCheckEntry{}, fmt.Errorf("read hitcheck[%d].type: %w", index, err)
@@ -174,7 +173,7 @@ func readHitCheckEntry(br *stream.BinaryReader, index int) (HitCheckEntry, error
 	}, nil
 }
 
-func writeHitCheckEntry(bw *stream.BinaryWriter, entry *HitCheckEntry, index int) error {
+func writeHitCheckEntry(bw *stream.BinaryWriter, entry *HitCheckEntry, index int64) error {
 	if err := bw.WriteInt32(entry.Type); err != nil {
 		return fmt.Errorf("write hitcheck[%d].type: %w", index, err)
 	}

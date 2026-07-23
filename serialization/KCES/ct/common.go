@@ -30,34 +30,34 @@ const (
 	messagePackInitialCollectionCapacity = 1024
 )
 
-// MessagePackRootMetadata preserves bytes that are outside a typed root value.
-// RootNil is used only when a nil root has trailing bytes and therefore cannot
-// be represented by a nil Go pointer alone.
+// MessagePackRootMetadata 保存游戏格式化器在索引对象外留下的根级 nil 标记和尾部 MessagePack 数据。
+//
+// MessagePackRootMetadata records root-level nil and trailing MessagePack data
+// that the game formatter leaves outside the indexed object.
 type MessagePackRootMetadata struct {
 	RootNil      bool   `json:"rootNil,omitempty"`
 	TrailingData []byte `json:"trailingData,omitempty"`
 }
 
-// IndexedObjectMetadata preserves the exact width and unknown trailing keys of
-// a MessagePack-CSharp int-key object. A nil FieldCount means the current known
-// width unless FutureSlots extends it.
+// IndexedObjectMetadata 保存解码后的 MessagePack-CSharp 整数键数组的精确宽度，以及超出本库类型模型的未来原始槽位。
+//
+// IndexedObjectMetadata records a decoded MessagePack-CSharp int-key array's
+// exact width and raw slots newer than this library's typed model.
 type IndexedObjectMetadata struct {
-	FieldCount  *int     `json:"fieldCount,omitempty"`
+	FieldCount  *int32   `json:"fieldCount,omitempty"`
 	FutureSlots [][]byte `json:"futureSlots,omitempty"`
 }
 
-// TypedIndexedObjectMetadata extends the width/future-slot metadata used by
-// hand-written catalog codecs with null annotations needed by ordinary typed
-// Go models. Go scalar/value fields and slices of value elements cannot by
-// themselves distinguish MessagePack nil from their zero value. These compact
-// annotations let the shared indexed-object adapter restore those nil markers
-// without duplicating every known field's raw bytes in editing JSON.
+// TypedIndexedObjectMetadata 在 IndexedObjectMetadata 的基础上保存 nil 槽位和嵌套可空集合元素的原始标记。
+//
+// TypedIndexedObjectMetadata extends IndexedObjectMetadata with raw markers for
+// nil slots and nested nullable collection elements.
 type TypedIndexedObjectMetadata struct {
-	FieldCount       *int             `json:"fieldCount,omitempty"`
-	FutureSlots      [][]byte         `json:"futureSlots,omitempty"`
-	NilSlots         []int            `json:"nilSlots,omitempty"`
-	NullElements     map[int][]bool   `json:"nullElements,omitempty"`
-	NullMapValueKeys map[int][][]byte `json:"nullMapValueKeys,omitempty"`
+	FieldCount       *int32             `json:"fieldCount,omitempty"`
+	FutureSlots      [][]byte           `json:"futureSlots,omitempty"`
+	NilSlots         []int32            `json:"nilSlots,omitempty"`
+	NullElements     map[int32][]bool   `json:"nullElements,omitempty"`
+	NullMapValueKeys map[int32][][]byte `json:"nullMapValueKeys,omitempty"`
 }
 
 // DecompressLz4BlockArray 处理 MessagePack-CSharp 的 Lz4Block / Lz4BlockArray 格式。
@@ -79,7 +79,7 @@ func DecompressLz4BlockArray(data []byte) ([]byte, error) {
 	// MessagePackCompression.Lz4Block is a top-level ext(99) whose payload is
 	// one MessagePack integer (the uncompressed size) followed by LZ4 bytes.
 	if isExtMarker(data[0]) {
-		pos := 0
+		pos := int64(0)
 		extType, payload, err := readExtPayload(data, &pos)
 		if err != nil {
 			return nil, err
@@ -87,8 +87,8 @@ func DecompressLz4BlockArray(data []byte) ([]byte, error) {
 		if extType != int8(Lz4BlockType) {
 			return data, nil
 		}
-		if pos != len(data) {
-			return nil, fmt.Errorf("Lz4Block has %d trailing bytes", len(data)-pos)
+		if pos != int64(len(data)) {
+			return nil, fmt.Errorf("Lz4Block has %d trailing bytes", int64(len(data))-pos)
 		}
 		return decompressSingleLz4Block(payload)
 	}
@@ -97,12 +97,12 @@ func DecompressLz4BlockArray(data []byte) ([]byte, error) {
 		return data, nil
 	}
 
-	pos := 0
+	pos := int64(0)
 	arrayLen, err := readArrayHeader(data, &pos)
 	if err != nil {
 		return nil, err
 	}
-	if arrayLen < 2 || pos >= len(data) || !isExtMarker(data[pos]) {
+	if arrayLen < 2 || pos >= int64(len(data)) || !isExtMarker(data[pos]) {
 		// Ordinary MessagePack arrays are not compressed and must pass through.
 		return data, nil
 	}
@@ -132,13 +132,13 @@ func decompressSingleLz4Block(payload []byte) ([]byte, error) {
 	return decompressLz4Bytes(compressed, uncompressedSize, false)
 }
 
-func decompressStandardLz4BlockArray(data []byte, pos, arrayLen int, headerPayload []byte) ([]byte, error) {
+func decompressStandardLz4BlockArray(data []byte, pos, arrayLen int64, headerPayload []byte) ([]byte, error) {
 	sizes, err := decodeMsgpackIntList(headerPayload)
 	if err != nil {
 		return nil, fmt.Errorf("decode Lz4BlockArray sizes: %w", err)
 	}
 	expectedBlocks := arrayLen - 1
-	if len(sizes) != expectedBlocks {
+	if int64(len(sizes)) != expectedBlocks {
 		return nil, fmt.Errorf("Lz4BlockArray sizes=%d but arrayLen-1=%d", len(sizes), expectedBlocks)
 	}
 
@@ -158,13 +158,13 @@ func decompressStandardLz4BlockArray(data []byte, pos, arrayLen int, headerPaylo
 		}
 		result = append(result, block...)
 	}
-	if pos != len(data) {
-		return nil, fmt.Errorf("Lz4BlockArray has %d trailing bytes", len(data)-pos)
+	if pos != int64(len(data)) {
+		return nil, fmt.Errorf("Lz4BlockArray has %d trailing bytes", int64(len(data))-pos)
 	}
 	return result, nil
 }
 
-func decompressLegacyLz4BlockArray(data []byte, pos, arrayLen int, headerPayload []byte) ([]byte, error) {
+func decompressLegacyLz4BlockArray(data []byte, pos, arrayLen int64, headerPayload []byte) ([]byte, error) {
 	totalSize, err := decodeFixedWidthInt(headerPayload)
 	if err != nil {
 		return nil, fmt.Errorf("decode legacy Lz4BlockArray size: %w", err)
@@ -172,7 +172,7 @@ func decompressLegacyLz4BlockArray(data []byte, pos, arrayLen int, headerPayload
 	if err := validateLz4Size(totalSize); err != nil {
 		return nil, err
 	}
-	expectedBlocks := 0
+	expectedBlocks := int64(0)
 	if totalSize > 0 {
 		expectedBlocks = (totalSize + blockSize - 1) / blockSize
 	}
@@ -181,7 +181,7 @@ func decompressLegacyLz4BlockArray(data []byte, pos, arrayLen int, headerPayload
 	}
 
 	result := make([]byte, 0, totalSize)
-	for i := 0; i < expectedBlocks; i++ {
+	for i := int64(0); i < expectedBlocks; i++ {
 		extType, blockPayload, err := readExtPayload(data, &pos)
 		if err != nil {
 			return nil, fmt.Errorf("read legacy Lz4BlockArray block[%d]: %w", i, err)
@@ -189,20 +189,20 @@ func decompressLegacyLz4BlockArray(data []byte, pos, arrayLen int, headerPayload
 		if extType != int8(legacyLz4BlockType) {
 			return nil, fmt.Errorf("legacy block[%d]: expected ext type %d, got %d", i, legacyLz4BlockType, extType)
 		}
-		expectedSize := min(blockSize, totalSize-len(result))
+		expectedSize := min(int64(blockSize), totalSize-int64(len(result)))
 		block, err := decompressLz4Bytes(blockPayload, expectedSize, true)
 		if err != nil {
 			return nil, fmt.Errorf("decompress legacy block[%d]: %w", i, err)
 		}
 		result = append(result, block...)
 	}
-	if pos != len(data) {
-		return nil, fmt.Errorf("legacy Lz4BlockArray has %d trailing bytes", len(data)-pos)
+	if pos != int64(len(data)) {
+		return nil, fmt.Errorf("legacy Lz4BlockArray has %d trailing bytes", int64(len(data))-pos)
 	}
 	return result, nil
 }
 
-func decompressLz4Bytes(compressed []byte, uncompressedSize int, allowRaw bool) ([]byte, error) {
+func decompressLz4Bytes(compressed []byte, uncompressedSize int64, allowRaw bool) ([]byte, error) {
 	if err := validateLz4Size(uncompressedSize); err != nil {
 		return nil, err
 	}
@@ -215,10 +215,10 @@ func decompressLz4Bytes(compressed []byte, uncompressedSize int, allowRaw bool) 
 
 	dst := make([]byte, uncompressedSize)
 	n, err := lz4.UncompressBlock(compressed, dst)
-	if err == nil && n == uncompressedSize {
+	if err == nil && int64(n) == uncompressedSize {
 		return dst, nil
 	}
-	if allowRaw && len(compressed) == uncompressedSize {
+	if allowRaw && int64(len(compressed)) == uncompressedSize {
 		return append([]byte(nil), compressed...), nil
 	}
 	if err != nil {
@@ -227,7 +227,7 @@ func decompressLz4Bytes(compressed []byte, uncompressedSize int, allowRaw bool) 
 	return nil, fmt.Errorf("decompressed size got %d, want %d", n, uncompressedSize)
 }
 
-func validateLz4Size(size int) error {
+func validateLz4Size(size int64) error {
 	if size < 0 {
 		return fmt.Errorf("negative LZ4 decompressed size %d", size)
 	}
@@ -237,8 +237,8 @@ func validateLz4Size(size int) error {
 	return nil
 }
 
-func sumLz4Sizes(sizes []int) (int, error) {
-	total := 0
+func sumLz4Sizes(sizes []int64) (int64, error) {
+	total := int64(0)
 	for i, size := range sizes {
 		if err := validateLz4Size(size); err != nil {
 			return 0, fmt.Errorf("block[%d]: %w", i, err)
@@ -254,7 +254,7 @@ func sumLz4Sizes(sizes []int) (int, error) {
 // readExtPayloadAsIntList 读取一个 ext 头并将其 payload 解析为多个 MessagePack 整数列表。
 // 用于 multi-block Lz4Block 格式：ext(98) 的 payload 包含 N 个 MessagePack 整数，
 // 分别表示后续 N 个 bin 块各自的 uncompressed size。
-func readExtPayloadAsIntList(data []byte, pos *int, expectedType int8) ([]int, error) {
+func readExtPayloadAsIntList(data []byte, pos *int64, expectedType int8) ([]int64, error) {
 	extType, payload, err := readExtPayload(data, pos)
 	if err != nil {
 		return nil, err
@@ -265,9 +265,9 @@ func readExtPayloadAsIntList(data []byte, pos *int, expectedType int8) ([]int, e
 	return decodeMsgpackIntList(payload)
 }
 
-func decodeMsgpackIntList(payload []byte) ([]int, error) {
-	sizes := make([]int, 0, min(len(payload), 64))
-	for pp := 0; pp < len(payload); {
+func decodeMsgpackIntList(payload []byte) ([]int64, error) {
+	sizes := make([]int64, 0, min(len(payload), 64))
+	for pp := int64(0); pp < int64(len(payload)); {
 		n, consumed, err := decodeMsgpackInt(payload[pp:])
 		if err != nil {
 			return nil, fmt.Errorf("decode size[%d] at offset %d: %w", len(sizes), pp, err)
@@ -283,70 +283,68 @@ func decodeMsgpackIntList(payload []byte) ([]int, error) {
 
 // decodeMsgpackInt 从字节序列开头解码一个 MessagePack 整数，
 // 返回值与消费的字节数。
-func decodeMsgpackInt(data []byte) (int, int, error) {
+func decodeMsgpackInt(data []byte) (int64, int64, error) {
 	if len(data) == 0 {
 		return 0, 0, fmt.Errorf("empty data")
 	}
 	b := data[0]
 	switch {
 	case b <= 0x7f:
-		return int(b), 1, nil
+		return int64(b), 1, nil
 	case b >= 0xe0:
-		return int(int8(b)), 1, nil
+		return int64(int8(b)), 1, nil
 	case b == 0xcc:
 		if len(data) < 2 {
 			return 0, 0, fmt.Errorf("truncated uint8")
 		}
-		return int(data[1]), 2, nil
+		return int64(data[1]), 2, nil
 	case b == 0xcd:
 		if len(data) < 3 {
 			return 0, 0, fmt.Errorf("truncated uint16")
 		}
-		return int(binary.BigEndian.Uint16(data[1:])), 3, nil
+		return int64(binary.BigEndian.Uint16(data[1:])), 3, nil
 	case b == 0xce:
 		if len(data) < 5 {
 			return 0, 0, fmt.Errorf("truncated uint32")
 		}
-		return uint64ToInt(uint64(binary.BigEndian.Uint32(data[1:])), 5)
+		return uint64ToInt64(uint64(binary.BigEndian.Uint32(data[1:])), 5)
 	case b == 0xcf:
 		if len(data) < 9 {
 			return 0, 0, fmt.Errorf("truncated uint64")
 		}
-		return uint64ToInt(binary.BigEndian.Uint64(data[1:]), 9)
+		return uint64ToInt64(binary.BigEndian.Uint64(data[1:]), 9)
 	case b == 0xd0:
 		if len(data) < 2 {
 			return 0, 0, fmt.Errorf("truncated int8")
 		}
-		return int(int8(data[1])), 2, nil
+		return int64(int8(data[1])), 2, nil
 	case b == 0xd1:
 		if len(data) < 3 {
 			return 0, 0, fmt.Errorf("truncated int16")
 		}
-		return int(int16(binary.BigEndian.Uint16(data[1:]))), 3, nil
+		return int64(int16(binary.BigEndian.Uint16(data[1:]))), 3, nil
 	case b == 0xd2:
 		if len(data) < 5 {
 			return 0, 0, fmt.Errorf("truncated int32")
 		}
-		return int(int32(binary.BigEndian.Uint32(data[1:]))), 5, nil
+		return int64(int32(binary.BigEndian.Uint32(data[1:]))), 5, nil
 	case b == 0xd3:
 		if len(data) < 9 {
 			return 0, 0, fmt.Errorf("truncated int64")
 		}
 		value := int64(binary.BigEndian.Uint64(data[1:]))
-		if int64(int(value)) != value {
-			return 0, 0, fmt.Errorf("int64 %d overflows int", value)
-		}
-		return int(value), 9, nil
+		return value, 9, nil
 	}
 	return 0, 0, fmt.Errorf("not an int: 0x%02x", b)
 }
 
-func uint64ToInt(value uint64, consumed int) (int, int, error) {
-	maxInt := uint64(^uint(0) >> 1)
-	if value > maxInt {
-		return 0, 0, fmt.Errorf("uint64 %d overflows int", value)
+// uint64ToInt64 将 UInt64 转换为 Int64，并保留调用方提供的已消费字节数。
+// uint64ToInt64 converts a UInt64 to Int64 while preserving the caller-provided consumed-byte count.
+func uint64ToInt64(value uint64, consumed int64) (int64, int64, error) {
+	if value > uint64(^uint64(0)>>1) {
+		return 0, 0, fmt.Errorf("uint64 %d overflows int64", value)
 	}
-	return int(value), consumed, nil
+	return int64(value), consumed, nil
 }
 
 // CompressLz4BlockArray 将数据压缩为 MessagePack-CSharp 的 Lz4BlockArray 格式
@@ -354,7 +352,7 @@ func CompressLz4BlockArray(data []byte) ([]byte, error) {
 	if len(data) == 0 {
 		return data, nil
 	}
-	if err := validateLz4Size(len(data)); err != nil {
+	if err := validateLz4Size(int64(len(data))); err != nil {
 		return nil, err
 	}
 
@@ -372,7 +370,7 @@ func CompressLz4BlockArray(data []byte) ([]byte, error) {
 	}
 
 	var out []byte
-	out = WriteArrayHeader(out, arrayLen)
+	out = WriteArrayHeader(out, int64(arrayLen))
 	out = WriteExt(out, Lz4ArrayType, sizePayload)
 
 	for offset := 0; offset < len(data); offset += blockSize {
@@ -394,10 +392,10 @@ func compressLz4Block(block []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return finishLz4Block(block, dst, n), nil
+	return finishLz4Block(block, dst, int64(n)), nil
 }
 
-func finishLz4Block(block, compressed []byte, compressedSize int) []byte {
+func finishLz4Block(block, compressed []byte, compressedSize int64) []byte {
 	if compressedSize > 0 {
 		return compressed[:compressedSize]
 	}
@@ -454,7 +452,7 @@ func writeBin32(dst, payload []byte) []byte {
 }
 
 // ReadArrayHeader 读取 msgpack array header
-func ReadArrayHeader(data []byte, pos *int) int {
+func ReadArrayHeader(data []byte, pos *int64) int64 {
 	if pos == nil {
 		return 0
 	}
@@ -467,35 +465,34 @@ func ReadArrayHeader(data []byte, pos *int) int {
 	return n
 }
 
-func readArrayHeader(data []byte, pos *int) (int, error) {
-	if pos == nil || *pos < 0 || *pos >= len(data) {
+func readArrayHeader(data []byte, pos *int64) (int64, error) {
+	if pos == nil || *pos < 0 || *pos >= int64(len(data)) {
 		return 0, fmt.Errorf("read array header: unexpected EOF")
 	}
 	b := data[*pos]
 	switch {
 	case b >= 0x90 && b <= 0x9f:
 		*pos += 1
-		return int(b & 0x0f), nil
+		return int64(b & 0x0f), nil
 	case b == 0xdc:
-		if len(data)-*pos < 3 {
+		if int64(len(data))-*pos < 3 {
 			return 0, fmt.Errorf("read array16 header: unexpected EOF")
 		}
 		*pos += 1
-		n := int(binary.BigEndian.Uint16(data[*pos:]))
+		n := int64(binary.BigEndian.Uint16(data[*pos:]))
 		*pos += 2
 		return n, nil
 	case b == 0xdd:
-		if len(data)-*pos < 5 {
+		if int64(len(data))-*pos < 5 {
 			return 0, fmt.Errorf("read array32 header: unexpected EOF")
 		}
 		*pos += 1
 		n64 := uint64(binary.BigEndian.Uint32(data[*pos:]))
 		*pos += 4
-		n, _, err := uint64ToInt(n64, 0)
-		if err != nil {
-			return 0, err
+		if n64 > uint64(csharpInt32Max) {
+			return 0, fmt.Errorf("array32 length %d exceeds the C# Int32 range", n64)
 		}
-		return n, nil
+		return int64(n64), nil
 	}
 	return 0, fmt.Errorf("expected array, got 0x%02x", b)
 }
@@ -503,7 +500,7 @@ func readArrayHeader(data []byte, pos *int) (int, error) {
 // ReadExtHeader 读取 ext 类型并返回其 int payload。
 // payload 可能是固定字节数的大端整数（1/2/4/8 字节），
 // 也可能是 MessagePack 编码的整数（MessagePack-CSharp 的 Lz4 压缩格式使用此方式）。
-func ReadExtHeader(data []byte, pos *int, expectedType int8) (int, error) {
+func ReadExtHeader(data []byte, pos *int64, expectedType int8) (int64, error) {
 	extType, payload, err := readExtPayload(data, pos)
 	if err != nil {
 		return 0, err
@@ -519,39 +516,39 @@ func ReadExtHeader(data []byte, pos *int, expectedType int8) (int, error) {
 }
 
 // ReadBin 读取 msgpack bin 类型的字节数据
-func ReadBin(data []byte, pos *int) ([]byte, error) {
-	if pos == nil || *pos < 0 || *pos >= len(data) {
+func ReadBin(data []byte, pos *int64) ([]byte, error) {
+	if pos == nil || *pos < 0 || *pos >= int64(len(data)) {
 		return nil, fmt.Errorf("unexpected EOF")
 	}
 	b := data[*pos]
-	var headerSize int
+	var headerSize int64
 	var size64 uint64
 	switch b {
 	case 0xc4:
 		headerSize = 2
-		if len(data)-*pos < headerSize {
+		if int64(len(data))-*pos < headerSize {
 			return nil, fmt.Errorf("read bin8 header: unexpected EOF")
 		}
 		size64 = uint64(data[*pos+1])
 	case 0xc5:
 		headerSize = 3
-		if len(data)-*pos < headerSize {
+		if int64(len(data))-*pos < headerSize {
 			return nil, fmt.Errorf("read bin16 header: unexpected EOF")
 		}
 		size64 = uint64(binary.BigEndian.Uint16(data[*pos+1:]))
 	case 0xc6:
 		headerSize = 5
-		if len(data)-*pos < headerSize {
+		if int64(len(data))-*pos < headerSize {
 			return nil, fmt.Errorf("read bin32 header: unexpected EOF")
 		}
 		size64 = uint64(binary.BigEndian.Uint32(data[*pos+1:]))
 	default:
 		return nil, fmt.Errorf("expected bin, got 0x%02x", b)
 	}
-	if size64 > uint64(len(data)-*pos-headerSize) {
-		return nil, fmt.Errorf("bin payload size %d exceeds remaining %d bytes", size64, len(data)-*pos-headerSize)
+	if size64 > uint64(int64(len(data))-*pos-headerSize) {
+		return nil, fmt.Errorf("bin payload size %d exceeds remaining %d bytes", size64, int64(len(data))-*pos-headerSize)
 	}
-	size := int(size64)
+	size := int64(size64)
 	*pos += headerSize
 	out := data[*pos : *pos+size]
 	*pos += size
@@ -571,20 +568,20 @@ func isExtMarker(b byte) bool {
 	}
 }
 
-func readExtPayload(data []byte, pos *int) (int8, []byte, error) {
-	if pos == nil || *pos < 0 || *pos >= len(data) {
+func readExtPayload(data []byte, pos *int64) (int8, []byte, error) {
+	if pos == nil || *pos < 0 || *pos >= int64(len(data)) {
 		return 0, nil, fmt.Errorf("unexpected EOF")
 	}
 	start := *pos
 	marker := data[start]
-	headerSize := 0
+	headerSize := int64(0)
 	var payloadSize64 uint64
 	var extType int8
 
 	switch marker {
 	case 0xd4, 0xd5, 0xd6, 0xd7, 0xd8:
 		headerSize = 2
-		if len(data)-start < headerSize {
+		if int64(len(data))-start < headerSize {
 			return 0, nil, fmt.Errorf("read fixext header: unexpected EOF")
 		}
 		payloadSizes := map[byte]uint64{0xd4: 1, 0xd5: 2, 0xd6: 4, 0xd7: 8, 0xd8: 16}
@@ -592,21 +589,21 @@ func readExtPayload(data []byte, pos *int) (int8, []byte, error) {
 		extType = int8(data[start+1])
 	case 0xc7:
 		headerSize = 3
-		if len(data)-start < headerSize {
+		if int64(len(data))-start < headerSize {
 			return 0, nil, fmt.Errorf("read ext8 header: unexpected EOF")
 		}
 		payloadSize64 = uint64(data[start+1])
 		extType = int8(data[start+2])
 	case 0xc8:
 		headerSize = 4
-		if len(data)-start < headerSize {
+		if int64(len(data))-start < headerSize {
 			return 0, nil, fmt.Errorf("read ext16 header: unexpected EOF")
 		}
 		payloadSize64 = uint64(binary.BigEndian.Uint16(data[start+1:]))
 		extType = int8(data[start+3])
 	case 0xc9:
 		headerSize = 6
-		if len(data)-start < headerSize {
+		if int64(len(data))-start < headerSize {
 			return 0, nil, fmt.Errorf("read ext32 header: unexpected EOF")
 		}
 		payloadSize64 = uint64(binary.BigEndian.Uint32(data[start+1:]))
@@ -615,18 +612,18 @@ func readExtPayload(data []byte, pos *int) (int8, []byte, error) {
 		return 0, nil, fmt.Errorf("expected ext, got 0x%02x", marker)
 	}
 
-	remaining := len(data) - start - headerSize
+	remaining := int64(len(data)) - start - headerSize
 	if payloadSize64 > uint64(remaining) {
 		return 0, nil, fmt.Errorf("ext payload size %d exceeds remaining %d bytes", payloadSize64, remaining)
 	}
-	payloadSize := int(payloadSize64)
+	payloadSize := int64(payloadSize64)
 	payloadStart := start + headerSize
 	*pos = payloadStart + payloadSize
 	return extType, data[payloadStart:*pos], nil
 }
 
 // WriteArrayHeader 写入 msgpack array header
-func WriteArrayHeader(buf []byte, length int) []byte {
+func WriteArrayHeader(buf []byte, length int64) []byte {
 	switch {
 	case length <= 15:
 		return append(buf, byte(0x90|length))
@@ -712,13 +709,13 @@ func newMsgpackEncoderHandle(allowRaw bool) *codec.MsgpackHandle {
 // Deserialize<T> API returns after the selected formatter finishes and does
 // not require EOF, so callers that rewrite a game file can retain data after
 // the root value instead of silently discarding it.
-func DecodeMsgpackWithConsumed(data []byte, out interface{}) (int, error) {
+func DecodeMsgpackWithConsumed(data []byte, out interface{}) (int64, error) {
 	h := newMsgpackHandle()
 	dec := codec.NewDecoderBytes(data, h)
 	if err := dec.Decode(out); err != nil {
-		return dec.NumBytesRead(), err
+		return int64(dec.NumBytesRead()), err
 	}
-	return dec.NumBytesRead(), nil
+	return int64(dec.NumBytesRead()), nil
 }
 
 // DecodeMsgpack 解码 msgpack 数据到目标对象。与游戏的 Deserialize<T> 一样，
@@ -740,7 +737,7 @@ func SplitFirstMsgpackValue(data []byte) (root, trailing []byte, err error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if consumed < 0 || consumed > len(data) {
+	if consumed < 0 || consumed > int64(len(data)) {
 		return nil, nil, fmt.Errorf("MessagePack decoder consumed invalid byte count %d of %d", consumed, len(data))
 	}
 	return append([]byte(nil), data[:consumed]...), append([]byte(nil), data[consumed:]...), nil
@@ -791,24 +788,24 @@ func encodeMsgpackAllowRaw(v interface{}) ([]byte, error) {
 // 支持两种格式：
 //  1. 固定字节数大端整数（1/2/4/8 字节，fixext 格式常用）
 //  2. MessagePack 编码的整数（ext8/ext16 格式，MessagePack-CSharp Lz4 压缩使用）
-func decodeExtPayloadAsInt(payload []byte) (int, error) {
-	if value, consumed, err := decodeMsgpackInt(payload); err == nil && consumed == len(payload) {
+func decodeExtPayloadAsInt(payload []byte) (int64, error) {
+	if value, consumed, err := decodeMsgpackInt(payload); err == nil && consumed == int64(len(payload)) {
 		return value, nil
 	}
 	return decodeFixedWidthInt(payload)
 }
 
-func decodeFixedWidthInt(payload []byte) (int, error) {
+func decodeFixedWidthInt(payload []byte) (int64, error) {
 	switch len(payload) {
 	case 1:
-		return int(payload[0]), nil
+		return int64(payload[0]), nil
 	case 2:
-		return int(binary.BigEndian.Uint16(payload)), nil
+		return int64(binary.BigEndian.Uint16(payload)), nil
 	case 4:
-		value, _, err := uint64ToInt(uint64(binary.BigEndian.Uint32(payload)), 0)
+		value, _, err := uint64ToInt64(uint64(binary.BigEndian.Uint32(payload)), 0)
 		return value, err
 	case 8:
-		value, _, err := uint64ToInt(binary.BigEndian.Uint64(payload), 0)
+		value, _, err := uint64ToInt64(binary.BigEndian.Uint64(payload), 0)
 		return value, err
 	}
 	if len(payload) == 0 {

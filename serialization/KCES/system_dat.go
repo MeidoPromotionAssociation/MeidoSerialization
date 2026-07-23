@@ -46,12 +46,12 @@ const (
 // does not discard game data introduced by another subsystem or future build.
 type KCESSystemData struct {
 	Format         string                                 `json:"format"`
-	Version        int                                    `json:"version"`
+	Version        int32                                  `json:"version"`
 	Versionless    bool                                   `json:"versionless,omitempty"`
 	FilesOnly      bool                                   `json:"filesOnly,omitempty"`
 	DirectoriesNil bool                                   `json:"directoriesNil,omitempty"`
 	FilesNil       bool                                   `json:"filesNil,omitempty"`
-	FieldCount     *int                                   `json:"fieldCount,omitempty"`
+	FieldCount     *int32                                 `json:"fieldCount,omitempty"`
 	FutureSlots    [][]byte                               `json:"futureSlots,omitempty"`
 	Directories    map[string]ct.VirtualDirectoryMetadata `json:"directories,omitempty"`
 	VirtualFiles   map[string]ct.VirtualFileMetadata      `json:"virtualFiles,omitempty"`
@@ -249,7 +249,9 @@ func EncodeKCESSystemData(value *KCESSystemData) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("encode KCES system.dat %s file %q: %w", kind, entry.Path, err)
 		}
-		table.AddFile(entry.Path, payload)
+		if err := table.AddFile(entry.Path, payload); err != nil {
+			return nil, err
+		}
 	}
 
 	extraPaths := make([]string, 0, len(value.ExtraFiles))
@@ -268,7 +270,9 @@ func EncodeKCESSystemData(value *KCESSystemData) ([]byte, error) {
 		if kind := KCESEditDataKindForPath(path); kind != "" {
 			return nil, fmt.Errorf("KCES system.dat extraFiles contains recognized %s path %q; use editData instead", kind, path)
 		}
-		table.AddFile(path, append([]byte(nil), value.ExtraFiles[path]...))
+		if err := table.AddFile(path, append([]byte(nil), value.ExtraFiles[path]...)); err != nil {
+			return nil, err
+		}
 	}
 	if err := table.ApplyVirtualFileMetadata(value.VirtualFiles); err != nil {
 		return nil, fmt.Errorf("system.dat: %w", err)

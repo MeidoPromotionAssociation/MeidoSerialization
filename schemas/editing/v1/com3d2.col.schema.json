@@ -6,7 +6,9 @@
         "Bound": {
           "maximum": 2147483647,
           "minimum": -2147483648,
-          "type": "integer"
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
         },
         "Center": {
           "items": {
@@ -21,7 +23,9 @@
         "Direction": {
           "maximum": 2147483647,
           "minimum": -2147483648,
-          "type": "integer"
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
         },
         "LocalPosition": {
           "items": {
@@ -267,6 +271,8 @@
       "x-meido-edit-guidance": "Preserve the original value and use the target build's value for newly authored files.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "The game changes the value between builds while retaining the reviewed record layout.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
       "x-meido-risk": "high",
       "x-meido-source-evidence": [
         {

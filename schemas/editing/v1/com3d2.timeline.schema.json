@@ -65,7 +65,9 @@
         "ValInt": {
           "maximum": 2147483647,
           "minimum": -2147483648,
-          "type": "integer"
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
         },
         "ValRect": {
           "anyOf": [
@@ -113,7 +115,9 @@
         "ValueType": {
           "maximum": 2147483647,
           "minimum": -2147483648,
-          "type": "integer"
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
         }
       },
       "required": [
@@ -127,12 +131,16 @@
         "Key": {
           "maximum": 2147483647,
           "minimum": -2147483648,
-          "type": "integer"
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
         },
         "Value": {
           "maximum": 2147483647,
           "minimum": -2147483648,
-          "type": "integer"
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
         }
       },
       "required": [
@@ -162,7 +170,9 @@
         "StartFrame": {
           "maximum": 2147483647,
           "minimum": -2147483648,
-          "type": "integer"
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
         }
       },
       "required": [
@@ -330,6 +340,8 @@
       "x-meido-edit-guidance": "Use a positive value appropriate for the target timeline and update dependent event frames deliberately.",
       "x-meido-edit-role": "runtime_timing",
       "x-meido-game-usage": "The dance runtime converts frame indices to time using this value.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
       "x-meido-risk": "high",
       "x-meido-source-evidence": [
         {
@@ -362,6 +374,8 @@
       "x-meido-edit-guidance": "Keep it non-negative and consistent with every track's frame count.",
       "x-meido-edit-role": "runtime_timing",
       "x-meido-game-usage": "Dance playback uses it to bound track sampling and playback duration.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
       "x-meido-risk": "high",
       "x-meido-source-evidence": [
         {
@@ -406,12 +420,16 @@
               "TotalFrame": {
                 "maximum": 2147483647,
                 "minimum": -2147483648,
-                "type": "integer"
+                "type": "integer",
+                "x-meido-integer-bits": 32,
+                "x-meido-integer-signed": true
               },
               "TrackID": {
                 "maximum": 2147483647,
                 "minimum": -2147483648,
-                "type": "integer"
+                "type": "integer",
+                "x-meido-integer-bits": 32,
+                "x-meido-integer-signed": true
               },
               "TypeName": {
                 "const": "Translation",
@@ -445,12 +463,16 @@
               "TotalFrame": {
                 "maximum": 2147483647,
                 "minimum": -2147483648,
-                "type": "integer"
+                "type": "integer",
+                "x-meido-integer-bits": 32,
+                "x-meido-integer-signed": true
               },
               "TrackID": {
                 "maximum": 2147483647,
                 "minimum": -2147483648,
-                "type": "integer"
+                "type": "integer",
+                "x-meido-integer-bits": 32,
+                "x-meido-integer-signed": true
               },
               "TypeName": {
                 "const": "Rotation",
@@ -505,7 +527,9 @@
                 "items": {
                   "maximum": 2147483647,
                   "minimum": -2147483648,
-                  "type": "integer"
+                  "type": "integer",
+                  "x-meido-integer-bits": 32,
+                  "x-meido-integer-signed": true
                 },
                 "type": [
                   "null",
@@ -521,12 +545,16 @@
               "TotalFrame": {
                 "maximum": 2147483647,
                 "minimum": -2147483648,
-                "type": "integer"
+                "type": "integer",
+                "x-meido-integer-bits": 32,
+                "x-meido-integer-signed": true
               },
               "TrackID": {
                 "maximum": 2147483647,
                 "minimum": -2147483648,
-                "type": "integer"
+                "type": "integer",
+                "x-meido-integer-bits": 32,
+                "x-meido-integer-signed": true
               },
               "TypeName": {
                 "const": "Property",
@@ -535,7 +563,9 @@
               "ValueType": {
                 "maximum": 2147483647,
                 "minimum": -2147483648,
-                "type": "integer"
+                "type": "integer",
+                "x-meido-integer-bits": 32,
+                "x-meido-integer-signed": true
               },
               "Vec3ValArray": {
                 "items": {
@@ -577,12 +607,16 @@
               "TotalFrame": {
                 "maximum": 2147483647,
                 "minimum": -2147483648,
-                "type": "integer"
+                "type": "integer",
+                "x-meido-integer-bits": 32,
+                "x-meido-integer-signed": true
               },
               "TrackID": {
                 "maximum": 2147483647,
                 "minimum": -2147483648,
-                "type": "integer"
+                "type": "integer",
+                "x-meido-integer-bits": 32,
+                "x-meido-integer-signed": true
               },
               "TypeName": {
                 "const": "Event",

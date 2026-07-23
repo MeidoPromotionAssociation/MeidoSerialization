@@ -14,7 +14,7 @@ func TestGetTexture2DData_Sample(t *testing.T) {
 		if !dir.IsSerialized() {
 			continue
 		}
-		fileData, err := abaFile.GetFileData(i)
+		fileData, err := abaFile.GetFileData(int64(i))
 		if err != nil {
 			t.Fatalf("GetFileData: %v", err)
 		}

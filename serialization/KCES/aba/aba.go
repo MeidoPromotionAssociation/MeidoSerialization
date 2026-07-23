@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strconv"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 	"github.com/pierrec/lz4/v4"
@@ -281,11 +282,11 @@ func (b *Aba) GetFileNames() []string {
 }
 
 // GetFileData 读取指定索引的文件数据（自动处理 LZ4 分块解压）
-func (b *Aba) GetFileData(index int) ([]byte, error) {
+func (b *Aba) GetFileData(index int64) ([]byte, error) {
 	if b == nil {
 		return nil, fmt.Errorf(".aba is nil")
 	}
-	if index < 0 || index >= len(b.BlockInfo.DirectoryInfos) {
+	if index < 0 || index >= int64(len(b.BlockInfo.DirectoryInfos)) {
 		return nil, fmt.Errorf("file index %d out of range [0, %d)", index, len(b.BlockInfo.DirectoryInfos))
 	}
 	dir := &b.BlockInfo.DirectoryInfos[index]
@@ -304,7 +305,7 @@ func (b *Aba) GetFileDataByName(name string) ([]byte, error) {
 	}
 	for i, d := range b.BlockInfo.DirectoryInfos {
 		if d.Name == name {
-			return b.GetFileData(i)
+			return b.GetFileData(int64(i))
 		}
 	}
 	return nil, fmt.Errorf("file %q not found in .aba", name)
@@ -312,11 +313,11 @@ func (b *Aba) GetFileDataByName(name string) ([]byte, error) {
 
 // GetFileDataRange reads a byte range from an .aba entry selected by directory
 // index. The offset and size are relative to that directory entry.
-func (b *Aba) GetFileDataRange(index int, offset int64, size int64) ([]byte, error) {
+func (b *Aba) GetFileDataRange(index int64, offset int64, size int64) ([]byte, error) {
 	if b == nil {
 		return nil, fmt.Errorf(".aba is nil")
 	}
-	if index < 0 || index >= len(b.BlockInfo.DirectoryInfos) {
+	if index < 0 || index >= int64(len(b.BlockInfo.DirectoryInfos)) {
 		return nil, fmt.Errorf("file index %d out of range [0, %d)", index, len(b.BlockInfo.DirectoryInfos))
 	}
 	dir := &b.BlockInfo.DirectoryInfos[index]
@@ -345,7 +346,7 @@ func (b *Aba) GetFileDataRangeByName(name string, offset int64, size int64) ([]b
 		if d.Name != name {
 			continue
 		}
-		return b.GetFileDataRange(index, offset, size)
+		return b.GetFileDataRange(int64(index), offset, size)
 	}
 	return nil, fmt.Errorf("file %q not found in .aba", name)
 }
@@ -417,7 +418,7 @@ func (b *Aba) readBlockAndDirInfo(r io.ReadSeeker) error {
 	b.blockAndDirOffset = infoOffset
 
 	// 读取压缩数据
-	compressedData := make([]byte, int(compressedSize))
+	compressedData := make([]byte, int64(compressedSize))
 	if _, err := io.ReadFull(r, compressedData); err != nil {
 		return fmt.Errorf("read compressed block info failed: %w", err)
 	}
@@ -428,7 +429,7 @@ func (b *Aba) readBlockAndDirInfo(r io.ReadSeeker) error {
 	case CompressionNone:
 		infoData = compressedData
 	case CompressionLZ4, CompressionLZ4HC:
-		infoData = make([]byte, int(decompressedSize))
+		infoData = make([]byte, int64(decompressedSize))
 		n, err := lz4.UncompressBlock(compressedData, infoData)
 		if err != nil {
 			return fmt.Errorf("LZ4 decompress block info failed: %w", err)
@@ -437,7 +438,7 @@ func (b *Aba) readBlockAndDirInfo(r io.ReadSeeker) error {
 			return fmt.Errorf("LZ4 block/directory info size mismatch: got %d, want %d", n, len(infoData))
 		}
 	case CompressionLZMA:
-		decoded, err := decompressUnityLZMA(compressedData, int(decompressedSize))
+		decoded, err := decompressUnityLZMA(compressedData, int64(decompressedSize))
 		if err != nil {
 			return fmt.Errorf("LZMA decompress block/directory info failed: %w", err)
 		}
@@ -472,13 +473,13 @@ func (b *Aba) parseBlockAndDirInfo(data []byte) error {
 	if blockCountRaw < 0 {
 		return fmt.Errorf("negative block count %d", blockCountRaw)
 	}
-	blockCount := int(blockCountRaw)
-	if r.Remaining() < 4 || blockCount > (r.Remaining()-4)/10 {
+	blockCount := int64(blockCountRaw)
+	if r.Remaining() < 4 || blockCount > int64((r.Remaining()-4)/10) {
 		return fmt.Errorf("block count %d cannot fit in remaining metadata (%d bytes)", blockCount, r.Remaining())
 	}
 
 	parsed.BlockInfos = makeABACountedSliceForAppend[BlockInfo](blockCount)
-	for i := 0; i < blockCount; i++ {
+	for i := int64(0); i < blockCount; i++ {
 		decompressedSize, err := r.ReadUInt32()
 		if err != nil {
 			return fmt.Errorf("read block info %d decompressed size: %w", i, err)
@@ -522,14 +523,14 @@ func (b *Aba) parseBlockAndDirInfo(data []byte) error {
 	if dirCountRaw < 0 {
 		return fmt.Errorf("negative directory count %d", dirCountRaw)
 	}
-	dirCount := int(dirCountRaw)
+	dirCount := int64(dirCountRaw)
 	const minimumDirectoryInfoSize = 8 + 8 + 4 + 1
-	if dirCount > r.Remaining()/minimumDirectoryInfoSize {
+	if dirCount > int64(r.Remaining()/minimumDirectoryInfoSize) {
 		return fmt.Errorf("directory count %d cannot fit in remaining metadata (%d bytes)", dirCount, r.Remaining())
 	}
 
 	parsed.DirectoryInfos = makeABACountedSliceForAppend[DirectoryInfo](dirCount)
-	for i := 0; i < dirCount; i++ {
+	for i := int64(0); i < dirCount; i++ {
 		offset, err := r.ReadInt64()
 		if err != nil {
 			return fmt.Errorf("read directory info %d offset: %w", i, err)
@@ -617,7 +618,7 @@ func (b *Aba) readDataRange(offset int64, size int64) ([]byte, error) {
 		return nil, fmt.Errorf(".aba data reader does not support random access")
 	}
 
-	result := make([]byte, int(size))
+	result := make([]byte, int64(size))
 	written := 0
 	var compressedOffset int64
 	var decompressedOffset int64
@@ -630,7 +631,7 @@ func (b *Aba) readDataRange(offset int64, size int64) ([]byte, error) {
 		overlaps := offset < blockEnd && end > blockStart
 
 		if overlaps {
-			compressed := make([]byte, int(block.CompressedSize))
+			compressed := make([]byte, int64(block.CompressedSize))
 			if _, err := readerAt.ReadAt(compressed, compressedOffset); err != nil {
 				return nil, fmt.Errorf("read block[%d] data: %w", blockIndex, err)
 			}
@@ -639,13 +640,13 @@ func (b *Aba) readDataRange(offset int64, size int64) ([]byte, error) {
 			if err != nil {
 				return nil, fmt.Errorf("decompress block[%d]: %w", blockIndex, err)
 			}
-			if len(blockData) != int(block.DecompressedSize) {
+			if int64(len(blockData)) != int64(block.DecompressedSize) {
 				return nil, fmt.Errorf("block[%d] decompressed size mismatch: got %d, want %d", blockIndex, len(blockData), block.DecompressedSize)
 			}
 
 			copyStart := maxInt64(offset, blockStart) - blockStart
 			copyEnd := minInt64(end, blockEnd) - blockStart
-			written += copy(result[written:], blockData[int(copyStart):int(copyEnd)])
+			written += copy(result[written:], blockData[int64(copyStart):int64(copyEnd)])
 		}
 
 		compressedOffset, ok = addNonNegativeInt64(compressedOffset, int64(block.CompressedSize))
@@ -665,7 +666,7 @@ func decompressDataBlock(block BlockInfo, compressed []byte) ([]byte, error) {
 	if block.CompressedSize > maxAbaBlockSize || block.DecompressedSize > maxAbaBlockSize {
 		return nil, fmt.Errorf("block is too large: compressed=%d decompressed=%d", block.CompressedSize, block.DecompressedSize)
 	}
-	if len(compressed) != int(block.CompressedSize) {
+	if int64(len(compressed)) != int64(block.CompressedSize) {
 		return nil, fmt.Errorf("compressed input size mismatch: got %d, want %d", len(compressed), block.CompressedSize)
 	}
 	switch compType := block.GetCompressionType(); compType {
@@ -678,7 +679,7 @@ func decompressDataBlock(block BlockInfo, compressed []byte) ([]byte, error) {
 		if block.CompressedSize == 0 || block.DecompressedSize == 0 {
 			return nil, fmt.Errorf("compressed block has zero size")
 		}
-		dst := make([]byte, int(block.DecompressedSize))
+		dst := make([]byte, int64(block.DecompressedSize))
 		n, err := lz4.UncompressBlock(compressed, dst)
 		if err != nil {
 			return nil, err
@@ -688,7 +689,7 @@ func decompressDataBlock(block BlockInfo, compressed []byte) ([]byte, error) {
 		}
 		return dst, nil
 	case CompressionLZMA:
-		data, err := decompressUnityLZMA(compressed, int(block.DecompressedSize))
+		data, err := decompressUnityLZMA(compressed, int64(block.DecompressedSize))
 		if err != nil {
 			return nil, fmt.Errorf("LZMA decompress: %w", err)
 		}
@@ -702,7 +703,7 @@ func decompressDataBlock(block BlockInfo, compressed []byte) ([]byte, error) {
 // classic format's eight-byte uncompressed-size field because that size is
 // already present in the block table. Insert the known size and delegate the
 // actual codec work to the xz/lzma implementation.
-func decompressUnityLZMA(compressed []byte, decompressedSize int) ([]byte, error) {
+func decompressUnityLZMA(compressed []byte, decompressedSize int64) ([]byte, error) {
 	if decompressedSize < 0 {
 		return nil, fmt.Errorf("negative decompressed size %d", decompressedSize)
 	}
@@ -850,16 +851,16 @@ func readNullStringWithin(r io.ReadSeeker, maxBytes int64) (string, error) {
 		if remaining := maxBytes - scanned; chunkSize > remaining {
 			chunkSize = remaining
 		}
-		n, readErr := io.ReadFull(r, scratch[:int(chunkSize)])
+		n, readErr := io.ReadFull(r, scratch[:chunkSize])
 		if terminator := bytes.IndexByte(scratch[:n], 0); terminator >= 0 {
 			length := scanned + int64(terminator)
-			if length > int64(int(^uint(0)>>1)) {
+			if strconv.IntSize == 32 && length > math.MaxInt32 {
 				return "", fmt.Errorf("null-terminated string length %d exceeds platform int capacity", length)
 			}
 			if _, err := r.Seek(start, io.SeekStart); err != nil {
 				return "", err
 			}
-			data := make([]byte, int(length))
+			data := make([]byte, length)
 			if _, err := io.ReadFull(r, data); err != nil {
 				return "", err
 			}

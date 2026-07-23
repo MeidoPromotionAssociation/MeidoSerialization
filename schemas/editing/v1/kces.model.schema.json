@@ -4,13 +4,13 @@
       "additionalProperties": false,
       "properties": {
         "fieldCount": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": [
             "null",
             "integer"
           ],
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
         "futureSlots": {
@@ -32,10 +32,10 @@
         },
         "nilSlots": {
           "items": {
-            "maximum": 9223372036854775807,
-            "minimum": -9223372036854775808,
+            "maximum": 2147483647,
+            "minimum": -2147483648,
             "type": "integer",
-            "x-meido-integer-bits": 64,
+            "x-meido-integer-bits": 32,
             "x-meido-integer-signed": true
           },
           "type": [
@@ -98,10 +98,10 @@
         },
         "v_index": {
           "items": {
-            "maximum": 9223372036854775807,
-            "minimum": -9223372036854775808,
+            "maximum": 2147483647,
+            "minimum": -2147483648,
             "type": "integer",
-            "x-meido-integer-bits": 64,
+            "x-meido-integer-bits": 32,
             "x-meido-integer-signed": true
           },
           "type": [
@@ -132,13 +132,13 @@
       "additionalProperties": false,
       "properties": {
         "fieldCount": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": [
             "null",
             "integer"
           ],
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
         "futureSlots": {
@@ -166,10 +166,10 @@
         },
         "nilSlots": {
           "items": {
-            "maximum": 9223372036854775807,
-            "minimum": -9223372036854775808,
+            "maximum": 2147483647,
+            "minimum": -2147483648,
             "type": "integer",
-            "x-meido-integer-bits": 64,
+            "x-meido-integer-bits": 32,
             "x-meido-integer-signed": true
           },
           "type": [
@@ -226,10 +226,10 @@
       "additionalProperties": false,
       "properties": {
         "angleDgree": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": "integer",
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
         "defaultDistance": {
@@ -238,13 +238,13 @@
           "type": "number"
         },
         "fieldCount": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": [
             "null",
             "integer"
           ],
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
         "futureSlots": {
@@ -263,10 +263,10 @@
         },
         "nilSlots": {
           "items": {
-            "maximum": 9223372036854775807,
-            "minimum": -9223372036854775808,
+            "maximum": 2147483647,
+            "minimum": -2147483648,
             "type": "integer",
-            "x-meido-integer-bits": 64,
+            "x-meido-integer-bits": 32,
             "x-meido-integer-signed": true
           },
           "type": [
@@ -310,10 +310,10 @@
           ]
         },
         "vidx": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": "integer",
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         }
       },
@@ -331,13 +331,13 @@
           "type": "string"
         },
         "fieldCount": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": [
             "null",
             "integer"
           ],
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
         "futureSlots": {
@@ -359,10 +359,10 @@
         },
         "nilSlots": {
           "items": {
-            "maximum": 9223372036854775807,
-            "minimum": -9223372036854775808,
+            "maximum": 2147483647,
+            "minimum": -2147483648,
             "type": "integer",
-            "x-meido-integer-bits": 64,
+            "x-meido-integer-bits": 32,
             "x-meido-integer-signed": true
           },
           "type": [
@@ -418,10 +418,10 @@
           "type": "string"
         },
         "stepAngleDgree": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": "integer",
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         }
       },
@@ -447,13 +447,13 @@
           ]
         },
         "fieldCount": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": [
             "null",
             "integer"
           ],
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
         "futureSlots": {
@@ -472,10 +472,10 @@
         },
         "nilSlots": {
           "items": {
-            "maximum": 9223372036854775807,
-            "minimum": -9223372036854775808,
+            "maximum": 2147483647,
+            "minimum": -2147483648,
             "type": "integer",
-            "x-meido-integer-bits": 64,
+            "x-meido-integer-bits": 32,
             "x-meido-integer-signed": true
           },
           "type": [
@@ -538,13 +538,13 @@
       "additionalProperties": false,
       "properties": {
         "fieldCount": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": [
             "null",
             "integer"
           ],
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
         "futureSlots": {
@@ -569,10 +569,10 @@
         },
         "nilSlots": {
           "items": {
-            "maximum": 9223372036854775807,
-            "minimum": -9223372036854775808,
+            "maximum": 2147483647,
+            "minimum": -2147483648,
             "type": "integer",
-            "x-meido-integer-bits": 64,
+            "x-meido-integer-bits": 32,
             "x-meido-integer-signed": true
           },
           "type": [
@@ -616,10 +616,10 @@
           ]
         },
         "paretnNo": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": "integer",
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
         "pos": {
@@ -646,13 +646,13 @@
       "additionalProperties": false,
       "properties": {
         "fieldCount": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": [
             "null",
             "integer"
           ],
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
         "futureSlots": {
@@ -671,10 +671,10 @@
         },
         "nilSlots": {
           "items": {
-            "maximum": 9223372036854775807,
-            "minimum": -9223372036854775808,
+            "maximum": 2147483647,
+            "minimum": -2147483648,
             "type": "integer",
-            "x-meido-integer-bits": 64,
+            "x-meido-integer-bits": 32,
             "x-meido-integer-signed": true
           },
           "type": [
@@ -744,13 +744,13 @@
       "additionalProperties": false,
       "properties": {
         "fieldCount": {
-          "maximum": 9223372036854775807,
-          "minimum": -9223372036854775808,
+          "maximum": 2147483647,
+          "minimum": -2147483648,
           "type": [
             "null",
             "integer"
           ],
-          "x-meido-integer-bits": 64,
+          "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
         "futureSlots": {
@@ -769,10 +769,10 @@
         },
         "nilSlots": {
           "items": {
-            "maximum": 9223372036854775807,
-            "minimum": -9223372036854775808,
+            "maximum": 2147483647,
+            "minimum": -2147483648,
             "type": "integer",
-            "x-meido-integer-bits": 64,
+            "x-meido-integer-bits": 32,
             "x-meido-integer-signed": true
           },
           "type": [
@@ -888,8 +888,8 @@
     },
     "fieldCount": {
       "description": "Stored MessagePack field-width metadata.",
-      "maximum": 9223372036854775807,
-      "minimum": -9223372036854775808,
+      "maximum": 2147483647,
+      "minimum": -2147483648,
       "title": "Model indexed field count",
       "type": [
         "null",
@@ -899,7 +899,7 @@
       "x-meido-edit-guidance": "Preserve it when editing an existing model.",
       "x-meido-edit-role": "serialization_metadata",
       "x-meido-game-usage": "It preserves compatibility with models containing future keys.",
-      "x-meido-integer-bits": 64,
+      "x-meido-integer-bits": 32,
       "x-meido-integer-signed": true,
       "x-meido-risk": "high"
     },
@@ -1123,10 +1123,10 @@
     "nilSlots": {
       "description": "Sparse nil markers for indexed nested values.",
       "items": {
-        "maximum": 9223372036854775807,
-        "minimum": -9223372036854775808,
+        "maximum": 2147483647,
+        "minimum": -2147483648,
         "type": "integer",
-        "x-meido-integer-bits": 64,
+        "x-meido-integer-bits": 32,
         "x-meido-integer-signed": true
       },
       "title": "Model nil-slot metadata",
@@ -1201,15 +1201,15 @@
     },
     "shadowModeFlags": {
       "description": "The shadow enum value: 0 Default, 1 CastShadow, or 2 NoCastShadow.",
-      "maximum": 9223372036854775807,
-      "minimum": -9223372036854775808,
+      "maximum": 2147483647,
+      "minimum": -2147483648,
       "title": "Shadow mode",
       "type": "integer",
       "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Use only values supported by the target build and verify the resulting renderer mode.",
       "x-meido-edit-role": "runtime_enum",
       "x-meido-game-usage": "The renderer applies this value when configuring model shadow behavior.",
-      "x-meido-integer-bits": 64,
+      "x-meido-integer-bits": 32,
       "x-meido-integer-signed": true,
       "x-meido-risk": "medium",
       "x-meido-source-evidence": [
@@ -1323,15 +1323,15 @@
     },
     "version": {
       "description": "The indexed MessagePack version, fixed at 1001 by the current Parts.Model constructor.",
-      "maximum": 9223372036854775807,
-      "minimum": -9223372036854775808,
+      "maximum": 2147483647,
+      "minimum": -2147483648,
       "title": "Model version",
       "type": "integer",
       "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve the source value and do not mix fields from a different model generation.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "PartsUtility.Deserialize\u003cModel\u003e uses the versioned object while loading model metadata.",
-      "x-meido-integer-bits": 64,
+      "x-meido-integer-bits": 32,
       "x-meido-integer-signed": true,
       "x-meido-risk": "critical",
       "x-meido-source-evidence": [

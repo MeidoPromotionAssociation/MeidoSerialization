@@ -32,7 +32,7 @@ import (
 type Model struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
-	Version                int            `json:"version"`                          // 版本号，固定为 1001 / Version value, fixed to 1001
+	Version                int32          `json:"version"`                          // 版本号，固定为 1001 / Version value, fixed to 1001
 	ID                     uint64         `json:"id"`                               // 模型 ID / Model ID
 	FileName               string         `json:"fileName"`                         // 模型文件名 / Model file name
 	MeshFileName           string         `json:"meshfileName"`                     // 网格文件名，字段名沿用游戏 meshfileName 拼写 / Mesh file name, keeping the game's meshfileName spelling
@@ -42,7 +42,7 @@ type Model struct {
 	MaterialFileName       []string       `json:"materialFileName"`                 // 材质文件名列表 / Material file-name list
 	Morphs                 []BlendData    `json:"morphs"`                           // 变形数据 / Morph data
 	SkinThick              *SkinThickness `json:"skinThick"`                        // 皮肤厚度数据 / Skin-thickness data
-	ShadowModeFlags        int            `json:"shadowModeFlags"`                  // 阴影模式标志，0=Default, 1=CastShadow, 2=NoCastShadow / Shadow-mode flags, 0=Default, 1=CastShadow, 2=NoCastShadow
+	ShadowModeFlags        int32          `json:"shadowModeFlags"`                  // 阴影模式标志，0=Default, 1=CastShadow, 2=NoCastShadow / Shadow-mode flags, 0=Default, 1=CastShadow, 2=NoCastShadow
 	RootNil                bool           `codec:"-" json:"rootNil,omitempty"`      // 仅用于单个 .model 根值 / Standalone .model root nil marker
 	TrailingData           []byte         `codec:"-" json:"trailingData,omitempty"` // 仅用于单个 .model 根值之后的未读字节 / Unread bytes after a standalone .model root value only
 }
@@ -65,7 +65,7 @@ type TransData struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
 	Name                   string  `json:"name"`     // 骨骼名称 / Bone name
-	ParentNo               int     `json:"paretnNo"` // 父骨骼索引，-1 表示根节点，字段名保留游戏 paretnNo 拼写 / Parent bone index, -1 means root, keeping the game's paretnNo spelling
+	ParentNo               int32   `json:"paretnNo"` // 父骨骼索引，-1 表示根节点，字段名保留游戏 paretnNo 拼写 / Parent bone index, -1 means root, keeping the game's paretnNo spelling
 	IsSCL                  bool    `json:"isSCL"`    // 是否为缩放骨骼 / Whether this is a scale bone
 	Pos                    Vector3 `json:"pos"`      // 本地位置 / Local position
 	Rot                    Vector4 `json:"rot"`      // 本地旋转四元数 / Local rotation quaternion
@@ -96,14 +96,14 @@ func validateModelForEncoding(model *Model) error {
 	if err := validateModelNameSelector(model); err != nil {
 		return err
 	}
-	return validateGameInt32Fields(model)
+	return nil
 }
 
 func validateDecodedModel(model *Model) error {
 	if err := validateModelNameSelector(model); err != nil {
 		return err
 	}
-	return validateGameInt32Fields(model)
+	return nil
 }
 
 func validateModelNameSelector(model *Model) error {
@@ -136,11 +136,11 @@ func validateModelNameSelector(model *Model) error {
 	return nil
 }
 
-func hasIndexedObjectNullElements(metadata *IndexedObjectMetadata, slot int) bool {
+func hasIndexedObjectNullElements(metadata *IndexedObjectMetadata, slot int64) bool {
 	if metadata == nil || metadata.NullElements == nil {
 		return false
 	}
-	for _, isNull := range metadata.NullElements[slot] {
+	for _, isNull := range metadata.NullElements[int32(slot)] {
 		if isNull {
 			return true
 		}
@@ -180,9 +180,6 @@ func DecodeModelAssets(data []byte) (*ModelAssets, error) {
 	assets := &ModelAssets{}
 	if err := decodeCompressedMsgpack(data, assets, "ModelAssets"); err != nil {
 		return nil, err
-	}
-	if err := validateGameInt32Fields(assets); err != nil {
-		return nil, fmt.Errorf("validate decoded ModelAssets integer field: %w", err)
 	}
 	for i := range assets.Assets {
 		if err := validateDecodedModel(&assets.Assets[i]); err != nil {

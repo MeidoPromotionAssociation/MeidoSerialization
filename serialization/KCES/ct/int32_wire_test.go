@@ -7,29 +7,42 @@ import (
 )
 
 const (
-	testInt32Min = int64(-1 << 31)
-	testInt32Max = int64(1<<31 - 1)
+	testInt32Min int64 = -1 << 31
+	testInt32Max int64 = 1<<31 - 1
 )
 
-func TestToIntUsesCSharpInt32Range(t *testing.T) {
+func TestCollectionHeadersRejectLengthsOutsideCSharpInt32(t *testing.T) {
+	array := []byte{0xdd, 0x80, 0x00, 0x00, 0x00}
+	position := int64(0)
+	if _, err := readArrayHeader(array, &position); err == nil || !strings.Contains(err.Error(), "C# Int32") {
+		t.Fatalf("readArrayHeader error = %v, want C# Int32 rejection", err)
+	}
+
+	mapValue := []byte{0xdf, 0x80, 0x00, 0x00, 0x00}
+	if _, err := messagePackMapLength(mapValue); err == nil || !strings.Contains(err.Error(), "C# Int32") {
+		t.Fatalf("messagePackMapLength error = %v, want C# Int32 rejection", err)
+	}
+}
+
+func TestToInt32UsesCSharpInt32Range(t *testing.T) {
 	tests := []struct {
 		name  string
 		value interface{}
-		want  int
+		want  int32
 		ok    bool
 	}{
-		{name: "signed min", value: testInt32Min, want: int(testInt32Min), ok: true},
-		{name: "signed max", value: testInt32Max, want: int(testInt32Max), ok: true},
-		{name: "unsigned max", value: uint64(testInt32Max), want: int(testInt32Max), ok: true},
+		{name: "signed min", value: testInt32Min, want: int32(testInt32Min), ok: true},
+		{name: "signed max", value: testInt32Max, want: int32(testInt32Max), ok: true},
+		{name: "unsigned max", value: uint64(testInt32Max), want: int32(testInt32Max), ok: true},
 		{name: "signed underflow", value: testInt32Min - 1, ok: false},
 		{name: "signed overflow", value: testInt32Max + 1, ok: false},
 		{name: "unsigned overflow", value: uint64(testInt32Max + 1), ok: false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, ok := toInt(test.value)
+			got, ok := toInt32(test.value)
 			if ok != test.ok || ok && got != test.want {
-				t.Fatalf("toInt(%v) = (%d,%v), want (%d,%v)", test.value, got, ok, test.want, test.ok)
+				t.Fatalf("toInt32(%v) = (%d,%v), want (%d,%v)", test.value, got, ok, test.want, test.ok)
 			}
 		})
 	}
@@ -53,6 +66,7 @@ func TestCatalogCSharpInt32WireBounds(t *testing.T) {
 		{name: "priority", slot: 3},
 	} {
 		for _, value := range []int64{testInt32Min - 1, testInt32Max + 1} {
+			field, value := field, value
 			t.Run("decode "+field.name, func(t *testing.T) {
 				raw := append([]interface{}(nil), virtualRaw...)
 				raw[field.slot] = value
@@ -68,10 +82,11 @@ func TestCatalogCSharpInt32WireBounds(t *testing.T) {
 		}
 	}
 
-	for _, value := range []int64{testInt32Min, testInt32Max} {
+	for _, value := range []int32{int32(testInt32Min), int32(testInt32Max)} {
+		value := value
 		t.Run("encode priority boundary", func(t *testing.T) {
 			catalog := *virtual
-			catalog.Priority = int(value)
+			catalog.Priority = value
 			data, err := EncodeCatalog(&catalog)
 			if err != nil {
 				t.Fatalf("EncodeCatalog priority %d: %v", value, err)
@@ -80,22 +95,10 @@ func TestCatalogCSharpInt32WireBounds(t *testing.T) {
 			if err != nil {
 				t.Fatalf("DecodeCatalog priority %d: %v", value, err)
 			}
-			if int64(decoded.Priority) != value {
+			if decoded.Priority != value {
 				t.Fatalf("priority = %d, want %d", decoded.Priority, value)
 			}
 		})
-	}
-	if int64(hostIntForTest(testInt32Max+1)) == testInt32Max+1 {
-		for _, value := range []int64{testInt32Min - 1, testInt32Max + 1} {
-			t.Run("encode priority overflow", func(t *testing.T) {
-				catalog := *virtual
-				catalog.Priority = hostIntForTest(value)
-				_, err := EncodeCatalog(&catalog)
-				if err == nil || !strings.Contains(err.Error(), "Int32") {
-					t.Fatalf("EncodeCatalog error = %v, want Int32 rejection for %d", err, value)
-				}
-			})
-		}
 	}
 
 	bundle := validCatalogForInt32Test(CatalogKindAssetBundle)
@@ -108,6 +111,7 @@ func TestCatalogCSharpInt32WireBounds(t *testing.T) {
 		t.Fatalf("DecodeMsgpack bundle: %v", err)
 	}
 	for _, value := range []int64{testInt32Min - 1, testInt32Max + 1} {
+		value := value
 		t.Run("decode resourceIndex", func(t *testing.T) {
 			raw := append([]interface{}(nil), bundleRaw...)
 			items := append([]interface{}(nil), raw[11].([]interface{})...)
@@ -125,46 +129,29 @@ func TestCatalogCSharpInt32WireBounds(t *testing.T) {
 			}
 		})
 	}
-	if int64(hostIntForTest(testInt32Max+1)) == testInt32Max+1 {
-		catalog := *bundle
-		catalog.Items = append([]CatalogItem(nil), bundle.Items...)
-		catalog.Items[0].ResourceIndex = hostIntForTest(testInt32Max + 1)
-		_, err := EncodeCatalog(&catalog)
-		if err == nil || !strings.Contains(err.Error(), "Int32") {
-			t.Fatalf("EncodeCatalog error = %v, want Int32 resourceIndex rejection", err)
-		}
-	}
 }
 
 func TestVirtualDirectoryCSharpInt32WireBounds(t *testing.T) {
-	t.Run("version max round-trip", func(t *testing.T) {
-		table := &ContentTable{Version: int(testInt32Max)}
-		var wire bytes.Buffer
-		if err := WriteContentTable(&wire, table); err != nil {
-			t.Fatalf("WriteContentTable: %v", err)
-		}
-		decoded, err := ReadContentTable(bytes.NewReader(wire.Bytes()))
-		if err != nil {
-			t.Fatalf("ReadContentTable: %v", err)
-		}
-		if decoded.Version != int(testInt32Max) {
-			t.Fatalf("version = %d, want %d", decoded.Version, testInt32Max)
-		}
-	})
-
-	if int64(hostIntForTest(testInt32Max+1)) == testInt32Max+1 {
-		for _, value := range []int64{testInt32Min - 1, testInt32Max + 1} {
-			t.Run("write version overflow", func(t *testing.T) {
-				var wire bytes.Buffer
-				err := WriteContentTable(&wire, &ContentTable{Version: hostIntForTest(value)})
-				if err == nil || !strings.Contains(err.Error(), "Int32") {
-					t.Fatalf("WriteContentTable error = %v, want Int32 rejection for %d", err, value)
-				}
-			})
-		}
+	for _, value := range []int32{int32(testInt32Min), int32(testInt32Max)} {
+		value := value
+		t.Run("version round-trip", func(t *testing.T) {
+			table := &ContentTable{Version: value}
+			var wire bytes.Buffer
+			if err := WriteContentTable(&wire, table); err != nil {
+				t.Fatalf("WriteContentTable: %v", err)
+			}
+			decoded, err := ReadContentTable(bytes.NewReader(wire.Bytes()))
+			if err != nil {
+				t.Fatalf("ReadContentTable: %v", err)
+			}
+			if decoded.Version != value {
+				t.Fatalf("version = %d, want %d", decoded.Version, value)
+			}
+		})
 	}
 
 	for _, value := range []int64{testInt32Min - 1, testInt32Max + 1} {
+		value := value
 		t.Run("decode version overflow", func(t *testing.T) {
 			data, err := EncodeMsgpack([]interface{}{value, map[string]interface{}{}, map[string]interface{}{}})
 			if err != nil {
@@ -181,48 +168,20 @@ func TestVirtualDirectoryCSharpInt32WireBounds(t *testing.T) {
 
 func TestVirtualFileSizeCSharpInt32WireBounds(t *testing.T) {
 	for _, value := range []int64{testInt32Min, testInt32Max} {
-		t.Run("decode boundary", func(t *testing.T) {
-			file, err := decodeVirtualFile([]interface{}{int64(0), value})
-			if err != nil {
-				t.Fatalf("decodeVirtualFile(%d): %v", value, err)
-			}
-			if int64(file.Size) != value {
-				t.Fatalf("size = %d, want %d", file.Size, value)
-			}
-		})
-	}
-	for _, value := range []int64{testInt32Min - 1, testInt32Max + 1} {
-		t.Run("decode overflow", func(t *testing.T) {
-			_, err := decodeVirtualFile([]interface{}{int64(0), value})
-			if err == nil || !strings.Contains(err.Error(), "Int32") {
-				t.Fatalf("decodeVirtualFile error = %v, want Int32 rejection for %d", err, value)
-			}
-		})
-	}
-
-	if int64(hostIntForTest(testInt32Max+1)) == testInt32Max+1 {
-		for _, value := range []int64{testInt32Min - 1, testInt32Max + 1} {
-			t.Run("write overflow", func(t *testing.T) {
-				table := &ContentTable{
-					Version: 1000,
-					Files:   map[string]VirtualFile{"oversized": {Position: 0, Size: hostIntForTest(value)}},
-				}
-				var wire bytes.Buffer
-				err := WriteContentTable(&wire, table)
-				if err == nil || !strings.Contains(err.Error(), "Int32") {
-					t.Fatalf("WriteContentTable error = %v, want Int32 size rejection for %d", err, value)
-				}
-			})
+		file, err := decodeVirtualFile([]interface{}{int64(0), value})
+		if err != nil {
+			t.Fatalf("decodeVirtualFile(%d): %v", value, err)
+		}
+		if int64(file.Size) != value {
+			t.Fatalf("size = %d, want %d", file.Size, value)
 		}
 	}
-}
-
-// hostIntForTest keeps out-of-Int32 values non-constant so this test file also
-// compiles on 32-bit Go hosts, where converting those constants directly to
-// int would be a compile-time overflow. Callers verify the round trip before
-// relying on the converted value.
-func hostIntForTest(value int64) int {
-	return int(value)
+	for _, value := range []int64{testInt32Min - 1, testInt32Max + 1} {
+		_, err := decodeVirtualFile([]interface{}{int64(0), value})
+		if err == nil || !strings.Contains(err.Error(), "Int32") {
+			t.Fatalf("decodeVirtualFile error = %v, want Int32 rejection for %d", err, value)
+		}
+	}
 }
 
 func validCatalogForInt32Test(kind CatalogKind) *AssetBundleCatalog {

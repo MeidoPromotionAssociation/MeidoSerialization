@@ -2,7 +2,6 @@ package KCES
 
 import (
 	"math"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -32,12 +31,9 @@ func TestDecodeCompressedMsgpack_PropagatesRecognizedEnvelopeErrors(t *testing.T
 	}
 }
 
-func TestNumericHelpersPreserveCLRFloatConversionsAndRejectIntegerOverflow(t *testing.T) {
+func TestNumericHelpersPreserveCLRFloatConversionsAndRejectNegativeUnsignedValues(t *testing.T) {
 	if _, ok := toUint64Val(int64(-1)); ok {
 		t.Fatal("toUint64Val wrapped a negative int64")
-	}
-	if _, ok := toInt64Val(uint64(math.MaxUint64)); ok {
-		t.Fatal("toInt64Val wrapped MaxUint64")
 	}
 	if value, ok := toFloat32(math.MaxFloat64); !ok || !math.IsInf(float64(value), 1) {
 		t.Fatalf("toFloat32 overflow conversion = %v, %v; want +Inf", value, ok)
@@ -47,11 +43,6 @@ func TestNumericHelpersPreserveCLRFloatConversionsAndRejectIntegerOverflow(t *te
 	}
 	if value, ok := toFloat64(math.Inf(1)); !ok || !math.IsInf(value, 1) {
 		t.Fatalf("toFloat64 +Inf conversion = %v, %v", value, ok)
-	}
-	if strconv.IntSize == 64 {
-		if _, ok := toIntVal(uint64(math.MaxUint64)); ok {
-			t.Fatal("toIntVal wrapped MaxUint64")
-		}
 	}
 }
 

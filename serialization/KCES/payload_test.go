@@ -677,9 +677,9 @@ func TestColliderMaidPropVersionEncodingLayout(t *testing.T) {
 	// shape regardless of the opaque stored version value.
 	value := &ColliderMaidProp{
 		ColliderObject:         ColliderObject{Version: 1001},
-		CenterMpnList:          []int{7},
-		StartRadiusMpnList:     []int{40, 41},
-		EndRadiusMpnList:       []int{42, 43},
+		CenterMpnList:          []int32{7},
+		StartRadiusMpnList:     []int32{40, 41},
+		EndRadiusMpnList:       []int32{42, 43},
 		CenterMpnNameList:      []string{"center"},
 		StartRadiusMpnNameList: []string{"start"},
 		EndRadiusMpnNameList:   []string{"end"},
@@ -702,7 +702,7 @@ func TestColliderMaidPropVersionEncodingLayout(t *testing.T) {
 	if len(status) != 25 {
 		t.Fatalf("stored version 1001 selected width %d, want declared width 25", len(status))
 	}
-	for _, slot := range []int{13, 14, 15} {
+	for _, slot := range []int32{13, 14, 15} {
 		assertRawNil(t, status[slot], "MaidProp sparse slot")
 	}
 	decoded, err := DecodeKCESPayload(wire, ".limbcol")

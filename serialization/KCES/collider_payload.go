@@ -18,14 +18,14 @@ import (
 type ColliderPackage struct {
 	_struct                struct{} `codec:",toarray"`
 	*IndexedObjectMetadata `codec:"-"`
-	Version                int             `json:"version"`                  // 版本号 / Version value
+	Version                int32           `json:"version"`                  // 版本号 / Version value
 	Colliders              []ColliderRef   `json:"colliders"`                // 碰撞体引用列表 / Collider reference list
 	LimbEnableList         []ColliderState `json:"limbEnableList,omitempty"` // DynamicYureBone.LimbColliderInfo 列表 / DynamicYureBone.LimbColliderInfo list
 }
 
 type colliderPackageJSON struct {
 	*IndexedObjectMetadata
-	Version        int             `json:"version"`
+	Version        int32           `json:"version"`
 	Colliders      []ColliderRef   `json:"colliders"`
 	LimbEnableList []ColliderState `json:"limbEnableList,omitempty"`
 	States         json.RawMessage `json:"states,omitempty"`
@@ -82,7 +82,7 @@ const (
 // ColliderRef 表示带类型枚举的碰撞体引用 / ColliderRef represents a collider reference with its type enum
 type ColliderRef struct {
 	*IndexedObjectMetadata `codec:"-"`
-	Type                   int                 `json:"type"`     // 碰撞体类型枚举 / Collider type enum
+	Type                   int32               `json:"type"`     // 碰撞体类型枚举 / Collider type enum
 	Collider               ColliderStatusUnion `json:"collider"` // 碰撞体对象数据 / Collider object data
 	// ColliderRaw preserves the concrete union payload when Type is newer than
 	// this library. It is one complete MessagePack value encoded as base64 in
@@ -93,7 +93,7 @@ type ColliderRef struct {
 type colliderRefAlias ColliderRef
 type colliderRefJSON struct {
 	*IndexedObjectMetadata
-	Type        int                `json:"type"`
+	Type        int32              `json:"type"`
 	Collider    json.RawMessage    `json:"collider"`
 	ColliderRaw RawMessagePackSlot `json:"colliderRaw,omitempty"`
 }
@@ -129,43 +129,43 @@ func (c ColliderRef) MarshalJSON() ([]byte, error) {
 
 // ColliderStatusUnion 表示强类型的碰撞体状态 / Strongly-typed collider status
 type ColliderStatusUnion interface {
-	toColliderType() int
+	toColliderType() int32
 }
 
 // ColliderObject 表示游戏碰撞体基类字段 / ColliderObject represents shared base fields of game collider status
 type ColliderObject struct {
-	Version       int     `json:"version"`       // 版本号 / Version value
+	Version       int32   `json:"version"`       // 版本号 / Version value
 	ParentName    string  `json:"parentName"`    // 父对象名称 / Parent object name
 	SelfName      string  `json:"selfName"`      // 自身对象名称 / Own object name
 	LocalPosition Vector3 `json:"localPosition"` // 本地位置 / Local position
 	LocalRotation Vector4 `json:"localRotation"` // 本地旋转四元数 / Local rotation quaternion
 	LocalScale    Vector3 `json:"localScale"`    // 本地缩放 / Local scale
 	Center        Vector3 `json:"center"`        // 碰撞体中心 / Collider center
-	Bound         int     `json:"bound"`         // 修正方式：0=Outside,1=Inside / Correction mode: 0=Outside,1=Inside
+	Bound         int32   `json:"bound"`         // 修正方式：0=Outside,1=Inside / Correction mode: 0=Outside,1=Inside
 }
 
 type ColliderPlane struct {
 	_struct                struct{} `codec:",toarray"`
 	*IndexedObjectMetadata `codec:"-"`
 	ColliderObject         `codec:",inline"`
-	Direction              int  `json:"direction"`          // 平面法线方向 / Plane normal direction
-	IsDirectionInverse     bool `json:"isDirectionInverse"` // 法线方向反转 / Reverse normal direction
+	Direction              int32 `json:"direction"`          // 平面法线方向 / Plane normal direction
+	IsDirectionInverse     bool  `json:"isDirectionInverse"` // 法线方向反转 / Reverse normal direction
 }
 
-func (*ColliderPlane) toColliderType() int { return ColliderTypePlane }
+func (*ColliderPlane) toColliderType() int32 { return ColliderTypePlane }
 
 type ColliderCapsule struct {
 	_struct                struct{} `codec:",toarray"`
 	*IndexedObjectMetadata `codec:"-"`
 	ColliderObject         `codec:",inline"`
-	Direction              int     `json:"direction"`          // 胶囊主轴方向 / Capsule axis direction
+	Direction              int32   `json:"direction"`          // 胶囊主轴方向 / Capsule axis direction
 	IsDirectionInverse     bool    `json:"isDirectionInverse"` // 方向反转 / Direction reversed
 	StartRadius            float32 `json:"startRadius"`        // 起点半径 / Start radius
 	EndRadius              float32 `json:"endRadius"`          // 终点半径 / End radius
 	Height                 float32 `json:"height"`             // 长度 / Height
 }
 
-func (*ColliderCapsule) toColliderType() int { return ColliderTypeCapsule }
+func (*ColliderCapsule) toColliderType() int32 { return ColliderTypeCapsule }
 
 type ColliderSphere struct {
 	_struct                struct{} `codec:",toarray"`
@@ -174,13 +174,13 @@ type ColliderSphere struct {
 	Radius                 float32 `json:"radius"` // 半径 / Radius
 }
 
-func (*ColliderSphere) toColliderType() int { return ColliderTypeSphere }
+func (*ColliderSphere) toColliderType() int32 { return ColliderTypeSphere }
 
 type ColliderMaidProp struct {
 	_struct                struct{} `codec:",toarray"`
 	*IndexedObjectMetadata `codec:"-"`
 	ColliderObject         `codec:",inline"`
-	Direction              int                `json:"direction"`              // 胶囊主轴方向 / Capsule axis direction
+	Direction              int32              `json:"direction"`              // 胶囊主轴方向 / Capsule axis direction
 	IsDirectionInverse     bool               `json:"isDirectionInverse"`     // 方向反转 / Direction reversed
 	StartRadius            float32            `json:"startRadius"`            // 起点半径 / Start radius
 	EndRadius              float32            `json:"endRadius"`              // 终点半径 / End radius
@@ -188,20 +188,20 @@ type ColliderMaidProp struct {
 	Reserved13             RawMessagePackSlot `json:"reserved13,omitempty"`   // C# has no Key(13); normally MessagePack nil
 	Reserved14             RawMessagePackSlot `json:"reserved14,omitempty"`   // C# has no Key(14); normally MessagePack nil
 	Reserved15             RawMessagePackSlot `json:"reserved15,omitempty"`   // C# has no Key(15); normally MessagePack nil
-	CenterMpnList          []int              `json:"centerMpnList"`          // 中心MPN枚举列表，对应 C# List<MPN> / Center MPN enum list, matching C# List<MPN>
+	CenterMpnList          []int32            `json:"centerMpnList"`          // 中心MPN枚举列表，对应 C# List<MPN> / Center MPN enum list, matching C# List<MPN>
 	CenterRateMax          Vector3            `json:"centerRateMax"`          // 中心最大比率 / Max center rate
-	StartRadiusMpnList     []int              `json:"startRadiusMpnList"`     // 起点半径MPN枚举列表 / Start-radius MPN enum list
+	StartRadiusMpnList     []int32            `json:"startRadiusMpnList"`     // 起点半径MPN枚举列表 / Start-radius MPN enum list
 	MaxStartRadius         float32            `json:"maxStartRadius"`         // 起点半径最大值 / Max start radius
-	EndRadiusMpnList       []int              `json:"endRadiusMpnList"`       // 终点半径MPN枚举列表 / End-radius MPN enum list
+	EndRadiusMpnList       []int32            `json:"endRadiusMpnList"`       // 终点半径MPN枚举列表 / End-radius MPN enum list
 	MaxEndRadius           float32            `json:"maxEndRadius"`           // 终点半径最大值 / Max end radius
 	CenterMpnNameList      []string           `json:"centerMpnNameList"`      // 中心MPN名 / Center MPN names
 	StartRadiusMpnNameList []string           `json:"startRadiusMpnNameList"` // 起点半径MPN名 / Start-radius MPN names
 	EndRadiusMpnNameList   []string           `json:"endRadiusMpnNameList"`   // 终点半径MPN名 / End-radius MPN names
 }
 
-func (*ColliderMaidProp) toColliderType() int { return ColliderTypeMaidProp }
+func (*ColliderMaidProp) toColliderType() int32 { return ColliderTypeMaidProp }
 
-func newColliderObject(version int) ColliderObject {
+func newColliderObject(version int32) ColliderObject {
 	return ColliderObject{
 		Version:       version,
 		LocalRotation: Vector4{W: 1},
@@ -242,10 +242,10 @@ func NewColliderMaidProp() *ColliderMaidProp {
 		Direction:              VectorTypeY,
 		StartRadius:            0.5,
 		EndRadius:              0.5,
-		CenterMpnList:          []int{},
-		StartRadiusMpnList:     []int{},
+		CenterMpnList:          []int32{},
+		StartRadiusMpnList:     []int32{},
 		MaxStartRadius:         1,
-		EndRadiusMpnList:       []int{},
+		EndRadiusMpnList:       []int32{},
 		MaxEndRadius:           1,
 		CenterMpnNameList:      []string{},
 		StartRadiusMpnNameList: []string{},
@@ -298,15 +298,15 @@ func (v *ColliderMaidProp) UnmarshalJSON(data []byte) error {
 type ColliderState struct {
 	_struct                struct{} `codec:",toarray"`
 	*IndexedObjectMetadata `codec:"-"`
-	Version                int  `json:"version"`  // 版本号 / Version value
-	LimbType               int  `json:"limbType"` // limbType 枚举值 / LimbType enum value
-	IsEnable               bool `json:"isEnable"` // 是否启用 / Enabled
+	Version                int32 `json:"version"`  // 版本号 / Version value
+	LimbType               int32 `json:"limbType"` // limbType 枚举值 / LimbType enum value
+	IsEnable               bool  `json:"isEnable"` // 是否启用 / Enabled
 }
 
 type colliderStateJSON struct {
 	*IndexedObjectMetadata
-	Version  int             `json:"version"`
-	LimbType *int            `json:"limbType,omitempty"`
+	Version  int32           `json:"version"`
+	LimbType *int32          `json:"limbType,omitempty"`
 	IsEnable *bool           `json:"isEnable,omitempty"`
 	Index    json.RawMessage `json:"index,omitempty"`
 	Enabled  json.RawMessage `json:"enabled,omitempty"`
@@ -338,15 +338,15 @@ func (s *ColliderState) UnmarshalJSON(data []byte) error {
 type LimbColliderPackage struct {
 	_struct                struct{} `codec:",toarray"`
 	*IndexedObjectMetadata `codec:"-"`
-	Version                int                `json:"version"` // 版本号 / Version value
+	Version                int32              `json:"version"` // 版本号 / Version value
 	Items                  []LimbColliderItem `json:"items"`   // limb 碰撞体条目列表 / limb collider item list
 }
 
 // LimbColliderItem 表示一个 limb 类型和碰撞体状态 / LimbColliderItem represents one limb type and collider status
 type LimbColliderItem struct {
 	*IndexedObjectMetadata `codec:"-"`
-	Version                int                 `json:"version"`  // 版本号 / Version value
-	Target                 int                 `json:"target"`   // limbType 枚举值 / LimbType enum value
+	Version                int32               `json:"version"`  // 版本号 / Version value
+	Target                 int32               `json:"target"`   // limbType 枚举值 / LimbType enum value
 	Collider               ColliderStatusUnion `json:"collider"` // 碰撞体状态 / Collider status
 	ColliderRaw            RawMessagePackSlot  `json:"colliderRaw,omitempty" codec:"-"`
 }
@@ -354,8 +354,8 @@ type LimbColliderItem struct {
 type limbColliderItemAlias LimbColliderItem
 type limbColliderItemJSON struct {
 	*IndexedObjectMetadata
-	Version     int                `json:"version"`
-	Target      int                `json:"target"`
+	Version     int32              `json:"version"`
+	Target      int32              `json:"target"`
 	Collider    json.RawMessage    `json:"collider"`
 	ColliderRaw RawMessagePackSlot `json:"colliderRaw,omitempty"`
 }
@@ -396,7 +396,7 @@ func (item LimbColliderItem) MarshalJSON() ([]byte, error) {
 type IKColliderPackage struct {
 	_struct                struct{} `codec:",toarray"`
 	*IndexedObjectMetadata `codec:"-"`
-	Version                int               `json:"version"` // 版本号 / Version value
+	Version                int32             `json:"version"` // 版本号 / Version value
 	Groups                 []IKColliderGroup `json:"groups"`  // IK 效果器分组列表 / IK effector group list
 }
 
@@ -404,8 +404,8 @@ type IKColliderPackage struct {
 type IKColliderGroup struct {
 	_struct                struct{} `codec:",toarray"`
 	*IndexedObjectMetadata `codec:"-"`
-	Version                int           `json:"version"`   // 版本号 / Version value
-	Target                 int           `json:"target"`    // effectorType 枚举值 / Effector type enum
+	Version                int32         `json:"version"`   // 版本号 / Version value
+	Target                 int32         `json:"target"`    // effectorType 枚举值 / Effector type enum
 	Colliders              []ColliderRef `json:"colliders"` // 该效果器关联的碰撞体引用列表 / Collider references associated with effector
 }
 
@@ -416,7 +416,7 @@ type IKColliderGroup struct {
 type colliderRefWire struct {
 	_struct                struct{} `codec:",toarray"`
 	*IndexedObjectMetadata `codec:"-"`
-	Type                   int                `json:"type"`
+	Type                   int32              `json:"type"`
 	Collider               RawMessagePackSlot `json:"collider"`
 }
 
@@ -431,8 +431,8 @@ func (v *colliderRefWire) CodecDecodeSelf(d *codec.Decoder) {
 type limbColliderItemWire struct {
 	_struct                struct{} `codec:",toarray"`
 	*IndexedObjectMetadata `codec:"-"`
-	Version                int                `json:"version"`
-	Target                 int                `json:"target"`
+	Version                int32              `json:"version"`
+	Target                 int32              `json:"target"`
 	Collider               RawMessagePackSlot `json:"collider"`
 }
 
@@ -475,7 +475,7 @@ func (c *ColliderRef) CodecDecodeSelf(d *codec.Decoder) {
 	if indexedObjectSlotPresent(wire.IndexedObjectMetadata, 1, 2) && len(wire.Collider) != 0 {
 		if indexedObjectSlotIsNil(wire.IndexedObjectMetadata, 0) {
 			// A nil union tag cannot select a known formatter. Preserve the second
-			// slot instead of guessing that the zero Go int meant Plane.
+			// slot instead of guessing that the zero Go int32 meant Plane.
 			result.ColliderRaw = cloneRawMessagePackSlot(wire.Collider)
 		} else if status, known := newColliderStatusForType(wire.Type); known {
 			if err := ct.DecodeMsgpack(wire.Collider, status); err != nil {
@@ -564,7 +564,7 @@ func validateRawMessagePackSlot(raw RawMessagePackSlot, name string) error {
 	return nil
 }
 
-func newColliderStatusForType(typ int) (ColliderStatusUnion, bool) {
+func newColliderStatusForType(typ int32) (ColliderStatusUnion, bool) {
 	switch typ {
 	case ColliderTypePlane:
 		return &ColliderPlane{}, true
@@ -579,20 +579,20 @@ func newColliderStatusForType(typ int) (ColliderStatusUnion, bool) {
 	}
 }
 
-func indexedObjectSlotPresent(metadata *IndexedObjectMetadata, slot, known int) bool {
+func indexedObjectSlotPresent(metadata *IndexedObjectMetadata, slot, known int64) bool {
 	count := known
 	if metadata != nil && metadata.FieldCount != nil {
-		count = *metadata.FieldCount
+		count = int64(*metadata.FieldCount)
 	}
 	return slot >= 0 && slot < count
 }
 
-func indexedObjectSlotIsNil(metadata *IndexedObjectMetadata, slot int) bool {
+func indexedObjectSlotIsNil(metadata *IndexedObjectMetadata, slot int64) bool {
 	if metadata == nil {
 		return false
 	}
 	for _, candidate := range metadata.NilSlots {
-		if candidate == slot {
+		if int64(candidate) == int64(slot) {
 			return true
 		}
 	}
@@ -622,56 +622,26 @@ const (
 	ikColliderGroupFixVersion     = 1000
 )
 
-func validateColliderStatusForEncoding(status ColliderStatusUnion, name string) (int, error) {
+func validateColliderStatusForEncoding(status ColliderStatusUnion, name string) (int32, error) {
 	switch v := status.(type) {
 	case *ColliderPlane:
 		if v == nil {
 			return -1, fmt.Errorf("%s is nil (*ColliderPlane)", name)
-		}
-		if err := validateColliderObjectInt32(&v.ColliderObject, name); err != nil {
-			return -1, err
-		}
-		if err := requireInt32(name+".direction", v.Direction); err != nil {
-			return -1, err
 		}
 		return ColliderTypePlane, nil
 	case *ColliderCapsule:
 		if v == nil {
 			return -1, fmt.Errorf("%s is nil (*ColliderCapsule)", name)
 		}
-		if err := validateColliderObjectInt32(&v.ColliderObject, name); err != nil {
-			return -1, err
-		}
-		if err := requireInt32(name+".direction", v.Direction); err != nil {
-			return -1, err
-		}
 		return ColliderTypeCapsule, nil
 	case *ColliderSphere:
 		if v == nil {
 			return -1, fmt.Errorf("%s is nil (*ColliderSphere)", name)
 		}
-		if err := validateColliderObjectInt32(&v.ColliderObject, name); err != nil {
-			return -1, err
-		}
 		return ColliderTypeSphere, nil
 	case *ColliderMaidProp:
 		if v == nil {
 			return -1, fmt.Errorf("%s is nil (*ColliderMaidProp)", name)
-		}
-		if err := validateColliderObjectInt32(&v.ColliderObject, name); err != nil {
-			return -1, err
-		}
-		if err := requireInt32(name+".direction", v.Direction); err != nil {
-			return -1, err
-		}
-		if err := validateMaidPropMPNList(v.CenterMpnList, name+".centerMpnList"); err != nil {
-			return -1, err
-		}
-		if err := validateMaidPropMPNList(v.StartRadiusMpnList, name+".startRadiusMpnList"); err != nil {
-			return -1, err
-		}
-		if err := validateMaidPropMPNList(v.EndRadiusMpnList, name+".endRadiusMpnList"); err != nil {
-			return -1, err
 		}
 		return ColliderTypeMaidProp, nil
 	default:
@@ -679,22 +649,12 @@ func validateColliderStatusForEncoding(status ColliderStatusUnion, name string) 
 	}
 }
 
-func validateColliderObjectInt32(value *ColliderObject, name string) error {
-	if err := requireInt32(name+".version", value.Version); err != nil {
-		return err
-	}
-	return requireInt32(name+".bound", value.Bound)
-}
-
-func validateColliderRefsForEncoding(refs []ColliderRef, metadata *IndexedObjectMetadata, slot int, name string) error {
+func validateColliderRefsForEncoding(refs []ColliderRef, metadata *IndexedObjectMetadata, slot int64, name string) error {
 	for i := range refs {
-		if indexedObjectNullElementAt(metadata, slot, i) {
+		if indexedObjectNullElementAt(metadata, slot, int64(i)) {
 			continue
 		}
 		refName := fmt.Sprintf("%s[%d]", name, i)
-		if err := requireInt32(refName+".type", refs[i].Type); err != nil {
-			return err
-		}
 		if refs[i].Collider != nil && len(refs[i].ColliderRaw) != 0 {
 			return fmt.Errorf("%s.collider and colliderRaw cannot both be populated", refName)
 		}
@@ -721,42 +681,23 @@ func validateColliderRefsForEncoding(refs []ColliderRef, metadata *IndexedObject
 }
 
 func validateColliderPackageForEncoding(p *ColliderPackage) error {
-	if err := requireInt32("colliderPackage.version", p.Version); err != nil {
-		return err
-	}
 	if err := validateColliderRefsForEncoding(p.Colliders, p.IndexedObjectMetadata, 1, "colliderPackage.colliders"); err != nil {
 		return err
 	}
 	for i := range p.LimbEnableList {
-		if indexedObjectNullElementAt(p.IndexedObjectMetadata, 2, i) {
+		if indexedObjectNullElementAt(p.IndexedObjectMetadata, 2, int64(i)) {
 			continue
-		}
-		name := fmt.Sprintf("colliderPackage.limbEnableList[%d]", i)
-		if err := requireInt32(name+".version", p.LimbEnableList[i].Version); err != nil {
-			return err
-		}
-		if err := requireInt32(name+".limbType", p.LimbEnableList[i].LimbType); err != nil {
-			return err
 		}
 	}
 	return nil
 }
 
 func validateLimbColliderPackageForEncoding(p *LimbColliderPackage) error {
-	if err := requireInt32("limbColliderPackage.version", p.Version); err != nil {
-		return err
-	}
 	for i := range p.Items {
-		if indexedObjectNullElementAt(p.IndexedObjectMetadata, 1, i) {
+		if indexedObjectNullElementAt(p.IndexedObjectMetadata, 1, int64(i)) {
 			continue
 		}
 		itemName := fmt.Sprintf("limbColliderPackage.items[%d]", i)
-		if err := requireInt32(itemName+".version", p.Items[i].Version); err != nil {
-			return err
-		}
-		if err := requireInt32(itemName+".target", p.Items[i].Target); err != nil {
-			return err
-		}
 		if p.Items[i].Collider != nil && len(p.Items[i].ColliderRaw) != 0 {
 			return fmt.Errorf("%s.collider and colliderRaw cannot both be populated", itemName)
 		}
@@ -782,20 +723,11 @@ func validateLimbColliderPackageForEncoding(p *LimbColliderPackage) error {
 }
 
 func validateIKColliderPackageForEncoding(p *IKColliderPackage) error {
-	if err := requireInt32("ikColliderPackage.version", p.Version); err != nil {
-		return err
-	}
 	for i := range p.Groups {
-		if indexedObjectNullElementAt(p.IndexedObjectMetadata, 1, i) {
+		if indexedObjectNullElementAt(p.IndexedObjectMetadata, 1, int64(i)) {
 			continue
 		}
 		groupName := fmt.Sprintf("ikColliderPackage.groups[%d]", i)
-		if err := requireInt32(groupName+".version", p.Groups[i].Version); err != nil {
-			return err
-		}
-		if err := requireInt32(groupName+".target", p.Groups[i].Target); err != nil {
-			return err
-		}
 		if err := validateColliderRefsForEncoding(p.Groups[i].Colliders, p.Groups[i].IndexedObjectMetadata, 2, groupName+".colliders"); err != nil {
 			return err
 		}
@@ -816,9 +748,6 @@ func cloneColliderStatusForEncoding(status ColliderStatusUnion) ColliderStatusUn
 		return &cloned
 	case *ColliderMaidProp:
 		cloned := *v
-		cloned.Reserved13 = cloneRawMessagePackSlot(v.Reserved13)
-		cloned.Reserved14 = cloneRawMessagePackSlot(v.Reserved14)
-		cloned.Reserved15 = cloneRawMessagePackSlot(v.Reserved15)
 		cloned.CenterMpnList = cloneSlicePreserveNil(v.CenterMpnList)
 		cloned.StartRadiusMpnList = cloneSlicePreserveNil(v.StartRadiusMpnList)
 		cloned.EndRadiusMpnList = cloneSlicePreserveNil(v.EndRadiusMpnList)
@@ -830,7 +759,7 @@ func cloneColliderStatusForEncoding(status ColliderStatusUnion) ColliderStatusUn
 	return status
 }
 
-func validateMaidPropMPNList(values []int, name string) error {
+func validateMaidPropMPNList(values []int32, name string) error {
 	const (
 		minMPN = int64(-1 << 31)
 		maxMPN = int64(1<<31 - 1)
@@ -869,12 +798,12 @@ func normalizeLimbColliderPackageForEncoding(p *LimbColliderPackage) *LimbCollid
 	return &cloned
 }
 
-func indexedObjectNullElementAt(metadata *IndexedObjectMetadata, slot, element int) bool {
+func indexedObjectNullElementAt(metadata *IndexedObjectMetadata, slot, element int64) bool {
 	if metadata == nil || metadata.NullElements == nil {
 		return false
 	}
-	flags := metadata.NullElements[slot]
-	return element >= 0 && element < len(flags) && flags[element]
+	flags := metadata.NullElements[int32(slot)]
+	return element >= 0 && element < int64(len(flags)) && flags[element]
 }
 
 func normalizeIKColliderPackageForEncoding(p *IKColliderPackage) *IKColliderPackage {
@@ -886,7 +815,7 @@ func normalizeIKColliderPackageForEncoding(p *IKColliderPackage) *IKColliderPack
 	return &cloned
 }
 
-func decodeColliderObjectAsType(raw json.RawMessage, typ int) (ColliderStatusUnion, error) {
+func decodeColliderObjectAsType(raw json.RawMessage, typ int32) (ColliderStatusUnion, error) {
 	trimmed := bytes.TrimSpace(raw)
 	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
 		return nil, fmt.Errorf("collider is required")

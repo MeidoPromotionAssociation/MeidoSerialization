@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"math"
 	"reflect"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -120,7 +120,7 @@ func TestPresetPanelNameSaveDataMatchesIndexedObjectCompatibility(t *testing.T) 
 	if err != nil {
 		t.Fatalf("DecodePresetPanelNameSaveData(future keys) error = %v", err)
 	}
-	fieldCount := 3
+	fieldCount := int32(3)
 	want := &PresetPanelNameSaveData{
 		BoxNameList: []*string{nil, editDataString("BOX2")},
 		FieldCount:  &fieldCount,
@@ -188,7 +188,7 @@ func TestPresetPanelNameSaveDataEncodeValidation(t *testing.T) {
 }
 
 func TestPaletteColorSaveDataRoundTripAndDeterministicWire(t *testing.T) {
-	colors := map[int]int{
+	colors := map[int32]int32{
 		8: 808, 7: -707, 6: 606, 5: -505, 4: 404,
 		3: -303, 2: 202, 1: -101, 0: 0,
 		42: 4242, -7: -7000, // forward-compatible Dictionary entries
@@ -208,12 +208,13 @@ func TestPaletteColorSaveDataRoundTripAndDeterministicWire(t *testing.T) {
 		t.Fatalf("encoder modified caller map: got %#v, want %#v", original.Color, originalColors)
 	}
 
-	reordered := &PaletteColorSaveData{Color: make(map[int]int), Index: 7, IsSave: 1}
-	keys := make([]int, 0, len(originalColors))
+	reordered := &PaletteColorSaveData{Color: make(map[int32]int32), Index: 7, IsSave: 1}
+	keys := make([]int32, 0, len(originalColors))
 	for key := range originalColors {
 		keys = append(keys, key)
 	}
-	sort.Sort(sort.Reverse(sort.IntSlice(keys)))
+	slices.Sort(keys)
+	slices.Reverse(keys)
 	for _, key := range keys {
 		reordered.Color[key] = originalColors[key]
 	}
@@ -298,7 +299,7 @@ func TestPaletteColorSaveDataAcceptsEveryInt32CompatibleMarker(t *testing.T) {
 	variants := []struct {
 		name string
 		raw  []byte
-		want int
+		want int32
 	}{
 		{name: "positive fixint", raw: []byte{0x7f}, want: 127},
 		{name: "uint8", raw: []byte{0xcc, 0xff}, want: 255},
@@ -385,11 +386,10 @@ func TestPaletteColorSaveDataRejectsInt32WireOverflow(t *testing.T) {
 }
 
 func TestPaletteColorSaveDataEncodeValidation(t *testing.T) {
-	valid := editDataNineColors()
 	tests := map[string]*PaletteColorSaveData{
 		"nil value": nil,
 		"nil map":   {Index: 0, IsSave: 1},
-		"missing key": {Color: map[int]int{
+		"missing key": {Color: map[int32]int32{
 			0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7,
 		}},
 	}
@@ -406,24 +406,6 @@ func TestPaletteColorSaveDataEncodeValidation(t *testing.T) {
 		})
 	}
 
-	if strconvIntSize() > 32 {
-		overflow := editDataCloneIntMap(valid)
-		overflow[0] = int(int64(math.MaxInt32) + 1)
-		if _, err := EncodePaletteColorSaveData(&PaletteColorSaveData{Color: overflow}); err == nil || !strings.Contains(err.Error(), "Int32") {
-			t.Fatalf("overflow color error = %v, want Int32 rejection", err)
-		}
-		if _, err := EncodePaletteColorSaveData(&PaletteColorSaveData{Color: valid, Index: int(int64(math.MinInt32) - 1)}); err == nil || !strings.Contains(err.Error(), "Int32") {
-			t.Fatalf("underflow index error = %v, want Int32 rejection", err)
-		}
-		overflowKey := editDataCloneIntMap(valid)
-		overflowKey[int(int64(math.MaxInt32)+1)] = 123
-		if _, err := EncodePaletteColorSaveData(&PaletteColorSaveData{Color: overflowKey}); err == nil || !strings.Contains(err.Error(), "Int32") {
-			t.Fatalf("overflow key error = %v, want Int32 rejection", err)
-		}
-		if _, err := EncodePaletteColorSaveData(&PaletteColorSaveData{Color: valid, IsSave: int(int64(math.MaxInt32) + 1)}); err == nil || !strings.Contains(err.Error(), "Int32") {
-			t.Fatalf("overflow isSave error = %v, want Int32 rejection", err)
-		}
-	}
 }
 
 func TestSimpleEditDataDecoderTruncationsNeverSucceedOrPanic(t *testing.T) {
@@ -511,20 +493,16 @@ func TestPresetPanelNameSaveDataSkipsEveryFutureMessagePackFamily(t *testing.T) 
 	}
 }
 
-func strconvIntSize() int {
-	return 32 << (^uint(0) >> 63)
-}
-
-func editDataNineColors() map[int]int {
-	colors := make(map[int]int, 9)
-	for i := 0; i <= 8; i++ {
+func editDataNineColors() map[int32]int32 {
+	colors := make(map[int32]int32, 9)
+	for i := int32(0); i <= 8; i++ {
 		colors[i] = i * 10
 	}
 	return colors
 }
 
-func editDataCloneIntMap(src map[int]int) map[int]int {
-	dst := make(map[int]int, len(src))
+func editDataCloneIntMap(src map[int32]int32) map[int32]int32 {
+	dst := make(map[int32]int32, len(src))
 	for key, value := range src {
 		dst[key] = value
 	}
@@ -548,14 +526,14 @@ func editDataPresetNamesWire(names []*string) []byte {
 	return wire
 }
 
-func editDataPaletteWire(colors map[int]int, index, isSave int, reverse bool) []byte {
-	keys := make([]int, 0, len(colors))
+func editDataPaletteWire(colors map[int32]int32, index, isSave int32, reverse bool) []byte {
+	keys := make([]int32, 0, len(colors))
 	for key := range colors {
 		keys = append(keys, key)
 	}
-	sort.Ints(keys)
+	slices.Sort(keys)
 	if reverse {
-		sort.Sort(sort.Reverse(sort.IntSlice(keys)))
+		slices.Reverse(keys)
 	}
 	entries := make([][]byte, 0, len(keys))
 	for _, key := range keys {
@@ -564,14 +542,14 @@ func editDataPaletteWire(colors map[int]int, index, isSave int, reverse bool) []
 	return editDataPaletteWireWithEntries(entries, editDataAppendInt(nil, index), editDataAppendInt(nil, isSave))
 }
 
-func editDataPaletteMap(colors map[int]int, reverse bool) []byte {
+func editDataPaletteMap(colors map[int32]int32, reverse bool) []byte {
 	full := editDataPaletteWire(colors, 0, 0, reverse)
 	// The helper above always emits fixarray(3), followed by the complete map.
 	// Locate its exact end by subtracting the two one-byte zero fields.
 	return append([]byte(nil), full[1:len(full)-2]...)
 }
 
-func editDataPaletteEntries(first, last int) [][]byte {
+func editDataPaletteEntries(first, last int32) [][]byte {
 	entries := make([][]byte, 0, last-first+1)
 	for key := first; key <= last; key++ {
 		entries = append(entries, editDataIntPair(key, key*10))
@@ -579,7 +557,7 @@ func editDataPaletteEntries(first, last int) [][]byte {
 	return entries
 }
 
-func editDataIntPair(key, value int) []byte {
+func editDataIntPair(key, value int32) []byte {
 	pair := editDataAppendInt(nil, key)
 	return editDataAppendInt(pair, value)
 }
@@ -635,7 +613,7 @@ func editDataAppendString(dst []byte, value string) []byte {
 	return append(dst, value...)
 }
 
-func editDataAppendInt(dst []byte, value int) []byte {
+func editDataAppendInt(dst []byte, value int32) []byte {
 	switch {
 	case value >= 0 && value <= 0x7f:
 		return append(dst, byte(value))

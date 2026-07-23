@@ -28,7 +28,7 @@ type ModManifest struct {
 	SubName      string     `json:"subName,omitempty"`      // PluginPatch/ExtraPatch 的依赖子名称 / Dependency sub-name for PluginPatch and ExtraPatch
 	CatalogType  string     `json:"catalogType"`            // 资源分类，可用 | 组合 Flags，如 Parts|PartsMeta / Resource category flags, combinable with |
 	PackageType  string     `json:"packageType"`            // 包类型，如 Plugin=1 / Package type such as Plugin=1
-	Priority     int        `json:"priority"`               // 加载优先级 / Load priority
+	Priority     int32      `json:"priority"`               // 加载优先级 / Load priority
 	UnityVersion string     `json:"unityVersion,omitempty"` // 新建对象使用的 Unity 版本；原始 sidecar 必须与其一致 / Unity version for generated objects; raw sidecars must agree
 	Assets       []ModAsset `json:"assets"`                 // 资源列表 / Asset list
 }
@@ -338,7 +338,9 @@ func packModManifest(manifest ModManifest, baseDir string, outputDir string) err
 	copy(table.Raw[:7], ct.FileSignature)
 	table.Raw[7] = ct.SerializeTypeMsgPack
 
-	table.AddFile("catalog", compressedCatalog)
+	if err := table.AddFile("catalog", compressedCatalog); err != nil {
+		return err
+	}
 
 	for ext, packs := range extGroups {
 		enl := &ct.ExtensionNameList{Extension: ext, Data: packs}
@@ -350,7 +352,9 @@ func packModManifest(manifest ModManifest, baseDir string, outputDir string) err
 		if err != nil {
 			return fmt.Errorf("compress ExtensionNameList %q: %w", ext, err)
 		}
-		table.AddFile(ext, compressedEnl)
+		if err := table.AddFile(ext, compressedEnl); err != nil {
+			return err
+		}
 	}
 
 	// 两个最终文件在触碰输出目录前都完整生成到内存。落盘由成对提交器
@@ -818,8 +822,9 @@ func unityRawClassIDForKind(kind string) (int32, bool) {
 	}
 }
 
-// decodeImageToRGBA32 将 PNG/JPEG 图片解码为 RGBA32 像素数据
-func decodeImageToRGBA32(data []byte) (width, height int, rgba []byte, err error) {
+// decodeImageToRGBA32 将 PNG/JPEG 图片解码为 RGBA32 像素数据，并以固定宽度返回尺寸。
+// decodeImageToRGBA32 decodes a PNG or JPEG image into RGBA32 pixels and returns fixed-width dimensions.
+func decodeImageToRGBA32(data []byte) (width, height int64, rgba []byte, err error) {
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return 0, 0, nil, err
@@ -840,7 +845,7 @@ func decodeImageToRGBA32(data []byte) (width, height int, rgba []byte, err error
 		}
 	}
 
-	return w, h, pixels, nil
+	return int64(w), int64(h), pixels, nil
 }
 
 func parseCatalogType(s string) (ct.CatalogType, error) {

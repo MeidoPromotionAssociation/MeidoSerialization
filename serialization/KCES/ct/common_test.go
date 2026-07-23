@@ -19,12 +19,12 @@ func TestCompressLz4BlockArray_MessagePackCSharpWireFormat(t *testing.T) {
 		t.Fatalf("CompressLz4BlockArray: %v", err)
 	}
 
-	pos := 0
+	pos := int64(0)
 	arrayLen, err := readArrayHeader(encoded, &pos)
 	if err != nil {
 		t.Fatalf("read array header: %v", err)
 	}
-	wantBlocks := (len(data) + blockSize - 1) / blockSize
+	wantBlocks := (int64(len(data)) + int64(blockSize) - 1) / int64(blockSize)
 	if arrayLen != wantBlocks+1 {
 		t.Fatalf("array length got %d, want %d", arrayLen, wantBlocks+1)
 	}
@@ -40,15 +40,15 @@ func TestCompressLz4BlockArray_MessagePackCSharpWireFormat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode size list: %v", err)
 	}
-	if len(sizes) != wantBlocks {
+	if int64(len(sizes)) != wantBlocks {
 		t.Fatalf("size count got %d, want %d", len(sizes), wantBlocks)
 	}
 
-	inputOffset := 0
+	inputOffset := int64(0)
 	for i, size := range sizes {
 		// MessagePackSerializer.WriteBin32Header always emits bin32 (0xc6),
 		// even when a compressed block would fit in bin8/bin16.
-		if pos >= len(encoded) {
+		if pos >= int64(len(encoded)) {
 			t.Fatalf("block[%d] marker at %d is past end %d", i, pos, len(encoded))
 		}
 		if encoded[pos] != 0xc6 {
@@ -63,7 +63,7 @@ func TestCompressLz4BlockArray_MessagePackCSharpWireFormat(t *testing.T) {
 		if err != nil {
 			t.Fatalf("independent LZ4 decode block[%d]: %v", i, err)
 		}
-		if n != size {
+		if int64(n) != size {
 			t.Fatalf("independent LZ4 decode block[%d] size got %d, want %d", i, n, size)
 		}
 		if !bytes.Equal(block, data[inputOffset:inputOffset+size]) {
@@ -71,8 +71,8 @@ func TestCompressLz4BlockArray_MessagePackCSharpWireFormat(t *testing.T) {
 		}
 		inputOffset += size
 	}
-	if pos != len(encoded) {
-		t.Fatalf("wire parser left %d unread bytes", len(encoded)-pos)
+	if pos != int64(len(encoded)) {
+		t.Fatalf("wire parser left %d unread bytes", int64(len(encoded))-pos)
 	}
 
 	decoded, err := DecompressLz4BlockArray(encoded)
@@ -114,7 +114,7 @@ func TestDecodeMsgpackBoundsHostileCollectionsAndDepth(t *testing.T) {
 
 func TestDecodeMsgpackWithConsumedLeavesTopLevelTrailingBytes(t *testing.T) {
 	data := []byte{0x92, 0x01, 0x02, 0xde, 0xad, 0xbe, 0xef}
-	var out []int
+	var out []int32
 	consumed, err := DecodeMsgpackWithConsumed(data, &out)
 	if err != nil {
 		t.Fatalf("DecodeMsgpackWithConsumed: %v", err)
@@ -202,7 +202,7 @@ func TestCompressLz4BlockArray_IncompressibleBlock(t *testing.T) {
 		t.Fatalf("incompressible round trip differs")
 	}
 
-	pos := 0
+	pos := int64(0)
 	if _, err := readArrayHeader(encoded, &pos); err != nil {
 		t.Fatal(err)
 	}
@@ -352,7 +352,7 @@ func assertDecompressDoesNotPanic(t *testing.T, data []byte, cut int) {
 
 func encodeLegacyGoLz4BlockArray(t *testing.T, data []byte) []byte {
 	t.Helper()
-	numBlocks := (len(data) + blockSize - 1) / blockSize
+	numBlocks := (int64(len(data)) + int64(blockSize) - 1) / int64(blockSize)
 	out := WriteArrayHeader(nil, numBlocks+1)
 	sizePayload := make([]byte, 4)
 	binary.BigEndian.PutUint32(sizePayload, uint32(len(data)))

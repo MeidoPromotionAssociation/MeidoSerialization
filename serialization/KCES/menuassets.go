@@ -50,14 +50,14 @@ import (
 type Menu struct {
 	_struct                    struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata     `codec:"-"`
-	Version                    int                       `json:"version"`                    // 存储的版本；当前游戏 FixVersion 为 1005 / Stored version; current-game FixVersion is 1005
+	Version                    int32                     `json:"version"`                    // 存储的版本；当前游戏 FixVersion 为 1005 / Stored version; current-game FixVersion is 1005
 	GUID                       uint64                    `json:"guid"`                       // 全局唯一标识 / Global unique identifier
 	ID                         uint64                    `json:"id"`                         // 菜单 ID / Menu ID
 	FileName                   string                    `json:"fileName"`                   // 菜单文件名，如 xxx.menu / Menu file name such as xxx.menu
 	ItemName                   string                    `json:"itemName"`                   // 物品显示名称 / Display name of the item
 	IconFileName               string                    `json:"iconFileName"`               // 图标文件名 / Icon file name
 	InfoText                   string                    `json:"infoText"`                   // 说明文本 / Description text
-	Priority                   int                       `json:"priority"`                   // 优先级 / Priority
+	Priority                   int32                     `json:"priority"`                   // 优先级 / Priority
 	ParentID                   uint64                    `json:"parentId"`                   // 父菜单 ID，0 表示无父级 / Parent menu ID, zero means no parent
 	IsMan                      bool                      `json:"isMan"`                      // 是否为男性用 / Whether this menu is for male characters
 	IsDiff                     bool                      `json:"isDiff"`                     // 是否为差分 / Whether this menu is a variation
@@ -73,14 +73,14 @@ type Menu struct {
 	DefineFirst                uint64                    `json:"defineFirst"`                // 首要 DEFINE 标志位 / Primary DEFINE flag bits
 	PartsVer                   *TupleStringInt           `json:"partsVer"`                   // 部件版本元组 / Parts version tuple
 	IsRecommendMan             bool                      `json:"isRecommendMan"`             // 是否推荐男性使用 / Whether male use is recommended
-	TargetBodyType             int                       `json:"targetBodyType"`             // 目标体型枚举，0=None, 1=Woman, 2=Man / Target body-type enum, 0=None, 1=Woman, 2=Man
-	Reserved24                 RawMessagePackSlot        `json:"reserved24,omitempty"`       // C# 无 Key(24)；保存该稀疏槽位的原始 MessagePack 值 / C# has no Key(24); raw MessagePack value for the sparse slot
+	TargetBodyType             int32                     `json:"targetBodyType"`             // 目标体型枚举，0=None, 1=Woman, 2=Man / Target body-type enum, 0=None, 1=Woman, 2=Man
+	Reserved24                 RawMessagePackSlot        `json:"reserved24,omitempty"`       // C# 无 Key(24)；原始稀疏槽位 / C# has no Key(24); raw MessagePack value for the sparse slot
 	Attribute                  uint64                    `json:"attribute"`                  // 属性标志位 / Attribute flag bits
 	HideInEdit                 bool                      `json:"hideInEdit"`                 // 是否在编辑界面隐藏 / Whether hidden in edit mode
 	ToeLockSlotId              string                    `json:"toeLockSlotId"`              // 脚趾锁定槽位 ID / Toe-lock slot ID
 	ExportModelFormTextureName string                    `json:"exportModelFormTextureName"` // 导出模型纹理名 / Exported model texture name
-	IsHarayureAvailable        int                       `json:"isHarayureAvailable"`        // 腹揺れ可用性枚举，0=None, 1=Available, 2=Disable / Belly-jiggle availability enum, 0=None, 1=Available, 2=Disable
-	SkirtPhys                  int                       `json:"skirt_phys"`                 // 裙子物理类型 / Skirt physics type
+	IsHarayureAvailable        int32                     `json:"isHarayureAvailable"`        // 腹揺れ可用性枚举，0=None, 1=Available, 2=Disable / Belly-jiggle availability enum, 0=None, 1=Available, 2=Disable
+	SkirtPhys                  int32                     `json:"skirt_phys"`                 // 裙子物理类型 / Skirt physics type
 }
 
 // Command 表示菜单命令 / Command represents one Parts.Menu command
@@ -88,7 +88,7 @@ type Menu struct {
 type Command struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
-	Type                   int      `json:"type"` // 命令类型枚举值 / Command type enum value
+	Type                   int32    `json:"type"` // 命令类型枚举值 / Command type enum value
 	Args                   []string `json:"args"` // 命令参数字符串数组 / Command argument string array
 }
 
@@ -123,9 +123,6 @@ func DecodeMenuAssets(data []byte) (*MenuAssets, error) {
 	if err := decodeCompressedMsgpack(data, assets, "MenuAssets"); err != nil {
 		return nil, err
 	}
-	if err := validateGameInt32Fields(assets); err != nil {
-		return nil, fmt.Errorf("decode MenuAssets integer field: %w", err)
-	}
 	return assets, nil
 }
 
@@ -136,9 +133,6 @@ func EncodeMenuAssets(assets *MenuAssets) ([]byte, error) {
 	}
 	normalized := *assets
 	normalized.Assets = cloneSlicePreserveNil(assets.Assets)
-	if err := validateGameInt32Fields(&normalized); err != nil {
-		return nil, fmt.Errorf("encode MenuAssets integer field: %w", err)
-	}
 	return encodeCompressedMsgpack(&normalized, "MenuAssets")
 }
 

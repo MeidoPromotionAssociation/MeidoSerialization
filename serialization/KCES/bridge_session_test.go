@@ -125,9 +125,9 @@ func TestKCESBridgeSessionPreservesVersionsOnCopies(t *testing.T) {
 }
 
 func TestKCESBridgeSessionPreservesContainerWireMetadata(t *testing.T) {
-	containerFieldCount := 4
-	fileFieldCount := 3
-	sessionFieldCount := 3
+	containerFieldCount := int32(4)
+	fileFieldCount := int32(3)
+	sessionFieldCount := int32(3)
 	value := &KCESBridgeSession{
 		ContainerVersion:     -7,
 		ContainerFieldCount:  &containerFieldCount,
@@ -429,7 +429,7 @@ func TestKCESBridgeSessionFutureSlotDepthLimit(t *testing.T) {
 	}
 }
 
-func makeBridgeSessionVirtualDirectory(t *testing.T, version int, sessionData, sessionID []byte, extra map[string][]byte) []byte {
+func makeBridgeSessionVirtualDirectory(t *testing.T, version int32, sessionData, sessionID []byte, extra map[string][]byte) []byte {
 	t.Helper()
 	table := &ct.ContentTable{Version: version, Raw: make([]byte, ct.HeaderSize)}
 	table.AddFile("session_data", append([]byte(nil), sessionData...))

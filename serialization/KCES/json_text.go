@@ -39,8 +39,8 @@ var kcesJSONTextDescriptorByExtension = func() map[string]kcesJSONTextDescriptor
 // KCESJSONText 表示 KCES 明文 JSON 资源的封套 / KCESJSONText represents an envelope for KCES plain JSON resources
 type KCESJSONText struct {
 	Extension string          `json:"extension"`      // 原始扩展名，如 .undressdat / Original extension such as .undressdat
-	Text      string          `json:"text,omitempty"` // 原始 JSON 文本；未编辑 json 时逐字节重用 / Original JSON text, reused byte-for-byte while json is unchanged
 	JSON      json.RawMessage `json:"json"`           // 规范化后的 JSON 内容 / Normalized JSON content
+	Text      string          `json:"text,omitempty"` // 原始 JSON 文本；未编辑 json 时逐字节重用 / Original JSON text, reused byte-for-byte while json is unchanged
 }
 
 func DecodeKCESJSONText(data []byte, extension string) (*KCESJSONText, error) {
@@ -92,7 +92,6 @@ func EncodeKCESJSONText(value *KCESJSONText) ([]byte, error) {
 			return append([]byte(nil), textBytes...), nil
 		}
 	}
-
 	var indented bytes.Buffer
 	if err := json.Indent(&indented, compactJSON.Bytes(), "", "  "); err != nil {
 		return nil, fmt.Errorf("indent %s JSON: %w", ext, err)

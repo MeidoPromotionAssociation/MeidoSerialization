@@ -22,8 +22,8 @@ func validKCESPresetCoreForTest(t *testing.T) *KCESPresetCore {
 func TestKCESPresetGameLayoutRoundTrip(t *testing.T) {
 	core := validKCESPresetCoreForTest(t)
 	core.Version = 778
-	containerFieldCount := 4
-	thumbnailFieldCount := 3
+	containerFieldCount := int32(4)
+	thumbnailFieldCount := int32(3)
 	input := &KCESPreset{
 		ContainerVersion:     777,
 		ContainerFieldCount:  &containerFieldCount,

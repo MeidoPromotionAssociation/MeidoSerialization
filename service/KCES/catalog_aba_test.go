@@ -57,7 +57,7 @@ func TestCatalogItemsResolveToAbaAssets(t *testing.T) {
 			}
 
 			for _, item := range catalog.Items {
-				if item.ResourceIndex < 0 || item.ResourceIndex >= len(resourceAssets) {
+				if item.ResourceIndex < 0 || int64(item.ResourceIndex) >= int64(len(resourceAssets)) {
 					t.Fatalf("catalog item %q resourceIndex=%d out of bounds", item.Name, item.ResourceIndex)
 				}
 				if !catalogItemShouldResolveToAsset(item) {
@@ -91,7 +91,7 @@ func collectAbaAssetTypes(path string) (map[uint64]int32, error) {
 		if !dir.IsSerialized() {
 			continue
 		}
-		data, err := abaFile.GetFileData(i)
+		data, err := abaFile.GetFileData(int64(i))
 		if err != nil {
 			return nil, err
 		}

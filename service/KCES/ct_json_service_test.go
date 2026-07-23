@@ -49,8 +49,8 @@ func TestCtEnvelopeVirtualAssetCatalogRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Compress extension list: %v", err)
 	}
-	rootFieldCount := 4
-	childFieldCount := 3
+	rootFieldCount := int32(4)
+	childFieldCount := int32(3)
 	table := &ct.ContentTable{
 		Version:     -9,
 		FieldCount:  &rootFieldCount,
@@ -66,7 +66,7 @@ func TestCtEnvelopeVirtualAssetCatalogRoundTrip(t *testing.T) {
 	}
 	table.AddFile("catalog", compressedCatalog)
 	table.AddFile(".menuassets", compressedExtension)
-	virtualFileFieldCount := 3
+	virtualFileFieldCount := int32(3)
 	catalogFile := table.Files["catalog"]
 	catalogFile.FieldCount = &virtualFileFieldCount
 	catalogFile.FutureSlots = [][]byte{{0xcc, 0x02}}

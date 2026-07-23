@@ -40,7 +40,7 @@ type TypeTreeJSONValue struct {
 
 // TypeTreeJSONBytes 表示 TypeTree 字节数组的 JSON 摘要 / TypeTreeJSONBytes represents a JSON summary of TypeTree byte arrays
 type TypeTreeJSONBytes struct {
-	Length        int    `json:"length"`                  // 字节长度 / Byte length
+	Length        int64  `json:"length"`                  // 字节长度 / Byte length
 	SHA256        string `json:"sha256"`                  // 原始字节 SHA256 / SHA256 of raw bytes
 	DataBase64    string `json:"dataBase64,omitempty"`    // 小字节数组的完整 base64 / Full base64 for small byte arrays
 	PreviewBase64 string `json:"previewBase64,omitempty"` // 大字节数组的预览 base64 / Preview base64 for large byte arrays
@@ -144,10 +144,12 @@ func typeTreeJSONValue(v *aba.TypeTreeValue) *TypeTreeJSONValue {
 	return out
 }
 
+// typeTreeJSONBytes 为 TypeTree 字节值生成固定宽度长度、摘要及可选预览。
+// typeTreeJSONBytes creates a fixed-width length, digest, and optional preview for a TypeTree byte value.
 func typeTreeJSONBytes(data []byte) *TypeTreeJSONBytes {
 	sum := sha256.Sum256(data)
 	out := &TypeTreeJSONBytes{
-		Length: len(data),
+		Length: int64(len(data)),
 		SHA256: hex.EncodeToString(sum[:]),
 	}
 	if len(data) <= typeTreeInlineByteMax {

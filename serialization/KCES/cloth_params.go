@@ -70,14 +70,14 @@ func newBezierParam(start, end float32, useEnd bool, curve float32, useCurve boo
 	}
 }
 
-type ClothTeleportMode int
+type ClothTeleportMode int32
 
 const (
 	ClothTeleportModeReset ClothTeleportMode = iota
 	ClothTeleportModeKeep
 )
 
-type ClothAdjustMode int
+type ClothAdjustMode int32
 
 const (
 	ClothAdjustModeFixed ClothAdjustMode = iota
@@ -86,14 +86,14 @@ const (
 	ClothAdjustModeYZMove
 )
 
-type ClothPenetrationMode int
+type ClothPenetrationMode int32
 
 const (
 	ClothPenetrationModeSurfacePenetration ClothPenetrationMode = iota
 	ClothPenetrationModeColliderPenetration
 )
 
-type ClothPenetrationAxis int
+type ClothPenetrationAxis int32
 
 const (
 	ClothPenetrationAxisX ClothPenetrationAxis = iota
@@ -146,10 +146,10 @@ type ClothParams struct {
 	RestoreDistanceVelocityInfluence float32              `json:"restoreDistanceVelocityInfluence"` // 距离恢复速度影响系数 / Velocity influence for distance restoration
 	StructDistanceStiffness          BezierParam          `json:"structDistanceStiffness"`          // 结构距离刚性曲线参数 / Structural distance stiffness curve parameter
 	UseBendDistance                  bool                 `json:"useBendDistance"`                  // 是否启用弯曲距离约束 / Whether bend-distance constraint is enabled
-	BendDistanceMaxCount             int                  `json:"bendDistanceMaxCount"`             // 弯曲距离最大计算数量 / Maximum bend-distance count
+	BendDistanceMaxCount             int32                `json:"bendDistanceMaxCount"`             // 弯曲距离最大计算数量 / Maximum bend-distance count
 	BendDistanceStiffness            BezierParam          `json:"bendDistanceStiffness"`            // 弯曲距离刚性曲线参数 / Bend-distance stiffness curve parameter
 	UseNearDistance                  bool                 `json:"useNearDistance"`                  // 是否启用近邻距离约束 / Whether near-distance constraint is enabled
-	NearDistanceMaxCount             int                  `json:"nearDistanceMaxCount"`             // 近邻距离最大计算数量 / Maximum near-distance count
+	NearDistanceMaxCount             int32                `json:"nearDistanceMaxCount"`             // 近邻距离最大计算数量 / Maximum near-distance count
 	NearDistanceMaxDepth             float32              `json:"nearDistanceMaxDepth"`             // 近邻距离最大深度 / Maximum near-distance depth
 	NearDistanceLength               BezierParam          `json:"nearDistanceLength"`               // 近邻距离长度曲线参数 / Near-distance length curve parameter
 	NearDistanceStiffness            BezierParam          `json:"nearDistanceStiffness"`            // 近邻距离刚性曲线参数 / Near-distance stiffness curve parameter
@@ -279,21 +279,5 @@ func (p *ClothParams) UnmarshalJSON(data []byte) error {
 }
 
 func validateClothParamsForEncoding(params *ClothParams) error {
-	fields := []struct {
-		path  string
-		value int
-	}{
-		{path: "clothParams.bendDistanceMaxCount", value: params.BendDistanceMaxCount},
-		{path: "clothParams.nearDistanceMaxCount", value: params.NearDistanceMaxCount},
-		{path: "clothParams.adjustMode", value: int(params.AdjustMode)},
-		{path: "clothParams.penetrationMode", value: int(params.PenetrationMode)},
-		{path: "clothParams.penetrationAxis", value: int(params.PenetrationAxis)},
-		{path: "clothParams.teleportMode", value: int(params.TeleportMode)},
-	}
-	for _, field := range fields {
-		if err := requireInt32(field.path, field.value); err != nil {
-			return err
-		}
-	}
 	return nil
 }

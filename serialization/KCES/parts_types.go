@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"sort"
-	"strings"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 	"github.com/ugorji/go/codec"
@@ -19,129 +17,9 @@ import (
 // Unity/Parts data types and Int32 validation shared by .menuassets, .materialassets, .model, and .preset.
 
 const (
-	gameInt32Min = int64(-1 << 31)
-	gameInt32Max = int64(1<<31 - 1)
+	gameInt32Min int64 = -1 << 31
+	gameInt32Max int64 = 1<<31 - 1
 )
-
-// requireInt32 rejects Go int values that MessagePack-CSharp cannot assign to
-// a C# System.Int32 field. On 64-bit hosts ugorji can otherwise emit an
-// Int64/UInt32 value successfully, only for the game's checked ReadInt32 path
-// to throw OverflowException while loading the generated asset.
-func requireInt32(path string, value int) error {
-	n := int64(value)
-	if n < gameInt32Min || n > gameInt32Max {
-		if path == "" {
-			path = "value"
-		}
-		return fmt.Errorf("%s=%d is outside the Int32 range [%d,%d] required by the game's C# field", path, value, gameInt32Min, gameInt32Max)
-	}
-	return nil
-}
-
-type int32PointerVisit struct {
-	typ reflect.Type
-	ptr uintptr
-}
-
-// validateGameInt32Fields recursively validates every Go int in a typed KCES
-// wire object. In the parts schemas all such fields map to C# int or an enum
-// with an Int32 underlying type. Interface-valued compatibility carriers are
-// deliberately opaque; GradaBytes.Value, for example, represents a byte[]
-// rather than a C# integer. Sparse formatter holes use RawMessagePackSlot.
-func validateGameInt32Fields(value interface{}) error {
-	return validateGameInt32Value(reflect.ValueOf(value), "", make(map[int32PointerVisit]struct{}))
-}
-
-func validateGameInt32Value(value reflect.Value, path string, activePointers map[int32PointerVisit]struct{}) error {
-	if !value.IsValid() {
-		return nil
-	}
-
-	switch value.Kind() {
-	case reflect.Interface:
-		return nil
-	case reflect.Ptr:
-		if value.IsNil() {
-			return nil
-		}
-		visit := int32PointerVisit{typ: value.Type(), ptr: value.Pointer()}
-		if _, exists := activePointers[visit]; exists {
-			if path == "" {
-				path = "value"
-			}
-			return fmt.Errorf("%s contains a pointer cycle", path)
-		}
-		activePointers[visit] = struct{}{}
-		err := validateGameInt32Value(value.Elem(), path, activePointers)
-		delete(activePointers, visit)
-		return err
-	case reflect.Int:
-		return requireInt32(path, int(value.Int()))
-	case reflect.Struct:
-		typ := value.Type()
-		for i := 0; i < value.NumField(); i++ {
-			fieldType := typ.Field(i)
-			if fieldType.PkgPath != "" { // unexported marker fields such as _struct
-				continue
-			}
-			name := fieldType.Name
-			if tag, ok := fieldType.Tag.Lookup("json"); ok {
-				name = strings.Split(tag, ",")[0]
-				if name == "-" {
-					continue
-				}
-				if name == "" {
-					name = fieldType.Name
-				}
-			}
-			if err := validateGameInt32Value(value.Field(i), joinInt32FieldPath(path, name), activePointers); err != nil {
-				return err
-			}
-		}
-		return nil
-	case reflect.Slice, reflect.Array:
-		for i := 0; i < value.Len(); i++ {
-			if err := validateGameInt32Value(value.Index(i), fmt.Sprintf("%s[%d]", path, i), activePointers); err != nil {
-				return err
-			}
-		}
-		return nil
-	case reflect.Map:
-		if value.IsNil() {
-			return nil
-		}
-		keys := value.MapKeys()
-		sort.Slice(keys, func(i, j int) bool {
-			return int32MapKeyLabel(keys[i]) < int32MapKeyLabel(keys[j])
-		})
-		for _, key := range keys {
-			entryPath := path + int32MapKeyLabel(key)
-			if err := validateGameInt32Value(value.MapIndex(key), entryPath, activePointers); err != nil {
-				return err
-			}
-		}
-		return nil
-	default:
-		return nil
-	}
-}
-
-func joinInt32FieldPath(parent, field string) string {
-	if parent == "" {
-		return field
-	}
-	if field == "" {
-		return parent
-	}
-	return parent + "." + field
-}
-
-func int32MapKeyLabel(key reflect.Value) string {
-	if key.Kind() == reflect.String {
-		return fmt.Sprintf("[%q]", key.String())
-	}
-	return fmt.Sprintf("[%v]", key.Interface())
-}
 
 // Vector2 表示 UnityEngine.Vector2 的 MessagePack 数组布局 / Vector2 represents UnityEngine.Vector2 in MessagePack array layout
 type Vector2 struct {
@@ -155,8 +33,8 @@ type Vector2 struct {
 type Vector2Int struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
-	X                      int `json:"x"` // X 轴整数分量 / Integer X-axis component
-	Y                      int `json:"y"` // Y 轴整数分量 / Integer Y-axis component
+	X                      int32 `json:"x"` // X 轴整数分量 / Integer X-axis component
+	Y                      int32 `json:"y"` // Y 轴整数分量 / Integer Y-axis component
 }
 
 // Vector3 表示 UnityEngine.Vector3 的 MessagePack 数组布局 / Vector3 represents UnityEngine.Vector3 in MessagePack array layout
@@ -188,15 +66,15 @@ type Vector4 struct {
 type PartsColor struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
-	MainHue                int        `json:"m_nMainHue"`          // 主色相，对应 m_nMainHue / Main hue, matching m_nMainHue
-	MainChroma             int        `json:"m_nMainChroma"`       // 主色彩度，对应 m_nMainChroma / Main chroma, matching m_nMainChroma
-	MainBrightness         int        `json:"m_nMainBrightness"`   // 主色亮度，对应 m_nMainBrightness / Main brightness, matching m_nMainBrightness
-	MainContrast           int        `json:"m_nMainContrast"`     // 主色对比度，对应 m_nMainContrast / Main contrast, matching m_nMainContrast
-	ShadowRate             int        `json:"m_nShadowRate"`       // 阴影混合比例，对应 m_nShadowRate / Shadow blend rate, matching m_nShadowRate
-	ShadowHue              int        `json:"m_nShadowHue"`        // 阴影色相，对应 m_nShadowHue / Shadow hue, matching m_nShadowHue
-	ShadowChroma           int        `json:"m_nShadowChroma"`     // 阴影彩度，对应 m_nShadowChroma / Shadow chroma, matching m_nShadowChroma
-	ShadowBrightness       int        `json:"m_nShadowBrightness"` // 阴影亮度，对应 m_nShadowBrightness / Shadow brightness, matching m_nShadowBrightness
-	ShadowContrast         int        `json:"m_nShadowContrast"`   // 阴影对比度，对应 m_nShadowContrast / Shadow contrast, matching m_nShadowContrast
+	MainHue                int32      `json:"m_nMainHue"`          // 主色相，对应 m_nMainHue / Main hue, matching m_nMainHue
+	MainChroma             int32      `json:"m_nMainChroma"`       // 主色彩度，对应 m_nMainChroma / Main chroma, matching m_nMainChroma
+	MainBrightness         int32      `json:"m_nMainBrightness"`   // 主色亮度，对应 m_nMainBrightness / Main brightness, matching m_nMainBrightness
+	MainContrast           int32      `json:"m_nMainContrast"`     // 主色对比度，对应 m_nMainContrast / Main contrast, matching m_nMainContrast
+	ShadowRate             int32      `json:"m_nShadowRate"`       // 阴影混合比例，对应 m_nShadowRate / Shadow blend rate, matching m_nShadowRate
+	ShadowHue              int32      `json:"m_nShadowHue"`        // 阴影色相，对应 m_nShadowHue / Shadow hue, matching m_nShadowHue
+	ShadowChroma           int32      `json:"m_nShadowChroma"`     // 阴影彩度，对应 m_nShadowChroma / Shadow chroma, matching m_nShadowChroma
+	ShadowBrightness       int32      `json:"m_nShadowBrightness"` // 阴影亮度，对应 m_nShadowBrightness / Shadow brightness, matching m_nShadowBrightness
+	ShadowContrast         int32      `json:"m_nShadowContrast"`   // 阴影对比度，对应 m_nShadowContrast / Shadow contrast, matching m_nShadowContrast
 	GradaBytes             GradaBytes `json:"m_gradaBytes"`        // SerializeGrada 生成的梯度色字节 / Gradient bytes produced by SerializeGrada
 }
 
@@ -234,7 +112,7 @@ func DecodePartsColorGrada(data []byte) ([]PartsColorGrada, []byte, error) {
 		return nil, nil, fmt.Errorf("gradient color count %d cannot fit in %d payload bytes", count, remaining)
 	}
 
-	values := make([]PartsColorGrada, int(count))
+	values := make([]PartsColorGrada, int64(count))
 	offset := 4
 	readInt32 := func() int32 {
 		value := int32(binary.LittleEndian.Uint32(data[offset : offset+4]))
@@ -490,20 +368,20 @@ func (p *PartsColor) UnmarshalJSON(data []byte) error {
 type PreMulTexDatas struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
-	Version                int            `json:"version"`                 // 版本号，游戏 FixVersion 为 1001 / Version value; the game's FixVersion is 1001
+	Version                int32          `json:"version"`                 // 版本号，游戏 FixVersion 为 1001 / Version value; the game's FixVersion is 1001
 	SlotID                 string         `json:"slotId"`                  // 目标槽位 ID / Target slot ID
 	SaveTag                string         `json:"saveTag"`                 // 保存用图层标签 / Saved texture layer tag
-	MatNo                  int            `json:"f_nMatNo"`                // 目标材质编号 / Target material index
+	MatNo                  int32          `json:"f_nMatNo"`                // 目标材质编号 / Target material index
 	PropName               string         `json:"f_strPropName"`           // 目标材质属性名 / Target material property name
-	LayerNo                int            `json:"f_nLayerNo"`              // 贴图层编号 / Texture layer number
+	LayerNo                int32          `json:"f_nLayerNo"`              // 贴图层编号 / Texture layer number
 	FileName               string         `json:"f_strFileName"`           // 合成源贴图文件名 / Source texture file name for composition
 	BlendMode              string         `json:"f_eBlendMode"`            // 合成模式字符串 / Blend-mode string
 	MaskParam              *MaskParam     `json:"maskParam"`               // 蒙版参数 / Mask parameters
 	InfColParam            *InfColorParam `json:"infColParam"`             // 无限色参数 / Infinity-color parameters
 	TexGroup               bool           `json:"f_bTexGroup"`             // 是否属于贴图组 / Whether this layer belongs to a texture group
-	LayNoInGroup           int            `json:"f_nLayNoInGroup"`         // 组内层编号 / Layer index inside the group
+	LayNoInGroup           int32          `json:"f_nLayNoInGroup"`         // 组内层编号 / Layer index inside the group
 	Alpha                  float32        `json:"f_fAlpha"`                // 合成透明度 / Composition alpha
-	TargetBodyTexSize      int            `json:"f_nTargetBodyTexSize"`    // 目标身体贴图尺寸 / Target body texture size
+	TargetBodyTexSize      int32          `json:"f_nTargetBodyTexSize"`    // 目标身体贴图尺寸 / Target body texture size
 	PosDefHokuroTatooSlot  string         `json:"posDefHokuroTatooSlotId"` // 默认痣/纹身位置槽位 / Default mole/tattoo position slot
 	PreMaskData            []MaskData     `json:"preMaskData"`             // 预计算蒙版数据 / Precomputed mask data
 	PreTransTexData        []TransTexData `json:"preTransTexData"`         // 预计算贴图变换数据 / Precomputed texture transform data
@@ -566,8 +444,8 @@ type InfColorParam struct {
 	_struct                  struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata   `codec:"-"`
 	Tag                      string       `json:"tag"`                      // 无限色目标标签 / Infinity-color target tag
-	InfColType               int          `json:"infColType"`               // 颜色类型枚举：NONE/INF_COLOR/PART_COLOR/GRADA_COLOR / Color type enum
-	InfColorID               int          `json:"infColorId"`               // MaidInfinityColor.PARTS_COLOR 枚举值 / MaidInfinityColor.PARTS_COLOR enum value
+	InfColType               int32        `json:"infColType"`               // 颜色类型枚举：NONE/INF_COLOR/PART_COLOR/GRADA_COLOR / Color type enum
+	InfColorID               int32        `json:"infColorId"`               // MaidInfinityColor.PARTS_COLOR 枚举值 / MaidInfinityColor.PARTS_COLOR enum value
 	IsIndependenceMultiColor bool         `json:"isIndependenceMultiColor"` // 是否使用独立多色数据 / Whether independent multi-color data is used
 	PC                       PartsColor   `json:"pc"`                       // 单色无限色参数 / Single infinity-color parameters
 	IDTexName                []string     `json:"idTexName"`                // ID 贴图文件名列表 / ID texture file-name list
@@ -608,7 +486,7 @@ type MaskParam struct {
 	MaskTexName            string     `json:"maskTexName"`       // 蒙版贴图文件名 / Mask texture file name
 	MaskRanges             []Vector4  `json:"maskRanges"`        // 蒙版 UV/范围数组 / Mask UV/range array
 	LinkMaskName           string     `json:"linkMaskName"`      // 关联蒙版名称 / Linked mask name
-	LinkMaskNo             int        `json:"linkMaskNo"`        // 关联蒙版编号 / Linked mask index
+	LinkMaskNo             int32      `json:"linkMaskNo"`        // 关联蒙版编号 / Linked mask index
 	ShareRtTargetPart      string     `json:"shareRtTargetPart"` // 共享 RenderTexture 的目标部件名 / Target part name for shared RenderTexture
 }
 
@@ -641,7 +519,7 @@ type GradaColDef struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
 	NotUse                 string     `json:"notUse"`          // 游戏保留字段 notUse / Game-reserved notUse field
-	GradaNum               int        `json:"gradaNum"`        // 渐变点数量 / Number of gradient points
+	GradaNum               int32      `json:"gradaNum"`        // 渐变点数量 / Number of gradient points
 	GradaRates             []float32  `json:"gradaRates"`      // 渐变点位置比例 / Gradient point rates
 	GradaRateRanges        []Vector4  `json:"gradaRateRanges"` // 渐变点影响范围 / Gradient point influence ranges
 	MultiCol               PartsColor `json:"multi_col"`       // 渐变用多色数据 / Multi-color data used by the gradient
@@ -652,8 +530,8 @@ type InfColData struct {
 	_struct                  struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata   `codec:"-"`
 	IsIndependenceMultiColor bool         `json:"isIndependenceMultiColor"` // 是否使用独立多色表 / Whether independent multi-color table data is used
-	InfColType               int          `json:"infColType"`               // 无限色类型枚举 / Infinity-color type enum
-	PartsColorType           int          `json:"partsColorType"`           // MaidInfinityColor.PARTS_COLOR 枚举值 / MaidInfinityColor.PARTS_COLOR enum value
+	InfColType               int32        `json:"infColType"`               // 无限色类型枚举 / Infinity-color type enum
+	PartsColorType           int32        `json:"partsColorType"`           // MaidInfinityColor.PARTS_COLOR 枚举值 / MaidInfinityColor.PARTS_COLOR enum value
 	ColData                  PartsColor   `json:"colData"`                  // 单色无限色数据 / Single infinity-color data
 	PartColDefs              []PartColDef `json:"partColDefs"`              // 分部颜色数据 / Part-color data
 	GradaColDef              *GradaColDef `json:"gradaColDef"`              // 渐变色数据 / Gradient color data
@@ -678,7 +556,7 @@ func (v *InfColData) UnmarshalJSON(data []byte) error {
 type Colvari struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
-	Version                int           `json:"version"`      // 版本号，游戏 FixVersion 为 1000 / Version value; the game's FixVersion is 1000
+	Version                int32         `json:"version"`      // 版本号，游戏 FixVersion 为 1000 / Version value; the game's FixVersion is 1000
 	IconColor              PartsColor    `json:"iconColor"`    // 颜色变体图标色 / Color-variant icon color
 	IconFileName           string        `json:"iconFileName"` // 颜色变体图标文件名 / Color-variant icon file name
 	ReqDefine              string        `json:"reqDefine"`    // 启用该变体所需 DEFINE / DEFINE requirement for enabling this variant
@@ -689,17 +567,17 @@ type Colvari struct {
 type ColvariData struct {
 	_struct                 struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata  `codec:"-"`
-	Version                 int          `json:"version"`                 // 版本号，游戏 FixVersion 为 1000 / Version value; the game's FixVersion is 1000
+	Version                 int32        `json:"version"`                 // 版本号，游戏 FixVersion 为 1000 / Version value; the game's FixVersion is 1000
 	MPN                     string       `json:"mpn"`                     // 目标 MPN 名称，多个值用竖线分隔 / Target MPN names, pipe-separated when multiple
 	LayerName               string       `json:"layerName"`               // 保存到 PropBase.savedTexDatas 的图层名 / Layer name saved into PropBase.savedTexDatas
-	ColorType               int          `json:"colorType"`               // 主颜色类型枚举 / Primary color type enum
+	ColorType               int32        `json:"colorType"`               // 主颜色类型枚举 / Primary color type enum
 	MaskData                []MaskData   `json:"maskData"`                // 该变体的蒙版状态 / Mask state for this variant
 	Alpha                   float32      `json:"alpha"`                   // 乘算透明度 / Multiplicative alpha
 	ColData                 PartsColor   `json:"colData"`                 // 单色颜色数据 / Single color data
 	PartColDefs             []PartColDef `json:"partColDefs"`             // 分部颜色定义 / Part-color definitions
 	GradaColDef             *GradaColDef `json:"gradaColDef"`             // 渐变色定义 / Gradient color definition
 	MamaFileName            string       `json:"mamaFileName"`            // 关联的 MAMA 文件名 / Related MAMA file name
-	ColorTypeSub            int          `json:"colorTypeSub"`            // 渐变/复合颜色的子类型 / Subtype for gradient or compound color
+	ColorTypeSub            int32        `json:"colorTypeSub"`            // 渐变/复合颜色的子类型 / Subtype for gradient or compound color
 	UseType                 uint8        `json:"useType"`                 // 使用标志，bit0=alpha，bit1=color / Use flags, bit0=alpha and bit1=color
 	SaveInfColDataLinkLayer string       `json:"saveInfColDataLinkLayer"` // 共享无限色数据的源图层名 / Source layer name for shared infinity-color data
 	ViewName                string       `json:"viewName"`                // 编辑界面显示名 / Display name in the edit UI
@@ -710,7 +588,7 @@ type BlendData struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
 	Name                   string    `json:"name"`    // morph 名称 / Morph name
-	VIndex                 []int     `json:"v_index"` // 受影响顶点索引 / Affected vertex indices
+	VIndex                 []int32   `json:"v_index"` // 受影响顶点索引 / Affected vertex indices
 	Vert                   []Vector3 `json:"vert"`    // 顶点位置差分 / Vertex position deltas
 	Norm                   []Vector3 `json:"norm"`    // 法线差分 / Normal deltas
 	Tan                    []Vector4 `json:"tan"`     // 切线差分 / Tangent deltas
@@ -731,7 +609,7 @@ type ThicknessGroup struct {
 	GroupName              string           `json:"groupName"`      // 厚度组名称 / Thickness group name
 	StartBoneName          string           `json:"startBoneName"`  // 线段起始骨骼名 / Segment start bone name
 	EndBoneName            string           `json:"endBoneName"`    // 线段结束骨骼名 / Segment end bone name
-	StepAngleDegree        int              `json:"stepAngleDgree"` // 角度采样步进，字段名保留游戏拼写 stepAngleDgree / Angle sampling step, preserving the game's stepAngleDgree spelling
+	StepAngleDegree        int32            `json:"stepAngleDgree"` // 角度采样步进，字段名保留游戏拼写 stepAngleDgree / Angle sampling step, preserving the game's stepAngleDgree spelling
 	Points                 []ThicknessPoint `json:"points"`         // 厚度采样点列表 / Thickness sample points
 }
 
@@ -748,15 +626,17 @@ type ThicknessPoint struct {
 type ThicknessDefPerAngle struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
-	AngleDegree            int     `json:"angleDgree"`      // 角度，字段名保留游戏拼写 angleDgree / Angle in degrees, preserving the game's angleDgree spelling
-	VertexIndex            int     `json:"vidx"`            // 顶点索引 vidx / Vertex index, vidx
+	AngleDegree            int32   `json:"angleDgree"`      // 角度，字段名保留游戏拼写 angleDgree / Angle in degrees, preserving the game's angleDgree spelling
+	VertexIndex            int32   `json:"vidx"`            // 顶点索引 vidx / Vertex index, vidx
 	DefaultDistance        float32 `json:"defaultDistance"` // 默认厚度距离 / Default thickness distance
 }
 
-// TupleStringInt 对应 C# Tuple<string,int> 的 MessagePack 数组布局 / TupleStringInt maps the MessagePack array layout of C# Tuple<string,int>
+// TupleStringInt 对应 C# Tuple<string, int> 的 MessagePack 数组布局。
+//
+// TupleStringInt maps the MessagePack array layout of C# Tuple<string, int>.
 type TupleStringInt struct {
 	_struct                struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	*IndexedObjectMetadata `codec:"-"`
 	Item1                  string `json:"item1"` // 第一个元组值 / First tuple value
-	Item2                  int    `json:"item2"` // 第二个元组值 / Second tuple value
+	Item2                  int32  `json:"item2"` // 第二个元组值 / Second tuple value
 }

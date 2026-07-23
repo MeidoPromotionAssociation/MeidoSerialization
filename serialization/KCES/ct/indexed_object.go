@@ -41,7 +41,7 @@ var (
 
 // EncodeIndexedObjectSelf is the shared codec.Selfer implementation for
 // MessagePack-CSharp int-key contracts. Known fields are still encoded by
-// ugorji/codec. This adapter only restores a decoded short width and appends
+// ugorji/codec. This adapter restores decoded short widths and appends
 // already-validated future slots as codec.Raw values.
 //
 // Types using this helper must embed IndexedObjectMetadata with codec:"-" and
@@ -55,15 +55,15 @@ func EncodeIndexedObjectSelf(e *codec.Encoder, value interface{}) {
 	}
 
 	metadata := indexedObjectMetadataValue(rv.Field(layout.metadataIndex), layout.metadataPtr)
-	count, err := resolveIndexedObjectFieldCount(metadata.FieldCount, len(layout.fields), metadata.FutureSlots, layout.label)
+	count, err := resolveIndexedObjectFieldCount(metadata.FieldCount, int64(len(layout.fields)), metadata.FutureSlots, layout.label)
 	if err != nil {
 		panic(err)
 	}
-	if err := validateTypedIndexedObjectMetadata(metadata, count, len(layout.fields), layout.label); err != nil {
+	if err := validateTypedIndexedObjectMetadata(metadata, count, int64(len(layout.fields)), layout.label); err != nil {
 		panic(err)
 	}
 
-	for slot := count; slot < len(layout.fields); slot++ {
+	for slot := count; slot < int64(len(layout.fields)); slot++ {
 		field := rv.FieldByIndex(layout.fields[slot].index)
 		if !field.IsZero() {
 			panic(fmt.Errorf("%s fieldCount %d would discard %s", layout.label, count, layout.fields[slot].name))
@@ -71,7 +71,7 @@ func EncodeIndexedObjectSelf(e *codec.Encoder, value interface{}) {
 	}
 
 	values := make([]interface{}, 0, count)
-	for slot := 0; slot < count && slot < len(layout.fields); slot++ {
+	for slot := int64(0); slot < count && slot < int64(len(layout.fields)); slot++ {
 		value, err := indexedObjectKnownWireValue(rv.FieldByIndex(layout.fields[slot].index), slot, metadata, layout.label, layout.fields[slot].name)
 		if err != nil {
 			panic(err)
@@ -114,13 +114,16 @@ func DecodeIndexedObjectSelf(d *codec.Decoder, value interface{}) {
 	known := len(layout.fields)
 	metadata := TypedIndexedObjectMetadata{}
 	if len(slots) != known {
-		count := len(slots)
+		count, err := checkedInt32Count(int64(len(slots)), layout.label+" field count")
+		if err != nil {
+			panic(err)
+		}
 		metadata.FieldCount = &count
 	}
 	if len(slots) > known {
 		metadata.FutureSlots = cloneCodecRawSlots(slots[known:])
 	}
-	for slot := 0; slot < len(slots) && slot < known; slot++ {
+	for slot := int64(0); slot < int64(len(slots)) && slot < int64(known); slot++ {
 		raw := []byte(slots[slot])
 		isNil := isRawMessagePackNil(raw)
 		if isNil {
@@ -129,7 +132,7 @@ func DecodeIndexedObjectSelf(d *codec.Decoder, value interface{}) {
 		}
 		field := rv.FieldByIndex(layout.fields[slot].index)
 		if isNil && !typeCanRepresentNil(field.Type()) {
-			metadata.NilSlots = append(metadata.NilSlots, slot)
+			metadata.NilSlots = append(metadata.NilSlots, int32(slot))
 		}
 		if err := decodeIndexedObjectKnownField(raw, field); err != nil {
 			panic(fmt.Errorf("decode %s slot %d (%s): %w", layout.label, slot, layout.fields[slot].name, err))
@@ -149,6 +152,14 @@ func DecodeIndexedObjectSelf(d *codec.Decoder, value interface{}) {
 // float32; the CLR conversion used by the game instead produces +/-Infinity.
 // MessagePack-CSharp also accepts integer markers in ReadSingle.
 func decodeIndexedObjectKnownField(raw []byte, field reflect.Value) error {
+	if field.Kind() == reflect.Int32 {
+		value, err := decodeMessagePackInt32(raw)
+		if err != nil {
+			return err
+		}
+		field.SetInt(int64(value))
+		return nil
+	}
 	if field.Kind() == reflect.Float32 {
 		value, err := decodeMessagePackSingle(raw)
 		if err != nil {
@@ -180,6 +191,23 @@ func decodeIndexedObjectKnownField(raw []byte, field reflect.Value) error {
 	return DecodeMsgpack(raw, field.Addr().Interface())
 }
 
+// decodeMessagePackInt32 按照 MessagePack-CSharp ReadInt32 的 checked 语义解码一个整数。
+// decodeMessagePackInt32 decodes one integer with the checked semantics of MessagePack-CSharp ReadInt32.
+func decodeMessagePackInt32(raw []byte) (int32, error) {
+	if isRawMessagePackNil(raw) {
+		return 0, nil
+	}
+	var value interface{}
+	if err := DecodeMsgpack(raw, &value); err != nil {
+		return 0, err
+	}
+	converted, ok := toInt32(value)
+	if !ok {
+		return 0, fmt.Errorf("value %v (%T) is not an integer in the C# Int32 range [%d,%d]", value, value, csharpInt32Min, csharpInt32Max)
+	}
+	return converted, nil
+}
+
 func decodeMessagePackSingle(raw []byte) (float32, error) {
 	if isRawMessagePackNil(raw) {
 		return 0, nil
@@ -193,8 +221,6 @@ func decodeMessagePackSingle(raw []byte) (float32, error) {
 		return number, nil
 	case float64:
 		return float32(number), nil
-	case int:
-		return float32(number), nil
 	case int8:
 		return float32(number), nil
 	case int16:
@@ -202,8 +228,6 @@ func decodeMessagePackSingle(raw []byte) (float32, error) {
 	case int32:
 		return float32(number), nil
 	case int64:
-		return float32(number), nil
-	case uint:
 		return float32(number), nil
 	case uint8:
 		return float32(number), nil
@@ -398,13 +422,13 @@ func typedIndexedObjectMetadataHasValue(metadata TypedIndexedObjectMetadata) boo
 	return metadata.FieldCount != nil || len(metadata.FutureSlots) != 0 || len(metadata.NilSlots) != 0 || len(metadata.NullElements) != 0 || len(metadata.NullMapValueKeys) != 0
 }
 
-func validateTypedIndexedObjectMetadata(metadata TypedIndexedObjectMetadata, count, known int, label string) error {
-	annotations := make(map[int]string)
-	claim := func(slot int, kind string) error {
-		if slot < 0 || slot >= known {
+func validateTypedIndexedObjectMetadata(metadata TypedIndexedObjectMetadata, count, known int64, label string) error {
+	annotations := make(map[int32]string)
+	claim := func(slot int32, kind string) error {
+		if slot < 0 || int64(slot) >= int64(known) {
 			return fmt.Errorf("%s %s references unknown slot %d (known slots: 0..%d)", label, kind, slot, known-1)
 		}
-		if slot >= count {
+		if int64(slot) >= int64(count) {
 			return fmt.Errorf("%s %s references omitted slot %d at fieldCount %d", label, kind, slot, count)
 		}
 		if previous, exists := annotations[slot]; exists {
@@ -431,23 +455,23 @@ func validateTypedIndexedObjectMetadata(metadata TypedIndexedObjectMetadata, cou
 	return nil
 }
 
-func indexedObjectKnownWireValue(field reflect.Value, slot int, metadata TypedIndexedObjectMetadata, label, fieldName string) (interface{}, error) {
-	if intSliceContains(metadata.NilSlots, slot) {
+func indexedObjectKnownWireValue(field reflect.Value, slot int64, metadata TypedIndexedObjectMetadata, label, fieldName string) (interface{}, error) {
+	if int32SliceContains(metadata.NilSlots, int32(slot)) {
 		if !field.IsZero() {
 			return nil, fmt.Errorf("%s nilSlots contains slot %d (%s), which would discard a populated value", label, slot, fieldName)
 		}
 		return nil, nil
 	}
-	if flags, ok := metadata.NullElements[slot]; ok {
+	if flags, ok := metadata.NullElements[int32(slot)]; ok {
 		return indexedObjectNullElementWireValue(field, flags, label, slot, fieldName)
 	}
-	if rawKeys, ok := metadata.NullMapValueKeys[slot]; ok {
+	if rawKeys, ok := metadata.NullMapValueKeys[int32(slot)]; ok {
 		return indexedObjectNullMapWireValue(field, rawKeys, label, slot, fieldName)
 	}
 	return field.Interface(), nil
 }
 
-func indexedObjectNullElementWireValue(field reflect.Value, flags []bool, label string, slot int, fieldName string) (interface{}, error) {
+func indexedObjectNullElementWireValue(field reflect.Value, flags []bool, label string, slot int64, fieldName string) (interface{}, error) {
 	if field.Kind() != reflect.Slice && field.Kind() != reflect.Array {
 		return nil, fmt.Errorf("%s nullElements slot %d (%s) requires a slice or array, got %s", label, slot, fieldName, field.Type())
 	}
@@ -478,7 +502,7 @@ func indexedObjectNullElementWireValue(field reflect.Value, flags []bool, label 
 	return values, nil
 }
 
-func indexedObjectNullMapWireValue(field reflect.Value, rawKeys [][]byte, label string, slot int, fieldName string) (interface{}, error) {
+func indexedObjectNullMapWireValue(field reflect.Value, rawKeys [][]byte, label string, slot int64, fieldName string) (interface{}, error) {
 	if field.Kind() != reflect.Map {
 		return nil, fmt.Errorf("%s nullMapValueKeys slot %d (%s) requires a map, got %s", label, slot, fieldName, field.Type())
 	}
@@ -537,7 +561,7 @@ func indexedObjectNullMapWireValue(field reflect.Value, rawKeys [][]byte, label 
 	return wireMap.Interface(), nil
 }
 
-func captureIndexedObjectNestedNulls(metadata *TypedIndexedObjectMetadata, slot int, raw []byte, fieldType reflect.Type, label, fieldName string) error {
+func captureIndexedObjectNestedNulls(metadata *TypedIndexedObjectMetadata, slot int64, raw []byte, fieldType reflect.Type, label, fieldName string) error {
 	switch fieldType.Kind() {
 	case reflect.Slice, reflect.Array:
 		if fieldType.Elem().Kind() == reflect.Uint8 {
@@ -554,9 +578,9 @@ func captureIndexedObjectNestedNulls(metadata *TypedIndexedObjectMetadata, slot 
 		flags = trimFalseFlags(flags)
 		if len(flags) != 0 {
 			if metadata.NullElements == nil {
-				metadata.NullElements = make(map[int][]bool)
+				metadata.NullElements = make(map[int32][]bool)
 			}
-			metadata.NullElements[slot] = flags
+			metadata.NullElements[int32(slot)] = flags
 		}
 	case reflect.Map:
 		if typeCanRepresentNil(fieldType.Elem()) {
@@ -568,15 +592,15 @@ func captureIndexedObjectNestedNulls(metadata *TypedIndexedObjectMetadata, slot 
 		}
 		if len(rawKeys) != 0 {
 			if metadata.NullMapValueKeys == nil {
-				metadata.NullMapValueKeys = make(map[int][][]byte)
+				metadata.NullMapValueKeys = make(map[int32][][]byte)
 			}
-			metadata.NullMapValueKeys[slot] = rawKeys
+			metadata.NullMapValueKeys[int32(slot)] = rawKeys
 		}
 	}
 	return nil
 }
 
-func decodeNullMapValueKeys(raw []byte, mapType reflect.Type, label string, slot int, fieldName string) ([][]byte, error) {
+func decodeNullMapValueKeys(raw []byte, mapType reflect.Type, label string, slot int64, fieldName string) ([][]byte, error) {
 	count, err := messagePackMapLength(raw)
 	if err != nil {
 		return nil, fmt.Errorf("decode %s slot %d (%s) map header: %w", label, slot, fieldName, err)
@@ -587,7 +611,7 @@ func decodeNullMapValueKeys(raw []byte, mapType reflect.Type, label string, slot
 		return nil, fmt.Errorf("decode %s slot %d (%s) raw map: %w", label, slot, fieldName, err)
 	}
 	rawMap := rawMapPointer.Elem()
-	if rawMap.Len() != count {
+	if int64(rawMap.Len()) != count {
 		return nil, fmt.Errorf("decode %s slot %d (%s): map contains duplicate keys that the Go model cannot preserve", label, slot, fieldName)
 	}
 	keys := make([][]byte, 0)
@@ -619,7 +643,7 @@ func isRawMessagePackNil(raw []byte) bool {
 	return len(raw) == 0 || (len(raw) == 1 && raw[0] == 0xc0)
 }
 
-func intSliceContains(values []int, target int) bool {
+func int32SliceContains(values []int32, target int32) bool {
 	for _, value := range values {
 		if value == target {
 			return true

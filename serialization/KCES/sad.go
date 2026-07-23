@@ -107,7 +107,7 @@ func DecodeSavedAttach(data []byte) (*SavedAttachFile, error) {
 
 	items := makeKCESCountedSliceForAppend[SavedAttachData](uint64(count))
 	for i := int32(0); i < count; i++ {
-		item, decodeErr := decodeSavedAttachItem(br, r, int(i))
+		item, decodeErr := decodeSavedAttachItem(br, r, int64(i))
 		if decodeErr != nil {
 			return nil, decodeErr
 		}
@@ -128,11 +128,11 @@ func DecodeSavedAttach(data []byte) (*SavedAttachFile, error) {
 	return result, nil
 }
 
-func decodeSavedAttachItem(br *stream.BinaryReader, remaining *bytes.Reader, index int) (SavedAttachData, error) {
+func decodeSavedAttachItem(br *stream.BinaryReader, remaining *bytes.Reader, index int64) (SavedAttachData, error) {
 	return decodeSavedAttachItemWithSlotValidator(br, remaining, index, validateSavedAttachSlotID)
 }
 
-func decodeSavedAttachItemWithSlotValidator(br *stream.BinaryReader, remaining *bytes.Reader, index int, validateSlot func(string, string) error) (SavedAttachData, error) {
+func decodeSavedAttachItemWithSlotValidator(br *stream.BinaryReader, remaining *bytes.Reader, index int64, validateSlot func(string, string) error) (SavedAttachData, error) {
 	prefix := fmt.Sprintf("saved-attach item[%d]", index)
 	firstName, err := readSavedAttachNullableString(br, prefix+" version sentinel/partName")
 	if err != nil {
@@ -237,7 +237,7 @@ func EncodeSavedAttach(value *SavedAttachFile) ([]byte, error) {
 		return nil, fmt.Errorf("write saved-attach item count: %w", err)
 	}
 	for i := range value.Items {
-		if err := encodeSavedAttachItem(bw, &value.Items[i], i); err != nil {
+		if err := encodeSavedAttachItem(bw, &value.Items[i], int64(i)); err != nil {
 			return nil, err
 		}
 	}
@@ -259,11 +259,11 @@ func NewSavedAttachFile() *SavedAttachFile {
 	}
 }
 
-func encodeSavedAttachItem(bw *stream.BinaryWriter, source *SavedAttachData, index int) error {
+func encodeSavedAttachItem(bw *stream.BinaryWriter, source *SavedAttachData, index int64) error {
 	return encodeSavedAttachItemWithSlotValidator(bw, source, index, validateSavedAttachSlotID)
 }
 
-func encodeSavedAttachItemWithSlotValidator(bw *stream.BinaryWriter, source *SavedAttachData, index int, validateSlot func(string, string) error) error {
+func encodeSavedAttachItemWithSlotValidator(bw *stream.BinaryWriter, source *SavedAttachData, index int64, validateSlot func(string, string) error) error {
 	prefix := fmt.Sprintf("saved-attach item[%d]", index)
 	version := source.Version
 	if err := validateSavedAttachNullableString(source.PartName, prefix+" partName"); err != nil {

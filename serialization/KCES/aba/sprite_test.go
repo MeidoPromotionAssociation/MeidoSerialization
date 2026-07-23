@@ -2,12 +2,25 @@ package aba
 
 import (
 	"image/png"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
 )
+
+func TestReadPPtrRejectsFileIDOutsideInt32(t *testing.T) {
+	for _, fileID := range []int64{math.MinInt32 - 1, math.MaxInt32 + 1} {
+		value := &TypeTreeValue{Children: []*TypeTreeValue{
+			{Name: "m_FileID", Value: fileID},
+			{Name: "m_PathID", Value: int64(1)},
+		}}
+		if _, ok := readPPtr(value); ok {
+			t.Fatalf("readPPtr accepted file ID %d outside Int32", fileID)
+		}
+	}
+}
 
 func TestGetSpriteExport_Sample(t *testing.T) {
 	if err := tools.CheckMagick(); err != nil {
@@ -22,7 +35,7 @@ func TestGetSpriteExport_Sample(t *testing.T) {
 		if !dir.IsSerialized() {
 			continue
 		}
-		fileData, err := abaFile.GetFileData(i)
+		fileData, err := abaFile.GetFileData(int64(i))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -63,7 +76,7 @@ func TestGetSpriteExport_Sample(t *testing.T) {
 			if err != nil {
 				t.Fatalf("DecodeConfig %s: %v", sprite.Name, err)
 			}
-			if cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width > sprite.Texture.Width || cfg.Height > sprite.Texture.Height {
+			if cfg.Width <= 0 || cfg.Height <= 0 || int64(cfg.Width) > int64(sprite.Texture.Width) || int64(cfg.Height) > int64(sprite.Texture.Height) {
 				t.Fatalf("unexpected sprite png size for %s: %dx%d", sprite.Name, cfg.Width, cfg.Height)
 			}
 			return

@@ -12,7 +12,9 @@
         "ParentIndex": {
           "maximum": 2147483647,
           "minimum": -2147483648,
-          "type": "integer"
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
         },
         "Position": {
           "$ref": "#/$defs/COM3D2_Vector3"
@@ -46,22 +48,30 @@
         "BoneIndex0": {
           "maximum": 65535,
           "minimum": 0,
-          "type": "integer"
+          "type": "integer",
+          "x-meido-integer-bits": 16,
+          "x-meido-integer-signed": false
         },
         "BoneIndex1": {
           "maximum": 65535,
           "minimum": 0,
-          "type": "integer"
+          "type": "integer",
+          "x-meido-integer-bits": 16,
+          "x-meido-integer-signed": false
         },
         "BoneIndex2": {
           "maximum": 65535,
           "minimum": 0,
-          "type": "integer"
+          "type": "integer",
+          "x-meido-integer-bits": 16,
+          "x-meido-integer-signed": false
         },
         "BoneIndex3": {
           "maximum": 65535,
           "minimum": 0,
-          "type": "integer"
+          "type": "integer",
+          "x-meido-integer-bits": 16,
+          "x-meido-integer-signed": false
         },
         "Weight0": {
           "maximum": 3.4028234663852886e+38,
@@ -330,7 +340,9 @@
                   "Count": {
                     "maximum": 2147483647,
                     "minimum": -2147483648,
-                    "type": "integer"
+                    "type": "integer",
+                    "x-meido-integer-bits": 32,
+                    "x-meido-integer-signed": true
                   },
                   "Keywords": {
                     "items": {
@@ -503,7 +515,9 @@
         "Version": {
           "maximum": 2147483647,
           "minimum": -2147483648,
-          "type": "integer"
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
         }
       },
       "required": [
@@ -574,7 +588,9 @@
         "AngleDegree": {
           "maximum": 2147483647,
           "minimum": -2147483648,
-          "type": "integer"
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
         },
         "DefaultDistance": {
           "maximum": 3.4028234663852886e+38,
@@ -584,7 +600,9 @@
         "VertexIndex": {
           "maximum": 2147483647,
           "minimum": -2147483648,
-          "type": "integer"
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
         }
       },
       "required": [
@@ -625,7 +643,9 @@
         "StepAngleDegree": {
           "maximum": 2147483647,
           "minimum": -2147483648,
-          "type": "integer"
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
         }
       },
       "required": [
@@ -833,7 +853,9 @@
     "BoneCount": {
       "maximum": 2147483647,
       "minimum": -2147483648,
-      "type": "integer"
+      "type": "integer",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true
     },
     "BoneNames": {
       "description": "The ordered transform names used by bone weights and bind poses.",
@@ -1019,7 +1041,9 @@
     "SubMeshCount": {
       "maximum": 2147483647,
       "minimum": -2147483648,
-      "type": "integer"
+      "type": "integer",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true
     },
     "SubMeshes": {
       "description": "The per-material triangle index arrays.",
@@ -1027,7 +1051,9 @@
         "items": {
           "maximum": 2147483647,
           "minimum": -2147483648,
-          "type": "integer"
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
         },
         "type": [
           "null",
@@ -1075,6 +1101,8 @@
       "x-meido-edit-guidance": "Preserve it and keep conditional fields consistent with the target build.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "LoadSkinMesh_R uses it when reading bone transforms and model extensions.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
       "x-meido-risk": "critical",
       "x-meido-source-evidence": [
         {
@@ -1091,7 +1119,9 @@
     "VertCount": {
       "maximum": 2147483647,
       "minimum": -2147483648,
-      "type": "integer"
+      "type": "integer",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true
     },
     "Vertices": {
       "description": "The mesh vertex position array.",

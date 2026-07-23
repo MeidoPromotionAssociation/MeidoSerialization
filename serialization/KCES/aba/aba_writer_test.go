@@ -35,7 +35,7 @@ func TestWriteAba_RoundTrip(t *testing.T) {
 			// 提取所有文件数据
 			entries := make([]AbaFileEntry, len(originalAba.BlockInfo.DirectoryInfos))
 			for i, dir := range originalAba.BlockInfo.DirectoryInfos {
-				data, err := originalAba.GetFileData(i)
+				data, err := originalAba.GetFileData(int64(i))
 				if err != nil {
 					f.Close()
 					t.Fatalf("GetFileData(%d) failed: %v", i, err)
@@ -78,7 +78,7 @@ func TestWriteAba_RoundTrip(t *testing.T) {
 
 			// 验证每个文件数据一致
 			for i, entry := range entries {
-				newData, err := rewrittenAba.GetFileData(i)
+				newData, err := rewrittenAba.GetFileData(int64(i))
 				if err != nil {
 					t.Errorf("rewritten GetFileData(%d) failed: %v", i, err)
 					continue

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -389,9 +388,9 @@ func TestColliderEncodingPreservesZeroVersions(t *testing.T) {
 func TestMaidPropEncodingPreservesMPNFields(t *testing.T) {
 	maidProp := &ColliderMaidProp{
 		ColliderObject:         ColliderObject{Version: 1002},
-		CenterMpnList:          []int{7, -1},
-		StartRadiusMpnList:     []int{25},
-		EndRadiusMpnList:       []int{49},
+		CenterMpnList:          []int32{7, -1},
+		StartRadiusMpnList:     []int32{25},
+		EndRadiusMpnList:       []int32{49},
 		CenterMpnNameList:      []string{"stale-center"},
 		StartRadiusMpnNameList: []string{"stale-start"},
 		EndRadiusMpnNameList:   []string{"stale-end"},
@@ -435,7 +434,7 @@ func TestMaidPropEncodingPreservesMPNFields(t *testing.T) {
 	}
 
 	if maidProp.Version != 1002 ||
-		!reflect.DeepEqual(maidProp.CenterMpnList, []int{7, -1}) ||
+		!reflect.DeepEqual(maidProp.CenterMpnList, []int32{7, -1}) ||
 		!reflect.DeepEqual(maidProp.CenterMpnNameList, []string{"stale-center"}) ||
 		!reflect.DeepEqual(maidProp.StartRadiusMpnNameList, []string{"stale-start"}) ||
 		!reflect.DeepEqual(maidProp.EndRadiusMpnNameList, []string{"stale-end"}) {
@@ -450,9 +449,9 @@ func TestMaidPropDecodeDoesNotMigrateVersionOrMPNRepresentations(t *testing.T) {
 			LocalRotation: Vector4{W: 1},
 			LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
 		},
-		CenterMpnList:      []int{9},
-		StartRadiusMpnList: []int{},
-		EndRadiusMpnList:   []int{},
+		CenterMpnList:      []int32{9},
+		StartRadiusMpnList: []int32{},
+		EndRadiusMpnList:   []int32{},
 	}
 	legacyWire, err := ct.EncodeIndexedMsgpack(legacy)
 	if err != nil {
@@ -463,7 +462,7 @@ func TestMaidPropDecodeDoesNotMigrateVersionOrMPNRepresentations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode legacy MaidProp: %v", err)
 	}
-	if legacyResult.Version != 1001 || !reflect.DeepEqual(legacyResult.CenterMpnList, []int{9}) ||
+	if legacyResult.Version != 1001 || !reflect.DeepEqual(legacyResult.CenterMpnList, []int32{9}) ||
 		legacyResult.CenterMpnNameList != nil {
 		t.Fatalf("legacy fields were migrated: %+v", legacyResult)
 	}
@@ -474,9 +473,9 @@ func TestMaidPropDecodeDoesNotMigrateVersionOrMPNRepresentations(t *testing.T) {
 			LocalRotation: Vector4{W: 1},
 			LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
 		},
-		CenterMpnList:          []int{7},
-		StartRadiusMpnList:     []int{25},
-		EndRadiusMpnList:       []int{26},
+		CenterMpnList:          []int32{7},
+		StartRadiusMpnList:     []int32{25},
+		EndRadiusMpnList:       []int32{26},
 		CenterMpnNameList:      []string{"MuneUpDown"},
 		StartRadiusMpnNameList: []string{"stale"},
 		EndRadiusMpnNameList:   []string{"stale"},
@@ -490,9 +489,9 @@ func TestMaidPropDecodeDoesNotMigrateVersionOrMPNRepresentations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode current MaidProp: %v", err)
 	}
-	if !reflect.DeepEqual(currentResult.CenterMpnList, []int{7}) ||
-		!reflect.DeepEqual(currentResult.StartRadiusMpnList, []int{25}) ||
-		!reflect.DeepEqual(currentResult.EndRadiusMpnList, []int{26}) ||
+	if !reflect.DeepEqual(currentResult.CenterMpnList, []int32{7}) ||
+		!reflect.DeepEqual(currentResult.StartRadiusMpnList, []int32{25}) ||
+		!reflect.DeepEqual(currentResult.EndRadiusMpnList, []int32{26}) ||
 		!reflect.DeepEqual(currentResult.CenterMpnNameList, []string{"MuneUpDown"}) ||
 		!reflect.DeepEqual(currentResult.StartRadiusMpnNameList, []string{"stale"}) ||
 		!reflect.DeepEqual(currentResult.EndRadiusMpnNameList, []string{"stale"}) {
@@ -507,9 +506,9 @@ func TestMaidPropDecodeAcceptsNilListsAndOpaqueNames(t *testing.T) {
 			LocalRotation: Vector4{W: 1},
 			LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
 		},
-		CenterMpnList:          []int{},
-		StartRadiusMpnList:     []int{},
-		EndRadiusMpnList:       []int{},
+		CenterMpnList:          []int32{},
+		StartRadiusMpnList:     []int32{},
+		EndRadiusMpnList:       []int32{},
 		CenterMpnNameList:      []string{"MuneL"},
 		StartRadiusMpnNameList: []string{},
 		EndRadiusMpnNameList:   []string{},
@@ -539,25 +538,5 @@ func TestMaidPropDecodeAcceptsNilListsAndOpaqueNames(t *testing.T) {
 	}
 	if err := ct.DecodeMsgpack(malformedWire, &got); err == nil {
 		t.Fatal("non-string List<string> element was accepted")
-	}
-}
-
-func TestMaidPropEncodingRejectsMPNOutsideInt32(t *testing.T) {
-	if strconv.IntSize < 64 {
-		t.Skip("host int cannot represent an out-of-Int32 test value")
-	}
-	tooLarge, err := strconv.ParseInt("2147483648", 10, 64)
-	if err != nil {
-		t.Fatal(err)
-	}
-	env := &KCESPayloadEnvelope{
-		Format: PayloadFormatKCESMessagePack, Extension: ".limbcol", LengthPrefixed: true,
-		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindLimbCollider,
-		LimbCollider: &LimbColliderPackage{Items: []LimbColliderItem{{
-			Collider: &ColliderMaidProp{CenterMpnList: []int{int(tooLarge)}},
-		}}},
-	}
-	if _, err := EncodeKCESPayload(env); err == nil || !strings.Contains(err.Error(), "Int32 range") {
-		t.Fatalf("EncodeKCESPayload error = %v, want Int32 range rejection", err)
 	}
 }

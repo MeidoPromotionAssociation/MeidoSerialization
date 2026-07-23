@@ -14,6 +14,7 @@ import (
 	editingv1 "github.com/MeidoPromotionAssociation/MeidoSerialization/schemas/editing/v1"
 	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
 	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCESCT "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 	"github.com/google/jsonschema-go/jsonschema"
 	strictschema "github.com/santhosh-tekuri/jsonschema/v6"
 )
@@ -459,6 +460,106 @@ func TestGeneratedSchemasPublishExact64BitIntegerBounds(t *testing.T) {
 			t.Fatalf("%s has no exact unsigned 64-bit bounds", formatID)
 		}
 	}
+}
+
+func TestKCESSchemaRootsUseFixedWidthIntegerTypes(t *testing.T) {
+	for _, spec := range formatSpecs() {
+		if !strings.HasPrefix(spec.id, "kces.") {
+			continue
+		}
+		if err := validateFixedWidthIntegerTypes(spec.root); err != nil {
+			t.Errorf("%s: %v", spec.id, err)
+		}
+	}
+	if err := validateFixedWidthIntegerTypes(reflect.TypeOf(struct {
+		Value int `json:"value"`
+	}{})); err == nil {
+		t.Fatal("fixed-width validation accepted a host int")
+	}
+}
+
+func TestGeneratedKCESIntegerWidthsMatchWireTypes(t *testing.T) {
+	tests := []struct {
+		name     string
+		formatID string
+		path     []string
+		bits     string
+		signed   bool
+		minimum  string
+		maximum  string
+	}{
+		{
+			name: "collider package version", formatID: "kces.dbcol",
+			path: []string{"$defs", definitionName(typeOf[serializationKCES.ColliderPackage]()), "properties", "version"},
+			bits: "32", signed: true, minimum: "-2147483648", maximum: "2147483647",
+		},
+		{
+			name: "catalog priority", formatID: "kces.ct",
+			path: []string{"$defs", definitionName(typeOf[serializationKCESCT.AssetBundleCatalog]()), "properties", "priority"},
+			bits: "32", signed: true, minimum: "-2147483648", maximum: "2147483647",
+		},
+		{
+			name: "catalog resource index", formatID: "kces.ct",
+			path: []string{"$defs", definitionName(typeOf[serializationKCESCT.CatalogItem]()), "properties", "resourceIndex"},
+			bits: "32", signed: true, minimum: "-2147483648", maximum: "2147483647",
+		},
+		{
+			name: "unity path id", formatID: "kces.bytes",
+			path: []string{"properties", "pathId"},
+			bits: "64", signed: true, minimum: "-9223372036854775808", maximum: "9223372036854775807",
+		},
+		{
+			name: "catalog hash", formatID: "kces.ct",
+			path: []string{"$defs", definitionName(typeOf[serializationKCESCT.AssetBundleCatalog]()), "properties", "hash"},
+			bits: "64", signed: false, minimum: "0", maximum: "18446744073709551615",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			node := generatedSchemaNode(t, test.formatID, test.path...)
+			if got := node["x-meido-integer-bits"].(json.Number).String(); got != test.bits {
+				t.Errorf("bits = %s, want %s", got, test.bits)
+			}
+			if got := node["x-meido-integer-signed"]; got != test.signed {
+				t.Errorf("signed = %v, want %v", got, test.signed)
+			}
+			if got := node["minimum"].(json.Number).String(); got != test.minimum {
+				t.Errorf("minimum = %s, want %s", got, test.minimum)
+			}
+			if got := node["maximum"].(json.Number).String(); got != test.maximum {
+				t.Errorf("maximum = %s, want %s", got, test.maximum)
+			}
+		})
+	}
+}
+
+func generatedSchemaNode(t *testing.T, formatID string, path ...string) map[string]any {
+	t.Helper()
+	document, err := Generate(formatID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(document.JSON))
+	decoder.UseNumber()
+	var current any
+	if err := decoder.Decode(&current); err != nil {
+		t.Fatal(err)
+	}
+	for _, segment := range path {
+		object, ok := current.(map[string]any)
+		if !ok {
+			t.Fatalf("%s path %v reached %T before %q", formatID, path, current, segment)
+		}
+		current, ok = object[segment]
+		if !ok {
+			t.Fatalf("%s path %v is missing %q", formatID, path, segment)
+		}
+	}
+	node, ok := current.(map[string]any)
+	if !ok {
+		t.Fatalf("%s path %v = %T, want schema object", formatID, path, current)
+	}
+	return node
 }
 
 func TestPublishedSchemasEnforceExact64BitIntegerBounds(t *testing.T) {

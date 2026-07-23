@@ -47,7 +47,7 @@ func TestDecodeMsgpackFileReportsCorruptCompression(t *testing.T) {
 	compressed = compressed[:len(compressed)-1]
 	table := &ContentTable{
 		Raw:   compressed,
-		Files: map[string]VirtualFile{"catalog": {Position: 0, Size: len(compressed)}},
+		Files: map[string]VirtualFile{"catalog": {Position: 0, Size: int32(len(compressed))}},
 	}
 	var out interface{}
 	err = table.DecodeMsgpackFile("catalog", &out)
@@ -70,7 +70,7 @@ func TestContentTableDecodeMsgpackFile_PropagatesRecognizedEnvelopeErrors(t *tes
 	}
 	corrupt := compressed[:len(compressed)-1]
 	table := &ContentTable{
-		Files: map[string]VirtualFile{"catalog": {Position: 0, Size: len(corrupt)}},
+		Files: map[string]VirtualFile{"catalog": {Position: 0, Size: int32(len(corrupt))}},
 		Raw:   corrupt,
 	}
 
@@ -260,8 +260,8 @@ func TestContentTableGetFileDataDoesNotExposeMetadataArea(t *testing.T) {
 }
 
 func TestContentTableIntegerConversionsRejectOverflow(t *testing.T) {
-	if _, ok := toInt(uint64(^uint(0)>>1) + 1); ok {
-		t.Fatal("toInt accepted uint larger than MaxInt")
+	if _, ok := toInt32(uint64(1 << 31)); ok {
+		t.Fatal("toInt32 accepted uint larger than MaxInt32")
 	}
 	if _, ok := toInt64(uint64(^uint64(0)>>1) + 1); ok {
 		t.Fatal("toInt64 accepted uint larger than MaxInt64")

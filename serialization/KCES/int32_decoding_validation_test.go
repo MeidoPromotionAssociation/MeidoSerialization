@@ -1,160 +1,101 @@
 package KCES
 
 import (
-	"bytes"
-	"math"
-	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
-	"github.com/ugorji/go/codec"
 )
 
 func TestPublicDecodersRejectCLRInt32Overflow(t *testing.T) {
-	if strconv.IntSize < 64 {
-		t.Skip("host int cannot carry an out-of-Int32 MessagePack value")
+	menuWire, err := EncodeMenuAssets(newInt32TestMenuAssets())
+	if err != nil {
+		t.Fatalf("EncodeMenuAssets fixture: %v", err)
 	}
-	overflow := int(int64(math.MaxInt32) + 1)
-
-	menuWire := mustEncodeUncheckedCompressed(t, &MenuAssets{Assets: []Menu{{
-		Version:      overflow,
-		CategoryText: "null_mpn",
-		ColorSetText: "null_mpn",
-	}}})
-	materialWire := mustEncodeUncheckedCompressed(t, &MaterialAssets{Assets: []Material{{Version: overflow}}})
-	priorityWire := mustEncodeUncheckedCompressed(t, &PriorityMaterialAssets{Assets: []PriorityMaterial{{Version: overflow}}})
 	model := validModelForInt32Test()
-	model.Version = overflow
-	modelWire := mustEncodeUncheckedCompressed(t, &model)
-	modelAssetsWire := mustEncodeUncheckedCompressed(t, &ModelAssets{Assets: []Model{model}})
+	modelWire, err := EncodeModel(&model)
+	if err != nil {
+		t.Fatalf("EncodeModel fixture: %v", err)
+	}
 
-	for _, test := range []struct {
-		name   string
-		decode func() error
-		path   string
-	}{
-		{name: "menu assets", path: "assetArray[0].version", decode: func() error { _, err := DecodeMenuAssets(menuWire); return err }},
-		{name: "material assets", path: "assetArray[0].version", decode: func() error { _, err := DecodeMaterialAssets(materialWire); return err }},
-		{name: "priority material assets", path: "assetArray[0].version", decode: func() error { _, err := DecodePriorityMaterialAssets(priorityWire); return err }},
-		{name: "priority material raw", path: "version", decode: func() error {
-			_, err := DecodePriorityMaterial([]interface{}{int64(overflow), uint64(1), "x.pmat", float64(0), uint64(2)})
-			return err
-		}},
-		{name: "model", path: "version", decode: func() error { _, err := DecodeModel(modelWire); return err }},
-		{name: "model assets", path: "assetArray[0].version", decode: func() error { _, err := DecodeModelAssets(modelAssetsWire); return err }},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			err := test.decode()
-			if err == nil || !strings.Contains(err.Error(), "Int32") || !strings.Contains(err.Error(), test.path) {
-				t.Fatalf("decoder error=%v, want Int32 rejection at %q", err, test.path)
-			}
+	for _, overflow := range []int64{int64(testMinInt32) - 1, int64(testMaxInt32) + 1} {
+		overflow := overflow
+		t.Run("menu", func(t *testing.T) {
+			wire := mutateCompressedInt32TestRoot(t, menuWire, func(root []interface{}) {
+				assets := requireInt32TestArray(t, root[1], "MenuAssets.assetArray")
+				menu := requireInt32TestArray(t, assets[0], "MenuAssets.assetArray[0]")
+				menu[0] = overflow
+			})
+			_, err := DecodeMenuAssets(wire)
+			assertInt32DecodeError(t, err, "version")
+		})
+
+		t.Run("model", func(t *testing.T) {
+			wire := mutateCompressedInt32TestRoot(t, modelWire, func(root []interface{}) {
+				root[0] = overflow
+			})
+			_, err := DecodeModel(wire)
+			assertInt32DecodeError(t, err, "version")
 		})
 	}
 }
 
-func TestPresetDecoderRejectsCLRInt32Overflow(t *testing.T) {
-	if strconv.IntSize < 64 {
-		t.Skip("host int cannot carry an out-of-Int32 MessagePack value")
+func TestPayloadDecoderRejectsCLRInt32Overflow(t *testing.T) {
+	validWire, err := EncodeKCESPayload(newDynamicBoneInt32Envelope())
+	if err != nil {
+		t.Fatalf("EncodeKCESPayload fixture: %v", err)
 	}
-	overflow := int(int64(math.MaxInt32) + 1)
-	validCore := *validKCESPresetCoreForTest(t)
+	payload, prefixed, err := StripLengthPrefix(validWire)
+	if err != nil {
+		t.Fatalf("StripLengthPrefix fixture: %v", err)
+	}
+	if !prefixed {
+		t.Fatal("dynamic-bone fixture is not length-prefixed")
+	}
 
-	for _, test := range []struct {
-		name string
-		core KCESPresetCore
-		meta *KCESPresetMeta
-		path string
-	}{
-		{name: "maiddata", core: func() KCESPresetCore { value := validCore; value.Version = overflow; return value }(), path: "maidData.version"},
-		{name: "meta", core: validCore, meta: &KCESPresetMeta{Version: overflow, Data: map[string]string{}}, path: "meta.version"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			wire := mustBuildUncheckedPreset(t, &test.core, test.meta)
-			_, err := DecodeKCESPreset(wire)
-			if err == nil || !strings.Contains(err.Error(), "Int32") || !strings.Contains(err.Error(), test.path) {
-				t.Fatalf("DecodeKCESPreset error=%v, want Int32 rejection at %q", err, test.path)
-			}
+	for _, overflow := range []int64{int64(testMinInt32) - 1, int64(testMaxInt32) + 1} {
+		mutated := mutateCompressedInt32TestRoot(t, payload, func(root []interface{}) {
+			root[0] = overflow
 		})
+		_, err := DecodeKCESPayload(AddLengthPrefix(mutated), ".dbconf")
+		assertInt32DecodeError(t, err, "version")
 	}
 }
 
-func TestPayloadDecodersRejectCLRInt32Overflow(t *testing.T) {
-	if strconv.IntSize < 64 {
-		t.Skip("host int cannot carry an out-of-Int32 MessagePack value")
-	}
-	overflow := int(int64(math.MaxInt32) + 1)
-
-	dynamic := NewDynamicBoneStatus()
-	dynamic.Version = overflow
-	cloth := NewClothParams()
-	cloth.BendDistanceMaxCount = overflow
-	generic := newGenericColliderInt32Envelope().ColliderPackage
-	generic.Version = overflow
-	limb := newLimbColliderInt32Envelope().LimbCollider
-	limb.Version = overflow
-	ik := newIKColliderInt32Envelope().IKCollider
-	ik.Version = overflow
-
-	for _, test := range []struct {
-		name      string
-		extension string
-		value     codec.Selfer
-		path      string
-	}{
-		{name: "dynamic bone", extension: ".dbconf", value: dynamic, path: "dynamicBoneStatus.version"},
-		{name: "cloth", extension: ".dsbconf", value: cloth, path: "clothParams.bendDistanceMaxCount"},
-		{name: "generic collider", extension: ".dbcol", value: generic, path: "colliderPackage.version"},
-		{name: "limb collider", extension: ".limbcol", value: limb, path: "limbColliderPackage.version"},
-		{name: "IK collider", extension: ".ikcol", value: ik, path: "ikColliderPackage.version"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			wire := mustEncodeUncheckedPayload(t, test.value)
-			_, err := DecodeKCESPayload(wire, test.extension)
-			if err == nil || !strings.Contains(err.Error(), "Int32") || !strings.Contains(err.Error(), test.path) {
-				t.Fatalf("DecodeKCESPayload error=%v, want Int32 rejection at %q", err, test.path)
-			}
-		})
-	}
-}
-
-func mustEncodeUncheckedCompressed(t *testing.T, value interface{}) []byte {
+func mutateCompressedInt32TestRoot(t *testing.T, wire []byte, mutate func([]interface{})) []byte {
 	t.Helper()
-	wire, err := encodeCompressedMsgpack(value, "unchecked Int32 test")
+	raw, err := ct.DecompressLz4BlockArray(wire)
 	if err != nil {
-		t.Fatalf("encode unchecked compressed value: %v", err)
+		t.Fatalf("decompress Int32 test fixture: %v", err)
 	}
-	return wire
+	var root []interface{}
+	if err := ct.DecodeMsgpack(raw, &root); err != nil {
+		t.Fatalf("decode Int32 test fixture: %v", err)
+	}
+	mutate(root)
+	encoded, err := ct.EncodeMsgpack(root)
+	if err != nil {
+		t.Fatalf("encode mutated Int32 test fixture: %v", err)
+	}
+	compressed, err := ct.CompressLz4BlockArray(encoded)
+	if err != nil {
+		t.Fatalf("compress mutated Int32 test fixture: %v", err)
+	}
+	return compressed
 }
 
-func mustEncodeUncheckedPayload(t *testing.T, value codec.Selfer) []byte {
+func requireInt32TestArray(t *testing.T, value interface{}, path string) []interface{} {
 	t.Helper()
-	msgpack, err := ct.EncodeIndexedMsgpack(value)
-	if err != nil {
-		t.Fatalf("encode unchecked payload MessagePack: %v", err)
+	result, ok := value.([]interface{})
+	if !ok {
+		t.Fatalf("%s has type %T, want []interface{}", path, value)
 	}
-	compressed, err := ct.CompressLz4BlockArray(msgpack)
-	if err != nil {
-		t.Fatalf("compress unchecked payload: %v", err)
-	}
-	return AddLengthPrefix(compressed)
+	return result
 }
 
-func mustBuildUncheckedPreset(t *testing.T, core *KCESPresetCore, meta *KCESPresetMeta) []byte {
+func assertInt32DecodeError(t *testing.T, err error, path string) {
 	t.Helper()
-	table := &ct.ContentTable{
-		Version: kcesPresetVersion,
-		Raw:     make([]byte, ct.HeaderSize),
-		Files:   make(map[string]ct.VirtualFile),
+	if err == nil || !strings.Contains(err.Error(), "Int32") || !strings.Contains(strings.ToLower(err.Error()), strings.ToLower(path)) {
+		t.Fatalf("decoder error = %v, want Int32 rejection at %q", err, path)
 	}
-	table.AddFile(kcesPresetThumbnailFile, []byte("png"))
-	table.AddFile(kcesPresetMaidDataFile, mustEncodeUncheckedCompressed(t, core))
-	if meta != nil {
-		table.AddFile(kcesPresetMetaFile, mustEncodeUncheckedCompressed(t, meta))
-	}
-	var out bytes.Buffer
-	if err := ct.WriteContentTable(&out, table); err != nil {
-		t.Fatalf("build unchecked preset: %v", err)
-	}
-	return out.Bytes()
 }

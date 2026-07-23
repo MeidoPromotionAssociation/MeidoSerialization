@@ -352,7 +352,7 @@ func TestPackServicePreservesStreamingSidecarAsRawAbaEntry(t *testing.T) {
 		if dir.IsSerialized() {
 			t.Fatalf("sidecar %q was incorrectly marked as SerializedFile", dir.Name)
 		}
-		got, err := abaFile.GetFileData(i)
+		got, err := abaFile.GetFileData(int64(i))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -410,7 +410,7 @@ func TestUnpackThenPackPreservesRealStreamedTextureData(t *testing.T) {
 			continue
 		}
 		sidecarName = dir.Name
-		originalSidecar, err = originalAba.GetFileData(i)
+		originalSidecar, err = originalAba.GetFileData(int64(i))
 		if err != nil {
 			originalFile.Close()
 			t.Fatal(err)
@@ -444,14 +444,14 @@ func TestUnpackThenPackPreservesRealStreamedTextureData(t *testing.T) {
 	for i, dir := range abaFile.BlockInfo.DirectoryInfos {
 		if !dir.IsSerialized() {
 			if dir.Name == sidecarName {
-				repackedSidecar, err = abaFile.GetFileData(i)
+				repackedSidecar, err = abaFile.GetFileData(int64(i))
 				if err != nil {
 					t.Fatal(err)
 				}
 			}
 			continue
 		}
-		data, err := abaFile.GetFileData(i)
+		data, err := abaFile.GetFileData(int64(i))
 		if err != nil {
 			t.Fatal(err)
 		}

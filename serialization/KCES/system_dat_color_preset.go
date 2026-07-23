@@ -31,7 +31,7 @@ const (
 )
 
 // ColorPresetPackType is CustomColorPresetColorPack.Type's Int32 wire value.
-type ColorPresetPackType int
+type ColorPresetPackType int32
 
 const (
 	ColorPresetPackColorAndAlpha ColorPresetPackType = iota
@@ -51,7 +51,7 @@ const (
 // is opaque; the game never passes it through Guid.Parse.
 type ColorPreset struct {
 	MessagePackRootMetadata
-	Version           int                     `json:"version"`
+	Version           int32                   `json:"version"`
 	ID                *string                 `json:"id"`
 	BaseMenuFile      *string                 `json:"baseMenuFile"`
 	UserCreated       bool                    `json:"userCreated"`
@@ -59,7 +59,7 @@ type ColorPreset struct {
 	ColorPackList     []*ColorPresetColorPack `json:"colorPackList"`
 	InstanceGUID      string                  `json:"instanceGuid"`
 	InstanceGUIDIsNil bool                    `json:"instanceGuidIsNil,omitempty"`
-	FieldCount        *int                    `json:"fieldCount,omitempty"`
+	FieldCount        *int32                  `json:"fieldCount,omitempty"`
 	FutureSlots       [][]byte                `json:"futureSlots,omitempty"`
 }
 
@@ -71,8 +71,8 @@ type ColorPresetSlot = ColorPreset
 // accidentally omits allowedMpnOverRide; this codec models the wire itself and
 // therefore does not discard it.
 type ColorPresetColorPack struct {
-	Version            int                          `json:"version"`
-	MPNs               []int                        `json:"mpns"`
+	Version            int32                        `json:"version"`
+	MPNs               []int32                      `json:"mpns"`
 	LayerName          *string                      `json:"layerName"`
 	ViewName           *string                      `json:"viewName"`
 	Type               ColorPresetPackType          `json:"type"`
@@ -82,29 +82,29 @@ type ColorPresetColorPack struct {
 	AllowedMPNOverride bool                         `json:"allowedMpnOverRide"`
 	MPNNames           []string                     `json:"mpnNames"`
 	MPNNameNulls       []bool                       `json:"mpnNameNulls,omitempty"`
-	FieldCount         *int                         `json:"fieldCount,omitempty"`
+	FieldCount         *int32                       `json:"fieldCount,omitempty"`
 	FutureSlots        [][]byte                     `json:"futureSlots,omitempty"`
 }
 
 // ColorPresetFreeColor exposes FreeColor's four private raw fields. They are
 // not passed through the clamping public properties by the private resolver.
 type ColorPresetFreeColor struct {
-	Version     int      `json:"version"`
-	Hue         int      `json:"hue"`
-	Saturation  int      `json:"saturation"`
-	Brightness  int      `json:"brightness"`
-	Contrast    int      `json:"contrast"`
-	FieldCount  *int     `json:"fieldCount,omitempty"`
+	Version     int32    `json:"version"`
+	Hue         int32    `json:"hue"`
+	Saturation  int32    `json:"saturation"`
+	Brightness  int32    `json:"brightness"`
+	Contrast    int32    `json:"contrast"`
+	FieldCount  *int32   `json:"fieldCount,omitempty"`
 	FutureSlots [][]byte `json:"futureSlots,omitempty"`
 }
 
 // ColorPresetLayerFreeColor is LayerFreeColor's inherited four-slot object.
 type ColorPresetLayerFreeColor struct {
-	Version     int                   `json:"version"`
+	Version     int32                 `json:"version"`
 	BaseColor   *ColorPresetFreeColor `json:"baseColor"`
 	ShadowColor *ColorPresetFreeColor `json:"shadowColor"`
-	ShadowRate  int                   `json:"shadowRate"`
-	FieldCount  *int                  `json:"fieldCount,omitempty"`
+	ShadowRate  int32                 `json:"shadowRate"`
+	FieldCount  *int32                `json:"fieldCount,omitempty"`
 	FutureSlots [][]byte              `json:"futureSlots,omitempty"`
 }
 
@@ -113,20 +113,20 @@ type ColorPresetLayerFreeColor struct {
 // as [0,1] by the C# constructor.
 type ColorPresetControlSlider struct {
 	Value       float32  `json:"value"`
-	FieldCount  *int     `json:"fieldCount,omitempty"`
+	FieldCount  *int32   `json:"fieldCount,omitempty"`
 	FutureSlots [][]byte `json:"futureSlots,omitempty"`
 }
 
 // ColorPresetGradationColor extends LayerFreeColor with three ControlSliders.
 type ColorPresetGradationColor struct {
-	Version     int                       `json:"version"`
+	Version     int32                     `json:"version"`
 	BaseColor   *ColorPresetFreeColor     `json:"baseColor"`
 	ShadowColor *ColorPresetFreeColor     `json:"shadowColor"`
-	ShadowRate  int                       `json:"shadowRate"`
+	ShadowRate  int32                     `json:"shadowRate"`
 	Position    *ColorPresetControlSlider `json:"controlPointPosition"`
 	RangeBefore *ColorPresetControlSlider `json:"controlPointRangeBefore"`
 	RangeAfter  *ColorPresetControlSlider `json:"controlPointRangeAfter"`
-	FieldCount  *int                      `json:"fieldCount,omitempty"`
+	FieldCount  *int32                    `json:"fieldCount,omitempty"`
 	FutureSlots [][]byte                  `json:"futureSlots,omitempty"`
 }
 
@@ -236,7 +236,7 @@ func decodeColorPreset(data []byte, constructorGUID string) (*ColorPreset, error
 	}
 	value := &ColorPreset{InstanceGUID: constructorGUID}
 	if fieldCount != 7 {
-		storedFieldCount := fieldCount
+		storedFieldCount := int32(fieldCount)
 		value.FieldCount = &storedFieldCount
 	}
 	if fieldCount >= 1 {
@@ -367,7 +367,7 @@ func EncodeColorPreset(value *ColorPreset) ([]byte, error) {
 		if value.ColorPackList == nil {
 			raw = append(raw, 0xc0)
 		} else {
-			raw = simpleEditDataAppendArrayHeader(raw, len(value.ColorPackList))
+			raw = simpleEditDataAppendArrayHeader(raw, int64(len(value.ColorPackList)))
 			for index, pack := range value.ColorPackList {
 				raw, err = colorPresetAppendPack(raw, pack, fmt.Sprintf("ColorPreset.colorPackList[%d]", index))
 				if err != nil {
@@ -403,9 +403,7 @@ func validateColorPresetForEncoding(value *ColorPreset) error {
 	if value == nil {
 		return fmt.Errorf("ColorPreset is nil")
 	}
-	if err := requireInt32("ColorPreset.version", value.Version); err != nil {
-		return err
-	}
+
 	if uint64(len(value.ColorPackList)) > math.MaxUint32 {
 		return fmt.Errorf("ColorPreset.colorPackList length %d exceeds the MessagePack array32 limit", len(value.ColorPackList))
 	}
@@ -457,7 +455,7 @@ func colorPresetReadPackList(r *simpleEditDataReader, path string) ([]*ColorPres
 		return nil, err
 	}
 	result := makeKCESCountedSliceForAppend[*ColorPresetColorPack](uint64(count))
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		pack, err := colorPresetReadPack(r, fmt.Sprintf("%s[%d]", path, index))
 		if err != nil {
 			return nil, err
@@ -477,7 +475,7 @@ func colorPresetReadPack(r *simpleEditDataReader, path string) (*ColorPresetColo
 	}
 	value := &ColorPresetColorPack{}
 	if fieldCount != 10 {
-		storedFieldCount := fieldCount
+		storedFieldCount := int32(fieldCount)
 		value.FieldCount = &storedFieldCount
 	}
 	if fieldCount >= 1 {
@@ -555,19 +553,12 @@ func validateColorPresetPack(value *ColorPresetColorPack, path string, decoded b
 	if value == nil {
 		return nil
 	}
-	if err := requireInt32(path+".version", value.Version); err != nil {
-		return err
-	}
+
 	if uint64(len(value.MPNs)) > math.MaxUint32 || uint64(len(value.MPNNames)) > math.MaxUint32 {
 		return fmt.Errorf("%s MPN collection exceeds the MessagePack array32 limit", path)
 	}
 	if value.MPNNameNulls != nil && len(value.MPNNameNulls) != len(value.MPNNames) {
 		return fmt.Errorf("%s.mpnNameNulls length %d does not match mpnNames length %d", path, len(value.MPNNameNulls), len(value.MPNNames))
-	}
-	for index, mpn := range value.MPNs {
-		if err := requireInt32(fmt.Sprintf("%s.mpns[%d]", path, index), mpn); err != nil {
-			return err
-		}
 	}
 	for index, name := range value.MPNNames {
 		if value.MPNNameNulls != nil && value.MPNNameNulls[index] {
@@ -586,9 +577,7 @@ func validateColorPresetPack(value *ColorPresetColorPack, path string, decoded b
 	if err := colorPresetValidateNullableString(value.ViewName, path+".viewName"); err != nil {
 		return err
 	}
-	if err := requireInt32(path+".type", int(value.Type)); err != nil {
-		return err
-	}
+
 	if uint64(len(value.ColorList)) > math.MaxUint32 || uint64(len(value.GradationColorList)) > math.MaxUint32 {
 		return fmt.Errorf("%s color collection exceeds the MessagePack array32 limit", path)
 	}
@@ -654,7 +643,7 @@ func colorPresetAppendPack(dst []byte, value *ColorPresetColorPack, path string)
 		if value.MPNs == nil {
 			dst = append(dst, 0xc0)
 		} else {
-			dst = simpleEditDataAppendArrayHeader(dst, len(value.MPNs))
+			dst = simpleEditDataAppendArrayHeader(dst, int64(len(value.MPNs)))
 			for _, mpn := range value.MPNs {
 				dst = simpleEditDataAppendInt32(dst, mpn)
 			}
@@ -667,13 +656,13 @@ func colorPresetAppendPack(dst []byte, value *ColorPresetColorPack, path string)
 		dst = colorPresetAppendNullableString(dst, value.ViewName)
 	}
 	if fieldCount >= 5 {
-		dst = simpleEditDataAppendInt32(dst, int(value.Type))
+		dst = simpleEditDataAppendInt32(dst, int32(value.Type))
 	}
 	if fieldCount >= 6 {
 		if value.ColorList == nil {
 			dst = append(dst, 0xc0)
 		} else {
-			dst = simpleEditDataAppendArrayHeader(dst, len(value.ColorList))
+			dst = simpleEditDataAppendArrayHeader(dst, int64(len(value.ColorList)))
 			for index, color := range value.ColorList {
 				dst, err = colorPresetAppendLayer(dst, color, fmt.Sprintf("%s.colorList[%d]", path, index))
 				if err != nil {
@@ -686,7 +675,7 @@ func colorPresetAppendPack(dst []byte, value *ColorPresetColorPack, path string)
 		if value.GradationColorList == nil {
 			dst = append(dst, 0xc0)
 		} else {
-			dst = simpleEditDataAppendArrayHeader(dst, len(value.GradationColorList))
+			dst = simpleEditDataAppendArrayHeader(dst, int64(len(value.GradationColorList)))
 			for index, color := range value.GradationColorList {
 				dst, err = colorPresetAppendGradation(dst, color, fmt.Sprintf("%s.gradationColorList[%d]", path, index))
 				if err != nil {
@@ -705,7 +694,7 @@ func colorPresetAppendPack(dst []byte, value *ColorPresetColorPack, path string)
 		if value.MPNNames == nil {
 			dst = append(dst, 0xc0)
 		} else {
-			dst = simpleEditDataAppendArrayHeader(dst, len(value.MPNNames))
+			dst = simpleEditDataAppendArrayHeader(dst, int64(len(value.MPNNames)))
 			for index, name := range value.MPNNames {
 				if value.MPNNameNulls != nil && value.MPNNameNulls[index] {
 					dst = append(dst, 0xc0)
@@ -730,7 +719,7 @@ func colorPresetReadLayerList(r *simpleEditDataReader, path string) ([]*ColorPre
 		return nil, err
 	}
 	result := makeKCESCountedSliceForAppend[*ColorPresetLayerFreeColor](uint64(count))
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		value, err := colorPresetReadLayer(r, fmt.Sprintf("%s[%d]", path, index))
 		if err != nil {
 			return nil, err
@@ -750,7 +739,7 @@ func colorPresetReadLayer(r *simpleEditDataReader, path string) (*ColorPresetLay
 	}
 	value := &ColorPresetLayerFreeColor{}
 	if fieldCount != 4 {
-		storedFieldCount := fieldCount
+		storedFieldCount := int32(fieldCount)
 		value.FieldCount = &storedFieldCount
 	}
 	if fieldCount >= 1 {
@@ -788,16 +777,14 @@ func validateColorPresetLayer(value *ColorPresetLayerFreeColor, path string, dec
 	if value == nil {
 		return nil
 	}
-	if err := requireInt32(path+".version", value.Version); err != nil {
-		return err
-	}
+
 	if err := validateColorPresetFree(value.BaseColor, path+".baseColor", decoded); err != nil {
 		return err
 	}
 	if err := validateColorPresetFree(value.ShadowColor, path+".shadowColor", decoded); err != nil {
 		return err
 	}
-	return requireInt32(path+".shadowRate_", value.ShadowRate)
+	return nil
 }
 
 func colorPresetAppendLayer(dst []byte, value *ColorPresetLayerFreeColor, path string) ([]byte, error) {
@@ -858,12 +845,12 @@ func colorPresetReadFreeColor(r *simpleEditDataReader, path string) (*ColorPrese
 	}
 	value := &ColorPresetFreeColor{}
 	if fieldCount != 5 {
-		storedFieldCount := fieldCount
+		storedFieldCount := int32(fieldCount)
 		value.FieldCount = &storedFieldCount
 	}
-	fields := []*int{&value.Version, &value.Hue, &value.Saturation, &value.Brightness, &value.Contrast}
+	fields := []*int32{&value.Version, &value.Hue, &value.Saturation, &value.Brightness, &value.Contrast}
 	names := []string{"version", "hue_", "saturation_", "brightness_", "contrast_"}
-	for index := 0; index < fieldCount && index < len(fields); index++ {
+	for index := int64(0); index < fieldCount && index < int64(len(fields)); index++ {
 		*fields[index], err = r.readInt32(path + "." + names[index])
 		if err != nil {
 			return nil, err
@@ -880,23 +867,7 @@ func validateColorPresetFree(value *ColorPresetFreeColor, path string, decoded b
 	if value == nil {
 		return nil
 	}
-	if err := requireInt32(path+".version", value.Version); err != nil {
-		return err
-	}
-	fields := []struct {
-		name  string
-		value int
-	}{
-		{name: "hue_", value: value.Hue},
-		{name: "saturation_", value: value.Saturation},
-		{name: "brightness_", value: value.Brightness},
-		{name: "contrast_", value: value.Contrast},
-	}
-	for _, field := range fields {
-		if err := requireInt32(path+"."+field.name, field.value); err != nil {
-			return err
-		}
-	}
+
 	return nil
 }
 
@@ -910,10 +881,10 @@ func colorPresetAppendFree(dst []byte, value *ColorPresetFreeColor, path string)
 	}
 	fields := []struct {
 		name  string
-		value int
+		value int32
 	}{{"version", value.Version}, {"hue", value.Hue}, {"saturation", value.Saturation}, {"brightness", value.Brightness}, {"contrast", value.Contrast}}
 	for index, field := range fields {
-		if fieldCount <= index && field.value != 0 {
+		if fieldCount <= int64(index) && field.value != 0 {
 			return nil, fmt.Errorf("%s fieldCount %d would discard %s=%d", path, fieldCount, field.name, field.value)
 		}
 	}
@@ -921,7 +892,7 @@ func colorPresetAppendFree(dst []byte, value *ColorPresetFreeColor, path string)
 		return nil, err
 	}
 	dst = simpleEditDataAppendArrayHeader(dst, fieldCount)
-	for index := 0; index < fieldCount && index < len(fields); index++ {
+	for index := int64(0); index < fieldCount && index < int64(len(fields)); index++ {
 		dst = simpleEditDataAppendInt32(dst, fields[index].value)
 	}
 	for _, slot := range value.FutureSlots {
@@ -939,7 +910,7 @@ func colorPresetReadGradationList(r *simpleEditDataReader, path string) ([]*Colo
 		return nil, err
 	}
 	result := makeKCESCountedSliceForAppend[*ColorPresetGradationColor](uint64(count))
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		value, err := colorPresetReadGradation(r, fmt.Sprintf("%s[%d]", path, index))
 		if err != nil {
 			return nil, err
@@ -959,7 +930,7 @@ func colorPresetReadGradation(r *simpleEditDataReader, path string) (*ColorPrese
 	}
 	value := &ColorPresetGradationColor{}
 	if fieldCount != 7 {
-		storedFieldCount := fieldCount
+		storedFieldCount := int32(fieldCount)
 		value.FieldCount = &storedFieldCount
 	}
 	if fieldCount >= 1 {
@@ -997,18 +968,14 @@ func validateColorPresetGradation(value *ColorPresetGradationColor, path string,
 	if value == nil {
 		return nil
 	}
-	if err := requireInt32(path+".version", value.Version); err != nil {
-		return err
-	}
+
 	if err := validateColorPresetFree(value.BaseColor, path+".baseColor", decoded); err != nil {
 		return err
 	}
 	if err := validateColorPresetFree(value.ShadowColor, path+".shadowColor", decoded); err != nil {
 		return err
 	}
-	if err := requireInt32(path+".shadowRate_", value.ShadowRate); err != nil {
-		return err
-	}
+
 	return nil
 }
 
@@ -1068,7 +1035,7 @@ func colorPresetAppendGradation(dst []byte, value *ColorPresetGradationColor, pa
 		name  string
 	}{{value.Position, "controlPointPosition"}, {value.RangeBefore, "controlPointRangeBefore"}, {value.RangeAfter, "controlPointRangeAfter"}}
 	for index, slider := range sliders {
-		if fieldCount < 5+index {
+		if fieldCount < 5+int64(index) {
 			break
 		}
 		dst, err = colorPresetAppendControlSlider(dst, slider.value, path+"."+slider.name)
@@ -1113,7 +1080,7 @@ func colorPresetReadControlSlider(r *simpleEditDataReader, path string) (*ColorP
 	}
 	value := &ColorPresetControlSlider{}
 	if fieldCount != 1 {
-		storedFieldCount := fieldCount
+		storedFieldCount := int32(fieldCount)
 		value.FieldCount = &storedFieldCount
 	}
 	if fieldCount >= 1 {
@@ -1129,7 +1096,7 @@ func colorPresetReadControlSlider(r *simpleEditDataReader, path string) (*ColorP
 	return value, nil
 }
 
-func colorPresetReadInt32Array(r *simpleEditDataReader, path string) ([]int, error) {
+func colorPresetReadInt32Array(r *simpleEditDataReader, path string) ([]int32, error) {
 	if r.tryReadNil() {
 		return nil, nil
 	}
@@ -1137,8 +1104,8 @@ func colorPresetReadInt32Array(r *simpleEditDataReader, path string) ([]int, err
 	if err != nil {
 		return nil, err
 	}
-	result := makeKCESCountedSliceForAppend[int](uint64(count))
-	for index := 0; index < count; index++ {
+	result := makeKCESCountedSliceForAppend[int32](uint64(count))
+	for index := int64(0); index < count; index++ {
 		value, readErr := r.readInt32(fmt.Sprintf("%s[%d]", path, index))
 		err = readErr
 		if err != nil {
@@ -1159,7 +1126,7 @@ func colorPresetReadStringArray(r *simpleEditDataReader, path string) ([]string,
 	}
 	result := makeKCESCountedSliceForAppend[string](uint64(count))
 	var nulls []bool
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		if r.tryReadNil() {
 			if nulls == nil {
 				nulls = makeKCESCountedSliceForAppend[bool](uint64(count))
@@ -1283,7 +1250,7 @@ func colorPresetReadSingle(r *simpleEditDataReader, path string) (float32, error
 	}
 }
 
-func colorPresetReadObjectHeader(r *simpleEditDataReader, path string) (int, error) {
+func colorPresetReadObjectHeader(r *simpleEditDataReader, path string) (int64, error) {
 	count, err := r.readArrayLength(path)
 	if err != nil {
 		return 0, err
@@ -1294,7 +1261,7 @@ func colorPresetReadObjectHeader(r *simpleEditDataReader, path string) (int, err
 	return count, nil
 }
 
-func colorPresetReadCollectionHeader(r *simpleEditDataReader, path string) (int, error) {
+func colorPresetReadCollectionHeader(r *simpleEditDataReader, path string) (int64, error) {
 	count, err := r.readArrayLength(path)
 	if err != nil {
 		return 0, err
@@ -1305,7 +1272,7 @@ func colorPresetReadCollectionHeader(r *simpleEditDataReader, path string) (int,
 	return count, nil
 }
 
-func colorPresetReadFutureFields(r *simpleEditDataReader, known, count int, path string) ([][]byte, error) {
+func colorPresetReadFutureFields(r *simpleEditDataReader, known, count int64, path string) ([][]byte, error) {
 	if count <= known {
 		return nil, nil
 	}

@@ -315,7 +315,7 @@ func TestColliderCurrentIndexedWidthsAreIndependentOfVersion(t *testing.T) {
 }
 
 func TestColliderShortWidthRejectsPopulatedOmittedField(t *testing.T) {
-	count := 8
+	count := int32(8)
 	value := &ColliderPlane{
 		IndexedObjectMetadata: &IndexedObjectMetadata{FieldCount: &count},
 		Direction:             VectorTypeY,
@@ -325,7 +325,7 @@ func TestColliderShortWidthRejectsPopulatedOmittedField(t *testing.T) {
 	}
 }
 
-func colliderCapsuleIndexedTestValue(version int) []interface{} {
+func colliderCapsuleIndexedTestValue(version int32) []interface{} {
 	return []interface{}{
 		int64(version), "parent", "name",
 		[]interface{}{float32(0), float32(0), float32(0)},
@@ -337,7 +337,7 @@ func colliderCapsuleIndexedTestValue(version int) []interface{} {
 	}
 }
 
-func colliderMaidPropIndexedTestValue(version int) []interface{} {
+func colliderMaidPropIndexedTestValue(version int32) []interface{} {
 	value := append([]interface{}(nil), colliderCapsuleIndexedTestValue(version)...)
 	value = append(value, nil, nil, nil)
 	value = append(value,

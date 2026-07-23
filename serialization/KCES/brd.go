@@ -92,7 +92,7 @@ func DecodeGP03Bridge(data []byte) (*GP03BridgeFile, error) {
 	if r.Len() < 4 || int64(legacyLength) > int64(r.Len()-4) {
 		return nil, fmt.Errorf("GP03 bridge legacy preset length %d cannot fit in %d bytes while preserving the current preset length", legacyLength, r.Len())
 	}
-	legacyPreset := make([]byte, int(legacyLength))
+	legacyPreset := make([]byte, int64(legacyLength))
 	if _, err := io.ReadFull(r, legacyPreset); err != nil {
 		return nil, fmt.Errorf("read GP03 bridge legacy preset payload: %w", err)
 	}
@@ -107,7 +107,7 @@ func DecodeGP03Bridge(data []byte) (*GP03BridgeFile, error) {
 	if int64(currentLength) > int64(r.Len()) {
 		return nil, fmt.Errorf("GP03 bridge current preset length %d exceeds %d remaining bytes", currentLength, r.Len())
 	}
-	currentPreset := make([]byte, int(currentLength))
+	currentPreset := make([]byte, int64(currentLength))
 	if _, err := io.ReadFull(r, currentPreset); err != nil {
 		return nil, fmt.Errorf("read GP03 bridge current preset payload: %w", err)
 	}

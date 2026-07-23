@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
-	"sort"
+	"slices"
 	"strings"
 	"unicode/utf8"
 )
@@ -28,7 +28,7 @@ import (
 type PresetPanelNameSaveData struct {
 	MessagePackRootMetadata
 	BoxNameList []*string `json:"boxNameList"`
-	FieldCount  *int      `json:"fieldCount,omitempty"`
+	FieldCount  *int32    `json:"fieldCount,omitempty"`
 	FutureSlots [][]byte  `json:"futureSlots,omitempty"`
 }
 
@@ -41,11 +41,11 @@ type PresetPanelNameSaveData struct {
 // compatibility without imposing the consumer's expected key set.
 type PaletteColorSaveData struct {
 	MessagePackRootMetadata
-	Color       map[int]int `json:"color"`
-	Index       int         `json:"index"`
-	IsSave      int         `json:"isSave"`
-	FieldCount  *int        `json:"fieldCount,omitempty"`
-	FutureSlots [][]byte    `json:"futureSlots,omitempty"`
+	Color       map[int32]int32 `json:"color"`
+	Index       int32           `json:"index"`
+	IsSave      int32           `json:"isSave"`
+	FieldCount  *int32          `json:"fieldCount,omitempty"`
+	FutureSlots [][]byte        `json:"futureSlots,omitempty"`
 }
 
 const simpleEditDataMaxDepth = 256
@@ -80,7 +80,7 @@ func DecodePresetPanelNameSaveData(data []byte) (*PresetPanelNameSaveData, error
 
 	value := &PresetPanelNameSaveData{}
 	if fieldCount != 1 {
-		storedFieldCount := fieldCount
+		storedFieldCount := int32(fieldCount)
 		value.FieldCount = &storedFieldCount
 	}
 	if fieldCount >= 1 {
@@ -89,7 +89,7 @@ func DecodePresetPanelNameSaveData(data []byte) (*PresetPanelNameSaveData, error
 			return nil, err
 		}
 	}
-	for key := 1; key < fieldCount; key++ {
+	for key := int64(1); key < fieldCount; key++ {
 		start := r.pos
 		if err := r.skipValue(0); err != nil {
 			return nil, fmt.Errorf("skip PresetPanelNameSaveData future Key(%d): %w", key, err)
@@ -142,7 +142,7 @@ func EncodePresetPanelNameSaveData(value *PresetPanelNameSaveData) ([]byte, erro
 		if value.BoxNameList == nil {
 			out = append(out, 0xc0)
 		} else {
-			out = simpleEditDataAppendArrayHeader(out, len(value.BoxNameList))
+			out = simpleEditDataAppendArrayHeader(out, int64(len(value.BoxNameList)))
 			for _, name := range value.BoxNameList {
 				if name == nil {
 					out = append(out, 0xc0)
@@ -185,7 +185,7 @@ func DecodePaletteColorSaveData(data []byte) (*PaletteColorSaveData, error) {
 
 	value := &PaletteColorSaveData{}
 	if fieldCount != 3 {
-		storedFieldCount := fieldCount
+		storedFieldCount := int32(fieldCount)
 		value.FieldCount = &storedFieldCount
 	}
 	if fieldCount >= 1 {
@@ -207,7 +207,7 @@ func DecodePaletteColorSaveData(data []byte) (*PaletteColorSaveData, error) {
 			return nil, err
 		}
 	}
-	for key := 3; key < fieldCount; key++ {
+	for key := int64(3); key < fieldCount; key++ {
 		start := r.pos
 		if err := r.skipValue(0); err != nil {
 			return nil, fmt.Errorf("skip PaletteColorSaveData future Key(%d): %w", key, err)
@@ -250,34 +250,23 @@ func EncodePaletteColorSaveData(value *PaletteColorSaveData) ([]byte, error) {
 	if fieldCount < 3 && value.IsSave != 0 {
 		return nil, fmt.Errorf("PaletteColorSaveData fieldCount %d would discard isSave=%d", fieldCount, value.IsSave)
 	}
-	if err := requireInt32("PaletteColorSaveData.index", value.Index); err != nil {
-		return nil, err
-	}
-	if err := requireInt32("PaletteColorSaveData.isSave", value.IsSave); err != nil {
-		return nil, err
-	}
+
 	if uint64(len(value.Color)) > math.MaxUint32 {
 		return nil, fmt.Errorf("PaletteColorSaveData.color has %d entries, exceeding the MessagePack map32 limit", len(value.Color))
 	}
 
-	keys := make([]int, 0, len(value.Color))
-	for key, color := range value.Color {
-		if err := requireInt32(fmt.Sprintf("PaletteColorSaveData.color key %d", key), key); err != nil {
-			return nil, err
-		}
-		if err := requireInt32(fmt.Sprintf("PaletteColorSaveData.color[%d]", key), color); err != nil {
-			return nil, err
-		}
+	keys := make([]int32, 0, len(value.Color))
+	for key := range value.Color {
 		keys = append(keys, key)
 	}
-	sort.Ints(keys)
+	slices.Sort(keys)
 
 	out := simpleEditDataAppendArrayHeader(nil, fieldCount)
 	if fieldCount >= 1 {
 		if value.Color == nil {
 			out = append(out, 0xc0)
 		} else {
-			out = simpleEditDataAppendMapHeader(out, len(keys))
+			out = simpleEditDataAppendMapHeader(out, int64(len(keys)))
 			for _, key := range keys {
 				out = simpleEditDataAppendInt32(out, key)
 				out = simpleEditDataAppendInt32(out, value.Color[key])
@@ -296,26 +285,25 @@ func EncodePaletteColorSaveData(value *PaletteColorSaveData) ([]byte, error) {
 	return appendMessagePackRootTrailing(out, value.MessagePackRootMetadata), nil
 }
 
-func resolveIndexedFieldCount(stored *int, known int, futureSlots [][]byte, path string) (int, error) {
-	if uint64(len(futureSlots)) > math.MaxUint32 {
-		return 0, fmt.Errorf("%s futureSlots has %d values, exceeding the MessagePack array32 limit", path, len(futureSlots))
+func resolveIndexedFieldCount(stored *int32, known int64, futureSlots [][]byte, path string) (int64, error) {
+	if int64(len(futureSlots)) > math.MaxInt32 {
+		return 0, fmt.Errorf("%s futureSlots has %d values, exceeding the C# Int32 array-header limit", path, len(futureSlots))
 	}
-	fieldCount64 := uint64(known) + uint64(len(futureSlots))
-	if fieldCount64 > math.MaxUint32 {
-		return 0, fmt.Errorf("%s field count %d exceeds the MessagePack array32 limit", path, fieldCount64)
+	fieldCount := known + int64(len(futureSlots))
+	if fieldCount < 0 || fieldCount > math.MaxInt32 {
+		return 0, fmt.Errorf("%s field count %d is outside the C# Int32 array-header range", path, fieldCount)
 	}
-	fieldCount := int(fieldCount64)
 	if stored != nil {
-		fieldCount = *stored
+		fieldCount = int64(*stored)
 	}
-	if fieldCount < 0 || uint64(fieldCount) > math.MaxUint32 {
-		return 0, fmt.Errorf("%s fieldCount %d is outside the MessagePack array32 range", path, fieldCount)
+	if fieldCount < 0 {
+		return 0, fmt.Errorf("%s fieldCount %d is outside the C# Int32 array-header range", path, fieldCount)
 	}
-	wantFuture := 0
+	wantFuture := int64(0)
 	if fieldCount > known {
 		wantFuture = fieldCount - known
 	}
-	if len(futureSlots) != wantFuture {
+	if int64(len(futureSlots)) != wantFuture {
 		return 0, fmt.Errorf("%s fieldCount %d requires %d futureSlots, got %d", path, fieldCount, wantFuture, len(futureSlots))
 	}
 	for index, slot := range futureSlots {
@@ -342,11 +330,11 @@ func validateRawMessagePackValue(data []byte, path string) error {
 
 type simpleEditDataReader struct {
 	data []byte
-	pos  int
+	pos  int64
 }
 
-func (r *simpleEditDataReader) remaining() int {
-	return len(r.data) - r.pos
+func (r *simpleEditDataReader) remaining() int64 {
+	return int64(len(r.data)) - r.pos
 }
 
 func (r *simpleEditDataReader) tryReadNil() bool {
@@ -364,7 +352,7 @@ func (r *simpleEditDataReader) requireEOF(name string) error {
 	return nil
 }
 
-func (r *simpleEditDataReader) requirePossibleValues(count int, path string) error {
+func (r *simpleEditDataReader) requirePossibleValues(count int64, path string) error {
 	// Every MessagePack value occupies at least one byte. This both catches a
 	// truncated array32 bomb before looping and bounds work by the input size.
 	if count > r.remaining() {
@@ -382,7 +370,7 @@ func (r *simpleEditDataReader) readByte(path string) (byte, error) {
 	return b, nil
 }
 
-func (r *simpleEditDataReader) readBytes(length int, path string) ([]byte, error) {
+func (r *simpleEditDataReader) readBytes(length int64, path string) ([]byte, error) {
 	if length < 0 || length > r.remaining() {
 		return nil, fmt.Errorf("read %s: need %d bytes, only %d remain", path, length, r.remaining())
 	}
@@ -391,62 +379,54 @@ func (r *simpleEditDataReader) readBytes(length int, path string) ([]byte, error
 	return value, nil
 }
 
-func (r *simpleEditDataReader) readArrayLength(path string) (int, error) {
+func (r *simpleEditDataReader) readArrayLength(path string) (int64, error) {
 	marker, err := r.readByte(path + " array header")
 	if err != nil {
 		return 0, err
 	}
 	switch {
 	case marker >= 0x90 && marker <= 0x9f:
-		return int(marker & 0x0f), nil
+		return int64(marker & 0x0f), nil
 	case marker == 0xdc:
 		value, err := r.readBytes(2, path+" array16 length")
 		if err != nil {
 			return 0, err
 		}
-		return int(binary.BigEndian.Uint16(value)), nil
+		return int64(binary.BigEndian.Uint16(value)), nil
 	case marker == 0xdd:
 		value, err := r.readBytes(4, path+" array32 length")
 		if err != nil {
 			return 0, err
 		}
-		return simpleEditDataLengthToInt(binary.BigEndian.Uint32(value), path+" array32")
+		return int64(binary.BigEndian.Uint32(value)), nil
 	default:
 		return 0, fmt.Errorf("%s must be a MessagePack array, got marker 0x%02x", path, marker)
 	}
 }
 
-func (r *simpleEditDataReader) readMapLength(path string) (int, error) {
+func (r *simpleEditDataReader) readMapLength(path string) (int64, error) {
 	marker, err := r.readByte(path + " map header")
 	if err != nil {
 		return 0, err
 	}
 	switch {
 	case marker >= 0x80 && marker <= 0x8f:
-		return int(marker & 0x0f), nil
+		return int64(marker & 0x0f), nil
 	case marker == 0xde:
 		value, err := r.readBytes(2, path+" map16 length")
 		if err != nil {
 			return 0, err
 		}
-		return int(binary.BigEndian.Uint16(value)), nil
+		return int64(binary.BigEndian.Uint16(value)), nil
 	case marker == 0xdf:
 		value, err := r.readBytes(4, path+" map32 length")
 		if err != nil {
 			return 0, err
 		}
-		return simpleEditDataLengthToInt(binary.BigEndian.Uint32(value), path+" map32")
+		return int64(binary.BigEndian.Uint32(value)), nil
 	default:
 		return 0, fmt.Errorf("%s must be a MessagePack map, got marker 0x%02x", path, marker)
 	}
-}
-
-func simpleEditDataLengthToInt(value uint32, path string) (int, error) {
-	maxInt := uint64(^uint(0) >> 1)
-	if uint64(value) > maxInt {
-		return 0, fmt.Errorf("%s length %d exceeds this platform's int range", path, value)
-	}
-	return int(value), nil
 }
 
 func (r *simpleEditDataReader) readNullableStringList(path string) ([]*string, error) {
@@ -461,7 +441,7 @@ func (r *simpleEditDataReader) readNullableStringList(path string) ([]*string, e
 		return nil, err
 	}
 	result := makeKCESCountedSliceForAppend[*string](uint64(count))
-	for i := 0; i < count; i++ {
+	for i := int64(0); i < count; i++ {
 		if r.tryReadNil() {
 			result = append(result, nil)
 			continue
@@ -481,31 +461,28 @@ func (r *simpleEditDataReader) readString(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var length int
+	var length int64
 	switch {
 	case marker >= 0xa0 && marker <= 0xbf:
-		length = int(marker & 0x1f)
+		length = int64(marker & 0x1f)
 	case marker == 0xd9:
 		value, err := r.readByte(path + " str8 length")
 		if err != nil {
 			return "", err
 		}
-		length = int(value)
+		length = int64(value)
 	case marker == 0xda:
 		value, err := r.readBytes(2, path+" str16 length")
 		if err != nil {
 			return "", err
 		}
-		length = int(binary.BigEndian.Uint16(value))
+		length = int64(binary.BigEndian.Uint16(value))
 	case marker == 0xdb:
 		value, err := r.readBytes(4, path+" str32 length")
 		if err != nil {
 			return "", err
 		}
-		length, err = simpleEditDataLengthToInt(binary.BigEndian.Uint32(value), path+" str32")
-		if err != nil {
-			return "", err
-		}
+		length = int64(binary.BigEndian.Uint32(value))
 	default:
 		return "", fmt.Errorf("%s must be a MessagePack string or nil, got marker 0x%02x", path, marker)
 	}
@@ -522,7 +499,7 @@ func (r *simpleEditDataReader) readString(path string) (string, error) {
 	return string(payload), nil
 }
 
-func (r *simpleEditDataReader) readInt32Map(path string) (map[int]int, error) {
+func (r *simpleEditDataReader) readInt32Map(path string) (map[int32]int32, error) {
 	if r.tryReadNil() {
 		return nil, nil
 	}
@@ -533,8 +510,8 @@ func (r *simpleEditDataReader) readInt32Map(path string) (map[int]int, error) {
 	if count > r.remaining()/2 {
 		return nil, fmt.Errorf("%s count %d exceeds the capacity of %d remaining bytes", path, count, r.remaining())
 	}
-	result := makeKCESCountedMap[int, int](uint64(count))
-	for i := 0; i < count; i++ {
+	result := makeKCESCountedMap[int32, int32](uint64(count))
+	for i := int64(0); i < count; i++ {
 		key, err := r.readInt32(fmt.Sprintf("%s key %d", path, i))
 		if err != nil {
 			return nil, err
@@ -551,7 +528,7 @@ func (r *simpleEditDataReader) readInt32Map(path string) (map[int]int, error) {
 	return result, nil
 }
 
-func (r *simpleEditDataReader) readInt32(path string) (int, error) {
+func (r *simpleEditDataReader) readInt32(path string) (int32, error) {
 	marker, err := r.readByte(path)
 	if err != nil {
 		return 0, err
@@ -559,21 +536,21 @@ func (r *simpleEditDataReader) readInt32(path string) (int, error) {
 	var signed int64
 	switch {
 	case marker <= 0x7f:
-		return int(marker), nil
+		return int32(marker), nil
 	case marker >= 0xe0:
-		return int(int8(marker)), nil
+		return int32(int8(marker)), nil
 	}
 
 	switch marker {
 	case 0xcc:
 		value, err := r.readByte(path + " uint8")
-		return int(value), err
+		return int32(value), err
 	case 0xcd:
 		value, err := r.readBytes(2, path+" uint16")
 		if err != nil {
 			return 0, err
 		}
-		return int(binary.BigEndian.Uint16(value)), nil
+		return int32(binary.BigEndian.Uint16(value)), nil
 	case 0xce:
 		value, err := r.readBytes(4, path+" uint32")
 		if err != nil {
@@ -583,7 +560,7 @@ func (r *simpleEditDataReader) readInt32(path string) (int, error) {
 		if unsigned > uint64(gameInt32Max) {
 			return 0, fmt.Errorf("%s=%d is outside the Int32 range [%d,%d]", path, unsigned, gameInt32Min, gameInt32Max)
 		}
-		return int(unsigned), nil
+		return int32(unsigned), nil
 	case 0xcf:
 		value, err := r.readBytes(8, path+" uint64")
 		if err != nil {
@@ -593,7 +570,7 @@ func (r *simpleEditDataReader) readInt32(path string) (int, error) {
 		if unsigned > uint64(gameInt32Max) {
 			return 0, fmt.Errorf("%s=%d is outside the Int32 range [%d,%d]", path, unsigned, gameInt32Min, gameInt32Max)
 		}
-		return int(unsigned), nil
+		return int32(unsigned), nil
 	case 0xd0:
 		value, err := r.readByte(path + " int8")
 		if err != nil {
@@ -624,14 +601,14 @@ func (r *simpleEditDataReader) readInt32(path string) (int, error) {
 	if signed < gameInt32Min || signed > gameInt32Max {
 		return 0, fmt.Errorf("%s=%d is outside the Int32 range [%d,%d]", path, signed, gameInt32Min, gameInt32Max)
 	}
-	return int(signed), nil
+	return int32(signed), nil
 }
 
 // skipValue mirrors MessagePackReader.Skip while locating the end of a future
 // indexed-object field. The complete byte range is then retained by the caller;
 // it may contain any valid MessagePack value, including nested arrays, maps,
 // binary, and extensions.
-func (r *simpleEditDataReader) skipValue(depth int) error {
+func (r *simpleEditDataReader) skipValue(depth int64) error {
 	if depth >= simpleEditDataMaxDepth {
 		return fmt.Errorf("MessagePack nesting exceeds %d", simpleEditDataMaxDepth)
 	}
@@ -644,15 +621,15 @@ func (r *simpleEditDataReader) skipValue(depth int) error {
 	case marker <= 0x7f || marker >= 0xe0:
 		return nil
 	case marker >= 0xa0 && marker <= 0xbf:
-		_, err = r.readBytes(int(marker&0x1f), "fixstr payload")
+		_, err = r.readBytes(int64(marker&0x1f), "fixstr payload")
 		return err
 	case marker >= 0x90 && marker <= 0x9f:
-		return r.skipValues(int(marker&0x0f), false, depth)
+		return r.skipValues(int64(marker&0x0f), false, depth)
 	case marker >= 0x80 && marker <= 0x8f:
-		return r.skipValues(int(marker&0x0f), true, depth)
+		return r.skipValues(int64(marker&0x0f), true, depth)
 	}
 
-	var payloadLength int
+	var payloadLength int64
 	switch marker {
 	case 0xc0, 0xc2, 0xc3:
 		return nil
@@ -663,46 +640,37 @@ func (r *simpleEditDataReader) skipValue(depth int) error {
 		if readErr != nil {
 			return readErr
 		}
-		payloadLength = int(length)
+		payloadLength = int64(length)
 	case 0xc5, 0xda:
 		length, readErr := r.readBytes(2, "16-bit payload length")
 		if readErr != nil {
 			return readErr
 		}
-		payloadLength = int(binary.BigEndian.Uint16(length))
+		payloadLength = int64(binary.BigEndian.Uint16(length))
 	case 0xc6, 0xdb:
 		length, readErr := r.readBytes(4, "32-bit payload length")
 		if readErr != nil {
 			return readErr
 		}
-		payloadLength, readErr = simpleEditDataLengthToInt(binary.BigEndian.Uint32(length), "MessagePack payload")
-		if readErr != nil {
-			return readErr
-		}
+		payloadLength = int64(binary.BigEndian.Uint32(length))
 	case 0xc7:
 		length, readErr := r.readByte("ext8 length")
 		if readErr != nil {
 			return readErr
 		}
-		payloadLength = int(length) + 1 // type code
+		payloadLength = int64(length) + 1 // type code
 	case 0xc8:
 		length, readErr := r.readBytes(2, "ext16 length")
 		if readErr != nil {
 			return readErr
 		}
-		payloadLength = int(binary.BigEndian.Uint16(length)) + 1
+		payloadLength = int64(binary.BigEndian.Uint16(length)) + 1
 	case 0xc9:
 		length, readErr := r.readBytes(4, "ext32 length")
 		if readErr != nil {
 			return readErr
 		}
-		extLength, readErr := simpleEditDataLengthToInt(binary.BigEndian.Uint32(length), "ext32")
-		if readErr != nil {
-			return readErr
-		}
-		if extLength == int(^uint(0)>>1) {
-			return fmt.Errorf("ext32 payload length overflows int after type code")
-		}
+		extLength := int64(binary.BigEndian.Uint32(length))
 		payloadLength = extLength + 1
 	case 0xca, 0xce, 0xd2:
 		payloadLength = 4
@@ -723,41 +691,35 @@ func (r *simpleEditDataReader) skipValue(depth int) error {
 	case 0xd8:
 		payloadLength = 17
 	case 0xdc, 0xdd:
-		var count int
+		var count int64
 		if marker == 0xdc {
 			length, readErr := r.readBytes(2, "array16 length")
 			if readErr != nil {
 				return readErr
 			}
-			count = int(binary.BigEndian.Uint16(length))
+			count = int64(binary.BigEndian.Uint16(length))
 		} else {
 			length, readErr := r.readBytes(4, "array32 length")
 			if readErr != nil {
 				return readErr
 			}
-			count, readErr = simpleEditDataLengthToInt(binary.BigEndian.Uint32(length), "array32")
-			if readErr != nil {
-				return readErr
-			}
+			count = int64(binary.BigEndian.Uint32(length))
 		}
 		return r.skipValues(count, false, depth)
 	case 0xde, 0xdf:
-		var count int
+		var count int64
 		if marker == 0xde {
 			length, readErr := r.readBytes(2, "map16 length")
 			if readErr != nil {
 				return readErr
 			}
-			count = int(binary.BigEndian.Uint16(length))
+			count = int64(binary.BigEndian.Uint16(length))
 		} else {
 			length, readErr := r.readBytes(4, "map32 length")
 			if readErr != nil {
 				return readErr
 			}
-			count, readErr = simpleEditDataLengthToInt(binary.BigEndian.Uint32(length), "map32")
-			if readErr != nil {
-				return readErr
-			}
+			count = int64(binary.BigEndian.Uint32(length))
 		}
 		return r.skipValues(count, true, depth)
 	default:
@@ -767,7 +729,7 @@ func (r *simpleEditDataReader) skipValue(depth int) error {
 	return err
 }
 
-func (r *simpleEditDataReader) skipValues(count int, isMap bool, depth int) error {
+func (r *simpleEditDataReader) skipValues(count int64, isMap bool, depth int64) error {
 	values := count
 	if isMap {
 		if count > r.remaining()/2 {
@@ -777,7 +739,7 @@ func (r *simpleEditDataReader) skipValues(count int, isMap bool, depth int) erro
 	} else if count > r.remaining() {
 		return fmt.Errorf("MessagePack array count %d exceeds %d remaining bytes", count, r.remaining())
 	}
-	for i := 0; i < values; i++ {
+	for i := int64(0); i < values; i++ {
 		if err := r.skipValue(depth + 1); err != nil {
 			return fmt.Errorf("element %d: %w", i, err)
 		}
@@ -785,7 +747,7 @@ func (r *simpleEditDataReader) skipValues(count int, isMap bool, depth int) erro
 	return nil
 }
 
-func simpleEditDataAppendArrayHeader(dst []byte, length int) []byte {
+func simpleEditDataAppendArrayHeader(dst []byte, length int64) []byte {
 	switch {
 	case length <= 15:
 		return append(dst, 0x90|byte(length))
@@ -798,7 +760,7 @@ func simpleEditDataAppendArrayHeader(dst []byte, length int) []byte {
 	}
 }
 
-func simpleEditDataAppendMapHeader(dst []byte, length int) []byte {
+func simpleEditDataAppendMapHeader(dst []byte, length int64) []byte {
 	switch {
 	case length <= 15:
 		return append(dst, 0x80|byte(length))
@@ -827,7 +789,7 @@ func simpleEditDataAppendString(dst []byte, value string) []byte {
 	return append(dst, value...)
 }
 
-func simpleEditDataAppendInt32(dst []byte, value int) []byte {
+func simpleEditDataAppendInt32(dst []byte, value int32) []byte {
 	switch {
 	case value >= 0 && value <= 0x7f:
 		return append(dst, byte(value))

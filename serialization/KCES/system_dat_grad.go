@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
-	"sort"
+	"slices"
 )
 
 // system.dat 内 EditData/GradSv{n} 虚拟文件的渐变点 MessagePack 布局。
@@ -24,22 +24,22 @@ const (
 // contract and are preserved.
 type GradPointsData struct {
 	MessagePackRootMetadata
-	GradPointParam        []map[int]int `json:"gradPointParam"`
-	ControlPointPosValue  []float32     `json:"controlPointPosValue"`
-	GradaPointPosRates    []float32     `json:"gradaPointPosRates"`
-	EditMPN               int           `json:"editMpn"`
-	PointRangeAfterRates  []float32     `json:"pointRangeAfterRates"`
-	PointRangeBeforeRates []float32     `json:"pointRangeBeforeRates"`
-	IsSave                int           `json:"isSave"`
-	FieldCount            *int          `json:"fieldCount,omitempty"`
-	FutureSlots           [][]byte      `json:"futureSlots,omitempty"`
+	GradPointParam        []map[int32]int32 `json:"gradPointParam"`
+	ControlPointPosValue  []float32         `json:"controlPointPosValue"`
+	GradaPointPosRates    []float32         `json:"gradaPointPosRates"`
+	EditMPN               int32             `json:"editMpn"`
+	PointRangeAfterRates  []float32         `json:"pointRangeAfterRates"`
+	PointRangeBeforeRates []float32         `json:"pointRangeBeforeRates"`
+	IsSave                int32             `json:"isSave"`
+	FieldCount            *int32            `json:"fieldCount,omitempty"`
+	FutureSlots           [][]byte          `json:"futureSlots,omitempty"`
 }
 
 // NewGradPointsData explicitly returns the current game's field-initializer
 // defaults for callers creating a new object.
 func NewGradPointsData() *GradPointsData {
 	return &GradPointsData{
-		GradPointParam:        []map[int]int{},
+		GradPointParam:        []map[int32]int32{},
 		ControlPointPosValue:  []float32{},
 		GradaPointPosRates:    []float32{},
 		PointRangeAfterRates:  []float32{},
@@ -74,14 +74,14 @@ func DecodeGradPointsData(data []byte) (*GradPointsData, error) {
 
 	value := &GradPointsData{}
 	if fieldCount != 7 {
-		storedFieldCount := fieldCount
+		storedFieldCount := int32(fieldCount)
 		value.FieldCount = &storedFieldCount
 	}
 	if fieldCount > 7 {
 		value.FutureSlots = makeKCESCountedSliceForAppend[[]byte](uint64(fieldCount - 7))
 	}
 	knownFields := min(fieldCount, 7)
-	for field := 0; field < knownFields; field++ {
+	for field := int64(0); field < knownFields; field++ {
 		switch field {
 		case 0:
 			value.GradPointParam, err = reader.readColorMapList("gradPointParam")
@@ -102,7 +102,7 @@ func DecodeGradPointsData(data []byte) (*GradPointsData, error) {
 			return nil, err
 		}
 	}
-	for field := 7; field < fieldCount; field++ {
+	for field := int64(7); field < fieldCount; field++ {
 		start := reader.pos
 		if err := reader.skipValue(0); err != nil {
 			return nil, fmt.Errorf("GradPointsData future field[%d]: %w", field, err)
@@ -174,18 +174,18 @@ func EncodeGradPointsData(value *GradPointsData) ([]byte, error) {
 		if value.GradPointParam == nil {
 			out = append(out, 0xc0)
 		} else {
-			out = appendGradPointsArrayHeader(out, len(value.GradPointParam))
+			out = appendGradPointsArrayHeader(out, int64(len(value.GradPointParam)))
 			for _, color := range value.GradPointParam {
 				if color == nil {
 					out = append(out, 0xc0)
 					continue
 				}
-				out = appendGradPointsMapHeader(out, len(color))
-				keys := make([]int, 0, len(color))
+				out = appendGradPointsMapHeader(out, int64(len(color)))
+				keys := make([]int32, 0, len(color))
 				for key := range color {
 					keys = append(keys, key)
 				}
-				sort.Ints(keys)
+				slices.Sort(keys)
 				for _, key := range keys {
 					out = appendGradPointsInt32(out, key)
 					out = appendGradPointsInt32(out, color[key])
@@ -223,13 +223,13 @@ func validateGradPointsData(value *GradPointsData) error {
 	}
 	lists := []struct {
 		name   string
-		length int
+		length int64
 	}{
-		{name: "gradPointParam", length: len(value.GradPointParam)},
-		{name: "controlPointPosValue", length: len(value.ControlPointPosValue)},
-		{name: "gradaPointPosRates", length: len(value.GradaPointPosRates)},
-		{name: "pointRangeAfterRates", length: len(value.PointRangeAfterRates)},
-		{name: "pointRangeBeforeRates", length: len(value.PointRangeBeforeRates)},
+		{name: "gradPointParam", length: int64(len(value.GradPointParam))},
+		{name: "controlPointPosValue", length: int64(len(value.ControlPointPosValue))},
+		{name: "gradaPointPosRates", length: int64(len(value.GradaPointPosRates))},
+		{name: "pointRangeAfterRates", length: int64(len(value.PointRangeAfterRates))},
+		{name: "pointRangeBeforeRates", length: int64(len(value.PointRangeBeforeRates))},
 	}
 	for _, list := range lists {
 		if uint64(list.length) > math.MaxUint32 {
@@ -244,31 +244,18 @@ func validateGradPointsData(value *GradPointsData) error {
 		if uint64(len(color)) > math.MaxUint32 {
 			return fmt.Errorf("gradPointParam[%d] map length %d exceeds the MessagePack map32 limit", index, len(color))
 		}
-		for key, entry := range color {
-			if err := requireInt32(fmt.Sprintf("gradPointParam[%d] key", index), key); err != nil {
-				return err
-			}
-			if err := requireInt32(fmt.Sprintf("gradPointParam[%d][%d]", index, key), entry); err != nil {
-				return err
-			}
-		}
 	}
-	if err := requireInt32("editMpn", value.EditMPN); err != nil {
-		return err
-	}
-	if err := requireInt32("isSave", value.IsSave); err != nil {
-		return err
-	}
+
 	return nil
 }
 
 type gradPointsMessagePackReader struct {
 	data []byte
-	pos  int
+	pos  int64
 }
 
 func (r *gradPointsMessagePackReader) tryReadNil() bool {
-	if r.pos < len(r.data) && r.data[r.pos] == 0xc0 {
+	if r.pos < int64(len(r.data)) && r.data[r.pos] == 0xc0 {
 		r.pos++
 		return true
 	}
@@ -276,7 +263,7 @@ func (r *gradPointsMessagePackReader) tryReadNil() bool {
 }
 
 func (r *gradPointsMessagePackReader) readByte(context string) (byte, error) {
-	if r.pos >= len(r.data) {
+	if r.pos >= int64(len(r.data)) {
 		return 0, fmt.Errorf("%s is truncated at byte %d", context, r.pos)
 	}
 	value := r.data[r.pos]
@@ -284,16 +271,16 @@ func (r *gradPointsMessagePackReader) readByte(context string) (byte, error) {
 	return value, nil
 }
 
-func (r *gradPointsMessagePackReader) readBytes(length int, context string) ([]byte, error) {
-	if length < 0 || length > len(r.data)-r.pos {
-		return nil, fmt.Errorf("%s is truncated at byte %d: need %d bytes, have %d", context, r.pos, length, len(r.data)-r.pos)
+func (r *gradPointsMessagePackReader) readBytes(length int64, context string) ([]byte, error) {
+	if length < 0 || length > int64(len(r.data))-r.pos {
+		return nil, fmt.Errorf("%s is truncated at byte %d: need %d bytes, have %d", context, r.pos, length, int64(len(r.data))-r.pos)
 	}
 	value := r.data[r.pos : r.pos+length]
 	r.pos += length
 	return value, nil
 }
 
-func (r *gradPointsMessagePackReader) readArrayLength(context string) (int, error) {
+func (r *gradPointsMessagePackReader) readArrayLength(context string) (int64, error) {
 	code, err := r.readByte(context + " array header")
 	if err != nil {
 		return 0, err
@@ -321,13 +308,13 @@ func (r *gradPointsMessagePackReader) readArrayLength(context string) (int, erro
 	}
 	// Every MessagePack value consumes at least one byte. This catches a huge
 	// declared collection before allocating.
-	if count > uint64(len(r.data)-r.pos) {
-		return 0, fmt.Errorf("%s array is truncated: declares %d values with only %d bytes remaining", context, count, len(r.data)-r.pos)
+	if count > uint64(int64(len(r.data))-r.pos) {
+		return 0, fmt.Errorf("%s array is truncated: declares %d values with only %d bytes remaining", context, count, int64(len(r.data))-r.pos)
 	}
-	return simpleEditDataLengthToInt(uint32(count), context+" array")
+	return int64(count), nil
 }
 
-func (r *gradPointsMessagePackReader) readMapLength(context string) (int, error) {
+func (r *gradPointsMessagePackReader) readMapLength(context string) (int64, error) {
 	code, err := r.readByte(context + " map header")
 	if err != nil {
 		return 0, err
@@ -353,13 +340,13 @@ func (r *gradPointsMessagePackReader) readMapLength(context string) (int, error)
 	default:
 		return 0, fmt.Errorf("%s must be a MessagePack map, got marker 0x%02x", context, code)
 	}
-	if count*2 > uint64(len(r.data)-r.pos) {
-		return 0, fmt.Errorf("%s map is truncated: declares %d entries with only %d bytes remaining", context, count, len(r.data)-r.pos)
+	if count*2 > uint64(int64(len(r.data))-r.pos) {
+		return 0, fmt.Errorf("%s map is truncated: declares %d entries with only %d bytes remaining", context, count, int64(len(r.data))-r.pos)
 	}
-	return simpleEditDataLengthToInt(uint32(count), context+" map")
+	return int64(count), nil
 }
 
-func (r *gradPointsMessagePackReader) readColorMapList(context string) ([]map[int]int, error) {
+func (r *gradPointsMessagePackReader) readColorMapList(context string) ([]map[int32]int32, error) {
 	if r.tryReadNil() {
 		return nil, nil
 	}
@@ -367,8 +354,8 @@ func (r *gradPointsMessagePackReader) readColorMapList(context string) ([]map[in
 	if err != nil {
 		return nil, err
 	}
-	values := makeKCESCountedSliceForAppend[map[int]int](uint64(count))
-	for index := 0; index < count; index++ {
+	values := makeKCESCountedSliceForAppend[map[int32]int32](uint64(count))
+	for index := int64(0); index < count; index++ {
 		entryContext := fmt.Sprintf("%s[%d]", context, index)
 		if r.tryReadNil() {
 			values = append(values, nil)
@@ -378,8 +365,8 @@ func (r *gradPointsMessagePackReader) readColorMapList(context string) ([]map[in
 		if err != nil {
 			return nil, err
 		}
-		entry := makeKCESCountedMap[int, int](uint64(entryCount))
-		for pair := 0; pair < entryCount; pair++ {
+		entry := makeKCESCountedMap[int32, int32](uint64(entryCount))
+		for pair := int64(0); pair < entryCount; pair++ {
 			key, err := r.readInt32(fmt.Sprintf("%s key[%d]", entryContext, pair))
 			if err != nil {
 				return nil, err
@@ -407,7 +394,7 @@ func (r *gradPointsMessagePackReader) readFloat32List(context string) ([]float32
 		return nil, err
 	}
 	values := makeKCESCountedSliceForAppend[float32](uint64(count))
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		value, err := r.readSingle(fmt.Sprintf("%s[%d]", context, index))
 		if err != nil {
 			return nil, err
@@ -498,16 +485,16 @@ func (r *gradPointsMessagePackReader) readSingle(context string) (float32, error
 	}
 }
 
-func (r *gradPointsMessagePackReader) readInt32(context string) (int, error) {
+func (r *gradPointsMessagePackReader) readInt32(context string) (int32, error) {
 	code, err := r.readByte(context + " Int32")
 	if err != nil {
 		return 0, err
 	}
 	if code <= 0x7f {
-		return int(code), nil
+		return int32(code), nil
 	}
 	if code >= 0xe0 {
-		return int(int8(code)), nil
+		return int32(int8(code)), nil
 	}
 
 	var signed int64
@@ -569,15 +556,15 @@ func (r *gradPointsMessagePackReader) readInt32(context string) (int, error) {
 		if unsigned > uint64(math.MaxInt32) {
 			return 0, fmt.Errorf("%s unsigned value %d is outside the Int32 range [%d,%d]", context, unsigned, int64(math.MinInt32), int64(math.MaxInt32))
 		}
-		return int(unsigned), nil
+		return int32(unsigned), nil
 	}
 	if signed < math.MinInt32 || signed > math.MaxInt32 {
 		return 0, fmt.Errorf("%s signed value %d is outside the Int32 range [%d,%d]", context, signed, int64(math.MinInt32), int64(math.MaxInt32))
 	}
-	return int(signed), nil
+	return int32(signed), nil
 }
 
-func (r *gradPointsMessagePackReader) skipValue(depth int) error {
+func (r *gradPointsMessagePackReader) skipValue(depth int64) error {
 	if depth >= maxGradPointsMessagePackDepth {
 		return fmt.Errorf("MessagePack nesting exceeds safety limit %d", maxGradPointsMessagePackDepth)
 	}
@@ -589,12 +576,12 @@ func (r *gradPointsMessagePackReader) skipValue(depth int) error {
 	case code <= 0x7f || code >= 0xe0:
 		return nil
 	case code >= 0xa0 && code <= 0xbf:
-		_, err = r.readBytes(int(code&0x1f), "fixstr payload")
+		_, err = r.readBytes(int64(code&0x1f), "fixstr payload")
 		return err
 	case code >= 0x90 && code <= 0x9f:
-		return r.skipValues(int(code&0x0f), depth+1)
+		return r.skipValues(int64(code&0x0f), depth+1)
 	case code >= 0x80 && code <= 0x8f:
-		return r.skipValues(int(code&0x0f)*2, depth+1)
+		return r.skipValues(int64(code&0x0f)*2, depth+1)
 	}
 
 	switch code {
@@ -624,7 +611,7 @@ func (r *gradPointsMessagePackReader) skipValue(depth int) error {
 		_, err = r.readBytes(length, "MessagePack payload")
 		return err
 	case 0xc7, 0xc8, 0xc9:
-		width := map[byte]int{0xc7: 1, 0xc8: 2, 0xc9: 4}[code]
+		width := map[byte]int64{0xc7: 1, 0xc8: 2, 0xc9: 4}[code]
 		length, err := r.readUnsignedLength(width, "extension length")
 		if err != nil {
 			return err
@@ -644,24 +631,21 @@ func (r *gradPointsMessagePackReader) skipValue(depth int) error {
 		_, err = r.readBytes(2, "two-byte MessagePack scalar")
 		return err
 	case 0xd4, 0xd5, 0xd6, 0xd7, 0xd8:
-		length := map[byte]int{0xd4: 1, 0xd5: 2, 0xd6: 4, 0xd7: 8, 0xd8: 16}[code]
+		length := map[byte]int64{0xd4: 1, 0xd5: 2, 0xd6: 4, 0xd7: 8, 0xd8: 16}[code]
 		_, err = r.readBytes(length+1, "fixed extension type and payload")
 		return err
 	case 0xdc, 0xdd:
-		width := map[byte]int{0xdc: 2, 0xdd: 4}[code]
+		width := map[byte]int64{0xdc: 2, 0xdd: 4}[code]
 		count, err := r.readUnsignedLength(width, "array length")
 		if err != nil {
 			return err
 		}
 		return r.skipValues(count, depth+1)
 	case 0xde, 0xdf:
-		width := map[byte]int{0xde: 2, 0xdf: 4}[code]
+		width := map[byte]int64{0xde: 2, 0xdf: 4}[code]
 		count, err := r.readUnsignedLength(width, "map length")
 		if err != nil {
 			return err
-		}
-		if count > math.MaxInt/2 {
-			return fmt.Errorf("future map length %d overflows host int", count)
 		}
 		return r.skipValues(count*2, depth+1)
 	default:
@@ -669,11 +653,11 @@ func (r *gradPointsMessagePackReader) skipValue(depth int) error {
 	}
 }
 
-func (r *gradPointsMessagePackReader) skipValues(count, depth int) error {
-	if count > len(r.data)-r.pos {
-		return fmt.Errorf("MessagePack collection is truncated: declares %d values with only %d bytes remaining", count, len(r.data)-r.pos)
+func (r *gradPointsMessagePackReader) skipValues(count, depth int64) error {
+	if count > int64(len(r.data))-r.pos {
+		return fmt.Errorf("MessagePack collection is truncated: declares %d values with only %d bytes remaining", count, int64(len(r.data))-r.pos)
 	}
-	for index := 0; index < count; index++ {
+	for index := int64(0); index < count; index++ {
 		if err := r.skipValue(depth); err != nil {
 			return fmt.Errorf("value[%d]: %w", index, err)
 		}
@@ -681,7 +665,7 @@ func (r *gradPointsMessagePackReader) skipValues(count, depth int) error {
 	return nil
 }
 
-func (r *gradPointsMessagePackReader) readUnsignedLength(width int, context string) (int, error) {
+func (r *gradPointsMessagePackReader) readUnsignedLength(width int64, context string) (int64, error) {
 	bytes, err := r.readBytes(width, context)
 	if err != nil {
 		return 0, err
@@ -697,17 +681,14 @@ func (r *gradPointsMessagePackReader) readUnsignedLength(width int, context stri
 	default:
 		return 0, fmt.Errorf("internal invalid MessagePack length width %d", width)
 	}
-	if value > uint64(math.MaxInt) {
-		return 0, fmt.Errorf("%s %d exceeds host int", context, value)
-	}
-	return int(value), nil
+	return int64(value), nil
 }
 
 func appendGradPointsFloat32List(out []byte, values []float32) []byte {
 	if values == nil {
 		return append(out, 0xc0)
 	}
-	out = appendGradPointsArrayHeader(out, len(values))
+	out = appendGradPointsArrayHeader(out, int64(len(values)))
 	for _, value := range values {
 		out = append(out, 0xca)
 		var bytes [4]byte
@@ -717,7 +698,7 @@ func appendGradPointsFloat32List(out []byte, values []float32) []byte {
 	return out
 }
 
-func appendGradPointsArrayHeader(out []byte, length int) []byte {
+func appendGradPointsArrayHeader(out []byte, length int64) []byte {
 	switch {
 	case length <= 15:
 		return append(out, 0x90|byte(length))
@@ -732,7 +713,7 @@ func appendGradPointsArrayHeader(out []byte, length int) []byte {
 	}
 }
 
-func appendGradPointsMapHeader(out []byte, length int) []byte {
+func appendGradPointsMapHeader(out []byte, length int64) []byte {
 	switch {
 	case length <= 15:
 		return append(out, 0x80|byte(length))
@@ -747,7 +728,7 @@ func appendGradPointsMapHeader(out []byte, length int) []byte {
 	}
 }
 
-func appendGradPointsInt32(out []byte, value int) []byte {
+func appendGradPointsInt32(out []byte, value int32) []byte {
 	switch {
 	case value >= 0 && value <= 0x7f:
 		return append(out, byte(value))

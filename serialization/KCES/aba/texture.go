@@ -33,10 +33,10 @@ const (
 // Texture2DData 是导出所需的 Unity Texture2D 有用字段子集 / Texture2DData is the useful subset of Unity Texture2D needed for export
 type Texture2DData struct {
 	Name          string        // 贴图名称 / Texture name
-	Width         int           // 贴图宽度 / Texture width
-	Height        int           // 贴图高度 / Texture height
+	Width         int32         // 贴图宽度 / Texture width
+	Height        int32         // 贴图高度 / Texture height
 	TextureFormat int32         // Unity TextureFormat 枚举值 / Unity TextureFormat enum value
-	MipCount      int           // mipmap 层数 / Mipmap count
+	MipCount      int32         // mipmap 层数 / Mipmap count
 	ImageData     []byte        // 原始编码图像数据 / Raw encoded image data
 	StreamData    StreamingInfo // 外部流式数据引用 / External streamed data reference
 }
@@ -115,10 +115,10 @@ func (af *AssetsFile) GetTexture2DDataRange(info *AssetInfo, resolver AbaFileRan
 
 	tex := &Texture2DData{
 		Name:          name,
-		Width:         int(width),
-		Height:        int(height),
+		Width:         int32(width),
+		Height:        int32(height),
 		TextureFormat: int32(format),
-		MipCount:      int(mipCount),
+		MipCount:      int32(mipCount),
 	}
 
 	if imageData, ok := root.Field("image data").Bytes(); ok {
@@ -319,14 +319,14 @@ func makeDDS(tex *Texture2DData) []byte {
 		return tex.ImageData
 	}
 	if requiresDX10DDS(tex.TextureFormat) {
-		header := createDX10DDSHeader(tex.Width, tex.Height, tex.TextureFormat, tex.MipCount, len(tex.ImageData))
+		header := createDX10DDSHeader(tex.Width, tex.Height, tex.TextureFormat, tex.MipCount, int64(len(tex.ImageData)))
 		return append(header, tex.ImageData...)
 	}
-	header := createLegacyDDSHeader(tex.Width, tex.Height, tex.TextureFormat, tex.MipCount, len(tex.ImageData))
+	header := createLegacyDDSHeader(tex.Width, tex.Height, tex.TextureFormat, tex.MipCount, int64(len(tex.ImageData)))
 	return append(header, tex.ImageData...)
 }
 
-func createLegacyDDSHeader(width, height int, format int32, mipCount int, dataLen int) []byte {
+func createLegacyDDSHeader(width, height int32, format int32, mipCount int32, dataLen int64) []byte {
 	if mipCount <= 0 {
 		mipCount = 1
 	}
@@ -364,7 +364,7 @@ func createLegacyDDSHeader(width, height int, format int32, mipCount int, dataLe
 	return buf
 }
 
-func createDX10DDSHeader(width, height int, format int32, mipCount int, dataLen int) []byte {
+func createDX10DDSHeader(width, height int32, format int32, mipCount int32, dataLen int64) []byte {
 	if mipCount <= 0 {
 		mipCount = 1
 	}

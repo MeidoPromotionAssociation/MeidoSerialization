@@ -97,7 +97,7 @@ func (af *AssetsFile) GetTextAssetData(info *AssetInfo) (name string, script []b
 	if err != nil {
 		return name, nil, fmt.Errorf("read m_Script length failed: %w", err)
 	}
-	if scriptLen < 0 || int(scriptLen) > r.Remaining() {
+	if scriptLen < 0 || int64(scriptLen) > int64(r.Remaining()) {
 		return name, nil, fmt.Errorf("invalid m_Script length: %d", scriptLen)
 	}
 	script = make([]byte, scriptLen)
@@ -197,11 +197,11 @@ func (tt *TypeTreeType) GetTypeTreeString(node *TypeTreeNode, isType bool) strin
 	}
 
 	// 否则从 StringBuffer 中读取
-	if int(offset) >= len(tt.StringBuffer) {
+	if int64(offset) >= int64(len(tt.StringBuffer)) {
 		return ""
 	}
-	end := int(offset)
-	for end < len(tt.StringBuffer) && tt.StringBuffer[end] != 0 {
+	end := int64(offset)
+	for end < int64(len(tt.StringBuffer)) && tt.StringBuffer[end] != 0 {
 		end++
 	}
 	return string(tt.StringBuffer[offset:end])
@@ -215,15 +215,15 @@ func getBuiltinString(offset uint32) string {
 const commonStringTable = "AABB\x00AnimationClip\x00AnimationCurve\x00AnimationState\x00Array\x00Base\x00BitField\x00bitset\x00bool\x00char\x00ColorRGBA\x00Component\x00data\x00deque\x00double\x00dynamic_array\x00FastPropertyName\x00first\x00float\x00Font\x00GameObject\x00Generic Mono\x00GradientNEW\x00GUID\x00GUIStyle\x00int\x00list\x00long long\x00map\x00Matrix4x4f\x00MdFour\x00MonoBehaviour\x00MonoScript\x00m_ByteSize\x00m_Curve\x00m_EditorClassIdentifier\x00m_EditorHideFlags\x00m_Enabled\x00m_ExtensionPtr\x00m_GameObject\x00m_Index\x00m_IsArray\x00m_IsStatic\x00m_MetaFlag\x00m_Name\x00m_ObjectHideFlags\x00m_PrefabInternal\x00m_PrefabParentObject\x00m_Script\x00m_StaticEditorFlags\x00m_Type\x00m_Version\x00Object\x00pair\x00PPtr<Component>\x00PPtr<GameObject>\x00PPtr<Material>\x00PPtr<MonoBehaviour>\x00PPtr<MonoScript>\x00PPtr<Object>\x00PPtr<Prefab>\x00PPtr<Sprite>\x00PPtr<TextAsset>\x00PPtr<Texture>\x00PPtr<Texture2D>\x00PPtr<Transform>\x00Prefab\x00Quaternionf\x00Rectf\x00RectInt\x00RectOffset\x00second\x00set\x00short\x00size\x00SInt16\x00SInt32\x00SInt64\x00SInt8\x00staticvector\x00string\x00TextAsset\x00TextMesh\x00Texture\x00Texture2D\x00Transform\x00TypelessData\x00UInt16\x00UInt32\x00UInt64\x00UInt8\x00unsigned int\x00unsigned long long\x00unsigned short\x00vector\x00Vector2f\x00Vector3f\x00Vector4f\x00m_ScriptingClassIdentifier\x00Gradient\x00Type*\x00int2_storage\x00int3_storage\x00BoundsInt\x00m_CorrespondingSourceObject\x00m_PrefabInstance\x00m_PrefabAsset\x00FileSize\x00Hash128\x00RenderingLayerMask\x00"
 
 func readCommonString(table string, offset uint32) string {
-	if int(offset) >= len(table) {
+	if int64(offset) >= int64(len(table)) {
 		return fmt.Sprintf("Unknown_%d", offset)
 	}
-	end := int(offset)
-	for end < len(table) && table[end] != 0 {
+	end := int64(offset)
+	for end < int64(len(table)) && table[end] != 0 {
 		end++
 	}
-	if end <= int(offset) {
+	if end <= int64(offset) {
 		return ""
 	}
-	return strings.TrimSuffix(table[int(offset):end], "\x00")
+	return strings.TrimSuffix(table[int64(offset):end], "\x00")
 }

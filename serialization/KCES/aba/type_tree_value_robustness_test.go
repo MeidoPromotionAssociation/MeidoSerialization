@@ -119,7 +119,7 @@ func TestTypeTreeRealSampleConsumptionProfile(t *testing.T) {
 			if !dir.IsSerialized() {
 				continue
 			}
-			data, err := abaFile.GetFileData(dirIndex)
+			data, err := abaFile.GetFileData(int64(dirIndex))
 			if err != nil {
 				t.Fatalf("GetFileData(%s:%s): %v", filePath, dir.Name, err)
 			}
@@ -142,7 +142,7 @@ func TestTypeTreeRealSampleConsumptionProfile(t *testing.T) {
 				if err != nil {
 					t.Fatalf("readTypeTreeValue(%s:%s PathID=%d ClassID=%d): %v", filePath, dir.Name, info.PathId, info.TypeId, err)
 				}
-				if next != len(tt.Nodes) {
+				if next != int64(len(tt.Nodes)) {
 					t.Fatalf("readTypeTreeValue(%s:%s PathID=%d) stopped at node %d/%d", filePath, dir.Name, info.PathId, next, len(tt.Nodes))
 				}
 				if r.Pos() > len(objectData) {

@@ -152,9 +152,9 @@ func assertColliderPackageSampleFields(t *testing.T, name string, pkg *ColliderP
 		if ref.Type != ColliderTypeMaidProp || maidProp.Version != 1001 {
 			t.Fatalf("%s maidProp metadata got type=%d version=%d, want stored 3/1001", name, ref.Type, maidProp.Version)
 		}
-		assertIntSliceEqual(t, name+" centerMpnList", maidProp.CenterMpnList, []int{7})
-		assertIntSliceEqual(t, name+" startRadiusMpnList", maidProp.StartRadiusMpnList, []int{7})
-		assertIntSliceEqual(t, name+" endRadiusMpnList", maidProp.EndRadiusMpnList, []int{7})
+		assertIntSliceEqual(t, name+" centerMpnList", maidProp.CenterMpnList, []int32{7})
+		assertIntSliceEqual(t, name+" startRadiusMpnList", maidProp.StartRadiusMpnList, []int32{7})
+		assertIntSliceEqual(t, name+" endRadiusMpnList", maidProp.EndRadiusMpnList, []int32{7})
 		return
 	}
 	t.Fatalf("%s did not contain a MaidProp collider", name)
@@ -183,15 +183,15 @@ func assertLimbColliderSampleFields(t *testing.T, name string, pkg *LimbCollider
 		if !ok {
 			t.Fatalf("%s target 4 collider got %T, want MaidProp", name, item.Collider)
 		}
-		assertIntSliceEqual(t, name+" target4 centerMpnList", maidProp.CenterMpnList, []int{})
-		assertIntSliceEqual(t, name+" target4 startRadiusMpnList", maidProp.StartRadiusMpnList, []int{40, 41})
-		assertIntSliceEqual(t, name+" target4 endRadiusMpnList", maidProp.EndRadiusMpnList, []int{42, 43})
+		assertIntSliceEqual(t, name+" target4 centerMpnList", maidProp.CenterMpnList, []int32{})
+		assertIntSliceEqual(t, name+" target4 startRadiusMpnList", maidProp.StartRadiusMpnList, []int32{40, 41})
+		assertIntSliceEqual(t, name+" target4 endRadiusMpnList", maidProp.EndRadiusMpnList, []int32{42, 43})
 		return
 	}
 	t.Fatalf("%s did not contain target 4 limb collider", name)
 }
 
-func assertIntSliceEqual(t *testing.T, name string, got, want []int) {
+func assertIntSliceEqual(t *testing.T, name string, got, want []int32) {
 	t.Helper()
 	if len(got) != len(want) {
 		t.Fatalf("%s got %v, want %v", name, got, want)

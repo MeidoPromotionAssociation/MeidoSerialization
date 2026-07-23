@@ -123,7 +123,7 @@ func TestColorPresetOrderListVersionPreservationAndIndexedCompatibility(t *testi
 			0xd6, 0x01, 0, 0, 0, 7,
 		}
 		decoded := colorPresetOrderListDecodeRaw(t, raw)
-		fieldCount := 4
+		fieldCount := int32(4)
 		want := &ColorPresetOrderList{
 			Version:     1100,
 			IDOrderList: []*string{colorPresetOrderString("x")},

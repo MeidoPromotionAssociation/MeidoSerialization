@@ -14,8 +14,8 @@ import (
 )
 
 func TestSystemDataServiceJSONRoundTripAndFileType(t *testing.T) {
-	colors := make(map[int]int, 9)
-	for i := 0; i <= 8; i++ {
+	colors := make(map[int32]int32, 9)
+	for i := int32(0); i <= 8; i++ {
 		colors[i] = i * 10
 	}
 	presetID := "service-color-preset"
@@ -32,7 +32,7 @@ func TestSystemDataServiceJSONRoundTripAndFileType(t *testing.T) {
 	colorPreset.IsAdvancedMode = true
 	colorPreset.ColorPackList = []*serializationKCES.ColorPresetColorPack{{
 		Version:            serializationKCES.ColorPresetPackVersion,
-		MPNs:               []int{158},
+		MPNs:               []int32{158},
 		LayerName:          &layerName,
 		ViewName:           &viewName,
 		Type:               serializationKCES.ColorPresetPackColorAndAlpha,

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -134,9 +133,7 @@ func (s *FileTypeService) TryFileTypeDetermine(path string) (info COM3D2Service.
 		info.StorageFormat = COM3D2Service.FormatBinary
 		info.Game = COM3D2Service.GameKCES
 		info.Signature = kcesVirtualDirectorySignature
-		if versionErr := assignKCESVersion(&info, table.Version); versionErr != nil {
-			return info, true, versionErr
-		}
+		assignKCESVersion(&info, table.Version)
 		_, hasBridgeSessionData := table.Files["session_data"]
 		_, hasBridgeSessionID := table.Files["session_id"]
 		if IsKCESBridgeSessionFile(path) || hasBridgeSessionData || hasBridgeSessionID {
@@ -221,9 +218,7 @@ func (s *FileTypeService) TryFileTypeDetermine(path string) (info COM3D2Service.
 		info.Game = COM3D2Service.GameKCES
 		info.Signature = kcesMessagePackSignature
 		if version := kcesPartsVersion(value); version != 0 {
-			if versionErr := assignKCESVersion(&info, version); versionErr != nil {
-				return info, true, versionErr
-			}
+			assignKCESVersion(&info, version)
 		}
 		return info, true, nil
 	}
@@ -246,9 +241,7 @@ func (s *FileTypeService) TryFileTypeDetermine(path string) (info COM3D2Service.
 			info.Signature = kcesMessagePackSignature
 		}
 		if version := kcesPayloadVersion(envelope); version != 0 {
-			if versionErr := assignKCESVersion(&info, version); versionErr != nil {
-				return info, true, versionErr
-			}
+			assignKCESVersion(&info, version)
 		}
 		return info, true, nil
 	}
@@ -416,9 +409,7 @@ func probeKCESJSON(path string, data []byte, info COM3D2Service.FileInfo) (COM3D
 		info.StorageFormat = COM3D2Service.FormatJSON
 		info.Game = COM3D2Service.GameKCES
 		info.Signature = serializationKCES.KCESBridgeSessionFormat
-		if err := assignKCESVersion(&info, value.ContainerVersion); err != nil {
-			return info, true, err
-		}
+		assignKCESVersion(&info, value.ContainerVersion)
 		return info, true, nil
 	}
 
@@ -468,8 +459,8 @@ func probeKCESJSON(path string, data []byte, info COM3D2Service.FileInfo) (COM3D
 	var header struct {
 		Format           string `json:"format"`
 		Extension        string `json:"extension"`
-		Version          int    `json:"version"`
-		ContainerVersion int    `json:"containerVersion"`
+		Version          int32  `json:"version"`
+		ContainerVersion int32  `json:"containerVersion"`
 	}
 	if err := json.Unmarshal(data, &header); err != nil {
 		return info, false, nil
@@ -478,9 +469,7 @@ func probeKCESJSON(path string, data []byte, info COM3D2Service.FileInfo) (COM3D
 	info.StorageFormat = COM3D2Service.FormatJSON
 	info.Game = COM3D2Service.GameKCES
 	if header.Version != 0 {
-		if err := assignKCESVersion(&info, header.Version); err != nil {
-			return info, true, err
-		}
+		assignKCESVersion(&info, header.Version)
 	}
 
 	switch header.Format {
@@ -491,9 +480,7 @@ func probeKCESJSON(path string, data []byte, info COM3D2Service.FileInfo) (COM3D
 		}
 		info.FileType = "bridge_session"
 		info.Signature = serializationKCES.KCESBridgeSessionFormat
-		if err := assignKCESVersion(&info, value.ContainerVersion); err != nil {
-			return info, true, err
-		}
+		assignKCESVersion(&info, value.ContainerVersion)
 		return info, true, nil
 	case serializationKCES.KCESGP03BridgeFormat:
 		value, err := decodeGP03BridgeEditingJSON(data)
@@ -541,9 +528,7 @@ func probeKCESJSON(path string, data []byte, info COM3D2Service.FileInfo) (COM3D
 		}
 		info.FileType = "system"
 		info.Signature = serializationKCES.KCESSystemDataFormat
-		if err := assignKCESVersion(&info, value.Version); err != nil {
-			return info, true, err
-		}
+		assignKCESVersion(&info, value.Version)
 		return info, true, nil
 	case CtEnvelopeFormat:
 		var envelope CtEnvelope
@@ -559,9 +544,7 @@ func probeKCESJSON(path string, data []byte, info COM3D2Service.FileInfo) (COM3D
 		}
 		info.FileType = "ct"
 		info.Signature = CtEnvelopeFormat
-		if err := assignKCESVersion(&info, envelope.Version); err != nil {
-			return info, true, err
-		}
+		assignKCESVersion(&info, envelope.Version)
 		return info, true, nil
 	case serializationKCES.KCESPresetFormat:
 		var preset serializationKCES.KCESPreset
@@ -573,9 +556,7 @@ func probeKCESJSON(path string, data []byte, info COM3D2Service.FileInfo) (COM3D
 		}
 		info.FileType = "preset"
 		info.Signature = serializationKCES.KCESPresetFormat
-		if err := assignKCESVersion(&info, preset.ContainerVersion); err != nil {
-			return info, true, err
-		}
+		assignKCESVersion(&info, preset.ContainerVersion)
 		return info, true, nil
 	case serializationKCES.PayloadFormatKCESMessagePack, serializationKCES.PayloadFormatKCESExportCM:
 		var envelope serializationKCES.KCESPayloadEnvelope
@@ -595,9 +576,7 @@ func probeKCESJSON(path string, data []byte, info COM3D2Service.FileInfo) (COM3D
 		info.FileType = strings.TrimPrefix(payloadExt, ".")
 		info.Signature = envelope.Format
 		if version := kcesPayloadVersion(&envelope); version != 0 {
-			if err := assignKCESVersion(&info, version); err != nil {
-				return info, true, err
-			}
+			assignKCESVersion(&info, version)
 		}
 		return info, true, nil
 	case serializationKCES.MaidColliderFormat:
@@ -683,9 +662,7 @@ func probeKCESOnlyEditingJSONByPath(path string, data []byte, info COM3D2Service
 		info.StorageFormat = COM3D2Service.FormatJSON
 		info.Game = COM3D2Service.GameKCES
 		info.Signature = serializationKCES.KCESSystemDataFormat
-		if err := assignKCESVersion(&info, value.Version); err != nil {
-			return info, true, err
-		}
+		assignKCESVersion(&info, value.Version)
 		return info, true, nil
 	}
 
@@ -710,9 +687,7 @@ func probeKCESOnlyEditingJSONByPath(path string, data []byte, info COM3D2Service
 		info.Game = COM3D2Service.GameKCES
 		info.Signature = envelope.Format
 		if version := kcesPayloadVersion(envelope); version != 0 {
-			if err := assignKCESVersion(&info, version); err != nil {
-				return info, true, err
-			}
+			assignKCESVersion(&info, version)
 		}
 		return info, true, nil
 	}
@@ -791,9 +766,7 @@ func probeKCESOnlyEditingJSONByPath(path string, data []byte, info COM3D2Service
 		info.StorageFormat = COM3D2Service.FormatJSON
 		info.Game = COM3D2Service.GameKCES
 		info.Signature = CtEnvelopeFormat
-		if err := assignKCESVersion(&info, envelope.Version); err != nil {
-			return info, true, err
-		}
+		assignKCESVersion(&info, envelope.Version)
 		return info, true, nil
 	}
 
@@ -839,7 +812,7 @@ func decodeKCESPartsForProbe(ext string, data []byte) (interface{}, error) {
 	}
 }
 
-func kcesPartsVersion(value interface{}) int {
+func kcesPartsVersion(value interface{}) int32 {
 	switch value := value.(type) {
 	case *serializationKCES.Model:
 		return value.Version
@@ -859,7 +832,7 @@ func kcesPartsVersion(value interface{}) int {
 	return 0
 }
 
-func kcesPayloadVersion(envelope *serializationKCES.KCESPayloadEnvelope) int {
+func kcesPayloadVersion(envelope *serializationKCES.KCESPayloadEnvelope) int32 {
 	if envelope == nil {
 		return 0
 	}
@@ -878,12 +851,10 @@ func kcesPayloadVersion(envelope *serializationKCES.KCESPayloadEnvelope) int {
 	return 0
 }
 
-func assignKCESVersion(info *COM3D2Service.FileInfo, version int) error {
-	if version < math.MinInt32 || version > math.MaxInt32 {
-		return fmt.Errorf("KCES version %d is outside the CLR Int32 range", version)
-	}
-	info.Version = int32(version)
-	return nil
+// assignKCESVersion 将已类型化的 KCES Int32 版本写入通用文件信息。
+// assignKCESVersion assigns an already typed KCES Int32 version to common file information.
+func assignKCESVersion(info *COM3D2Service.FileInfo, version int32) {
+	info.Version = version
 }
 
 func hasSavedAttachWireSignature(header []byte) bool {

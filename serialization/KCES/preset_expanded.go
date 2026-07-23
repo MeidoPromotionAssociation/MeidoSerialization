@@ -17,12 +17,12 @@ import (
 // surrounding wire can still be written with its original versions.
 type ExpandedKCESPreset struct {
 	Format                  string                                 `json:"format"`
-	ContainerVersion        int                                    `json:"containerVersion"`
+	ContainerVersion        int32                                  `json:"containerVersion"`
 	ContainerVersionless    bool                                   `json:"containerVersionless,omitempty"`
 	ContainerFilesOnly      bool                                   `json:"containerFilesOnly,omitempty"`
 	ContainerDirectoriesNil bool                                   `json:"containerDirectoriesNil,omitempty"`
 	ContainerFilesNil       bool                                   `json:"containerFilesNil,omitempty"`
-	ContainerFieldCount     *int                                   `json:"containerFieldCount,omitempty"`
+	ContainerFieldCount     *int32                                 `json:"containerFieldCount,omitempty"`
 	ContainerFutureSlots    [][]byte                               `json:"containerFutureSlots,omitempty"`
 	ContainerDirectories    map[string]ct.VirtualDirectoryMetadata `json:"containerDirectories,omitempty"`
 	ContainerVirtualFiles   map[string]ct.VirtualFileMetadata      `json:"containerVirtualFiles,omitempty"`
@@ -36,7 +36,7 @@ type ExpandedKCESPreset struct {
 // bodyData decoded into their respective BinaryWriter structures.
 type ExpandedKCESPresetCore struct {
 	*IndexedObjectMetadata
-	Version      int                     `json:"version"`
+	Version      int32                   `json:"version"`
 	PropData     *KCESPresetPropertyList `json:"propData"`
 	ColorData    *KCESPresetColorData    `json:"colorData"`
 	BodyData     *KCESPresetBodyData     `json:"bodyData"`

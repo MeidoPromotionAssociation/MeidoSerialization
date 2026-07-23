@@ -98,7 +98,9 @@
     "CollidersCount": {
       "maximum": 2147483647,
       "minimum": -2147483648,
-      "type": "integer"
+      "type": "integer",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true
     },
     "Damping": {
       "description": "The global damping scalar before optional curve or partial-bone overrides.",
@@ -155,27 +157,37 @@
     "EnablePartialDamping": {
       "maximum": 2147483647,
       "minimum": -2147483648,
-      "type": "integer"
+      "type": "integer",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true
     },
     "EnablePartialElasticity": {
       "maximum": 2147483647,
       "minimum": -2147483648,
-      "type": "integer"
+      "type": "integer",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true
     },
     "EnablePartialInert": {
       "maximum": 2147483647,
       "minimum": -2147483648,
-      "type": "integer"
+      "type": "integer",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true
     },
     "EnablePartialRadius": {
       "maximum": 2147483647,
       "minimum": -2147483648,
-      "type": "integer"
+      "type": "integer",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true
     },
     "EnablePartialStiffness": {
       "maximum": 2147483647,
       "minimum": -2147483648,
-      "type": "integer"
+      "type": "integer",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true
     },
     "EndLength": {
       "description": "The length of a generated terminal particle when the chain has no child.",
@@ -213,7 +225,9 @@
     "ExclusionsCount": {
       "maximum": 2147483647,
       "minimum": -2147483648,
-      "type": "integer"
+      "type": "integer",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true
     },
     "Force": {
       "description": "A constant force added to particle integration.",
@@ -253,6 +267,8 @@
       "x-meido-edit-guidance": "Use only 0..3 and remember that the axes are local to each parent transform.",
       "x-meido-edit-role": "runtime_enum",
       "x-meido-game-usage": "The solver supports None=0, X=1, Y=2, and Z=3 in the parent-bone local frame.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
       "x-meido-risk": "high",
       "x-meido-source-evidence": [
         {
@@ -469,6 +485,8 @@
       "x-meido-edit-guidance": "Preserve an existing value; use the target game's value for new files.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "The game writes 24800 in the reviewed build; older files may contain another build number.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
       "x-meido-risk": "high",
       "x-meido-source-evidence": [
         {

@@ -30,7 +30,7 @@ func TestGetAssetEntries(t *testing.T) {
 				if !dir.IsSerialized() {
 					continue
 				}
-				data, err := abaFile.GetFileData(i)
+				data, err := abaFile.GetFileData(int64(i))
 				if err != nil {
 					continue
 				}

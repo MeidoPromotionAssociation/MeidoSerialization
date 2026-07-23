@@ -2,6 +2,7 @@ package schemagen
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"reflect"
 	"strings"
@@ -56,6 +57,61 @@ func buildReflectSchema(root reflect.Type) (*jsonschema.Schema, map[string]*json
 	builder := newReflectSchemaBuilder()
 	value := builder.schema(root, true)
 	return value, builder.defs
+}
+
+// validateFixedWidthIntegerTypes 验证一个 Schema 类型图只使用固定宽度整数，并覆盖生成器登记的联合类型分支。
+// validateFixedWidthIntegerTypes verifies that a schema type graph uses only fixed-width integers, including registered union variants.
+func validateFixedWidthIntegerTypes(root reflect.Type) error {
+	builder := newReflectSchemaBuilder()
+	visited := make(map[reflect.Type]bool)
+	var visit func(reflect.Type, string) error
+	visit = func(typ reflect.Type, path string) error {
+		for typ.Kind() == reflect.Pointer {
+			typ = typ.Elem()
+		}
+		if typ == reflect.TypeOf(json.RawMessage(nil)) || builder.bytes[typ] || visited[typ] {
+			return nil
+		}
+		visited[typ] = true
+
+		switch typ.Kind() {
+		case reflect.Int, reflect.Uint, reflect.Uintptr:
+			return fmt.Errorf("%s uses architecture-dependent %s", path, typ.Kind())
+		}
+		if variants, ok := builder.unions[typ]; ok {
+			for _, variant := range variants {
+				if err := visit(variant, path+"<"+variant.Name()+">"); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+
+		switch typ.Kind() {
+		case reflect.Map:
+			if err := visit(typ.Key(), path+"{key}"); err != nil {
+				return err
+			}
+			return visit(typ.Elem(), path+"{value}")
+		case reflect.Slice, reflect.Array:
+			return visit(typ.Elem(), path+"[]")
+		case reflect.Struct:
+			for _, field := range reflect.VisibleFields(typ) {
+				if len(field.Index) > 1 || field.PkgPath != "" {
+					continue
+				}
+				_, _, omit := jsonField(field)
+				if omit {
+					continue
+				}
+				if err := visit(field.Type, path+"."+field.Name); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	return visit(root, root.String())
 }
 
 func (builder *reflectSchemaBuilder) schema(typ reflect.Type, root bool) *jsonschema.Schema {
@@ -253,7 +309,7 @@ func customizeColliderRefSchema(schema *jsonschema.Schema, builder *reflectSchem
 	// Keeping them as independent properties lets a capsule object validate as
 	// a plane and would silently discard its capsule-only fields on decode.
 	type branchSpec struct {
-		tag     int
+		tag     int32
 		variant reflect.Type
 	}
 	branches := []branchSpec{
@@ -265,10 +321,12 @@ func customizeColliderRefSchema(schema *jsonschema.Schema, builder *reflectSchem
 	result := make([]*jsonschema.Schema, 0, len(branches)+1)
 	for _, branch := range branches {
 		collider := builder.schema(branch.variant, false)
+		typeSchema := integerSchema(32, true)
+		typeSchema.Const = anyPtr(branch.tag)
 		result = append(result, &jsonschema.Schema{
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
-				"type":     {Type: "integer", Const: anyPtr(branch.tag)},
+				"type":     typeSchema,
 				"collider": {AnyOf: []*jsonschema.Schema{{Type: "null"}, collider}},
 			},
 			Required: []string{"type", "collider"},
@@ -280,7 +338,7 @@ func customizeColliderRefSchema(schema *jsonschema.Schema, builder *reflectSchem
 	result = append(result, &jsonschema.Schema{
 		Type: "object",
 		Properties: map[string]*jsonschema.Schema{
-			"type":        {Type: "integer"},
+			"type":        integerSchema(32, true),
 			"collider":    {Type: "null"},
 			"colliderRaw": {Type: "string", ContentEncoding: "base64"},
 		},
@@ -386,13 +444,11 @@ func integerSchema(bits int, signed bool) *jsonschema.Schema {
 			value.Maximum = floatPtr(math.MaxUint32)
 		}
 	}
-	if bits >= 64 {
-		if value.Extra == nil {
-			value.Extra = make(map[string]any)
-		}
-		value.Extra["x-meido-integer-bits"] = bits
-		value.Extra["x-meido-integer-signed"] = signed
+	if value.Extra == nil {
+		value.Extra = make(map[string]any)
 	}
+	value.Extra["x-meido-integer-bits"] = bits
+	value.Extra["x-meido-integer-signed"] = signed
 	return value
 }
 

@@ -184,7 +184,7 @@ func TestMoveablePanelSaveDataDecoderMatchesGameVector3Tolerance(t *testing.T) {
 		vec            []byte
 		encodedVec     []byte
 		want           Vector3
-		wantFieldCount int
+		wantFieldCount int32
 		wantFuture     int
 	}{
 		{
@@ -303,8 +303,8 @@ func TestMoveablePanelSaveDataDecoderMatchesIndexedObjectTolerance(t *testing.T)
 			if len(got.MoveablePanelPosition) != 0 || len(got.MoveablePanelActiveState) != 0 {
 				t.Fatalf("unexpected entries: %#v", got)
 			}
-			wantFieldCount := int(tt.wire[0] & 0x0f)
-			if got.FieldCount == nil || *got.FieldCount != wantFieldCount || len(got.FutureSlots) != max(0, wantFieldCount-2) {
+			wantFieldCount := int32(tt.wire[0] & 0x0f)
+			if got.FieldCount == nil || *got.FieldCount != wantFieldCount || len(got.FutureSlots) != max(0, int(wantFieldCount)-2) {
 				t.Fatalf("indexed-object shape was not retained: %#v", got)
 			}
 			reencoded, err := EncodeMoveablePanelSaveData(got)

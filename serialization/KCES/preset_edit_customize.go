@@ -33,7 +33,7 @@ type KCESPresetEditColorPreset struct {
 type KCESPresetEditBaseData struct {
 	MessagePackRootMetadata
 	*IndexedObjectMetadata
-	Version     int                        `json:"version"`
+	Version     int32                      `json:"version"`
 	ColorPreset *KCESPresetEditColorPreset `json:"colorPreset"`
 	Flags       map[string]string          `json:"flags"`
 }
@@ -43,7 +43,7 @@ type KCESPresetEditBaseData struct {
 type KCESPresetEditUnitData struct {
 	MessagePackRootMetadata
 	*IndexedObjectMetadata
-	Version      int     `json:"version"`
+	Version      int32   `json:"version"`
 	PositionX    float32 `json:"positionX"`
 	PositionY    float32 `json:"positionY"`
 	WarpointName *string `json:"warpointName"`
@@ -59,7 +59,7 @@ type kcesPresetEditColorPresetWire struct {
 type kcesPresetEditBaseDataWire struct {
 	_struct                struct{} `codec:",toarray"`
 	*IndexedObjectMetadata `codec:"-"`
-	Version                int                            `json:"-"`
+	Version                int32                          `json:"-"`
 	ColorPreset            *kcesPresetEditColorPresetWire `json:"-"`
 	Flags                  map[string]string              `json:"-"`
 }
@@ -67,7 +67,7 @@ type kcesPresetEditBaseDataWire struct {
 type kcesPresetEditUnitDataWire struct {
 	_struct                struct{} `codec:",toarray"`
 	*IndexedObjectMetadata `codec:"-"`
-	Version                int     `json:"-"`
+	Version                int32   `json:"-"`
 	PositionX              float32 `json:"-"`
 	PositionY              float32 `json:"-"`
 	WarpointName           *string `json:"-"`
@@ -109,9 +109,6 @@ func DecodeKCESPresetEditBaseData(data []byte) (*KCESPresetEditBaseData, error) 
 	if err := decodeKCESPresetEditWire(root, &wire, "EditCustomizeData.BaseData"); err != nil {
 		return nil, err
 	}
-	if err := requireInt32("EditCustomizeData.BaseData.version", wire.Version); err != nil {
-		return nil, err
-	}
 	value := &KCESPresetEditBaseData{
 		MessagePackRootMetadata: MessagePackRootMetadata{TrailingData: trailing},
 		IndexedObjectMetadata:   wire.IndexedObjectMetadata,
@@ -137,9 +134,6 @@ func EncodeKCESPresetEditBaseData(value *KCESPresetEditBaseData) ([]byte, error)
 		"EditCustomizeData.BaseData",
 	); handled {
 		return out, err
-	}
-	if err := requireInt32("EditCustomizeData.BaseData.version", value.Version); err != nil {
-		return nil, err
 	}
 	wire := kcesPresetEditBaseDataWire{
 		IndexedObjectMetadata: value.IndexedObjectMetadata,
@@ -172,9 +166,6 @@ func DecodeKCESPresetEditUnitData(data []byte) (*KCESPresetEditUnitData, error) 
 	if err := decodeKCESPresetEditWire(root, &wire, "EditCustomizeData.UnitData"); err != nil {
 		return nil, err
 	}
-	if err := requireInt32("EditCustomizeData.UnitData.version", wire.Version); err != nil {
-		return nil, err
-	}
 	return &KCESPresetEditUnitData{
 		MessagePackRootMetadata: MessagePackRootMetadata{TrailingData: trailing},
 		IndexedObjectMetadata:   wire.IndexedObjectMetadata,
@@ -195,9 +186,6 @@ func EncodeKCESPresetEditUnitData(value *KCESPresetEditUnitData) ([]byte, error)
 		"EditCustomizeData.UnitData",
 	); handled {
 		return out, err
-	}
-	if err := requireInt32("EditCustomizeData.UnitData.version", value.Version); err != nil {
-		return nil, err
 	}
 	wire := kcesPresetEditUnitDataWire{
 		IndexedObjectMetadata: value.IndexedObjectMetadata,
@@ -277,7 +265,7 @@ func decodeKCESPresetEditWire(root []byte, out interface{}, name string) error {
 	if err != nil {
 		return fmt.Errorf("decode %s MessagePack: %w", name, err)
 	}
-	if consumed != len(root) {
+	if consumed != int64(len(root)) {
 		return fmt.Errorf("decode %s consumed %d of %d root bytes", name, consumed, len(root))
 	}
 	return nil

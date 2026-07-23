@@ -234,7 +234,9 @@
                   "Count": {
                     "maximum": 2147483647,
                     "minimum": -2147483648,
-                    "type": "integer"
+                    "type": "integer",
+                    "x-meido-integer-bits": 32,
+                    "x-meido-integer-signed": true
                   },
                   "Keywords": {
                     "items": {
@@ -423,6 +425,8 @@
       "x-meido-edit-guidance": "Preserve the source value unless targeting a known compiler version.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "The loader reads it to keep the stream aligned; property compatibility is selected by the property records and game build.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
       "x-meido-risk": "high",
       "x-meido-source-evidence": [
         {

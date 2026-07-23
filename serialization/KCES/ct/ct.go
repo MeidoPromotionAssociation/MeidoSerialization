@@ -55,12 +55,12 @@ const (
 // .ct 文件是 KCES 游戏的资源目录容器，内部存储 catalog、ExtensionNameList 等虚拟文件 / A .ct file is a KCES resource catalog container storing virtual files such as catalog and ExtensionNameList
 // 游戏通过 CatalogUtility.FromCatalog<T> 读取 .ct 中的 "catalog" 文件获取资源索引 / The game reads the "catalog" virtual file through CatalogUtility.FromCatalog<T> to obtain resource indexes
 type ContentTable struct {
-	Version        int                                 `json:"Version"`                  // Stored root VirtualDirectory version; zero is preserved / 保存的根 VirtualDirectory 版本；零值原样保留
+	Version        int32                               `json:"Version"`                  // Stored root VirtualDirectory version; zero is preserved / 保存的根 VirtualDirectory 版本；零值原样保留
 	Versionless    bool                                `json:"Versionless,omitempty"`    // Historical root [directories, files] form with no version slot / 历史根无版本 [目录, 文件] 形式
 	FilesOnly      bool                                `json:"FilesOnly,omitempty"`      // Historical root [version, files] form / 历史根 [版本, 文件] 形式
 	DirectoriesNil bool                                `json:"DirectoriesNil,omitempty"` // Root allDirectorys was MessagePack nil / 根 allDirectorys 为 MessagePack nil
 	FilesNil       bool                                `json:"FilesNil,omitempty"`       // Root allFiles was MessagePack nil / 根 allFiles 为 MessagePack nil
-	FieldCount     *int                                `json:"FieldCount,omitempty"`     // Non-canonical root indexed-array width / 非标准根 indexed-array 槽数
+	FieldCount     *int32                              `json:"FieldCount,omitempty"`     // Non-canonical root indexed-array width / 非标准根 indexed-array 槽数
 	FutureSlots    [][]byte                            `json:"FutureSlots,omitempty"`    // Verbatim root MessagePack values after known slots / 根已知槽后的原始 MessagePack 值
 	Directories    map[string]VirtualDirectoryMetadata `json:"Directories,omitempty"`    // Metadata for every child directory path, including empty directories / 每个子目录路径的元数据（含空目录）
 	Files          map[string]VirtualFile              `json:"Files"`                    // 虚拟文件表，key 为文件名，value 为位置和大小 / Virtual file table keyed by file name with position and size values
@@ -73,12 +73,12 @@ type ContentTable struct {
 // ContentTable.Directories. A missing entry denotes a newly-created directory
 // and inherits the root layout; every decoded directory receives an entry.
 type VirtualDirectoryMetadata struct {
-	Version        int      `json:"Version"`
+	Version        int32    `json:"Version"`
 	Versionless    bool     `json:"Versionless,omitempty"`
 	FilesOnly      bool     `json:"FilesOnly,omitempty"`
 	DirectoriesNil bool     `json:"DirectoriesNil,omitempty"`
 	FilesNil       bool     `json:"FilesNil,omitempty"`
-	FieldCount     *int     `json:"FieldCount,omitempty"`
+	FieldCount     *int32   `json:"FieldCount,omitempty"`
 	FutureSlots    [][]byte `json:"FutureSlots,omitempty"`
 }
 
@@ -86,8 +86,8 @@ type VirtualDirectoryMetadata struct {
 // 对应 C# VirtualFile 的 MessagePack indexed array: [Key(0)=position, Key(1)=size] / Matches the C# VirtualFile MessagePack indexed array [Key(0)=position, Key(1)=size]
 type VirtualFile struct {
 	Position    int64    `json:"Position"`              // 文件数据在 .ct 文件中的绝对字节偏移，从文件开头计算且包含 header / Absolute byte offset of file data inside the .ct file, counted from file start including header
-	Size        int      `json:"Size"`                  // 文件数据的字节大小 / File data size in bytes
-	FieldCount  *int     `json:"FieldCount,omitempty"`  // Non-canonical indexed-array width / 非标准 indexed-array 槽数
+	Size        int32    `json:"Size"`                  // 文件数据的字节大小 / File data size in bytes
+	FieldCount  *int32   `json:"FieldCount,omitempty"`  // Non-canonical indexed-array width / 非标准 indexed-array 槽数
 	FutureSlots [][]byte `json:"FutureSlots,omitempty"` // Verbatim MessagePack values after position and size / position、size 后的原始 MessagePack 值
 }
 
@@ -95,7 +95,7 @@ type VirtualFile struct {
 // indexed-object shape. Semantic wrappers use it when they rebuild payload
 // offsets but still need to retain short arrays and future slots.
 type VirtualFileMetadata struct {
-	FieldCount  *int     `json:"FieldCount,omitempty"`
+	FieldCount  *int32   `json:"FieldCount,omitempty"`
 	FutureSlots [][]byte `json:"FutureSlots,omitempty"`
 }
 
@@ -121,12 +121,12 @@ func ReadContentTable(r io.Reader) (*ContentTable, error) {
 		return nil, fmt.Errorf("unsupported serialize type: 0x%02x (only MessagePack 0x%02x supported)", data[7], SerializeTypeMsgPack)
 	}
 
-	msgpackSize := int(binary.LittleEndian.Uint32(data[len(data)-footerSizeLen:]))
-	if msgpackSize <= 0 || msgpackSize > len(data)-HeaderSize-footerSizeLen {
+	msgpackSize := int64(binary.LittleEndian.Uint32(data[len(data)-footerSizeLen:]))
+	if msgpackSize <= 0 || msgpackSize > int64(len(data)-HeaderSize-footerSizeLen) {
 		return nil, fmt.Errorf("invalid msgpack size: %d (file size: %d)", msgpackSize, len(data))
 	}
 
-	msgpackStart := len(data) - footerSizeLen - msgpackSize
+	msgpackStart := int64(len(data)-footerSizeLen) - msgpackSize
 	msgpackData := data[msgpackStart : len(data)-footerSizeLen]
 
 	decompressed, err := DecompressLz4BlockArray(msgpackData)
@@ -174,9 +174,6 @@ func WriteContentTable(w io.Writer, ct *ContentTable) error {
 	canonicalNames := make(map[string]string, len(names))
 	for _, name := range names {
 		file := ct.Files[name]
-		if err := validateInt32Field(file.Size, fmt.Sprintf("virtual file %q size", name)); err != nil {
-			return err
-		}
 		canonicalName, err := canonicalVirtualPath(name)
 		if err != nil {
 			return fmt.Errorf("invalid virtual file name %q: %w", name, err)
@@ -195,9 +192,13 @@ func WriteContentTable(w io.Writer, ct *ContentTable) error {
 	updatedFiles := make(map[string]VirtualFile, len(ct.Files))
 	var offset int64 = HeaderSize
 	for _, entry := range entries {
+		fileSize, err := checkedVirtualFileSize(entry.name, int64(len(entry.data)))
+		if err != nil {
+			return err
+		}
 		updated := entry.file
 		updated.Position = offset
-		updated.Size = len(entry.data)
+		updated.Size = fileSize
 		// A zero-width historical VirtualFile has no position slot. Empty data
 		// does not need relocating, so retain its decoded zero value instead of
 		// manufacturing a position that the preserved shape cannot encode.
@@ -293,8 +294,12 @@ func NewContentTableFromDir(dirPath string) (*ContentTable, error) {
 		if err != nil {
 			return fmt.Errorf("read file %q failed: %w", relPath, err)
 		}
+		fileSize, err := checkedVirtualFileSize(relPath, int64(len(data)))
+		if err != nil {
+			return err
+		}
 
-		ct.Files[relPath] = VirtualFile{Position: offset, Size: len(data)}
+		ct.Files[relPath] = VirtualFile{Position: offset, Size: fileSize}
 		rawBuf = append(rawBuf, data...)
 		offset += int64(len(data))
 
@@ -330,8 +335,8 @@ func (ct *ContentTable) GetFileData(name string) ([]byte, error) {
 	if vf.Position < 0 || vf.Position > dataLen || vf.Size < 0 || int64(vf.Size) > dataLen-vf.Position {
 		return nil, fmt.Errorf("file %q out of bounds: position=%d size=%d in data of %d bytes", name, vf.Position, vf.Size, len(ct.Raw))
 	}
-	start := int(vf.Position)
-	end := start + vf.Size
+	start := vf.Position
+	end := start + int64(vf.Size)
 	return ct.Raw[start:end], nil
 }
 
@@ -482,9 +487,19 @@ func cloneRawByteSlots(values [][]byte) [][]byte {
 	return result
 }
 
-// AddFile 向 ContentTable 追加一个虚拟文件。
-// 数据会追加到 Raw 末尾，自动更新 Position 和 Size。
-func (ct *ContentTable) AddFile(name string, data []byte) {
+// AddFile 向 ContentTable 追加一个虚拟文件，并在修改内容前验证 C# Int32 文件大小限制。
+// 数据会追加到 Raw 末尾，Position 和 Size 会自动更新。
+//
+// AddFile appends a virtual file to a ContentTable and validates the C# Int32 file-size limit before mutation.
+// The data is appended to Raw, and Position and Size are updated automatically.
+func (ct *ContentTable) AddFile(name string, data []byte) error {
+	if ct == nil {
+		return fmt.Errorf("nil content table")
+	}
+	fileSize, err := checkedVirtualFileSize(name, int64(len(data)))
+	if err != nil {
+		return err
+	}
 	if ct.Files == nil {
 		ct.Files = make(map[string]VirtualFile)
 	}
@@ -499,7 +514,17 @@ func (ct *ContentTable) AddFile(name string, data []byte) {
 	}
 	position := int64(len(ct.Raw))
 	ct.Raw = append(ct.Raw, data...)
-	ct.Files[name] = VirtualFile{Position: position, Size: len(data)}
+	ct.Files[name] = VirtualFile{Position: position, Size: fileSize}
+	return nil
+}
+
+// checkedVirtualFileSize 将内存或文件系统长度安全窄化为游戏 VirtualFile 使用的 C# Int32。
+// checkedVirtualFileSize safely narrows an in-memory or filesystem length to the C# Int32 used by the game's VirtualFile.
+func checkedVirtualFileSize(name string, length int64) (int32, error) {
+	if length < 0 || length > math.MaxInt32 {
+		return 0, fmt.Errorf("virtual file %q size %d is outside the C# Int32 range", name, length)
+	}
+	return int32(length), nil
 }
 
 // DecodeMsgpackFile 提取虚拟文件并解码 MessagePack（自动处理 Lz4BlockArray 压缩）。
@@ -559,7 +584,7 @@ func (ct *ContentTable) extractDirectoryFilesRaw(arr []codec.Raw, prefix string)
 			return fmt.Errorf("VirtualDirectory %q: %w", prefix, err)
 		}
 		if isIntegerValue(first) {
-			version, ok := toInt(first)
+			version, ok := toInt32(first)
 			if !ok {
 				return fmt.Errorf("VirtualDirectory %q version is outside the Int32 range", prefix)
 			}
@@ -593,7 +618,10 @@ func (ct *ContentTable) extractDirectoryFilesRaw(arr []codec.Raw, prefix string)
 	}
 
 	if len(arr) != knownFieldCount {
-		fieldCount := len(arr)
+		fieldCount, err := checkedInt32Count(int64(len(arr)), fmt.Sprintf("VirtualDirectory %q field count", prefix))
+		if err != nil {
+			return err
+		}
 		metadata.FieldCount = &fieldCount
 	}
 	if len(arr) > knownFieldCount {
@@ -675,19 +703,19 @@ func decodeRawMsgpackArray(data []byte, label string) ([]codec.Raw, error) {
 	if len(data) == 0 {
 		return nil, fmt.Errorf("%s: empty MessagePack value", label)
 	}
-	pos := 0
+	pos := int64(0)
 	count, err := readArrayHeader(data, &pos)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", label, err)
 	}
-	if count > len(data)-pos {
-		return nil, fmt.Errorf("%s array length %d exceeds the capacity of %d remaining bytes", label, count, len(data)-pos)
+	if count > int64(len(data))-pos {
+		return nil, fmt.Errorf("%s array length %d exceeds the capacity of %d remaining bytes", label, count, int64(len(data))-pos)
 	}
 	var values []codec.Raw
 	if err := decodeSingleRawMsgpackValue(data, &values, label); err != nil {
 		return nil, err
 	}
-	if len(values) != count {
+	if int64(len(values)) != count {
 		return nil, fmt.Errorf("%s decoded %d fields, header declares %d", label, len(values), count)
 	}
 	return values, nil
@@ -708,14 +736,14 @@ func decodeVirtualDirectoryRawMap(data []byte, label string) (map[string]codec.R
 	if err != nil {
 		return nil, false, fmt.Errorf("%s: %w", label, err)
 	}
-	if count > (len(data)-headerSize)/2 {
-		return nil, false, fmt.Errorf("%s map length %d exceeds the capacity of %d remaining bytes", label, count, len(data)-headerSize)
+	if count > (int64(len(data))-headerSize)/2 {
+		return nil, false, fmt.Errorf("%s map length %d exceeds the capacity of %d remaining bytes", label, count, int64(len(data))-headerSize)
 	}
 	var generic map[interface{}]codec.Raw
 	if err := decodeSingleRawMsgpackValue(data, &generic, label); err != nil {
 		return nil, false, err
 	}
-	if len(generic) != count {
+	if int64(len(generic)) != count {
 		return nil, false, fmt.Errorf("%s contains duplicate string keys that the Go map model cannot preserve", label)
 	}
 	values := make(map[string]codec.Raw, len(generic))
@@ -729,33 +757,33 @@ func decodeVirtualDirectoryRawMap(data []byte, label string) (map[string]codec.R
 	return values, false, nil
 }
 
-func messagePackMapLength(data []byte) (int, error) {
+func messagePackMapLength(data []byte) (int64, error) {
 	if len(data) == 0 {
 		return 0, fmt.Errorf("empty MessagePack map value")
 	}
 	switch marker := data[0]; {
 	case marker >= 0x80 && marker <= 0x8f:
-		return int(marker & 0x0f), nil
+		return int64(marker & 0x0f), nil
 	case marker == 0xde:
 		if len(data) < 3 {
 			return 0, fmt.Errorf("truncated map16 header")
 		}
-		return int(binary.BigEndian.Uint16(data[1:3])), nil
+		return int64(binary.BigEndian.Uint16(data[1:3])), nil
 	case marker == 0xdf:
 		if len(data) < 5 {
 			return 0, fmt.Errorf("truncated map32 header")
 		}
 		count := uint64(binary.BigEndian.Uint32(data[1:5]))
-		if count > uint64(^uint(0)>>1) {
-			return 0, fmt.Errorf("map32 length %d exceeds platform int", count)
+		if count > uint64(csharpInt32Max) {
+			return 0, fmt.Errorf("map32 length %d exceeds the C# Int32 range", count)
 		}
-		return int(count), nil
+		return int64(count), nil
 	default:
 		return 0, fmt.Errorf("expected map or nil, got marker 0x%02x", marker)
 	}
 }
 
-func messagePackMapHeaderSize(data []byte) (int, error) {
+func messagePackMapHeaderSize(data []byte) (int64, error) {
 	if len(data) == 0 {
 		return 0, fmt.Errorf("empty MessagePack map value")
 	}
@@ -826,7 +854,10 @@ func decodeVirtualFileRaw(data []byte) (VirtualFile, error) {
 	}
 	file := VirtualFile{}
 	if len(fields) != 2 {
-		fieldCount := len(fields)
+		fieldCount, err := checkedInt32Count(int64(len(fields)), "VirtualFile field count")
+		if err != nil {
+			return VirtualFile{}, err
+		}
 		file.FieldCount = &fieldCount
 	}
 	if len(fields) >= 1 {
@@ -846,7 +877,7 @@ func decodeVirtualFileRaw(data []byte) (VirtualFile, error) {
 			return VirtualFile{}, err
 		}
 		var ok bool
-		file.Size, ok = toInt(size)
+		file.Size, ok = toInt32(size)
 		if !ok {
 			if isIntegerValue(size) {
 				return VirtualFile{}, fmt.Errorf("position/size: size is outside the Int32 range")
@@ -868,7 +899,7 @@ func decodeVirtualFile(val interface{}) (VirtualFile, error) {
 	}
 
 	pos, ok1 := toInt64(arr[0])
-	size, ok2 := toInt(arr[1])
+	size, ok2 := toInt32(arr[1])
 	if !ok1 {
 		return VirtualFile{}, fmt.Errorf("VirtualFile position/size: position expected Int64 integer, got %T", arr[0])
 	}
@@ -985,13 +1016,13 @@ func encodeVirtualDirNode(node *virtualDirNode, inherited VirtualDirectoryMetada
 		filesValue = nil
 	}
 
-	known := []interface{}{int64(metadata.Version), directoriesValue, filesValue}
+	known := []interface{}{metadata.Version, directoriesValue, filesValue}
 	if metadata.Versionless {
 		known = []interface{}{directoriesValue, filesValue}
 	} else if metadata.FilesOnly {
-		known = []interface{}{int64(metadata.Version), filesValue}
+		known = []interface{}{metadata.Version, filesValue}
 	}
-	fieldCount, err := resolveIndexedObjectFieldCount(metadata.FieldCount, len(known), metadata.FutureSlots, "VirtualDirectory "+label)
+	fieldCount, err := resolveIndexedObjectFieldCount(metadata.FieldCount, int64(len(known)), metadata.FutureSlots, "VirtualDirectory "+label)
 	if err != nil {
 		return nil, err
 	}
@@ -1017,14 +1048,8 @@ func encodeVirtualDirNode(node *virtualDirNode, inherited VirtualDirectoryMetada
 			return nil, fmt.Errorf("VirtualDirectory %q fieldCount %d would discard files", label, fieldCount)
 		}
 	}
-	if !metadata.Versionless && fieldCount >= 1 {
-		if err := validateInt32Field(metadata.Version, "VirtualDirectory "+label+" version"); err != nil {
-			return nil, err
-		}
-	}
-
 	result := make([]interface{}, 0, fieldCount)
-	for index := 0; index < fieldCount && index < len(known); index++ {
+	for index := int64(0); index < fieldCount && index < int64(len(known)); index++ {
 		result = append(result, known[index])
 	}
 	for _, raw := range metadata.FutureSlots {
@@ -1056,14 +1081,9 @@ func encodeVirtualFile(file VirtualFile, label string) ([]interface{}, error) {
 	if fieldCount < 2 && file.Size != 0 {
 		return nil, fmt.Errorf("%s fieldCount %d would discard size=%d", label, fieldCount, file.Size)
 	}
-	if fieldCount >= 2 {
-		if err := validateInt32Field(file.Size, label+" size"); err != nil {
-			return nil, err
-		}
-	}
-	known := []interface{}{file.Position, int64(file.Size)}
+	known := []interface{}{file.Position, file.Size}
 	result := make([]interface{}, 0, fieldCount)
-	for index := 0; index < fieldCount && index < len(known); index++ {
+	for index := int64(0); index < fieldCount && index < int64(len(known)); index++ {
 		result = append(result, known[index])
 	}
 	for _, raw := range file.FutureSlots {
@@ -1072,28 +1092,30 @@ func encodeVirtualFile(file VirtualFile, label string) ([]interface{}, error) {
 	return result, nil
 }
 
-func resolveIndexedObjectFieldCount(fieldCount *int, known int, futureSlots [][]byte, label string) (int, error) {
-	count64 := uint64(known)
-	if uint64(len(futureSlots)) > math.MaxUint32 {
-		return 0, fmt.Errorf("%s futureSlots length %d exceeds the MessagePack array32 limit", label, len(futureSlots))
+func resolveIndexedObjectFieldCount(fieldCount *int32, known int64, futureSlots [][]byte, label string) (int64, error) {
+	if known < 0 || known > math.MaxInt32 {
+		return 0, fmt.Errorf("%s known field count %d is outside the C# Int32 array-header range", label, known)
 	}
+	if int64(len(futureSlots)) > math.MaxInt32 {
+		return 0, fmt.Errorf("%s futureSlots length %d exceeds the C# Int32 array-header limit", label, len(futureSlots))
+	}
+	count := known
 	if fieldCount != nil {
-		if *fieldCount < 0 || uint64(*fieldCount) > math.MaxUint32 {
-			return 0, fmt.Errorf("%s fieldCount %d is outside the MessagePack array32 range", label, *fieldCount)
+		if *fieldCount < 0 {
+			return 0, fmt.Errorf("%s fieldCount %d is outside the C# Int32 array-header range", label, *fieldCount)
 		}
-		count64 = uint64(*fieldCount)
+		count = int64(*fieldCount)
 	} else if len(futureSlots) != 0 {
-		count64 += uint64(len(futureSlots))
+		count += int64(len(futureSlots))
 	}
-	if count64 > math.MaxUint32 {
-		return 0, fmt.Errorf("%s fieldCount %d exceeds the MessagePack array32 limit", label, count64)
+	if count > math.MaxInt32 {
+		return 0, fmt.Errorf("%s fieldCount %d exceeds the C# Int32 array-header limit", label, count)
 	}
-	count := int(count64)
-	expectedFuture := 0
+	expectedFuture := int64(0)
 	if count > known {
 		expectedFuture = count - known
 	}
-	if len(futureSlots) != expectedFuture {
+	if int64(len(futureSlots)) != expectedFuture {
 		return 0, fmt.Errorf("%s fieldCount %d requires %d futureSlots, got %d", label, count, expectedFuture, len(futureSlots))
 	}
 	for index, raw := range futureSlots {
@@ -1199,48 +1221,40 @@ func strictStringMap(v interface{}) (map[string]interface{}, error) {
 }
 
 const (
-	csharpInt32Min = int64(-1 << 31)
-	csharpInt32Max = int64(1<<31 - 1)
+	csharpInt32Min int64 = -1 << 31
+	csharpInt32Max int64 = 1<<31 - 1
 )
 
-// toInt converts a MessagePack integer to the wire width used by C# int.
-// It intentionally enforces Int32 even when Go is running on a 64-bit host.
-func toInt(v interface{}) (int, bool) {
+// checkedInt32Count 将内部 Int64 集合长度安全窄化为 C# 集合 API 使用的 Int32。
+// checkedInt32Count safely narrows an internal Int64 collection length to the Int32 used by C# collection APIs.
+func checkedInt32Count(count int64, label string) (int32, error) {
+	if count < 0 || count > csharpInt32Max {
+		return 0, fmt.Errorf("%s %d is outside the C# Int32 range [0,%d]", label, count, csharpInt32Max)
+	}
+	return int32(count), nil
+}
+
+// toInt32 将 MessagePack 整数转换为 C# int 使用的 wire 宽度，并始终执行 Int32 范围校验。
+// toInt32 converts a MessagePack integer to the wire width used by C# int and always enforces the Int32 range.
+func toInt32(v interface{}) (int32, bool) {
 	switch n := v.(type) {
 	case int64:
 		if n < csharpInt32Min || n > csharpInt32Max {
 			return 0, false
 		}
-		return int(n), true
+		return int32(n), true
 	case uint64:
 		if n > uint64(csharpInt32Max) {
 			return 0, false
 		}
-		return int(n), true
-	case int:
-		if int64(n) < csharpInt32Min || int64(n) > csharpInt32Max {
-			return 0, false
-		}
-		return n, true
-	case uint:
-		if uint64(n) > uint64(csharpInt32Max) {
-			return 0, false
-		}
-		return int(n), true
+		return int32(n), true
 	}
 	return 0, false
 }
 
-func validateInt32Field(value int, name string) error {
-	if int64(value) < csharpInt32Min || int64(value) > csharpInt32Max {
-		return fmt.Errorf("%s %d is outside the Int32 range", name, value)
-	}
-	return nil
-}
-
 func isIntegerValue(value interface{}) bool {
 	switch value.(type) {
-	case int64, uint64, int, uint:
+	case int64, uint64:
 		return true
 	default:
 		return false
@@ -1256,20 +1270,13 @@ func toInt64(v interface{}) (int64, bool) {
 			return 0, false
 		}
 		return int64(n), true
-	case int:
-		return int64(n), true
-	case uint:
-		if uint64(n) > uint64(^uint64(0)>>1) {
-			return 0, false
-		}
-		return int64(n), true
 	}
 	return 0, false
 }
 
-func lenOf(v interface{}) int {
+func lenOf(v interface{}) int64 {
 	if arr, ok := v.([]interface{}); ok {
-		return len(arr)
+		return int64(len(arr))
 	}
 	return -1
 }

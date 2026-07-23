@@ -142,7 +142,7 @@ func readMaidColliderSamplesFromSystemABA(t *testing.T) map[string][]byte {
 		if !directory.IsSerialized() {
 			continue
 		}
-		data, err := abaFile.GetFileData(directoryIndex)
+		data, err := abaFile.GetFileData(int64(directoryIndex))
 		if err != nil {
 			t.Fatalf("GetFileData(%s): %v", directory.Name, err)
 		}

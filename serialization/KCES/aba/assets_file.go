@@ -226,7 +226,7 @@ func ReadAssetsFile(data []byte) (*AssetsFile, error) {
 	// 3. 读取 Metadata
 	// Give the metadata parser a bounded slice. It can therefore never consume
 	// alignment padding or object bytes even if an inner count/string is forged.
-	metadata := data[int(metadataStart):int(metadataEnd)]
+	metadata := data[int64(metadataStart):int64(metadataEnd)]
 	if err := af.readMetadata(metadata, 0, order); err != nil {
 		return nil, fmt.Errorf("read metadata failed: %w", err)
 	}
@@ -258,7 +258,7 @@ func (af *AssetsFile) GetAssetData(info *AssetInfo) ([]byte, error) {
 		return nil, fmt.Errorf("asset data out of bounds: start=%d size=%d in %d bytes", start, size, len(af.Data))
 	}
 	end := start + size
-	return af.Data[int(start):int(end)], nil
+	return af.Data[int64(start):int64(end)], nil
 }
 
 // GetAssetsByType 返回指定类型 ID 的所有资源
@@ -282,9 +282,13 @@ func (af *AssetsFile) GetAssetInfoByPathID(pathID int64) *AssetInfo {
 	return nil
 }
 
-// readMetadata 读取元数据部分
-func (af *AssetsFile) readMetadata(data []byte, pos int, order binary.ByteOrder) error {
-	r := binaryio.NewEndianReaderAt(data, pos, order)
+// readMetadata 从已限定范围的字节切片中读取 Unity SerializedFile 元数据。
+// readMetadata reads Unity SerializedFile metadata from an already bounded byte slice.
+func (af *AssetsFile) readMetadata(data []byte, pos int64, order binary.ByteOrder) error {
+	if pos < 0 || pos > int64(len(data)) {
+		return fmt.Errorf("metadata position %d is outside %d bytes", pos, len(data))
+	}
+	r := binaryio.NewEndianReaderAt(data, int(pos), order)
 
 	// 1. UnityVersion (null-terminated)
 	ver, err := r.ReadNullString()
@@ -316,11 +320,11 @@ func (af *AssetsFile) readMetadata(data []byte, pos int, order binary.ByteOrder)
 	if err != nil {
 		return fmt.Errorf("read type count failed: %w", err)
 	}
-	if err := validateMetadataCount("type", typeCount, r.Remaining(), minimumSerializedTypeSize(af.Header.Version, af.Metadata.TypeTreeEnabled, false)); err != nil {
+	if err := validateMetadataCount("type", typeCount, int64(r.Remaining()), minimumSerializedTypeSize(af.Header.Version, af.Metadata.TypeTreeEnabled, false)); err != nil {
 		return err
 	}
-	af.Metadata.TypeTreeTypes = makeABACountedSliceForAppend[TypeTreeType](int(typeCount))
-	for i := 0; i < int(typeCount); i++ {
+	af.Metadata.TypeTreeTypes = makeABACountedSliceForAppend[TypeTreeType](int64(typeCount))
+	for i := int64(0); i < int64(typeCount); i++ {
 		var tt TypeTreeType
 		if err := af.readTypeTreeType(r, &tt, false); err != nil {
 			return fmt.Errorf("read type tree type[%d] failed: %w", i, err)
@@ -343,11 +347,11 @@ func (af *AssetsFile) readMetadata(data []byte, pos int, order binary.ByteOrder)
 	if err != nil {
 		return fmt.Errorf("read asset count failed: %w", err)
 	}
-	if err := validateMetadataCount("asset", assetCount, r.Remaining(), minimumAssetInfoSize(af.Header.Version, af.Metadata.BigIDEnabled != 0)); err != nil {
+	if err := validateMetadataCount("asset", assetCount, int64(r.Remaining()), minimumAssetInfoSize(af.Header.Version, af.Metadata.BigIDEnabled != 0)); err != nil {
 		return err
 	}
-	af.Metadata.AssetInfos = makeABACountedSliceForAppend[AssetInfo](int(assetCount))
-	for i := 0; i < int(assetCount); i++ {
+	af.Metadata.AssetInfos = makeABACountedSliceForAppend[AssetInfo](int64(assetCount))
+	for i := int64(0); i < int64(assetCount); i++ {
 		var info AssetInfo
 		if err := af.readAssetInfo(r, &info); err != nil {
 			return fmt.Errorf("read asset info[%d] failed: %w", i, err)
@@ -361,11 +365,11 @@ func (af *AssetsFile) readMetadata(data []byte, pos int, order binary.ByteOrder)
 	// script-count field; retain a narrowly-scoped fallback only for its exact
 	// zero-count shape so existing generated files remain readable.
 	tailPos := r.Pos()
-	tail, err := af.readMetadataTail(data, tailPos, order, true)
+	tail, err := af.readMetadataTail(data, int64(tailPos), order, true)
 	const legacyGoWriterTailSize = 4 + 4 + 1 // external count + ref count + empty UserInformation
 	if err != nil && af.Header.Version >= 17 && len(data)-tailPos == legacyGoWriterTailSize &&
 		order.Uint32(data[tailPos:tailPos+4]) == 0 && data[len(data)-1] == 0 {
-		legacyTail, legacyErr := af.readMetadataTail(data, tailPos, order, false)
+		legacyTail, legacyErr := af.readMetadataTail(data, int64(tailPos), order, false)
 		if legacyErr == nil {
 			tail = legacyTail
 			err = nil
@@ -390,9 +394,14 @@ type assetsMetadataTail struct {
 	TrailingData    []byte
 }
 
-func (af *AssetsFile) readMetadataTail(data []byte, pos int, order binary.ByteOrder, hasScriptTypeCount bool) (assetsMetadataTail, error) {
+// readMetadataTail 从已校验的位置读取 SerializedFile 元数据尾部。
+// readMetadataTail reads the SerializedFile metadata tail from a validated position.
+func (af *AssetsFile) readMetadataTail(data []byte, pos int64, order binary.ByteOrder, hasScriptTypeCount bool) (assetsMetadataTail, error) {
 	var tail assetsMetadataTail
-	r := binaryio.NewEndianReaderAt(data, pos, order)
+	if pos < 0 || pos > int64(len(data)) {
+		return tail, fmt.Errorf("metadata tail position %d is outside %d bytes", pos, len(data))
+	}
+	r := binaryio.NewEndianReaderAt(data, int(pos), order)
 	if hasScriptTypeCount {
 		scriptCount, err := r.ReadInt32()
 		if err != nil {
@@ -402,11 +411,11 @@ func (af *AssetsFile) readMetadataTail(data []byte, pos int, order binary.ByteOr
 		if af.Header.Version >= 14 {
 			entrySize = 12
 		}
-		if err := validateMetadataCount("script type", scriptCount, r.Remaining(), entrySize); err != nil {
+		if err := validateMetadataCount("script type", scriptCount, int64(r.Remaining()), int64(entrySize)); err != nil {
 			return tail, err
 		}
-		tail.ScriptTypes = makeABACountedSliceForAppend[LocalSerializedObjectIdentifier](int(scriptCount))
-		for i := 0; i < int(scriptCount); i++ {
+		tail.ScriptTypes = makeABACountedSliceForAppend[LocalSerializedObjectIdentifier](int64(scriptCount))
+		for i := int64(0); i < int64(scriptCount); i++ {
 			identifier, err := af.readLocalSerializedObjectIdentifier(r)
 			if err != nil {
 				return tail, fmt.Errorf("read script type[%d]: %w", i, err)
@@ -419,11 +428,11 @@ func (af *AssetsFile) readMetadataTail(data []byte, pos int, order binary.ByteOr
 	if err != nil {
 		return tail, fmt.Errorf("read external count failed: %w", err)
 	}
-	if err := validateMetadataCount("external file", extCount, r.Remaining(), 22); err != nil {
+	if err := validateMetadataCount("external file", extCount, int64(r.Remaining()), 22); err != nil {
 		return tail, err
 	}
-	externals := makeABACountedSliceForAppend[ExternalFile](int(extCount))
-	for i := 0; i < int(extCount); i++ {
+	externals := makeABACountedSliceForAppend[ExternalFile](int64(extCount))
+	for i := int64(0); i < int64(extCount); i++ {
 		var external ExternalFile
 		if err := af.readExternalFile(r, &external); err != nil {
 			return tail, fmt.Errorf("read external file[%d] failed: %w", i, err)
@@ -442,11 +451,11 @@ func (af *AssetsFile) readMetadataTail(data []byte, pos int, order binary.ByteOr
 			return tail, fmt.Errorf("metadata has no room for UserInformation after %d reference types", refTypeCount)
 		}
 		minimumSize := minimumSerializedTypeSize(af.Header.Version, af.Metadata.TypeTreeEnabled, true)
-		if err := validateMetadataCount("reference type", refTypeCount, r.Remaining()-1, minimumSize); err != nil {
+		if err := validateMetadataCount("reference type", refTypeCount, int64(r.Remaining()-1), minimumSize); err != nil {
 			return tail, err
 		}
-		tail.RefTypes = makeABACountedSliceForAppend[TypeTreeType](int(refTypeCount))
-		for i := 0; i < int(refTypeCount); i++ {
+		tail.RefTypes = makeABACountedSliceForAppend[TypeTreeType](int64(refTypeCount))
+		for i := int64(0); i < int64(refTypeCount); i++ {
 			var refType TypeTreeType
 			if err := af.readTypeTreeType(r, &refType, true); err != nil {
 				return tail, fmt.Errorf("read reference type[%d]: %w", i, err)
@@ -545,8 +554,8 @@ func (af *AssetsFile) readTypeTreeType(r *binaryio.EndianReader, tt *TypeTreeTyp
 				return fmt.Errorf("type tree nodes/string buffer require %d bytes but only %d metadata bytes remain", required, r.Remaining())
 			}
 
-			tt.Nodes = makeABACountedSliceForAppend[TypeTreeNode](int(nodeCount))
-			for i := 0; i < int(nodeCount); i++ {
+			tt.Nodes = makeABACountedSliceForAppend[TypeTreeNode](int64(nodeCount))
+			for i := int64(0); i < int64(nodeCount); i++ {
 				var node TypeTreeNode
 				if err := af.readTypeTreeNodeBlob(r, &node); err != nil {
 					return fmt.Errorf("read node[%d]: %w", i, err)
@@ -557,7 +566,7 @@ func (af *AssetsFile) readTypeTreeType(r *binaryio.EndianReader, tt *TypeTreeTyp
 			if int64(strBufSize) > int64(r.Remaining()) {
 				return fmt.Errorf("type tree string buffer size %d exceeds remaining metadata %d", strBufSize, r.Remaining())
 			}
-			tt.StringBuffer = make([]byte, int(strBufSize))
+			tt.StringBuffer = make([]byte, int64(strBufSize))
 			if err := r.ReadFull(tt.StringBuffer); err != nil {
 				return err
 			}
@@ -586,8 +595,8 @@ func (af *AssetsFile) readTypeTreeType(r *binaryio.EndianReader, tt *TypeTreeTyp
 			if depCount < 0 || int64(depCount) > int64(r.Remaining())/4 {
 				return fmt.Errorf("invalid type dependency count %d with %d bytes remaining", depCount, r.Remaining())
 			}
-			tt.TypeDependencies = makeABACountedSliceForAppend[int32](int(depCount))
-			for i := 0; i < int(depCount); i++ {
+			tt.TypeDependencies = makeABACountedSliceForAppend[int32](int64(depCount))
+			for i := int64(0); i < int64(depCount); i++ {
 				dependency, err := r.ReadInt32()
 				if err != nil {
 					return fmt.Errorf("read type dependency[%d]: %w", i, err)
@@ -709,7 +718,7 @@ func (af *AssetsFile) readAssetInfo(r *binaryio.EndianReader, info *AssetInfo) e
 		if typeIdx < 0 || int64(typeIdx) >= int64(len(af.Metadata.TypeTreeTypes)) {
 			return fmt.Errorf("type tree index %d out of range [0, %d)", typeIdx, len(af.Metadata.TypeTreeTypes))
 		}
-		info.TypeId = af.Metadata.TypeTreeTypes[int(typeIdx)].TypeId
+		info.TypeId = af.Metadata.TypeTreeTypes[int64(typeIdx)].TypeId
 	} else {
 		classID, err := r.ReadInt16()
 		if err != nil {
@@ -735,7 +744,7 @@ func (af *AssetsFile) readAssetInfo(r *binaryio.EndianReader, info *AssetInfo) e
 	return nil
 }
 
-func validateMetadataCount(name string, count int32, remaining int, minimumEntrySize int) error {
+func validateMetadataCount(name string, count int32, remaining int64, minimumEntrySize int64) error {
 	if count < 0 {
 		return fmt.Errorf("negative %s count %d", name, count)
 	}
@@ -748,8 +757,8 @@ func validateMetadataCount(name string, count int32, remaining int, minimumEntry
 	return nil
 }
 
-func minimumSerializedTypeSize(version uint32, typeTreeEnabled bool, isRefType bool) int {
-	size := 4 // class ID
+func minimumSerializedTypeSize(version uint32, typeTreeEnabled bool, isRefType bool) int64 {
+	size := int64(4) // class ID
 	if version >= 16 {
 		size++ // IsStrippedType
 	}
@@ -772,8 +781,8 @@ func minimumSerializedTypeSize(version uint32, typeTreeEnabled bool, isRefType b
 	return size
 }
 
-func minimumAssetInfoSize(version uint32, bigIDEnabled bool) int {
-	size := 4 // PathID before v14
+func minimumAssetInfoSize(version uint32, bigIDEnabled bool) int64 {
+	size := int64(4) // PathID before v14
 	if version >= 14 || bigIDEnabled {
 		size = 8
 	}
@@ -795,17 +804,17 @@ func minimumAssetInfoSize(version uint32, bigIDEnabled bool) int {
 	return size
 }
 
-func skipMetadataBytes(r *binaryio.EndianReader, count int, what string) error {
-	if count < 0 || count > r.Remaining() {
+func skipMetadataBytes(r *binaryio.EndianReader, count int64, what string) error {
+	if count < 0 || count > int64(r.Remaining()) {
 		return fmt.Errorf("%s requires %d bytes but only %d metadata bytes remain", what, count, r.Remaining())
 	}
-	r.Skip(count)
+	r.Skip(int(count))
 	return nil
 }
 
 func alignMetadata4(r *binaryio.EndianReader, what string) error {
 	padding := (4 - r.Pos()%4) % 4
-	if err := skipMetadataBytes(r, padding, what+" alignment"); err != nil {
+	if err := skipMetadataBytes(r, int64(padding), what+" alignment"); err != nil {
 		return err
 	}
 	return nil
@@ -813,17 +822,17 @@ func alignMetadata4(r *binaryio.EndianReader, what string) error {
 
 func validateTypeTreeStringOffsets(tt *TypeTreeType) error {
 	for i := range tt.Nodes {
-		if err := validateTypeTreeStringOffset("type", i, tt.Nodes[i].TypeStrOff, tt.StringBuffer); err != nil {
+		if err := validateTypeTreeStringOffset("type", int64(i), tt.Nodes[i].TypeStrOff, tt.StringBuffer); err != nil {
 			return err
 		}
-		if err := validateTypeTreeStringOffset("name", i, tt.Nodes[i].NameStrOff, tt.StringBuffer); err != nil {
+		if err := validateTypeTreeStringOffset("name", int64(i), tt.Nodes[i].NameStrOff, tt.StringBuffer); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateTypeTreeStringOffset(kind string, nodeIndex int, offset uint32, stringBuffer []byte) error {
+func validateTypeTreeStringOffset(kind string, nodeIndex int64, offset uint32, stringBuffer []byte) error {
 	// High-bit offsets address Unity's built-in common string table, which is
 	// external to the per-type StringBuffer. Keep those values opaque so new
 	// Unity common strings remain forward-compatible.
@@ -833,7 +842,7 @@ func validateTypeTreeStringOffset(kind string, nodeIndex int, offset uint32, str
 	if uint64(offset) >= uint64(len(stringBuffer)) {
 		return fmt.Errorf("type tree node[%d] %s string offset %d is outside local string buffer size %d", nodeIndex, kind, offset, len(stringBuffer))
 	}
-	if bytes.IndexByte(stringBuffer[int(offset):], 0) < 0 {
+	if bytes.IndexByte(stringBuffer[int64(offset):], 0) < 0 {
 		return fmt.Errorf("type tree node[%d] %s string at local offset %d is not null-terminated", nodeIndex, kind, offset)
 	}
 	return nil
@@ -844,12 +853,12 @@ func (af *AssetsFile) validateAssetInfos() error {
 		return fmt.Errorf("data offset %d is outside file size %d", af.Header.DataOffset, af.Header.FileSize)
 	}
 	dataSize := af.Header.FileSize - af.Header.DataOffset
-	seenPathIDs := make(map[int64]int, len(af.Metadata.AssetInfos))
+	seenPathIDs := make(map[int64]int64, len(af.Metadata.AssetInfos))
 	type objectRange struct {
 		start  int64
 		end    int64
 		pathID int64
-		index  int
+		index  int64
 	}
 	ranges := make([]objectRange, 0, len(af.Metadata.AssetInfos))
 	for i := range af.Metadata.AssetInfos {
@@ -857,7 +866,7 @@ func (af *AssetsFile) validateAssetInfos() error {
 		if previous, ok := seenPathIDs[info.PathId]; ok {
 			return fmt.Errorf("duplicate PathID %d in asset infos %d and %d", info.PathId, previous, i)
 		}
-		seenPathIDs[info.PathId] = i
+		seenPathIDs[info.PathId] = int64(i)
 		if info.ByteOffset < 0 || info.ByteOffset > dataSize {
 			return fmt.Errorf("asset info[%d] PathID %d byte offset %d is outside data section size %d", i, info.PathId, info.ByteOffset, dataSize)
 		}
@@ -870,7 +879,7 @@ func (af *AssetsFile) validateAssetInfos() error {
 				start:  info.ByteOffset,
 				end:    info.ByteOffset + size,
 				pathID: info.PathId,
-				index:  i,
+				index:  int64(i),
 			})
 		}
 	}

@@ -81,7 +81,7 @@ func TestCatalogShortCommonPrefixRequiresExplicitKind(t *testing.T) {
 			if err != nil {
 				t.Fatalf("DecodeCatalogWithKind: %v", err)
 			}
-			if value.Kind != kind || value.FieldCount == nil || *value.FieldCount != len(common) {
+			if value.Kind != kind || value.FieldCount == nil || *value.FieldCount != int32(len(common)) {
 				t.Fatalf("short catalog metadata = %+v", value)
 			}
 			reencoded, err := EncodeCatalog(value)
@@ -209,4 +209,4 @@ func TestCatalogMetadataRejectsSilentFieldLoss(t *testing.T) {
 	}
 }
 
-func intPointerForCatalogTest(value int) *int { return &value }
+func intPointerForCatalogTest(value int32) *int32 { return &value }

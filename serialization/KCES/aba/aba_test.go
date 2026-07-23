@@ -43,7 +43,7 @@ func TestReadAba(t *testing.T) {
 				if d.DecompressedSize > maxAbaReadSize {
 					const probeSize int64 = 16
 					for _, relativeOffset := range []int64{0, d.DecompressedSize - probeSize} {
-						data, err := abaFile.GetFileDataRange(i, relativeOffset, probeSize)
+						data, err := abaFile.GetFileDataRange(int64(i), relativeOffset, probeSize)
 						if err != nil {
 							t.Errorf("read large file probe (%d, %q, offset=%d) failed: %v", i, d.Name, relativeOffset, err)
 						} else if len(data) != int(probeSize) {
@@ -52,7 +52,7 @@ func TestReadAba(t *testing.T) {
 					}
 					continue
 				}
-				data, err := abaFile.GetFileData(i)
+				data, err := abaFile.GetFileData(int64(i))
 				if err != nil {
 					t.Errorf("GetFileData(%d, %q) failed: %v", i, d.Name, err)
 					continue

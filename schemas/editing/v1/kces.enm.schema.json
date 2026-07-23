@@ -100,6 +100,8 @@
       "x-meido-edit-guidance": "Preserve the source value and use 1000 for KCES 1.34.4 output.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "ExportFileNameMap uses the version-control base class while loading and saving export_map.enm.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
       "x-meido-risk": "high",
       "x-meido-source-evidence": [
         {

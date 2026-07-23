@@ -535,7 +535,6 @@ func encodeKCESMessagePackPayload(env *KCESPayloadEnvelope) ([]byte, error) {
 	if kind != PayloadKindRawMsgpack {
 		msgpackData = append(msgpackData, env.MsgpackTrailingData...)
 	}
-
 	compressed, err := ct.CompressLz4BlockArray(msgpackData)
 	if err != nil {
 		return nil, fmt.Errorf("compress %s payload: %w", ext, err)
@@ -558,11 +557,8 @@ func payloadEnvelopeHasTypedRoot(env *KCESPayloadEnvelope) bool {
 		len(env.MsgpackJSONPreview) != 0
 }
 
-// editableMessagePackJSONString selects the exact string to store in the
-// MessagePack payload. Text is the original wire string and JSON is its
-// editable parsed view. An unchanged JSON view keeps Text byte-for-byte,
-// including insignificant whitespace; an actual edit is emitted as compact
-// JSON. No game migration or JsonUtility callback is run.
+// editableMessagePackJSONString 将 JSON 语义内容编码为 MessagePack 字符串。
+// editableMessagePackJSONString encodes the semantic JSON content as a MessagePack string.
 func editableMessagePackJSONString(env *KCESPayloadEnvelope) (string, error) {
 	if len(env.JSON) != 0 {
 		if !utf8.Valid(env.JSON) {
@@ -596,8 +592,8 @@ func StripLengthPrefix(data []byte) ([]byte, bool, error) {
 	if len(data) < 4 {
 		return data, false, nil
 	}
-	n := int(binary.LittleEndian.Uint32(data[:4]))
-	if n == len(data)-4 {
+	n := int64(binary.LittleEndian.Uint32(data[:4]))
+	if n == int64(len(data)-4) {
 		return data[4:], true, nil
 	}
 	return data, false, nil

@@ -79,7 +79,7 @@ func (af *AssetsFile) GetAssetBundleContainerEntries(info *AssetInfo) ([]AssetBu
 	if int64(preloadCount) > int64(r.Remaining())/int64(pptrSize) {
 		return nil, fmt.Errorf("AssetBundle m_PreloadTable size %d requires at least %d bytes but only %d remain", preloadCount, int64(preloadCount)*int64(pptrSize), r.Remaining())
 	}
-	for i := 0; i < int(preloadCount); i++ {
+	for i := int64(0); i < int64(preloadCount); i++ {
 		if _, _, err := readSerializedPPtr(r, af.Header.Version); err != nil {
 			return nil, fmt.Errorf("read AssetBundle m_PreloadTable[%d]: %w", i, err)
 		}
@@ -97,8 +97,8 @@ func (af *AssetsFile) GetAssetBundleContainerEntries(info *AssetInfo) ([]AssetBu
 		return nil, fmt.Errorf("AssetBundle m_Container size %d requires at least %d bytes but only %d remain", containerCount, int64(containerCount)*int64(minimumContainerEntrySize), r.Remaining())
 	}
 
-	entries := makeABACountedSliceForAppend[AssetBundleContainerEntry](int(containerCount))
-	for i := 0; i < int(containerCount); i++ {
+	entries := makeABACountedSliceForAppend[AssetBundleContainerEntry](int64(containerCount))
+	for i := int64(0); i < int64(containerCount); i++ {
 		name, err := r.ReadAlignedString()
 		if err != nil {
 			return nil, fmt.Errorf("read AssetBundle m_Container[%d] key: %w", i, err)
@@ -145,7 +145,7 @@ func readSerializedPPtr(r *binaryio.EndianReader, version uint32) (int32, int64,
 	return fileID, int64(pathID), err
 }
 
-func serializedPPtrSize(version uint32) int {
+func serializedPPtrSize(version uint32) int64 {
 	if version >= 14 {
 		return 12
 	}

@@ -148,23 +148,27 @@ func mergeUint32Setting(field string, dst *uint32, set *bool, dstSource *string,
 	return nil
 }
 
-func parseUnityMajorMinor(version string) (int, int, error) {
+// parseUnityMajorMinor 将 Unity 版本的 major.minor 前缀解析为固定宽度整数。
+// parseUnityMajorMinor parses a Unity version's major.minor prefix into fixed-width integers.
+func parseUnityMajorMinor(version string) (int64, int64, error) {
 	parts := strings.SplitN(version, ".", 3)
 	if len(parts) < 2 {
 		return 0, 0, fmt.Errorf("expected major.minor version")
 	}
-	major, err := strconv.Atoi(parts[0])
+	major, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil || major <= 0 {
 		return 0, 0, fmt.Errorf("invalid major component %q", parts[0])
 	}
-	minor, err := strconv.Atoi(parts[1])
+	minor, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil || minor < 0 {
 		return 0, 0, fmt.Errorf("invalid minor component %q", parts[1])
 	}
 	return major, minor, nil
 }
 
-func abaVersionForUnity(major int, minor int) uint32 {
+// abaVersionForUnity 根据已观察到的 KCES Unity 版本族选择默认 UnityFS 版本。
+// abaVersionForUnity selects the default UnityFS version for the observed KCES Unity version families.
+func abaVersionForUnity(major int64, minor int64) uint32 {
 	// KCES samples built with 2020.2/2021.3 use UnityFS v7; 2022.3 uses v8.
 	// This fallback covers those observed families when an older sidecar has no
 	// explicit abaVersion; newly unpacked sidecars preserve the exact value.
