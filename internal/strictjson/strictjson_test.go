@@ -60,3 +60,13 @@ func TestDecodeRejectsUnknownFieldsAndTrailingValues(t *testing.T) {
 		}
 	}
 }
+
+func TestRequireObjectFieldsDistinguishesMissingFromNullAndZero(t *testing.T) {
+	data := []byte(`{"zero":0,"nullable":null}`)
+	if err := RequireObjectFields(data, "root", "zero", "nullable"); err != nil {
+		t.Fatalf("RequireObjectFields rejected present fields: %v", err)
+	}
+	if err := RequireObjectFields(data, "root", "missing"); err == nil || !strings.Contains(err.Error(), "root.missing") {
+		t.Fatalf("RequireObjectFields missing-field error = %v", err)
+	}
+}

@@ -136,7 +136,7 @@ func DecodeKCESExportNameMap(data []byte) (*KCESExportNameMap, error) {
 		}
 		entries[index] = KCESExportNameMapEntry{InternalName: *keys[index], FileName: *values[index]}
 	}
-	return &KCESExportNameMap{Format: KCESExportNameMapFormat, Version: *outer.Version, Entries: entries}, nil
+	return canonicalKCESExportNameMap(&KCESExportNameMap{Format: KCESExportNameMapFormat, Version: *outer.Version, Entries: entries})
 }
 
 // EncodeKCESExportNameMap 写出原生 Unity JsonUtility 封套，嵌套键值保留提供的顺序和拼写，并采用 ScourtExtensionsDictionary.FromJson 读取的布局
@@ -242,6 +242,7 @@ func canonicalKCESExportNameMap(value *KCESExportNameMap) (*KCESExportNameMap, e
 	}
 
 	entries := make([]KCESExportNameMapEntry, len(value.Entries))
+	seenInternalNames := make(map[string]struct{}, len(value.Entries))
 	for i, entry := range value.Entries {
 		if !utf8.ValidString(entry.InternalName) {
 			return nil, fmt.Errorf("export name map entries[%d].internalName is not valid UTF-8", i)
@@ -249,6 +250,10 @@ func canonicalKCESExportNameMap(value *KCESExportNameMap) (*KCESExportNameMap, e
 		if !utf8.ValidString(entry.FileName) {
 			return nil, fmt.Errorf("export name map entries[%d].fileName is not valid UTF-8", i)
 		}
+		if _, ok := seenInternalNames[entry.InternalName]; ok {
+			return nil, fmt.Errorf("export name map entries[%d].internalName is duplicated: %q", i, entry.InternalName)
+		}
+		seenInternalNames[entry.InternalName] = struct{}{}
 		entries[i] = entry
 	}
 	return &KCESExportNameMap{

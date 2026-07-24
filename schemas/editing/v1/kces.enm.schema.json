@@ -28,10 +28,7 @@
         "$ref": "#/$defs/KCES_KCESExportNameMapEntry"
       },
       "title": "Filename map entries",
-      "type": [
-        "null",
-        "array"
-      ],
+      "type": "array",
       "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep entries unique, lower-case both names as the game does, and preserve order when round-tripping an existing file.",
       "x-meido-edit-role": "runtime_mapping",

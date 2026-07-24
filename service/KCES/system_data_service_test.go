@@ -136,12 +136,13 @@ func TestSystemDataServiceStrictEditingJSON(t *testing.T) {
 		t.Fatalf("valid minimal system JSON: %v", err)
 	}
 	for name, data := range map[string][]byte{
-		"missing marker": []byte(`{"version":1000}`),
-		"wrong marker":   []byte(`{"format":"future","version":1000}`),
-		"unknown field":  []byte(`{"format":"kces-system-data","version":1000,"future":1}`),
-		"trailing value": append(append([]byte(nil), valid...), []byte(` {}`)...),
-		"invalid UTF-8":  append([]byte(`{"format":"kces-system-data","version":1000,"extraFiles":{"x":"`), 0xff, '"', '}', '}'),
-		"null":           []byte(`null`),
+		"missing marker":  []byte(`{"version":1000}`),
+		"missing version": []byte(`{"format":"kces-system-data"}`),
+		"wrong marker":    []byte(`{"format":"future","version":1000}`),
+		"unknown field":   []byte(`{"format":"kces-system-data","version":1000,"future":1}`),
+		"trailing value":  append(append([]byte(nil), valid...), []byte(` {}`)...),
+		"invalid UTF-8":   append([]byte(`{"format":"kces-system-data","version":1000,"extraFiles":{"x":"`), 0xff, '"', '}', '}'),
+		"null":            []byte(`null`),
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := decodeKCESSystemDataEditingJSON(data); err == nil {

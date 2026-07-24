@@ -333,6 +333,9 @@ func TestGeneratedSchemasAcceptRootEditingJSON(t *testing.T) {
 		} else if root.Elem().Type() == typeOf[KCESService.CtEnvelope]() {
 			envelope := root.Interface().(*KCESService.CtEnvelope)
 			envelope.Catalog.Kind = serializationKCESCT.CatalogKindAssetBundle
+		} else if root.Elem().Type() == typeOf[serializationKCES.KCESExportNameMap]() {
+			nameMap := root.Interface().(*serializationKCES.KCESExportNameMap)
+			nameMap.Entries = []serializationKCES.KCESExportNameMapEntry{}
 		} else if extension := root.Elem().FieldByName("Extension"); extension.IsValid() && extension.CanSet() && extension.Kind() == reflect.String && strings.HasPrefix(spec.id, "kces.") {
 			extension.SetString("." + strings.TrimPrefix(spec.id, "kces."))
 		}
@@ -399,6 +402,51 @@ func TestGeneratedRequiredKCESObjectsRejectNull(t *testing.T) {
 		schema := compileGeneratedSchema(t, "kces.bridge_session")
 		instance := jsonObject(t, bridge)
 		instance["sessionData"].(map[string]any)["sessionId"] = nil
+		assertSchemaValidation(t, schema, instance, false)
+	})
+}
+
+func TestGeneratedKCESEditingSchemasRejectNullEntriesAndEmptyExtensionKeys(t *testing.T) {
+	t.Run("kces.enm entries", func(t *testing.T) {
+		schema := compileGeneratedSchema(t, "kces.enm")
+		valid := map[string]any{
+			"format":  serializationKCES.KCESExportNameMapFormat,
+			"version": float64(serializationKCES.KCESExportNameMapVersion),
+			"entries": []any{},
+		}
+		assertSchemaValidation(t, schema, valid, true)
+		valid["entries"] = nil
+		assertSchemaValidation(t, schema, valid, false)
+	})
+
+	t.Run("kces.ct extensionNameLists key", func(t *testing.T) {
+		schema := compileGeneratedSchema(t, "kces.ct")
+		instance := map[string]any{
+			"format":  KCESService.CtEnvelopeFormat,
+			"version": float64(1000),
+			"catalog": map[string]any{
+				"kind":              string(serializationKCESCT.CatalogKindAssetBundle),
+				"version":           float64(1000),
+				"catalogType":       float64(serializationKCESCT.CatalogTypeParts),
+				"packageType":       float64(serializationKCESCT.PackageTypePlugin),
+				"priority":          float64(0),
+				"name":              nil,
+				"subName":           nil,
+				"hash":              float64(0),
+				"createTime":        float64(0),
+				"extensionList":     []any{},
+				"isEncrypted":       false,
+				"resourceFileNames": []any{},
+				"items":             []any{},
+			},
+			"extensionNameLists": map[string]any{
+				".x": map[string]any{"extention": ".x", "data": []any{}},
+			},
+		}
+		assertSchemaValidation(t, schema, instance, true)
+		instance["extensionNameLists"] = map[string]any{
+			"": map[string]any{"extention": ".x", "data": []any{}},
+		}
 		assertSchemaValidation(t, schema, instance, false)
 	})
 }

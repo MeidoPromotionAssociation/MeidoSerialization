@@ -135,3 +135,24 @@ func TestExpandedKCESPresetJSONRequiresNonNullMaidData(t *testing.T) {
 		}
 	}
 }
+
+func TestExpandedKCESPresetJSONRequiresEveryMaidDataField(t *testing.T) {
+	invalid := []string{
+		`{"format":"kces-virtual-directory-preset","containerVersion":1000,"thumbnail":null,"maidData":{"propData":null,"colorData":null,"bodyData":null}}`,
+		`{"format":"kces-virtual-directory-preset","containerVersion":1000,"thumbnail":null,"maidData":{"version":1000,"colorData":null,"bodyData":null}}`,
+		`{"format":"kces-virtual-directory-preset","containerVersion":1000,"thumbnail":null,"maidData":{"version":1000,"propData":null,"bodyData":null}}`,
+		`{"format":"kces-virtual-directory-preset","containerVersion":1000,"thumbnail":null,"maidData":{"version":1000,"propData":null,"colorData":null}}`,
+	}
+	for _, data := range invalid {
+		var value ExpandedKCESPreset
+		if err := json.Unmarshal([]byte(data), &value); err == nil {
+			t.Fatalf("json.Unmarshal(%s) unexpectedly succeeded", data)
+		}
+	}
+
+	valid := `{"format":"kces-virtual-directory-preset","containerVersion":1000,"thumbnail":null,"maidData":{"version":1000,"propData":null,"colorData":null,"bodyData":null}}`
+	var value ExpandedKCESPreset
+	if err := json.Unmarshal([]byte(valid), &value); err != nil {
+		t.Fatalf("explicit nullable maidData fields were rejected: %v", err)
+	}
+}

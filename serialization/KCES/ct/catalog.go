@@ -103,6 +103,9 @@ func (cat *AssetBundleCatalog) UnmarshalJSON(data []byte) error {
 	if err := decodeCatalogJSONStrict(data, &raw); err != nil {
 		return err
 	}
+	if err := strictjson.RequireObjectFields(data, "catalog", "kind", "version", "catalogType", "packageType", "priority", "name", "subName", "hash", "createTime", "extensionList"); err != nil {
+		return err
+	}
 	if err := validateCatalogJSONRootPresence(&raw); err != nil {
 		return err
 	}
@@ -209,6 +212,24 @@ type CatalogItem struct {
 	Hash          uint64   `json:"hash"`          // 资源哈希 / Resource hash
 }
 
+// UnmarshalJSON 严格解码 AssetBundle catalog 条目并要求三个字段显式出现
+// UnmarshalJSON strictly decodes an AssetBundle catalog item and requires all three fields to be explicitly present
+func (value *CatalogItem) UnmarshalJSON(data []byte) error {
+	if value == nil {
+		return fmt.Errorf("nil catalog item JSON target")
+	}
+	type plainCatalogItem CatalogItem
+	var decoded plainCatalogItem
+	if err := decodeCatalogJSONStrict(data, &decoded); err != nil {
+		return err
+	}
+	if err := strictjson.RequireObjectFields(data, "catalog item", "resourceIndex", "name", "hash"); err != nil {
+		return err
+	}
+	*value = CatalogItem(decoded)
+	return nil
+}
+
 // CodecEncodeSelf 按固定三槽布局编码 CatalogItem
 // CodecEncodeSelf encodes CatalogItem using its fixed three-slot layout
 func (v CatalogItem) CodecEncodeSelf(e *codec.Encoder) {
@@ -228,6 +249,24 @@ type VirtualCatalogItem struct {
 	AssetPath *string  `json:"assetPath"` // Unity 工程资源路径 / Unity project asset path
 	Name      *string  `json:"name"`      // 资源名称 / Resource name
 	Hash      uint64   `json:"hash"`      // 资源哈希 / Resource hash
+}
+
+// UnmarshalJSON 严格解码 VirtualAsset catalog 条目并要求三个字段显式出现
+// UnmarshalJSON strictly decodes a VirtualAsset catalog item and requires all three fields to be explicitly present
+func (value *VirtualCatalogItem) UnmarshalJSON(data []byte) error {
+	if value == nil {
+		return fmt.Errorf("nil virtual catalog item JSON target")
+	}
+	type plainVirtualCatalogItem VirtualCatalogItem
+	var decoded plainVirtualCatalogItem
+	if err := decodeCatalogJSONStrict(data, &decoded); err != nil {
+		return err
+	}
+	if err := strictjson.RequireObjectFields(data, "virtual catalog item", "assetPath", "name", "hash"); err != nil {
+		return err
+	}
+	*value = VirtualCatalogItem(decoded)
+	return nil
 }
 
 // CodecEncodeSelf 按固定三槽布局编码 VirtualCatalogItem
@@ -250,6 +289,24 @@ type ExtensionNameList struct {
 	Data      []*ExtensionNamePack `json:"data"`      // 名称和哈希条目 / Name and hash entries
 }
 
+// UnmarshalJSON 严格解码 ExtensionNameList 并要求扩展名与数据字段显式出现
+// UnmarshalJSON strictly decodes an ExtensionNameList and requires the extension and data fields to be explicitly present
+func (value *ExtensionNameList) UnmarshalJSON(data []byte) error {
+	if value == nil {
+		return fmt.Errorf("nil ExtensionNameList JSON target")
+	}
+	type plainExtensionNameList ExtensionNameList
+	var decoded plainExtensionNameList
+	if err := decodeCatalogJSONStrict(data, &decoded); err != nil {
+		return err
+	}
+	if err := strictjson.RequireObjectFields(data, "ExtensionNameList", "extention", "data"); err != nil {
+		return err
+	}
+	*value = ExtensionNameList(decoded)
+	return nil
+}
+
 // CodecEncodeSelf 按固定两槽布局编码 ExtensionNameList
 // CodecEncodeSelf encodes ExtensionNameList using its fixed two-slot layout
 func (v ExtensionNameList) CodecEncodeSelf(e *codec.Encoder) {
@@ -268,6 +325,24 @@ type ExtensionNamePack struct {
 	_struct struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
 	Name    *string  `json:"name"`      // 资源名称 / Resource name
 	Hash    uint64   `json:"hash"`      // 游戏字段用途未知 / The game field purpose is unknown
+}
+
+// UnmarshalJSON 严格解码 ExtensionNamePack 并要求名称与哈希字段显式出现
+// UnmarshalJSON strictly decodes an ExtensionNamePack and requires the name and hash fields to be explicitly present
+func (value *ExtensionNamePack) UnmarshalJSON(data []byte) error {
+	if value == nil {
+		return fmt.Errorf("nil ExtensionNamePack JSON target")
+	}
+	type plainExtensionNamePack ExtensionNamePack
+	var decoded plainExtensionNamePack
+	if err := decodeCatalogJSONStrict(data, &decoded); err != nil {
+		return err
+	}
+	if err := strictjson.RequireObjectFields(data, "ExtensionNameList.data[]", "name", "hash"); err != nil {
+		return err
+	}
+	*value = ExtensionNamePack(decoded)
+	return nil
 }
 
 // CodecEncodeSelf 按固定两槽布局编码 ExtensionNamePack

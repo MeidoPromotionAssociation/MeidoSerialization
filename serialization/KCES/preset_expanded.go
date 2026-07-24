@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/strictjson"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
@@ -27,6 +28,24 @@ type ExpandedKCESPresetCore struct {
 	PropData  *KCESPresetPropertyList `json:"propData"`  // 展开的 Maid.SerializeProp 块 / Expanded Maid.SerializeProp block
 	ColorData *KCESPresetColorData    `json:"colorData"` // 展开的 Maid.SerializeMultiColor 块 / Expanded Maid.SerializeMultiColor block
 	BodyData  *KCESPresetBodyData     `json:"bodyData"`  // 展开的 Maid.SerializeBody 块 / Expanded Maid.SerializeBody block
+}
+
+// UnmarshalJSON 严格解码 maiddata 核心并要求版本及三个可空内部块字段显式出现
+// UnmarshalJSON strictly decodes the maiddata core and requires the version and all three nullable inner-block fields to be explicitly present
+func (value *ExpandedKCESPresetCore) UnmarshalJSON(data []byte) error {
+	if value == nil {
+		return fmt.Errorf("nil expanded KCES preset core JSON target")
+	}
+	type plainExpandedKCESPresetCore ExpandedKCESPresetCore
+	var decoded plainExpandedKCESPresetCore
+	if err := decodeKCESJSONStrict(data, &decoded); err != nil {
+		return err
+	}
+	if err := strictjson.RequireObjectFields(data, "maidData", "version", "propData", "colorData", "bodyData"); err != nil {
+		return err
+	}
+	*value = ExpandedKCESPresetCore(decoded)
+	return nil
 }
 
 // UnmarshalJSON 严格解码完整预设编辑对象并要求所有非可选封套字段显式存在

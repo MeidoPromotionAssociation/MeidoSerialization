@@ -106,6 +106,7 @@ func TestKCESExportNameMapRejectsConsumerSchemaAnomalies(t *testing.T) {
 		{name: "unequal arrays", data: []byte(`{"version":1000,"serializeData":"{\"keys\":[\"a\"],\"values\":[]}"}`), want: "different lengths"},
 		{name: "null key", data: []byte(`{"version":1000,"serializeData":"{\"keys\":[null],\"values\":[\"x\"]}"}`), want: "null"},
 		{name: "null value", data: []byte(`{"version":1000,"serializeData":"{\"keys\":[\"a\"],\"values\":[null]}"}`), want: "null"},
+		{name: "duplicate key", data: []byte(`{"version":1000,"serializeData":"{\"keys\":[\"a\",\"a\"],\"values\":[\"0\",\"1\"]}"}`), want: "duplicated"},
 		{name: "nested trailing", data: []byte(`{"version":1000,"serializeData":"{\"keys\":[],\"values\":[]} []"}`), want: "dictionary"},
 	}
 
@@ -159,21 +160,49 @@ func TestKCESExportNameMapEditingJSONIsStrictAndDeterministic(t *testing.T) {
 	}
 
 	invalid := map[string]string{
-		"null root":        `null`,
-		"missing format":   `{"version":1000,"entries":[]}`,
-		"wrong format":     `{"format":"wrong","version":1000,"entries":[]}`,
-		"missing version":  `{"format":"kces-export-name-map","entries":[]}`,
-		"version null":     `{"format":"kces-export-name-map","version":null,"entries":[]}`,
-		"version overflow": `{"format":"kces-export-name-map","version":2147483648,"entries":[]}`,
-		"null entry":       `{"format":"kces-export-name-map","version":1000,"entries":[null]}`,
-		"null internal":    `{"format":"kces-export-name-map","version":1000,"entries":[{"internalName":null,"fileName":"a"}]}`,
-		"null filename":    `{"format":"kces-export-name-map","version":1000,"entries":[{"internalName":"a","fileName":null}]}`,
-		"trailing":         `{"format":"kces-export-name-map","version":1000,"entries":[]} []`,
+		"null root":          `null`,
+		"missing format":     `{"version":1000,"entries":[]}`,
+		"wrong format":       `{"format":"wrong","version":1000,"entries":[]}`,
+		"missing version":    `{"format":"kces-export-name-map","entries":[]}`,
+		"version null":       `{"format":"kces-export-name-map","version":null,"entries":[]}`,
+		"version overflow":   `{"format":"kces-export-name-map","version":2147483648,"entries":[]}`,
+		"null entry":         `{"format":"kces-export-name-map","version":1000,"entries":[null]}`,
+		"null internal":      `{"format":"kces-export-name-map","version":1000,"entries":[{"internalName":null,"fileName":"a"}]}`,
+		"null filename":      `{"format":"kces-export-name-map","version":1000,"entries":[{"internalName":"a","fileName":null}]}`,
+		"duplicate internal": `{"format":"kces-export-name-map","version":1000,"entries":[{"internalName":"a","fileName":"0"},{"internalName":"a","fileName":"1"}]}`,
+		"trailing":           `{"format":"kces-export-name-map","version":1000,"entries":[]} []`,
 	}
 	for name, data := range invalid {
 		t.Run(name, func(t *testing.T) {
 			if _, err := DecodeKCESExportNameMapJSON([]byte(data)); err == nil {
 				t.Fatalf("DecodeKCESExportNameMapJSON unexpectedly accepted %s", data)
+			}
+		})
+	}
+}
+
+func TestKCESExportNameMapEncodersRejectDuplicateInternalNames(t *testing.T) {
+	value := &KCESExportNameMap{
+		Format:  KCESExportNameMapFormat,
+		Version: KCESExportNameMapVersion,
+		Entries: []KCESExportNameMapEntry{
+			{InternalName: "a", FileName: "0"},
+			{InternalName: "a", FileName: "1"},
+		},
+	}
+	for name, encode := range map[string]func() error{
+		"native": func() error {
+			_, err := EncodeKCESExportNameMap(value)
+			return err
+		},
+		"editing": func() error {
+			_, err := EncodeKCESExportNameMapJSON(value)
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := encode(); err == nil || !strings.Contains(err.Error(), "duplicated") {
+				t.Fatalf("duplicate internalName error = %v", err)
 			}
 		})
 	}

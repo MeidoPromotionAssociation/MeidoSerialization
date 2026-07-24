@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/strictjson"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
@@ -29,6 +30,47 @@ type CtEnvelope struct {
 type CtEnvelopeFile struct {
 	Name       string `json:"name"`       // 虚拟文件名 / Virtual file name
 	DataBase64 string `json:"dataBase64"` // 原始文件数据的 base64 / Base64 of the raw file data
+}
+
+// UnmarshalJSON 严格解码 .ct 编辑封套并拒绝缺失根字段或空 ExtensionNameLists 键
+// UnmarshalJSON strictly decodes the .ct editing envelope and rejects missing root fields or empty ExtensionNameLists keys
+func (value *CtEnvelope) UnmarshalJSON(data []byte) error {
+	if value == nil {
+		return fmt.Errorf("nil KCES content-table JSON target")
+	}
+	type plainCtEnvelope CtEnvelope
+	var decoded plainCtEnvelope
+	if err := strictjson.Decode(data, &decoded); err != nil {
+		return err
+	}
+	if err := strictjson.RequireObjectFields(data, "ct", "format", "version", "catalog"); err != nil {
+		return err
+	}
+	for name := range decoded.ExtensionNameLists {
+		if name == "" {
+			return fmt.Errorf("ct envelope extensionNameLists contains an empty key")
+		}
+	}
+	*value = CtEnvelope(decoded)
+	return nil
+}
+
+// UnmarshalJSON 严格解码 .ct 独立虚拟文件并要求名称与 dataBase64 字段显式出现
+// UnmarshalJSON strictly decodes a standalone .ct virtual file and requires name and dataBase64 to be explicitly present
+func (value *CtEnvelopeFile) UnmarshalJSON(data []byte) error {
+	if value == nil {
+		return fmt.Errorf("nil KCES content-table file JSON target")
+	}
+	type plainCtEnvelopeFile CtEnvelopeFile
+	var decoded plainCtEnvelopeFile
+	if err := strictjson.Decode(data, &decoded); err != nil {
+		return err
+	}
+	if err := strictjson.RequireObjectFields(data, "ct.files[]", "name", "dataBase64"); err != nil {
+		return err
+	}
+	*value = CtEnvelopeFile(decoded)
+	return nil
 }
 
 // IsKCESCtFile reports whether path is a KCES .ct file.
@@ -273,7 +315,7 @@ func buildContentTableFromCtEnvelope(envelope *CtEnvelope) (*ct.ContentTable, er
 
 	for ext := range envelope.ExtensionNameLists {
 		if ext == "" {
-			continue
+			return nil, fmt.Errorf("extensionNameLists contains an empty key")
 		}
 		if _, ok := seenExt[ext]; !ok {
 			return nil, fmt.Errorf("extensionNameLists contains %q not listed in catalog.extensionList", ext)

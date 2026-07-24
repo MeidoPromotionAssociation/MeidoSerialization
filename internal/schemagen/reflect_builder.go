@@ -264,6 +264,12 @@ func customizeKnownStruct(typ reflect.Type, schema *jsonschema.Schema, builder *
 	if typ == typeOf[serializationKCESCT.AssetBundleCatalog]() {
 		customizeKCESCatalogSchema(schema)
 	}
+	if typ == typeOf[serializationKCES.KCESExportNameMap]() {
+		customizeKCESExportNameMapSchema(schema)
+	}
+	if typ == typeOf[KCESService.CtEnvelope]() {
+		customizeKCESCtEnvelopeSchema(schema)
+	}
 	if typ == typeOf[KCESService.RawUnityObjectEnvelope]() {
 		schema.Properties["dataBase64"] = base64StringSchema(false)
 	}
@@ -330,6 +336,23 @@ func customizeKCESCatalogSchema(schema *jsonschema.Schema) {
 			Required: []string{"kind", "virtualItems"},
 			AllOf:    forbidProperties("isEncrypted", "resourceFileNames", "items"),
 		},
+	}
+}
+
+// customizeKCESExportNameMapSchema 将 editing JSON 的 entries 定义为非空根数组
+// customizeKCESExportNameMapSchema defines entries as a non-null root array in editing JSON
+func customizeKCESExportNameMapSchema(schema *jsonschema.Schema) {
+	if field := schema.Properties["entries"]; field != nil {
+		field.Type = "array"
+		field.Types = nil
+	}
+}
+
+// customizeKCESCtEnvelopeSchema 要求 ExtensionNameLists 的每个 JSON 对象键至少包含一个字符
+// customizeKCESCtEnvelopeSchema requires every JSON object key in ExtensionNameLists to contain at least one character
+func customizeKCESCtEnvelopeSchema(schema *jsonschema.Schema) {
+	if field := schema.Properties["extensionNameLists"]; field != nil {
+		field.PropertyNames = &jsonschema.Schema{Type: "string", MinLength: intPtr(1)}
 	}
 }
 

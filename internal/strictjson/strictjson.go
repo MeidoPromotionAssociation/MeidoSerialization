@@ -42,6 +42,26 @@ func Decode(data []byte, out any) error {
 	return rejectInvalidNull(data, targetType.Elem(), "$")
 }
 
+// RequireObjectFields 要求 JSON 对象显式包含指定字段并保留缺失与零值或 null 的区别
+// RequireObjectFields requires a JSON object to explicitly contain the named fields so missing values remain distinct from zero values or null
+func RequireObjectFields(data []byte, path string, names ...string) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	for _, name := range names {
+		if _, ok := fields[name]; ok {
+			continue
+		}
+		fieldPath := name
+		if path != "" {
+			fieldPath = path + "." + name
+		}
+		return fmt.Errorf("%s is required", fieldPath)
+	}
+	return nil
+}
+
 // rejectInvalidNull 按目标 Go 类型递归拒绝值类型位置中的显式 JSON null
 // rejectInvalidNull recursively rejects explicit JSON null at value-typed positions according to the target Go type
 func rejectInvalidNull(data []byte, targetType reflect.Type, path string) error {

@@ -450,6 +450,10 @@
         ]
       },
       "description": "Typed per-extension resource-name/hash lists stored as companion virtual files.",
+      "propertyNames": {
+        "minLength": 1,
+        "type": "string"
+      },
       "title": "Extension name lists",
       "type": [
         "null",

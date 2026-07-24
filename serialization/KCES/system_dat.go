@@ -9,6 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/strictjson"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
@@ -52,6 +53,24 @@ type KCESSystemData struct {
 	Directories map[string]ct.VirtualDirectoryMetadata `json:"directories,omitempty"` // 各虚拟目录的真实版本字段 / Real version fields of each virtual directory
 	EditData    []KCESEditDataFile                     `json:"editData,omitempty"`    // 按虚拟路径识别并解码的 EditData 文件 / EditData files recognized and decoded by virtual path
 	ExtraFiles  map[string][]byte                      `json:"extraFiles,omitempty"`  // 未识别虚拟文件的真实 byte[] 载荷 / Real byte-array payloads of unrecognized virtual files
+}
+
+// UnmarshalJSON 严格解码 system.dat 编辑封套并要求 format 与 version 显式出现
+// UnmarshalJSON strictly decodes the system.dat editing envelope and requires format and version to be explicitly present
+func (value *KCESSystemData) UnmarshalJSON(data []byte) error {
+	if value == nil {
+		return fmt.Errorf("nil KCES system.dat JSON target")
+	}
+	type plainKCESSystemData KCESSystemData
+	var decoded plainKCESSystemData
+	if err := decodeKCESJSONStrict(data, &decoded); err != nil {
+		return err
+	}
+	if err := strictjson.RequireObjectFields(data, "systemData", "format", "version"); err != nil {
+		return err
+	}
+	*value = KCESSystemData(decoded)
+	return nil
 }
 
 // KCESEditDataFile 表示 system.dat 的 EditData 目录下一个已识别文件

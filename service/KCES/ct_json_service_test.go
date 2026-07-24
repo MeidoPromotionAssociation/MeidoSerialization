@@ -124,11 +124,43 @@ func TestCtEnvelopeRequiresNonNullCatalog(t *testing.T) {
 		[]byte(`{"format":"kces-content-table","version":1000}`),
 		&envelope,
 		"KCES content-table JSON",
-	); err != nil {
-		t.Fatalf("decode missing catalog before semantic validation: %v", err)
-	}
-	if _, err := buildContentTableFromCtEnvelope(&envelope); err == nil {
+	); err == nil {
 		t.Fatal("content-table JSON accepted a missing catalog")
+	}
+}
+
+func TestCtEnvelopeRejectsMissingRequiredFieldsAndEmptyExtensionKey(t *testing.T) {
+	tests := map[string]string{
+		"missing envelope version": `{"format":"kces-content-table","catalog":{"kind":"assetBundle","version":1000,"catalogType":4096,"packageType":1,"priority":0,"name":null,"subName":null,"hash":0,"createTime":0,"extensionList":[],"isEncrypted":false,"resourceFileNames":[],"items":[]}}`,
+		"missing catalog field":    `{"format":"kces-content-table","version":1000,"catalog":{"kind":"assetBundle","catalogType":4096,"packageType":1,"priority":0,"name":null,"subName":null,"hash":0,"createTime":0,"extensionList":[],"isEncrypted":false,"resourceFileNames":[],"items":[]}}`,
+		"missing catalog item":     `{"format":"kces-content-table","version":1000,"catalog":{"kind":"assetBundle","version":1000,"catalogType":4096,"packageType":1,"priority":0,"name":null,"subName":null,"hash":0,"createTime":0,"extensionList":[],"isEncrypted":false,"resourceFileNames":[],"items":[{"resourceIndex":0,"name":null}]}}`,
+		"missing extension data":   `{"format":"kces-content-table","version":1000,"catalog":{"kind":"assetBundle","version":1000,"catalogType":4096,"packageType":1,"priority":0,"name":null,"subName":null,"hash":0,"createTime":0,"extensionList":[".x"],"isEncrypted":false,"resourceFileNames":[],"items":[]},"extensionNameLists":{".x":{"extention":".x"}}}`,
+		"missing extension hash":   `{"format":"kces-content-table","version":1000,"catalog":{"kind":"assetBundle","version":1000,"catalogType":4096,"packageType":1,"priority":0,"name":null,"subName":null,"hash":0,"createTime":0,"extensionList":[".x"],"isEncrypted":false,"resourceFileNames":[],"items":[]},"extensionNameLists":{".x":{"extention":".x","data":[{"name":"a"}]}}}`,
+		"missing file payload":     `{"format":"kces-content-table","version":1000,"catalog":{"kind":"assetBundle","version":1000,"catalogType":4096,"packageType":1,"priority":0,"name":null,"subName":null,"hash":0,"createTime":0,"extensionList":[],"isEncrypted":false,"resourceFileNames":[],"items":[]},"files":[{"name":"x"}]}`,
+		"empty extension key":      `{"format":"kces-content-table","version":1000,"catalog":{"kind":"assetBundle","version":1000,"catalogType":4096,"packageType":1,"priority":0,"name":null,"subName":null,"hash":0,"createTime":0,"extensionList":[],"isEncrypted":false,"resourceFileNames":[],"items":[]},"extensionNameLists":{"":{"extention":".x","data":[]}}}`,
+	}
+	for name, data := range tests {
+		t.Run(name, func(t *testing.T) {
+			var envelope CtEnvelope
+			if err := decodeStrictJSON([]byte(data), &envelope, "KCES content-table JSON"); err == nil {
+				t.Fatalf("accepted invalid content-table JSON %s", data)
+			}
+		})
+	}
+
+	envelope := &CtEnvelope{
+		Catalog: ct.AssetBundleCatalog{
+			Kind:              ct.CatalogKindAssetBundle,
+			ResourceFileNames: []*string{},
+			ExtensionList:     []*string{},
+			Items:             []*ct.CatalogItem{},
+		},
+		ExtensionNameLists: map[string]*ct.ExtensionNameList{
+			"": {Extension: nil, Data: []*ct.ExtensionNamePack{}},
+		},
+	}
+	if _, err := buildContentTableFromCtEnvelope(envelope); err == nil {
+		t.Fatal("programmatic content-table envelope accepted an empty ExtensionNameLists key")
 	}
 }
 
