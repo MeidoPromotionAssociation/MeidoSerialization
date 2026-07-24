@@ -18,8 +18,8 @@ func TestModelSamplesReferenceNativeMMeshAssets(t *testing.T) {
 			if err != nil {
 				t.Fatalf("decode model: %v", err)
 			}
-			if model.MeshFileName == "" || !strings.HasSuffix(strings.ToLower(model.MeshFileName), ".mmesh") {
-				t.Fatalf("meshfileName = %q, want a native .mmesh Unity Mesh reference", model.MeshFileName)
+			if model.MeshFileName == nil || !strings.HasSuffix(strings.ToLower(*model.MeshFileName), ".mmesh") {
+				t.Fatalf("meshfileName = %v, want a native .mmesh Unity Mesh reference", model.MeshFileName)
 			}
 		})
 	}

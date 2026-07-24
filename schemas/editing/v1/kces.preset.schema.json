@@ -1,38 +1,118 @@
 {
   "$defs": {
-    "KCES_KCESPresetCore": {
+    "KCES_ColorPreset": {
       "additionalProperties": false,
       "properties": {
-        "bodyData": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+        "baseMenuFile": {
           "type": [
             "null",
             "string"
           ]
         },
-        "colorData": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+        "colorPackList": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_ColorPresetColorPack"
+              }
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "id": {
           "type": [
             "null",
             "string"
           ]
         },
-        "fieldCount": {
+        "instanceGuid": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "isAdvancedMode": {
+          "type": "boolean"
+        },
+        "userCreated": {
+          "type": "boolean"
+        },
+        "version": {
           "maximum": 2147483647,
           "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
+          "type": "integer",
           "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "id",
+        "baseMenuFile",
+        "userCreated",
+        "isAdvancedMode",
+        "colorPackList",
+        "instanceGuid"
+      ],
+      "type": "object"
+    },
+    "KCES_ColorPresetColorPack": {
+      "additionalProperties": false,
+      "properties": {
+        "allowedMpnOverRide": {
+          "type": "boolean"
         },
-        "futureSlots": {
+        "alpha": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "colorList": {
           "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_ColorPresetLayerFreeColor"
+              }
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "gradationColorList": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_ColorPresetGradationColor"
+              }
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "layerName": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "mpnNames": {
+          "items": {
             "type": [
               "null",
               "string"
@@ -43,7 +123,7 @@
             "array"
           ]
         },
-        "nilSlots": {
+        "mpns": {
           "items": {
             "maximum": 2147483647,
             "minimum": -2147483648,
@@ -56,58 +136,259 @@
             "array"
           ]
         },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
+        "type": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "version": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "viewName": {
           "type": [
             "null",
-            "object"
+            "string"
+          ]
+        }
+      },
+      "required": [
+        "version",
+        "mpns",
+        "layerName",
+        "viewName",
+        "type",
+        "colorList",
+        "gradationColorList",
+        "alpha",
+        "allowedMpnOverRide",
+        "mpnNames"
+      ],
+      "type": "object"
+    },
+    "KCES_ColorPresetControlSlider": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "type": "object"
+    },
+    "KCES_ColorPresetFreeColor": {
+      "additionalProperties": false,
+      "properties": {
+        "brightness": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "contrast": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "hue": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "saturation": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "version": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "hue",
+        "saturation",
+        "brightness",
+        "contrast"
+      ],
+      "type": "object"
+    },
+    "KCES_ColorPresetGradationColor": {
+      "additionalProperties": false,
+      "properties": {
+        "baseColor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_ColorPresetFreeColor"
+            }
           ]
         },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
+        "controlPointPosition": {
+          "anyOf": [
+            {
+              "type": "null"
             },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
+            {
+              "$ref": "#/$defs/KCES_ColorPresetControlSlider"
+            }
+          ]
+        },
+        "controlPointRangeAfter": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_ColorPresetControlSlider"
+            }
+          ]
+        },
+        "controlPointRangeBefore": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_ColorPresetControlSlider"
+            }
+          ]
+        },
+        "shadowColor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_ColorPresetFreeColor"
+            }
+          ]
+        },
+        "shadowRate": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "version": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "baseColor",
+        "shadowColor",
+        "shadowRate",
+        "controlPointPosition",
+        "controlPointRangeBefore",
+        "controlPointRangeAfter"
+      ],
+      "type": "object"
+    },
+    "KCES_ColorPresetLayerFreeColor": {
+      "additionalProperties": false,
+      "properties": {
+        "baseColor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_ColorPresetFreeColor"
+            }
+          ]
+        },
+        "shadowColor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_ColorPresetFreeColor"
+            }
+          ]
+        },
+        "shadowRate": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "version": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "baseColor",
+        "shadowColor",
+        "shadowRate"
+      ],
+      "type": "object"
+    },
+    "KCES_ExpandedKCESPresetCore": {
+      "additionalProperties": false,
+      "properties": {
+        "bodyData": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_KCESPresetBodyData"
+            }
+          ]
+        },
+        "colorData": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_KCESPresetColorData"
+            }
           ]
         },
         "propData": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "rootNil": {
-          "type": "boolean"
-        },
-        "trailingData": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-          "type": [
-            "null",
-            "string"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_KCESPresetPropertyList"
+            }
           ]
         },
         "version": {
@@ -126,23 +407,115 @@
       ],
       "type": "object"
     },
-    "KCES_KCESPresetMeta": {
+    "KCES_KCESPresetBodyData": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
+        "signature": {
+          "type": "string"
+        },
+        "version": {
           "maximum": 2147483647,
           "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "signature",
+        "version"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetColorData": {
+      "additionalProperties": false,
+      "properties": {
+        "legacyParts": {
+          "items": {
+            "$ref": "#/$defs/KCES_KCESPresetLegacyColor"
+          },
           "type": [
             "null",
-            "integer"
-          ],
+            "array"
+          ]
+        },
+        "partCount": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
           "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
-        "futureSlots": {
+        "partNames": {
           "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "signature": {
+          "type": "string"
+        },
+        "version": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "signature",
+        "version",
+        "partCount"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetCutoutMask": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "maxLevel": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "nowLevel": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "maxLevel",
+        "nowLevel",
+        "enabled"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetEditBaseData": {
+      "additionalProperties": false,
+      "properties": {
+        "colorPreset": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_KCESPresetEditColorPreset"
+            }
+          ]
+        },
+        "flags": {
+          "additionalProperties": {
             "type": [
               "null",
               "string"
@@ -150,75 +523,517 @@
           },
           "type": [
             "null",
-            "array"
-          ]
-        },
-        "metaData": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": [
-            "null",
             "object"
           ]
         },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "rootNil": {
-          "type": "boolean"
-        },
-        "trailingData": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+        "version": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "colorPreset",
+        "flags"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetEditColorPreset": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
           "type": [
             "null",
             "string"
+          ]
+        },
+        "serializedPreset": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_ColorPreset"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "serializedPreset"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetEditUnitData": {
+      "additionalProperties": false,
+      "properties": {
+        "positionX": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "positionY": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "version": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "warpointName": {
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      },
+      "required": [
+        "version",
+        "positionX",
+        "positionY",
+        "warpointName"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetGradationColorDef": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "$ref": "#/$defs/KCES_KCESPresetInfinityPartsColor"
+        },
+        "notUse": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "pointCount": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "ranges": {
+          "items": {
+            "$ref": "#/$defs/KCES_Vector4"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "rates": {
+          "items": {
+            "maximum": 3.4028234663852886e+38,
+            "minimum": -3.4028234663852886e+38,
+            "type": "number"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "required": [
+        "notUse",
+        "pointCount",
+        "rates",
+        "ranges",
+        "color"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetInfinityColorData": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "$ref": "#/$defs/KCES_KCESPresetInfinityPartsColor"
+        },
+        "colorType": {
+          "type": "string"
+        },
+        "gradation": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_KCESPresetGradationColorDef"
+            }
+          ]
+        },
+        "gradationMugen": {
+          "type": "boolean"
+        },
+        "independent": {
+          "type": "boolean"
+        },
+        "partColors": {
+          "items": {
+            "$ref": "#/$defs/KCES_KCESPresetPartColorDef"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "partsColorType": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "independent",
+        "colorType",
+        "partsColorType",
+        "color",
+        "partColors",
+        "gradation",
+        "gradationMugen"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetInfinityPartsColor": {
+      "additionalProperties": false,
+      "properties": {
+        "gradation": {
+          "items": {
+            "$ref": "#/$defs/KCES_KCESPresetInfinityPartsColorPoint"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "mainBrightness": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "mainChroma": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "mainContrast": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "mainHue": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "shadowBrightness": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "shadowChroma": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "shadowContrast": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "shadowHue": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "shadowRate": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "mainHue",
+        "mainChroma",
+        "mainBrightness",
+        "mainContrast",
+        "shadowRate",
+        "shadowHue",
+        "shadowChroma",
+        "shadowBrightness",
+        "shadowContrast",
+        "gradation"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetInfinityPartsColorPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "mainBrightness": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "mainChroma": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "mainContrast": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "mainHue": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "shadowBrightness": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "shadowChroma": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "shadowContrast": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "shadowHue": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "shadowRate": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "mainHue",
+        "mainChroma",
+        "mainBrightness",
+        "mainContrast",
+        "shadowRate",
+        "shadowHue",
+        "shadowChroma",
+        "shadowBrightness",
+        "shadowContrast"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetLegacyColor": {
+      "additionalProperties": false,
+      "properties": {
+        "mainBrightness": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "mainChroma": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "mainContrast": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "mainHue": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "shadowBrightness": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "shadowChroma": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "shadowContrast": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "shadowHue": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "shadowRate": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "use": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "use",
+        "mainHue",
+        "mainChroma",
+        "mainBrightness",
+        "mainContrast",
+        "shadowRate",
+        "shadowHue",
+        "shadowChroma",
+        "shadowBrightness",
+        "shadowContrast"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetMaterialPropertySlot": {
+      "additionalProperties": false,
+      "properties": {
+        "properties": {
+          "items": {
+            "$ref": "#/$defs/KCES_KCESPresetNamedMaterialProperty"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "slotId": {
+          "type": "string"
+        },
+        "slotValue": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "slotId",
+        "slotValue",
+        "properties"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetMaterialPropertyValue": {
+      "additionalProperties": false,
+      "properties": {
+        "materialNumber": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "propertyName": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "typeName": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "value": {
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      },
+      "required": [
+        "materialNumber",
+        "propertyName",
+        "typeName",
+        "value"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "metaData": {
+          "additionalProperties": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
           ]
         },
         "version": {
@@ -235,86 +1050,896 @@
       ],
       "type": "object"
     },
-    "ct_VirtualDirectoryMetadata": {
+    "KCES_KCESPresetNamedMaterialProperty": {
       "additionalProperties": false,
       "properties": {
-        "DirectoriesNil": {
-          "type": "boolean"
+        "key": {
+          "type": "string"
         },
-        "FieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
+        "property": {
+          "$ref": "#/$defs/KCES_KCESPresetMaterialPropertyValue"
+        },
+        "rid": {
+          "maximum": 18446744073709551615,
+          "minimum": 0,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": false
+        }
+      },
+      "required": [
+        "key",
+        "rid",
+        "property"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetNamedProperty": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "property": {
+          "$ref": "#/$defs/KCES_KCESPresetProperty"
+        }
+      },
+      "required": [
+        "key",
+        "property"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetNamedSavedTexture": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/KCES_KCESPresetSavedTextureData"
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetPartColorDef": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "$ref": "#/$defs/KCES_KCESPresetInfinityPartsColor"
+        },
+        "partName": {
           "type": [
             "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "FilesNil": {
-          "type": "boolean"
-        },
-        "FilesOnly": {
-          "type": "boolean"
-        },
-        "FutureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
+            "string"
           ]
         },
-        "Version": {
+        "patternRotation": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "patternScale": {
+          "$ref": "#/$defs/KCES_Vector2"
+        }
+      },
+      "required": [
+        "partName",
+        "color",
+        "patternScale",
+        "patternRotation"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetPartHide": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "partName": {
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      },
+      "required": [
+        "partName",
+        "enabled"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetPropBase": {
+      "additionalProperties": false,
+      "properties": {
+        "beforeFileNameRid": {
+          "maximum": 18446744073709551615,
+          "minimum": 0,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": false
+        },
+        "defines": {
+          "maximum": 18446744073709551615,
+          "minimum": 0,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": false
+        },
+        "editBaseData": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_KCESPresetEditBaseData"
+            }
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "fileName": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "fileNameRid": {
+          "maximum": 18446744073709551615,
+          "minimum": 0,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": false
+        },
+        "index": {
           "maximum": 2147483647,
           "minimum": -2147483648,
           "type": "integer",
           "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
-        "Versionless": {
+        "noScale": {
           "type": "boolean"
-        }
-      },
-      "required": [
-        "Version"
-      ],
-      "type": "object"
-    },
-    "ct_VirtualFileMetadata": {
-      "additionalProperties": false,
-      "properties": {
-        "FieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
+        },
+        "savedAttachPositionRid": {
+          "maximum": 18446744073709551615,
+          "minimum": 0,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": false
+        },
+        "savedAttachPositions": {
+          "items": {
+            "$ref": "#/$defs/KCES_SavedAttachData"
+          },
           "type": [
             "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
+            "array"
+          ]
         },
-        "FutureSlots": {
+        "savedCutoutMask": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_KCESPresetCutoutMask"
+            }
+          ]
+        },
+        "savedCutoutMaskRid": {
+          "maximum": 18446744073709551615,
+          "minimum": 0,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": false
+        },
+        "savedHairLengthRid": {
+          "maximum": 18446744073709551615,
+          "minimum": 0,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": false
+        },
+        "savedHairLengths": {
           "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
+            "$ref": "#/$defs/KCES_KCESPresetSavedHairLength"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "savedPartHide": {
+          "items": {
+            "$ref": "#/$defs/KCES_KCESPresetPartHide"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "savedPartHideRid": {
+          "maximum": 18446744073709551615,
+          "minimum": 0,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": false
+        },
+        "savedTextureData": {
+          "items": {
+            "$ref": "#/$defs/KCES_KCESPresetNamedSavedTexture"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "savedTextureDataDefines": {
+          "maximum": 18446744073709551615,
+          "minimum": 0,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": false
+        },
+        "savedTextureDataRid": {
+          "maximum": 18446744073709551615,
+          "minimum": 0,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": false
+        },
+        "shareInfinityColorData": {
+          "type": "boolean"
+        },
+        "subProperties": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_KCESPresetSubProperty"
+              }
             ]
           },
           "type": [
             "null",
             "array"
           ]
+        },
+        "subPropertyIsTuftTexture": {
+          "type": "boolean"
+        },
+        "subType": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "usePartHide": {
+          "type": "boolean"
         }
       },
+      "required": [
+        "index",
+        "type",
+        "subType",
+        "fileName",
+        "fileNameRid",
+        "enabled",
+        "beforeFileNameRid",
+        "defines",
+        "savedTextureDataRid",
+        "savedTextureDataDefines",
+        "savedTextureData",
+        "shareInfinityColorData",
+        "editBaseData",
+        "savedCutoutMaskRid",
+        "savedCutoutMask",
+        "savedPartHideRid",
+        "savedPartHide",
+        "usePartHide",
+        "savedAttachPositionRid",
+        "savedAttachPositions",
+        "noScale",
+        "subPropertyIsTuftTexture",
+        "savedHairLengthRid",
+        "savedHairLengths",
+        "subProperties"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetProperty": {
+      "additionalProperties": false,
+      "properties": {
+        "base": {
+          "$ref": "#/$defs/KCES_KCESPresetPropBase"
+        },
+        "defaultValue": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "fileNameRid": {
+          "maximum": 18446744073709551615,
+          "minimum": 0,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": false
+        },
+        "materialProperties": {
+          "items": {
+            "$ref": "#/$defs/KCES_KCESPresetMaterialPropertySlot"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "max": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "min": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "name": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string"
+        },
+        "tempValue": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "value": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "version": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "signature",
+        "version",
+        "name",
+        "defaultValue",
+        "value",
+        "tempValue",
+        "fileNameRid",
+        "enabled",
+        "max",
+        "min",
+        "materialProperties",
+        "base"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetPropertyList": {
+      "additionalProperties": false,
+      "properties": {
+        "properties": {
+          "items": {
+            "$ref": "#/$defs/KCES_KCESPresetNamedProperty"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "signature": {
+          "type": "string"
+        },
+        "version": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "signature",
+        "version",
+        "properties"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetSavedHairLength": {
+      "additionalProperties": false,
+      "properties": {
+        "partName": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "value": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "partName",
+        "value"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetSavedTextureData": {
+      "additionalProperties": false,
+      "properties": {
+        "infinityColor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_KCESPresetInfinityColorData"
+            }
+          ]
+        },
+        "infinityColorLinkLayer": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "masks": {
+          "items": {
+            "$ref": "#/$defs/KCES_KCESPresetTextureMask"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "multiplyAlpha": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "transforms": {
+          "items": {
+            "$ref": "#/$defs/KCES_KCESPresetTextureTransform"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "useAlphaMaskTransform": {
+          "type": "boolean"
+        },
+        "useLayer": {
+          "type": "boolean"
+        },
+        "useMultiplyAlpha": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "useLayer",
+        "useMultiplyAlpha",
+        "multiplyAlpha",
+        "masks",
+        "transforms",
+        "infinityColor",
+        "infinityColorLinkLayer",
+        "useAlphaMaskTransform"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetSubProperty": {
+      "additionalProperties": false,
+      "properties": {
+        "base": {
+          "$ref": "#/$defs/KCES_KCESPresetPropBase"
+        },
+        "defaultHokuroTattooSlotId": {
+          "type": "string"
+        },
+        "editUnitData": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_KCESPresetEditUnitData"
+            }
+          ]
+        },
+        "number": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "savedDefaultHokuroTattooRid": {
+          "maximum": 18446744073709551615,
+          "minimum": 0,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": false
+        }
+      },
+      "required": [
+        "number",
+        "defaultHokuroTattooSlotId",
+        "editUnitData",
+        "savedDefaultHokuroTattooRid",
+        "base"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetTextureMask": {
+      "additionalProperties": false,
+      "properties": {
+        "mask": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "mask"
+      ],
+      "type": "object"
+    },
+    "KCES_KCESPresetTextureTransform": {
+      "additionalProperties": false,
+      "properties": {
+        "areaUv": {
+          "$ref": "#/$defs/KCES_Vector4"
+        },
+        "areaUvDefault": {
+          "$ref": "#/$defs/KCES_Vector4"
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_KCESPresetTextureTransform"
+            }
+          ]
+        },
+        "position": {
+          "$ref": "#/$defs/KCES_Vector2"
+        },
+        "rotation": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "scale": {
+          "$ref": "#/$defs/KCES_Vector2"
+        },
+        "scaleDefault": {
+          "$ref": "#/$defs/KCES_Vector2"
+        },
+        "sourcePixels": {
+          "$ref": "#/$defs/KCES_Vector2Int"
+        }
+      },
+      "required": [
+        "areaUvDefault",
+        "scaleDefault",
+        "position",
+        "scale",
+        "rotation",
+        "areaUv",
+        "sourcePixels",
+        "default"
+      ],
+      "type": "object"
+    },
+    "KCES_SavedAttachData": {
+      "additionalProperties": false,
+      "properties": {
+        "boneAttachEdited": {
+          "type": "boolean"
+        },
+        "boneAttachedHierarchy": {
+          "additionalProperties": {
+            "$ref": "#/$defs/KCES_SavedAttachPosRotScale"
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "myRid": {
+          "maximum": 18446744073709551615,
+          "minimum": 0,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": false
+        },
+        "mySlotId": {
+          "type": "string"
+        },
+        "newAttachVertexIndices": {
+          "items": {
+            "maximum": 2147483647,
+            "minimum": -2147483648,
+            "type": "integer",
+            "x-meido-integer-bits": 32,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "partName": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "prs2": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_SavedAttachPosRotScale"
+            }
+          ]
+        },
+        "prs3": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_SavedAttachPosRotScale"
+            }
+          ]
+        },
+        "targetAttachPointName": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "targetRid": {
+          "maximum": 18446744073709551615,
+          "minimum": 0,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": false
+        },
+        "targetSlotId": {
+          "type": "string"
+        },
+        "targetSlotNo": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "targetVertexCount": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "targetVertexIndex": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "version": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "partName",
+        "enabled",
+        "myRid",
+        "mySlotId",
+        "targetRid",
+        "targetSlotId",
+        "targetSlotNo",
+        "targetAttachPointName",
+        "targetVertexCount",
+        "targetVertexIndex",
+        "newAttachVertexIndices",
+        "prs2",
+        "prs3",
+        "boneAttachedHierarchy",
+        "boneAttachEdited"
+      ],
+      "type": "object"
+    },
+    "KCES_SavedAttachPosRotScale": {
+      "additionalProperties": false,
+      "properties": {
+        "position": {
+          "$ref": "#/$defs/KCES_Vector3"
+        },
+        "rotation": {
+          "$ref": "#/$defs/KCES_Vector4"
+        },
+        "scale": {
+          "$ref": "#/$defs/KCES_Vector3"
+        }
+      },
+      "required": [
+        "position",
+        "scale",
+        "rotation"
+      ],
+      "type": "object"
+    },
+    "KCES_Vector2": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "y": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "KCES_Vector2Int": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "y": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "KCES_Vector3": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "y": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "z": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "z"
+      ],
+      "type": "object"
+    },
+    "KCES_Vector4": {
+      "additionalProperties": false,
+      "properties": {
+        "w": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "x": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "y": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "z": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "z",
+        "w"
+      ],
+      "type": "object"
+    },
+    "ct_VirtualDirectoryMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "Version": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "Version"
+      ],
       "type": "object"
     }
   },
@@ -327,85 +1952,37 @@
       "additionalProperties": {
         "$ref": "#/$defs/ct_VirtualDirectoryMetadata"
       },
-      "description": "Per-directory version, nil, and future-slot metadata.",
-      "title": "Directory metadata",
+      "description": "The actual child-directory version map in the VirtualDirectory container.",
+      "title": "Preset directories",
       "type": [
         "null",
         "object"
       ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve keys and metadata exactly.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "VirtualDirectory uses it to recreate empty directories and unknown layout state.",
-      "x-meido-risk": "high"
-    },
-    "containerDirectoriesNil": {
-      "description": "Whether the root directory collection was explicitly MessagePack nil.",
-      "title": "Nil directory collection flag",
-      "type": "boolean",
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Keep it synchronized with containerDirectories.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "The distinction is part of the VirtualDirectory wire shape.",
-      "x-meido-risk": "high"
-    },
-    "containerFieldCount": {
-      "description": "The stored root indexed-array width.",
-      "maximum": 2147483647,
-      "minimum": -2147483648,
-      "title": "Container field count",
-      "type": [
-        "null",
-        "integer"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve it when editing an existing preset.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "It preserves compatibility with future VirtualDirectory fields.",
-      "x-meido-integer-bits": 32,
-      "x-meido-integer-signed": true,
-      "x-meido-risk": "high"
-    },
-    "containerFilesNil": {
-      "description": "Whether the root file collection was explicitly MessagePack nil.",
-      "title": "Nil file collection flag",
-      "type": "boolean",
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Keep it synchronized with the virtual files and required preset files.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "The distinction is part of the VirtualDirectory wire shape.",
-      "x-meido-risk": "high"
-    },
-    "containerFilesOnly": {
-      "description": "Whether the root omitted directory metadata in favor of a files-only layout.",
-      "title": "Files-only container flag",
-      "type": "boolean",
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve unchanged.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "VirtualDirectory uses the flag while rebuilding the root table.",
-      "x-meido-risk": "high"
-    },
-    "containerFutureSlots": {
-      "description": "Raw MessagePack values beyond the known VirtualDirectory keys.",
-      "items": {
-        "contentEncoding": "base64",
-        "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-        "type": [
-          "null",
-          "string"
-        ]
-      },
-      "title": "Container future slots",
-      "type": [
-        "null",
-        "array"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve every slot.",
-      "x-meido-edit-role": "opaque_preserve",
-      "x-meido-game-usage": "Current KCES does not interpret these slots.",
-      "x-meido-risk": "critical"
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Keep directory names and declared versions coherent with the preset file paths.",
+      "x-meido-edit-role": "runtime_container",
+      "x-meido-game-usage": "VirtualDirectory recreates named directories before writing the preset's known and extra files.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 180,
+          "line_start": 31,
+          "observation": "MaidPreset stores thumbnail, maiddata, and optional meta files in a VirtualDirectory; maiddata contains compressed MaidPresetCore property, color, and body byte blocks.",
+          "path": "game/KCES 1.34.4/Assembly-CSharp/MaidPreset.cs",
+          "symbol": "MaidPreset.LoadPreset/Serialize"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 575,
+          "line_start": 409,
+          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
+          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "symbol": "VirtualDirectory.Serialize/Deserialize"
+        }
+      ]
     },
     "containerVersion": {
       "description": "The outer VirtualDirectory version, normally 1000.",
@@ -435,37 +2012,11 @@
           "kind": "game_source",
           "line_end": 575,
           "line_start": 409,
-          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length; it preserves version, nil collections, and future slots.",
+          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
           "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
       ]
-    },
-    "containerVersionless": {
-      "description": "Whether the decoded root used the historical versionless VirtualDirectory layout.",
-      "title": "Versionless container flag",
-      "type": "boolean",
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve the decoded layout flag.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "VirtualDirectory selects its root indexed-array interpretation from this state.",
-      "x-meido-risk": "high"
-    },
-    "containerVirtualFiles": {
-      "additionalProperties": {
-        "$ref": "#/$defs/ct_VirtualFileMetadata"
-      },
-      "description": "Per-file indexed metadata retained independently from file bytes.",
-      "title": "Virtual-file metadata",
-      "type": [
-        "null",
-        "object"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve keys and metadata exactly.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "VirtualDirectory uses it to preserve short arrays and future slots for individual files.",
-      "x-meido-risk": "high"
     },
     "extraFiles": {
       "additionalProperties": {
@@ -476,16 +2027,16 @@
           "string"
         ]
       },
-      "description": "Virtual files outside thumbnail, maiddata, and meta.",
+      "description": "Independent virtual files whose names are outside thumbnail, maiddata, and meta.",
       "title": "Additional preset files",
       "type": [
         "null",
         "object"
       ],
       "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve names and bytes unless a future game build documents them.",
-      "x-meido-edit-role": "opaque_preserve",
-      "x-meido-game-usage": "MaidPreset ignores unknown files while VirtualDirectory retains them.",
+      "x-meido-edit-guidance": "Retain names and bytes only for files outside all three known names; known preset files must use typed fields and may never fall back here.",
+      "x-meido-edit-role": "binary_virtual_file",
+      "x-meido-game-usage": "MaidPreset ignores these independently named files while VirtualDirectory stores their real byte-array payloads.",
       "x-meido-risk": "high"
     },
     "format": {
@@ -512,27 +2063,20 @@
           "kind": "game_source",
           "line_end": 575,
           "line_start": 409,
-          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length; it preserves version, nil collections, and future slots.",
+          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
           "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
       ]
     },
     "maidData": {
-      "anyOf": [
-        {
-          "type": "null"
-        },
-        {
-          "$ref": "#/$defs/KCES_KCESPresetCore"
-        }
-      ],
-      "description": "The compressed MessagePack maiddata object containing versioned property, color, and body byte blocks.",
+      "$ref": "#/$defs/KCES_ExpandedKCESPresetCore",
+      "description": "The typed maiddata object containing versioned property, color, and body structures.",
       "title": "Maid preset core",
       "x-meido-confidence": "verified",
-      "x-meido-edit-guidance": "Keep the core version and all three inner blocks from the same source preset generation.",
+      "x-meido-edit-guidance": "Keep the core version and all three typed structures from the same source preset generation.",
       "x-meido-edit-role": "runtime_configuration",
-      "x-meido-game-usage": "MaidPreset hands these blocks to Maid's property, multi-color, and body deserializers when applying a preset.",
+      "x-meido-game-usage": "MaidPreset hands the corresponding encoded blocks to Maid's property, multi-color, and body deserializers when applying a preset.",
       "x-meido-risk": "critical",
       "x-meido-source-evidence": [
         {
@@ -549,7 +2093,7 @@
           "kind": "game_source",
           "line_end": 575,
           "line_start": 409,
-          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length; it preserves version, nil collections, and future slots.",
+          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
           "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
@@ -586,7 +2130,7 @@
           "kind": "game_source",
           "line_end": 575,
           "line_start": 409,
-          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length; it preserves version, nil collections, and future slots.",
+          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
           "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
@@ -621,7 +2165,7 @@
           "kind": "game_source",
           "line_end": 575,
           "line_start": 409,
-          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length; it preserves version, nil collections, and future slots.",
+          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
           "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }

@@ -151,7 +151,7 @@ func TestFileTypeServiceStrictlyValidatesJSONTextEditingEnvelope(t *testing.T) {
 func TestFileTypeServiceRejectsUnknownFieldsInKCESOnlyEditingJSON(t *testing.T) {
 	tests := map[string]string{
 		"bad.menuassets.json":      `{"assetArray":[],"future":1}`,
-		"bad.db2conf.json":         `{"format":"kces-msgpack-lz4","extension":".db2conf","lengthPrefixed":true,"kind":"msgpack-json-string","text":"{}","future":1}`,
+		"bad.db2conf.json":         `{"format":"kces-msgpack-lz4","extension":".db2conf","storageVariant":"int32-length-lz4-messagepack","kind":"msgpack-json-string","json":{},"future":1}`,
 		"bad.hitcheck.json":        `{"signature":"HitCheck","entries":[],"future":1}`,
 		"paths.dat.json":           `{"format":"kces-auto-paths","signature":"CM3D2_PATHS","version":1000,"paths":["system"],"future":1}`,
 		"system.dat.json":          `{"format":"kces-system-data","version":1000,"future":1}`,
@@ -177,7 +177,7 @@ func TestFileTypeServiceRejectsUnknownFieldsInKCESOnlyEditingJSON(t *testing.T) 
 }
 
 func TestKCESPayloadEditingJSONRejectsFilenameExtensionMismatch(t *testing.T) {
-	data := []byte(`{"format":"kces-msgpack-lz4","extension":".db2conf","lengthPrefixed":true,"storageVariant":"int32-length-lz4-messagepack","kind":"msgpack-json-string","text":"{}"}`)
+	data := []byte(`{"format":"kces-msgpack-lz4","extension":".db2conf","storageVariant":"int32-length-lz4-messagepack","kind":"msgpack-json-string","json":{}}`)
 	if _, err := decodeKCESPayloadEditingJSON(data, ".dbconf"); err == nil || !strings.Contains(err.Error(), "does not match") {
 		t.Fatalf("mismatched payload extension error = %v", err)
 	}

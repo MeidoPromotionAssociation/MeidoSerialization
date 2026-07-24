@@ -19,15 +19,8 @@ const CtEnvelopeFormat = "kces-content-table"
 type CtEnvelope struct {
 	Format             string                                 `json:"format"`                       // 封套格式标识，固定为 kces-content-table / Envelope format marker, fixed to kces-content-table
 	Version            int32                                  `json:"version"`                      // VirtualDirectory 版本号 / VirtualDirectory version
-	Versionless        bool                                   `json:"versionless,omitempty"`        // Historical root [directories, files] layout / 历史根 [目录, 文件] 布局
-	FilesOnly          bool                                   `json:"filesOnly,omitempty"`          // Historical root [version, files] layout / 历史根 [版本, 文件] 布局
-	DirectoriesNil     bool                                   `json:"directoriesNil,omitempty"`     // Root allDirectorys was nil / 根 allDirectorys 为 nil
-	FilesNil           bool                                   `json:"filesNil,omitempty"`           // Root allFiles was nil / 根 allFiles 为 nil
-	FieldCount         *int32                                 `json:"fieldCount,omitempty"`         // Non-canonical root indexed-array width / 非标准根槽数
-	FutureSlots        [][]byte                               `json:"futureSlots,omitempty"`        // Verbatim future root MessagePack values / 根未来 MessagePack 值
-	Directories        map[string]ct.VirtualDirectoryMetadata `json:"directories,omitempty"`        // Per-child layout metadata, including empty directories / 子目录布局元数据（含空目录）
-	VirtualFiles       map[string]ct.VirtualFileMetadata      `json:"virtualFiles,omitempty"`       // Position-independent VirtualFile short/future slots / 与偏移无关的 VirtualFile 短/未来槽位
-	Catalog            *ct.AssetBundleCatalog                 `json:"catalog,omitempty"`            // catalog 虚拟文件内容 / Decoded catalog virtual file content
+	Directories        map[string]ct.VirtualDirectoryMetadata `json:"directories,omitempty"`        // 子目录路径和真实版本字段，包含空目录 / Child-directory paths and real version fields, including empty directories
+	Catalog            ct.AssetBundleCatalog                  `json:"catalog"`                      // 必需的 catalog 虚拟文件内容 / Required decoded catalog virtual file content
 	ExtensionNameLists map[string]*ct.ExtensionNameList       `json:"extensionNameLists,omitempty"` // 按扩展名索引的 ExtensionNameList / ExtensionNameList values keyed by extension
 	Files              []CtEnvelopeFile                       `json:"files,omitempty"`              // 未识别或非 catalog 虚拟文件 / Unrecognized or non-catalog virtual files
 }
@@ -139,31 +132,28 @@ func readCtEnvelopeFromTable(table *ct.ContentTable) (*CtEnvelope, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decode catalog: %w", err)
 	}
+	if catalog == nil {
+		return nil, fmt.Errorf("catalog root must not be null")
+	}
 
 	envelope := &CtEnvelope{
-		Format:             CtEnvelopeFormat,
-		Version:            table.Version,
-		Versionless:        table.Versionless,
-		FilesOnly:          table.FilesOnly,
-		DirectoriesNil:     table.DirectoriesNil,
-		FilesNil:           table.FilesNil,
-		FieldCount:         table.FieldCount,
-		FutureSlots:        table.FutureSlots,
-		Directories:        table.GetVirtualDirectoryMetadata(),
-		VirtualFiles:       table.GetVirtualFileMetadata(),
-		Catalog:            catalog,
-		ExtensionNameLists: make(map[string]*ct.ExtensionNameList, len(catalog.ExtensionList)),
+		Format:      CtEnvelopeFormat,
+		Version:     table.Version,
+		Directories: table.GetVirtualDirectoryMetadata(),
+		Catalog:     *catalog,
 	}
+	envelope.ExtensionNameLists = make(map[string]*ct.ExtensionNameList, len(catalog.ExtensionList))
 
 	rawFiles := make(map[string][]byte)
 	consumed := map[string]struct{}{
 		"catalog": {},
 	}
 
-	for _, ext := range catalog.ExtensionList {
-		if ext == "" {
-			continue
+	for index, extension := range catalog.ExtensionList {
+		if extension == nil || *extension == "" {
+			return nil, fmt.Errorf("catalog.extensionList[%d] must name an ExtensionNameList virtual file", index)
 		}
+		ext := *extension
 		if _, seen := consumed[ext]; seen {
 			continue
 		}
@@ -171,12 +161,7 @@ func readCtEnvelopeFromTable(table *ct.ContentTable) (*CtEnvelope, error) {
 
 		enl, err := ct.DecodeExtensionNameListFromCt(table, ext)
 		if err != nil {
-			data, rawErr := table.GetFileData(ext)
-			if rawErr != nil {
-				return nil, fmt.Errorf("decode ExtensionNameList %q: %w", ext, err)
-			}
-			rawFiles[ext] = append([]byte(nil), data...)
-			continue
+			return nil, fmt.Errorf("decode ExtensionNameList %q: %w", ext, err)
 		}
 		envelope.ExtensionNameLists[ext] = enl
 	}
@@ -220,19 +205,9 @@ func buildContentTableFromCtEnvelope(envelope *CtEnvelope) (*ct.ContentTable, er
 	if envelope == nil {
 		return nil, fmt.Errorf("ct envelope is nil")
 	}
-	if envelope.Catalog == nil {
-		return nil, fmt.Errorf("ct envelope missing catalog")
-	}
-
 	table := &ct.ContentTable{
-		Version:        envelope.Version,
-		Versionless:    envelope.Versionless,
-		FilesOnly:      envelope.FilesOnly,
-		DirectoriesNil: envelope.DirectoriesNil,
-		FilesNil:       envelope.FilesNil,
-		FieldCount:     envelope.FieldCount,
-		FutureSlots:    envelope.FutureSlots,
-		Directories:    envelope.Directories,
+		Version:     envelope.Version,
+		Directories: envelope.Directories,
 	}
 
 	rawFiles := make(map[string][]byte, len(envelope.Files))
@@ -250,7 +225,7 @@ func buildContentTableFromCtEnvelope(envelope *CtEnvelope) (*ct.ContentTable, er
 		rawFiles[file.Name] = data
 	}
 
-	catalogData, err := ct.EncodeCatalog(envelope.Catalog)
+	catalogData, err := ct.EncodeCatalog(&envelope.Catalog)
 	if err != nil {
 		return nil, fmt.Errorf("encode catalog: %w", err)
 	}
@@ -261,45 +236,39 @@ func buildContentTableFromCtEnvelope(envelope *CtEnvelope) (*ct.ContentTable, er
 	if err := table.AddFile("catalog", compressedCatalog); err != nil {
 		return nil, err
 	}
-	delete(rawFiles, "catalog")
+	if _, exists := rawFiles["catalog"]; exists {
+		return nil, fmt.Errorf(`files cannot contain the known virtual file "catalog"`)
+	}
 
 	seenExt := map[string]struct{}{}
-	for _, ext := range envelope.Catalog.ExtensionList {
-		if ext == "" {
-			continue
+	for index, extension := range envelope.Catalog.ExtensionList {
+		if extension == nil || *extension == "" {
+			return nil, fmt.Errorf("catalog.extensionList[%d] must name an ExtensionNameList virtual file", index)
 		}
+		ext := *extension
 		if _, ok := seenExt[ext]; ok {
 			continue
 		}
 		seenExt[ext] = struct{}{}
 
-		if enl, ok := envelope.ExtensionNameLists[ext]; ok && enl != nil {
-			if enl.Extension == "" {
-				enl.Extension = ext
-			}
-			data, err := ct.EncodeExtensionNameList(enl)
-			if err != nil {
-				return nil, fmt.Errorf("encode ExtensionNameList %q: %w", ext, err)
-			}
-			compressed, err := ct.CompressLz4BlockArray(data)
-			if err != nil {
-				return nil, fmt.Errorf("compress ExtensionNameList %q: %w", ext, err)
-			}
-			if err := table.AddFile(ext, compressed); err != nil {
-				return nil, err
-			}
-			delete(rawFiles, ext)
-			continue
-		}
-
-		data, ok := rawFiles[ext]
+		enl, ok := envelope.ExtensionNameLists[ext]
 		if !ok {
-			return nil, fmt.Errorf("missing ExtensionNameList %q", ext)
+			return nil, fmt.Errorf("missing typed ExtensionNameList %q", ext)
 		}
-		if err := table.AddFile(ext, data); err != nil {
+		if _, exists := rawFiles[ext]; exists {
+			return nil, fmt.Errorf("files cannot contain catalog-declared ExtensionNameList %q", ext)
+		}
+		data, err := ct.EncodeExtensionNameList(enl)
+		if err != nil {
+			return nil, fmt.Errorf("encode ExtensionNameList %q: %w", ext, err)
+		}
+		compressed, err := ct.CompressLz4BlockArray(data)
+		if err != nil {
+			return nil, fmt.Errorf("compress ExtensionNameList %q: %w", ext, err)
+		}
+		if err := table.AddFile(ext, compressed); err != nil {
 			return nil, err
 		}
-		delete(rawFiles, ext)
 	}
 
 	for ext := range envelope.ExtensionNameLists {
@@ -326,9 +295,5 @@ func buildContentTableFromCtEnvelope(envelope *CtEnvelope) (*ct.ContentTable, er
 			}
 		}
 	}
-	if err := table.ApplyVirtualFileMetadata(envelope.VirtualFiles); err != nil {
-		return nil, err
-	}
-
 	return table, nil
 }

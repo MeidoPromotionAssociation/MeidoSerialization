@@ -78,7 +78,6 @@ func TestGP03BridgeGameLayoutRoundTrip(t *testing.T) {
 		t.Fatalf("DecodeGP03Bridge: %v", err)
 	}
 	want := &GP03BridgeFile{
-		Format:        KCESGP03BridgeFormat,
 		Signature:     GP03BridgeSignature,
 		Version:       GP03BridgeVersion,
 		GUID:          input.GUID,
@@ -119,13 +118,8 @@ func TestGP03BridgeRejectsMalformedLengthsTruncationAndTrailingData(t *testing.T
 		})
 	}
 	extended := append(append([]byte(nil), valid...), 0xde, 0xad)
-	decoded, err := DecodeGP03Bridge(extended)
-	if err != nil || !bytes.Equal(decoded.TrailingData, []byte{0xde, 0xad}) {
-		t.Fatalf("trailing bytes were not preserved: decoded=%+v err=%v", decoded, err)
-	}
-	reencoded, err := EncodeGP03Bridge(decoded)
-	if err != nil || !bytes.Equal(reencoded, extended) {
-		t.Fatalf("trailing-byte round trip=%x err=%v want=%x", reencoded, err, extended)
+	if _, err := DecodeGP03Bridge(extended); err == nil || !strings.Contains(err.Error(), "trailing data") {
+		t.Fatalf("trailing-data error = %v", err)
 	}
 }
 
@@ -206,7 +200,6 @@ func TestGP03BridgeEncodeValidationAndCallerOwnership(t *testing.T) {
 		value *GP03BridgeFile
 	}{
 		{name: "nil"},
-		{name: "format", value: &GP03BridgeFile{Format: "future", GUID: "g", LegacyPreset: legacy, CurrentPreset: current}},
 		{name: "signature", value: &GP03BridgeFile{Signature: "future", GUID: "g", LegacyPreset: legacy, CurrentPreset: current}},
 		{name: "missing signature", value: &GP03BridgeFile{Version: GP03BridgeVersion, GUID: "g", LegacyPreset: legacy, CurrentPreset: current}},
 	}
@@ -281,13 +274,8 @@ func TestGP03BridgeCOM3D2V2000RoundTripAndPayloadRules(t *testing.T) {
 
 	legacy := sourceConstructedLegacyBridgePreset(t)
 	wire := sourceConstructedBridgeWire(t, GP03BridgeSignature, GP03BridgeCOM3D2Version, "g", int32(len(legacy)), legacy, int32(len(current)), current, nil)
-	decoded, err := DecodeGP03Bridge(wire)
-	if err != nil || !bytes.Equal(decoded.LegacyPreset, legacy) {
-		t.Fatalf("v2000 non-empty legacy payload = %#v, %v", decoded, err)
-	}
-	reencoded, err := EncodeGP03Bridge(decoded)
-	if err != nil || !bytes.Equal(reencoded, wire) {
-		t.Fatalf("v2000 non-empty legacy wire changed: equal=%v err=%v", bytes.Equal(reencoded, wire), err)
+	if _, err := DecodeGP03Bridge(wire); err == nil || !strings.Contains(err.Error(), "legacy preset block must be empty") {
+		t.Fatalf("v2000 non-empty legacy error = %v", err)
 	}
 }
 

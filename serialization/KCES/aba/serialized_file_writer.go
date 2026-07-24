@@ -405,8 +405,8 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 	if err := hw.WriteZeroes(3); err != nil { // padding
 		return fmt.Errorf("write header padding: %w", err)
 	}
-	// v22 扩展头依次保存 MetadataSize、Int64 FileSize、Int64 DataOffset 和未使用的 Int64 零值
-	// The v22 extended header stores MetadataSize, Int64 FileSize, Int64 DataOffset, and an unused Int64 zero in order
+	// v22 扩展头依次保存 MetadataSize、Int64 FileSize、Int64 DataOffset 和用途未知的 Int64 字段，新建文件写零
+	// The v22 extended header stores MetadataSize, Int64 FileSize, Int64 DataOffset, and an Int64 field of unknown purpose, written as zero for new files
 	if err := hw.WriteUInt32(metadataSize); err != nil { // MetadataSize
 		return fmt.Errorf("write extended header metadata size: %w", err)
 	}
@@ -416,8 +416,8 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 	if err := hw.WriteInt64(dataOffset); err != nil { // DataOffset (int64)
 		return fmt.Errorf("write extended header data offset: %w", err)
 	}
-	if err := hw.WriteInt64(0); err != nil { // unused
-		return fmt.Errorf("write extended header unused field: %w", err)
+	if err := hw.WriteInt64(0); err != nil { // unknown field
+		return fmt.Errorf("write extended header unknown field: %w", err)
 	}
 
 	if err := writeAbaBytes(out, header.Bytes()); err != nil {

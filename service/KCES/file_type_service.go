@@ -268,7 +268,7 @@ func (s *FileTypeService) TryFileTypeDetermine(path string) (info COM3D2Service.
 		if readErr != nil {
 			return info, true, readErr
 		}
-		value, decodeErr := serializationKCES.DecodeGP03Bridge(data)
+		value, decodeErr := decodeGP03Bridge(data)
 		if decodeErr != nil {
 			return info, true, fmt.Errorf("validate KCES GP03 bridge file %q: %w", path, decodeErr)
 		}
@@ -547,11 +547,11 @@ func probeKCESJSON(path string, data []byte, info COM3D2Service.FileInfo) (COM3D
 		assignKCESVersion(&info, envelope.Version)
 		return info, true, nil
 	case serializationKCES.KCESPresetFormat:
-		var preset serializationKCES.KCESPreset
+		var preset serializationKCES.ExpandedKCESPreset
 		if err := decodeStrictJSON(data, &preset, "KCES preset JSON"); err != nil {
 			return info, true, fmt.Errorf("validate KCES preset JSON %q: %w", path, err)
 		}
-		if _, err := serializationKCES.EncodeKCESPreset(&preset); err != nil {
+		if _, err := serializationKCES.EncodeExpandedKCESPreset(&preset); err != nil {
 			return info, true, fmt.Errorf("validate KCES preset JSON %q: %w", path, err)
 		}
 		info.FileType = "preset"

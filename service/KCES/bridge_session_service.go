@@ -1,6 +1,7 @@
 package KCES
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -102,6 +103,27 @@ func decodeKCESBridgeSessionEditingJSON(data []byte) (*serializationKCES.KCESBri
 	var value serializationKCES.KCESBridgeSession
 	if err := decodeStrictJSON(data, &value, "KCES bridge session JSON"); err != nil {
 		return nil, err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(trimJSONUTF8BOM(data), &fields); err != nil {
+		return nil, err
+	}
+	for _, name := range []string{"format", "containerVersion", "sessionData"} {
+		if _, found := fields[name]; !found {
+			return nil, fmt.Errorf("%s is required", name)
+		}
+	}
+	if bytes.Equal(bytes.TrimSpace(fields["sessionData"]), []byte("null")) {
+		return nil, fmt.Errorf("sessionData must not be null")
+	}
+	var sessionFields map[string]json.RawMessage
+	if err := json.Unmarshal(fields["sessionData"], &sessionFields); err != nil {
+		return nil, err
+	}
+	for _, name := range []string{"version", "sessionId", "hideMenuFileIds"} {
+		if _, found := sessionFields[name]; !found {
+			return nil, fmt.Errorf("sessionData.%s is required", name)
+		}
 	}
 	if value.Format == "" {
 		return nil, fmt.Errorf("format is missing or null")

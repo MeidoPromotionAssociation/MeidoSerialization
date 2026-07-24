@@ -57,7 +57,7 @@ func TestEncodeKCESPayloadAcceptsCLRInt32Boundaries(t *testing.T) {
 		t.Run(boundary.name+"/limb_collider", func(t *testing.T) {
 			envelope := newLimbColliderInt32Envelope()
 			pkg := envelope.LimbCollider
-			collider := pkg.Items[0].Collider.(*ColliderMaidProp)
+			collider := pkg.Items[0].Collider
 			pkg.Version = boundary.value
 			pkg.Items[0].Version = boundary.value
 			pkg.Items[0].Target = boundary.value
@@ -91,7 +91,7 @@ func TestEncodeKCESPayloadAcceptsCLRInt32Boundaries(t *testing.T) {
 
 func newDynamicBoneInt32Envelope() *KCESPayloadEnvelope {
 	return &KCESPayloadEnvelope{
-		Format: PayloadFormatKCESMessagePack, Extension: ".dbconf", LengthPrefixed: true,
+		Format: PayloadFormatKCESMessagePack, Extension: ".dbconf",
 		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindDynamicBoneStatus,
 		DynamicBone: NewDynamicBoneStatus(),
 	}
@@ -99,7 +99,7 @@ func newDynamicBoneInt32Envelope() *KCESPayloadEnvelope {
 
 func newClothInt32Envelope() *KCESPayloadEnvelope {
 	return &KCESPayloadEnvelope{
-		Format: PayloadFormatKCESMessagePack, Extension: ".dsbconf", LengthPrefixed: true,
+		Format: PayloadFormatKCESMessagePack, Extension: ".dsbconf",
 		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindClothParams,
 		ClothParams: NewClothParams(),
 	}
@@ -107,40 +107,40 @@ func newClothInt32Envelope() *KCESPayloadEnvelope {
 
 func newGenericColliderInt32Envelope() *KCESPayloadEnvelope {
 	return &KCESPayloadEnvelope{
-		Format: PayloadFormatKCESMessagePack, Extension: ".dbcol", LengthPrefixed: true,
+		Format: PayloadFormatKCESMessagePack, Extension: ".dbcol",
 		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindColliderPackage,
 		ColliderPackage: &ColliderPackage{
 			Version: 1000,
-			Colliders: []ColliderRef{
+			Colliders: []*ColliderRef{
 				{Type: ColliderTypeCapsule, Collider: NewColliderCapsule()},
 				{Type: ColliderTypeSphere, Collider: NewColliderSphere()},
 			},
-			LimbEnableList: []ColliderState{{Version: 1000, LimbType: 0, IsEnable: true}},
+			LimbEnableList: []*ColliderState{{Version: 1000, LimbType: 0, IsEnable: true}},
 		},
 	}
 }
 
 func newLimbColliderInt32Envelope() *KCESPayloadEnvelope {
 	return &KCESPayloadEnvelope{
-		Format: PayloadFormatKCESMessagePack, Extension: ".limbcol", LengthPrefixed: true,
+		Format: PayloadFormatKCESMessagePack, Extension: ".limbcol",
 		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindLimbCollider,
 		LimbCollider: &LimbColliderPackage{
 			Version: 1000,
-			Items:   []LimbColliderItem{{Version: 1000, Target: 0, Collider: NewColliderMaidProp()}},
+			Items:   []*LimbColliderItem{{Version: 1000, Target: 0, Collider: NewColliderMaidProp()}},
 		},
 	}
 }
 
 func newIKColliderInt32Envelope() *KCESPayloadEnvelope {
 	return &KCESPayloadEnvelope{
-		Format: PayloadFormatKCESMessagePack, Extension: ".ikcol", LengthPrefixed: true,
+		Format: PayloadFormatKCESMessagePack, Extension: ".ikcol",
 		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindIKCollider,
 		IKCollider: &IKColliderPackage{
 			Version: 1000,
-			Groups: []IKColliderGroup{{
+			Groups: []*IKColliderGroup{{
 				Version: 1000,
 				Target:  0,
-				Colliders: []ColliderRef{{
+				Colliders: []*ColliderRef{{
 					Type: ColliderTypePlane, Collider: NewColliderPlane(),
 				}},
 			}},

@@ -13,19 +13,22 @@ import (
 
 func TestCtEnvelopeVirtualAssetCatalogRoundTrip(t *testing.T) {
 	itemName := "local_test.menuassets"
+	catalogName := "local_test"
+	extension := ".menuassets"
+	assetPath := "Assets/GameData/parts/local_test/local_test.menuassets"
 	catalog := &ct.AssetBundleCatalog{
 		Kind:          ct.CatalogKindVirtualAsset,
 		Version:       1000,
 		CatalogType:   ct.CatalogTypeParts,
 		PackageType:   ct.PackageTypePlugin,
 		Priority:      5,
-		Name:          "local_test",
+		Name:          &catalogName,
 		Hash:          ct.HashStringIgnoreCase("local_test"),
 		CreateTime:    123456789,
-		ExtensionList: []string{".menuassets"},
-		VirtualItems: []ct.VirtualCatalogItem{{
-			AssetPath: "Assets/GameData/parts/local_test/local_test.menuassets",
-			Name:      itemName,
+		ExtensionList: []*string{&extension},
+		VirtualItems: []*ct.VirtualCatalogItem{{
+			AssetPath: &assetPath,
+			Name:      &itemName,
 			Hash:      ct.HashStringIgnoreCase(itemName),
 		}},
 	}
@@ -34,8 +37,8 @@ func TestCtEnvelopeVirtualAssetCatalogRoundTrip(t *testing.T) {
 		t.Fatalf("EncodeCatalog: %v", err)
 	}
 	extensionList := &ct.ExtensionNameList{
-		Extension: ".menuassets",
-		Data:      []ct.ExtensionNamePack{{Name: itemName, Hash: ct.HashStringIgnoreCase(itemName)}},
+		Extension: &extension,
+		Data:      []*ct.ExtensionNamePack{{Name: &itemName, Hash: ct.HashStringIgnoreCase(itemName)}},
 	}
 	extensionData, err := ct.EncodeExtensionNameList(extensionList)
 	if err != nil {
@@ -49,29 +52,16 @@ func TestCtEnvelopeVirtualAssetCatalogRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Compress extension list: %v", err)
 	}
-	rootFieldCount := int32(4)
-	childFieldCount := int32(3)
 	table := &ct.ContentTable{
-		Version:     -9,
-		FieldCount:  &rootFieldCount,
-		FutureSlots: [][]byte{{0xd4, 0x2a, 0x7f}},
+		Version: 1000,
 		Directories: map[string]ct.VirtualDirectoryMetadata{
 			"empty": {
-				Versionless: true,
-				FilesNil:    true,
-				FieldCount:  &childFieldCount,
-				FutureSlots: [][]byte{{0xc0}},
+				Version: 1000,
 			},
 		},
 	}
 	table.AddFile("catalog", compressedCatalog)
 	table.AddFile(".menuassets", compressedExtension)
-	virtualFileFieldCount := int32(3)
-	catalogFile := table.Files["catalog"]
-	catalogFile.FieldCount = &virtualFileFieldCount
-	catalogFile.FutureSlots = [][]byte{{0xcc, 0x02}}
-	table.Files["catalog"] = catalogFile
-
 	envelope, err := readCtEnvelopeFromTable(table)
 	if err != nil {
 		t.Fatalf("readCtEnvelopeFromTable: %v", err)
@@ -79,8 +69,8 @@ func TestCtEnvelopeVirtualAssetCatalogRoundTrip(t *testing.T) {
 	if envelope.Catalog.Kind != ct.CatalogKindVirtualAsset {
 		t.Fatalf("envelope catalog kind = %q", envelope.Catalog.Kind)
 	}
-	if envelope.Version != -9 || envelope.FieldCount == nil || *envelope.FieldCount != 4 || !reflect.DeepEqual(envelope.FutureSlots, table.FutureSlots) || !reflect.DeepEqual(envelope.Directories, table.Directories) || !reflect.DeepEqual(envelope.VirtualFiles, table.GetVirtualFileMetadata()) {
-		t.Fatalf("content-table wire metadata missing from envelope: %+v", envelope)
+	if envelope.Version != table.Version || !reflect.DeepEqual(envelope.Directories, table.Directories) {
+		t.Fatalf("content-table typed metadata missing from envelope: %+v", envelope)
 	}
 	jsonData, err := json.Marshal(envelope)
 	if err != nil {
@@ -104,8 +94,8 @@ func TestCtEnvelopeVirtualAssetCatalogRoundTrip(t *testing.T) {
 	if !reflect.DeepEqual(decoded, catalog) {
 		t.Fatalf("virtual catalog changed after envelope round-trip\ngot:  %+v\nwant: %+v", decoded, catalog)
 	}
-	if roundTripTable.Version != table.Version || !reflect.DeepEqual(roundTripTable.FieldCount, table.FieldCount) || !reflect.DeepEqual(roundTripTable.FutureSlots, table.FutureSlots) || !reflect.DeepEqual(roundTripTable.Directories, table.Directories) || !reflect.DeepEqual(roundTripTable.GetVirtualFileMetadata(), table.GetVirtualFileMetadata()) {
-		t.Fatalf("content-table metadata changed after envelope round-trip:\n got  %+v\n want %+v", roundTripTable, table)
+	if roundTripTable.Version != table.Version || !reflect.DeepEqual(roundTripTable.Directories, table.Directories) {
+		t.Fatalf("content-table typed metadata changed after envelope round-trip:\n got  %+v\n want %+v", roundTripTable, table)
 	}
 	var container bytes.Buffer
 	if err := ct.WriteContentTable(&container, roundTripTable); err != nil {
@@ -115,8 +105,30 @@ func TestCtEnvelopeVirtualAssetCatalogRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadContentTable: %v", err)
 	}
-	if redecodedTable.Version != table.Version || !reflect.DeepEqual(redecodedTable.FieldCount, table.FieldCount) || !reflect.DeepEqual(redecodedTable.FutureSlots, table.FutureSlots) || !reflect.DeepEqual(redecodedTable.Directories, table.Directories) || !reflect.DeepEqual(redecodedTable.GetVirtualFileMetadata(), table.GetVirtualFileMetadata()) {
-		t.Fatalf("content-table metadata changed on final wire:\n got  %+v\n want %+v", redecodedTable, table)
+	if redecodedTable.Version != table.Version || !reflect.DeepEqual(redecodedTable.Directories, table.Directories) {
+		t.Fatalf("content-table typed metadata changed on final wire:\n got  %+v\n want %+v", redecodedTable, table)
+	}
+}
+
+func TestCtEnvelopeRequiresNonNullCatalog(t *testing.T) {
+	var envelope CtEnvelope
+	if err := decodeStrictJSON(
+		[]byte(`{"format":"kces-content-table","version":1000,"catalog":null}`),
+		&envelope,
+		"KCES content-table JSON",
+	); err == nil {
+		t.Fatal("content-table JSON accepted catalog:null")
+	}
+
+	if err := decodeStrictJSON(
+		[]byte(`{"format":"kces-content-table","version":1000}`),
+		&envelope,
+		"KCES content-table JSON",
+	); err != nil {
+		t.Fatalf("decode missing catalog before semantic validation: %v", err)
+	}
+	if _, err := buildContentTableFromCtEnvelope(&envelope); err == nil {
+		t.Fatal("content-table JSON accepted a missing catalog")
 	}
 }
 
@@ -155,7 +167,7 @@ func TestCtService_FixedSamplesJSONRoundTrip(t *testing.T) {
 			if envelope.Format != CtEnvelopeFormat {
 				t.Fatalf("format got %q, want %q", envelope.Format, CtEnvelopeFormat)
 			}
-			if envelope.Catalog == nil || envelope.Catalog.Name != sample.name {
+			if envelope.Catalog.Name == nil || *envelope.Catalog.Name != sample.name {
 				t.Fatalf("unexpected catalog: %+v", envelope.Catalog)
 			}
 			if len(envelope.Catalog.ResourceFileNames) == 0 || len(envelope.Catalog.Items) == 0 {
@@ -166,7 +178,7 @@ func TestCtService_FixedSamplesJSONRoundTrip(t *testing.T) {
 				if enl == nil {
 					t.Fatalf("missing ExtensionNameList %q in %+v", ext, envelope.Catalog.ExtensionList)
 				}
-				if enl.Extension != ext || len(enl.Data) == 0 {
+				if enl.Extension == nil || *enl.Extension != ext || len(enl.Data) == 0 {
 					t.Fatalf("incomplete ExtensionNameList %q: %+v", ext, enl)
 				}
 			}
@@ -205,17 +217,20 @@ func assertCtSemanticallyEqual(t *testing.T, wantPath string, gotPath string) {
 		t.Fatalf("catalog changed after round-trip\ngot:  %+v\nwant: %+v", gotCatalog, wantCatalog)
 	}
 
-	for _, ext := range wantCatalog.ExtensionList {
-		wantEnl, err := ct.DecodeExtensionNameListFromCt(wantTable, ext)
-		if err != nil {
-			t.Fatalf("decode original ExtensionNameList %q: %v", ext, err)
+	for index, ext := range wantCatalog.ExtensionList {
+		if ext == nil {
+			t.Fatalf("catalog extensionList[%d] is null", index)
 		}
-		gotEnl, err := ct.DecodeExtensionNameListFromCt(gotTable, ext)
+		wantEnl, err := ct.DecodeExtensionNameListFromCt(wantTable, *ext)
 		if err != nil {
-			t.Fatalf("decode round-trip ExtensionNameList %q: %v", ext, err)
+			t.Fatalf("decode original ExtensionNameList %q: %v", *ext, err)
+		}
+		gotEnl, err := ct.DecodeExtensionNameListFromCt(gotTable, *ext)
+		if err != nil {
+			t.Fatalf("decode round-trip ExtensionNameList %q: %v", *ext, err)
 		}
 		if !reflect.DeepEqual(gotEnl, wantEnl) {
-			t.Fatalf("ExtensionNameList %q changed after round-trip\ngot:  %+v\nwant: %+v", ext, gotEnl, wantEnl)
+			t.Fatalf("ExtensionNameList %q changed after round-trip\ngot:  %+v\nwant: %+v", *ext, gotEnl, wantEnl)
 		}
 	}
 
@@ -256,9 +271,9 @@ func readContentTableForTest(t *testing.T, path string) *ct.ContentTable {
 	return table
 }
 
-func containsString(values []string, want string) bool {
+func containsString(values []*string, want string) bool {
 	for _, value := range values {
-		if value == want {
+		if value != nil && *value == want {
 			return true
 		}
 	}

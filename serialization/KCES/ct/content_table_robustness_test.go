@@ -118,7 +118,7 @@ func TestDecodeVirtualDirectoryRejectsMalformedFilesInsteadOfDroppingThem(t *tes
 	}
 }
 
-func TestDecodeVirtualDirectoryHistoricalDirectoriesAndFiles(t *testing.T) {
+func TestDecodeVirtualDirectoryRejectsHistoricalTwoSlotLayout(t *testing.T) {
 	value := []interface{}{
 		map[string]interface{}{
 			"nested": []interface{}{
@@ -133,36 +133,8 @@ func TestDecodeVirtualDirectoryHistoricalDirectoriesAndFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	table := &ContentTable{}
-	if err := table.decodeVirtualDirectory(encoded); err != nil {
-		t.Fatalf("decode historical VirtualDirectory: %v", err)
-	}
-	if !table.Versionless || table.Version != 0 {
-		t.Fatalf("historical version state = versionless %v version %d, want true/0", table.Versionless, table.Version)
-	}
-	if _, ok := table.Files["nested/child.bin"]; !ok {
-		t.Fatalf("nested historical file was lost: %#v", table.Files)
-	}
-	if _, ok := table.Files["root.bin"]; !ok {
-		t.Fatalf("root historical file was lost: %#v", table.Files)
-	}
-
-	table.Raw = append(make([]byte, HeaderSize), 0x11, 0x22)
-	var rewritten bytes.Buffer
-	if err := WriteContentTable(&rewritten, table); err != nil {
-		t.Fatalf("rewrite historical VirtualDirectory: %v", err)
-	}
-	roundTrip, err := ReadContentTable(bytes.NewReader(rewritten.Bytes()))
-	if err != nil {
-		t.Fatalf("read rewritten historical VirtualDirectory: %v", err)
-	}
-	if !roundTrip.Versionless || roundTrip.Version != 0 {
-		t.Fatalf("historical form was upgraded: versionless %v version %d", roundTrip.Versionless, roundTrip.Version)
-	}
-	if got, err := roundTrip.GetFileData("nested/child.bin"); err != nil || !bytes.Equal(got, []byte{0x11}) {
-		t.Fatalf("rewritten nested payload = %x, %v", got, err)
-	}
-	if got, err := roundTrip.GetFileData("root.bin"); err != nil || !bytes.Equal(got, []byte{0x22}) {
-		t.Fatalf("rewritten root payload = %x, %v", got, err)
+	if err := table.decodeVirtualDirectory(encoded); err == nil || !strings.Contains(err.Error(), "indexed-array width") {
+		t.Fatalf("historical two-slot layout error = %v", err)
 	}
 }
 

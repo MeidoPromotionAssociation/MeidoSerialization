@@ -285,22 +285,27 @@ func packModManifest(manifest ModManifest, baseDir string, outputDir string) err
 		return fmt.Errorf("write .aba file: %w", err)
 	}
 
+	catalogName := manifest.Name
+	catalogSubName := strings.TrimSpace(manifest.SubName)
+	resourceFileName := manifest.Name + ".aba"
 	catalog := &ct.AssetBundleCatalog{
+		Kind:              ct.CatalogKindAssetBundle,
 		Version:           1000,
 		CatalogType:       catalogType,
 		PackageType:       packageType,
 		Priority:          manifest.Priority,
-		Name:              manifest.Name,
-		SubName:           strings.TrimSpace(manifest.SubName),
+		Name:              &catalogName,
+		SubName:           &catalogSubName,
 		Hash:              ct.HashStringIgnoreCase(manifest.Name + ".aba"),
-		ResourceFileNames: []string{manifest.Name + ".aba"},
+		ResourceFileNames: []*string{&resourceFileName},
 	}
 
-	extGroups := map[string][]ct.ExtensionNamePack{}
+	extGroups := map[string][]*ct.ExtensionNamePack{}
 	for _, e := range entries {
 		hash := ct.HashStringIgnoreCase(e.name)
-		extGroups[e.ext] = append(extGroups[e.ext], ct.ExtensionNamePack{Name: e.name, Hash: hash})
-		catalog.Items = append(catalog.Items, ct.CatalogItem{ResourceIndex: 0, Name: e.name, Hash: hash})
+		name := e.name
+		extGroups[e.ext] = append(extGroups[e.ext], &ct.ExtensionNamePack{Name: &name, Hash: hash})
+		catalog.Items = append(catalog.Items, &ct.CatalogItem{ResourceIndex: 0, Name: &name, Hash: hash})
 	}
 
 	// 按 hash 升序排序 catalog items（游戏使用 Array.BinarySearch）
@@ -308,10 +313,14 @@ func packModManifest(manifest ModManifest, baseDir string, outputDir string) err
 		return catalog.Items[i].Hash < catalog.Items[j].Hash
 	})
 
+	extensions := make([]string, 0, len(extGroups))
 	for ext := range extGroups {
-		catalog.ExtensionList = append(catalog.ExtensionList, ext)
+		extensions = append(extensions, ext)
 	}
-	sort.Strings(catalog.ExtensionList)
+	sort.Strings(extensions)
+	for index := range extensions {
+		catalog.ExtensionList = append(catalog.ExtensionList, &extensions[index])
+	}
 	// ExtensionNameList 内部也按 hash 排序
 	for ext := range extGroups {
 		sort.Slice(extGroups[ext], func(i, j int) bool {
@@ -343,7 +352,8 @@ func packModManifest(manifest ModManifest, baseDir string, outputDir string) err
 	}
 
 	for ext, packs := range extGroups {
-		enl := &ct.ExtensionNameList{Extension: ext, Data: packs}
+		extension := ext
+		enl := &ct.ExtensionNameList{Extension: &extension, Data: packs}
 		enlData, err := ct.EncodeExtensionNameList(enl)
 		if err != nil {
 			return fmt.Errorf("encode ExtensionNameList %q: %w", ext, err)

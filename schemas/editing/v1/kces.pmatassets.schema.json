@@ -3,31 +3,10 @@
     "KCES_PriorityMaterial": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
         "fileName": {
-          "type": "string"
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
           "type": [
             "null",
-            "array"
+            "string"
           ]
         },
         "id": {
@@ -36,54 +15,6 @@
           "type": "integer",
           "x-meido-integer-bits": 64,
           "x-meido-integer-signed": false
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
         },
         "renderQueue": {
           "maximum": 3.4028234663852886e+38,
@@ -123,7 +54,14 @@
     "assetArray": {
       "description": "The ordered Parts.PriorityMaterial records at MessagePack Key(1).",
       "items": {
-        "$ref": "#/$defs/KCES_PriorityMaterial"
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "#/$defs/KCES_PriorityMaterial"
+          }
+        ]
       },
       "title": "Priority-material asset array",
       "type": [
@@ -156,27 +94,13 @@
         }
       ]
     },
-    "fieldCount": {
-      "description": "Stored indexed-array width metadata.",
-      "maximum": 2147483647,
-      "minimum": -2147483648,
-      "title": "Container field count",
-      "type": [
-        "null",
-        "integer"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve unchanged.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "It preserves future container fields.",
-      "x-meido-integer-bits": 32,
-      "x-meido-integer-signed": true,
-      "x-meido-risk": "high"
-    },
     "fileName": {
       "description": "The container name at MessagePack Key(0).",
       "title": "Asset-container file name",
-      "type": "string",
+      "type": [
+        "null",
+        "string"
+      ],
       "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep the expected .pmatassets name.",
       "x-meido-edit-role": "resource_identity",
@@ -202,121 +126,6 @@
           "symbol": "PartsPriorityMaterialManager.SetPriorityMaterial/Reload"
         }
       ]
-    },
-    "futureSlots": {
-      "description": "Raw values beyond the known container keys.",
-      "items": {
-        "contentEncoding": "base64",
-        "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-        "type": [
-          "null",
-          "string"
-        ]
-      },
-      "title": "Container future slots",
-      "type": [
-        "null",
-        "array"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve every slot.",
-      "x-meido-edit-role": "opaque_preserve",
-      "x-meido-game-usage": "Current KCES does not interpret them.",
-      "x-meido-risk": "critical"
-    },
-    "nilSlots": {
-      "description": "Sparse indexed-array nil markers.",
-      "items": {
-        "maximum": 2147483647,
-        "minimum": -2147483648,
-        "type": "integer",
-        "x-meido-integer-bits": 32,
-        "x-meido-integer-signed": true
-      },
-      "title": "Container nil-slot metadata",
-      "type": [
-        "null",
-        "array"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve unchanged.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "They preserve wire shape rather than render behavior.",
-      "x-meido-risk": "high"
-    },
-    "nullElements": {
-      "additionalProperties": {
-        "items": {
-          "type": "boolean"
-        },
-        "type": [
-          "null",
-          "array"
-        ]
-      },
-      "description": "Null positions in assetArray.",
-      "title": "Null asset elements",
-      "type": [
-        "null",
-        "object"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Do not compact without updating references.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "The manager skips null entries while retaining positions.",
-      "x-meido-risk": "high"
-    },
-    "nullMapValueKeys": {
-      "additionalProperties": {
-        "items": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "type": [
-          "null",
-          "array"
-        ]
-      },
-      "description": "Nested null-map metadata.",
-      "title": "Null map values",
-      "type": [
-        "null",
-        "object"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve unchanged.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "It preserves MessagePack null semantics.",
-      "x-meido-risk": "high"
-    },
-    "rootNil": {
-      "description": "Whether the container root was nil.",
-      "title": "MessagePack nil root",
-      "type": "boolean",
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Keep rootNil coherent with assetArray.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "A nil root is distinct from an empty override list.",
-      "x-meido-risk": "critical"
-    },
-    "trailingData": {
-      "contentEncoding": "base64",
-      "description": "Bytes after the first MessagePack value.",
-      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-      "title": "Asset-container trailing bytes",
-      "type": [
-        "null",
-        "string"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve unchanged.",
-      "x-meido-edit-role": "opaque_preserve",
-      "x-meido-game-usage": "The manager does not consume this region.",
-      "x-meido-risk": "critical"
     }
   },
   "required": [
@@ -324,7 +133,10 @@
     "assetArray"
   ],
   "title": "kces.pmatassets editing JSON",
-  "type": "object",
+  "type": [
+    "null",
+    "object"
+  ],
   "x-meido-format-id": "kces.pmatassets",
   "x-meido-native-suffixes": [
     ".pmatassets"

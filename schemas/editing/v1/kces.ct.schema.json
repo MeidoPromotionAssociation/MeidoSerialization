@@ -22,6 +22,68 @@
     },
     "ct_AssetBundleCatalog": {
       "additionalProperties": false,
+      "oneOf": [
+        {
+          "allOf": [
+            {
+              "not": {
+                "required": [
+                  "virtualItems"
+                ]
+              }
+            }
+          ],
+          "properties": {
+            "kind": {
+              "const": "assetBundle",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "isEncrypted",
+            "resourceFileNames",
+            "items"
+          ],
+          "type": "object"
+        },
+        {
+          "allOf": [
+            {
+              "not": {
+                "required": [
+                  "isEncrypted"
+                ]
+              }
+            },
+            {
+              "not": {
+                "required": [
+                  "resourceFileNames"
+                ]
+              }
+            },
+            {
+              "not": {
+                "required": [
+                  "items"
+                ]
+              }
+            }
+          ],
+          "properties": {
+            "kind": {
+              "const": "virtualAsset",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "virtualItems"
+          ],
+          "type": "object"
+        }
+      ],
       "properties": {
         "catalogType": {
           "maximum": 2147483647,
@@ -39,36 +101,6 @@
         },
         "extensionList": {
           "items": {
-            "type": "string"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "extensionListNulls": {
-          "items": {
-            "type": "boolean"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": [
               "null",
               "string"
@@ -89,18 +121,16 @@
         "isEncrypted": {
           "type": "boolean"
         },
-        "itemNulls": {
-          "items": {
-            "type": "boolean"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "items": {
           "items": {
-            "$ref": "#/$defs/ct_CatalogItem"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/ct_CatalogItem"
+              }
+            ]
           },
           "type": [
             "null",
@@ -111,10 +141,10 @@
           "type": "string"
         },
         "name": {
-          "type": "string"
-        },
-        "nameIsNil": {
-          "type": "boolean"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "packageType": {
           "maximum": 2147483647,
@@ -130,36 +160,19 @@
           "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
-        "resourceFileNameNulls": {
-          "items": {
-            "type": "boolean"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "resourceFileNames": {
           "items": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "type": [
             "null",
             "array"
           ]
         },
-        "rootNil": {
-          "type": "boolean"
-        },
         "subName": {
-          "type": "string"
-        },
-        "subNameIsNil": {
-          "type": "boolean"
-        },
-        "trailingData": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
           "type": [
             "null",
             "string"
@@ -172,18 +185,16 @@
           "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
-        "virtualItemNulls": {
-          "items": {
-            "type": "boolean"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "virtualItems": {
           "items": {
-            "$ref": "#/$defs/ct_VirtualCatalogItem"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/ct_VirtualCatalogItem"
+              }
+            ]
           },
           "type": [
             "null",
@@ -192,6 +203,7 @@
         }
       },
       "required": [
+        "kind",
         "version",
         "catalogType",
         "packageType",
@@ -200,40 +212,13 @@
         "subName",
         "hash",
         "createTime",
-        "isEncrypted",
-        "resourceFileNames",
-        "extensionList",
-        "items"
+        "extensionList"
       ],
       "type": "object"
     },
     "ct_CatalogItem": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "hash": {
           "maximum": 18446744073709551615,
           "minimum": 0,
@@ -242,10 +227,10 @@
           "x-meido-integer-signed": false
         },
         "name": {
-          "type": "string"
-        },
-        "nameIsNil": {
-          "type": "boolean"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "resourceIndex": {
           "maximum": 2147483647,
@@ -267,45 +252,13 @@
       "properties": {
         "data": {
           "items": {
-            "$ref": "#/$defs/ct_ExtensionNamePack"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "dataNulls": {
-          "items": {
-            "type": "boolean"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "extensionIsNil": {
-          "type": "boolean"
-        },
-        "extention": {
-          "type": "string"
-        },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/ct_ExtensionNamePack"
+              }
             ]
           },
           "type": [
@@ -313,12 +266,7 @@
             "array"
           ]
         },
-        "rootNil": {
-          "type": "boolean"
-        },
-        "trailingData": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+        "extention": {
           "type": [
             "null",
             "string"
@@ -334,30 +282,6 @@
     "ct_ExtensionNamePack": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "hash": {
           "maximum": 18446744073709551615,
           "minimum": 0,
@@ -366,10 +290,10 @@
           "x-meido-integer-signed": false
         },
         "name": {
-          "type": "string"
-        },
-        "nameIsNil": {
-          "type": "boolean"
+          "type": [
+            "null",
+            "string"
+          ]
         }
       },
       "required": [
@@ -382,33 +306,9 @@
       "additionalProperties": false,
       "properties": {
         "assetPath": {
-          "type": "string"
-        },
-        "assetPathIsNil": {
-          "type": "boolean"
-        },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
           "type": [
             "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
+            "string"
           ]
         },
         "hash": {
@@ -419,10 +319,10 @@
           "x-meido-integer-signed": false
         },
         "name": {
-          "type": "string"
-        },
-        "nameIsNil": {
-          "type": "boolean"
+          "type": [
+            "null",
+            "string"
+          ]
         }
       },
       "required": [
@@ -435,83 +335,17 @@
     "ct_VirtualDirectoryMetadata": {
       "additionalProperties": false,
       "properties": {
-        "DirectoriesNil": {
-          "type": "boolean"
-        },
-        "FieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "FilesNil": {
-          "type": "boolean"
-        },
-        "FilesOnly": {
-          "type": "boolean"
-        },
-        "FutureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "Version": {
           "maximum": 2147483647,
           "minimum": -2147483648,
           "type": "integer",
           "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
-        },
-        "Versionless": {
-          "type": "boolean"
         }
       },
       "required": [
         "Version"
       ],
-      "type": "object"
-    },
-    "ct_VirtualFileMetadata": {
-      "additionalProperties": false,
-      "properties": {
-        "FieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "FutureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        }
-      },
       "type": "object"
     }
   },
@@ -521,14 +355,7 @@
   "description": "Lossless editing JSON contract for kces.ct.",
   "properties": {
     "catalog": {
-      "anyOf": [
-        {
-          "type": "null"
-        },
-        {
-          "$ref": "#/$defs/ct_AssetBundleCatalog"
-        }
-      ],
+      "$ref": "#/$defs/ct_AssetBundleCatalog",
       "description": "The typed catalog virtual file decoded from the container.",
       "title": "Asset catalog",
       "x-meido-confidence": "verified",
@@ -560,7 +387,7 @@
           "kind": "game_source",
           "line_end": 575,
           "line_start": 409,
-          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length; it preserves version, nil collections, and future slots.",
+          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
           "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
@@ -570,27 +397,46 @@
       "additionalProperties": {
         "$ref": "#/$defs/ct_VirtualDirectoryMetadata"
       },
-      "description": "Per-directory layout metadata retained by the lossless codec.",
+      "description": "The actual per-directory version map in the container.",
       "title": "Directory metadata",
       "type": [
         "null",
         "object"
       ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve keys and metadata exactly.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "VirtualDirectory uses it to preserve empty directories and child layout state.",
-      "x-meido-risk": "high"
-    },
-    "directoriesNil": {
-      "description": "Whether the root directory collection was explicitly nil.",
-      "title": "Nil directory collection",
-      "type": "boolean",
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Keep it synchronized with directories.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "Nil-versus-empty state is part of the indexed wire shape.",
-      "x-meido-risk": "high"
+      "x-meido-confidence": "verified",
+      "x-meido-edit-guidance": "Preserve directory names and versions required by the contained files.",
+      "x-meido-edit-role": "runtime_container",
+      "x-meido-game-usage": "VirtualDirectory recreates each named child directory from this map.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 337,
+          "line_start": 15,
+          "observation": "The .ct catalog stores versioned catalog metadata, resource-file names, extension lists, hash-indexed items, and extension-name list side files used for resource lookup.",
+          "path": "game/KCES 1.34.4/WfSystem.FileSystem/Catalog/AssetBundleCatalog.cs",
+          "symbol": "AssetBundleCatalog"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 306,
+          "line_start": 128,
+          "observation": "CatalogUtility stores catalog and extension lists as MessagePack virtual files inside a VirtualDirectory and resolves resource locations from their hashes and indices.",
+          "path": "game/KCES 1.34.4/WfSystem.FileSystem/Catalog/CatalogUtility.cs",
+          "symbol": "CatalogUtility.FromCatalog/ToCatalog"
+        },
+        {
+          "game_version": "KCES 1.34.4",
+          "kind": "game_source",
+          "line_end": 575,
+          "line_start": 409,
+          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
+          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "symbol": "VirtualDirectory.Serialize/Deserialize"
+        }
+      ]
     },
     "extensionNameLists": {
       "additionalProperties": {
@@ -638,31 +484,14 @@
           "kind": "game_source",
           "line_end": 575,
           "line_start": 409,
-          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length; it preserves version, nil collections, and future slots.",
+          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
           "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
       ]
     },
-    "fieldCount": {
-      "description": "The stored indexed-array width for the container root.",
-      "maximum": 2147483647,
-      "minimum": -2147483648,
-      "title": "Root field count",
-      "type": [
-        "null",
-        "integer"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve it when editing an existing container.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "It preserves fields introduced by later builds.",
-      "x-meido-integer-bits": 32,
-      "x-meido-integer-signed": true,
-      "x-meido-risk": "high"
-    },
     "files": {
-      "description": "Raw named virtual files not decoded as catalog or extension-name-list records.",
+      "description": "Independent named virtual files not declared as catalog or extension-name-list records.",
       "items": {
         "$ref": "#/$defs/KCES_CtEnvelopeFile"
       },
@@ -672,9 +501,9 @@
         "array"
       ],
       "x-meido-confidence": "verified",
-      "x-meido-edit-guidance": "Preserve names and base64 bytes unless a source-reviewed file type is selected.",
-      "x-meido-edit-role": "opaque_preserve",
-      "x-meido-game-usage": "The catalog loader ignores unknown side files but the container preserves them.",
+      "x-meido-edit-guidance": "Retain names and bytes only for files not declared by the catalog; a catalog or declared ExtensionNameList file must use its typed field and may never fall back here.",
+      "x-meido-edit-role": "binary_virtual_file",
+      "x-meido-game-usage": "The catalog loader ignores these side files while the container stores their real byte-array payloads.",
       "x-meido-risk": "high",
       "x-meido-source-evidence": [
         {
@@ -700,31 +529,11 @@
           "kind": "game_source",
           "line_end": 575,
           "line_start": 409,
-          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length; it preserves version, nil collections, and future slots.",
+          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
           "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
       ]
-    },
-    "filesNil": {
-      "description": "Whether the root file collection was explicitly nil.",
-      "title": "Nil file collection",
-      "type": "boolean",
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Keep it synchronized with files or virtualFiles.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "Nil-versus-empty state is part of the indexed wire shape.",
-      "x-meido-risk": "high"
-    },
-    "filesOnly": {
-      "description": "Whether the root contains files without a directory collection.",
-      "title": "Files-only root flag",
-      "type": "boolean",
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve unchanged.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "VirtualDirectory uses this flag while rebuilding the root table.",
-      "x-meido-risk": "high"
     },
     "format": {
       "description": "The marker for the normalized VirtualDirectory/content-table envelope.",
@@ -759,32 +568,11 @@
           "kind": "game_source",
           "line_end": 575,
           "line_start": 409,
-          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length; it preserves version, nil collections, and future slots.",
+          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
           "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
       ]
-    },
-    "futureSlots": {
-      "description": "Raw MessagePack values beyond the known root fields.",
-      "items": {
-        "contentEncoding": "base64",
-        "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-        "type": [
-          "null",
-          "string"
-        ]
-      },
-      "title": "Root future slots",
-      "type": [
-        "null",
-        "array"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve every slot.",
-      "x-meido-edit-role": "opaque_preserve",
-      "x-meido-game-usage": "Current KCES does not interpret them.",
-      "x-meido-risk": "critical"
     },
     "version": {
       "description": "The VirtualDirectory version stored in the root indexed object.",
@@ -823,42 +611,17 @@
           "kind": "game_source",
           "line_end": 575,
           "line_start": 409,
-          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length; it preserves version, nil collections, and future slots.",
+          "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
           "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
       ]
-    },
-    "versionless": {
-      "description": "Whether the root used the historical versionless layout.",
-      "title": "Versionless root flag",
-      "type": "boolean",
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve unchanged.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "VirtualDirectory chooses a different root field interpretation when this flag is set.",
-      "x-meido-risk": "high"
-    },
-    "virtualFiles": {
-      "additionalProperties": {
-        "$ref": "#/$defs/ct_VirtualFileMetadata"
-      },
-      "description": "Per-file indexed metadata retained independently from file bytes.",
-      "title": "Virtual-file metadata",
-      "type": [
-        "null",
-        "object"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve keys and metadata exactly.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "VirtualDirectory uses it to preserve short arrays and future slots for individual files.",
-      "x-meido-risk": "high"
     }
   },
   "required": [
     "format",
-    "version"
+    "version",
+    "catalog"
   ],
   "title": "kces.ct editing JSON",
   "type": "object",

@@ -247,7 +247,7 @@ func TestRepresentativeReviewedFieldPatterns(t *testing.T) {
 	}{
 		{formatID: "com3d2.menu", path: "/Commands/*/Command", confidence: knowledgev1.ConfidenceVerified},
 		{formatID: "kces.dbconf", path: "/dynamicBoneStatus/{version,damping,elasticity,stiffness,inert,radius}", confidence: knowledgev1.ConfidenceVerified},
-		{formatID: "kces.dbcol", path: "/colliderPackage/colliders/*/{type,collider,colliderRaw}", confidence: knowledgev1.ConfidenceSerializationOnly},
+		{formatID: "kces.dbcol", path: "/colliderPackage/colliders/*/{type,collider}", confidence: knowledgev1.ConfidenceSerializationOnly},
 		{formatID: "kces.dsbconf", path: "/clothParams/{radius,mass,gravity,drag,maxVelocity,worldMoveInfluence,worldRotationInfluence,clampPositionLength,clampRotationAngle,structDistanceStiffness,bendDistanceStiffness,nearDistanceLength,nearDistanceStiffness,restoreRotation,triangleBend,volumeStretchStiffness,volumeShearStiffness,penetrationConnectDistance,penetrationDistance,penetrationRadius,springDirectionAtten,springDistanceAtten}", confidence: knowledgev1.ConfidenceSerializationOnly},
 	}
 	for _, test := range tests {

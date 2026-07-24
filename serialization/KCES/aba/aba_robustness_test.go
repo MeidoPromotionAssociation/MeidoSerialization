@@ -285,7 +285,7 @@ func TestReadAbaRejectsInvalidBlockAndDirectoryLayout(t *testing.T) {
 			t.Fatalf("second aliased range = %q, want %q", second, "5678")
 		}
 	})
-	t.Run("trailing metadata bytes are preserved", func(t *testing.T) {
+	t.Run("trailing metadata bytes are rejected", func(t *testing.T) {
 		info, err := serializeBlockAndDirInfo(
 			[]BlockInfo{{DecompressedSize: 1, CompressedSize: 1, Flags: 0x40}}, nil,
 		)
@@ -294,12 +294,8 @@ func TestReadAbaRejectsInvalidBlockAndDirectoryLayout(t *testing.T) {
 		}
 		info = append(info, 0)
 		image := makeTestAbaWithInfo(t, info, uint32(len(info)), uint32(FlagHasDirectoryInfo), []byte{1})
-		abaFile, err := ReadAba(bytes.NewReader(image.data))
-		if err != nil {
-			t.Fatalf("ReadAba: %v", err)
-		}
-		if !bytes.Equal(abaFile.BlockInfo.TrailingData, []byte{0}) {
-			t.Fatalf("TrailingData = % x, want 00", abaFile.BlockInfo.TrailingData)
+		if _, err := ReadAba(bytes.NewReader(image.data)); err == nil {
+			t.Fatal("ReadAba accepted trailing block/directory metadata")
 		}
 	})
 

@@ -9,11 +9,11 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
+// indexedObjectTestChild is a fixed two-slot test object
 type indexedObjectTestChild struct {
-	_struct               struct{} `codec:",toarray"`
-	IndexedObjectMetadata `codec:"-"`
-	Number                int32  `json:"number"`
-	Text                  string `json:"text"`
+	_struct struct{} `codec:",toarray"`
+	Number  int32    `json:"number"`
+	Text    string   `json:"text"`
 }
 
 func (v indexedObjectTestChild) CodecEncodeSelf(e *codec.Encoder) {
@@ -24,38 +24,32 @@ func (v *indexedObjectTestChild) CodecDecodeSelf(d *codec.Decoder) {
 	DecodeIndexedObjectSelf(d, v)
 }
 
+// indexedObjectTestParent contains value-typed collections
 type indexedObjectTestParent struct {
-	_struct               struct{} `codec:",toarray"`
-	IndexedObjectMetadata `codec:"-"`
-	Children              []indexedObjectTestChild          `json:"children"`
-	ByName                map[string]indexedObjectTestChild `json:"byName"`
+	_struct  struct{}                          `codec:",toarray"`
+	Children []indexedObjectTestChild          `json:"children"`
+	ByName   map[string]indexedObjectTestChild `json:"byName"`
 }
 
+func (v indexedObjectTestParent) CodecEncodeSelf(e *codec.Encoder) {
+	EncodeIndexedObjectSelf(e, &v)
+}
+
+func (v *indexedObjectTestParent) CodecDecodeSelf(d *codec.Decoder) {
+	DecodeIndexedObjectSelf(d, v)
+}
+
+// IndexedObjectTestInlineBase is an explicitly inlined base layout
 type IndexedObjectTestInlineBase struct {
 	Version int32  `json:"version"`
 	Name    string `json:"name"`
 }
 
+// indexedObjectTestInline has a fixed three-slot inherited layout
 type indexedObjectTestInline struct {
 	_struct                     struct{} `codec:",toarray"`
-	IndexedObjectMetadata       `codec:"-"`
 	IndexedObjectTestInlineBase `codec:",inline"`
 	Enabled                     bool `json:"enabled"`
-}
-
-type indexedObjectTestSingles struct {
-	_struct               struct{} `codec:",toarray"`
-	IndexedObjectMetadata `codec:"-"`
-	Value                 float32   `json:"value"`
-	Values                []float32 `json:"values"`
-}
-
-func (v indexedObjectTestSingles) CodecEncodeSelf(e *codec.Encoder) {
-	EncodeIndexedObjectSelf(e, &v)
-}
-
-func (v *indexedObjectTestSingles) CodecDecodeSelf(d *codec.Decoder) {
-	DecodeIndexedObjectSelf(d, v)
 }
 
 func (v indexedObjectTestInline) CodecEncodeSelf(e *codec.Encoder) {
@@ -66,11 +60,33 @@ func (v *indexedObjectTestInline) CodecDecodeSelf(d *codec.Decoder) {
 	DecodeIndexedObjectSelf(d, v)
 }
 
-func (v indexedObjectTestParent) CodecEncodeSelf(e *codec.Encoder) {
+// indexedObjectTestSingles exercises MessagePack-CSharp ReadSingle conversions
+type indexedObjectTestSingles struct {
+	_struct struct{}  `codec:",toarray"`
+	Value   float32   `json:"value"`
+	Values  []float32 `json:"values"`
+}
+
+func (v indexedObjectTestSingles) CodecEncodeSelf(e *codec.Encoder) {
 	EncodeIndexedObjectSelf(e, &v)
 }
 
-func (v *indexedObjectTestParent) CodecDecodeSelf(d *codec.Decoder) {
+func (v *indexedObjectTestSingles) CodecDecodeSelf(d *codec.Decoder) {
+	DecodeIndexedObjectSelf(d, v)
+}
+
+// indexedObjectTestSparse declares one absent C# key
+type indexedObjectTestSparse struct {
+	_struct struct{} `codec:",toarray" kces:"nil=1"`
+	Number  int32    `json:"number"`
+	Text    string   `json:"text"`
+}
+
+func (v indexedObjectTestSparse) CodecEncodeSelf(e *codec.Encoder) {
+	EncodeIndexedObjectSelf(e, &v)
+}
+
+func (v *indexedObjectTestSparse) CodecDecodeSelf(d *codec.Decoder) {
 	DecodeIndexedObjectSelf(d, v)
 }
 
@@ -92,10 +108,7 @@ func TestIndexedObjectSelferRoundTripsCurrentNestedLayout(t *testing.T) {
 	if err := DecodeMsgpack(wire, &decoded); err != nil {
 		t.Fatalf("DecodeMsgpack: %v", err)
 	}
-	if len(decoded.Children) != 2 {
-		t.Fatalf("children length = %d, want 2", len(decoded.Children))
-	}
-	if decoded.Children[0].Number != 7 || decoded.Children[0].Text != "first" ||
+	if len(decoded.Children) != 2 || decoded.Children[0].Number != 7 || decoded.Children[0].Text != "first" ||
 		decoded.Children[1].Number != 8 || decoded.Children[1].Text != "second" ||
 		decoded.ByName["full"].Number != 9 || decoded.ByName["full"].Text != "map" {
 		t.Fatalf("decoded nested object = %#v", decoded)
@@ -110,33 +123,56 @@ func TestIndexedObjectSelferRoundTripsCurrentNestedLayout(t *testing.T) {
 	}
 }
 
-func TestIndexedObjectSelferRejectsSilentShortFieldDiscard(t *testing.T) {
-	count := int32(1)
-	value := indexedObjectTestChild{
-		IndexedObjectMetadata: IndexedObjectMetadata{FieldCount: &count},
-		Number:                1,
-		Text:                  "edited missing slot",
-	}
-	if _, err := EncodeIndexedMsgpack(&value); err == nil || !strings.Contains(err.Error(), "would discard text") {
-		t.Fatalf("short-width populated field error = %v", err)
-	}
-
-	count = 2
-	if _, err := EncodeIndexedMsgpack(&value); err != nil {
-		t.Fatalf("explicitly extending fieldCount should encode: %v", err)
+func TestIndexedObjectSelferRejectsWrongWidths(t *testing.T) {
+	for _, fields := range [][]interface{}{
+		{int64(7)},
+		{int64(7), "text", true},
+	} {
+		wire, err := EncodeMsgpack(fields)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var decoded indexedObjectTestChild
+		if err := DecodeMsgpack(wire, &decoded); err == nil || !strings.Contains(err.Error(), "indexed-array width") {
+			t.Fatalf("wrong-width decode error = %v", err)
+		}
 	}
 }
 
-func TestIndexedObjectSelferValidatesFutureRawValue(t *testing.T) {
-	count := int32(3)
-	value := indexedObjectTestChild{
-		IndexedObjectMetadata: IndexedObjectMetadata{
-			FieldCount:  &count,
-			FutureSlots: [][]byte{{0xc1}},
-		},
+func TestIndexedObjectSelferRejectsNonNilSparseSlot(t *testing.T) {
+	wire, err := EncodeMsgpack([]interface{}{int64(7), true, "text"})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, err := EncodeIndexedMsgpack(&value); err == nil {
-		t.Fatal("malformed future MessagePack slot was accepted")
+	var decoded indexedObjectTestSparse
+	if err := DecodeMsgpack(wire, &decoded); err == nil || !strings.Contains(err.Error(), "sparse slot 1 must be nil") {
+		t.Fatalf("non-nil sparse-slot error = %v", err)
+	}
+}
+
+func TestIndexedObjectSelferRejectsNilInValuePositions(t *testing.T) {
+	for name, wireValue := range map[string]interface{}{
+		"scalar": []interface{}{nil, "text"},
+		"slice":  []interface{}{[]interface{}{nil}, map[string]interface{}{}},
+		"map":    []interface{}{[]interface{}{}, map[string]interface{}{"null": nil}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			wire, err := EncodeMsgpack(wireValue)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if name == "scalar" {
+				var decoded indexedObjectTestChild
+				if err := DecodeMsgpack(wire, &decoded); err == nil || !strings.Contains(err.Error(), "nil is not valid") {
+					t.Fatalf("nil scalar error = %v", err)
+				}
+				return
+			}
+			var decoded indexedObjectTestParent
+			if err := DecodeMsgpack(wire, &decoded); err == nil || !strings.Contains(err.Error(), "nil is not valid") {
+				t.Fatalf("nil collection value error = %v", err)
+			}
+		})
 	}
 }
 
@@ -164,18 +200,8 @@ func TestIndexedObjectSelferFlattensExplicitInlineBase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := DecodeMsgpack(shortWire, &decoded); err != nil {
-		t.Fatalf("DecodeMsgpack(short): %v", err)
-	}
-	if decoded.FieldCount == nil || *decoded.FieldCount != 1 || decoded.Name != "" || decoded.Enabled {
-		t.Fatalf("decoded short inline object = %+v", decoded)
-	}
-	shortReencoded, err := EncodeIndexedMsgpack(&decoded)
-	if err != nil {
-		t.Fatalf("EncodeIndexedMsgpack(short): %v", err)
-	}
-	if !bytes.Equal(shortReencoded, shortWire) {
-		t.Fatalf("short inline wire changed: got % x, want % x", shortReencoded, shortWire)
+	if err := DecodeMsgpack(shortWire, &decoded); err == nil || !strings.Contains(err.Error(), "indexed-array width") {
+		t.Fatalf("short inline error = %v", err)
 	}
 }
 
@@ -195,18 +221,5 @@ func TestIndexedObjectSelferUsesMessagePackReadSingleConversions(t *testing.T) {
 		!math.IsNaN(float64(decoded.Values[0])) || !math.IsInf(float64(decoded.Values[1]), -1) ||
 		decoded.Values[2] != -7 || decoded.Values[3] != 9 {
 		t.Fatalf("ReadSingle conversions = %#v", decoded)
-	}
-}
-
-func TestOrdinaryMessagePackEncoderCannotSilentlyEncodeIndexedRawSlots(t *testing.T) {
-	count := int32(3)
-	value := indexedObjectTestChild{
-		IndexedObjectMetadata: IndexedObjectMetadata{
-			FieldCount:  &count,
-			FutureSlots: [][]byte{{0xcc, 0x80}},
-		},
-	}
-	if _, err := EncodeMsgpack(&value); err == nil {
-		t.Fatal("ordinary EncodeMsgpack accepted an indexed raw slot without the validated Raw-mode boundary")
 	}
 }

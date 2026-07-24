@@ -3,30 +3,6 @@
     "KCES_KCESBridgeSessionData": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "hideMenuFileIds": {
           "items": {
             "maximum": 18446744073709551615,
@@ -40,31 +16,8 @@
             "array"
           ]
         },
-        "hideMenuFileNames": {
-          "items": {
-            "type": "string"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "rootNil": {
-          "type": "boolean"
-        },
         "sessionId": {
           "type": "string"
-        },
-        "sessionIdIsNil": {
-          "type": "boolean"
-        },
-        "trailingData": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-          "type": [
-            "null",
-            "string"
-          ]
         },
         "version": {
           "maximum": 2147483647,
@@ -84,83 +37,17 @@
     "ct_VirtualDirectoryMetadata": {
       "additionalProperties": false,
       "properties": {
-        "DirectoriesNil": {
-          "type": "boolean"
-        },
-        "FieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "FilesNil": {
-          "type": "boolean"
-        },
-        "FilesOnly": {
-          "type": "boolean"
-        },
-        "FutureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "Version": {
           "maximum": 2147483647,
           "minimum": -2147483648,
           "type": "integer",
           "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
-        },
-        "Versionless": {
-          "type": "boolean"
         }
       },
       "required": [
         "Version"
       ],
-      "type": "object"
-    },
-    "ct_VirtualFileMetadata": {
-      "additionalProperties": false,
-      "properties": {
-        "FieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "FutureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        }
-      },
       "type": "object"
     }
   },
@@ -176,39 +63,6 @@
       "type": [
         "null",
         "object"
-      ]
-    },
-    "containerDirectoriesNil": {
-      "type": "boolean"
-    },
-    "containerFieldCount": {
-      "maximum": 2147483647,
-      "minimum": -2147483648,
-      "type": [
-        "null",
-        "integer"
-      ],
-      "x-meido-integer-bits": 32,
-      "x-meido-integer-signed": true
-    },
-    "containerFilesNil": {
-      "type": "boolean"
-    },
-    "containerFilesOnly": {
-      "type": "boolean"
-    },
-    "containerFutureSlots": {
-      "items": {
-        "contentEncoding": "base64",
-        "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-        "type": [
-          "null",
-          "string"
-        ]
-      },
-      "type": [
-        "null",
-        "array"
       ]
     },
     "containerVersion": {
@@ -239,22 +93,10 @@
           "kind": "game_source",
           "line_end": 575,
           "line_start": 409,
-          "observation": "VirtualDirectory writes raw virtual-file bytes followed by compressed MessagePack directory metadata and preserves version, nil flags, and future slots.",
+          "observation": "VirtualDirectory writes virtual-file byte payloads followed by compressed MessagePack directory metadata using the fixed current indexed layouts.",
           "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
-      ]
-    },
-    "containerVersionless": {
-      "type": "boolean"
-    },
-    "containerVirtualFiles": {
-      "additionalProperties": {
-        "$ref": "#/$defs/ct_VirtualFileMetadata"
-      },
-      "type": [
-        "null",
-        "object"
       ]
     },
     "extraFiles": {
@@ -266,16 +108,16 @@
           "string"
         ]
       },
-      "description": "Virtual files not recognized as session_data or session_id.",
+      "description": "Independent virtual files whose names are neither session_data nor session_id.",
       "title": "Additional virtual files",
       "type": [
         "null",
         "object"
       ],
       "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve names and bytes unless a source-reviewed extension explicitly assigns them a meaning.",
-      "x-meido-edit-role": "opaque_preserve",
-      "x-meido-game-usage": "EditBridgeSessionData ignores these files, but VirtualDirectory preserves them in the container.",
+      "x-meido-edit-guidance": "Retain names and bytes only for independent files outside the two reserved paths; a reserved file must use its typed field and may never fall back here.",
+      "x-meido-edit-role": "binary_virtual_file",
+      "x-meido-game-usage": "EditBridgeSessionData ignores these files, while VirtualDirectory stores their real byte-array payloads.",
       "x-meido-risk": "high"
     },
     "format": {
@@ -302,25 +144,18 @@
           "kind": "game_source",
           "line_end": 575,
           "line_start": 409,
-          "observation": "VirtualDirectory writes raw virtual-file bytes followed by compressed MessagePack directory metadata and preserves version, nil flags, and future slots.",
+          "observation": "VirtualDirectory writes virtual-file byte payloads followed by compressed MessagePack directory metadata using the fixed current indexed layouts.",
           "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
       ]
     },
     "sessionData": {
-      "anyOf": [
-        {
-          "type": "null"
-        },
-        {
-          "$ref": "#/$defs/KCES_KCESBridgeSessionData"
-        }
-      ],
+      "$ref": "#/$defs/KCES_KCESBridgeSessionData",
       "description": "The typed MessagePack indexed object stored under the reserved session_data virtual file.",
       "title": "session_data payload",
       "x-meido-confidence": "verified",
-      "x-meido-edit-guidance": "Keep the field count, nil state, and future slots coherent with the indexed payload.",
+      "x-meido-edit-guidance": "Use normal nullable sessionId JSON semantics; the writer derives the required session_id UTF-8 file from this field.",
       "x-meido-edit-role": "runtime_configuration",
       "x-meido-game-usage": "EditBridgeSessionData reads its version, sessionId, and hidden menu-file IDs when opening the bridge.",
       "x-meido-risk": "critical",
@@ -339,42 +174,7 @@
           "kind": "game_source",
           "line_end": 575,
           "line_start": 409,
-          "observation": "VirtualDirectory writes raw virtual-file bytes followed by compressed MessagePack directory metadata and preserves version, nil flags, and future slots.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
-          "symbol": "VirtualDirectory.Serialize/Deserialize"
-        }
-      ]
-    },
-    "sessionIdFileData": {
-      "contentEncoding": "base64",
-      "description": "The raw UTF-8 bytes stored under the reserved session_id virtual file.",
-      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-      "title": "session_id bytes",
-      "type": [
-        "null",
-        "string"
-      ],
-      "x-meido-confidence": "verified",
-      "x-meido-edit-guidance": "Keep it synchronized with sessionData.sessionId when that value is non-nil.",
-      "x-meido-edit-role": "runtime_identity",
-      "x-meido-game-usage": "The bridge reads this file independently from session_data and uses it as the session identifier.",
-      "x-meido-risk": "high",
-      "x-meido-source-evidence": [
-        {
-          "game_version": "KCES 1.34.4",
-          "kind": "game_source",
-          "line_end": 109,
-          "line_start": 23,
-          "observation": "The bridge session is a VirtualDirectory containing session_data and session_id; session_data stores an indexed version, session ID, and hidden menu-file hash set.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/CRCEdit/EditBridgeSessionData.cs",
-          "symbol": "EditBridgeSessionData.Deserialize/Serialize"
-        },
-        {
-          "game_version": "KCES 1.34.4",
-          "kind": "game_source",
-          "line_end": 575,
-          "line_start": 409,
-          "observation": "VirtualDirectory writes raw virtual-file bytes followed by compressed MessagePack directory metadata and preserves version, nil flags, and future slots.",
+          "observation": "VirtualDirectory writes virtual-file byte payloads followed by compressed MessagePack directory metadata using the fixed current indexed layouts.",
           "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
@@ -384,8 +184,7 @@
   "required": [
     "format",
     "containerVersion",
-    "sessionData",
-    "sessionIdFileData"
+    "sessionData"
   ],
   "title": "kces.bridge_session editing JSON",
   "type": "object",

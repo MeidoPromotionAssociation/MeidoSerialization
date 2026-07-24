@@ -2,6 +2,7 @@ package KCES
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
@@ -30,82 +31,65 @@ const (
 	kcesPresetMetaFile      = "meta"
 )
 
-// KCESPreset 表示当前 KCES 使用的 VirtualDirectory 预设格式
-// 三个内部字节数组分别由 Maid.SerializeProp、Maid.SerializeMultiColor 和 Maid.SerializeBody 生成，在 JSON 中以 base64 无损编辑，内部辅助函数可在不执行游戏版本迁移的情况下检查或重建它们
-// KCESPreset represents the VirtualDirectory-based preset format used by current KCES releases
-// Its three inner byte arrays are produced by Maid.SerializeProp, Maid.SerializeMultiColor, and Maid.SerializeBody and remain losslessly editable as base64 in JSON, while inner helpers can inspect or rebuild them without applying game version migrations
+// KCESPreset 表示仅供二进制封装层使用的 KCES VirtualDirectory 预设
+// 面向 editing JSON 的服务使用 ExpandedKCESPreset，不公开三个已知内部块的原始字节
+// KCESPreset represents the KCES VirtualDirectory preset used only by the binary envelope layer
+// Editing JSON services use ExpandedKCESPreset and do not expose raw bytes for the three known inner blocks
 type KCESPreset struct {
-	Format                  string                                 `json:"format"`                            // JSON 表示格式标识 / JSON representation format identifier
-	ContainerVersion        int32                                  `json:"containerVersion"`                  // VirtualDirectory 容器版本 / VirtualDirectory container version
-	ContainerVersionless    bool                                   `json:"containerVersionless,omitempty"`    // 容器是否使用无版本布局 / Whether the container uses the versionless layout
-	ContainerFilesOnly      bool                                   `json:"containerFilesOnly,omitempty"`      // 容器是否使用仅文件根布局 / Whether the container uses the files-only root layout
-	ContainerDirectoriesNil bool                                   `json:"containerDirectoriesNil,omitempty"` // 目录映射在线格式中是否为 nil / Whether the directory map was nil on the wire
-	ContainerFilesNil       bool                                   `json:"containerFilesNil,omitempty"`       // 文件映射在线格式中是否为 nil / Whether the file map was nil on the wire
-	ContainerFieldCount     *int32                                 `json:"containerFieldCount,omitempty"`     // 保存的容器 indexed-array 宽度 / Preserved container indexed-array width
-	ContainerFutureSlots    [][]byte                               `json:"containerFutureSlots,omitempty"`    // 当前模型之外的原始未来槽位 / Raw future slots beyond the current model
-	ContainerDirectories    map[string]ct.VirtualDirectoryMetadata `json:"containerDirectories,omitempty"`    // 虚拟目录线格式元数据 / Virtual-directory wire metadata
-	ContainerVirtualFiles   map[string]ct.VirtualFileMetadata      `json:"containerVirtualFiles,omitempty"`   // 虚拟文件线格式元数据 / Virtual-file wire metadata
-	Thumbnail               []byte                                 `json:"thumbnail"`                         // thumbnail 虚拟文件字节 / Bytes of the thumbnail virtual file
-	MaidData                *KCESPresetCore                        `json:"maidData"`                          // maiddata 虚拟文件中的核心记录 / Core record from the maiddata virtual file
-	Meta                    *KCESPresetMeta                        `json:"meta,omitempty"`                    // 可选 meta 虚拟文件记录 / Optional record from the meta virtual file
-	ExtraFiles              map[string][]byte                      `json:"extraFiles,omitempty"`              // 除三个已知名称外的虚拟文件 / Virtual files other than the three known names
+	Format               string                                 `json:"format"`                         // JSON 表示格式标识 / JSON representation format identifier
+	ContainerVersion     int32                                  `json:"containerVersion"`               // VirtualDirectory 容器版本 / VirtualDirectory container version
+	ContainerDirectories map[string]ct.VirtualDirectoryMetadata `json:"containerDirectories,omitempty"` // 虚拟目录的真实版本字段 / Real version fields of virtual directories
+	Thumbnail            []byte                                 `json:"thumbnail"`                      // thumbnail 虚拟文件字节 / Bytes of the thumbnail virtual file
+	MaidData             *KCESPresetCore                        `json:"maidData"`                       // maiddata 虚拟文件中的内部线记录 / Inner wire record from the maiddata virtual file
+	Meta                 *KCESPresetMeta                        `json:"meta,omitempty"`                 // 可选 meta 虚拟文件记录 / Optional record from the meta virtual file
+	ExtraFiles           map[string][]byte                      `json:"extraFiles,omitempty"`           // 除三个已知名称外的虚拟文件 / Virtual files other than the three known names
 }
 
 // KCESPresetCore 对应 MaidPreset.MaidPresetCore 的 indexed MessagePack 数组，依次保存版本、propData、colorData 和 bodyData
 // KCESPresetCore matches the indexed MessagePack array of MaidPreset.MaidPresetCore, storing version, propData, colorData, and bodyData in order
 type KCESPresetCore struct {
-	_struct                struct{}    `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"` // 索引对象的线格式元数据 / Indexed-object wire metadata
-	Version                int32       `json:"version"`                          // MaidPresetCore 对象版本 / MaidPresetCore object version
-	PropData               []byte      `json:"propData"`                         // Maid.SerializeProp 生成的属性块 / Property block produced by Maid.SerializeProp
-	ColorData              []byte      `json:"colorData"`                        // Maid.SerializeMultiColor 生成的颜色块 / Color block produced by Maid.SerializeMultiColor
-	BodyData               []byte      `json:"bodyData"`                         // Maid.SerializeBody 生成的身体块 / Body block produced by Maid.SerializeBody
-	RootNil                bool        `codec:"-" json:"rootNil,omitempty"`      // 根 MessagePack 值是否为 nil / Whether the root MessagePack value was nil
-	TrailingData           []byte      `codec:"-" json:"trailingData,omitempty"` // 根值之后游戏未读取的字节 / Bytes left unread by the game after the root value
+	_struct   struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	Version   int32    `json:"version"`   // MaidPresetCore 对象版本 / MaidPresetCore object version
+	PropData  []byte   `json:"-"`         // Maid.SerializeProp 生成的内部线块 / Inner wire block produced by Maid.SerializeProp
+	ColorData []byte   `json:"-"`         // Maid.SerializeMultiColor 生成的内部线块 / Inner wire block produced by Maid.SerializeMultiColor
+	BodyData  []byte   `json:"-"`         // Maid.SerializeBody 生成的内部线块 / Inner wire block produced by Maid.SerializeBody
 }
-
-// getMessagePackTrailing 返回核心根值后的保留字节
-// getMessagePackTrailing returns preserved bytes after the core root value
-func (c *KCESPresetCore) getMessagePackTrailing() []byte { return c.TrailingData }
-
-// setMessagePackTrailing 设置核心根值后的保留字节
-// setMessagePackTrailing sets preserved bytes after the core root value
-func (c *KCESPresetCore) setMessagePackTrailing(data []byte) { c.TrailingData = data }
-
-// getMessagePackRootNil 返回核心根值是否为 nil
-// getMessagePackRootNil reports whether the core root value was nil
-func (c *KCESPresetCore) getMessagePackRootNil() bool { return c.RootNil }
-
-// setMessagePackRootNil 设置核心根值的 nil 标记
-// setMessagePackRootNil sets the nil marker for the core root value
-func (c *KCESPresetCore) setMessagePackRootNil(value bool) { c.RootNil = value }
 
 // KCESPresetMeta 对应 MaidPreset.MaidPresetMeta 的 indexed MessagePack 数组，依次保存版本和 metaData 字符串字典
 // KCESPresetMeta matches the indexed MessagePack array of MaidPreset.MaidPresetMeta, storing version followed by the metaData string map
 type KCESPresetMeta struct {
-	_struct                struct{}          `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"`       // 索引对象的线格式元数据 / Indexed-object wire metadata
-	Version                int32             `json:"version"`                          // MaidPresetMeta 对象版本 / MaidPresetMeta object version
-	Data                   map[string]string `json:"metaData"`                         // 预设元数据字符串字典，游戏明确读取 presetName / Preset metadata string map, with presetName explicitly read by the game
-	RootNil                bool              `codec:"-" json:"rootNil,omitempty"`      // 根 MessagePack 值是否为 nil / Whether the root MessagePack value was nil
-	TrailingData           []byte            `codec:"-" json:"trailingData,omitempty"` // 根值之后游戏未读取的字节 / Bytes left unread by the game after the root value
+	_struct struct{}           `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	Version int32              `json:"version"`   // MaidPresetMeta 对象版本 / MaidPresetMeta object version
+	Data    map[string]*string `json:"metaData"`  // 预设元数据字符串字典，游戏明确读取 presetName / Preset metadata string map, with presetName explicitly read by the game
 }
 
-// getMessagePackTrailing 返回元数据根值后的保留字节
-// getMessagePackTrailing returns preserved bytes after the metadata root value
-func (m *KCESPresetMeta) getMessagePackTrailing() []byte { return m.TrailingData }
+// MarshalJSON 将底层预设封套转换为完整类型化编辑表示，禁止公开三个已知内部块的 Base64 字节
+// MarshalJSON converts the binary preset envelope to the fully typed editing representation and forbids exposing the three known inner blocks as Base64 bytes
+func (preset KCESPreset) MarshalJSON() ([]byte, error) {
+	expanded, err := ExpandKCESPreset(&preset)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(expanded)
+}
 
-// setMessagePackTrailing 设置元数据根值后的保留字节
-// setMessagePackTrailing sets preserved bytes after the metadata root value
-func (m *KCESPresetMeta) setMessagePackTrailing(data []byte) { m.TrailingData = data }
-
-// getMessagePackRootNil 返回元数据根值是否为 nil
-// getMessagePackRootNil reports whether the metadata root value was nil
-func (m *KCESPresetMeta) getMessagePackRootNil() bool { return m.RootNil }
-
-// setMessagePackRootNil 设置元数据根值的 nil 标记
-// setMessagePackRootNil sets the nil marker for the metadata root value
-func (m *KCESPresetMeta) setMessagePackRootNil(value bool) { m.RootNil = value }
+// UnmarshalJSON 严格读取完整类型化编辑表示并重建底层预设封套
+// UnmarshalJSON strictly reads the fully typed editing representation and rebuilds the binary preset envelope
+func (preset *KCESPreset) UnmarshalJSON(data []byte) error {
+	if preset == nil {
+		return fmt.Errorf("nil KCES preset JSON target")
+	}
+	var expanded ExpandedKCESPreset
+	if err := decodeKCESJSONStrict(data, &expanded); err != nil {
+		return err
+	}
+	collapsed, err := CollapseExpandedKCESPreset(&expanded)
+	if err != nil {
+		return err
+	}
+	*preset = *collapsed
+	return nil
+}
 
 // IsKCESPresetData 判断数据是否以当前 KCES 预设使用的 VirtualDirectory 签名开头
 // 探测不包含序列化类型字节，因此不支持的 MemoryPack 预设仍会交给 KCES 解析器得到准确错误，而不会被误判为旧版 COM3D2 预设
@@ -136,27 +120,23 @@ func DecodeKCESPreset(data []byte) (*KCESPreset, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decode KCES preset: required virtual file %q: %w", kcesPresetMaidDataFile, err)
 	}
-	core := &KCESPresetCore{}
-	if err := decodeCompressedMsgpack(coreRaw, core, "KCES preset maiddata"); err != nil {
+	var core *KCESPresetCore
+	if err := decodeCompressedMsgpack(coreRaw, &core, "KCES preset maiddata"); err != nil {
 		return nil, fmt.Errorf("decode KCES preset %q: %w", kcesPresetMaidDataFile, err)
+	}
+	if core == nil {
+		return nil, fmt.Errorf("decode KCES preset %q: root must not be null", kcesPresetMaidDataFile)
 	}
 	if err := validateKCESPresetCore(core); err != nil {
 		return nil, fmt.Errorf("decode KCES preset %q: %w", kcesPresetMaidDataFile, err)
 	}
 
 	preset := &KCESPreset{
-		Format:                  KCESPresetFormat,
-		ContainerVersion:        table.Version,
-		ContainerVersionless:    table.Versionless,
-		ContainerFilesOnly:      table.FilesOnly,
-		ContainerDirectoriesNil: table.DirectoriesNil,
-		ContainerFilesNil:       table.FilesNil,
-		ContainerFieldCount:     table.FieldCount,
-		ContainerFutureSlots:    table.FutureSlots,
-		ContainerDirectories:    table.GetVirtualDirectoryMetadata(),
-		ContainerVirtualFiles:   table.GetVirtualFileMetadata(),
-		Thumbnail:               append([]byte(nil), thumbnail...),
-		MaidData:                core,
+		Format:               KCESPresetFormat,
+		ContainerVersion:     table.Version,
+		ContainerDirectories: table.GetVirtualDirectoryMetadata(),
+		Thumbnail:            append([]byte(nil), thumbnail...),
+		MaidData:             core,
 	}
 
 	if _, ok := table.Files[kcesPresetMetaFile]; ok {
@@ -164,8 +144,8 @@ func DecodeKCESPreset(data []byte) (*KCESPreset, error) {
 		if err != nil {
 			return nil, fmt.Errorf("decode KCES preset %q: %w", kcesPresetMetaFile, err)
 		}
-		meta := &KCESPresetMeta{}
-		if err := decodeCompressedMsgpack(metaRaw, meta, "KCES preset meta"); err != nil {
+		var meta *KCESPresetMeta
+		if err := decodeCompressedMsgpack(metaRaw, &meta, "KCES preset meta"); err != nil {
 			return nil, fmt.Errorf("decode KCES preset %q: %w", kcesPresetMetaFile, err)
 		}
 		preset.Meta = meta
@@ -214,16 +194,10 @@ func EncodeKCESPreset(preset *KCESPreset) ([]byte, error) {
 	}
 
 	table := &ct.ContentTable{
-		Version:        preset.ContainerVersion,
-		Versionless:    preset.ContainerVersionless,
-		FilesOnly:      preset.ContainerFilesOnly,
-		DirectoriesNil: preset.ContainerDirectoriesNil,
-		FilesNil:       preset.ContainerFilesNil,
-		FieldCount:     preset.ContainerFieldCount,
-		FutureSlots:    preset.ContainerFutureSlots,
-		Directories:    preset.ContainerDirectories,
-		Raw:            make([]byte, ct.HeaderSize),
-		Files:          make(map[string]ct.VirtualFile),
+		Version:     preset.ContainerVersion,
+		Directories: preset.ContainerDirectories,
+		Raw:         make([]byte, ct.HeaderSize),
+		Files:       make(map[string]ct.VirtualFile),
 	}
 	if err := table.AddFile(kcesPresetThumbnailFile, append([]byte(nil), preset.Thumbnail...)); err != nil {
 		return nil, err
@@ -255,10 +229,6 @@ func EncodeKCESPreset(preset *KCESPreset) ([]byte, error) {
 			return nil, err
 		}
 	}
-	if err := table.ApplyVirtualFileMetadata(preset.ContainerVirtualFiles); err != nil {
-		return nil, fmt.Errorf("KCES preset: %w", err)
-	}
-
 	var out bytes.Buffer
 	if err := ct.WriteContentTable(&out, table); err != nil {
 		return nil, fmt.Errorf("encode KCES preset VirtualDirectory: %w", err)
@@ -266,14 +236,27 @@ func EncodeKCESPreset(preset *KCESPreset) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-// validateKCESPresetCore 验证核心对象版本而保持三个内部 byte[] 载荷不透明
-// validateKCESPresetCore validates the core object version while keeping all three inner byte[] payloads opaque
+// validateKCESPresetCore 完整验证三个已知内部块
+// validateKCESPresetCore fully validates all three known inner blocks
 func validateKCESPresetCore(core *KCESPresetCore) error {
 	if core == nil {
 		return fmt.Errorf("maidData is nil")
 	}
-	// PropData、ColorData 和 BodyData 在此层是独立 byte[] 载荷，MaidPreset.Load 稍后将其交给游戏专用反序列化器，在这里拒绝或重建旧版、未来版或格式错误的内部块会阻止外层无损序列化，并错误地让容器编解码器承担游戏版本处理
-	// PropData, ColorData, and BodyData are independent byte[] payloads at this layer and MaidPreset.Load later passes them to game-specific deserializers, so rejecting or rebuilding an old, future, or malformed inner block here would prevent faithful outer serialization and incorrectly make the container codec perform game version handling
+	if core.PropData != nil {
+		if _, err := DecodeKCESPresetPropertyData(core.PropData); err != nil {
+			return fmt.Errorf("propData: %w", err)
+		}
+	}
+	if core.ColorData != nil {
+		if _, err := DecodeKCESPresetColorData(core.ColorData); err != nil {
+			return fmt.Errorf("colorData: %w", err)
+		}
+	}
+	if core.BodyData != nil {
+		if _, err := DecodeKCESPresetBodyData(core.BodyData); err != nil {
+			return fmt.Errorf("bodyData: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -313,17 +296,22 @@ func NewKCESPreset() (*KCESPreset, error) {
 		MaidData:         core,
 		Meta: &KCESPresetMeta{
 			Version: kcesPresetVersion,
-			Data:    map[string]string{},
+			Data:    map[string]*string{},
 		},
 	}, nil
 }
 
 // cloneStringMap 复制字符串映射以避免编码过程共享调用方可变状态
 // cloneStringMap copies a string map so encoding does not share caller-owned mutable state
-func cloneStringMap(src map[string]string) map[string]string {
-	dst := make(map[string]string, len(src))
+func cloneStringMap(src map[string]*string) map[string]*string {
+	dst := make(map[string]*string, len(src))
 	for key, value := range src {
-		dst[key] = value
+		if value == nil {
+			dst[key] = nil
+			continue
+		}
+		copyValue := *value
+		dst[key] = &copyValue
 	}
 	return dst
 }

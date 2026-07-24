@@ -64,3 +64,17 @@ func TestColliderJSONRejectsUnknownConcreteFieldsAndTrailingValues(t *testing.T)
 		t.Fatalf("trailing collider JSON error = %v", err)
 	}
 }
+
+func TestColliderJSONRejectsNullAtValueTypedPositions(t *testing.T) {
+	tests := []string{
+		`{"type":null,"collider":{}}`,
+		`{"type":0,"collider":{"localPosition":null}}`,
+		`{"type":3,"collider":{"centerMpnList":[null]}}`,
+	}
+	for _, data := range tests {
+		var value ColliderRef
+		if err := json.Unmarshal([]byte(data), &value); err == nil || !strings.Contains(err.Error(), "must not be null") {
+			t.Fatalf("json.Unmarshal(%s) error = %v, want value-typed null rejection", data, err)
+		}
+	}
+}

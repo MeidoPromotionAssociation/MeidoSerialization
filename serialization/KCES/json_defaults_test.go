@@ -40,11 +40,12 @@ func TestPreMulTexDatasJSONKeepsOmittedFieldsZero(t *testing.T) {
 	if err := json.Unmarshal([]byte(`{}`), &omitted); err != nil {
 		t.Fatal(err)
 	}
-	if omitted.Version != 0 || omitted.LayNoInGroup != 0 || omitted.Alpha != 0 || omitted.PreTexCompoTypeStr != "" {
+	if omitted.Version != 0 || omitted.LayNoInGroup != 0 || omitted.Alpha != 0 || omitted.PreTexCompoTypeStr != nil {
 		t.Fatalf("omitted JSON fields gained C# defaults: %+v", omitted)
 	}
 	created := NewPreMulTexDatas()
-	if created.Version != 1001 || created.LayNoInGroup != -1 || created.Alpha != 1 || created.PreTexCompoTypeStr != "Alpha" {
+	if created.Version != 1001 || created.LayNoInGroup != -1 || created.Alpha != 1 ||
+		created.PreTexCompoTypeStr == nil || *created.PreTexCompoTypeStr != "Alpha" {
 		t.Fatalf("explicit constructor defaults = %+v", created)
 	}
 
@@ -57,7 +58,8 @@ func TestPreMulTexDatasJSONKeepsOmittedFieldsZero(t *testing.T) {
 	}`), &explicit); err != nil {
 		t.Fatal(err)
 	}
-	if explicit.Version != 0 || explicit.LayNoInGroup != 0 || explicit.Alpha != 0 || explicit.PreTexCompoTypeStr != "0" {
+	if explicit.Version != 0 || explicit.LayNoInGroup != 0 || explicit.Alpha != 0 ||
+		explicit.PreTexCompoTypeStr == nil || *explicit.PreTexCompoTypeStr != "0" {
 		t.Fatalf("explicit JSON values did not override defaults: %+v", explicit)
 	}
 }
@@ -73,13 +75,8 @@ func TestNestedMenuTypesKeepOmittedFieldsZero(t *testing.T) {
 		}
 
 		var fromMsgpack TransTexData
-		decodeShortArray(t, &fromMsgpack)
-		if fromMsgpack.IndexedObjectMetadata == nil || fromMsgpack.FieldCount == nil || *fromMsgpack.FieldCount != 0 {
-			t.Fatalf("short MessagePack TransTexData did not retain its zero-slot width: %+v", fromMsgpack.IndexedObjectMetadata)
-		}
-		fromMsgpack.IndexedObjectMetadata = nil
-		if fromMsgpack != (TransTexData{}) {
-			t.Fatalf("MessagePack TransTexData gained defaults: %+v", fromMsgpack)
+		if err := decodeShortArray(&fromMsgpack); err == nil {
+			t.Fatal("short MessagePack TransTexData unexpectedly decoded")
 		}
 		assertTransTexDefaults(t, NewTransTexData())
 
@@ -101,9 +98,8 @@ func TestNestedMenuTypesKeepOmittedFieldsZero(t *testing.T) {
 			t.Fatalf("JSON infColorId = %d, want zero", fromJSON.InfColorID)
 		}
 		var fromMsgpack InfColorParam
-		decodeShortArray(t, &fromMsgpack)
-		if fromMsgpack.InfColorID != 0 {
-			t.Fatalf("short MessagePack infColorId = %d, want zero", fromMsgpack.InfColorID)
+		if err := decodeShortArray(&fromMsgpack); err == nil {
+			t.Fatal("short MessagePack InfColorParam unexpectedly decoded")
 		}
 		if NewInfColorParam().InfColorID != -1 {
 			t.Fatal("explicit InfColorParam constructor lost its current-game default")
@@ -126,9 +122,8 @@ func TestNestedMenuTypesKeepOmittedFieldsZero(t *testing.T) {
 			t.Fatalf("JSON patternScale = %+v, want zero", fromJSON.PatternScale)
 		}
 		var fromMsgpack PartColDef
-		decodeShortArray(t, &fromMsgpack)
-		if fromMsgpack.PatternScale != (Vector2{}) {
-			t.Fatalf("short MessagePack patternScale = %+v, want zero", fromMsgpack.PatternScale)
+		if err := decodeShortArray(&fromMsgpack); err == nil {
+			t.Fatal("short MessagePack PartColDef unexpectedly decoded")
 		}
 		if NewPartColDef().PatternScale != (Vector2{X: 1, Y: 1}) {
 			t.Fatal("explicit PartColDef constructor lost its current-game default")
@@ -151,9 +146,8 @@ func TestNestedMenuTypesKeepOmittedFieldsZero(t *testing.T) {
 			t.Fatalf("JSON partsColorType = %d, want zero", fromJSON.PartsColorType)
 		}
 		var fromMsgpack InfColData
-		decodeShortArray(t, &fromMsgpack)
-		if fromMsgpack.PartsColorType != 0 {
-			t.Fatalf("short MessagePack partsColorType = %d, want zero", fromMsgpack.PartsColorType)
+		if err := decodeShortArray(&fromMsgpack); err == nil {
+			t.Fatal("short MessagePack InfColData unexpectedly decoded")
 		}
 		if NewInfColData().PartsColorType != -1 {
 			t.Fatal("explicit InfColData constructor lost its current-game default")
@@ -272,7 +266,6 @@ func TestJSONZeroValuesSurvivePublicPayloadEncodeDecode(t *testing.T) {
 	if err := json.Unmarshal([]byte(`{
 		"format":"kces-msgpack-lz4",
 		"extension":".dbconf",
-		"lengthPrefixed":true,
 		"storageVariant":"int32-length-lz4-messagepack",
 		"kind":"dynamic-bone-status",
 		"dynamicBoneStatus":{}
@@ -295,7 +288,6 @@ func TestJSONZeroValuesSurvivePublicPayloadEncodeDecode(t *testing.T) {
 	if err := json.Unmarshal([]byte(`{
 		"format":"kces-msgpack-lz4",
 		"extension":".dbcol",
-		"lengthPrefixed":true,
 		"storageVariant":"int32-length-lz4-messagepack",
 		"kind":"collider-package",
 		"colliderPackage":{
@@ -325,13 +317,10 @@ func assertTransTexDefaults(t *testing.T, value *TransTexData) {
 	}
 }
 
-func decodeShortArray(t *testing.T, out interface{}) {
-	t.Helper()
+func decodeShortArray(out interface{}) error {
 	data, err := ct.EncodeMsgpack([]interface{}{})
 	if err != nil {
-		t.Fatal(err)
+		return err
 	}
-	if err := ct.DecodeMsgpack(data, out); err != nil {
-		t.Fatal(err)
-	}
+	return ct.DecodeMsgpack(data, out)
 }

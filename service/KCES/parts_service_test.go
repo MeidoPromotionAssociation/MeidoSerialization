@@ -33,8 +33,8 @@ func TestPartsService_MenuAssetsJSONRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeMenuAssets output failed: %v", err)
 	}
-	if assets.FileName != "parts_personal002.menuassets" {
-		t.Errorf("fileName: got %q", assets.FileName)
+	if testStringValue(assets.FileName) != "parts_personal002.menuassets" {
+		t.Errorf("fileName: got %q", testStringValue(assets.FileName))
 	}
 	if len(assets.Assets) != 4 {
 		t.Errorf("asset count: got %d, want 4", len(assets.Assets))
@@ -68,8 +68,8 @@ func TestPartsService_ModelJSONRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeModel output failed: %v", err)
 	}
-	if model.FileName != "hair_twin019.model" {
-		t.Errorf("fileName: got %q", model.FileName)
+	if testStringValue(model.FileName) != "hair_twin019.model" {
+		t.Errorf("fileName: got %q", testStringValue(model.FileName))
 	}
 	if len(model.TransData) == 0 {
 		t.Errorf("transData is empty")
@@ -78,12 +78,12 @@ func TestPartsService_ModelJSONRoundTrip(t *testing.T) {
 
 func TestPartsService_PriorityMaterialAssetsJSONRoundTrip(t *testing.T) {
 	assets := &serializationKCES.PriorityMaterialAssets{
-		FileName: "test.pmatassets",
-		Assets: []serializationKCES.PriorityMaterial{
+		FileName: testStringPointer("test.pmatassets"),
+		Assets: []*serializationKCES.PriorityMaterial{
 			{
 				Version:     1000,
 				ID:          12345,
-				FileName:    "test.pmat",
+				FileName:    testStringPointer("test.pmat"),
 				RenderQueue: 3000,
 				TargetID:    67890,
 			},
@@ -118,14 +118,14 @@ func TestPartsService_PriorityMaterialAssetsJSONRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodePriorityMaterialAssets output failed: %v", err)
 	}
-	if decoded.FileName != assets.FileName {
-		t.Errorf("fileName: got %q, want %q", decoded.FileName, assets.FileName)
+	if testStringValue(decoded.FileName) != testStringValue(assets.FileName) {
+		t.Errorf("fileName: got %q, want %q", testStringValue(decoded.FileName), testStringValue(assets.FileName))
 	}
 	if len(decoded.Assets) != 1 {
 		t.Fatalf("asset count: got %d, want 1", len(decoded.Assets))
 	}
-	if decoded.Assets[0].FileName != "test.pmat" {
-		t.Errorf("asset fileName: got %q", decoded.Assets[0].FileName)
+	if decoded.Assets[0] == nil || testStringValue(decoded.Assets[0].FileName) != "test.pmat" {
+		t.Errorf("asset fileName: got %q", testStringValue(decoded.Assets[0].FileName))
 	}
 }
 
@@ -167,6 +167,53 @@ func TestPartsService_FixedSamplesJSONRoundTrip(t *testing.T) {
 				})
 			}
 		})
+	}
+}
+
+func TestPartsService_RootNullRoundTrip(t *testing.T) {
+	tests := []struct {
+		name   string
+		ext    string
+		decode func([]byte) (any, error)
+	}{
+		{name: "menuassets", ext: ".menuassets", decode: func(data []byte) (any, error) {
+			return serializationKCES.DecodeMenuAssets(data)
+		}},
+		{name: "materialassets", ext: ".materialassets", decode: func(data []byte) (any, error) {
+			return serializationKCES.DecodeMaterialAssets(data)
+		}},
+		{name: "pmatassets", ext: ".pmatassets", decode: func(data []byte) (any, error) {
+			return serializationKCES.DecodePriorityMaterialAssets(data)
+		}},
+		{name: "model", ext: ".model", decode: func(data []byte) (any, error) {
+			return serializationKCES.DecodeModel(data)
+		}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			encoded, err := encodePartsJSON(test.ext, []byte("null"))
+			if err != nil {
+				t.Fatalf("encodePartsJSON: %v", err)
+			}
+			decoded, err := test.decode(encoded)
+			if err != nil {
+				t.Fatalf("decode encoded root nil: %v", err)
+			}
+			if value := reflect.ValueOf(decoded); !value.IsValid() || value.Kind() != reflect.Pointer || !value.IsNil() {
+				t.Fatalf("decoded root = %#v, want nil", decoded)
+			}
+		})
+	}
+}
+
+func TestIsKCESPartsJSONFileAcceptsNullableModelRoot(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nullable.model.json")
+	if err := os.WriteFile(path, []byte("\xef\xbb\xbf  null\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if !IsKCESPartsJSONFile(path) {
+		t.Fatal("nullable KCES model JSON was not detected")
 	}
 }
 

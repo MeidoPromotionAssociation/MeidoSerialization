@@ -62,12 +62,15 @@ func TestPackMod_Integration(t *testing.T) {
 	if want := ct.HashStringIgnoreCase("integration_test.aba"); catalog.Hash != want {
 		t.Fatalf("catalog hash=%d, want resource .aba hash %d", catalog.Hash, want)
 	}
-	if !sort.StringsAreSorted(catalog.ExtensionList) {
+	if !sort.StringsAreSorted(testStringValues(catalog.ExtensionList)) {
 		t.Fatalf("catalog extension list is not sorted: %v", catalog.ExtensionList)
 	}
 
 	// 验证 catalog items 按 hash 升序排序
 	for i := 1; i < len(catalog.Items); i++ {
+		if catalog.Items[i-1] == nil || catalog.Items[i] == nil {
+			t.Fatalf("catalog contains a null item: %+v", catalog.Items)
+		}
 		if catalog.Items[i].Hash < catalog.Items[i-1].Hash {
 			t.Errorf("catalog items not sorted by hash: [%d].hash=%d > [%d].hash=%d",
 				i-1, catalog.Items[i-1].Hash, i, catalog.Items[i].Hash)
@@ -104,28 +107,33 @@ func TestPackMod_Integration(t *testing.T) {
 
 	// 验证 catalog 每个 item 都能在 AssetBundle 中找到同名对象
 	for _, item := range catalog.Items {
-		typeId, found := assetNames[item.Name]
+		if item == nil {
+			t.Fatal("catalog contains a null item")
+		}
+		itemName := testStringValue(item.Name)
+		typeId, found := assetNames[itemName]
 		if !found {
-			t.Errorf("catalog item %q not found in .aba AssetBundle", item.Name)
+			t.Errorf("catalog item %q not found in .aba AssetBundle", itemName)
 			continue
 		}
 		// TextAsset 类型应为 49
 		if typeId != 49 {
-			t.Errorf("catalog item %q: expected ClassID 49 (TextAsset), got %d", item.Name, typeId)
+			t.Errorf("catalog item %q: expected ClassID 49 (TextAsset), got %d", itemName, typeId)
 		}
 	}
 
 	// 验证 ExtensionNameList 也按 hash 排序
 	for _, ext := range catalog.ExtensionList {
-		enl, err := ct.DecodeExtensionNameListFromCt(table, ext)
+		extension := testStringValue(ext)
+		enl, err := ct.DecodeExtensionNameListFromCt(table, extension)
 		if err != nil {
-			t.Errorf("decode ExtensionNameList %q: %v", ext, err)
+			t.Errorf("decode ExtensionNameList %q: %v", extension, err)
 			continue
 		}
 		if !sort.SliceIsSorted(enl.Data, func(i, j int) bool {
 			return enl.Data[i].Hash < enl.Data[j].Hash
 		}) {
-			t.Errorf("ExtensionNameList %q not sorted by hash", ext)
+			t.Errorf("ExtensionNameList %q not sorted by hash", extension)
 		}
 	}
 }
@@ -174,10 +182,10 @@ func TestPackModCatalogsExtensionlessTextAssetsUnderNullGroup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog.ExtensionList) != 1 || catalog.ExtensionList[0] != "null" {
+	if len(catalog.ExtensionList) != 1 || testStringValue(catalog.ExtensionList[0]) != "null" {
 		t.Fatalf("extensionList = %v, want official extensionless group [null]", catalog.ExtensionList)
 	}
-	if len(catalog.Items) != 1 || catalog.Items[0].Name != "maid_collider" || catalog.Items[0].Hash != ct.HashStringIgnoreCase("maid_collider") {
+	if len(catalog.Items) != 1 || catalog.Items[0] == nil || testStringValue(catalog.Items[0].Name) != "maid_collider" || catalog.Items[0].Hash != ct.HashStringIgnoreCase("maid_collider") {
 		t.Fatalf("catalog items = %+v, want extensionless maid_collider only", catalog.Items)
 	}
 
@@ -185,7 +193,7 @@ func TestPackModCatalogsExtensionlessTextAssetsUnderNullGroup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if enl.Extension != "null" || len(enl.Data) != 1 || enl.Data[0].Name != "maid_collider" || enl.Data[0].Hash != ct.HashStringIgnoreCase("maid_collider") {
+	if testStringValue(enl.Extension) != "null" || len(enl.Data) != 1 || enl.Data[0] == nil || testStringValue(enl.Data[0].Name) != "maid_collider" || enl.Data[0].Hash != ct.HashStringIgnoreCase("maid_collider") {
 		t.Fatalf("null ExtensionNameList = %+v", enl)
 	}
 }

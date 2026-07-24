@@ -30,9 +30,9 @@
       "description": "The parsed JSON value exposed for editing.",
       "title": "Normalized JSON value",
       "x-meido-confidence": "verified",
-      "x-meido-edit-guidance": "Change only keys documented by the specific resource or game feature; preserve unknown members and types.",
+      "x-meido-edit-guidance": "Change only keys documented by the specific resource or game feature; retain unknown semantic members and types.",
       "x-meido-edit-role": "opaque_domain_data",
-      "x-meido-game-usage": "CsvManager passes the original JSON text to the consuming resource code; this library does not infer the domain schema.",
+      "x-meido-game-usage": "CsvManager supplies JSON text to the consuming resource code; whitespace and BOM have no independent game meaning and this library does not infer the domain schema.",
       "x-meido-risk": "critical",
       "x-meido-source-evidence": [
         {
@@ -45,16 +45,6 @@
           "symbol": "CsvManager.GetCsvText/CreateCsvIdManager"
         }
       ]
-    },
-    "text": {
-      "description": "The source text retained for byte-preserving output when the normalized JSON is unchanged.",
-      "title": "Original JSON text",
-      "type": "string",
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Keep text when no semantic edit is made; regenerate valid UTF-8 JSON after an intentional edit.",
-      "x-meido-edit-role": "serialization_cache",
-      "x-meido-game-usage": "The game reads TextAsset.text, so whitespace and encoding may matter to external tools even when JSON semantics are unchanged.",
-      "x-meido-risk": "high"
     }
   },
   "required": [

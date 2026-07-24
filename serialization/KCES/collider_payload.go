@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/strictjson"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 	"github.com/ugorji/go/codec"
 )
@@ -16,31 +16,28 @@ import (
 // ColliderPackage 表示通用碰撞体包
 // ColliderPackage represents a generic collider package
 type ColliderPackage struct {
-	_struct                struct{}        `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"`     // 索引对象的线格式元数据 / Indexed-object wire metadata
-	Version                int32           `json:"version"`                  // 版本号 / Version value
-	Colliders              []ColliderRef   `json:"colliders"`                // 碰撞体引用列表 / Collider reference list
-	LimbEnableList         []ColliderState `json:"limbEnableList,omitempty"` // DynamicYureBone.LimbColliderInfo 列表 / DynamicYureBone.LimbColliderInfo list
+	_struct        struct{}         `codec:",toarray"`      // 强制按数组编码 / Forces array encoding
+	Version        int32            `json:"version"`        // 版本号 / Version value
+	Colliders      []*ColliderRef   `json:"colliders"`      // 可空碰撞体引用列表 / List of nullable collider references
+	LimbEnableList []*ColliderState `json:"limbEnableList"` // 可空 DynamicYureBone.LimbColliderInfo 列表 / List of nullable DynamicYureBone.LimbColliderInfo objects
 }
 
 // colliderPackageJSON 表示 ColliderPackage 的 JSON 兼容视图
 // colliderPackageJSON represents the JSON compatibility view of ColliderPackage
 type colliderPackageJSON struct {
-	*IndexedObjectMetadata                 // 索引对象的线格式元数据 / Indexed-object wire metadata
-	Version                int32           `json:"version"`                  // 版本号 / Version value
-	Colliders              []ColliderRef   `json:"colliders"`                // 碰撞体引用列表 / Collider reference list
-	LimbEnableList         []ColliderState `json:"limbEnableList,omitempty"` // limb 启用状态列表 / Limb enable-state list
-	States                 json.RawMessage `json:"states,omitempty"`         // 仅用于拒绝旧版 states 字段 / Used only to reject the legacy states field
+	Version        int32            `json:"version"`          // 版本号 / Version value
+	Colliders      []*ColliderRef   `json:"colliders"`        // 可空碰撞体引用列表 / List of nullable collider references
+	LimbEnableList []*ColliderState `json:"limbEnableList"`   // 可空 limb 启用状态列表 / List of nullable limb enable-state objects
+	States         json.RawMessage  `json:"states,omitempty"` // 仅用于拒绝旧版 states 字段 / Used only to reject the legacy states field
 }
 
 // MarshalJSON 将 ColliderPackage 编码为当前 JSON 字段名
 // MarshalJSON encodes ColliderPackage using the current JSON field names
 func (p ColliderPackage) MarshalJSON() ([]byte, error) {
 	return json.Marshal(colliderPackageJSON{
-		IndexedObjectMetadata: p.IndexedObjectMetadata,
-		Version:               p.Version,
-		Colliders:             p.Colliders,
-		LimbEnableList:        p.LimbEnableList,
+		Version:        p.Version,
+		Colliders:      p.Colliders,
+		LimbEnableList: p.LimbEnableList,
 	})
 }
 
@@ -48,17 +45,16 @@ func (p ColliderPackage) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON decodes ColliderPackage and rejects the removed states field
 func (p *ColliderPackage) UnmarshalJSON(data []byte) error {
 	var raw colliderPackageJSON
-	if err := json.Unmarshal(data, &raw); err != nil {
+	if err := decodeColliderJSONStrict(data, &raw); err != nil {
 		return err
 	}
 	if len(raw.States) > 0 {
 		return fmt.Errorf(`colliderPackage.states is no longer supported; use "limbEnableList"`)
 	}
 	*p = ColliderPackage{
-		IndexedObjectMetadata: raw.IndexedObjectMetadata,
-		Version:               raw.Version,
-		Colliders:             raw.Colliders,
-		LimbEnableList:        raw.LimbEnableList,
+		Version:        raw.Version,
+		Colliders:      raw.Colliders,
+		LimbEnableList: raw.LimbEnableList,
 	}
 	return nil
 }
@@ -88,37 +84,33 @@ const (
 // ColliderRef 表示带 union 类型枚举的碰撞体引用
 // ColliderRef represents a collider reference with its union type enum
 type ColliderRef struct {
-	*IndexedObjectMetadata `codec:"-"`         // union 封套的线格式元数据 / Wire metadata for the union wrapper
-	Type                   int32               `json:"type"`                            // 碰撞体类型枚举 / Collider type enum
-	Collider               ColliderStatusUnion `json:"collider"`                        // 碰撞体对象数据 / Collider object data
-	ColliderRaw            RawMessagePackSlot  `json:"colliderRaw,omitempty" codec:"-"` // Type 新于本库时逐字节保留的完整 union 载荷 / Complete union payload preserved byte-for-byte when Type is newer than this library
+	Type     int32               `json:"type"`     // 碰撞体类型枚举 / Collider type enum
+	Collider ColliderStatusUnion `json:"collider"` // 碰撞体对象数据 / Collider object data
 }
 
 // colliderRefAlias 避免 ColliderRef.MarshalJSON 递归调用自身
 // colliderRefAlias prevents ColliderRef.MarshalJSON from recursively calling itself
 type colliderRefAlias ColliderRef
 
-// colliderRefJSON 表示可区分强类型载荷与原始未来载荷的 JSON 输入
-// colliderRefJSON represents JSON input that distinguishes a typed payload from a raw future payload
+// colliderRefJSON 表示按 type 判别具体碰撞体类型的 JSON 输入
+// colliderRefJSON represents JSON input whose concrete collider type is selected by type
 type colliderRefJSON struct {
-	*IndexedObjectMetadata                    // union 封套的线格式元数据 / Wire metadata for the union wrapper
-	Type                   int32              `json:"type"`                  // union 类型标记 / Union type tag
-	Collider               json.RawMessage    `json:"collider"`              // 强类型碰撞体 JSON / Typed collider JSON
-	ColliderRaw            RawMessagePackSlot `json:"colliderRaw,omitempty"` // 未知类型的原始 MessagePack 载荷 / Raw MessagePack payload for an unknown type
+	Type     int32           `json:"type"`     // union 类型标记 / Union type tag
+	Collider json.RawMessage `json:"collider"` // 强类型碰撞体 JSON / Typed collider JSON
 }
 
-// UnmarshalJSON 按 Type 解码已知碰撞体或保留未知类型原始载荷
-// UnmarshalJSON decodes a known collider according to Type or preserves an unknown raw payload
+// UnmarshalJSON 按 Type 解码已知碰撞体并拒绝未知 union 标记
+// UnmarshalJSON decodes a known collider according to Type and rejects unknown union tags
 func (c *ColliderRef) UnmarshalJSON(data []byte) error {
 	var raw colliderRefJSON
 	if err := decodeColliderJSONStrict(data, &raw); err != nil {
 		return err
 	}
-	if len(raw.ColliderRaw) != 0 && !jsonMessageIsNullOrMissing(raw.Collider) {
-		return fmt.Errorf("collider and colliderRaw cannot both be populated")
+	if _, known := newColliderStatusForType(raw.Type); !known {
+		return fmt.Errorf("unsupported collider type %d", raw.Type)
 	}
 	var collider ColliderStatusUnion
-	if len(raw.ColliderRaw) == 0 && !jsonMessageIsNullOrMissing(raw.Collider) {
+	if !jsonMessageIsNullOrMissing(raw.Collider) {
 		var err error
 		collider, err = decodeColliderObjectAsType(raw.Collider, raw.Type)
 		if err != nil {
@@ -126,16 +118,14 @@ func (c *ColliderRef) UnmarshalJSON(data []byte) error {
 		}
 	}
 	*c = ColliderRef{
-		IndexedObjectMetadata: raw.IndexedObjectMetadata,
-		Type:                  raw.Type,
-		Collider:              collider,
-		ColliderRaw:           cloneRawMessagePackSlot(raw.ColliderRaw),
+		Type:     raw.Type,
+		Collider: collider,
 	}
 	return nil
 }
 
-// MarshalJSON 编码碰撞体引用及其强类型或原始载荷
-// MarshalJSON encodes a collider reference and its typed or raw payload
+// MarshalJSON 编码碰撞体引用及其强类型载荷
+// MarshalJSON encodes a collider reference and its typed payload
 func (c ColliderRef) MarshalJSON() ([]byte, error) {
 	return json.Marshal(colliderRefAlias(c))
 }
@@ -150,8 +140,8 @@ type ColliderStatusUnion interface {
 // ColliderObject represents shared base fields from the game's ANativeColliderStatus
 type ColliderObject struct {
 	Version       int32   `json:"version"`       // 版本号 / Version value
-	ParentName    string  `json:"parentName"`    // 父对象名称 / Parent object name
-	SelfName      string  `json:"selfName"`      // 自身对象名称 / Own object name
+	ParentName    *string `json:"parentName"`    // 可空父对象名称 / Nullable parent object name
+	SelfName      *string `json:"selfName"`      // 可空自身对象名称 / Nullable own object name
 	LocalPosition Vector3 `json:"localPosition"` // 本地位置 / Local position
 	LocalRotation Vector4 `json:"localRotation"` // 本地旋转四元数 / Local rotation quaternion
 	LocalScale    Vector3 `json:"localScale"`    // 本地缩放 / Local scale
@@ -162,11 +152,10 @@ type ColliderObject struct {
 // ColliderPlane 对应游戏 NativePlaneColliderStatus
 // ColliderPlane corresponds to the game's NativePlaneColliderStatus
 type ColliderPlane struct {
-	_struct                struct{}          `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"`       // 索引对象的线格式元数据 / Indexed-object wire metadata
-	ColliderObject         `codec:",inline"` // ANativeColliderStatus 基类字段 / ANativeColliderStatus base fields
-	Direction              int32             `json:"direction"`          // 平面法线方向 / Plane normal direction
-	IsDirectionInverse     bool              `json:"isDirectionInverse"` // 法线方向反转 / Reverse normal direction
+	_struct            struct{}          `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	ColliderObject     `codec:",inline"` // ANativeColliderStatus 基类字段 / ANativeColliderStatus base fields
+	Direction          int32             `json:"direction"`          // 平面法线方向 / Plane normal direction
+	IsDirectionInverse bool              `json:"isDirectionInverse"` // 法线方向反转 / Reverse normal direction
 }
 
 // toColliderType 返回 Plane union 类型标记
@@ -176,14 +165,13 @@ func (*ColliderPlane) toColliderType() int32 { return ColliderTypePlane }
 // ColliderCapsule 对应游戏 NativeCapsuleColliderStatus
 // ColliderCapsule corresponds to the game's NativeCapsuleColliderStatus
 type ColliderCapsule struct {
-	_struct                struct{}          `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"`       // 索引对象的线格式元数据 / Indexed-object wire metadata
-	ColliderObject         `codec:",inline"` // ANativeColliderStatus 基类字段 / ANativeColliderStatus base fields
-	Direction              int32             `json:"direction"`          // 胶囊主轴方向 / Capsule axis direction
-	IsDirectionInverse     bool              `json:"isDirectionInverse"` // 方向反转 / Direction reversed
-	StartRadius            float32           `json:"startRadius"`        // 起点半径 / Start radius
-	EndRadius              float32           `json:"endRadius"`          // 终点半径 / End radius
-	Height                 float32           `json:"height"`             // 长度 / Height
+	_struct            struct{}          `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	ColliderObject     `codec:",inline"` // ANativeColliderStatus 基类字段 / ANativeColliderStatus base fields
+	Direction          int32             `json:"direction"`          // 胶囊主轴方向 / Capsule axis direction
+	IsDirectionInverse bool              `json:"isDirectionInverse"` // 方向反转 / Direction reversed
+	StartRadius        float32           `json:"startRadius"`        // 起点半径 / Start radius
+	EndRadius          float32           `json:"endRadius"`          // 终点半径 / End radius
+	Height             float32           `json:"height"`             // 长度 / Height
 }
 
 // toColliderType 返回 Capsule union 类型标记
@@ -193,10 +181,9 @@ func (*ColliderCapsule) toColliderType() int32 { return ColliderTypeCapsule }
 // ColliderSphere 对应游戏 NativeSphereColliderStatus
 // ColliderSphere corresponds to the game's NativeSphereColliderStatus
 type ColliderSphere struct {
-	_struct                struct{}          `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"`       // 索引对象的线格式元数据 / Indexed-object wire metadata
-	ColliderObject         `codec:",inline"` // ANativeColliderStatus 基类字段 / ANativeColliderStatus base fields
-	Radius                 float32           `json:"radius"` // 半径 / Radius
+	_struct        struct{}          `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	ColliderObject `codec:",inline"` // ANativeColliderStatus 基类字段 / ANativeColliderStatus base fields
+	Radius         float32           `json:"radius"` // 半径 / Radius
 }
 
 // toColliderType 返回 Sphere union 类型标记
@@ -206,26 +193,22 @@ func (*ColliderSphere) toColliderType() int32 { return ColliderTypeSphere }
 // ColliderMaidProp 对应游戏 NativeMaidPropColliderStatus
 // ColliderMaidProp corresponds to the game's NativeMaidPropColliderStatus
 type ColliderMaidProp struct {
-	_struct                struct{}           `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"`        // 索引对象的线格式元数据 / Indexed-object wire metadata
-	ColliderObject         `codec:",inline"`  // NativeCapsuleColliderStatus 与基类字段 / NativeCapsuleColliderStatus and base fields
-	Direction              int32              `json:"direction"`              // 胶囊主轴方向 / Capsule axis direction
-	IsDirectionInverse     bool               `json:"isDirectionInverse"`     // 方向反转 / Direction reversed
-	StartRadius            float32            `json:"startRadius"`            // 起点半径 / Start radius
-	EndRadius              float32            `json:"endRadius"`              // 终点半径 / End radius
-	Height                 float32            `json:"height"`                 // 长度 / Height
-	Reserved13             RawMessagePackSlot `json:"reserved13,omitempty"`   // C# 无 Key(13)，通常为 MessagePack nil / C# has no Key(13), normally MessagePack nil
-	Reserved14             RawMessagePackSlot `json:"reserved14,omitempty"`   // C# 无 Key(14)，通常为 MessagePack nil / C# has no Key(14), normally MessagePack nil
-	Reserved15             RawMessagePackSlot `json:"reserved15,omitempty"`   // C# 无 Key(15)，通常为 MessagePack nil / C# has no Key(15), normally MessagePack nil
-	CenterMpnList          []int32            `json:"centerMpnList"`          // 中心MPN枚举列表，对应 C# List<MPN> / Center MPN enum list, matching C# List<MPN>
-	CenterRateMax          Vector3            `json:"centerRateMax"`          // 中心最大比率 / Max center rate
-	StartRadiusMpnList     []int32            `json:"startRadiusMpnList"`     // 起点半径MPN枚举列表 / Start-radius MPN enum list
-	MaxStartRadius         float32            `json:"maxStartRadius"`         // 起点半径最大值 / Max start radius
-	EndRadiusMpnList       []int32            `json:"endRadiusMpnList"`       // 终点半径MPN枚举列表 / End-radius MPN enum list
-	MaxEndRadius           float32            `json:"maxEndRadius"`           // 终点半径最大值 / Max end radius
-	CenterMpnNameList      []string           `json:"centerMpnNameList"`      // 中心MPN名 / Center MPN names
-	StartRadiusMpnNameList []string           `json:"startRadiusMpnNameList"` // 起点半径MPN名 / Start-radius MPN names
-	EndRadiusMpnNameList   []string           `json:"endRadiusMpnNameList"`   // 终点半径MPN名 / End-radius MPN names
+	_struct                struct{}          `codec:",toarray" kces:"nil=13,14,15;widths=22,25"` // 强制按数组编码并接受枚举列表版及名称列表版布局 / Forces array encoding and accepts enum-list and name-list layouts
+	ColliderObject         `codec:",inline"` // NativeCapsuleColliderStatus 与基类字段 / NativeCapsuleColliderStatus and base fields
+	Direction              int32             `json:"direction"`              // 胶囊主轴方向 / Capsule axis direction
+	IsDirectionInverse     bool              `json:"isDirectionInverse"`     // 方向反转 / Direction reversed
+	StartRadius            float32           `json:"startRadius"`            // 起点半径 / Start radius
+	EndRadius              float32           `json:"endRadius"`              // 终点半径 / End radius
+	Height                 float32           `json:"height"`                 // 长度 / Height
+	CenterMpnList          []int32           `json:"centerMpnList"`          // 中心MPN枚举列表，对应 C# List<MPN> / Center MPN enum list, matching C# List<MPN>
+	CenterRateMax          Vector3           `json:"centerRateMax"`          // 中心最大比率 / Max center rate
+	StartRadiusMpnList     []int32           `json:"startRadiusMpnList"`     // 起点半径MPN枚举列表 / Start-radius MPN enum list
+	MaxStartRadius         float32           `json:"maxStartRadius"`         // 起点半径最大值 / Max start radius
+	EndRadiusMpnList       []int32           `json:"endRadiusMpnList"`       // 终点半径MPN枚举列表 / End-radius MPN enum list
+	MaxEndRadius           float32           `json:"maxEndRadius"`           // 终点半径最大值 / Max end radius
+	CenterMpnNameList      []*string         `json:"centerMpnNameList"`      // 可空中心 MPN 名称列表 / List of nullable center MPN names
+	StartRadiusMpnNameList []*string         `json:"startRadiusMpnNameList"` // 可空起点半径 MPN 名称列表 / List of nullable start-radius MPN names
+	EndRadiusMpnNameList   []*string         `json:"endRadiusMpnNameList"`   // 可空终点半径 MPN 名称列表 / List of nullable end-radius MPN names
 }
 
 // toColliderType 返回 MaidPropCol union 类型标记
@@ -284,9 +267,9 @@ func NewColliderMaidProp() *ColliderMaidProp {
 		MaxStartRadius:         1,
 		EndRadiusMpnList:       []int32{},
 		MaxEndRadius:           1,
-		CenterMpnNameList:      []string{},
-		StartRadiusMpnNameList: []string{},
-		EndRadiusMpnNameList:   []string{},
+		CenterMpnNameList:      []*string{},
+		StartRadiusMpnNameList: []*string{},
+		EndRadiusMpnNameList:   []*string{},
 	}
 }
 
@@ -341,29 +324,27 @@ func (v *ColliderMaidProp) UnmarshalJSON(data []byte) error {
 // ColliderState 表示 DynamicYureBone.LimbColliderInfo
 // ColliderState represents DynamicYureBone.LimbColliderInfo
 type ColliderState struct {
-	_struct                struct{}    `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"` // 索引对象的线格式元数据 / Indexed-object wire metadata
-	Version                int32       `json:"version"`  // 版本号 / Version value
-	LimbType               int32       `json:"limbType"` // limbType 枚举值 / LimbType enum value
-	IsEnable               bool        `json:"isEnable"` // 是否启用 / Enabled
+	_struct  struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	Version  int32    `json:"version"`   // 版本号 / Version value
+	LimbType int32    `json:"limbType"`  // limbType 枚举值 / LimbType enum value
+	IsEnable bool     `json:"isEnable"`  // 是否启用 / Enabled
 }
 
 // colliderStateJSON 表示 ColliderState 的 JSON 兼容输入
 // colliderStateJSON represents JSON compatibility input for ColliderState
 type colliderStateJSON struct {
-	*IndexedObjectMetadata                 // 索引对象的线格式元数据 / Indexed-object wire metadata
-	Version                int32           `json:"version"`            // 版本号 / Version value
-	LimbType               *int32          `json:"limbType,omitempty"` // 可选 limb 类型 / Optional limb type
-	IsEnable               *bool           `json:"isEnable,omitempty"` // 可选启用状态 / Optional enable state
-	Index                  json.RawMessage `json:"index,omitempty"`    // 仅用于拒绝旧版 index 字段 / Used only to reject the legacy index field
-	Enabled                json.RawMessage `json:"enabled,omitempty"`  // 仅用于拒绝旧版 enabled 字段 / Used only to reject the legacy enabled field
+	Version  int32           `json:"version"`            // 版本号 / Version value
+	LimbType *int32          `json:"limbType,omitempty"` // 可选 limb 类型 / Optional limb type
+	IsEnable *bool           `json:"isEnable,omitempty"` // 可选启用状态 / Optional enable state
+	Index    json.RawMessage `json:"index,omitempty"`    // 仅用于拒绝旧版 index 字段 / Used only to reject the legacy index field
+	Enabled  json.RawMessage `json:"enabled,omitempty"`  // 仅用于拒绝旧版 enabled 字段 / Used only to reject the legacy enabled field
 }
 
 // UnmarshalJSON 解码 ColliderState 并拒绝已移除的旧字段名
 // UnmarshalJSON decodes ColliderState and rejects removed legacy field names
 func (s *ColliderState) UnmarshalJSON(data []byte) error {
 	var raw colliderStateJSON
-	if err := json.Unmarshal(data, &raw); err != nil {
+	if err := decodeColliderJSONStrict(data, &raw); err != nil {
 		return err
 	}
 	if len(raw.Index) > 0 {
@@ -372,7 +353,7 @@ func (s *ColliderState) UnmarshalJSON(data []byte) error {
 	if len(raw.Enabled) > 0 {
 		return fmt.Errorf(`collider state "enabled" is no longer supported; use "isEnable"`)
 	}
-	value := ColliderState{IndexedObjectMetadata: raw.IndexedObjectMetadata, Version: raw.Version}
+	value := ColliderState{Version: raw.Version}
 	if raw.LimbType != nil {
 		value.LimbType = *raw.LimbType
 	}
@@ -386,89 +367,38 @@ func (s *ColliderState) UnmarshalJSON(data []byte) error {
 // LimbColliderPackage 对应 LimbColliderMgr 保存的 limb collider 包
 // LimbColliderPackage maps the limb-collider package saved by LimbColliderMgr
 type LimbColliderPackage struct {
-	_struct                struct{}           `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"`        // 索引对象的线格式元数据 / Indexed-object wire metadata
-	Version                int32              `json:"version"` // 版本号 / Version value
-	Items                  []LimbColliderItem `json:"items"`   // limb 碰撞体条目列表 / limb collider item list
+	_struct struct{}            `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	Version int32               `json:"version"`   // 版本号 / Version value
+	Items   []*LimbColliderItem `json:"items"`     // 可空 limb 碰撞体条目列表 / List of nullable limb collider items
 }
 
 // LimbColliderItem 表示一个 limb 类型和 NativeMaidPropColliderStatus
 // LimbColliderItem represents one limb type and NativeMaidPropColliderStatus
 type LimbColliderItem struct {
-	*IndexedObjectMetadata `codec:"-"`         // 索引对象的线格式元数据 / Indexed-object wire metadata
-	Version                int32               `json:"version"`                         // 版本号 / Version value
-	Target                 int32               `json:"target"`                          // limbType 枚举值 / LimbType enum value
-	Collider               ColliderStatusUnion `json:"collider"`                        // 碰撞体状态 / Collider status
-	ColliderRaw            RawMessagePackSlot  `json:"colliderRaw,omitempty" codec:"-"` // 无法作为固定 MaidProp 类型编辑时保留的完整 Key(2) 载荷 / Complete Key(2) payload preserved when it cannot be edited as the fixed MaidProp type
+	Version  int32             `json:"version"`  // 版本号 / Version value
+	Target   int32             `json:"target"`   // limbType 枚举值 / LimbType enum value
+	Collider *ColliderMaidProp `json:"collider"` // 游戏声明的 NativeMaidPropColliderStatus / NativeMaidPropColliderStatus declared by the game
 }
 
 // limbColliderItemAlias 避免 LimbColliderItem.MarshalJSON 递归调用自身
 // limbColliderItemAlias prevents LimbColliderItem.MarshalJSON from recursively calling itself
 type limbColliderItemAlias LimbColliderItem
 
-// limbColliderItemJSON 表示可区分强类型载荷与原始载荷的 limb 条目 JSON
-// limbColliderItemJSON represents limb-item JSON that distinguishes a typed payload from a raw payload
-type limbColliderItemJSON struct {
-	*IndexedObjectMetadata                    // 索引对象的线格式元数据 / Indexed-object wire metadata
-	Version                int32              `json:"version"`               // 条目版本 / Item version
-	Target                 int32              `json:"target"`                // limb 类型枚举 / Limb type enum
-	Collider               json.RawMessage    `json:"collider"`              // MaidProp 碰撞体 JSON / MaidProp collider JSON
-	ColliderRaw            RawMessagePackSlot `json:"colliderRaw,omitempty"` // 原始 Key(2) MessagePack 载荷 / Raw Key(2) MessagePack payload
-}
-
-// UnmarshalJSON 将条目碰撞体固定解码为游戏声明的 NativeMaidPropColliderStatus
-// UnmarshalJSON decodes the item collider as the NativeMaidPropColliderStatus fixed by the game declaration
-func (item *LimbColliderItem) UnmarshalJSON(data []byte) error {
-	var raw limbColliderItemJSON
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-	if len(raw.ColliderRaw) != 0 && !jsonMessageIsNullOrMissing(raw.Collider) {
-		return fmt.Errorf("limb collider item collider and colliderRaw cannot both be populated")
-	}
-	var collider ColliderStatusUnion
-	if len(raw.ColliderRaw) == 0 && !jsonMessageIsNullOrMissing(raw.Collider) {
-		// C# LimbColliderMgr.LimbColliderData.Key(2) 是具体 NativeMaidPropColliderStatus，而不是 ANativeColliderStatus union
-		// C# LimbColliderMgr.LimbColliderData.Key(2) is a concrete NativeMaidPropColliderStatus rather than the ANativeColliderStatus union
-		var err error
-		collider, err = decodeColliderObjectAsType(raw.Collider, ColliderTypeMaidProp)
-		if err != nil {
-			return fmt.Errorf("limb collider item collider: %w", err)
-		}
-	}
-	*item = LimbColliderItem{
-		IndexedObjectMetadata: raw.IndexedObjectMetadata,
-		Version:               raw.Version,
-		Target:                raw.Target,
-		Collider:              collider,
-		ColliderRaw:           cloneRawMessagePackSlot(raw.ColliderRaw),
-	}
-	return nil
-}
-
-// MarshalJSON 编码 limb 碰撞体条目及其强类型或原始载荷
-// MarshalJSON encodes a limb-collider item and its typed or raw payload
-func (item LimbColliderItem) MarshalJSON() ([]byte, error) {
-	return json.Marshal(limbColliderItemAlias(item))
-}
-
 // IKColliderPackage 对应 IKColliderSaveLoader 保存的 IK collider 包
 // IKColliderPackage maps the IK-collider package saved by IKColliderSaveLoader
 type IKColliderPackage struct {
-	_struct                struct{}          `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"`       // 索引对象的线格式元数据 / Indexed-object wire metadata
-	Version                int32             `json:"version"` // 版本号 / Version value
-	Groups                 []IKColliderGroup `json:"groups"`  // IK 效果器分组列表 / IK effector group list
+	_struct struct{}           `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	Version int32              `json:"version"`   // 版本号 / Version value
+	Groups  []*IKColliderGroup `json:"groups"`    // 可空 IK 效果器分组列表 / List of nullable IK effector groups
 }
 
 // IKColliderGroup 表示一个 IK 效果器的碰撞体列表
 // IKColliderGroup represents colliders for one IK effector
 type IKColliderGroup struct {
-	_struct                struct{}      `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"`   // 索引对象的线格式元数据 / Indexed-object wire metadata
-	Version                int32         `json:"version"`   // 版本号 / Version value
-	Target                 int32         `json:"target"`    // effectorType 枚举值 / Effector type enum
-	Colliders              []ColliderRef `json:"colliders"` // 该效果器关联的碰撞体引用列表 / Collider references associated with effector
+	_struct   struct{}       `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	Version   int32          `json:"version"`   // 版本号 / Version value
+	Target    int32          `json:"target"`    // effectorType 枚举值 / Effector type enum
+	Colliders []*ColliderRef `json:"colliders"` // 可空碰撞体引用列表 / List of nullable collider references
 }
 
 // colliderRefWire 是依次保存 unionTag 和 concreteObject 的 MessagePack-CSharp union 封套
@@ -476,10 +406,9 @@ type IKColliderGroup struct {
 // colliderRefWire is the MessagePack-CSharp union wrapper storing unionTag followed by concreteObject
 // The concrete object remains raw only long enough to select its formatter, while all array framing and metadata handling stays in the shared indexed-object codec
 type colliderRefWire struct {
-	_struct                struct{}           `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"`        // union 封套的线格式元数据 / Wire metadata for the union wrapper
-	Type                   int32              `json:"type"`     // union 类型标记 / Union type tag
-	Collider               RawMessagePackSlot `json:"collider"` // 具体对象的完整 MessagePack 值 / Complete MessagePack value of the concrete object
+	_struct  struct{}  `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	Type     int32     `json:"type"`      // union 类型标记 / Union type tag
+	Collider codec.Raw `json:"-"`         // 仅在读取判别标记后选择具体类型 / Used only to select the concrete type after reading the discriminator
 }
 
 // CodecEncodeSelf 按共享 indexed-object 规则编码碰撞体 union 封套
@@ -497,11 +426,10 @@ func (v *colliderRefWire) CodecDecodeSelf(d *codec.Decoder) {
 // limbColliderItemWire 表示 LimbColliderData 的固定三槽 MessagePack 布局
 // limbColliderItemWire represents the fixed three-slot MessagePack layout of LimbColliderData
 type limbColliderItemWire struct {
-	_struct                struct{}           `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"`        // 索引对象的线格式元数据 / Indexed-object wire metadata
-	Version                int32              `json:"version"`  // 条目版本 / Item version
-	Target                 int32              `json:"target"`   // limb 类型枚举 / Limb type enum
-	Collider               RawMessagePackSlot `json:"collider"` // NativeMaidPropColliderStatus 的完整 MessagePack 值 / Complete MessagePack value of NativeMaidPropColliderStatus
+	_struct  struct{}  `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	Version  int32     `json:"version"`   // 条目版本 / Item version
+	Target   int32     `json:"target"`    // limb 类型枚举 / Limb type enum
+	Collider codec.Raw `json:"-"`         // 临时捕获 NativeMaidPropColliderStatus 值 / Temporarily captures the NativeMaidPropColliderStatus value
 }
 
 // CodecEncodeSelf 按共享 indexed-object 规则编码 LimbColliderData 线格式
@@ -516,23 +444,34 @@ func (v *limbColliderItemWire) CodecDecodeSelf(d *codec.Decoder) {
 	ct.DecodeIndexedObjectSelf(d, v)
 }
 
-// CodecEncodeSelf 将 ColliderRef 的强类型或原始载荷编码为 MessagePack-CSharp union
-// CodecEncodeSelf encodes the typed or raw payload of ColliderRef as a MessagePack-CSharp union
+// CodecEncodeSelf 将 ColliderRef 的强类型载荷编码为 MessagePack-CSharp union
+// CodecEncodeSelf encodes the typed payload of ColliderRef as a MessagePack-CSharp union
 func (c ColliderRef) CodecEncodeSelf(e *codec.Encoder) {
-	raw, err := encodeColliderStatusSlot(c.Collider, c.ColliderRaw, "ColliderRef.collider")
+	if _, known := newColliderStatusForType(c.Type); !known {
+		panic(fmt.Errorf("unsupported collider type %d", c.Type))
+	}
+	if c.Collider != nil {
+		actualType, err := validateColliderStatusForEncoding(c.Collider, "ColliderRef.collider")
+		if err != nil {
+			panic(err)
+		}
+		if c.Type != actualType {
+			panic(fmt.Errorf("ColliderRef.type is %d, but collider concrete type requires %d", c.Type, actualType))
+		}
+	}
+	raw, err := encodeColliderStatusSlot(c.Collider, "ColliderRef.collider")
 	if err != nil {
 		panic(err)
 	}
 	wire := colliderRefWire{
-		IndexedObjectMetadata: c.IndexedObjectMetadata,
-		Type:                  c.Type,
-		Collider:              raw,
+		Type:     c.Type,
+		Collider: raw,
 	}
 	ct.EncodeIndexedObjectSelf(e, &wire)
 }
 
-// CodecDecodeSelf 解码 MessagePack-CSharp union 并保留未知或无法选择格式化器的载荷
-// CodecDecodeSelf decodes a MessagePack-CSharp union and preserves payloads with unknown or unselectable formatters
+// CodecDecodeSelf 解码 MessagePack-CSharp union 并拒绝未知类型标记
+// CodecDecodeSelf decodes a MessagePack-CSharp union and rejects unknown type tags
 func (c *ColliderRef) CodecDecodeSelf(d *codec.Decoder) {
 	var root codec.Raw
 	d.MustDecode(&root)
@@ -546,39 +485,33 @@ func (c *ColliderRef) CodecDecodeSelf(d *codec.Decoder) {
 	if err := ct.DecodeMsgpack(root, &wire); err != nil {
 		panic(fmt.Errorf("decode ColliderRef union wrapper: %w", err))
 	}
-	result := ColliderRef{
-		IndexedObjectMetadata: wire.IndexedObjectMetadata,
-		Type:                  wire.Type,
+	status, known := newColliderStatusForType(wire.Type)
+	if !known {
+		panic(fmt.Errorf("unsupported collider type %d", wire.Type))
 	}
-	if indexedObjectSlotPresent(wire.IndexedObjectMetadata, 1, 2) && len(wire.Collider) != 0 {
-		if indexedObjectSlotIsNil(wire.IndexedObjectMetadata, 0) {
-			// nil union 标记无法选择已知格式化器，因此保留第二个槽位而不猜测 Go int 零值表示 Plane
-			// A nil union tag cannot select a known formatter, so preserve the second slot instead of guessing that a zero Go int meant Plane
-			result.ColliderRaw = cloneRawMessagePackSlot(wire.Collider)
-		} else if status, known := newColliderStatusForType(wire.Type); known {
-			if err := ct.DecodeMsgpack(wire.Collider, status); err != nil {
-				panic(fmt.Errorf("decode ColliderRef type %d payload: %w", wire.Type, err))
-			}
-			result.Collider = status
-		} else {
-			result.ColliderRaw = cloneRawMessagePackSlot(wire.Collider)
+	result := ColliderRef{
+		Type: wire.Type,
+	}
+	if len(wire.Collider) != 0 {
+		if err := ct.DecodeMsgpack(wire.Collider, status); err != nil {
+			panic(fmt.Errorf("decode ColliderRef type %d payload: %w", wire.Type, err))
 		}
+		result.Collider = status
 	}
 	*c = result
 }
 
-// CodecEncodeSelf 将 LimbColliderItem 的固定 MaidProp 碰撞体或原始载荷编码为三槽布局
-// CodecEncodeSelf encodes the fixed MaidProp collider or raw payload of LimbColliderItem in its three-slot layout
+// CodecEncodeSelf 将 LimbColliderItem 的固定 MaidProp 碰撞体编码为三槽布局
+// CodecEncodeSelf encodes the fixed MaidProp collider of LimbColliderItem in its three-slot layout
 func (item LimbColliderItem) CodecEncodeSelf(e *codec.Encoder) {
-	raw, err := encodeColliderStatusSlot(item.Collider, item.ColliderRaw, "LimbColliderItem.collider")
+	raw, err := encodeColliderStatusSlot(item.Collider, "LimbColliderItem.collider")
 	if err != nil {
 		panic(err)
 	}
 	wire := limbColliderItemWire{
-		IndexedObjectMetadata: item.IndexedObjectMetadata,
-		Version:               item.Version,
-		Target:                item.Target,
-		Collider:              raw,
+		Version:  item.Version,
+		Target:   item.Target,
+		Collider: raw,
 	}
 	ct.EncodeIndexedObjectSelf(e, &wire)
 }
@@ -599,11 +532,10 @@ func (item *LimbColliderItem) CodecDecodeSelf(d *codec.Decoder) {
 		panic(fmt.Errorf("decode LimbColliderItem: %w", err))
 	}
 	result := LimbColliderItem{
-		IndexedObjectMetadata: wire.IndexedObjectMetadata,
-		Version:               wire.Version,
-		Target:                wire.Target,
+		Version: wire.Version,
+		Target:  wire.Target,
 	}
-	if indexedObjectSlotPresent(wire.IndexedObjectMetadata, 2, 3) && len(wire.Collider) != 0 {
+	if len(wire.Collider) != 0 {
 		status := &ColliderMaidProp{}
 		if err := ct.DecodeMsgpack(wire.Collider, status); err != nil {
 			panic(fmt.Errorf("decode LimbColliderItem.collider as NativeMaidPropColliderStatus: %w", err))
@@ -613,18 +545,9 @@ func (item *LimbColliderItem) CodecDecodeSelf(d *codec.Decoder) {
 	*item = result
 }
 
-// encodeColliderStatusSlot 将强类型碰撞体或一个原始完整值转换为 union 载荷槽位
-// encodeColliderStatusSlot converts a typed collider or one raw complete value into a union payload slot
-func encodeColliderStatusSlot(status ColliderStatusUnion, raw RawMessagePackSlot, name string) (RawMessagePackSlot, error) {
-	if status != nil && len(raw) != 0 {
-		return nil, fmt.Errorf("%s and colliderRaw cannot both be populated", name)
-	}
-	if len(raw) != 0 {
-		if err := validateRawMessagePackSlot(raw, name+"Raw"); err != nil {
-			return nil, err
-		}
-		return cloneRawMessagePackSlot(raw), nil
-	}
+// encodeColliderStatusSlot 将强类型碰撞体转换为仅供判别解码使用的临时 MessagePack 槽位
+// encodeColliderStatusSlot converts a typed collider into a temporary MessagePack slot used only for discriminated decoding
+func encodeColliderStatusSlot(status ColliderStatusUnion, name string) (codec.Raw, error) {
 	if status == nil {
 		// nil 状态使用普通 MessagePack nil
 		// A nil status uses normal MessagePack nil
@@ -638,20 +561,7 @@ func encodeColliderStatusSlot(status ColliderStatusUnion, raw RawMessagePackSlot
 	if err != nil {
 		return nil, fmt.Errorf("encode %s: %w", name, err)
 	}
-	return RawMessagePackSlot(encoded), nil
-}
-
-// validateRawMessagePackSlot 验证原始槽位恰好包含一个完整 MessagePack 值
-// validateRawMessagePackSlot verifies that a raw slot contains exactly one complete MessagePack value
-func validateRawMessagePackSlot(raw RawMessagePackSlot, name string) error {
-	root, trailing, err := ct.SplitFirstMsgpackValue(raw)
-	if err != nil {
-		return fmt.Errorf("%s: %w", name, err)
-	}
-	if len(root) != len(raw) || len(trailing) != 0 {
-		return fmt.Errorf("%s contains %d trailing bytes", name, len(trailing))
-	}
-	return nil
+	return codec.Raw(encoded), nil
 }
 
 // newColliderStatusForType 为已知 union 类型标记创建零值具体碰撞体
@@ -669,39 +579,6 @@ func newColliderStatusForType(typ int32) (ColliderStatusUnion, bool) {
 	default:
 		return nil, false
 	}
-}
-
-// indexedObjectSlotPresent 按保存的 FieldCount 判断槽位是否在线格式中存在
-// indexedObjectSlotPresent reports whether a slot exists on the wire according to the preserved FieldCount
-func indexedObjectSlotPresent(metadata *IndexedObjectMetadata, slot, known int64) bool {
-	count := known
-	if metadata != nil && metadata.FieldCount != nil {
-		count = int64(*metadata.FieldCount)
-	}
-	return slot >= 0 && slot < count
-}
-
-// indexedObjectSlotIsNil 判断 indexed-object 元数据是否将指定槽位记录为 nil
-// indexedObjectSlotIsNil reports whether indexed-object metadata records the specified slot as nil
-func indexedObjectSlotIsNil(metadata *IndexedObjectMetadata, slot int64) bool {
-	if metadata == nil {
-		return false
-	}
-	for _, candidate := range metadata.NilSlots {
-		if int64(candidate) == slot {
-			return true
-		}
-	}
-	return false
-}
-
-// cloneRawMessagePackSlot 复制原始 MessagePack 槽位并保留 nil 状态
-// cloneRawMessagePackSlot clones a raw MessagePack slot while preserving nil state
-func cloneRawMessagePackSlot(raw RawMessagePackSlot) RawMessagePackSlot {
-	if raw == nil {
-		return nil
-	}
-	return append(RawMessagePackSlot(nil), raw...)
 }
 
 // jsonMessageIsNullOrMissing 判断原始 JSON 字段是否缺失、空白或为 null
@@ -751,25 +628,17 @@ func validateColliderStatusForEncoding(status ColliderStatusUnion, name string) 
 	}
 }
 
-// validateColliderRefsForEncoding 验证碰撞体引用的 null 元素、union 标记和载荷一致性
-// validateColliderRefsForEncoding validates null elements, union tags, and payload consistency in collider references
-func validateColliderRefsForEncoding(refs []ColliderRef, metadata *IndexedObjectMetadata, slot int64, name string) error {
+// validateColliderRefsForEncoding 验证碰撞体引用的 union 标记和载荷一致性
+// validateColliderRefsForEncoding validates union tags and payload consistency in collider references
+func validateColliderRefsForEncoding(refs []*ColliderRef, name string) error {
 	for i := range refs {
-		if indexedObjectNullElementAt(metadata, slot, int64(i)) {
-			continue
-		}
 		refName := fmt.Sprintf("%s[%d]", name, i)
-		if refs[i].Collider != nil && len(refs[i].ColliderRaw) != 0 {
-			return fmt.Errorf("%s.collider and colliderRaw cannot both be populated", refName)
-		}
-		if len(refs[i].ColliderRaw) != 0 {
-			if err := validateRawMessagePackSlot(refs[i].ColliderRaw, refName+".colliderRaw"); err != nil {
-				return err
-			}
+		if refs[i] == nil {
 			continue
 		}
-		// MessagePack-CSharp union 可以承载 nil，较短封套也可省略具体对象槽位，由 FieldCount 元数据区分两种情况
-		// MessagePack-CSharp unions can carry nil and a short wrapper can omit the concrete slot, with FieldCount metadata distinguishing the cases
+		if _, known := newColliderStatusForType(refs[i].Type); !known {
+			return fmt.Errorf("unsupported collider type %d", refs[i].Type)
+		}
 		if refs[i].Collider == nil {
 			continue
 		}
@@ -787,46 +656,15 @@ func validateColliderRefsForEncoding(refs []ColliderRef, metadata *IndexedObject
 // validateColliderPackageForEncoding 验证通用碰撞体包的版本、引用和 limb 状态字段
 // validateColliderPackageForEncoding validates version, references, and limb-state fields in a generic collider package
 func validateColliderPackageForEncoding(p *ColliderPackage) error {
-	if err := validateColliderRefsForEncoding(p.Colliders, p.IndexedObjectMetadata, 1, "colliderPackage.colliders"); err != nil {
+	if err := validateColliderRefsForEncoding(p.Colliders, "colliderPackage.colliders"); err != nil {
 		return err
-	}
-	for i := range p.LimbEnableList {
-		if indexedObjectNullElementAt(p.IndexedObjectMetadata, 2, int64(i)) {
-			continue
-		}
 	}
 	return nil
 }
 
 // validateLimbColliderPackageForEncoding 验证 LimbColliderMgr 包及其固定 MaidProp 碰撞体条目
 // validateLimbColliderPackageForEncoding validates a LimbColliderMgr package and its fixed MaidProp collider items
-func validateLimbColliderPackageForEncoding(p *LimbColliderPackage) error {
-	for i := range p.Items {
-		if indexedObjectNullElementAt(p.IndexedObjectMetadata, 1, int64(i)) {
-			continue
-		}
-		itemName := fmt.Sprintf("limbColliderPackage.items[%d]", i)
-		if p.Items[i].Collider != nil && len(p.Items[i].ColliderRaw) != 0 {
-			return fmt.Errorf("%s.collider and colliderRaw cannot both be populated", itemName)
-		}
-		if len(p.Items[i].ColliderRaw) != 0 {
-			if err := validateRawMessagePackSlot(p.Items[i].ColliderRaw, itemName+".colliderRaw"); err != nil {
-				return err
-			}
-			continue
-		}
-		if p.Items[i].Collider == nil {
-			continue
-		}
-		colliderName := itemName + ".collider"
-		actualType, err := validateColliderStatusForEncoding(p.Items[i].Collider, colliderName)
-		if err != nil {
-			return err
-		}
-		if actualType != ColliderTypeMaidProp {
-			return fmt.Errorf("%s must be *ColliderMaidProp; got collider type %d", colliderName, actualType)
-		}
-	}
+func validateLimbColliderPackageForEncoding(_ *LimbColliderPackage) error {
 	return nil
 }
 
@@ -834,19 +672,19 @@ func validateLimbColliderPackageForEncoding(p *LimbColliderPackage) error {
 // validateIKColliderPackageForEncoding validates an IK-collider package, effector groups, and union references
 func validateIKColliderPackageForEncoding(p *IKColliderPackage) error {
 	for i := range p.Groups {
-		if indexedObjectNullElementAt(p.IndexedObjectMetadata, 1, int64(i)) {
+		if p.Groups[i] == nil {
 			continue
 		}
 		groupName := fmt.Sprintf("ikColliderPackage.groups[%d]", i)
-		if err := validateColliderRefsForEncoding(p.Groups[i].Colliders, p.Groups[i].IndexedObjectMetadata, 2, groupName+".colliders"); err != nil {
+		if err := validateColliderRefsForEncoding(p.Groups[i].Colliders, groupName+".colliders"); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// cloneColliderStatusForEncoding 深复制具体碰撞体中的切片与原始稀疏槽位
-// cloneColliderStatusForEncoding deep-clones slices and raw sparse slots in a concrete collider
+// cloneColliderStatusForEncoding 深复制具体碰撞体中的切片
+// cloneColliderStatusForEncoding deep-clones slices in a concrete collider
 func cloneColliderStatusForEncoding(status ColliderStatusUnion) ColliderStatusUnion {
 	switch v := status.(type) {
 	case *ColliderPlane:
@@ -886,13 +724,17 @@ func validateMaidPropMPNList(values []int32, name string) error {
 	return nil
 }
 
-// cloneColliderRefsForEncoding 深复制碰撞体引用的强类型与原始载荷
-// cloneColliderRefsForEncoding deep-clones typed and raw payloads in collider references
-func cloneColliderRefsForEncoding(refs []ColliderRef) []ColliderRef {
+// cloneColliderRefsForEncoding 深复制碰撞体引用的强类型载荷
+// cloneColliderRefsForEncoding deep-clones typed payloads in collider references
+func cloneColliderRefsForEncoding(refs []*ColliderRef) []*ColliderRef {
 	cloned := cloneSlicePreserveNil(refs)
 	for i := range cloned {
-		cloned[i].Collider = cloneColliderStatusForEncoding(cloned[i].Collider)
-		cloned[i].ColliderRaw = cloneRawMessagePackSlot(cloned[i].ColliderRaw)
+		if cloned[i] == nil {
+			continue
+		}
+		ref := *cloned[i]
+		ref.Collider = cloneColliderStatusForEncoding(ref.Collider)
+		cloned[i] = &ref
 	}
 	return cloned
 }
@@ -912,20 +754,23 @@ func normalizeLimbColliderPackageForEncoding(p *LimbColliderPackage) *LimbCollid
 	cloned := *p
 	cloned.Items = cloneSlicePreserveNil(p.Items)
 	for i := range cloned.Items {
-		cloned.Items[i].Collider = cloneColliderStatusForEncoding(cloned.Items[i].Collider)
-		cloned.Items[i].ColliderRaw = cloneRawMessagePackSlot(cloned.Items[i].ColliderRaw)
+		if cloned.Items[i] == nil {
+			continue
+		}
+		item := *cloned.Items[i]
+		cloned.Items[i] = &item
+		if item.Collider != nil {
+			collider := *item.Collider
+			cloned.Items[i].Collider = &collider
+			cloned.Items[i].Collider.CenterMpnList = cloneSlicePreserveNil(item.Collider.CenterMpnList)
+			cloned.Items[i].Collider.StartRadiusMpnList = cloneSlicePreserveNil(item.Collider.StartRadiusMpnList)
+			cloned.Items[i].Collider.EndRadiusMpnList = cloneSlicePreserveNil(item.Collider.EndRadiusMpnList)
+			cloned.Items[i].Collider.CenterMpnNameList = cloneSlicePreserveNil(item.Collider.CenterMpnNameList)
+			cloned.Items[i].Collider.StartRadiusMpnNameList = cloneSlicePreserveNil(item.Collider.StartRadiusMpnNameList)
+			cloned.Items[i].Collider.EndRadiusMpnNameList = cloneSlicePreserveNil(item.Collider.EndRadiusMpnNameList)
+		}
 	}
 	return &cloned
-}
-
-// indexedObjectNullElementAt 判断元数据是否将集合中的指定元素记录为 MessagePack nil
-// indexedObjectNullElementAt reports whether metadata records a specified collection element as MessagePack nil
-func indexedObjectNullElementAt(metadata *IndexedObjectMetadata, slot, element int64) bool {
-	if metadata == nil || metadata.NullElements == nil {
-		return false
-	}
-	flags := metadata.NullElements[int32(slot)]
-	return element >= 0 && element < int64(len(flags)) && flags[element]
 }
 
 // normalizeIKColliderPackageForEncoding 复制 IK 分组及其碰撞体引用供编码使用
@@ -934,7 +779,12 @@ func normalizeIKColliderPackageForEncoding(p *IKColliderPackage) *IKColliderPack
 	cloned := *p
 	cloned.Groups = cloneSlicePreserveNil(p.Groups)
 	for i := range cloned.Groups {
-		cloned.Groups[i].Colliders = cloneColliderRefsForEncoding(p.Groups[i].Colliders)
+		if cloned.Groups[i] == nil {
+			continue
+		}
+		group := *cloned.Groups[i]
+		group.Colliders = cloneColliderRefsForEncoding(group.Colliders)
+		cloned.Groups[i] = &group
 	}
 	return &cloned
 }
@@ -976,18 +826,8 @@ func decodeColliderObjectAsType(raw json.RawMessage, typ int32) (ColliderStatusU
 	}
 }
 
+// decodeColliderJSONStrict 严格解码唯一碰撞体 JSON 值并按 typed 模型校验 null
+// decodeColliderJSONStrict strictly decodes one collider JSON value and validates null according to the typed model
 func decodeColliderJSONStrict(data []byte, out any) error {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(out); err != nil {
-		return err
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); err != io.EOF {
-		if err == nil {
-			return fmt.Errorf("trailing JSON value")
-		}
-		return fmt.Errorf("trailing content: %w", err)
-	}
-	return nil
+	return strictjson.Decode(data, out)
 }

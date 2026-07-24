@@ -131,7 +131,6 @@ type BlockAndDirInfo struct {
 	Hash           [16]byte        // 16 字节哈希 / 16-byte hash
 	BlockInfos     []BlockInfo     // 数据压缩块信息列表 / Data block info list
 	DirectoryInfos []DirectoryInfo // 文件目录条目列表 / File directory entry list
-	TrailingData   []byte          // 已知目录表之后的未解析字节 / Unparsed bytes following the known directory table
 }
 
 // BlockInfo 描述一个数据压缩块的元信息
@@ -575,10 +574,7 @@ func (b *Aba) parseBlockAndDirInfo(data []byte) error {
 		})
 	}
 	if r.Remaining() != 0 {
-		parsed.TrailingData, err = r.ReadBytes(r.Remaining())
-		if err != nil {
-			return fmt.Errorf("read block/directory trailing data: %w", err)
-		}
+		return fmt.Errorf("block and directory info has %d bytes of trailing data", r.Remaining())
 	}
 
 	var totalDecompressed int64

@@ -38,7 +38,7 @@ func TestPartsEncodersAcceptInt32BoundariesWithoutMutation(t *testing.T) {
 		return err
 	})
 
-	priority := &PriorityMaterialAssets{Assets: []PriorityMaterial{{Version: testMaxInt32}}}
+	priority := &PriorityMaterialAssets{Assets: []*PriorityMaterial{{Version: testMaxInt32}}}
 	assertInt32TestEncoderDoesNotMutate(t, "priority material", priority, func() error {
 		_, err := EncodePriorityMaterialAssets(priority)
 		return err
@@ -46,23 +46,23 @@ func TestPartsEncodersAcceptInt32BoundariesWithoutMutation(t *testing.T) {
 }
 
 func newInt32TestMenuAssets() *MenuAssets {
-	preMul := *NewPreMulTexDatas()
+	preMul := NewPreMulTexDatas()
 	preMul.MaskParam = &MaskParam{}
-	preMul.PreTransTexData = []TransTexData{*NewTransTexData()}
+	preMul.PreTransTexData = []*TransTexData{NewTransTexData()}
 	preMul.PreTransTexData[0].DefTrans = NewTransTexData()
 	preMul.InfColParam = NewInfColorParam()
-	preMul.InfColParam.PartCols = []PartColDef{*NewPartColDef()}
+	preMul.InfColParam.PartCols = []*PartColDef{NewPartColDef()}
 	preMul.InfColParam.GradeCols = &GradaColDef{}
 	preMul.PreInfColData = NewInfColData()
-	preMul.PreInfColData.PartColDefs = []PartColDef{*NewPartColDef()}
+	preMul.PreInfColData.PartColDefs = []*PartColDef{NewPartColDef()}
 	preMul.PreInfColData.GradaColDef = &GradaColDef{}
 
-	return &MenuAssets{Assets: []Menu{{
-		Commands:       []Command{{Args: []string{}}},
+	return &MenuAssets{Assets: []*Menu{{
+		Commands:       []*Command{{Args: []*string{}}},
 		PartsVer:       &TupleStringInt{},
-		PreMulTexDatas: map[uint64]PreMulTexDatas{7: preMul},
-		ColvariInfo: &Colvari{ColvariDatas: []ColvariData{{
-			PartColDefs: []PartColDef{*NewPartColDef()},
+		PreMulTexDatas: map[uint64]*PreMulTexDatas{7: preMul},
+		ColvariInfo: &Colvari{ColvariDatas: []*ColvariData{{
+			PartColDefs: []*PartColDef{NewPartColDef()},
 			GradaColDef: &GradaColDef{},
 		}}},
 	}}}
@@ -70,17 +70,17 @@ func newInt32TestMenuAssets() *MenuAssets {
 
 func editInt32TestPreMul(assets *MenuAssets, edit func(*PreMulTexDatas)) {
 	value := assets.Assets[0].PreMulTexDatas[7]
-	edit(&value)
+	edit(value)
 	assets.Assets[0].PreMulTexDatas[7] = value
 }
 
 func newInt32TestMaterialAssets() *MaterialAssets {
-	return &MaterialAssets{Assets: []Material{{
+	return &MaterialAssets{Assets: []*Material{{
 		Version:      materialFixVersion,
-		TextureProps: []TextureProp{{}},
-		ColorProps:   []ColorProp{{}},
-		VectorProps:  []VectorProp{{}},
-		FloatProps:   []FloatProp{{}},
+		TextureProps: []*TextureProp{{}},
+		ColorProps:   []*ColorProp{{}},
+		VectorProps:  []*VectorProp{{}},
+		FloatProps:   []*FloatProp{{}},
 	}}}
 }
 

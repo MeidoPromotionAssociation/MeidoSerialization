@@ -13,6 +13,7 @@ func TestKCESSystemDataRoundTripAllKnownEditDataAndOpaqueFiles(t *testing.T) {
 	box1 := "BOX1"
 	boxJP := "日本語"
 	presetID := "preset-guid-1"
+	hairLengthPanel := "HairLengthPanel"
 	colorPreset, err := NewColorPreset("12345678-1234-1234-1234-123456789abc")
 	if err != nil {
 		t.Fatal(err)
@@ -29,6 +30,12 @@ func TestKCESSystemDataRoundTripAllKnownEditDataAndOpaqueFiles(t *testing.T) {
 	value := &KCESSystemData{
 		Format:  KCESSystemDataFormat,
 		Version: 1000,
+		Directories: map[string]ct.VirtualDirectoryMetadata{
+			"EditData":                    {Version: 1000},
+			"EditData/color_preset":       {Version: 1000},
+			"EditData/color_preset/hairf": {Version: 1000},
+			"Other":                       {Version: 1000},
+		},
 		EditData: []KCESEditDataFile{
 			{
 				Path: "EditData/GradSv2",
@@ -48,7 +55,7 @@ func TestKCESSystemDataRoundTripAllKnownEditDataAndOpaqueFiles(t *testing.T) {
 				Kind: KCESEditDataMoveablePanel,
 				MoveablePanel: &MoveablePanelSaveData{
 					MoveablePanelPosition: []MoveablePanelPositionEntry{{
-						PanelName: "HairLengthPanel",
+						PanelName: &hairLengthPanel,
 						Position:  Vector3{X: 10, Y: -20, Z: 3},
 					}},
 					// An empty active list has defined game semantics: use each
@@ -224,20 +231,13 @@ func TestKCESSystemDataPreservesStoredVersion(t *testing.T) {
 	}
 }
 
-func TestKCESSystemDataPreservesVersionlessVirtualDirectory(t *testing.T) {
-	rootFieldCount := int32(3)
-	fileFieldCount := int32(3)
+func TestKCESSystemDataPreservesVirtualDirectoryVersionFields(t *testing.T) {
 	value := &KCESSystemData{
-		Format:      KCESSystemDataFormat,
-		Versionless: true,
-		FieldCount:  &rootFieldCount,
-		FutureSlots: [][]byte{{0xcc, 0x05}},
+		Format:  KCESSystemDataFormat,
+		Version: -17,
 		Directories: map[string]ct.VirtualDirectoryMetadata{
 			"future": {Version: 77},
-			"empty":  {Versionless: true},
-		},
-		VirtualFiles: map[string]ct.VirtualFileMetadata{
-			"future/state": {FieldCount: &fileFieldCount, FutureSlots: [][]byte{{0xd4, 0x01, 0x7f}}},
+			"empty":  {Version: -9},
 		},
 		ExtraFiles: map[string][]byte{"future/state": {0x11, 0x22}},
 	}
@@ -249,8 +249,8 @@ func TestKCESSystemDataPreservesVersionlessVirtualDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !decoded.Versionless || decoded.Version != 0 || !bytes.Equal(decoded.ExtraFiles["future/state"], []byte{0x11, 0x22}) || !reflect.DeepEqual(decoded.FieldCount, value.FieldCount) || !reflect.DeepEqual(decoded.FutureSlots, value.FutureSlots) || !reflect.DeepEqual(decoded.Directories, value.Directories) || !reflect.DeepEqual(decoded.VirtualFiles, value.VirtualFiles) {
-		t.Fatalf("versionless system.dat changed: %+v", decoded)
+	if decoded.Version != value.Version || !bytes.Equal(decoded.ExtraFiles["future/state"], []byte{0x11, 0x22}) || !reflect.DeepEqual(decoded.Directories, value.Directories) {
+		t.Fatalf("system.dat directory fields changed: %+v", decoded)
 	}
 	reencoded, err := EncodeKCESSystemData(decoded)
 	if err != nil {
@@ -260,11 +260,11 @@ func TestKCESSystemDataPreservesVersionlessVirtualDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !table.Versionless || table.Version != 0 {
-		t.Fatalf("versionless VirtualDirectory was upgraded: %+v", table)
+	if table.Version != value.Version {
+		t.Fatalf("VirtualDirectory version changed: %+v", table)
 	}
-	if !reflect.DeepEqual(table.GetVirtualDirectoryMetadata(), value.Directories) || !reflect.DeepEqual(table.GetVirtualFileMetadata(), value.VirtualFiles) || !reflect.DeepEqual(table.FutureSlots, value.FutureSlots) {
-		t.Fatalf("system.dat VirtualDirectory metadata changed: %+v", table)
+	if !reflect.DeepEqual(table.GetVirtualDirectoryMetadata(), value.Directories) {
+		t.Fatalf("system.dat VirtualDirectory fields changed: %+v", table)
 	}
 }
 

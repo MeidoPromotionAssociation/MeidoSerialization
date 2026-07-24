@@ -30,10 +30,9 @@ const (
 // KCESPresetPropertyList represents the GP03_MPROP_LIST block stored in MaidPresetCore.propData
 // Properties use a slice instead of a map so dictionary enumeration order and repeated wire keys survive a JSON round trip
 type KCESPresetPropertyList struct {
-	Signature    string                    `json:"signature"`              // 属性列表签名，当前游戏写入 GP03_MPROP_LIST / Property-list signature, written as GP03_MPROP_LIST by the current game
-	Version      int32                     `json:"version"`                // 属性列表版本，当前游戏写入 1270 / Property-list version, written as 1270 by the current game
-	Properties   []KCESPresetNamedProperty `json:"properties"`             // 按游戏字典枚举顺序保存的属性项 / Property entries in game dictionary enumeration order
-	TrailingData []byte                    `json:"trailingData,omitempty"` // 当前已知属性列表结构之后的未解析字节 / Unparsed bytes following the currently known property-list layout
+	Signature  string                    `json:"signature"`  // 属性列表签名，当前游戏写入 GP03_MPROP_LIST / Property-list signature, written as GP03_MPROP_LIST by the current game
+	Version    int32                     `json:"version"`    // 属性列表版本，当前游戏写入 1270 / Property-list version, written as 1270 by the current game
+	Properties []KCESPresetNamedProperty `json:"properties"` // 按游戏字典枚举顺序保存的属性项 / Property entries in game dictionary enumeration order
 }
 
 // KCESPresetNamedProperty 表示属性字典中单独保存键名与 MaidProp 值的一项
@@ -127,14 +126,14 @@ type KCESPresetNamedSavedTexture struct {
 // KCESPresetSavedTextureData 表示 SavedTexData.Serialize 写出的纹理编辑状态
 // KCESPresetSavedTextureData represents texture-edit state written by SavedTexData.Serialize
 type KCESPresetSavedTextureData struct {
-	UseLayer               bool                          `json:"useLayer"`               // 是否使用保存的纹理层 / Whether the saved texture layer is used
-	UseMultiplyAlpha       bool                          `json:"useMultiplyAlpha"`       // 是否使用乘算透明度 / Whether multiplied alpha is used
-	MultiplyAlpha          float32                       `json:"multiplyAlpha"`          // 保存的乘算透明度值 / Saved multiplied-alpha value
-	Masks                  []KCESPresetTextureMask       `json:"masks"`                  // 可空的纹理遮罩状态数组 / Nullable array of texture-mask states
-	Transforms             []*KCESPresetTextureTransform `json:"transforms"`             // 可空的纹理变换列表，列表项本身不可为 nil / Nullable texture-transform list whose entries are not nullable
-	InfinityColor          *KCESPresetInfinityColorData  `json:"infinityColor"`          // 可空的无限色纹理参数 / Nullable infinity-color texture parameters
-	InfinityColorLinkLayer *string                       `json:"infinityColorLinkLayer"` // 可空的无限色数据链接层名称 / Nullable layer name linked to the infinity-color data
-	UseAlphaMaskTransform  bool                          `json:"useAlphaMaskTransform"`  // 是否使用透明遮罩变换 / Whether alpha-mask transformation is used
+	UseLayer               bool                         `json:"useLayer"`               // 是否使用保存的纹理层 / Whether the saved texture layer is used
+	UseMultiplyAlpha       bool                         `json:"useMultiplyAlpha"`       // 是否使用乘算透明度 / Whether multiplied alpha is used
+	MultiplyAlpha          float32                      `json:"multiplyAlpha"`          // 保存的乘算透明度值 / Saved multiplied-alpha value
+	Masks                  []KCESPresetTextureMask      `json:"masks"`                  // 可空的纹理遮罩状态数组 / Nullable array of texture-mask states
+	Transforms             []KCESPresetTextureTransform `json:"transforms"`             // 可空的纹理变换列表，列表项本身不可为 nil / Nullable texture-transform list whose entries are not nullable
+	InfinityColor          *KCESPresetInfinityColorData `json:"infinityColor"`          // 可空的无限色纹理参数 / Nullable infinity-color texture parameters
+	InfinityColorLinkLayer *string                      `json:"infinityColorLinkLayer"` // 可空的无限色数据链接层名称 / Nullable layer name linked to the infinity-color data
+	UseAlphaMaskTransform  bool                         `json:"useAlphaMaskTransform"`  // 是否使用透明遮罩变换 / Whether alpha-mask transformation is used
 }
 
 // KCESPresetTextureMask 表示 TexLay.MaskData 的可空名称和遮罩开关
@@ -254,12 +253,11 @@ type KCESPresetSubProperty struct {
 // KCESPresetColorData represents the color preset block written by MaidInfinityColor.Serialize
 // Current v1270 writes only 22 enum names and a MAX terminator, while actual customized colors live in PropBase.savedTexDatas
 type KCESPresetColorData struct {
-	Signature    string                  `json:"signature"`              // 颜色块签名 CM3D2_MULTI_COL / Color-block signature CM3D2_MULTI_COL
-	Version      int32                   `json:"version"`                // 颜色块版本 / Color-block version
-	PartCount    int32                   `json:"partCount"`              // 线格式中的部件数量，新版游戏读取后不使用此值 / Part count stored on the wire and ignored after reading by the newer game branch
-	LegacyParts  []KCESPresetLegacyColor `json:"legacyParts,omitempty"`  // 版本不高于 1200 时按 PartCount 保存的旧式颜色值 / Legacy color values stored by PartCount for versions up to 1200
-	PartNames    []string                `json:"partNames,omitempty"`    // 新版从线格式读取到大小写敏感 MAX 终止符之前的 PARTS_COLOR 名称 / Newer PARTS_COLOR names read until the case-sensitive MAX terminator
-	TrailingData []byte                  `json:"trailingData,omitempty"` // 当前已知颜色块结构之后的未解析字节 / Unparsed bytes following the currently known color-block layout
+	Signature   string                  `json:"signature"`             // 颜色块签名 CM3D2_MULTI_COL / Color-block signature CM3D2_MULTI_COL
+	Version     int32                   `json:"version"`               // 颜色块版本 / Color-block version
+	PartCount   int32                   `json:"partCount"`             // 线格式中的部件数量，新版游戏读取后不使用此值 / Part count stored on the wire and ignored after reading by the newer game branch
+	LegacyParts []KCESPresetLegacyColor `json:"legacyParts,omitempty"` // 版本不高于 1200 时按 PartCount 保存的旧式颜色值 / Legacy color values stored by PartCount for versions up to 1200
+	PartNames   []string                `json:"partNames,omitempty"`   // 新版从线格式读取到大小写敏感 MAX 终止符之前的 PARTS_COLOR 名称 / Newer PARTS_COLOR names read until the case-sensitive MAX terminator
 }
 
 // KCESPresetLegacyColor 表示版本 1201 前 CM3D2_MULTI_COL 中的一项
@@ -279,12 +277,11 @@ type KCESPresetLegacyColor struct {
 	ShadowContrast   int32 `json:"shadowContrast"`   // 阴影对比度 / Shadow contrast
 }
 
-// KCESPresetBodyData 表示 Maid.SerializeBody 当前只含签名和版本的身体块，并保留后续未知字节
-// KCESPresetBodyData represents the body block that currently contains only the signature and version in Maid.SerializeBody while preserving later unknown bytes
+// KCESPresetBodyData 表示 Maid.SerializeBody 当前只含签名和版本的身体块
+// KCESPresetBodyData represents the body block that currently contains only the signature and version in Maid.SerializeBody
 type KCESPresetBodyData struct {
-	Signature    string `json:"signature"`              // 身体块签名 CM3D2_MAID_BODY / Body-block signature CM3D2_MAID_BODY
-	Version      int32  `json:"version"`                // 身体块版本，当前游戏写入 1270 / Body-block version, written as 1270 by the current game
-	TrailingData []byte `json:"trailingData,omitempty"` // 签名和版本之后的未知兼容字节，当前游戏不写入 / Unknown compatibility bytes after the signature and version, not written by the current game
+	Signature string `json:"signature"` // 身体块签名 CM3D2_MAID_BODY / Body-block signature CM3D2_MAID_BODY
+	Version   int32  `json:"version"`   // 身体块版本，当前游戏写入 1270 / Body-block version, written as 1270 by the current game
 }
 
 // kcesPresetInnerReader 组合剩余长度可检查的字节读取器与 BinaryReader
@@ -430,8 +427,8 @@ func writeKCESPresetInnerBlob(bw *stream.BinaryWriter, data []byte) error {
 	return bw.WriteBytes(data)
 }
 
-// DecodeKCESPresetColorData 解码 maiddata 的 CM3D2_MULTI_COL 块并保留已知结构后的字节
-// DecodeKCESPresetColorData decodes the CM3D2_MULTI_COL block in maiddata and preserves bytes after the known layout
+// DecodeKCESPresetColorData 解码 maiddata 的完整 CM3D2_MULTI_COL 块
+// DecodeKCESPresetColorData decodes the complete CM3D2_MULTI_COL block in maiddata
 func DecodeKCESPresetColorData(data []byte) (*KCESPresetColorData, error) {
 	r := newKCESPresetInnerReader(data)
 	signature, err := r.readString("KCES preset color signature")
@@ -491,10 +488,7 @@ func DecodeKCESPresetColorData(data []byte) (*KCESPresetColorData, error) {
 		}
 	}
 	if r.r.Len() != 0 {
-		result.TrailingData, err = r.br.ReadBytes(int64(r.r.Len()))
-		if err != nil {
-			return nil, fmt.Errorf("read KCES preset color trailingData: %w", err)
-		}
+		return nil, fmt.Errorf("KCES preset color data has %d trailing bytes", r.r.Len())
 	}
 	return result, nil
 }
@@ -568,9 +562,6 @@ func EncodeKCESPresetColorData(value *KCESPresetColorData) ([]byte, error) {
 			return nil, err
 		}
 	}
-	if err := bw.WriteBytes(value.TrailingData); err != nil {
-		return nil, err
-	}
 	return out.Bytes(), nil
 }
 
@@ -585,8 +576,8 @@ func NewKCESPresetColorData() *KCESPresetColorData {
 	}
 }
 
-// DecodeKCESPresetBodyData 解码当前仅含签名和版本的身体块并保留其后字节
-// DecodeKCESPresetBodyData decodes the body block that currently contains only a signature and version and preserves later bytes
+// DecodeKCESPresetBodyData 解码当前仅含签名和版本的完整身体块
+// DecodeKCESPresetBodyData decodes the complete body block that currently contains only a signature and version
 func DecodeKCESPresetBodyData(data []byte) (*KCESPresetBodyData, error) {
 	r := newKCESPresetInnerReader(data)
 	signature, err := r.readString("KCES preset body signature")
@@ -600,18 +591,14 @@ func DecodeKCESPresetBodyData(data []byte) (*KCESPresetBodyData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read KCES preset body version: %w", err)
 	}
-	result := &KCESPresetBodyData{Signature: signature, Version: version}
 	if r.r.Len() != 0 {
-		result.TrailingData, err = r.br.ReadBytes(int64(r.r.Len()))
-		if err != nil {
-			return nil, fmt.Errorf("read KCES preset body trailingData: %w", err)
-		}
+		return nil, fmt.Errorf("KCES preset body data has %d trailing bytes", r.r.Len())
 	}
-	return result, nil
+	return &KCESPresetBodyData{Signature: signature, Version: version}, nil
 }
 
-// EncodeKCESPresetBodyData 验证身体块签名并写回版本及保留字节
-// EncodeKCESPresetBodyData validates the body-block signature and writes its version and preserved bytes
+// EncodeKCESPresetBodyData 验证身体块签名并写回版本
+// EncodeKCESPresetBodyData validates the body-block signature and writes its version
 func EncodeKCESPresetBodyData(value *KCESPresetBodyData) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil KCES preset bodyData")
@@ -627,9 +614,6 @@ func EncodeKCESPresetBodyData(value *KCESPresetBodyData) ([]byte, error) {
 		return nil, err
 	}
 	if err := bw.WriteInt32(version); err != nil {
-		return nil, err
-	}
-	if err := bw.WriteBytes(value.TrailingData); err != nil {
 		return nil, err
 	}
 	return out.Bytes(), nil

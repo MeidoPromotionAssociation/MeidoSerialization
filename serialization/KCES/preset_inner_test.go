@@ -49,7 +49,7 @@ func fullKCESPresetPropertyList() *KCESPresetPropertyList {
 			UseMultiplyAlpha: true,
 			MultiplyAlpha:    0.75,
 			Masks:            []KCESPresetTextureMask{{Name: &textureName, Mask: true}, {Name: nil}},
-			Transforms: []*KCESPresetTextureTransform{{
+			Transforms: []KCESPresetTextureTransform{{
 				AreaUVDefault: Vector4{X: 1, Y: 2, Z: 3, W: 4},
 				ScaleDefault:  Vector2{X: 5, Y: 6},
 				Position:      Vector2{X: 7, Y: 8},
@@ -97,13 +97,14 @@ func fullKCESPresetPropertyList() *KCESPresetPropertyList {
 		panic(err)
 	}
 	embeddedColorPresetID := "embedded-color"
+	futureFlag := "kept"
 	base.EditBaseData = &KCESPresetEditBaseData{
 		Version: -22,
 		ColorPreset: &KCESPresetEditColorPreset{
 			ID:               &embeddedColorPresetID,
 			SerializedPreset: embeddedColorPreset,
 		},
-		Flags: map[string]string{"future-flag": "kept"},
+		Flags: map[string]*string{"future-flag": &futureFlag},
 	}
 	base.SavedCutoutMaskRID = 6
 	base.SavedCutoutMask = &KCESPresetCutoutMask{MaxLevel: 7, NowLevel: 8, Enabled: true}
@@ -113,7 +114,6 @@ func fullKCESPresetPropertyList() *KCESPresetPropertyList {
 	base.SavedAttachPositionRID = 10
 	base.SavedAttachPositions = []SavedAttachData{{
 		Version:               SavedAttachRecordVersion,
-		ExplicitVersion:       true,
 		PartName:              &attachPart,
 		Enabled:               true,
 		MyRID:                 11,
@@ -132,8 +132,7 @@ func fullKCESPresetPropertyList() *KCESPresetPropertyList {
 			"z-bone": {Position: Vector3{Z: 1}},
 			"a-bone": {Rotation: Vector4{W: 1}},
 		},
-		BoneHierarchyOrder: []string{"z-bone", "a-bone"},
-		BoneAttachEdited:   true,
+		BoneAttachEdited: true,
 	}}
 	base.NoScale = true
 	base.SubPropertyIsTuftTexture = true
@@ -185,7 +184,6 @@ func fullKCESPresetPropertyList() *KCESPresetPropertyList {
 				Base: base,
 			},
 		}},
-		TrailingData: []byte{0xde, 0xad, 0xbe, 0xef},
 	}
 }
 
@@ -292,7 +290,6 @@ func TestKCESPresetPropertyRejectsFieldsUnrepresentableByStoredVersion(t *testin
 
 func TestKCESPresetPropertyDataStructuralFailures(t *testing.T) {
 	want := fullKCESPresetPropertyList()
-	want.TrailingData = nil
 	valid, err := EncodeKCESPresetPropertyData(want)
 	if err != nil {
 		t.Fatal(err)
@@ -301,6 +298,9 @@ func TestKCESPresetPropertyDataStructuralFailures(t *testing.T) {
 		if _, err := DecodeKCESPresetPropertyData(valid[:cut]); err == nil {
 			t.Fatalf("truncated property wire at %d/%d was accepted", cut, len(valid))
 		}
+	}
+	if _, err := DecodeKCESPresetPropertyData(append(append([]byte(nil), valid...), 0xde, 0xad)); err == nil || !strings.Contains(strings.ToLower(err.Error()), "trailing") {
+		t.Fatalf("property trailing-data error=%v", err)
 	}
 
 	manualHeader := func(signature string, version, count int32) []byte {
@@ -338,20 +338,27 @@ func TestKCESPresetPropertyDataStructuralFailures(t *testing.T) {
 	cyclic.Default = cyclic
 	tooDeep := versionedKCESPresetPropertyList(2100)
 	tooDeep.Properties[0].Property.Base.SavedTextureData = []KCESPresetNamedSavedTexture{{
-		Key: "cycle", Value: KCESPresetSavedTextureData{Transforms: []*KCESPresetTextureTransform{cyclic}},
+		Key: "cycle", Value: KCESPresetSavedTextureData{Transforms: []KCESPresetTextureTransform{*cyclic}},
 	}}
 	if _, err := EncodeKCESPresetPropertyData(tooDeep); err == nil || !strings.Contains(err.Error(), "nesting") {
 		t.Fatalf("cyclic transform error=%v", err)
 	}
 }
 
+func TestKCESPresetJSONRejectsNullTextureTransformElement(t *testing.T) {
+	var value KCESPresetSavedTextureData
+	err := decodeKCESJSONStrict([]byte(`{"transforms":[null]}`), &value)
+	if err == nil || !strings.Contains(err.Error(), "$.transforms[0] must not be null") {
+		t.Fatalf("null transform error = %v", err)
+	}
+}
+
 func TestKCESPresetColorCurrentAndLegacyRoundTripsWithoutUpgrade(t *testing.T) {
 	current := &KCESPresetColorData{
-		Signature:    KCESPresetColorSignature,
-		Version:      1201,
-		PartCount:    123, // ignored by the game's >1200 reader; preserve a positive mismatched count.
-		PartNames:    []string{"hair", "999", "FUTURE_PART"},
-		TrailingData: []byte{1, 2, 3},
+		Signature: KCESPresetColorSignature,
+		Version:   1201,
+		PartCount: 123, // ignored by the game's >1200 reader; preserve a positive mismatched count.
+		PartNames: []string{"hair", "999", "FUTURE_PART"},
 	}
 	legacy := &KCESPresetColorData{
 		Signature: KCESPresetColorSignature,
@@ -361,7 +368,6 @@ func TestKCESPresetColorCurrentAndLegacyRoundTripsWithoutUpgrade(t *testing.T) {
 			Use: true, MainHue: 1, MainChroma: 2, MainBrightness: 3, MainContrast: 4,
 			ShadowRate: 5, ShadowHue: 6, ShadowChroma: 7, ShadowBrightness: 8, ShadowContrast: 9,
 		}},
-		TrailingData: []byte{4, 5},
 	}
 	for _, want := range []*KCESPresetColorData{current, legacy} {
 		wire, err := EncodeKCESPresetColorData(want)
@@ -415,6 +421,13 @@ func TestKCESPresetColorStructuralFailures(t *testing.T) {
 			}
 		})
 	}
+	valid, err := EncodeKCESPresetColorData(NewKCESPresetColorData())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeKCESPresetColorData(append(append([]byte(nil), valid...), 0xde, 0xad)); err == nil || !strings.Contains(strings.ToLower(err.Error()), "trailing") {
+		t.Fatalf("color trailing-data error=%v", err)
+	}
 	if _, err := EncodeKCESPresetColorData(&KCESPresetColorData{Signature: KCESPresetColorSignature, Version: 200, PartCount: 2, LegacyParts: make([]KCESPresetLegacyColor, 1)}); err == nil || !strings.Contains(err.Error(), "does not match") {
 		t.Fatalf("legacy mismatch error=%v", err)
 	}
@@ -426,12 +439,11 @@ func TestKCESPresetColorStructuralFailures(t *testing.T) {
 	}
 }
 
-func TestKCESPresetBodyVersionAndTrailingDataArePreserved(t *testing.T) {
+func TestKCESPresetBodyVersionIsPreservedAndTrailingDataRejected(t *testing.T) {
 	for _, version := range []int32{math.MinInt32, 0, 1270, math.MaxInt32} {
 		want := &KCESPresetBodyData{
-			Signature:    KCESPresetBodySignature,
-			Version:      version,
-			TrailingData: []byte{0xaa, 0xbb},
+			Signature: KCESPresetBodySignature,
+			Version:   version,
 		}
 		wire, err := EncodeKCESPresetBodyData(want)
 		if err != nil {
@@ -444,6 +456,9 @@ func TestKCESPresetBodyVersionAndTrailingDataArePreserved(t *testing.T) {
 		reencoded, err := EncodeKCESPresetBodyData(got)
 		if err != nil || !bytes.Equal(reencoded, wire) {
 			t.Fatalf("body v%d wire changed: equal=%v err=%v", version, bytes.Equal(reencoded, wire), err)
+		}
+		if _, err := DecodeKCESPresetBodyData(append(append([]byte(nil), wire...), 0xaa, 0xbb)); err == nil || !strings.Contains(strings.ToLower(err.Error()), "trailing") {
+			t.Fatalf("body v%d trailing-data error=%v", version, err)
 		}
 	}
 }

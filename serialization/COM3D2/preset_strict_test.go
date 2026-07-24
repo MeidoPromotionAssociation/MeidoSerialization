@@ -582,7 +582,7 @@ func TestPresetPropertyListExtensionsRoundTrip(t *testing.T) {
 	if ppl.PartsColorOther == nil || ppl.PartsColorOther.Version != 1201 || len(ppl.PartsColorOther.PartNames) != 1 || ppl.PartsColorOther.PartNames[0] != "EYE_L" || ppl.PartsColorOther.PartsColors[0].ShadowContrast != 90 {
 		t.Fatalf("PartsColorOther = %+v", ppl.PartsColorOther)
 	}
-	if ppl.CRCPreset == nil || ppl.CRCPreset.ContainerVersion != 812 || ppl.CRCPreset.MaidData == nil || ppl.CRCPreset.MaidData.Version != 813 || ppl.CRCPreset.MaidData.PropData == nil {
+	if ppl.CRCPreset == nil || ppl.CRCPreset.ContainerVersion != 812 || ppl.CRCPreset.MaidData.Version != 813 || ppl.CRCPreset.MaidData.PropData == nil {
 		t.Fatalf("CRCPreset = %+v", ppl.CRCPreset)
 	}
 	jsonData, err := json.Marshal(ppl)
@@ -609,7 +609,7 @@ func TestPresetPropertyListExtensionsRoundTrip(t *testing.T) {
 	if redecoded.PartsColorOther == nil || redecoded.PartsColorOther.Version != 1201 || len(redecoded.PartsColorOther.PartNames) != 1 || redecoded.PartsColorOther.PartNames[0] != "EYE_L" || redecoded.PartsColorOther.PartsColors[0].ShadowContrast != 90 {
 		t.Fatalf("redecoded PartsColorOther = %+v", redecoded.PartsColorOther)
 	}
-	if redecoded.CRCPreset == nil || redecoded.CRCPreset.ContainerVersion != 812 || redecoded.CRCPreset.MaidData == nil || redecoded.CRCPreset.MaidData.Version != 813 || redecoded.CRCPreset.MaidData.PropData == nil || redecoded.CRCPreset.MaidData.ColorData == nil || redecoded.CRCPreset.MaidData.BodyData == nil {
+	if redecoded.CRCPreset == nil || redecoded.CRCPreset.ContainerVersion != 812 || redecoded.CRCPreset.MaidData.Version != 813 || redecoded.CRCPreset.MaidData.PropData == nil || redecoded.CRCPreset.MaidData.ColorData == nil || redecoded.CRCPreset.MaidData.BodyData == nil {
 		t.Fatalf("redecoded CRCPreset = %+v", redecoded.CRCPreset)
 	}
 }

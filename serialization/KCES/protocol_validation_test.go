@@ -11,7 +11,7 @@ import (
 )
 
 func TestPartDecoderReportsCorruptLz4InsteadOfTreatingItAsRawMsgpack(t *testing.T) {
-	encoded, err := EncodeMenuAssets(&MenuAssets{Assets: []Menu{{Version: menuFixVersion}}})
+	encoded, err := EncodeMenuAssets(&MenuAssets{Assets: []*Menu{{Version: menuFixVersion}}})
 	if err != nil {
 		t.Fatalf("EncodeMenuAssets: %v", err)
 	}
@@ -30,7 +30,7 @@ func TestPartDecoderReportsCorruptLz4InsteadOfTreatingItAsRawMsgpack(t *testing.
 	}
 }
 
-func TestPartEncodersHandleNilWithoutPanic(t *testing.T) {
+func TestPartEncodersEncodeTypedNilRootsWithoutPanic(t *testing.T) {
 	tests := []struct {
 		name   string
 		encode func() ([]byte, error)
@@ -45,11 +45,11 @@ func TestPartEncodersHandleNilWithoutPanic(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			data, err := tc.encode()
-			if err == nil {
-				t.Fatalf("expected an error for nil input, got data length %d", len(data))
+			if err != nil {
+				t.Fatalf("typed nil input was rejected: %v", err)
 			}
-			if data != nil {
-				t.Fatalf("nil input returned non-nil data: %x", data)
+			if len(data) == 0 {
+				t.Fatal("typed nil input returned no MessagePack payload")
 			}
 		})
 	}
@@ -62,22 +62,24 @@ func TestPartEncodersHandleNilWithoutPanic(t *testing.T) {
 
 func TestEncodeMenuAssetsPreservesNestedVersionsAndOpaqueStrings(t *testing.T) {
 	input := &MenuAssets{
-		Assets: []Menu{{
+		Assets: []*Menu{{
 			Version:       -5,
-			CategoryText:  "not_an_mpn",
-			ColorSetText:  "Hairf",
-			ToeLockSlotId: "not_a_slot",
-			PreMulTexDatas: map[uint64]PreMulTexDatas{
-				42: {Version: -4, SlotID: "future_slot", PreTexCompoTypeStr: "future-material"},
+			CategoryText:  protocolTestString("not_an_mpn"),
+			ColorSetText:  protocolTestString("Hairf"),
+			ToeLockSlotId: protocolTestString("not_a_slot"),
+			PreMulTexDatas: map[uint64]*PreMulTexDatas{
+				42: {Version: -4, SlotID: protocolTestString("future_slot"), PreTexCompoTypeStr: protocolTestString("future-material")},
 			},
 			ColvariInfo: &Colvari{
 				Version:      -3,
-				ColvariDatas: []ColvariData{{Version: -2, MPN: "future|mpn"}},
+				ColvariDatas: []*ColvariData{{Version: -2, MPN: protocolTestString("future|mpn")}},
 			},
 		}},
 	}
-	before := *input
-	before.Assets = append([]Menu(nil), input.Assets...)
+	before, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	encoded, err := EncodeMenuAssets(input)
 	if err != nil {
@@ -94,27 +96,34 @@ func TestEncodeMenuAssetsPreservesNestedVersionsAndOpaqueStrings(t *testing.T) {
 	if menu.Version != -5 {
 		t.Fatalf("menu version = %d, want -5", menu.Version)
 	}
-	if got := menu.PreMulTexDatas[42]; got.Version != -4 || got.SlotID != "future_slot" || got.PreTexCompoTypeStr != "future-material" {
+	if got := menu.PreMulTexDatas[42]; got.Version != -4 || !protocolTestStringEqual(got.SlotID, "future_slot") ||
+		!protocolTestStringEqual(got.PreTexCompoTypeStr, "future-material") {
 		t.Fatalf("PreMulTexDatas changed: %+v", got)
 	}
 	if menu.ColvariInfo == nil || menu.ColvariInfo.Version != -3 {
 		t.Fatalf("Colvari version changed: %+v", menu.ColvariInfo)
 	}
-	if len(menu.ColvariInfo.ColvariDatas) != 1 || menu.ColvariInfo.ColvariDatas[0].Version != -2 || menu.ColvariInfo.ColvariDatas[0].MPN != "future|mpn" {
+	if len(menu.ColvariInfo.ColvariDatas) != 1 || menu.ColvariInfo.ColvariDatas[0].Version != -2 ||
+		!protocolTestStringEqual(menu.ColvariInfo.ColvariDatas[0].MPN, "future|mpn") {
 		t.Fatalf("ColvariData changed: %+v", menu.ColvariInfo.ColvariDatas)
 	}
-	if menu.CategoryText != "not_an_mpn" || menu.ColorSetText != "Hairf" || menu.ToeLockSlotId != "not_a_slot" {
+	if !protocolTestStringEqual(menu.CategoryText, "not_an_mpn") || !protocolTestStringEqual(menu.ColorSetText, "Hairf") ||
+		!protocolTestStringEqual(menu.ToeLockSlotId, "not_a_slot") {
 		t.Fatalf("opaque menu strings changed: %+v", menu)
 	}
-	if !reflect.DeepEqual(*input, before) {
-		t.Fatalf("EncodeMenuAssets mutated input: got %#v, want %#v", input, before)
+	after, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(after, before) {
+		t.Fatalf("EncodeMenuAssets mutated input: got %s, want %s", after, before)
 	}
 }
 
 func TestMenuAssetsPreTexCompoTypeIsOpaqueWireString(t *testing.T) {
 	values := []string{"", " ", "Alpha", "infinitycolorgrada", "Alpha, Screen", "0", "2147483648", "not-a-material", "Alpha,"}
 	for _, value := range values {
-		input := &MenuAssets{Assets: []Menu{{PreMulTexDatas: map[uint64]PreMulTexDatas{1: {PreTexCompoTypeStr: value}}}}}
+		input := &MenuAssets{Assets: []*Menu{{PreMulTexDatas: map[uint64]*PreMulTexDatas{1: {PreTexCompoTypeStr: protocolTestString(value)}}}}}
 		encoded, err := EncodeMenuAssets(input)
 		if err != nil {
 			t.Fatalf("EncodeMenuAssets(%q): %v", value, err)
@@ -123,8 +132,8 @@ func TestMenuAssetsPreTexCompoTypeIsOpaqueWireString(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DecodeMenuAssets(%q): %v", value, err)
 		}
-		if got := decoded.Assets[0].PreMulTexDatas[1].PreTexCompoTypeStr; got != value {
-			t.Fatalf("preTexCompoTypeStr round trip = %q, want %q", got, value)
+		if got := decoded.Assets[0].PreMulTexDatas[1].PreTexCompoTypeStr; !protocolTestStringEqual(got, value) {
+			t.Fatalf("preTexCompoTypeStr round trip = %v, want %q", got, value)
 		}
 	}
 }
@@ -132,7 +141,7 @@ func TestMenuAssetsPreTexCompoTypeIsOpaqueWireString(t *testing.T) {
 func TestMenuAssetsMPNStringsAreOpaqueWireStrings(t *testing.T) {
 	values := []string{"", " ", "body", "BODY", "-1", "Hara, KubiScl", "not_an_mpn", "2147483648"}
 	for _, value := range values {
-		assets := &MenuAssets{Assets: []Menu{{CategoryText: value, ColorSetText: value}}}
+		assets := &MenuAssets{Assets: []*Menu{{CategoryText: protocolTestString(value), ColorSetText: protocolTestString(value)}}}
 		wire, err := EncodeMenuAssets(assets)
 		if err != nil {
 			t.Fatalf("EncodeMenuAssets(%q): %v", value, err)
@@ -141,7 +150,7 @@ func TestMenuAssetsMPNStringsAreOpaqueWireStrings(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DecodeMenuAssets(%q): %v", value, err)
 		}
-		if decoded.Assets[0].CategoryText != value || decoded.Assets[0].ColorSetText != value {
+		if !protocolTestStringEqual(decoded.Assets[0].CategoryText, value) || !protocolTestStringEqual(decoded.Assets[0].ColorSetText, value) {
 			t.Fatalf("MPN strings changed: %+v, want %q", decoded.Assets[0], value)
 		}
 	}
@@ -150,7 +159,7 @@ func TestMenuAssetsMPNStringsAreOpaqueWireStrings(t *testing.T) {
 func TestMenuAssetsToeLockSlotIsOpaqueWireString(t *testing.T) {
 	values := []string{"", "shoes", "SHOES", " accAcc72 ", "-1", "2147483647", "shoes, accAcc1", "not_a_slot", "accAcc0", "2147483648", "shoes,1"}
 	for _, value := range values {
-		assets := &MenuAssets{Assets: []Menu{{ToeLockSlotId: value}}}
+		assets := &MenuAssets{Assets: []*Menu{{ToeLockSlotId: protocolTestString(value)}}}
 		wire, err := EncodeMenuAssets(assets)
 		if err != nil {
 			t.Fatalf("EncodeMenuAssets(%q): %v", value, err)
@@ -159,13 +168,13 @@ func TestMenuAssetsToeLockSlotIsOpaqueWireString(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DecodeMenuAssets(%q): %v", value, err)
 		}
-		if decoded.Assets[0].ToeLockSlotId != value {
-			t.Fatalf("toeLockSlotId round trip = %q, want %q", decoded.Assets[0].ToeLockSlotId, value)
+		if !protocolTestStringEqual(decoded.Assets[0].ToeLockSlotId, value) {
+			t.Fatalf("toeLockSlotId round trip = %v, want %q", decoded.Assets[0].ToeLockSlotId, value)
 		}
 	}
 }
 
-func TestPreMulTexDatasShortArrayKeepsOnlyPresentFields(t *testing.T) {
+func TestPreMulTexDatasRejectsWrongIndexedArrayWidth(t *testing.T) {
 	raw := []interface{}{
 		int64(1000), // version
 		"body",      // slotId
@@ -186,31 +195,24 @@ func TestPreMulTexDatasShortArrayKeepsOnlyPresentFields(t *testing.T) {
 		nil,         // preTransTexData
 		nil,         // preInfColData; Key(18) is intentionally absent
 	}
+	for _, width := range []int{11, 18} {
+		wire, err := ct.EncodeMsgpack(raw[:width])
+		if err != nil {
+			t.Fatalf("EncodeMsgpack: %v", err)
+		}
+		var decoded PreMulTexDatas
+		if err := ct.DecodeMsgpack(wire, &decoded); err == nil {
+			t.Fatalf("DecodeMsgpack accepted %d-slot PreMulTexDatas", width)
+		}
+	}
+	raw = append(raw, "Alpha", int64(1))
 	wire, err := ct.EncodeMsgpack(raw)
 	if err != nil {
-		t.Fatalf("EncodeMsgpack: %v", err)
+		t.Fatal(err)
 	}
 	var decoded PreMulTexDatas
-	if err := ct.DecodeMsgpack(wire, &decoded); err != nil {
-		t.Fatalf("DecodeMsgpack(short PreMulTexDatas): %v", err)
-	}
-	if decoded.Version != 1000 || decoded.LayNoInGroup != 4 || decoded.Alpha != 0 {
-		t.Fatalf("present legacy fields were not retained: %+v", decoded)
-	}
-	if decoded.PreTexCompoTypeStr != "" {
-		t.Fatalf("missing Key(18) gained a game initializer: %q", decoded.PreTexCompoTypeStr)
-	}
-
-	// A still-shorter payload leaves every omitted field at the wire-model zero.
-	wire, err = ct.EncodeMsgpack(raw[:11])
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := ct.DecodeMsgpack(wire, &decoded); err != nil {
-		t.Fatal(err)
-	}
-	if decoded.LayNoInGroup != 0 || decoded.Alpha != 0 || decoded.PreTexCompoTypeStr != "" {
-		t.Fatalf("short payload gained constructor defaults: %+v", decoded)
+	if err := ct.DecodeMsgpack(wire, &decoded); err == nil {
+		t.Fatal("DecodeMsgpack accepted high PreMulTexDatas key")
 	}
 }
 
@@ -223,24 +225,17 @@ func TestColliderEncodingValidationRejectsInvalidObjectsWithoutPanic(t *testing.
 	}{
 		{
 			name: "typed nil collider",
-			env: &KCESPayloadEnvelope{Format: PayloadFormatKCESMessagePack, Extension: ".dbcol", LengthPrefixed: true, StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindColliderPackage, ColliderPackage: &ColliderPackage{
-				Colliders: []ColliderRef{{Type: ColliderTypeSphere, Collider: typedNilSphere}},
+			env: &KCESPayloadEnvelope{Format: PayloadFormatKCESMessagePack, Extension: ".dbcol", StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindColliderPackage, ColliderPackage: &ColliderPackage{
+				Colliders: []*ColliderRef{{Type: ColliderTypeSphere, Collider: typedNilSphere}},
 			}},
 			wantErr: "is nil (*ColliderSphere)",
 		},
 		{
 			name: "union tag mismatch",
-			env: &KCESPayloadEnvelope{Format: PayloadFormatKCESMessagePack, Extension: ".dbcol", LengthPrefixed: true, StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindColliderPackage, ColliderPackage: &ColliderPackage{
-				Colliders: []ColliderRef{{Type: ColliderTypePlane, Collider: &ColliderCapsule{}}},
+			env: &KCESPayloadEnvelope{Format: PayloadFormatKCESMessagePack, Extension: ".dbcol", StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindColliderPackage, ColliderPackage: &ColliderPackage{
+				Colliders: []*ColliderRef{{Type: ColliderTypePlane, Collider: &ColliderCapsule{}}},
 			}},
 			wantErr: "concrete type requires 1",
-		},
-		{
-			name: "limb collider must be MaidProp",
-			env: &KCESPayloadEnvelope{Format: PayloadFormatKCESMessagePack, Extension: ".limbcol", LengthPrefixed: true, StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindLimbCollider, LimbCollider: &LimbColliderPackage{
-				Items: []LimbColliderItem{{Collider: &ColliderCapsule{}}},
-			}},
-			wantErr: "must be *ColliderMaidProp",
 		},
 	}
 
@@ -257,27 +252,29 @@ func TestColliderEncodingValidationRejectsInvalidObjectsWithoutPanic(t *testing.
 	}
 }
 
-func TestLimbColliderDecodeUsesDeclaredMaidPropTypeWithoutInferringByWidth(t *testing.T) {
-	// Key(2) is statically NativeMaidPropColliderStatus. A 13-slot array is a
-	// short instance of that declared type; the serializer must not infer a
-	// Capsule merely because the present prefix happens to match its fields.
-	raw := []interface{}{
+func TestLimbColliderDecodeRequiresDeclaredMaidPropWidth(t *testing.T) {
+	short := []interface{}{
 		int64(limbColliderPackageFixVersion),
 		[]interface{}{
 			[]interface{}{int64(limbColliderItemFixVersion), int64(0), colliderCapsuleIndexedTestValue(colliderStatusFixVersion)},
 		},
 	}
-	envelope, err := DecodeKCESPayload(lengthPrefixedIndexedTestValue(t, raw), ".limbcol")
+	if _, err := DecodeKCESPayload(lengthPrefixedIndexedTestValue(t, short), ".limbcol"); err == nil {
+		t.Fatal("DecodeKCESPayload accepted a short NativeMaidPropColliderStatus")
+	}
+
+	full := []interface{}{
+		int64(limbColliderPackageFixVersion),
+		[]interface{}{
+			[]interface{}{int64(limbColliderItemFixVersion), int64(0), colliderMaidPropIndexedTestValue(colliderStatusFixVersion)},
+		},
+	}
+	envelope, err := DecodeKCESPayload(lengthPrefixedIndexedTestValue(t, full), ".limbcol")
 	if err != nil {
-		t.Fatalf("DecodeKCESPayload: %v", err)
+		t.Fatalf("DecodeKCESPayload full MaidProp: %v", err)
 	}
-	status, ok := envelope.LimbCollider.Items[0].Collider.(*ColliderMaidProp)
-	if !ok {
-		t.Fatalf("decoded concrete type = %T, want *ColliderMaidProp", envelope.LimbCollider.Items[0].Collider)
-	}
-	assertIndexedMetadata(t, status.IndexedObjectMetadata, 13)
-	if status.CenterMpnList != nil || status.CenterMpnNameList != nil {
-		t.Fatalf("omitted MaidProp fields gained values: %+v", status)
+	if envelope.LimbCollider.Items[0].Collider == nil {
+		t.Fatal("full NativeMaidPropColliderStatus decoded as nil")
 	}
 
 	var item LimbColliderItem
@@ -292,11 +289,11 @@ func TestLimbColliderDecodeUsesDeclaredMaidPropTypeWithoutInferringByWidth(t *te
 func TestColliderEncodingPreservesZeroVersions(t *testing.T) {
 	t.Run("generic package", func(t *testing.T) {
 		env := &KCESPayloadEnvelope{
-			Format: PayloadFormatKCESMessagePack, Extension: ".dbcol", LengthPrefixed: true,
+			Format: PayloadFormatKCESMessagePack, Extension: ".dbcol",
 			StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindColliderPackage,
 			ColliderPackage: &ColliderPackage{
-				Colliders:      []ColliderRef{{Type: ColliderTypePlane, Collider: &ColliderPlane{}}},
-				LimbEnableList: []ColliderState{{LimbType: 1, IsEnable: true}},
+				Colliders:      []*ColliderRef{{Type: ColliderTypePlane, Collider: &ColliderPlane{}}},
+				LimbEnableList: []*ColliderState{{LimbType: 1, IsEnable: true}},
 			},
 		}
 		encoded, err := EncodeKCESPayload(env)
@@ -324,10 +321,10 @@ func TestColliderEncodingPreservesZeroVersions(t *testing.T) {
 
 	t.Run("limb package", func(t *testing.T) {
 		env := &KCESPayloadEnvelope{
-			Format: PayloadFormatKCESMessagePack, Extension: ".limbcol", LengthPrefixed: true,
+			Format: PayloadFormatKCESMessagePack, Extension: ".limbcol",
 			StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindLimbCollider,
 			LimbCollider: &LimbColliderPackage{
-				Items: []LimbColliderItem{{Collider: &ColliderMaidProp{}}},
+				Items: []*LimbColliderItem{{Collider: &ColliderMaidProp{}}},
 			},
 		}
 		encoded, err := EncodeKCESPayload(env)
@@ -338,27 +335,24 @@ func TestColliderEncodingPreservesZeroVersions(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DecodeKCESPayload: %v", err)
 		}
-		maidProp, ok := decoded.LimbCollider.Items[0].Collider.(*ColliderMaidProp)
-		if !ok {
-			t.Fatalf("decoded collider type = %T", decoded.LimbCollider.Items[0].Collider)
-		}
+		maidProp := decoded.LimbCollider.Items[0].Collider
 		if decoded.LimbCollider.Version != 0 || decoded.LimbCollider.Items[0].Version != 0 || maidProp.Version != 0 {
 			t.Fatalf("versions changed: package=%d item=%d collider=%d",
 				decoded.LimbCollider.Version, decoded.LimbCollider.Items[0].Version, maidProp.Version)
 		}
 		if env.LimbCollider.Version != 0 || env.LimbCollider.Items[0].Version != 0 ||
-			env.LimbCollider.Items[0].Collider.(*ColliderMaidProp).Version != 0 {
+			env.LimbCollider.Items[0].Collider.Version != 0 {
 			t.Fatalf("EncodeKCESPayload mutated limb collider input: %+v", env.LimbCollider)
 		}
 	})
 
 	t.Run("IK package", func(t *testing.T) {
 		env := &KCESPayloadEnvelope{
-			Format: PayloadFormatKCESMessagePack, Extension: ".ikcol", LengthPrefixed: true,
+			Format: PayloadFormatKCESMessagePack, Extension: ".ikcol",
 			StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindIKCollider,
 			IKCollider: &IKColliderPackage{
-				Groups: []IKColliderGroup{{
-					Colliders: []ColliderRef{{Type: ColliderTypeSphere, Collider: &ColliderSphere{}}},
+				Groups: []*IKColliderGroup{{
+					Colliders: []*ColliderRef{{Type: ColliderTypeSphere, Collider: &ColliderSphere{}}},
 				}},
 			},
 		}
@@ -391,15 +385,15 @@ func TestMaidPropEncodingPreservesMPNFields(t *testing.T) {
 		CenterMpnList:          []int32{7, -1},
 		StartRadiusMpnList:     []int32{25},
 		EndRadiusMpnList:       []int32{49},
-		CenterMpnNameList:      []string{"stale-center"},
-		StartRadiusMpnNameList: []string{"stale-start"},
-		EndRadiusMpnNameList:   []string{"stale-end"},
+		CenterMpnNameList:      []*string{protocolTestString("stale-center")},
+		StartRadiusMpnNameList: []*string{protocolTestString("stale-start")},
+		EndRadiusMpnNameList:   []*string{protocolTestString("stale-end")},
 	}
 	env := &KCESPayloadEnvelope{
-		Format: PayloadFormatKCESMessagePack, Extension: ".limbcol", LengthPrefixed: true,
+		Format: PayloadFormatKCESMessagePack, Extension: ".limbcol",
 		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindLimbCollider,
 		LimbCollider: &LimbColliderPackage{
-			Items: []LimbColliderItem{{Collider: maidProp}},
+			Items: []*LimbColliderItem{{Collider: maidProp}},
 		},
 	}
 
@@ -411,20 +405,17 @@ func TestMaidPropEncodingPreservesMPNFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload: %v", err)
 	}
-	got, ok := decoded.LimbCollider.Items[0].Collider.(*ColliderMaidProp)
-	if !ok {
-		t.Fatalf("decoded collider type = %T", decoded.LimbCollider.Items[0].Collider)
-	}
+	got := decoded.LimbCollider.Items[0].Collider
 	if got.Version != 1002 {
 		t.Fatalf("decoded version = %d, want 1002", got.Version)
 	}
-	if want := []string{"stale-center"}; !reflect.DeepEqual(got.CenterMpnNameList, want) {
+	if want := []*string{protocolTestString("stale-center")}; !reflect.DeepEqual(got.CenterMpnNameList, want) {
 		t.Fatalf("center names = %#v, want %#v", got.CenterMpnNameList, want)
 	}
-	if want := []string{"stale-start"}; !reflect.DeepEqual(got.StartRadiusMpnNameList, want) {
+	if want := []*string{protocolTestString("stale-start")}; !reflect.DeepEqual(got.StartRadiusMpnNameList, want) {
 		t.Fatalf("start names = %#v, want %#v", got.StartRadiusMpnNameList, want)
 	}
-	if want := []string{"stale-end"}; !reflect.DeepEqual(got.EndRadiusMpnNameList, want) {
+	if want := []*string{protocolTestString("stale-end")}; !reflect.DeepEqual(got.EndRadiusMpnNameList, want) {
 		t.Fatalf("end names = %#v, want %#v", got.EndRadiusMpnNameList, want)
 	}
 	if !reflect.DeepEqual(got.CenterMpnList, maidProp.CenterMpnList) ||
@@ -435,9 +426,9 @@ func TestMaidPropEncodingPreservesMPNFields(t *testing.T) {
 
 	if maidProp.Version != 1002 ||
 		!reflect.DeepEqual(maidProp.CenterMpnList, []int32{7, -1}) ||
-		!reflect.DeepEqual(maidProp.CenterMpnNameList, []string{"stale-center"}) ||
-		!reflect.DeepEqual(maidProp.StartRadiusMpnNameList, []string{"stale-start"}) ||
-		!reflect.DeepEqual(maidProp.EndRadiusMpnNameList, []string{"stale-end"}) {
+		!reflect.DeepEqual(maidProp.CenterMpnNameList, []*string{protocolTestString("stale-center")}) ||
+		!reflect.DeepEqual(maidProp.StartRadiusMpnNameList, []*string{protocolTestString("stale-start")}) ||
+		!reflect.DeepEqual(maidProp.EndRadiusMpnNameList, []*string{protocolTestString("stale-end")}) {
 		t.Fatalf("encoding mutated caller-owned MaidProp data: %+v", maidProp)
 	}
 }
@@ -476,9 +467,9 @@ func TestMaidPropDecodeDoesNotMigrateVersionOrMPNRepresentations(t *testing.T) {
 		CenterMpnList:          []int32{7},
 		StartRadiusMpnList:     []int32{25},
 		EndRadiusMpnList:       []int32{26},
-		CenterMpnNameList:      []string{"MuneUpDown"},
-		StartRadiusMpnNameList: []string{"stale"},
-		EndRadiusMpnNameList:   []string{"stale"},
+		CenterMpnNameList:      []*string{protocolTestString("MuneUpDown")},
+		StartRadiusMpnNameList: []*string{protocolTestString("stale")},
+		EndRadiusMpnNameList:   []*string{protocolTestString("stale")},
 	}
 	currentWire, err := ct.EncodeIndexedMsgpack(current)
 	if err != nil {
@@ -492,9 +483,9 @@ func TestMaidPropDecodeDoesNotMigrateVersionOrMPNRepresentations(t *testing.T) {
 	if !reflect.DeepEqual(currentResult.CenterMpnList, []int32{7}) ||
 		!reflect.DeepEqual(currentResult.StartRadiusMpnList, []int32{25}) ||
 		!reflect.DeepEqual(currentResult.EndRadiusMpnList, []int32{26}) ||
-		!reflect.DeepEqual(currentResult.CenterMpnNameList, []string{"MuneUpDown"}) ||
-		!reflect.DeepEqual(currentResult.StartRadiusMpnNameList, []string{"stale"}) ||
-		!reflect.DeepEqual(currentResult.EndRadiusMpnNameList, []string{"stale"}) {
+		!reflect.DeepEqual(currentResult.CenterMpnNameList, []*string{protocolTestString("MuneUpDown")}) ||
+		!reflect.DeepEqual(currentResult.StartRadiusMpnNameList, []*string{protocolTestString("stale")}) ||
+		!reflect.DeepEqual(currentResult.EndRadiusMpnNameList, []*string{protocolTestString("stale")}) {
 		t.Fatalf("current numeric/name fields changed: %+v", currentResult)
 	}
 }
@@ -509,9 +500,9 @@ func TestMaidPropDecodeAcceptsNilListsAndOpaqueNames(t *testing.T) {
 		CenterMpnList:          []int32{},
 		StartRadiusMpnList:     []int32{},
 		EndRadiusMpnList:       []int32{},
-		CenterMpnNameList:      []string{"MuneL"},
-		StartRadiusMpnNameList: []string{},
-		EndRadiusMpnNameList:   []string{},
+		CenterMpnNameList:      []*string{protocolTestString("MuneL")},
+		StartRadiusMpnNameList: []*string{},
+		EndRadiusMpnNameList:   []*string{},
 	}
 
 	raw := colliderMaidPropIndexedTestValue(base.Version)
@@ -526,7 +517,7 @@ func TestMaidPropDecodeAcceptsNilListsAndOpaqueNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode nil/opaque MaidProp fields: %v", err)
 	}
-	if got.CenterMpnList != nil || !reflect.DeepEqual(got.CenterMpnNameList, []string{"not_an_mpn"}) {
+	if got.CenterMpnList != nil || !reflect.DeepEqual(got.CenterMpnNameList, []*string{protocolTestString("not_an_mpn")}) {
 		t.Fatalf("nil/opaque fields changed: %+v", got)
 	}
 
@@ -539,4 +530,10 @@ func TestMaidPropDecodeAcceptsNilListsAndOpaqueNames(t *testing.T) {
 	if err := ct.DecodeMsgpack(malformedWire, &got); err == nil {
 		t.Fatal("non-string List<string> element was accepted")
 	}
+}
+
+func protocolTestString(value string) *string { return &value }
+
+func protocolTestStringEqual(value *string, want string) bool {
+	return value != nil && *value == want
 }

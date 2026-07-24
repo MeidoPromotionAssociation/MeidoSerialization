@@ -9,6 +9,7 @@ import (
 
 	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
 	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCESCT "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
 	"github.com/google/jsonschema-go/jsonschema"
 )
@@ -46,10 +47,7 @@ func newReflectSchemaBuilder() *reflectSchemaBuilder {
 				typeOf[serializationKCES.ColliderSphere](), typeOf[serializationKCES.ColliderMaidProp](),
 			},
 		},
-		bytes: map[reflect.Type]bool{
-			typeOf[serializationKCES.RawMessagePackSlot](): true,
-			typeOf[serializationKCES.GradaBytes]():         true,
-		},
+		bytes: map[reflect.Type]bool{},
 	}
 }
 
@@ -260,11 +258,11 @@ func customizeKnownStruct(typ reflect.Type, schema *jsonschema.Schema, builder *
 	if typ == typeOf[serializationKCES.ColliderRef]() {
 		customizeColliderRefSchema(schema, builder)
 	}
-	if typ == typeOf[serializationKCES.LimbColliderItem]() {
-		customizeLimbColliderItemSchema(schema, builder)
+	if typ == typeOf[serializationKCES.KCESEditDataFile]() {
+		customizeKCESEditDataFileSchema(schema)
 	}
-	if typ == typeOf[serializationKCES.KCESPayloadEnvelope]() {
-		schema.Properties["msgpackBase64"] = base64StringSchema(false)
+	if typ == typeOf[serializationKCESCT.AssetBundleCatalog]() {
+		customizeKCESCatalogSchema(schema)
 	}
 	if typ == typeOf[KCESService.RawUnityObjectEnvelope]() {
 		schema.Properties["dataBase64"] = base64StringSchema(false)
@@ -276,30 +274,61 @@ func customizeKnownStruct(typ reflect.Type, schema *jsonschema.Schema, builder *
 		schema.Properties["dataBase64"] = base64StringSchema(false)
 		schema.Properties["previewBase64"] = base64StringSchema(false)
 	}
-	if typ == typeOf[serializationKCES.PartsColor]() {
-		schema.Properties["m_grada"] = &jsonschema.Schema{Types: []string{"null", "array"}, Items: builder.schema(typeOf[serializationKCES.PartsColorGrada](), false)}
-		schema.Properties["m_gradaDecodeError"] = &jsonschema.Schema{Type: "string"}
-		schema.Properties["m_gradaTrailingBytes"] = base64StringSchema(true)
+}
+
+// customizeKCESEditDataFileSchema 将 Kind 与唯一活动的 typed EditData 字段绑定并允许该活动根为 null
+// customizeKCESEditDataFileSchema binds Kind to exactly one active typed EditData field while allowing that active root to be null
+func customizeKCESEditDataFileSchema(schema *jsonschema.Schema) {
+	allRoots := []string{"presetPanelNames", "paletteColor", "gradPoints", "moveablePanel", "presetOrderList", "colorPreset"}
+	branches := []struct {
+		kind   serializationKCES.KCESEditDataKind
+		active string
+	}{
+		{kind: serializationKCES.KCESEditDataPresetPanelNames, active: "presetPanelNames"},
+		{kind: serializationKCES.KCESEditDataPaletteColor, active: "paletteColor"},
+		{kind: serializationKCES.KCESEditDataGradPoints, active: "gradPoints"},
+		{kind: serializationKCES.KCESEditDataMoveablePanel, active: "moveablePanel"},
+		{kind: serializationKCES.KCESEditDataPresetOrderList, active: "presetOrderList"},
+		{kind: serializationKCES.KCESEditDataColorPreset, active: "colorPreset"},
+	}
+	schema.OneOf = make([]*jsonschema.Schema, 0, len(branches))
+	for _, branch := range branches {
+		forbidden := make([]string, 0, len(allRoots)-1)
+		for _, name := range allRoots {
+			if name != branch.active {
+				forbidden = append(forbidden, name)
+			}
+		}
+		schema.OneOf = append(schema.OneOf, &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"kind": {Type: "string", Const: anyPtr(string(branch.kind))},
+			},
+			Required: []string{"kind", branch.active},
+			AllOf:    forbidProperties(forbidden...),
+		})
 	}
 }
 
-func customizeLimbColliderItemSchema(schema *jsonschema.Schema, builder *reflectSchemaBuilder) {
-	// LimbColliderData.Key(2) is statically NativeMaidPropColliderStatus in
-	// the game. It is not ANativeColliderStatus's tagged union.
-	schema.Properties["collider"] = &jsonschema.Schema{AnyOf: []*jsonschema.Schema{
-		{Type: "null"},
-		builder.schema(typeOf[serializationKCES.ColliderMaidProp](), false),
-	}}
-	// A raw slot is retained only for a value which the fixed formatter could
-	// not decode. It is mutually exclusive with the typed value.
+// customizeKCESCatalogSchema 将 catalog Kind 与游戏定义的十二槽或十槽 JSON 字段集合绑定
+// customizeKCESCatalogSchema binds catalog Kind to the JSON field set of the game-defined twelve-slot or ten-slot layout
+func customizeKCESCatalogSchema(schema *jsonschema.Schema) {
 	schema.OneOf = []*jsonschema.Schema{
-		{Not: &jsonschema.Schema{Required: []string{"colliderRaw"}}},
 		{
+			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
-				"collider":    {Type: "null"},
-				"colliderRaw": base64StringSchema(false),
+				"kind": {Type: "string", Const: anyPtr(string(serializationKCESCT.CatalogKindAssetBundle))},
 			},
-			Required: []string{"colliderRaw"},
+			Required: []string{"kind", "isEncrypted", "resourceFileNames", "items"},
+			AllOf:    forbidProperties("virtualItems"),
+		},
+		{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"kind": {Type: "string", Const: anyPtr(string(serializationKCESCT.CatalogKindVirtualAsset))},
+			},
+			Required: []string{"kind", "virtualItems"},
+			AllOf:    forbidProperties("isEncrypted", "resourceFileNames", "items"),
 		},
 	}
 }
@@ -330,20 +359,8 @@ func customizeColliderRefSchema(schema *jsonschema.Schema, builder *reflectSchem
 				"collider": {AnyOf: []*jsonschema.Schema{{Type: "null"}, collider}},
 			},
 			Required: []string{"type", "collider"},
-			Not:      &jsonschema.Schema{Required: []string{"colliderRaw"}},
 		})
 	}
-	// Unknown union tags remain lossless only when the complete MessagePack
-	// value is present in colliderRaw. Known tags must use their typed object.
-	result = append(result, &jsonschema.Schema{
-		Type: "object",
-		Properties: map[string]*jsonschema.Schema{
-			"type":        integerSchema(32, true),
-			"collider":    {Type: "null"},
-			"colliderRaw": {Type: "string", ContentEncoding: "base64"},
-		},
-		Required: []string{"type", "collider", "colliderRaw"},
-	})
 	schema.OneOf = result
 }
 

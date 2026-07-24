@@ -1,15 +1,12 @@
 package KCES
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
-	"unicode/utf8"
 
 	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
 )
@@ -19,11 +16,10 @@ import (
 type SavedAttachService struct{}
 
 type savedAttachEditingJSON struct {
-	Format       *string                              `json:"format"`
-	Signature    *string                              `json:"signature"`
-	Version      *int32                               `json:"version"`
-	Items        *[]serializationKCES.SavedAttachData `json:"items"`
-	TrailingData []byte                               `json:"trailingData"`
+	Format    *string                              `json:"format"`
+	Signature *string                              `json:"signature"`
+	Version   *int32                               `json:"version"`
+	Items     *[]serializationKCES.SavedAttachData `json:"items"`
 }
 
 func IsKCESSavedAttachFile(path string) bool {
@@ -96,22 +92,9 @@ func (s *SavedAttachService) ConvertJSONToSavedAttach(ctx context.Context, input
 }
 
 func decodeSavedAttachEditingJSON(data []byte) (*serializationKCES.SavedAttachFile, error) {
-	data = bytes.TrimPrefix(data, []byte{0xef, 0xbb, 0xbf})
-	if !utf8.Valid(data) {
-		return nil, fmt.Errorf("saved-attach JSON is not valid UTF-8")
-	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
 	var editing savedAttachEditingJSON
-	if err := decoder.Decode(&editing); err != nil {
+	if err := decodeStrictJSON(data, &editing, "saved-attach JSON"); err != nil {
 		return nil, err
-	}
-	var trailing interface{}
-	if err := decoder.Decode(&trailing); err != io.EOF {
-		if err == nil {
-			return nil, fmt.Errorf("trailing JSON value")
-		}
-		return nil, fmt.Errorf("trailing content: %w", err)
 	}
 	if editing.Format == nil {
 		return nil, fmt.Errorf("format is missing or null")
@@ -133,11 +116,10 @@ func decodeSavedAttachEditingJSON(data []byte) (*serializationKCES.SavedAttachFi
 		items = *editing.Items
 	}
 	value := serializationKCES.SavedAttachFile{
-		Format:       *editing.Format,
-		Signature:    *editing.Signature,
-		Version:      *editing.Version,
-		Items:        items,
-		TrailingData: append([]byte(nil), editing.TrailingData...),
+		Format:    *editing.Format,
+		Signature: *editing.Signature,
+		Version:   *editing.Version,
+		Items:     items,
 	}
 	if _, err := serializationKCES.EncodeSavedAttach(&value); err != nil {
 		return nil, err

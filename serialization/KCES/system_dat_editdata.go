@@ -14,53 +14,32 @@ import (
 // Shared EditData MessagePack implementation for system.dat, including preset-panel names, palette colors, and the shared reader
 // These objects have no standalone disk extension and exist only as virtual files inside VirtualDirectory
 
-// PresetPanelNameSaveData 表示 system.dat 中 EditData/PresetPanelNameSaveData::SceneEdit::savedata 的原始 MessagePack 载荷
+// PresetPanelNameSaveData 表示 system.dat 中 EditData/PresetPanelNameSaveData::SceneEdit::savedata 的类型化 MessagePack 对象
 // C# 对象是只有 Key 0 BoxNameList 的 indexed object，列表项使用指针是因为 MessagePack-CSharp 字符串格式化器接受 nil
 // PresetPanel.LoadBoxName 会把 nil 项视为缺失名称并回退到 BOX 加序号的默认名称
-// PresetPanelNameSaveData represents the raw MessagePack payload stored at EditData/PresetPanelNameSaveData::SceneEdit::savedata in system.dat
+// PresetPanelNameSaveData represents the typed MessagePack object stored at EditData/PresetPanelNameSaveData::SceneEdit::savedata in system.dat
 // The C# object is an indexed object containing only BoxNameList at Key 0, and list elements use pointers because the MessagePack-CSharp string formatter accepts nil
 // PresetPanel.LoadBoxName treats a nil entry as a missing name and falls back to a BOX name with its number
 type PresetPanelNameSaveData struct {
-	MessagePackRootMetadata           // 根值 nil 与尾部字节元数据 / Root nil and trailing-byte metadata
-	BoxNameList             []*string `json:"boxNameList"`           // Key 0 的可空名称列表，nil 项触发游戏默认名称 / Nullable name list at Key 0 whose nil entries trigger game defaults
-	FieldCount              *int32    `json:"fieldCount,omitempty"`  // 原始 indexed object 的槽位数，标准宽度 1 时可省略 / Slot count of the original indexed object, omittable for the standard width of 1
-	FutureSlots             [][]byte  `json:"futureSlots,omitempty"` // Key 1 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 1
+	BoxNameList []*string `json:"boxNameList"` // Key 0 的可空名称列表，nil 项触发游戏默认名称 / Nullable name list at Key 0 whose nil entries trigger game defaults
 }
 
-// PaletteColorSaveData 表示 system.dat 中 EditData/PaletteColorSave 加索引文件的原始 MessagePack 载荷
-// indexed object 依次保存 color、index 和 isSave，游戏当前定义颜色键 0 至 8，但字段本身是公开的 Dictionary<int,int>
-// 因此未知键会为向前兼容而保留，不强制限定消费者当前使用的键集合
-// PaletteColorSaveData represents the raw MessagePack payload stored in an EditData/PaletteColorSave file suffixed by its index in system.dat
-// Its indexed object stores color, index, and isSave in order, and the game currently defines color keys 0 through 8 while exposing the field as Dictionary<int,int>
-// Unknown keys are therefore preserved for forward compatibility without imposing the consumer's current expected key set
+// PaletteColorSaveData 表示 system.dat 中 PaletteColorSave 索引文件的固定三槽 typed MessagePack 对象，依次保存 Int32 字典 color、index 和 isSave / PaletteColorSaveData represents the fixed three-slot typed MessagePack object in an indexed PaletteColorSave file in system.dat, storing the Int32 map color, index, and isSave in order
 type PaletteColorSaveData struct {
-	MessagePackRootMetadata                 // 根值 nil 与尾部字节元数据 / Root nil and trailing-byte metadata
-	Color                   map[int32]int32 `json:"color"`                 // Key 0 的颜色参数字典，索引 0 至 3 为基础色、4 至 7 为阴影色、8 为阴影比例 / Color-parameter map at Key 0 with indices 0 through 3 for base color, 4 through 7 for shadow color, and 8 for shadow rate
-	Index                   int32           `json:"index"`                 // Key 1 的调色板槽位索引 / Palette slot index at Key 1
-	IsSave                  int32           `json:"isSave"`                // Key 2 的保存状态，游戏构造未保存项时为 0、保存项时为 1 / Save state at Key 2, constructed as 0 for unsaved and 1 for saved entries by the game
-	FieldCount              *int32          `json:"fieldCount,omitempty"`  // 原始 indexed object 的槽位数，标准宽度 3 时可省略 / Slot count of the original indexed object, omittable for the standard width of 3
-	FutureSlots             [][]byte        `json:"futureSlots,omitempty"` // Key 3 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 3
+	Color  map[int32]int32 `json:"color"`  // Key 0 的颜色参数字典，索引 0 至 3 为基础色、4 至 7 为阴影色、8 为阴影比例 / Color-parameter map at Key 0 with indices 0 through 3 for base color, 4 through 7 for shadow color, and 8 for shadow rate
+	Index  int32           `json:"index"`  // Key 1 的调色板槽位索引 / Palette slot index at Key 1
+	IsSave int32           `json:"isSave"` // Key 2 的保存状态，游戏构造未保存项时为 0、保存项时为 1 / Save state at Key 2, constructed as 0 for unsaved and 1 for saved entries by the game
 }
-
-const simpleEditDataMaxDepth = 256
 
 // DecodePresetPanelNameSaveData 解码一个未压缩且无长度前缀的 PresetPanelNameSaveData MessagePack 值
-// 根值之后的字节保存在 TrailingData 中，根数组内的未来 indexed object 字段按游戏格式化器方式消费并原样保存在 FutureSlots 中
+// 根对象必须使用固定一槽布局且完整消费输入
 // DecodePresetPanelNameSaveData decodes one uncompressed and unprefixed PresetPanelNameSaveData MessagePack value
-// Bytes after the root are retained in TrailingData while future indexed object fields inside the root array are consumed like the game formatter and retained verbatim in FutureSlots
+// The root must use the fixed one-slot layout and consume the complete input
 func DecodePresetPanelNameSaveData(data []byte) (*PresetPanelNameSaveData, error) {
 	r := simpleEditDataReader{data: data}
 	if r.tryReadNil() {
-		trailing, err := messagePackRootTrailingAfterParsed(data, r.pos, "PresetPanelNameSaveData")
-		if err != nil {
+		if err := r.requireEOF("PresetPanelNameSaveData"); err != nil {
 			return nil, err
-		}
-		// DynamicObjectTypeBuilder 对 nil 类返回 null
-		// PresetPanel 将其视为缺失数据并创建 BOX1 至 BOX10 默认名称
-		// DynamicObjectTypeBuilder returns null for a nil class
-		// PresetPanel treats that result as absent data and creates BOX1 through BOX10 defaults
-		if len(trailing) != 0 {
-			return &PresetPanelNameSaveData{MessagePackRootMetadata: MessagePackRootMetadata{RootNil: true, TrailingData: trailing}}, nil
 		}
 		return nil, nil
 	}
@@ -73,53 +52,27 @@ func DecodePresetPanelNameSaveData(data []byte) (*PresetPanelNameSaveData, error
 		return nil, err
 	}
 
-	value := &PresetPanelNameSaveData{}
 	if fieldCount != 1 {
-		storedFieldCount := int32(fieldCount)
-		value.FieldCount = &storedFieldCount
+		return nil, fmt.Errorf("unsupported PresetPanelNameSaveData indexed-array width %d, expected 1", fieldCount)
 	}
-	if fieldCount >= 1 {
-		value.BoxNameList, err = r.readNullableStringList("PresetPanelNameSaveData.boxNameList")
-		if err != nil {
-			return nil, err
-		}
-	}
-	for key := int64(1); key < fieldCount; key++ {
-		start := r.pos
-		if err := r.skipValue(0); err != nil {
-			return nil, fmt.Errorf("skip PresetPanelNameSaveData future Key(%d): %w", key, err)
-		}
-		value.FutureSlots = append(value.FutureSlots, append([]byte(nil), r.data[start:r.pos]...))
-	}
-	trailing, err := messagePackRootTrailingAfterParsed(data, r.pos, "PresetPanelNameSaveData")
+	value := &PresetPanelNameSaveData{}
+	value.BoxNameList, err = r.readNullableStringList("PresetPanelNameSaveData.boxNameList")
 	if err != nil {
 		return nil, err
 	}
-	value.TrailingData = trailing
+	if err := r.requireEOF("PresetPanelNameSaveData"); err != nil {
+		return nil, err
+	}
 	return value, nil
 }
 
-// EncodePresetPanelNameSaveData 按 FieldCount 与 FutureSlots 表示的 indexed object 宽度编码面板名称
+// EncodePresetPanelNameSaveData 按固定一槽 indexed object 编码面板名称
 // nil 对象按 C# 类格式化器行为编码为 MessagePack nil，调用者及其切片不会被修改
-// EncodePresetPanelNameSaveData encodes panel names using the indexed object width represented by FieldCount and FutureSlots
+// EncodePresetPanelNameSaveData encodes panel names using the fixed one-slot indexed object
 // A nil object is encoded as MessagePack nil to match the C# class formatter, and neither the caller nor its slice is modified
 func EncodePresetPanelNameSaveData(value *PresetPanelNameSaveData) ([]byte, error) {
 	if value == nil {
 		return []byte{0xc0}, nil
-	}
-	if out, handled, err := encodeNilMessagePackRootIfRequested(
-		value.MessagePackRootMetadata,
-		value.BoxNameList != nil || value.FieldCount != nil || len(value.FutureSlots) != 0,
-		"PresetPanelNameSaveData",
-	); handled {
-		return out, err
-	}
-	fieldCount, err := resolveIndexedFieldCount(value.FieldCount, 1, value.FutureSlots, "PresetPanelNameSaveData")
-	if err != nil {
-		return nil, err
-	}
-	if fieldCount < 1 && value.BoxNameList != nil {
-		return nil, fmt.Errorf("PresetPanelNameSaveData fieldCount %d would discard boxNameList", fieldCount)
 	}
 	if uint64(len(value.BoxNameList)) > math.MaxUint32 {
 		return nil, fmt.Errorf("PresetPanelNameSaveData.boxNameList has %d entries, exceeding the MessagePack array32 limit", len(value.BoxNameList))
@@ -133,40 +86,29 @@ func EncodePresetPanelNameSaveData(value *PresetPanelNameSaveData) ([]byte, erro
 		}
 	}
 
-	out := simpleEditDataAppendArrayHeader(nil, fieldCount)
-	if fieldCount >= 1 {
-		if value.BoxNameList == nil {
-			out = append(out, 0xc0)
-		} else {
-			out = simpleEditDataAppendArrayHeader(out, int64(len(value.BoxNameList)))
-			for _, name := range value.BoxNameList {
-				if name == nil {
-					out = append(out, 0xc0)
-				} else {
-					out = simpleEditDataAppendString(out, *name)
-				}
+	out := simpleEditDataAppendArrayHeader(nil, 1)
+	if value.BoxNameList == nil {
+		out = append(out, 0xc0)
+	} else {
+		out = simpleEditDataAppendArrayHeader(out, int64(len(value.BoxNameList)))
+		for _, name := range value.BoxNameList {
+			if name == nil {
+				out = append(out, 0xc0)
+			} else {
+				out = simpleEditDataAppendString(out, *name)
 			}
 		}
 	}
-	for _, slot := range value.FutureSlots {
-		out = append(out, slot...)
-	}
-	return appendMessagePackRootTrailing(out, value.MessagePackRootMetadata), nil
+	return out, nil
 }
 
-// DecodePaletteColorSaveData 解码一个未压缩且无长度前缀的 PaletteColorSaveData MessagePack 值
-// 短 indexed array 对缺失字段保留 C# 无参构造函数的零值，可空字典及未知或缺失键会原样保留而不应用 SaveDataToLayerFreeColor 行为
-// DecodePaletteColorSaveData decodes one uncompressed and unprefixed PaletteColorSaveData MessagePack value
-// Short indexed arrays retain the C# parameterless constructor zero values for absent fields while nullable dictionaries and unknown or missing keys are preserved without applying SaveDataToLayerFreeColor behavior
+// DecodePaletteColorSaveData 解码一个未压缩且无长度前缀的固定三槽 PaletteColorSaveData MessagePack 值，字典按真实 Int32 键值完整解析且不应用 SaveDataToLayerFreeColor 行为
+// DecodePaletteColorSaveData decodes one uncompressed and unprefixed fixed three-slot PaletteColorSaveData MessagePack value, fully parsing the dictionary as real Int32 keys and values without applying SaveDataToLayerFreeColor behavior
 func DecodePaletteColorSaveData(data []byte) (*PaletteColorSaveData, error) {
 	r := simpleEditDataReader{data: data}
 	if r.tryReadNil() {
-		trailing, err := messagePackRootTrailingAfterParsed(data, r.pos, "PaletteColorSaveData")
-		if err != nil {
+		if err := r.requireEOF("PaletteColorSaveData"); err != nil {
 			return nil, err
-		}
-		if len(trailing) != 0 {
-			return &PaletteColorSaveData{MessagePackRootMetadata: MessagePackRootMetadata{RootNil: true, TrailingData: trailing}}, nil
 		}
 		return nil, nil
 	}
@@ -179,74 +121,37 @@ func DecodePaletteColorSaveData(data []byte) (*PaletteColorSaveData, error) {
 		return nil, err
 	}
 
-	value := &PaletteColorSaveData{}
 	if fieldCount != 3 {
-		storedFieldCount := int32(fieldCount)
-		value.FieldCount = &storedFieldCount
+		return nil, fmt.Errorf("unsupported PaletteColorSaveData indexed-array width %d, expected 3", fieldCount)
 	}
-	if fieldCount >= 1 {
-		colors, err := r.readInt32Map("PaletteColorSaveData.color")
-		if err != nil {
-			return nil, err
-		}
-		value.Color = colors
-	}
-	if fieldCount >= 2 {
-		value.Index, err = r.readInt32("PaletteColorSaveData.index")
-		if err != nil {
-			return nil, err
-		}
-	}
-	if fieldCount >= 3 {
-		value.IsSave, err = r.readInt32("PaletteColorSaveData.isSave")
-		if err != nil {
-			return nil, err
-		}
-	}
-	for key := int64(3); key < fieldCount; key++ {
-		start := r.pos
-		if err := r.skipValue(0); err != nil {
-			return nil, fmt.Errorf("skip PaletteColorSaveData future Key(%d): %w", key, err)
-		}
-		value.FutureSlots = append(value.FutureSlots, append([]byte(nil), r.data[start:r.pos]...))
-	}
-	trailing, err := messagePackRootTrailingAfterParsed(data, r.pos, "PaletteColorSaveData")
+	value := &PaletteColorSaveData{}
+	colors, err := r.readInt32Map("PaletteColorSaveData.color")
 	if err != nil {
 		return nil, err
 	}
-	value.TrailingData = trailing
+	value.Color = colors
+	value.Index, err = r.readInt32("PaletteColorSaveData.index")
+	if err != nil {
+		return nil, err
+	}
+	value.IsSave, err = r.readInt32("PaletteColorSaveData.isSave")
+	if err != nil {
+		return nil, err
+	}
+	if err := r.requireEOF("PaletteColorSaveData"); err != nil {
+		return nil, err
+	}
 	return value, nil
 }
 
-// EncodePaletteColorSaveData 按 FieldCount 与 FutureSlots 表示的 indexed object 宽度编码调色板颜色
+// EncodePaletteColorSaveData 按固定三槽 indexed object 编码调色板颜色
 // 字典键按数值排序以得到确定输出，源映射只读且不会被重排或修改
-// EncodePaletteColorSaveData encodes palette colors using the indexed object width represented by FieldCount and FutureSlots
+// EncodePaletteColorSaveData encodes palette colors using the fixed three-slot indexed object
 // Dictionary keys are sorted numerically for deterministic output while the source map is only read and is never reordered or mutated
 func EncodePaletteColorSaveData(value *PaletteColorSaveData) ([]byte, error) {
 	if value == nil {
 		return []byte{0xc0}, nil
 	}
-	if out, handled, err := encodeNilMessagePackRootIfRequested(
-		value.MessagePackRootMetadata,
-		value.Color != nil || value.Index != 0 || value.IsSave != 0 || value.FieldCount != nil || len(value.FutureSlots) != 0,
-		"PaletteColorSaveData",
-	); handled {
-		return out, err
-	}
-	fieldCount, err := resolveIndexedFieldCount(value.FieldCount, 3, value.FutureSlots, "PaletteColorSaveData")
-	if err != nil {
-		return nil, err
-	}
-	if fieldCount < 1 && value.Color != nil {
-		return nil, fmt.Errorf("PaletteColorSaveData fieldCount %d would discard color", fieldCount)
-	}
-	if fieldCount < 2 && value.Index != 0 {
-		return nil, fmt.Errorf("PaletteColorSaveData fieldCount %d would discard index=%d", fieldCount, value.Index)
-	}
-	if fieldCount < 3 && value.IsSave != 0 {
-		return nil, fmt.Errorf("PaletteColorSaveData fieldCount %d would discard isSave=%d", fieldCount, value.IsSave)
-	}
-
 	if uint64(len(value.Color)) > math.MaxUint32 {
 		return nil, fmt.Errorf("PaletteColorSaveData.color has %d entries, exceeding the MessagePack map32 limit", len(value.Color))
 	}
@@ -257,75 +162,19 @@ func EncodePaletteColorSaveData(value *PaletteColorSaveData) ([]byte, error) {
 	}
 	slices.Sort(keys)
 
-	out := simpleEditDataAppendArrayHeader(nil, fieldCount)
-	if fieldCount >= 1 {
-		if value.Color == nil {
-			out = append(out, 0xc0)
-		} else {
-			out = simpleEditDataAppendMapHeader(out, int64(len(keys)))
-			for _, key := range keys {
-				out = simpleEditDataAppendInt32(out, key)
-				out = simpleEditDataAppendInt32(out, value.Color[key])
-			}
+	out := simpleEditDataAppendArrayHeader(nil, 3)
+	if value.Color == nil {
+		out = append(out, 0xc0)
+	} else {
+		out = simpleEditDataAppendMapHeader(out, int64(len(keys)))
+		for _, key := range keys {
+			out = simpleEditDataAppendInt32(out, key)
+			out = simpleEditDataAppendInt32(out, value.Color[key])
 		}
 	}
-	if fieldCount >= 2 {
-		out = simpleEditDataAppendInt32(out, value.Index)
-	}
-	if fieldCount >= 3 {
-		out = simpleEditDataAppendInt32(out, value.IsSave)
-	}
-	for _, slot := range value.FutureSlots {
-		out = append(out, slot...)
-	}
-	return appendMessagePackRootTrailing(out, value.MessagePackRootMetadata), nil
-}
-
-// resolveIndexedFieldCount 解析 indexed object 宽度并验证 FutureSlots 数量及每个原始值的完整性
-// resolveIndexedFieldCount resolves an indexed object width and validates the FutureSlots count and completeness of every raw value
-func resolveIndexedFieldCount(stored *int32, known int64, futureSlots [][]byte, path string) (int64, error) {
-	if int64(len(futureSlots)) > math.MaxInt32 {
-		return 0, fmt.Errorf("%s futureSlots has %d values, exceeding the C# Int32 array-header limit", path, len(futureSlots))
-	}
-	fieldCount := known + int64(len(futureSlots))
-	if fieldCount < 0 || fieldCount > math.MaxInt32 {
-		return 0, fmt.Errorf("%s field count %d is outside the C# Int32 array-header range", path, fieldCount)
-	}
-	if stored != nil {
-		fieldCount = int64(*stored)
-	}
-	if fieldCount < 0 {
-		return 0, fmt.Errorf("%s fieldCount %d is outside the C# Int32 array-header range", path, fieldCount)
-	}
-	wantFuture := int64(0)
-	if fieldCount > known {
-		wantFuture = fieldCount - known
-	}
-	if int64(len(futureSlots)) != wantFuture {
-		return 0, fmt.Errorf("%s fieldCount %d requires %d futureSlots, got %d", path, fieldCount, wantFuture, len(futureSlots))
-	}
-	for index, slot := range futureSlots {
-		if err := validateRawMessagePackValue(slot, fmt.Sprintf("%s.futureSlots[%d]", path, index)); err != nil {
-			return 0, err
-		}
-	}
-	return fieldCount, nil
-}
-
-// validateRawMessagePackValue 验证字节切片恰好包含一个完整 MessagePack 值
-// validateRawMessagePackValue verifies that a byte slice contains exactly one complete MessagePack value
-func validateRawMessagePackValue(data []byte, path string) error {
-	if len(data) == 0 {
-		return fmt.Errorf("%s is empty; one complete MessagePack value is required", path)
-	}
-	r := simpleEditDataReader{data: data}
-	if err := r.skipValue(0); err != nil {
-		return fmt.Errorf("%s: %w", path, err)
-	}
-	if err := r.requireEOF(path); err != nil {
-		return err
-	}
-	return nil
+	out = simpleEditDataAppendInt32(out, value.Index)
+	out = simpleEditDataAppendInt32(out, value.IsSave)
+	return out, nil
 }
 
 // simpleEditDataReader 提供 system.dat 小型载荷所需的有界 MessagePack 读取操作
@@ -629,155 +478,6 @@ func (r *simpleEditDataReader) readInt32(path string) (int32, error) {
 		return 0, fmt.Errorf("%s=%d is outside the Int32 range [%d,%d]", path, signed, gameInt32Min, gameInt32Max)
 	}
 	return int32(signed), nil
-}
-
-// skipValue 在定位未来 indexed object 字段末尾时镜像 MessagePackReader.Skip
-// 调用者随后保留完整字节范围，其中可包含嵌套数组、映射、二进制和扩展等任意有效 MessagePack 值
-// skipValue mirrors MessagePackReader.Skip while locating the end of a future indexed object field
-// The caller then retains the complete byte range which may contain any valid MessagePack value including nested arrays, maps, binary data, and extensions
-func (r *simpleEditDataReader) skipValue(depth int64) error {
-	if depth >= simpleEditDataMaxDepth {
-		return fmt.Errorf("MessagePack nesting exceeds %d", simpleEditDataMaxDepth)
-	}
-	marker, err := r.readByte("MessagePack value")
-	if err != nil {
-		return err
-	}
-
-	switch {
-	case marker <= 0x7f || marker >= 0xe0:
-		return nil
-	case marker >= 0xa0 && marker <= 0xbf:
-		_, err = r.readBytes(int64(marker&0x1f), "fixstr payload")
-		return err
-	case marker >= 0x90 && marker <= 0x9f:
-		return r.skipValues(int64(marker&0x0f), false, depth)
-	case marker >= 0x80 && marker <= 0x8f:
-		return r.skipValues(int64(marker&0x0f), true, depth)
-	}
-
-	var payloadLength int64
-	switch marker {
-	case 0xc0, 0xc2, 0xc3:
-		return nil
-	case 0xc1:
-		return fmt.Errorf("reserved MessagePack marker 0xc1")
-	case 0xc4, 0xd9:
-		length, readErr := r.readByte("8-bit payload length")
-		if readErr != nil {
-			return readErr
-		}
-		payloadLength = int64(length)
-	case 0xc5, 0xda:
-		length, readErr := r.readBytes(2, "16-bit payload length")
-		if readErr != nil {
-			return readErr
-		}
-		payloadLength = int64(binary.BigEndian.Uint16(length))
-	case 0xc6, 0xdb:
-		length, readErr := r.readBytes(4, "32-bit payload length")
-		if readErr != nil {
-			return readErr
-		}
-		payloadLength = int64(binary.BigEndian.Uint32(length))
-	case 0xc7:
-		length, readErr := r.readByte("ext8 length")
-		if readErr != nil {
-			return readErr
-		}
-		// 扩展载荷前还有一个类型代码字节
-		// One type-code byte precedes the extension payload
-		payloadLength = int64(length) + 1
-	case 0xc8:
-		length, readErr := r.readBytes(2, "ext16 length")
-		if readErr != nil {
-			return readErr
-		}
-		payloadLength = int64(binary.BigEndian.Uint16(length)) + 1
-	case 0xc9:
-		length, readErr := r.readBytes(4, "ext32 length")
-		if readErr != nil {
-			return readErr
-		}
-		extLength := int64(binary.BigEndian.Uint32(length))
-		payloadLength = extLength + 1
-	case 0xca, 0xce, 0xd2:
-		payloadLength = 4
-	case 0xcb, 0xcf, 0xd3:
-		payloadLength = 8
-	case 0xcc, 0xd0:
-		payloadLength = 1
-	case 0xcd, 0xd1:
-		payloadLength = 2
-	case 0xd4:
-		// fixext1 包含一个类型代码字节和一个载荷字节
-		// fixext1 contains one type-code byte and one payload byte
-		payloadLength = 2
-	case 0xd5:
-		payloadLength = 3
-	case 0xd6:
-		payloadLength = 5
-	case 0xd7:
-		payloadLength = 9
-	case 0xd8:
-		payloadLength = 17
-	case 0xdc, 0xdd:
-		var count int64
-		if marker == 0xdc {
-			length, readErr := r.readBytes(2, "array16 length")
-			if readErr != nil {
-				return readErr
-			}
-			count = int64(binary.BigEndian.Uint16(length))
-		} else {
-			length, readErr := r.readBytes(4, "array32 length")
-			if readErr != nil {
-				return readErr
-			}
-			count = int64(binary.BigEndian.Uint32(length))
-		}
-		return r.skipValues(count, false, depth)
-	case 0xde, 0xdf:
-		var count int64
-		if marker == 0xde {
-			length, readErr := r.readBytes(2, "map16 length")
-			if readErr != nil {
-				return readErr
-			}
-			count = int64(binary.BigEndian.Uint16(length))
-		} else {
-			length, readErr := r.readBytes(4, "map32 length")
-			if readErr != nil {
-				return readErr
-			}
-			count = int64(binary.BigEndian.Uint32(length))
-		}
-		return r.skipValues(count, true, depth)
-	default:
-		return fmt.Errorf("unsupported MessagePack marker 0x%02x", marker)
-	}
-	_, err = r.readBytes(payloadLength, "MessagePack payload")
-	return err
-}
-
-// skipValues 跳过数组元素或映射键值，并在递归前按剩余字节限制数量
-// skipValues skips array elements or map keys and values while bounding their count by remaining bytes before recursion
-func (r *simpleEditDataReader) skipValues(count int64, isMap bool, depth int64) error {
-	values := count
-	if isMap {
-		if count > r.remaining()/2 {
-			return fmt.Errorf("MessagePack map count %d exceeds %d remaining bytes", count, r.remaining())
-		}
-		values *= 2
-	} else if count > r.remaining() {
-		return fmt.Errorf("MessagePack array count %d exceeds %d remaining bytes", count, r.remaining())
-	}
-	for i := int64(0); i < values; i++ {
-		if err := r.skipValue(depth + 1); err != nil {
-			return fmt.Errorf("element %d: %w", i, err)
-		}
-	}
-	return nil
 }
 
 // simpleEditDataAppendArrayHeader 以可表示长度的最短 MessagePack 数组头追加元素数量

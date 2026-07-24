@@ -11,8 +11,8 @@ import (
 	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
 )
 
-// PresetService handles the VirtualDirectory-based preset format introduced
-// by KCES. Legacy CM3D2_PRESET files continue to use service/COM3D2.
+// PresetService 处理 KCES 引入的 VirtualDirectory 预设格式，旧 CM3D2_PRESET 继续由 service/COM3D2 处理
+// PresetService handles the VirtualDirectory-based preset format introduced by KCES while legacy CM3D2_PRESET files remain in service/COM3D2
 type PresetService struct{}
 
 // IsKCESPresetFile distinguishes current KCES presets by their wire signature
@@ -54,12 +54,14 @@ func IsKCESPresetJSONFile(path string) bool {
 	return header.Format == serializationKCES.KCESPresetFormat
 }
 
-func (s *PresetService) ReadPresetFile(path string) (*serializationKCES.KCESPreset, error) {
+// ReadPresetFile 读取并完整展开 KCES 预设中的三个已知内部块
+// ReadPresetFile reads a KCES preset and fully expands its three known inner blocks
+func (s *PresetService) ReadPresetFile(path string) (*serializationKCES.ExpandedKCESPreset, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read KCES preset %q: %w", path, err)
 	}
-	preset, err := serializationKCES.DecodeKCESPreset(data)
+	preset, err := serializationKCES.DecodeExpandedKCESPreset(data)
 	if err != nil {
 		return nil, fmt.Errorf("parse KCES preset %q: %w", path, err)
 	}
@@ -71,7 +73,7 @@ func (s *PresetService) ConvertPresetToJson(ctx context.Context, inputPath strin
 	if err != nil {
 		return fmt.Errorf("read KCES preset %q: %w", inputPath, err)
 	}
-	preset, err := serializationKCES.DecodeKCESPreset(data)
+	preset, err := serializationKCES.DecodeExpandedKCESPreset(data)
 	if err != nil {
 		return fmt.Errorf("parse KCES preset %q: %w", inputPath, err)
 	}
@@ -94,14 +96,14 @@ func (s *PresetService) ConvertJsonToPreset(ctx context.Context, inputPath strin
 	if err != nil {
 		return fmt.Errorf("read %q: %w", inputPath, err)
 	}
-	var preset serializationKCES.KCESPreset
+	var preset serializationKCES.ExpandedKCESPreset
 	if err := decodeStrictJSON(data, &preset, "KCES preset JSON"); err != nil {
 		return fmt.Errorf("parse KCES preset JSON: %w", err)
 	}
 	if preset.Format != serializationKCES.KCESPresetFormat {
 		return fmt.Errorf("unsupported KCES preset JSON format %q", preset.Format)
 	}
-	encoded, err := serializationKCES.EncodeKCESPreset(&preset)
+	encoded, err := serializationKCES.EncodeExpandedKCESPreset(&preset)
 	if err != nil {
 		return err
 	}

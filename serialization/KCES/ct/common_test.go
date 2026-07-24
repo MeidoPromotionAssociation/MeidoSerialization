@@ -2,7 +2,6 @@ package ct
 
 import (
 	"bytes"
-	"encoding/binary"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -112,37 +111,11 @@ func TestDecodeMsgpackBoundsHostileCollectionsAndDepth(t *testing.T) {
 	})
 }
 
-func TestDecodeMsgpackWithConsumedLeavesTopLevelTrailingBytes(t *testing.T) {
+func TestDecodeMsgpackRejectsTopLevelTrailingBytes(t *testing.T) {
 	data := []byte{0x92, 0x01, 0x02, 0xde, 0xad, 0xbe, 0xef}
 	var out []int32
-	consumed, err := DecodeMsgpackWithConsumed(data, &out)
-	if err != nil {
-		t.Fatalf("DecodeMsgpackWithConsumed: %v", err)
-	}
-	if consumed != 3 {
-		t.Fatalf("consumed got %d, want 3", consumed)
-	}
-	if !bytes.Equal(data[consumed:], []byte{0xde, 0xad, 0xbe, 0xef}) {
-		t.Fatalf("trailing bytes changed: % x", data[consumed:])
-	}
-	if len(out) != 2 || out[0] != 1 || out[1] != 2 {
-		t.Fatalf("decoded value got %#v", out)
-	}
-}
-
-func TestSplitFirstMsgpackValuePreservesRawRootWithoutInterpretation(t *testing.T) {
-	// array(2): a map with duplicate string keys and an extension value. A Go
-	// map decode would collapse the duplicate; splitting through codec.Raw must
-	// leave every marker and byte untouched.
-	root := []byte{0x92, 0x82, 0xa1, 'k', 0x01, 0xa1, 'k', 0x02, 0xd4, 0x7f, 0xaa}
-	tail := []byte{0xc1, 0xff, 0x00}
-	data := append(append([]byte(nil), root...), tail...)
-	gotRoot, gotTail, err := SplitFirstMsgpackValue(data)
-	if err != nil {
-		t.Fatalf("SplitFirstMsgpackValue: %v", err)
-	}
-	if !bytes.Equal(gotRoot, root) || !bytes.Equal(gotTail, tail) {
-		t.Fatalf("split changed bytes: root=% x tail=% x", gotRoot, gotTail)
+	if err := DecodeMsgpack(data, &out); err == nil || !strings.Contains(err.Error(), "trailing") {
+		t.Fatalf("DecodeMsgpack trailing-data error = %v", err)
 	}
 }
 
@@ -218,18 +191,6 @@ func TestCompressLz4BlockArray_IncompressibleBlock(t *testing.T) {
 	}
 }
 
-func TestDecompressLz4BlockArray_LegacyGoLayout(t *testing.T) {
-	data := bytes.Repeat([]byte("legacy-go-layout"), 6000)
-	encoded := encodeLegacyGoLz4BlockArray(t, data)
-	decoded, err := DecompressLz4BlockArray(encoded)
-	if err != nil {
-		t.Fatalf("DecompressLz4BlockArray legacy layout: %v", err)
-	}
-	if !bytes.Equal(decoded, data) {
-		t.Fatalf("legacy layout decoded data differs")
-	}
-}
-
 func TestDecompressLz4Block(t *testing.T) {
 	data := bytes.Repeat([]byte("single-Lz4Block"), 50)
 	compressed, err := compressLz4Block(data)
@@ -255,7 +216,6 @@ func TestDecompressLz4BlockArray_TruncationNeverPanics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	legacy := encodeLegacyGoLz4BlockArray(t, data)
 	compressed, err := compressLz4Block(data)
 	if err != nil {
 		t.Fatal(err)
@@ -265,7 +225,6 @@ func TestDecompressLz4BlockArray_TruncationNeverPanics(t *testing.T) {
 
 	for name, encoded := range map[string][]byte{
 		"standard": standard,
-		"legacy":   legacy,
 		"single":   single,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -283,12 +242,6 @@ func TestDecompressLz4BlockArray_RejectsOversizedAllocations(t *testing.T) {
 	standard = WriteExt(standard, Lz4ArrayType, hugeSizePayload)
 	standard = writeBin32(standard, nil)
 
-	legacySize := make([]byte, 4)
-	binary.BigEndian.PutUint32(legacySize, hugeSize)
-	legacy := WriteArrayHeader(nil, 2)
-	legacy = WriteExt(legacy, legacyLz4ArrayType, legacySize)
-	legacy = WriteExt(legacy, legacyLz4BlockType, nil)
-
 	singlePayload := appendMsgpackUint(nil, hugeSize)
 	single := WriteExt(nil, Lz4BlockType, singlePayload)
 
@@ -296,7 +249,6 @@ func TestDecompressLz4BlockArray_RejectsOversizedAllocations(t *testing.T) {
 
 	for name, encoded := range map[string][]byte{
 		"standard-size": standard,
-		"legacy-size":   legacy,
 		"single-size":   single,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -348,28 +300,4 @@ func assertDecompressDoesNotPanic(t *testing.T, data []byte, cut int) {
 		}
 	}()
 	_, _ = DecompressLz4BlockArray(data)
-}
-
-func encodeLegacyGoLz4BlockArray(t *testing.T, data []byte) []byte {
-	t.Helper()
-	numBlocks := (int64(len(data)) + int64(blockSize) - 1) / int64(blockSize)
-	out := WriteArrayHeader(nil, numBlocks+1)
-	sizePayload := make([]byte, 4)
-	binary.BigEndian.PutUint32(sizePayload, uint32(len(data)))
-	out = WriteExt(out, legacyLz4ArrayType, sizePayload)
-	for offset := 0; offset < len(data); offset += blockSize {
-		end := min(offset+blockSize, len(data))
-		block := data[offset:end]
-		dst := make([]byte, lz4.CompressBlockBound(len(block)))
-		n, err := lz4.CompressBlock(block, dst, nil)
-		if err != nil {
-			t.Fatalf("legacy block compression: %v", err)
-		}
-		if n == 0 || n >= len(block) {
-			out = WriteExt(out, legacyLz4BlockType, block)
-		} else {
-			out = WriteExt(out, legacyLz4BlockType, dst[:n])
-		}
-	}
-	return out
 }

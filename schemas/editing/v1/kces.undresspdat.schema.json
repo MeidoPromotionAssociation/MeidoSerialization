@@ -20,7 +20,7 @@
           "kind": "game_source",
           "line_end": 156,
           "line_start": 143,
-          "observation": "The game resource layer obtains catalogued binary content from TextAsset.bytes and otherwise falls back to native-file bytes. No resource-specific undress JSON consumer is established here, so this repository only validates and preserves the JSON text.",
+          "observation": "The game resource layer obtains the resource bytes from the selected file source. No resource-specific undress JSON consumer is established here, so this repository validates one complete JSON value and exposes its semantic content.",
           "path": "game/KCES 1.34.4/WfSystem.FileSystem/GameResource.cs",
           "symbol": "GameResource.LoadBinary"
         }
@@ -40,21 +40,11 @@
           "kind": "game_source",
           "line_end": 156,
           "line_start": 143,
-          "observation": "The game resource layer obtains catalogued binary content from TextAsset.bytes and otherwise falls back to native-file bytes. No resource-specific undress JSON consumer is established here, so this repository only validates and preserves the JSON text.",
+          "observation": "The game resource layer obtains the resource bytes from the selected file source. No resource-specific undress JSON consumer is established here, so this repository validates one complete JSON value and exposes its semantic content.",
           "path": "game/KCES 1.34.4/WfSystem.FileSystem/GameResource.cs",
           "symbol": "GameResource.LoadBinary"
         }
       ]
-    },
-    "text": {
-      "description": "The original text retained for lossless output when JSON is unchanged.",
-      "title": "Original JSON text",
-      "type": "string",
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve unchanged text or regenerate valid UTF-8 JSON after editing.",
-      "x-meido-edit-role": "serialization_cache",
-      "x-meido-game-usage": "The game reads a TextAsset, so the text representation is the native payload.",
-      "x-meido-risk": "high"
     }
   },
   "required": [

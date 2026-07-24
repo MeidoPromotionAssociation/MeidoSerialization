@@ -14,7 +14,6 @@ func TestPublicWireTypesRemainInKCESPackage(t *testing.T) {
 		name  string
 		value interface{}
 	}{
-		{name: "RawMessagePackSlot", value: RawMessagePackSlot{}},
 		{name: "Vector3", value: Vector3{}},
 		{name: "PartsColor", value: PartsColor{}},
 		{name: "PreMulTexDatas", value: PreMulTexDatas{}},
@@ -32,19 +31,19 @@ func TestPublicWireTypesRemainInKCESPackage(t *testing.T) {
 
 func TestPriorityMaterial_RoundTrip(t *testing.T) {
 	original := &PriorityMaterialAssets{
-		FileName: "test.pmatassets",
-		Assets: []PriorityMaterial{
+		FileName: partsTestString("test.pmatassets"),
+		Assets: []*PriorityMaterial{
 			{
 				Version:     1000,
 				ID:          12345,
-				FileName:    "test_mat.pmat",
+				FileName:    partsTestString("test_mat.pmat"),
 				RenderQueue: 3000.5,
 				TargetID:    67890,
 			},
 			{
 				Version:     1000,
 				ID:          11111,
-				FileName:    "another.pmat",
+				FileName:    partsTestString("another.pmat"),
 				RenderQueue: 2000.0,
 				TargetID:    22222,
 			},
@@ -61,8 +60,8 @@ func TestPriorityMaterial_RoundTrip(t *testing.T) {
 		t.Fatalf("decode failed: %v", err)
 	}
 
-	if decoded.FileName != original.FileName {
-		t.Errorf("fileName mismatch: got %q, want %q", decoded.FileName, original.FileName)
+	if !partsTestStringsEqual(decoded.FileName, original.FileName) {
+		t.Errorf("fileName mismatch: got %v, want %v", decoded.FileName, original.FileName)
 	}
 	if len(decoded.Assets) != len(original.Assets) {
 		t.Fatalf("assets count mismatch: got %d, want %d", len(decoded.Assets), len(original.Assets))
@@ -76,8 +75,8 @@ func TestPriorityMaterial_RoundTrip(t *testing.T) {
 		if got.ID != orig.ID {
 			t.Errorf("[%d] id: got %d, want %d", i, got.ID, orig.ID)
 		}
-		if got.FileName != orig.FileName {
-			t.Errorf("[%d] fileName: got %q, want %q", i, got.FileName, orig.FileName)
+		if !partsTestStringsEqual(got.FileName, orig.FileName) {
+			t.Errorf("[%d] fileName: got %v, want %v", i, got.FileName, orig.FileName)
 		}
 		if got.RenderQueue != orig.RenderQueue {
 			t.Errorf("[%d] renderQueue: got %f, want %f", i, got.RenderQueue, orig.RenderQueue)
@@ -96,9 +95,9 @@ func TestDecodeMaterialAssets_FromAba(t *testing.T) {
 		t.Fatalf("DecodeMaterialAssets failed: %v", err)
 	}
 
-	t.Logf("MaterialAssets: fileName=%q, assets=%d", assets.FileName, len(assets.Assets))
+	t.Logf("MaterialAssets: fileName=%v, assets=%d", assets.FileName, len(assets.Assets))
 	for i, mat := range assets.Assets {
-		t.Logf("  [%d] version=%d id=%d fileName=%q shader=%q",
+		t.Logf("  [%d] version=%d id=%d fileName=%v shader=%v",
 			i, mat.Version, mat.ID, mat.FileName, mat.ShaderName)
 		t.Logf("      texProps=%d colorProps=%d floatProps=%d",
 			len(mat.TextureProps), len(mat.ColorProps), len(mat.FloatProps))
@@ -115,7 +114,7 @@ func TestDecodeMaterialAssets_FromAba(t *testing.T) {
 		t.Fatalf("re-decode failed: %v", err)
 	}
 
-	if decoded.FileName != assets.FileName {
+	if !partsTestStringsEqual(decoded.FileName, assets.FileName) {
 		t.Errorf("fileName mismatch after round-trip")
 	}
 	if len(decoded.Assets) != len(assets.Assets) {
@@ -131,9 +130,9 @@ func TestDecodeMenuAssets_FromAba(t *testing.T) {
 		t.Fatalf("DecodeMenuAssets failed: %v", err)
 	}
 
-	t.Logf("MenuAssets: fileName=%q, assets=%d", assets.FileName, len(assets.Assets))
+	t.Logf("MenuAssets: fileName=%v, assets=%d", assets.FileName, len(assets.Assets))
 	for i, menu := range assets.Assets {
-		t.Logf("  [%d] version=%d id=%d fileName=%q itemName=%q category=%q commands=%d",
+		t.Logf("  [%d] version=%d id=%d fileName=%v itemName=%v category=%v commands=%d",
 			i, menu.Version, menu.ID, menu.FileName, menu.ItemName, menu.CategoryText, len(menu.Commands))
 	}
 
@@ -148,7 +147,7 @@ func TestDecodeMenuAssets_FromAba(t *testing.T) {
 		t.Fatalf("re-decode failed: %v", err)
 	}
 
-	if decoded.FileName != assets.FileName {
+	if !partsTestStringsEqual(decoded.FileName, assets.FileName) {
 		t.Errorf("fileName mismatch after round-trip")
 	}
 	if len(decoded.Assets) != len(assets.Assets) {
@@ -175,7 +174,7 @@ func TestDecodeMenuAssets_ByteEqual(t *testing.T) {
 		t.Fatalf("re-decode failed: %v", err)
 	}
 
-	if decoded2.FileName != assets.FileName {
+	if !partsTestStringsEqual(decoded2.FileName, assets.FileName) {
 		t.Errorf("fileName mismatch")
 	}
 	if len(decoded2.Assets) != len(assets.Assets) {
@@ -186,11 +185,11 @@ func TestDecodeMenuAssets_ByteEqual(t *testing.T) {
 		if got.ID != orig.ID {
 			t.Errorf("[%d] id mismatch: got %d, want %d", i, got.ID, orig.ID)
 		}
-		if got.FileName != orig.FileName {
-			t.Errorf("[%d] fileName mismatch: got %q, want %q", i, got.FileName, orig.FileName)
+		if !partsTestStringsEqual(got.FileName, orig.FileName) {
+			t.Errorf("[%d] fileName mismatch: got %v, want %v", i, got.FileName, orig.FileName)
 		}
-		if got.CategoryText != orig.CategoryText {
-			t.Errorf("[%d] categoryText mismatch: got %q, want %q", i, got.CategoryText, orig.CategoryText)
+		if !partsTestStringsEqual(got.CategoryText, orig.CategoryText) {
+			t.Errorf("[%d] categoryText mismatch: got %v, want %v", i, got.CategoryText, orig.CategoryText)
 		}
 		if len(got.Commands) != len(orig.Commands) {
 			t.Errorf("[%d] commands count mismatch: got %d, want %d", i, len(got.Commands), len(orig.Commands))
@@ -224,7 +223,7 @@ func TestDecodeModel_FromAba(t *testing.T) {
 			if model.ID == 0 {
 				t.Errorf("id is zero")
 			}
-			if model.FileName == "" {
+			if model.FileName == nil || *model.FileName == "" {
 				t.Errorf("fileName is empty")
 			}
 			if len(model.TransData) == 0 {
@@ -245,8 +244,8 @@ func TestDecodeModel_FromAba(t *testing.T) {
 			if err != nil {
 				t.Fatalf("re-decode failed: %v", err)
 			}
-			if decoded.FileName != model.FileName {
-				t.Errorf("fileName mismatch after round-trip: got %q, want %q", decoded.FileName, model.FileName)
+			if !partsTestStringsEqual(decoded.FileName, model.FileName) {
+				t.Errorf("fileName mismatch after round-trip: got %v, want %v", decoded.FileName, model.FileName)
 			}
 			if len(decoded.TransData) != len(model.TransData) {
 				t.Errorf("transData count mismatch after round-trip: got %d, want %d", len(decoded.TransData), len(model.TransData))
@@ -258,10 +257,10 @@ func TestDecodeModel_FromAba(t *testing.T) {
 	}
 }
 
-func TestPartsColorGradaBytes_JSONRoundTrip(t *testing.T) {
+func TestPartsColorTypedGradaJSONRoundTrip(t *testing.T) {
 	original := PartsColor{
-		MainHue:    1,
-		GradaBytes: GradaBytes{Value: []byte{1, 2, 3, 4}},
+		MainHue: 1,
+		Grada:   []PartsColorGrada{{MainHue: 2, ShadowContrast: 3}},
 	}
 
 	jsonData, err := json.Marshal(original)
@@ -273,8 +272,8 @@ func TestPartsColorGradaBytes_JSONRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(jsonData, &decoded); err != nil {
 		t.Fatalf("json unmarshal failed: %v", err)
 	}
-	if !reflect.DeepEqual(decoded.GradaBytes.Value, []byte{1, 2, 3, 4}) {
-		t.Fatalf("grada bytes mismatch after JSON round-trip: %#v", decoded.GradaBytes.Value)
+	if !reflect.DeepEqual(decoded, original) {
+		t.Fatalf("typed grada mismatch after JSON round-trip: %#v", decoded.Grada)
 	}
 
 	encoded, err := encodeCompressedMsgpack(original, "PartsColor")
@@ -285,12 +284,16 @@ func TestPartsColorGradaBytes_JSONRoundTrip(t *testing.T) {
 	if err := decodeCompressedMsgpack(encoded, &msgpackDecoded, "PartsColor"); err != nil {
 		t.Fatalf("msgpack decode failed: %v", err)
 	}
-	if !reflect.DeepEqual(msgpackDecoded.GradaBytes.Value, []byte{1, 2, 3, 4}) {
-		t.Fatalf("grada bytes mismatch after msgpack round-trip: %#v", msgpackDecoded.GradaBytes.Value)
+	if !reflect.DeepEqual(msgpackDecoded, original) {
+		t.Fatalf("typed grada mismatch after msgpack round-trip: %#v", msgpackDecoded.Grada)
 	}
+}
 
-	original.GradaBytes.Value = false
-	if _, err = encodeCompressedMsgpack(original, "PartsColor"); err == nil {
-		t.Fatal("msgpack encoder accepted bool for the game's byte[] m_gradaBytes field")
+func partsTestString(value string) *string { return &value }
+
+func partsTestStringsEqual(left, right *string) bool {
+	if left == nil || right == nil {
+		return left == right
 	}
+	return *left == *right
 }

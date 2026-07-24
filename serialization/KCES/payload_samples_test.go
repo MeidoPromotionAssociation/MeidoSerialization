@@ -1,13 +1,18 @@
 package KCES
 
 import (
-	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
+
+var payloadSamplesWithUnsupportedSparseMaidPropSlots = map[string]struct{}{
+	"default_accmimi_col.dbcol": {},
+	"default_yure_col.dbcol":    {},
+}
 
 func TestDecodeKCESPayload_FromTestdataSamples(t *testing.T) {
 	pathsByExt := groupPayloadSamplesByExt(t)
@@ -18,10 +23,26 @@ func TestDecodeKCESPayload_FromTestdataSamples(t *testing.T) {
 			for _, path := range paths {
 				path := path
 				t.Run(filepath.Base(path), func(t *testing.T) {
+					if _, unsupported := payloadSamplesWithUnsupportedSparseMaidPropSlots[filepath.Base(path)]; unsupported {
+						assertPayloadSampleRejectsSparseMaidPropSlots(t, path)
+						return
+					}
 					assertPayloadSampleRoundTripDeepEqual(t, path)
 				})
 			}
 		})
+	}
+}
+
+func assertPayloadSampleRejectsSparseMaidPropSlots(t *testing.T, path string) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read payload sample %s: %v", path, err)
+	}
+	_, err = DecodeKCESPayload(data, filepath.Base(path))
+	if err == nil || !strings.Contains(err.Error(), "sparse slot 13 must be nil") {
+		t.Fatalf("DecodeKCESPayload() error = %v, want non-nil undeclared MaidProp slot rejection", err)
 	}
 }
 
@@ -89,25 +110,17 @@ func assertPayloadEnvelopeStrict(t *testing.T, env *KCESPayloadEnvelope, name st
 	if env.Kind != wantKind {
 		t.Fatalf("kind got %q, want %q", env.Kind, wantKind)
 	}
-	if !env.LengthPrefixed {
-		t.Fatalf("expected %s to be length-prefixed", name)
-	}
-
 	switch wantKind {
 	case PayloadKindDynamicBoneStatus:
 		if env.DynamicBone == nil || env.DynamicBone.Version == 0 {
 			t.Fatalf("missing dynamicBoneStatus: %+v", env)
 		}
 	case PayloadKindJSONString:
-		if env.Text == "" || len(env.JSON) == 0 {
+		if len(env.JSON) == 0 {
 			t.Fatalf("missing JSON string payload: %+v", env)
 		}
-		var compact bytes.Buffer
-		if err := json.Compact(&compact, []byte(env.Text)); err != nil {
-			t.Fatalf("text field is not valid JSON: %v", err)
-		}
-		if !bytes.Equal(env.JSON, compact.Bytes()) {
-			t.Fatalf("JSON string fields are not consistent: text=%q json=%s", env.Text, env.JSON)
+		if !json.Valid(env.JSON) {
+			t.Fatalf("JSON string field is invalid: %s", env.JSON)
 		}
 	case PayloadKindColliderPackage:
 		if env.ColliderPackage == nil || env.ColliderPackage.Version == 0 || len(env.ColliderPackage.Colliders) == 0 {
@@ -126,10 +139,6 @@ func assertPayloadEnvelopeStrict(t *testing.T, env *KCESPayloadEnvelope, name st
 	case PayloadKindClothParams:
 		if env.ClothParams == nil {
 			t.Fatalf("missing clothParams: %+v", env)
-		}
-	case PayloadKindRawMsgpack:
-		if env.MsgpackBase64 == "" {
-			t.Fatalf("missing raw msgpack payload")
 		}
 	default:
 		t.Fatalf("unsupported payload kind %q", wantKind)
@@ -168,20 +177,21 @@ func assertLimbColliderSampleFields(t *testing.T, name string, pkg *LimbCollider
 	if len(pkg.Items) != 8 {
 		t.Fatalf("%s item count got %d, want 8", name, len(pkg.Items))
 	}
-	first, ok := pkg.Items[0].Collider.(*ColliderMaidProp)
-	if !ok {
-		t.Fatalf("%s first collider got %T, want MaidProp", name, pkg.Items[0].Collider)
+	first := pkg.Items[0].Collider
+	if first == nil {
+		t.Fatalf("%s first collider is nil", name)
 	}
-	if pkg.Items[0].Target != 0 || first.ParentName != "Bip01 L UpperArm" || first.SelfName != "UpperArm_L LimbCollider" {
+	if pkg.Items[0].Target != 0 || first.ParentName == nil || *first.ParentName != "Bip01 L UpperArm" ||
+		first.SelfName == nil || *first.SelfName != "UpperArm_L LimbCollider" {
 		t.Fatalf("%s first item mismatch: target=%d collider=%+v", name, pkg.Items[0].Target, first.ColliderObject)
 	}
 	for _, item := range pkg.Items {
 		if item.Target != 4 {
 			continue
 		}
-		maidProp, ok := item.Collider.(*ColliderMaidProp)
-		if !ok {
-			t.Fatalf("%s target 4 collider got %T, want MaidProp", name, item.Collider)
+		maidProp := item.Collider
+		if maidProp == nil {
+			t.Fatalf("%s target 4 collider is nil", name)
 		}
 		assertIntSliceEqual(t, name+" target4 centerMpnList", maidProp.CenterMpnList, []int32{})
 		assertIntSliceEqual(t, name+" target4 startRadiusMpnList", maidProp.StartRadiusMpnList, []int32{40, 41})

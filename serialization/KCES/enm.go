@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"unicode/utf8"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/strictjson"
 )
 
 // .enm (export_map.enm)
@@ -29,14 +30,12 @@ const (
 	KCESExportNameMapVersion int32 = 1000
 )
 
-// KCESExportNameMap 是 export_map.enm 的稳定编辑表示，保留条目顺序、拼写、大小写以及 nil 与空列表的区别
-// KCESExportNameMap is the stable editing representation of export_map.enm, preserving entry order, spelling, case, and the distinction between nil and empty lists
+// KCESExportNameMap 是 export_map.enm 的稳定强类型编辑表示
+// KCESExportNameMap is the stable typed editing representation of export_map.enm
 type KCESExportNameMap struct {
-	Format            string                   `json:"format"`                      // JSON 表示格式标识 / JSON representation format identifier
-	Version           int32                    `json:"version"`                     // ExportFileNameMap 对象版本 / ExportFileNameMap object version
-	Entries           []KCESExportNameMapEntry `json:"entries"`                     // 按原生字典序列化顺序保存的映射条目 / Mapping entries in native dictionary serialization order
-	NativeText        string                   `json:"nativeText,omitempty"`        // 解码时捕获的原生 JsonUtility 文本 / Native JsonUtility text captured during decoding
-	NativeDecodeError string                   `json:"nativeDecodeError,omitempty"` // 有效外层 JSON 中无法解释为游戏结构的原因 / Reason valid outer JSON could not be interpreted as the game structure
+	Format  string                   `json:"format"`  // JSON 表示格式标识 / JSON representation format identifier
+	Version int32                    `json:"version"` // ExportFileNameMap 对象版本 / ExportFileNameMap object version
+	Entries []KCESExportNameMapEntry `json:"entries"` // 按原生字典序列化顺序保存的映射条目 / Mapping entries in native dictionary serialization order
 }
 
 // KCESExportNameMapEntry 将原始内部资源名映射到实际写在 export_map.enm 旁的短文件名
@@ -63,11 +62,21 @@ type kcesExportNameMapDictionaryOutput struct {
 // kcesExportNameMapEditing 表示严格解析可编辑 JSON 时使用的可空字段
 // kcesExportNameMapEditing represents nullable fields used while strictly parsing editable JSON
 type kcesExportNameMapEditing struct {
-	Format            *string                           `json:"format"`            // 可空格式标识 / Nullable format identifier
-	Version           *int32                            `json:"version"`           // 可空对象版本 / Nullable object version
-	Entries           *[]*kcesExportNameMapEditingEntry `json:"entries"`           // 可空条目列表与条目 / Nullable entry list and entries
-	NativeText        *string                           `json:"nativeText"`        // 可空原生文本 / Nullable native text
-	NativeDecodeError *string                           `json:"nativeDecodeError"` // 可空原生解码错误 / Nullable native decode error
+	Format  *string                           `json:"format"`  // 可空格式标识 / Nullable format identifier
+	Version *int32                            `json:"version"` // 可空对象版本 / Nullable object version
+	Entries *[]*kcesExportNameMapEditingEntry `json:"entries"` // 可空条目列表与条目 / Nullable entry list and entries
+}
+
+// kcesExportNameMapNativeInput 表示严格解码时可检测缺失和 null 的原生外层对象 / kcesExportNameMapNativeInput represents the native outer object with missing and null fields detectable during strict decoding
+type kcesExportNameMapNativeInput struct {
+	Version       *int32  `json:"version"`       // 对象版本 / Object version
+	SerializeData *string `json:"serializeData"` // 作为字符串嵌套的字典 JSON / Dictionary JSON nested as a string
+}
+
+// kcesExportNameMapDictionaryInput 表示严格解码时可检测缺失、null 项和数组不匹配的内部字典 / kcesExportNameMapDictionaryInput represents the inner dictionary with missing fields, null entries, and mismatched arrays detectable during strict decoding
+type kcesExportNameMapDictionaryInput struct {
+	Keys   *[]*string `json:"keys"`   // 可空内部资源名数组 / Nullable internal resource-name array
+	Values *[]*string `json:"values"` // 可空导出文件名数组 / Nullable exported filename array
 }
 
 // kcesExportNameMapEditingEntry 表示严格解析时字段可空的一个编辑条目
@@ -88,86 +97,46 @@ func DecodeKCESExportNameMap(data []byte) (*KCESExportNameMap, error) {
 		return nil, fmt.Errorf("native export name map is not valid UTF-8")
 	}
 	jsonData := bytes.TrimPrefix(data, []byte{0xef, 0xbb, 0xbf})
-	if !json.Valid(jsonData) {
-		return nil, fmt.Errorf("native export name map JSON is invalid")
+	var outer kcesExportNameMapNativeInput
+	if err := decodeKCESExportNameMapJSONValue(jsonData, &outer, "native export name map", false); err != nil {
+		return nil, err
+	}
+	if outer.Version == nil {
+		return nil, fmt.Errorf("native export name map version is missing or null")
+	}
+	if *outer.Version != KCESExportNameMapVersion {
+		return nil, fmt.Errorf("unsupported native export name map version %d", *outer.Version)
+	}
+	if outer.SerializeData == nil {
+		return nil, fmt.Errorf("native export name map serializeData is missing or null")
+	}
+	if !utf8.ValidString(*outer.SerializeData) {
+		return nil, fmt.Errorf("export name map dictionary JSON is not valid UTF-8")
 	}
 
-	result := &KCESExportNameMap{
-		Format:     KCESExportNameMapFormat,
-		NativeText: string(data),
+	var dictionary kcesExportNameMapDictionaryInput
+	if err := decodeKCESExportNameMapJSONValue([]byte(*outer.SerializeData), &dictionary, "export name map dictionary JSON", false); err != nil {
+		return nil, err
 	}
-	setDecodeError := func(format string, args ...interface{}) {
-		if result.NativeDecodeError == "" {
-			result.NativeDecodeError = fmt.Sprintf(format, args...)
-		}
+	if dictionary.Keys == nil {
+		return nil, fmt.Errorf("export name map dictionary keys are missing or null")
 	}
-
-	var outer map[string]json.RawMessage
-	if err := json.Unmarshal(jsonData, &outer); err != nil || outer == nil {
-		setDecodeError("native export name map root is not an object")
-		return result, nil
+	if dictionary.Values == nil {
+		return nil, fmt.Errorf("export name map dictionary values are missing or null")
 	}
-	versionRaw, hasVersion := outer["version"]
-	if !hasVersion || bytes.Equal(bytes.TrimSpace(versionRaw), []byte("null")) {
-		setDecodeError("native export name map version is missing or null")
-	} else if err := json.Unmarshal(versionRaw, &result.Version); err != nil {
-		setDecodeError("native export name map version is not an Int32: %v", err)
-	}
-
-	serializeRaw, hasSerializeData := outer["serializeData"]
-	if !hasSerializeData || bytes.Equal(bytes.TrimSpace(serializeRaw), []byte("null")) {
-		setDecodeError("native export name map serializeData is missing or null")
-		return result, nil
-	}
-	var serializeData string
-	if err := json.Unmarshal(serializeRaw, &serializeData); err != nil {
-		setDecodeError("native export name map serializeData is not a string: %v", err)
-		return result, nil
-	}
-	if !utf8.ValidString(serializeData) || !json.Valid([]byte(serializeData)) {
-		setDecodeError("export name map dictionary JSON is invalid")
-		return result, nil
-	}
-
-	var dictionary map[string]json.RawMessage
-	if err := json.Unmarshal([]byte(serializeData), &dictionary); err != nil || dictionary == nil {
-		setDecodeError("export name map dictionary root is not an object")
-		return result, nil
-	}
-	keysRaw, hasKeys := dictionary["keys"]
-	if !hasKeys || bytes.Equal(bytes.TrimSpace(keysRaw), []byte("null")) {
-		setDecodeError("export name map dictionary keys are missing or null")
-		return result, nil
-	}
-	valuesRaw, hasValues := dictionary["values"]
-	if !hasValues || bytes.Equal(bytes.TrimSpace(valuesRaw), []byte("null")) {
-		setDecodeError("export name map dictionary values are missing or null")
-		return result, nil
-	}
-	var keys []*string
-	if err := json.Unmarshal(keysRaw, &keys); err != nil {
-		setDecodeError("export name map dictionary keys are not a string array: %v", err)
-		return result, nil
-	}
-	var values []*string
-	if err := json.Unmarshal(valuesRaw, &values); err != nil {
-		setDecodeError("export name map dictionary values are not a string array: %v", err)
-		return result, nil
-	}
+	keys := *dictionary.Keys
+	values := *dictionary.Values
 	if len(keys) != len(values) {
-		setDecodeError("export name map dictionary keys and values have different lengths: %d != %d", len(keys), len(values))
-		return result, nil
+		return nil, fmt.Errorf("export name map dictionary keys and values have different lengths: %d != %d", len(keys), len(values))
 	}
 	entries := make([]KCESExportNameMapEntry, len(keys))
 	for index := range keys {
 		if keys[index] == nil || values[index] == nil {
-			setDecodeError("export name map dictionary contains null at index %d", index)
-			return result, nil
+			return nil, fmt.Errorf("export name map dictionary contains null at index %d", index)
 		}
 		entries[index] = KCESExportNameMapEntry{InternalName: *keys[index], FileName: *values[index]}
 	}
-	result.Entries = entries
-	return result, nil
+	return &KCESExportNameMap{Format: KCESExportNameMapFormat, Version: *outer.Version, Entries: entries}, nil
 }
 
 // EncodeKCESExportNameMap 写出原生 Unity JsonUtility 封套，嵌套键值保留提供的顺序和拼写，并采用 ScourtExtensionsDictionary.FromJson 读取的布局
@@ -178,15 +147,6 @@ func EncodeKCESExportNameMap(value *KCESExportNameMap) ([]byte, error) {
 	}
 	if value.Format != "" && value.Format != KCESExportNameMapFormat {
 		return nil, fmt.Errorf("unsupported export name map JSON format %q", value.Format)
-	}
-	if value.NativeText != "" {
-		baseline, err := DecodeKCESExportNameMap([]byte(value.NativeText))
-		if err != nil {
-			return nil, fmt.Errorf("nativeText: %w", err)
-		}
-		if baseline.Version == value.Version && exportNameMapEntriesEqual(baseline.Entries, value.Entries) {
-			return []byte(value.NativeText), nil
-		}
 	}
 	canonical, err := canonicalKCESExportNameMap(value)
 	if err != nil {
@@ -213,22 +173,8 @@ func EncodeKCESExportNameMap(value *KCESExportNameMap) ([]byte, error) {
 	return native, nil
 }
 
-// exportNameMapEntriesEqual 比较两个映射条目切片并保留 nil 与空切片的区别
-// exportNameMapEntriesEqual compares two mapping-entry slices while preserving the distinction between nil and empty
-func exportNameMapEntriesEqual(left, right []KCESExportNameMapEntry) bool {
-	if (left == nil) != (right == nil) || len(left) != len(right) {
-		return false
-	}
-	for index := range left {
-		if left[index] != right[index] {
-			return false
-		}
-	}
-	return true
-}
-
-// DecodeKCESExportNameMapJSON 解析带格式标记的可编辑 JSON，缺失和 null 条目列表都表示 nil 列表，与键和值均为 null 的原生字典一致
-// DecodeKCESExportNameMapJSON parses the marker-based editable JSON form, where missing and null entry lists both represent nil to match a native dictionary whose keys and values are both null
+// DecodeKCESExportNameMapJSON 解析带格式标记的可编辑 JSON，条目列表必须存在且不能为 null
+// DecodeKCESExportNameMapJSON parses the marker-based editable JSON form and requires a present, non-null entry list
 func DecodeKCESExportNameMapJSON(data []byte) (*KCESExportNameMap, error) {
 	var editing kcesExportNameMapEditing
 	if err := decodeKCESExportNameMapJSONValue(data, &editing, "export name map editing JSON", true); err != nil {
@@ -243,14 +189,11 @@ func DecodeKCESExportNameMapJSON(data []byte) (*KCESExportNameMap, error) {
 	if editing.Version == nil {
 		return nil, fmt.Errorf("export name map editing JSON version is missing or null")
 	}
-	var rawEntries []*kcesExportNameMapEditingEntry
-	if editing.Entries != nil {
-		rawEntries = *editing.Entries
+	if editing.Entries == nil {
+		return nil, fmt.Errorf("export name map editing JSON entries are missing or null")
 	}
-	var entries []KCESExportNameMapEntry
-	if rawEntries != nil {
-		entries = make([]KCESExportNameMapEntry, len(rawEntries))
-	}
+	rawEntries := *editing.Entries
+	entries := make([]KCESExportNameMapEntry, len(rawEntries))
 	for i, entry := range rawEntries {
 		if entry == nil {
 			return nil, fmt.Errorf("export name map editing JSON entries[%d] is null", i)
@@ -265,21 +208,10 @@ func DecodeKCESExportNameMapJSON(data []byte) (*KCESExportNameMap, error) {
 	}
 
 	return canonicalKCESExportNameMap(&KCESExportNameMap{
-		Format:            *editing.Format,
-		Version:           *editing.Version,
-		Entries:           entries,
-		NativeText:        optionalExportNameMapString(editing.NativeText),
-		NativeDecodeError: optionalExportNameMapString(editing.NativeDecodeError),
+		Format:  *editing.Format,
+		Version: *editing.Version,
+		Entries: entries,
 	})
-}
-
-// optionalExportNameMapString 将可空字符串转换为编辑模型使用的空字符串零值
-// optionalExportNameMapString converts a nullable string to the empty-string zero value used by the editing model
-func optionalExportNameMapString(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
 }
 
 // EncodeKCESExportNameMapJSON 写出服务和 CLI 使用的确定性编辑表示，不修改 value 或其 Entries 切片
@@ -305,11 +237,11 @@ func canonicalKCESExportNameMap(value *KCESExportNameMap) (*KCESExportNameMap, e
 	if value.Format != "" && value.Format != KCESExportNameMapFormat {
 		return nil, fmt.Errorf("unsupported export name map JSON format %q", value.Format)
 	}
-
-	var entries []KCESExportNameMapEntry
-	if value.Entries != nil {
-		entries = make([]KCESExportNameMapEntry, len(value.Entries))
+	if value.Version != KCESExportNameMapVersion {
+		return nil, fmt.Errorf("unsupported export name map version %d", value.Version)
 	}
+
+	entries := make([]KCESExportNameMapEntry, len(value.Entries))
 	for i, entry := range value.Entries {
 		if !utf8.ValidString(entry.InternalName) {
 			return nil, fmt.Errorf("export name map entries[%d].internalName is not valid UTF-8", i)
@@ -320,11 +252,9 @@ func canonicalKCESExportNameMap(value *KCESExportNameMap) (*KCESExportNameMap, e
 		entries[i] = entry
 	}
 	return &KCESExportNameMap{
-		Format:            KCESExportNameMapFormat,
-		Version:           value.Version,
-		Entries:           entries,
-		NativeText:        value.NativeText,
-		NativeDecodeError: value.NativeDecodeError,
+		Format:  KCESExportNameMapFormat,
+		Version: value.Version,
+		Entries: entries,
 	}, nil
 }
 
@@ -345,17 +275,8 @@ func decodeKCESExportNameMapJSONValue(data []byte, dst any, label string, allowB
 		return fmt.Errorf("%s dictionary/root is null", label)
 	}
 
-	decoder := json.NewDecoder(bytes.NewReader(trimmed))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(dst); err != nil {
+	if err := strictjson.Decode(trimmed, dst); err != nil {
 		return fmt.Errorf("decode %s: %w", label, err)
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); err != io.EOF {
-		if err == nil {
-			return fmt.Errorf("%s has trailing JSON value", label)
-		}
-		return fmt.Errorf("%s has trailing content: %w", label, err)
 	}
 	return nil
 }

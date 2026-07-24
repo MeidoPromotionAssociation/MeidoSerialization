@@ -14,9 +14,10 @@ import (
 
 func TestEngineContentTableArchiveAndEditingJSON(t *testing.T) {
 	table := &ct.ContentTable{Version: 1000, Raw: make([]byte, ct.HeaderSize), Files: map[string]ct.VirtualFile{}}
+	catalogName := "synthetic"
 	catalog, err := ct.EncodeCatalog(&ct.AssetBundleCatalog{
-		Kind: ct.CatalogKindAssetBundle, Version: 1000, Name: "synthetic",
-		ResourceFileNames: []string{}, ExtensionList: []string{}, Items: []ct.CatalogItem{},
+		Kind: ct.CatalogKindAssetBundle, Version: 1000, Name: &catalogName,
+		ResourceFileNames: []*string{}, ExtensionList: []*string{}, Items: []*ct.CatalogItem{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -156,7 +157,11 @@ func TestArchivePagerBindsTokenToServerFormatAndExactArchive(t *testing.T) {
 		t.Fatalf("decode matching token = %d, %v", offset, err)
 	}
 
-	tampered := token[:len(token)-1] + map[bool]string{true: "A", false: "B"}[token[len(token)-1] != 'A']
+	nonCanonicalLastByte, ok := map[byte]byte{'A': 'B', 'Q': 'R', 'g': 'h', 'w': 'x'}[token[len(token)-1]]
+	if !ok {
+		t.Fatalf("unexpected final base64 character in token %q", token)
+	}
+	tampered := token[:len(token)-1] + string(nonCanonicalLastByte)
 	wrongFormat := listingA
 	wrongFormat.FormatID = "kces.virtualdirectory"
 	otherPager, err := NewArchivePager()

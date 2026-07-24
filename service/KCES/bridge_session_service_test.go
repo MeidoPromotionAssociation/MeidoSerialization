@@ -15,23 +15,24 @@ import (
 )
 
 func TestBridgeSessionServiceStrictJSONRoundTripAndUInt64(t *testing.T) {
-	fieldCount := int32(4)
+	sessionID := "session-日本語"
 	value := &serializationKCES.KCESBridgeSession{
-		Format:            serializationKCES.KCESBridgeSessionFormat,
-		ContainerVersion:  serializationKCES.KCESBridgeSessionContainerVersion,
-		SessionIDFileData: []byte("session-日本語"),
-		SessionData: &serializationKCES.KCESBridgeSessionData{
-			FieldCount:      &fieldCount,
+		Format:           serializationKCES.KCESBridgeSessionFormat,
+		ContainerVersion: serializationKCES.KCESBridgeSessionContainerVersion,
+		SessionData: serializationKCES.KCESBridgeSessionData{
 			Version:         serializationKCES.KCESBridgeSessionDataVersion,
-			SessionID:       "session-日本語",
+			SessionID:       sessionID,
 			HideMenuFileIDs: []uint64{0, 1 << 63, ^uint64(0)},
-			FutureSlots:     [][]byte{{0x81, 0xa1, 'x', 0xc3}},
 		},
 		ExtraFiles: map[string][]byte{
 			"future/data": {0, 1, 2, 3},
 		},
 	}
 	native, err := serializationKCES.EncodeKCESBridgeSession(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := serializationKCES.DecodeKCESBridgeSession(native)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,18 +69,19 @@ func TestBridgeSessionServiceStrictJSONRoundTripAndUInt64(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got, value) {
-		t.Fatalf("service round trip changed session:\n got  %#v\n want %#v", got, value)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("service round trip changed session:\n got  %#v\n want %#v", got, want)
 	}
 }
 
 func TestBridgeSessionServiceAcceptsBOMAndRejectsLooseJSON(t *testing.T) {
+	sessionID := "x"
 	valid := &serializationKCES.KCESBridgeSession{
 		Format:           serializationKCES.KCESBridgeSessionFormat,
 		ContainerVersion: serializationKCES.KCESBridgeSessionContainerVersion,
-		SessionData: &serializationKCES.KCESBridgeSessionData{
+		SessionData: serializationKCES.KCESBridgeSessionData{
 			Version:         serializationKCES.KCESBridgeSessionDataVersion,
-			SessionID:       "x",
+			SessionID:       sessionID,
 			HideMenuFileIDs: []uint64{},
 		},
 	}
@@ -105,15 +107,22 @@ func TestBridgeSessionServiceAcceptsBOMAndRejectsLooseJSON(t *testing.T) {
 		return append(append(trimmed, []byte(suffix)...), '}')
 	}
 	tests := map[string][]byte{
-		"root null":            []byte("null"),
-		"invalid UTF-8":        append(append([]byte(nil), validJSON...), 0xff),
-		"unknown root field":   mutate(validJSON, `,"unknown":1`),
-		"trailing JSON value":  append(append([]byte(nil), validJSON...), []byte(" {}")...),
-		"missing format":       []byte(`{"containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[]}}`),
-		"null format":          []byte(`{"format":null,"containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[]}}`),
-		"wrong format":         []byte(`{"format":"future","containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[]}}`),
-		"unknown nested field": []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[],"unknown":1}}`),
-		"rounded UInt64":       []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[18446744073709551616]}}`),
+		"root null":              []byte("null"),
+		"invalid UTF-8":          append(append([]byte(nil), validJSON...), 0xff),
+		"unknown root field":     mutate(validJSON, `,"unknown":1`),
+		"trailing JSON value":    append(append([]byte(nil), validJSON...), []byte(" {}")...),
+		"missing format":         []byte(`{"containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[]}}`),
+		"null format":            []byte(`{"format":null,"containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[]}}`),
+		"wrong format":           []byte(`{"format":"future","containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[]}}`),
+		"unknown nested field":   []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[],"unknown":1}}`),
+		"rounded UInt64":         []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[18446744073709551616]}}`),
+		"sessionId raw fallback": []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[]},"sessionIdFileData":"eA=="}`),
+		"null sessionData":       []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":null}`),
+		"null sessionId":         []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"sessionId":null,"hideMenuFileIds":[]}}`),
+		"missing container":      []byte(`{"format":"kces-bridge-session","sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[]}}`),
+		"missing data version":   []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"sessionId":"x","hideMenuFileIds":[]}}`),
+		"missing sessionId":      []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"hideMenuFileIds":[]}}`),
+		"missing IDs":            []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"sessionId":"x"}}`),
 	}
 	for name, data := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -132,11 +141,7 @@ func TestBridgeSessionServiceAcceptsBOMAndRejectsLooseJSON(t *testing.T) {
 	}
 
 	accepted := map[string][]byte{
-		"missing container":    []byte(`{"format":"kces-bridge-session","sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[]}}`),
-		"null sessionData":     []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":null,"sessionIdFileData":"/w=="}`),
-		"missing data version": []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"sessionId":"x","hideMenuFileIds":[]}}`),
-		"missing sessionId":    []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"hideMenuFileIds":[]}}`),
-		"null IDs":             []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":null}}`),
+		"null IDs": []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":null}}`),
 	}
 	for name, data := range accepted {
 		t.Run("representable "+name, func(t *testing.T) {
@@ -197,12 +202,13 @@ func TestBridgeSessionServiceFilePredicates(t *testing.T) {
 }
 
 func TestFileTypeServiceRecognizesBridgeSessionByPathContentAndJSONMarker(t *testing.T) {
+	sessionID := "route-session"
 	value := &serializationKCES.KCESBridgeSession{
 		Format:           serializationKCES.KCESBridgeSessionFormat,
 		ContainerVersion: serializationKCES.KCESBridgeSessionContainerVersion,
-		SessionData: &serializationKCES.KCESBridgeSessionData{
+		SessionData: serializationKCES.KCESBridgeSessionData{
 			Version:         serializationKCES.KCESBridgeSessionDataVersion,
-			SessionID:       "route-session",
+			SessionID:       sessionID,
 			HideMenuFileIDs: []uint64{1, ^uint64(0)},
 		},
 	}

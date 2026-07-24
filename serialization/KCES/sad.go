@@ -4,17 +4,17 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"sort"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
 )
 
 // .sad (SAVED_ATTACH_DATA)
 // KCES/GP03 导出的部件附着信息文件，使用 BinaryWriter 编码外层列表与每条附着记录
-// 外层版本为 2000，当前记录版本为 2001，并兼容无显式记录版本的旧版 2000 布局
+// 外层版本为 2000，当前记录版本为 2001，解码也接受无显式记录版本的旧版 2000 布局
 // .sad (SAVED_ATTACH_DATA)
 // KCES/GP03 exported part-attachment file encoded by BinaryWriter as an outer list of attachment records
-// The outer version is 2000, while current records use version 2001 and the implicit legacy 2000 layout remains supported
+// The outer version is 2000, while current records use version 2001 and decoding also accepts the implicit legacy 2000 layout
 
 const (
 	// SavedAttachSignature 由 ExportCM.ExportAttachData 写在文件版本和记录数之前
@@ -38,11 +38,10 @@ const (
 // SavedAttachFile 表示一个导出的 KCES/GP03 .sad 文件
 // SavedAttachFile represents one exported KCES/GP03 .sad file
 type SavedAttachFile struct {
-	Format       string            `json:"format"`                 // JSON 表示格式标识 / JSON representation format identifier
-	Signature    string            `json:"signature"`              // 文件签名 SAVED_ATTACH_DATA / File signature SAVED_ATTACH_DATA
-	Version      int32             `json:"version"`                // 外层文件版本 / Outer file version
-	Items        []SavedAttachData `json:"items"`                  // 部件附着记录 / Part-attachment records
-	TrailingData []byte            `json:"trailingData,omitempty"` // 游戏读取声明记录后忽略的尾部字节 / Trailing bytes ignored by the game after reading the declared records
+	Format    string            `json:"format"`    // JSON 表示格式标识 / JSON representation format identifier
+	Signature string            `json:"signature"` // 文件签名 SAVED_ATTACH_DATA / File signature SAVED_ATTACH_DATA
+	Version   int32             `json:"version"`   // 外层文件版本 / Outer file version
+	Items     []SavedAttachData `json:"items"`     // 部件附着记录 / Part-attachment records
 }
 
 // SavedAttachData 对应游戏 SavedAttachData.Serialize 和 Deserialize 实现的 BinaryWriter 布局
@@ -50,24 +49,22 @@ type SavedAttachFile struct {
 // SavedAttachData mirrors the BinaryWriter layout implemented by the game's SavedAttachData.Serialize and Deserialize methods
 // Pointer fields preserve the null and non-null flags used by WriteNaS and both PosRotScale values
 type SavedAttachData struct {
-	Version                int32                             `json:"version"`                      // 记录布局版本，隐式旧布局为 2000 / Record layout version, with 2000 for the implicit legacy layout
-	ExplicitVersion        bool                              `json:"explicitVersion,omitempty"`    // 是否在线格式中写入空字符串哨兵和显式版本 / Whether the wire stores an empty-string sentinel and explicit version
-	PartName               *string                           `json:"partName"`                     // 附着记录的部件标签名 / Part tag name for the attachment record
-	Enabled                bool                              `json:"enabled"`                      // 该附着记录是否启用 / Whether this attachment record is enabled
-	MyRID                  uint64                            `json:"myRid"`                        // 源部件菜单 RID，用于确认源菜单仍匹配 / Source-part menu RID used to verify that the source menu still matches
-	MySlotID               string                            `json:"mySlotId"`                     // 源部件的 TBody.SlotID 名称 / TBody.SlotID name of the source part
-	TargetRID              uint64                            `json:"targetRid"`                    // 目标部件菜单 RID，用于确认目标菜单仍匹配 / Target-part menu RID used to verify that the target menu still matches
-	TargetSlotID           string                            `json:"targetSlotId"`                 // 目标部件的 TBody.SlotID 名称 / TBody.SlotID name of the target part
-	TargetSlotNo           int32                             `json:"targetSlotNo"`                 // 目标槽位中的子部件编号，记录版本 2001 起存在 / Target slot sub-part number, present since record version 2001
-	TargetAttachPointName  *string                           `json:"targetAttachPointName"`        // 目标新附着点名称 / Target new-attachment-point name
-	TargetVertexCount      int32                             `json:"targetVertexCount"`            // 保存时的目标网格顶点数，用于拒绝已变化网格 / Target mesh vertex count when saved, used to reject a changed mesh
-	TargetVertexIndex      int32                             `json:"targetVertexIndex"`            // 线格式保存的目标顶点索引，当前加载路径未直接消费 / Target vertex index stored on the wire and not directly consumed by the current loading path
-	NewAttachVertexIndices []int32                           `json:"newAttachVertexIndices"`       // 重建新附着点使用的顶点索引 / Vertex indices used to rebuild the new attachment point
-	PRS2                   *SavedAttachPosRotScale           `json:"prs2"`                         // center_tr2 的局部位置与旋转，游戏也保存缩放槽位 / Local position and rotation of center_tr2, with a scale slot also stored by the game
-	PRS3                   *SavedAttachPosRotScale           `json:"prs3"`                         // center_tr3 的完整局部变换 / Complete local transform of center_tr3
-	BoneAttachedHierarchy  map[string]SavedAttachPosRotScale `json:"boneAttachedHierarchy"`        // 按骨骼名保存的附着层级局部变换 / Attachment-hierarchy local transforms keyed by bone name
-	BoneHierarchyOrder     []string                          `json:"boneHierarchyOrder,omitempty"` // 骨骼层级映射在线格式中的顺序 / Bone-hierarchy map order on the wire
-	BoneAttachEdited       bool                              `json:"boneAttachEdited"`             // 骨骼附着层级是否已在编辑器中修改 / Whether the bone attachment hierarchy was edited
+	Version                int32                             `json:"version"`                // 记录布局版本，隐式旧布局为 2000 / Record layout version, with 2000 for the implicit legacy layout
+	PartName               *string                           `json:"partName"`               // 附着记录的部件标签名 / Part tag name for the attachment record
+	Enabled                bool                              `json:"enabled"`                // 该附着记录是否启用 / Whether this attachment record is enabled
+	MyRID                  uint64                            `json:"myRid"`                  // 源部件菜单 RID，用于确认源菜单仍匹配 / Source-part menu RID used to verify that the source menu still matches
+	MySlotID               string                            `json:"mySlotId"`               // 源部件的 TBody.SlotID 名称 / TBody.SlotID name of the source part
+	TargetRID              uint64                            `json:"targetRid"`              // 目标部件菜单 RID，用于确认目标菜单仍匹配 / Target-part menu RID used to verify that the target menu still matches
+	TargetSlotID           string                            `json:"targetSlotId"`           // 目标部件的 TBody.SlotID 名称 / TBody.SlotID name of the target part
+	TargetSlotNo           int32                             `json:"targetSlotNo"`           // 目标槽位中的子部件编号，记录版本 2001 起存在 / Target slot sub-part number, present since record version 2001
+	TargetAttachPointName  *string                           `json:"targetAttachPointName"`  // 目标新附着点名称 / Target new-attachment-point name
+	TargetVertexCount      int32                             `json:"targetVertexCount"`      // 保存时的目标网格顶点数，用于拒绝已变化网格 / Target mesh vertex count when saved, used to reject a changed mesh
+	TargetVertexIndex      int32                             `json:"targetVertexIndex"`      // 线格式保存的目标顶点索引，当前加载路径未直接消费 / Target vertex index stored on the wire and not directly consumed by the current loading path
+	NewAttachVertexIndices []int32                           `json:"newAttachVertexIndices"` // 重建新附着点使用的顶点索引 / Vertex indices used to rebuild the new attachment point
+	PRS2                   *SavedAttachPosRotScale           `json:"prs2"`                   // center_tr2 的局部位置与旋转，游戏也保存缩放槽位 / Local position and rotation of center_tr2, with a scale slot also stored by the game
+	PRS3                   *SavedAttachPosRotScale           `json:"prs3"`                   // center_tr3 的完整局部变换 / Complete local transform of center_tr3
+	BoneAttachedHierarchy  map[string]SavedAttachPosRotScale `json:"boneAttachedHierarchy"`  // 按骨骼名保存的附着层级局部变换 / Attachment-hierarchy local transforms keyed by bone name
+	BoneAttachEdited       bool                              `json:"boneAttachEdited"`       // 骨骼附着层级是否已在编辑器中修改 / Whether the bone attachment hierarchy was edited
 }
 
 // SavedAttachPosRotScale 是 Scourt.Utility.UnityUtility.PosRotScale 的二进制形式，依次保存 Vector3 位置、Vector3 缩放和 Quaternion 旋转
@@ -96,6 +93,9 @@ func DecodeSavedAttach(data []byte) (*SavedAttachFile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read saved-attach version: %w", err)
 	}
+	if version != SavedAttachFileVersion {
+		return nil, fmt.Errorf("unsupported saved-attach version %d", version)
+	}
 
 	count, err := br.ReadInt32()
 	if err != nil {
@@ -123,10 +123,7 @@ func DecodeSavedAttach(data []byte) (*SavedAttachFile, error) {
 		Items:     items,
 	}
 	if r.Len() != 0 {
-		result.TrailingData = make([]byte, r.Len())
-		if _, err := r.Read(result.TrailingData); err != nil {
-			return nil, fmt.Errorf("read saved-attach trailing data: %w", err)
-		}
+		return nil, fmt.Errorf("saved-attach has %d bytes of trailing data", r.Len())
 	}
 	return result, nil
 }
@@ -148,7 +145,6 @@ func decodeSavedAttachItemWithSlotValidator(br *stream.BinaryReader, remaining *
 
 	item := SavedAttachData{Version: SavedAttachFileVersion}
 	if firstName == nil || *firstName == "" {
-		item.ExplicitVersion = true
 		item.Version, err = br.ReadInt32()
 		if err != nil {
 			return SavedAttachData{}, fmt.Errorf("read %s version: %w", prefix, err)
@@ -161,6 +157,9 @@ func decodeSavedAttachItemWithSlotValidator(br *stream.BinaryReader, remaining *
 		// 旧版 2000 布局直接以非空部件名开始且不包含 TargetSlotNo
 		// The legacy 2000 layout starts directly with a nonempty part name and does not contain TargetSlotNo
 		item.PartName = firstName
+	}
+	if item.Version != SavedAttachFileVersion && item.Version != SavedAttachRecordVersion {
+		return SavedAttachData{}, fmt.Errorf("unsupported %s version %d", prefix, item.Version)
 	}
 
 	if item.Enabled, err = br.ReadBool(); err != nil {
@@ -178,7 +177,7 @@ func decodeSavedAttachItemWithSlotValidator(br *stream.BinaryReader, remaining *
 	if item.TargetSlotID, err = readSavedAttachSlotIDWithValidator(br, prefix+" targetSlotId", validateSlot); err != nil {
 		return SavedAttachData{}, err
 	}
-	if item.Version >= SavedAttachRecordVersion {
+	if item.Version == SavedAttachRecordVersion {
 		if item.TargetSlotNo, err = br.ReadInt32(); err != nil {
 			return SavedAttachData{}, fmt.Errorf("read %s targetSlotNo: %w", prefix, err)
 		}
@@ -201,7 +200,7 @@ func decodeSavedAttachItemWithSlotValidator(br *stream.BinaryReader, remaining *
 	if item.PRS3, err = readSavedAttachOptionalPRS(br, prefix+" prs3"); err != nil {
 		return SavedAttachData{}, err
 	}
-	if item.BoneAttachedHierarchy, item.BoneHierarchyOrder, err = readSavedAttachHierarchy(br, remaining, prefix+" boneAttachedHierarchy"); err != nil {
+	if item.BoneAttachedHierarchy, err = readSavedAttachHierarchy(br, remaining, prefix+" boneAttachedHierarchy"); err != nil {
 		return SavedAttachData{}, err
 	}
 	if item.BoneAttachEdited, err = br.ReadBool(); err != nil {
@@ -210,10 +209,10 @@ func decodeSavedAttachItemWithSlotValidator(br *stream.BinaryReader, remaining *
 	return item, nil
 }
 
-// EncodeSavedAttach 按每个条目的 Version 写出当前或旧版布局
-// 2000 记录通常使用直接旧布局，但部件名为 nil 或空时改用游戏接受的显式版本哨兵，因为直接形式会被误判为哨兵，外层与记录版本包括零值和未来值均原样写出
-// EncodeSavedAttach emits the current or legacy layout selected by each item's Version
-// A 2000 record normally uses the direct legacy layout but uses the explicit-version sentinel accepted by the game for a nil or empty part name because the direct form would be mistaken for a sentinel, while outer and record versions including zero and future values are written unchanged
+// EncodeSavedAttach 按每个条目的 Version 写出规范化的显式 2000 或 2001 记录布局
+// 旧版隐式 2000 输入在重新编码时统一使用游戏读取器接受的空字符串哨兵与显式版本
+// EncodeSavedAttach emits the canonical explicit 2000 or 2001 record layout selected by each item's Version
+// Legacy implicit-2000 input is normalized on re-encoding to the empty-string sentinel and explicit version accepted by the game reader
 func EncodeSavedAttach(value *SavedAttachFile) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil saved-attach file")
@@ -226,6 +225,9 @@ func EncodeSavedAttach(value *SavedAttachFile) ([]byte, error) {
 		return nil, fmt.Errorf("invalid saved-attach signature %q", signature)
 	}
 	version := value.Version
+	if version != SavedAttachFileVersion {
+		return nil, fmt.Errorf("unsupported saved-attach version %d", version)
+	}
 	if len(value.Items) > math.MaxInt32 {
 		return nil, fmt.Errorf("saved-attach item count %d exceeds Int32", len(value.Items))
 	}
@@ -247,16 +249,11 @@ func EncodeSavedAttach(value *SavedAttachFile) ([]byte, error) {
 			return nil, err
 		}
 	}
-	if len(value.TrailingData) != 0 {
-		if _, err := out.Write(value.TrailingData); err != nil {
-			return nil, fmt.Errorf("write saved-attach trailing data: %w", err)
-		}
-	}
 	return out.Bytes(), nil
 }
 
-// NewSavedAttachFile 显式创建当前外层文件头，记录版本仍由调用方控制且编码时不会升级
-// NewSavedAttachFile explicitly creates the current outer header while record versions remain caller-controlled and are never upgraded during encoding
+// NewSavedAttachFile 创建当前外层文件头，记录版本仍由调用方在受支持的 2000 与 2001 中选择
+// NewSavedAttachFile creates the current outer header while callers still select a supported record version of 2000 or 2001
 func NewSavedAttachFile() *SavedAttachFile {
 	return &SavedAttachFile{
 		Format:    KCESSavedAttachFormat,
@@ -276,6 +273,9 @@ func encodeSavedAttachItem(bw *stream.BinaryWriter, source *SavedAttachData, ind
 func encodeSavedAttachItemWithSlotValidator(bw *stream.BinaryWriter, source *SavedAttachData, index int64, validateSlot func(string, string) error) error {
 	prefix := fmt.Sprintf("saved-attach item[%d]", index)
 	version := source.Version
+	if version != SavedAttachFileVersion && version != SavedAttachRecordVersion {
+		return fmt.Errorf("unsupported %s version %d", prefix, version)
+	}
 	if err := validateSavedAttachNullableString(source.PartName, prefix+" partName"); err != nil {
 		return err
 	}
@@ -298,16 +298,12 @@ func encodeSavedAttachItemWithSlotValidator(bw *stream.BinaryWriter, source *Sav
 		return fmt.Errorf("%s targetSlotNo is unavailable in record version %d", prefix, version)
 	}
 
-	writeExplicitVersion := source.ExplicitVersion || version != SavedAttachFileVersion ||
-		(source.PartName == nil || *source.PartName == "")
-	if writeExplicitVersion {
-		empty := ""
-		if err := writeSavedAttachNullableString(bw, &empty); err != nil {
-			return fmt.Errorf("write %s version sentinel: %w", prefix, err)
-		}
-		if err := bw.WriteInt32(version); err != nil {
-			return fmt.Errorf("write %s version: %w", prefix, err)
-		}
+	empty := ""
+	if err := writeSavedAttachNullableString(bw, &empty); err != nil {
+		return fmt.Errorf("write %s version sentinel: %w", prefix, err)
+	}
+	if err := bw.WriteInt32(version); err != nil {
+		return fmt.Errorf("write %s version: %w", prefix, err)
 	}
 	if err := writeSavedAttachNullableString(bw, source.PartName); err != nil {
 		return fmt.Errorf("write %s partName: %w", prefix, err)
@@ -327,7 +323,7 @@ func encodeSavedAttachItemWithSlotValidator(bw *stream.BinaryWriter, source *Sav
 	if err := bw.WriteString(source.TargetSlotID); err != nil {
 		return fmt.Errorf("write %s targetSlotId: %w", prefix, err)
 	}
-	if version >= SavedAttachRecordVersion {
+	if version == SavedAttachRecordVersion {
 		if err := bw.WriteInt32(source.TargetSlotNo); err != nil {
 			return fmt.Errorf("write %s targetSlotNo: %w", prefix, err)
 		}
@@ -350,7 +346,7 @@ func encodeSavedAttachItemWithSlotValidator(bw *stream.BinaryWriter, source *Sav
 	if err := writeSavedAttachOptionalPRS(bw, source.PRS3); err != nil {
 		return fmt.Errorf("write %s prs3: %w", prefix, err)
 	}
-	if err := writeSavedAttachHierarchy(bw, source.BoneAttachedHierarchy, source.BoneHierarchyOrder, prefix); err != nil {
+	if err := writeSavedAttachHierarchy(bw, source.BoneAttachedHierarchy, prefix); err != nil {
 		return err
 	}
 	if err := bw.WriteBool(source.BoneAttachEdited); err != nil {
@@ -558,51 +554,49 @@ func writeSavedAttachPRS(bw *stream.BinaryWriter, value *SavedAttachPosRotScale)
 	return bw.WriteFloat4([4]float32{value.Rotation.X, value.Rotation.Y, value.Rotation.Z, value.Rotation.W})
 }
 
-// readSavedAttachHierarchy 读取可空的骨骼名到局部变换映射并保留条目顺序
-// readSavedAttachHierarchy reads a nullable bone-name-to-local-transform map and preserves entry order
-func readSavedAttachHierarchy(br *stream.BinaryReader, remaining *bytes.Reader, path string) (map[string]SavedAttachPosRotScale, []string, error) {
+// readSavedAttachHierarchy 读取可空的骨骼名到局部变换映射
+// readSavedAttachHierarchy reads a nullable bone-name-to-local-transform map
+func readSavedAttachHierarchy(br *stream.BinaryReader, remaining *bytes.Reader, path string) (map[string]SavedAttachPosRotScale, error) {
 	present, err := br.ReadBool()
 	if err != nil {
-		return nil, nil, fmt.Errorf("read %s presence: %w", path, err)
+		return nil, fmt.Errorf("read %s presence: %w", path, err)
 	}
 	if !present {
-		return nil, nil, nil
+		return nil, nil
 	}
 	count, err := br.ReadInt32()
 	if err != nil {
-		return nil, nil, fmt.Errorf("read %s count: %w", path, err)
+		return nil, fmt.Errorf("read %s count: %w", path, err)
 	}
 	if count < 0 {
-		return nil, nil, fmt.Errorf("negative %s count %d", path, count)
+		return nil, fmt.Errorf("negative %s count %d", path, count)
 	}
 	// 每个条目至少包含一个单字节空字符串和十个 Float32 值
 	// Each entry contains at least a one-byte empty string and ten Float32 values
 	if int64(count) > int64(remaining.Len()/41) {
-		return nil, nil, fmt.Errorf("%s count %d cannot fit in %d remaining bytes", path, count, remaining.Len())
+		return nil, fmt.Errorf("%s count %d cannot fit in %d remaining bytes", path, count, remaining.Len())
 	}
 	values := makeKCESCountedMap[string, SavedAttachPosRotScale](uint64(count))
-	order := makeKCESCountedSliceForAppend[string](uint64(count))
 	for i := int32(0); i < count; i++ {
 		name, readErr := readSavedAttachString(br, fmt.Sprintf("%s[%d] name", path, i))
 		if readErr != nil {
-			return nil, nil, readErr
+			return nil, readErr
 		}
 		if _, duplicate := values[name]; duplicate {
-			return nil, nil, fmt.Errorf("%s contains duplicate bone name %q", path, name)
+			return nil, fmt.Errorf("%s contains duplicate bone name %q", path, name)
 		}
 		prs, readErr := readSavedAttachPRS(br, fmt.Sprintf("%s[%q]", path, name))
 		if readErr != nil {
-			return nil, nil, readErr
+			return nil, readErr
 		}
 		values[name] = prs
-		order = append(order, name)
 	}
-	return values, order, nil
+	return values, nil
 }
 
-// writeSavedAttachHierarchy 按保存顺序写入可空的骨骼变换映射
-// writeSavedAttachHierarchy writes a nullable bone-transform map in its preserved order
-func writeSavedAttachHierarchy(bw *stream.BinaryWriter, values map[string]SavedAttachPosRotScale, order []string, itemPath string) error {
+// writeSavedAttachHierarchy 按骨骼名排序写入可空的骨骼变换映射
+// writeSavedAttachHierarchy writes a nullable bone-transform map sorted by bone name
+func writeSavedAttachHierarchy(bw *stream.BinaryWriter, values map[string]SavedAttachPosRotScale, itemPath string) error {
 	if err := bw.WriteBool(values != nil); err != nil {
 		return fmt.Errorf("write %s boneAttachedHierarchy presence: %w", itemPath, err)
 	}
@@ -616,15 +610,14 @@ func writeSavedAttachHierarchy(bw *stream.BinaryWriter, values map[string]SavedA
 	if err := bw.WriteInt32(count); err != nil {
 		return fmt.Errorf("write %s boneAttachedHierarchy count: %w", itemPath, err)
 	}
+	keys := make([]string, 0, len(values))
 	for key := range values {
 		if err := validateSavedAttachString(key, itemPath+" boneAttachedHierarchy key"); err != nil {
 			return err
 		}
+		keys = append(keys, key)
 	}
-	keys, err := utilities.MergeOrderedMapKeys(values, order, itemPath+" boneHierarchyOrder")
-	if err != nil {
-		return err
-	}
+	sort.Strings(keys)
 	for _, key := range keys {
 		if err := bw.WriteString(key); err != nil {
 			return fmt.Errorf("write %s boneAttachedHierarchy[%q] name: %w", itemPath, key, err)

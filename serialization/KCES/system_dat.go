@@ -2,6 +2,7 @@ package KCES
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -13,10 +14,10 @@ import (
 
 // system.dat
 // KCES 用户系统数据容器，使用 VirtualDirectory 保存 EditData 下的界面、调色板和颜色预设等虚拟文件
-// 外层使用 KCES VirtualDirectory 版本控制，已知虚拟文件按各自 MessagePack 布局解析，未知文件逐字节保留
+// 外层使用 KCES VirtualDirectory 版本控制，已知虚拟文件按各自 MessagePack 布局解析，只有不匹配任何已知路径的独立虚拟文件才逐字节保留
 // system.dat
 // KCES user system-data container using VirtualDirectory to store UI, palette, and color-preset virtual files below EditData
-// The outer layer uses KCES VirtualDirectory versioning, known virtual files use their MessagePack schemas, and unknown files are preserved byte-for-byte
+// The outer layer uses KCES VirtualDirectory versioning, known virtual files use their MessagePack schemas, and only independent virtual files matching no known path are preserved byte-for-byte
 
 const KCESSystemDataFormat = "kces-system-data"
 
@@ -42,22 +43,15 @@ const (
 )
 
 // KCESSystemData 是 system.dat 的 VirtualDirectory 语义视图
-// 已知 EditData 载荷公开为强类型，其他虚拟文件逐字节保存在 ExtraFiles 中，避免 JSON 或程序往返丢弃其他子系统及未来版本的数据
+// 已知 EditData 载荷公开为强类型，只有不匹配任何已知路径的独立虚拟文件才逐字节保存在 ExtraFiles 中，已知路径解析失败必须返回错误
 // KCESSystemData is the semantic view of the system.dat VirtualDirectory
-// Known EditData payloads are typed while every other virtual file is retained byte-for-byte in ExtraFiles so JSON or programmatic round trips do not discard data from other subsystems or future builds
+// Known EditData payloads are typed while only independent virtual files matching no known path are retained byte-for-byte in ExtraFiles, and a parse failure at a known path must return an error
 type KCESSystemData struct {
-	Format         string                                 `json:"format"`                   // 库的可编辑表示标识，不写入游戏文件 / Library editing-representation identifier, not written to the game file
-	Version        int32                                  `json:"version"`                  // VirtualDirectory 对象版本 / VirtualDirectory object version
-	Versionless    bool                                   `json:"versionless,omitempty"`    // 原始 VirtualDirectory 是否缺少版本槽位 / Whether the original VirtualDirectory omitted its version slot
-	FilesOnly      bool                                   `json:"filesOnly,omitempty"`      // 原始根对象是否采用仅文件兼容布局 / Whether the original root object used the files-only compatibility layout
-	DirectoriesNil bool                                   `json:"directoriesNil,omitempty"` // 原始目录集合是否为 MessagePack nil / Whether the original directory collection was MessagePack nil
-	FilesNil       bool                                   `json:"filesNil,omitempty"`       // 原始文件集合是否为 MessagePack nil / Whether the original file collection was MessagePack nil
-	FieldCount     *int32                                 `json:"fieldCount,omitempty"`     // 原始 VirtualDirectory indexed object 的槽位数 / Slot count of the original VirtualDirectory indexed object
-	FutureSlots    [][]byte                               `json:"futureSlots,omitempty"`    // 当前模型未知的后续 VirtualDirectory 槽位原始值 / Raw later VirtualDirectory slot values unknown to the current model
-	Directories    map[string]ct.VirtualDirectoryMetadata `json:"directories,omitempty"`    // 各虚拟目录的线格式元数据 / Wire metadata for each virtual directory
-	VirtualFiles   map[string]ct.VirtualFileMetadata      `json:"virtualFiles,omitempty"`   // 各虚拟文件的线格式元数据 / Wire metadata for each virtual file
-	EditData       []KCESEditDataFile                     `json:"editData,omitempty"`       // 按虚拟路径识别并解码的 EditData 文件 / EditData files recognized and decoded by virtual path
-	ExtraFiles     map[string][]byte                      `json:"extraFiles,omitempty"`     // 未识别虚拟文件的原始载荷 / Raw payloads of unrecognized virtual files
+	Format      string                                 `json:"format"`                // 库的可编辑表示标识，不写入游戏文件 / Library editing-representation identifier, not written to the game file
+	Version     int32                                  `json:"version"`               // VirtualDirectory 对象版本 / VirtualDirectory object version
+	Directories map[string]ct.VirtualDirectoryMetadata `json:"directories,omitempty"` // 各虚拟目录的真实版本字段 / Real version fields of each virtual directory
+	EditData    []KCESEditDataFile                     `json:"editData,omitempty"`    // 按虚拟路径识别并解码的 EditData 文件 / EditData files recognized and decoded by virtual path
+	ExtraFiles  map[string][]byte                      `json:"extraFiles,omitempty"`  // 未识别虚拟文件的真实 byte[] 载荷 / Real byte-array payloads of unrecognized virtual files
 }
 
 // KCESEditDataFile 表示 system.dat 的 EditData 目录下一个已识别文件
@@ -73,6 +67,155 @@ type KCESEditDataFile struct {
 	MoveablePanel    *MoveablePanelSaveData   `json:"moveablePanel,omitempty"`    // 可移动面板状态载荷，仅用于对应种类 / Moveable-panel state payload used only for its matching kind
 	PresetOrderList  *ColorPresetOrderList    `json:"presetOrderList,omitempty"`  // 颜色预设顺序载荷，仅用于对应种类 / Color-preset order payload used only for its matching kind
 	ColorPreset      *ColorPreset             `json:"colorPreset,omitempty"`      // 用户颜色预设载荷，仅用于对应种类 / User color-preset payload used only for its matching kind
+}
+
+// kcesEditDataFileJSON 以原始 JSON 值区分 EditData union 分支字段缺失与显式 null / kcesEditDataFileJSON distinguishes missing EditData union fields from explicit null by retaining each JSON value
+type kcesEditDataFileJSON struct {
+	Path             string           `json:"path"`                       // 完整虚拟路径 / Complete virtual path
+	Kind             KCESEditDataKind `json:"kind"`                       // union 判别类型 / Union discriminator
+	PresetPanelNames json.RawMessage  `json:"presetPanelNames,omitempty"` // 预设面板框名称分支 / Preset-panel box-name branch
+	PaletteColor     json.RawMessage  `json:"paletteColor,omitempty"`     // 调色板颜色分支 / Palette-color branch
+	GradPoints       json.RawMessage  `json:"gradPoints,omitempty"`       // 渐变控制点分支 / Gradation control-point branch
+	MoveablePanel    json.RawMessage  `json:"moveablePanel,omitempty"`    // 可移动面板分支 / Moveable-panel branch
+	PresetOrderList  json.RawMessage  `json:"presetOrderList,omitempty"`  // 颜色预设顺序分支 / Color-preset order branch
+	ColorPreset      json.RawMessage  `json:"colorPreset,omitempty"`      // 用户颜色预设分支 / User color-preset branch
+}
+
+// MarshalJSON 仅写出 Kind 对应的活动 EditData 分支并让类型化 nil 根显式成为 JSON null
+// MarshalJSON emits only the EditData branch selected by Kind and represents a typed nil root as explicit JSON null
+func (entry KCESEditDataFile) MarshalJSON() ([]byte, error) {
+	active := editDataRootFieldName(entry.Kind)
+	if active == "" {
+		return nil, fmt.Errorf("unsupported EditData kind %q", entry.Kind)
+	}
+	if err := validateEditDataJSONInactiveRoots(&entry, active); err != nil {
+		return nil, err
+	}
+
+	raw := kcesEditDataFileJSON{Path: entry.Path, Kind: entry.Kind}
+	var err error
+	switch active {
+	case "presetPanelNames":
+		raw.PresetPanelNames, err = json.Marshal(entry.PresetPanelNames)
+	case "paletteColor":
+		raw.PaletteColor, err = json.Marshal(entry.PaletteColor)
+	case "gradPoints":
+		raw.GradPoints, err = json.Marshal(entry.GradPoints)
+	case "moveablePanel":
+		raw.MoveablePanel, err = json.Marshal(entry.MoveablePanel)
+	case "presetOrderList":
+		raw.PresetOrderList, err = json.Marshal(entry.PresetOrderList)
+	case "colorPreset":
+		raw.ColorPreset, err = json.Marshal(entry.ColorPreset)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("marshal active EditData field %s: %w", active, err)
+	}
+	return json.Marshal(raw)
+}
+
+// UnmarshalJSON 严格解码一个 EditData union，要求活动分支存在并拒绝未知字段或任何非活动分支
+// UnmarshalJSON strictly decodes one EditData union, requires the active branch, and rejects unknown fields or every inactive branch
+func (entry *KCESEditDataFile) UnmarshalJSON(data []byte) error {
+	var raw kcesEditDataFileJSON
+	if err := decodeKCESJSONStrict(data, &raw); err != nil {
+		return err
+	}
+	active := editDataRootFieldName(raw.Kind)
+	if active == "" {
+		return fmt.Errorf("unsupported EditData kind %q", raw.Kind)
+	}
+	if err := validateEditDataJSONRootPresence(&raw, active); err != nil {
+		return err
+	}
+
+	value := KCESEditDataFile{Path: raw.Path, Kind: raw.Kind}
+	var err error
+	switch active {
+	case "presetPanelNames":
+		err = decodeKCESJSONStrict(raw.PresetPanelNames, &value.PresetPanelNames)
+	case "paletteColor":
+		err = decodeKCESJSONStrict(raw.PaletteColor, &value.PaletteColor)
+	case "gradPoints":
+		err = decodeKCESJSONStrict(raw.GradPoints, &value.GradPoints)
+	case "moveablePanel":
+		err = decodeKCESJSONStrict(raw.MoveablePanel, &value.MoveablePanel)
+	case "presetOrderList":
+		err = decodeKCESJSONStrict(raw.PresetOrderList, &value.PresetOrderList)
+	case "colorPreset":
+		err = decodeKCESJSONStrict(raw.ColorPreset, &value.ColorPreset)
+	}
+	if err != nil {
+		return fmt.Errorf("decode active EditData field %s: %w", active, err)
+	}
+	*entry = value
+	return nil
+}
+
+// editDataRootFieldName 返回 EditData kind 在 editing JSON 中选择的活动 union 字段
+// editDataRootFieldName returns the active editing-JSON union field selected by an EditData kind
+func editDataRootFieldName(kind KCESEditDataKind) string {
+	switch kind {
+	case KCESEditDataPresetPanelNames:
+		return "presetPanelNames"
+	case KCESEditDataPaletteColor:
+		return "paletteColor"
+	case KCESEditDataGradPoints:
+		return "gradPoints"
+	case KCESEditDataMoveablePanel:
+		return "moveablePanel"
+	case KCESEditDataPresetOrderList:
+		return "presetOrderList"
+	case KCESEditDataColorPreset:
+		return "colorPreset"
+	default:
+		return ""
+	}
+}
+
+// validateEditDataJSONInactiveRoots 拒绝 Go 值中与 Kind 不匹配且实际携带值的 EditData 分支
+// validateEditDataJSONInactiveRoots rejects populated Go EditData branches that do not match Kind
+func validateEditDataJSONInactiveRoots(entry *KCESEditDataFile, active string) error {
+	for _, root := range []struct {
+		name    string
+		present bool
+	}{
+		{name: "presetPanelNames", present: entry.PresetPanelNames != nil},
+		{name: "paletteColor", present: entry.PaletteColor != nil},
+		{name: "gradPoints", present: entry.GradPoints != nil},
+		{name: "moveablePanel", present: entry.MoveablePanel != nil},
+		{name: "presetOrderList", present: entry.PresetOrderList != nil},
+		{name: "colorPreset", present: entry.ColorPreset != nil},
+	} {
+		if root.present && root.name != active {
+			return fmt.Errorf("%s is inactive for EditData kind %q", root.name, entry.Kind)
+		}
+	}
+	return nil
+}
+
+// validateEditDataJSONRootPresence 要求活动字段出现并拒绝所有出现的非活动字段，包括显式 null
+// validateEditDataJSONRootPresence requires the active field and rejects every present inactive field including explicit null
+func validateEditDataJSONRootPresence(raw *kcesEditDataFileJSON, active string) error {
+	for _, root := range []struct {
+		name string
+		data json.RawMessage
+	}{
+		{name: "presetPanelNames", data: raw.PresetPanelNames},
+		{name: "paletteColor", data: raw.PaletteColor},
+		{name: "gradPoints", data: raw.GradPoints},
+		{name: "moveablePanel", data: raw.MoveablePanel},
+		{name: "presetOrderList", data: raw.PresetOrderList},
+		{name: "colorPreset", data: raw.ColorPreset},
+	} {
+		if root.name == active && len(root.data) == 0 {
+			return fmt.Errorf("EditData kind %q requires field %s", raw.Kind, active)
+		}
+		if root.name != active && len(root.data) != 0 {
+			return fmt.Errorf("%s is inactive for EditData kind %q", root.name, raw.Kind)
+		}
+	}
+	return nil
 }
 
 // KCESEditDataKindForPath 返回游戏对给定精确 VirtualDirectory 路径采用的载荷模式
@@ -138,16 +281,9 @@ func DecodeKCESSystemData(data []byte) (*KCESSystemData, error) {
 		return nil, fmt.Errorf("decode KCES system.dat VirtualDirectory: %w", err)
 	}
 	result := &KCESSystemData{
-		Format:         KCESSystemDataFormat,
-		Version:        table.Version,
-		Versionless:    table.Versionless,
-		FilesOnly:      table.FilesOnly,
-		DirectoriesNil: table.DirectoriesNil,
-		FilesNil:       table.FilesNil,
-		FieldCount:     table.FieldCount,
-		FutureSlots:    table.FutureSlots,
-		Directories:    table.GetVirtualDirectoryMetadata(),
-		VirtualFiles:   table.GetVirtualFileMetadata(),
+		Format:      KCESSystemDataFormat,
+		Version:     table.Version,
+		Directories: table.GetVirtualDirectoryMetadata(),
 	}
 	for _, path := range table.GetFileNames() {
 		payload, err := table.GetFileData(path)
@@ -196,16 +332,10 @@ func EncodeKCESSystemData(value *KCESSystemData) ([]byte, error) {
 		return nil, fmt.Errorf("unsupported KCES system.dat JSON format %q", value.Format)
 	}
 	table := &ct.ContentTable{
-		Version:        value.Version,
-		Versionless:    value.Versionless,
-		FilesOnly:      value.FilesOnly,
-		DirectoriesNil: value.DirectoriesNil,
-		FilesNil:       value.FilesNil,
-		FieldCount:     value.FieldCount,
-		FutureSlots:    value.FutureSlots,
-		Directories:    value.Directories,
-		Raw:            make([]byte, ct.HeaderSize),
-		Files:          make(map[string]ct.VirtualFile),
+		Version:     value.Version,
+		Directories: value.Directories,
+		Raw:         make([]byte, ct.HeaderSize),
+		Files:       make(map[string]ct.VirtualFile),
 	}
 	seenPaths := make(map[string]struct{}, len(value.EditData)+len(value.ExtraFiles))
 	for index := range value.EditData {
@@ -279,10 +409,6 @@ func EncodeKCESSystemData(value *KCESSystemData) ([]byte, error) {
 			return nil, err
 		}
 	}
-	if err := table.ApplyVirtualFileMetadata(value.VirtualFiles); err != nil {
-		return nil, fmt.Errorf("system.dat: %w", err)
-	}
-
 	var out bytes.Buffer
 	if err := ct.WriteContentTable(&out, table); err != nil {
 		return nil, fmt.Errorf("encode KCES system.dat VirtualDirectory: %w", err)

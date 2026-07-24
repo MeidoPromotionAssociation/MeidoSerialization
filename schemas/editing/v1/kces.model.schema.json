@@ -3,44 +3,10 @@
     "KCES_BlendData": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "name": {
-          "type": "string"
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
           "type": [
             "null",
-            "array"
+            "string"
           ]
         },
         "norm": {
@@ -50,41 +16,6 @@
           "type": [
             "null",
             "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
           ]
         },
         "tan": {
@@ -131,80 +62,15 @@
     "KCES_SkinThickness": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "groups": {
           "additionalProperties": {
-            "$ref": "#/$defs/KCES_ThicknessGroup"
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_ThicknessGroup"
+              }
             ]
           },
           "type": [
@@ -237,78 +103,6 @@
           "minimum": -3.4028234663852886e+38,
           "type": "number"
         },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "vidx": {
           "maximum": 2147483647,
           "minimum": -2147483648,
@@ -328,86 +122,27 @@
       "additionalProperties": false,
       "properties": {
         "endBoneName": {
-          "type": "string"
-        },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
           "type": [
             "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
+            "string"
           ]
         },
         "groupName": {
-          "type": "string"
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
           "type": [
             "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
+            "string"
           ]
         },
         "points": {
           "items": {
-            "$ref": "#/$defs/KCES_ThicknessPoint"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_ThicknessPoint"
+              }
+            ]
           },
           "type": [
             "null",
@@ -415,7 +150,10 @@
           ]
         },
         "startBoneName": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "stepAngleDgree": {
           "maximum": 2147483647,
@@ -439,83 +177,18 @@
       "properties": {
         "distanceParAngle": {
           "items": {
-            "$ref": "#/$defs/KCES_ThicknessDefPerAngle"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_ThicknessDefPerAngle"
+              }
             ]
           },
           "type": [
             "null",
             "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
           ]
         },
         "ratioSegmentStartToEnd": {
@@ -524,7 +197,10 @@
           "type": "number"
         },
         "targetBoneName": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         }
       },
       "required": [
@@ -537,82 +213,13 @@
     "KCES_TransData": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "isSCL": {
           "type": "boolean"
         },
         "name": {
-          "type": "string"
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
           "type": [
             "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
+            "string"
           ]
         },
         "paretnNo": {
@@ -645,78 +252,6 @@
     "KCES_Vector3": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "x": {
           "maximum": 3.4028234663852886e+38,
           "minimum": -3.4028234663852886e+38,
@@ -743,78 +278,6 @@
     "KCES_Vector4": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "w": {
           "maximum": 3.4028234663852886e+38,
           "minimum": -3.4028234663852886e+38,
@@ -853,7 +316,10 @@
     "boneNames": {
       "description": "The ordered names paired with bone indices in the mesh and transform data.",
       "items": {
-        "type": "string"
+        "type": [
+          "null",
+          "string"
+        ]
       },
       "title": "Bone name table",
       "type": [
@@ -886,27 +352,13 @@
         }
       ]
     },
-    "fieldCount": {
-      "description": "Stored MessagePack field-width metadata.",
-      "maximum": 2147483647,
-      "minimum": -2147483648,
-      "title": "Model indexed field count",
-      "type": [
-        "null",
-        "integer"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve it when editing an existing model.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "It preserves compatibility with models containing future keys.",
-      "x-meido-integer-bits": 32,
-      "x-meido-integer-signed": true,
-      "x-meido-risk": "high"
-    },
     "fileName": {
       "description": "The logical .model file name stored in the record.",
       "title": "Model file name",
-      "type": "string",
+      "type": [
+        "null",
+        "string"
+      ],
       "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Use the deployed .model name with its expected extension and case convention.",
       "x-meido-edit-role": "resource_identity",
@@ -932,27 +384,6 @@
           "symbol": "PartsModelManager.CreateModel"
         }
       ]
-    },
-    "futureSlots": {
-      "description": "Raw indexed values beyond the known Parts.Model keys.",
-      "items": {
-        "contentEncoding": "base64",
-        "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-        "type": [
-          "null",
-          "string"
-        ]
-      },
-      "title": "Model future slots",
-      "type": [
-        "null",
-        "array"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve every future slot.",
-      "x-meido-edit-role": "opaque_preserve",
-      "x-meido-game-usage": "The current model loader does not interpret future slots.",
-      "x-meido-risk": "critical"
     },
     "id": {
       "description": "The unsigned identifier used by parts resource lookup.",
@@ -991,7 +422,10 @@
     "materialFileName": {
       "description": "The ordered material file-name slots used by the model renderer.",
       "items": {
-        "type": "string"
+        "type": [
+          "null",
+          "string"
+        ]
       },
       "title": "Material resource names",
       "type": [
@@ -1027,7 +461,10 @@
     "meshfileName": {
       "description": "The separate mesh resource referenced by the model description, normally a .mmesh asset.",
       "title": "Mesh resource name",
-      "type": "string",
+      "type": [
+        "null",
+        "string"
+      ],
       "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Ensure the referenced mesh exists in the same target catalog and keep the spelling exact.",
       "x-meido-edit-role": "resource_reference",
@@ -1057,7 +494,10 @@
     "modelName": {
       "description": "The exact transData[].name selected as the VirtualHierarchy that receives the SkinnedMeshRenderer.",
       "title": "Render-root transform selector",
-      "type": "string",
+      "type": [
+        "null",
+        "string"
+      ],
       "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep it equal to exactly one transData[].name. It is not a display name; when renaming the selected transform, update modelName and every dependent bone/reference together.",
       "x-meido-edit-role": "runtime_selector",
@@ -1087,7 +527,14 @@
     "morphs": {
       "description": "Blend-shape records containing named vertex deltas and ranges.",
       "items": {
-        "$ref": "#/$defs/KCES_BlendData"
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "#/$defs/KCES_BlendData"
+          }
+        ]
       },
       "title": "Morph records",
       "type": [
@@ -1119,85 +566,6 @@
           "symbol": "PartsModelManager.CreateModel"
         }
       ]
-    },
-    "nilSlots": {
-      "description": "Sparse nil markers for indexed nested values.",
-      "items": {
-        "maximum": 2147483647,
-        "minimum": -2147483648,
-        "type": "integer",
-        "x-meido-integer-bits": 32,
-        "x-meido-integer-signed": true
-      },
-      "title": "Model nil-slot metadata",
-      "type": [
-        "null",
-        "array"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve unchanged.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "They preserve MessagePack shape rather than model semantics.",
-      "x-meido-risk": "high"
-    },
-    "nullElements": {
-      "additionalProperties": {
-        "items": {
-          "type": "boolean"
-        },
-        "type": [
-          "null",
-          "array"
-        ]
-      },
-      "description": "Positions of null nested records retained by the lossless codec.",
-      "title": "Model null-element metadata",
-      "type": [
-        "null",
-        "object"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve unchanged.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "The game serializer distinguishes null array elements from omitted values.",
-      "x-meido-risk": "high"
-    },
-    "nullMapValueKeys": {
-      "additionalProperties": {
-        "items": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "type": [
-          "null",
-          "array"
-        ]
-      },
-      "description": "Map keys whose values were explicitly nil on the wire.",
-      "title": "Model null-map metadata",
-      "type": [
-        "null",
-        "object"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve unchanged.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "They preserve indexed/map fidelity for skin-thickness and morph structures.",
-      "x-meido-risk": "high"
-    },
-    "rootNil": {
-      "description": "Whether the standalone model root was nil.",
-      "title": "MessagePack nil root",
-      "type": "boolean",
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Keep rootNil and required model fields consistent.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "A nil root is not an empty model and cannot be loaded as a normal Parts.Model.",
-      "x-meido-risk": "critical"
     },
     "shadowModeFlags": {
       "description": "The shadow enum value: 0 Default, 1 CastShadow, or 2 NoCastShadow.",
@@ -1270,25 +638,17 @@
         }
       ]
     },
-    "trailingData": {
-      "contentEncoding": "base64",
-      "description": "Bytes after the first compressed MessagePack value.",
-      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-      "title": "Model trailing bytes",
-      "type": [
-        "null",
-        "string"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve unchanged trailingData.",
-      "x-meido-edit-role": "opaque_preserve",
-      "x-meido-game-usage": "PartsModelManager does not consume this region.",
-      "x-meido-risk": "critical"
-    },
     "transData": {
       "description": "Indexed local transform and parent-index records for the model skeleton.",
       "items": {
-        "$ref": "#/$defs/KCES_TransData"
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "#/$defs/KCES_TransData"
+          }
+        ]
       },
       "title": "Bone transform records",
       "type": [
@@ -1370,7 +730,10 @@
     "shadowModeFlags"
   ],
   "title": "kces.model editing JSON",
-  "type": "object",
+  "type": [
+    "null",
+    "object"
+  ],
   "x-meido-format-id": "kces.model",
   "x-meido-native-suffixes": [
     ".model"

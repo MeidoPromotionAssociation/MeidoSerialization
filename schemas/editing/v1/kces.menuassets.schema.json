@@ -5,30 +5,13 @@
       "properties": {
         "colvariDatas": {
           "items": {
-            "$ref": "#/$defs/KCES_ColvariData"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_ColvariData"
+              }
             ]
           },
           "type": [
@@ -40,58 +23,16 @@
           "$ref": "#/$defs/KCES_PartsColor"
         },
         "iconFileName": {
-          "type": "string"
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
           "type": [
             "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
+            "string"
           ]
         },
         "reqDefine": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "version": {
           "maximum": 2147483647,
@@ -135,30 +76,6 @@
           "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "gradaColDef": {
           "anyOf": [
             {
@@ -170,14 +87,27 @@
           ]
         },
         "layerName": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "mamaFileName": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "maskData": {
           "items": {
-            "$ref": "#/$defs/KCES_MaskData"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_MaskData"
+              }
+            ]
           },
           "type": [
             "null",
@@ -185,59 +115,21 @@
           ]
         },
         "mpn": {
-          "type": "string"
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
           "type": [
             "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
+            "string"
           ]
         },
         "partColDefs": {
           "items": {
-            "$ref": "#/$defs/KCES_PartColDef"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_PartColDef"
+              }
+            ]
           },
           "type": [
             "null",
@@ -245,7 +137,10 @@
           ]
         },
         "saveInfColDataLinkLayer": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "useType": {
           "maximum": 255,
@@ -262,7 +157,10 @@
           "x-meido-integer-signed": true
         },
         "viewName": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         }
       },
       "required": [
@@ -288,27 +186,6 @@
       "properties": {
         "args": {
           "items": {
-            "type": "string"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": [
               "null",
               "string"
@@ -317,54 +194,6 @@
           "type": [
             "null",
             "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
           ]
         },
         "type": {
@@ -384,30 +213,6 @@
     "KCES_GradaColDef": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "gradaNum": {
           "maximum": 2147483647,
           "minimum": -2147483648,
@@ -438,55 +243,10 @@
         "multi_col": {
           "$ref": "#/$defs/KCES_PartsColor"
         },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "notUse": {
-          "type": "string"
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
           "type": [
             "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
+            "string"
           ]
         }
       },
@@ -504,30 +264,6 @@
       "properties": {
         "colData": {
           "$ref": "#/$defs/KCES_PartsColor"
-        },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
         },
         "gradaColDef": {
           "anyOf": [
@@ -552,57 +288,16 @@
         "isIndependenceMultiColor": {
           "type": "boolean"
         },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "partColDefs": {
           "items": {
-            "$ref": "#/$defs/KCES_PartColDef"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_PartColDef"
+              }
+            ]
           },
           "type": [
             "null",
@@ -631,30 +326,6 @@
     "KCES_InfColorParam": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "gradaIsMugen": {
           "type": "boolean"
         },
@@ -682,7 +353,10 @@
         },
         "idTexName": {
           "items": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "type": [
             "null",
@@ -706,57 +380,16 @@
         "isIndependenceMultiColor": {
           "type": "boolean"
         },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "partCols": {
           "items": {
-            "$ref": "#/$defs/KCES_PartColDef"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_PartColDef"
+              }
+            ]
           },
           "type": [
             "null",
@@ -767,7 +400,10 @@
           "$ref": "#/$defs/KCES_PartsColor"
         },
         "tag": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         }
       },
       "required": [
@@ -788,82 +424,13 @@
     "KCES_MaskData": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "mask": {
           "type": "boolean"
         },
         "name": {
-          "type": "string"
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
           "type": [
             "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
+            "string"
           ]
         }
       },
@@ -876,32 +443,11 @@
     "KCES_MaskParam": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "linkMaskName": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "linkMaskNo": {
           "maximum": 2147483647,
@@ -912,7 +458,14 @@
         },
         "maskData": {
           "items": {
-            "$ref": "#/$defs/KCES_MaskData"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_MaskData"
+              }
+            ]
           },
           "type": [
             "null",
@@ -929,58 +482,16 @@
           ]
         },
         "maskTexName": {
-          "type": "string"
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
           "type": [
             "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
+            "string"
           ]
         },
         "shareRtTargetPart": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         }
       },
       "required": [
@@ -1004,13 +515,22 @@
           "x-meido-integer-signed": false
         },
         "categoryText": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "colorSetText": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "colvariFileNameExp": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "colvariInfo": {
           "anyOf": [
@@ -1024,7 +544,14 @@
         },
         "commandList": {
           "items": {
-            "$ref": "#/$defs/KCES_Command"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_Command"
+              }
+            ]
           },
           "type": [
             "null",
@@ -1046,33 +573,15 @@
           "x-meido-integer-signed": false
         },
         "exportModelFormTextureName": {
-          "type": "string"
-        },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
           "type": [
             "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
+            "string"
+          ]
         },
         "fileName": {
-          "type": "string"
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
           "type": [
             "null",
-            "array"
+            "string"
           ]
         },
         "guid": {
@@ -1086,7 +595,10 @@
           "type": "boolean"
         },
         "iconFileName": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "id": {
           "maximum": 18446744073709551615,
@@ -1096,7 +608,10 @@
           "x-meido-integer-signed": false
         },
         "infoText": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "isDelete": {
           "type": "boolean"
@@ -1118,54 +633,9 @@
           "type": "boolean"
         },
         "itemName": {
-          "type": "string"
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
           "type": [
             "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
+            "string"
           ]
         },
         "parentId": {
@@ -1187,7 +657,14 @@
         },
         "preMulTexDatas": {
           "additionalProperties": {
-            "$ref": "#/$defs/KCES_PreMulTexDatas"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_PreMulTexDatas"
+              }
+            ]
           },
           "type": [
             "null",
@@ -1200,14 +677,6 @@
           "type": "integer",
           "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
-        },
-        "reserved24": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-          "type": [
-            "null",
-            "string"
-          ]
         },
         "skirt_phys": {
           "maximum": 2147483647,
@@ -1231,7 +700,10 @@
           "x-meido-integer-signed": true
         },
         "toeLockSlotId": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "version": {
           "maximum": 2147483647,
@@ -1278,83 +750,14 @@
     "KCES_PartColDef": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "multi_col": {
           "$ref": "#/$defs/KCES_PartsColor"
         },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "part_name": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "patternRot": {
           "maximum": 3.4028234663852886e+38,
@@ -1376,30 +779,6 @@
     "KCES_PartsColor": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "m_grada": {
           "items": {
             "$ref": "#/$defs/KCES_PartsColorGrada"
@@ -1407,25 +786,6 @@
           "type": [
             "null",
             "array"
-          ]
-        },
-        "m_gradaBytes": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "m_gradaDecodeError": {
-          "type": "string"
-        },
-        "m_gradaTrailingBytes": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-          "type": [
-            "null",
-            "string"
           ]
         },
         "m_nMainBrightness": {
@@ -1490,54 +850,6 @@
           "type": "integer",
           "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
         }
       },
       "required": [
@@ -1550,7 +862,7 @@
         "m_nShadowChroma",
         "m_nShadowBrightness",
         "m_nShadowContrast",
-        "m_gradaBytes"
+        "m_grada"
       ],
       "type": "object"
     },
@@ -1641,7 +953,10 @@
           "type": "boolean"
         },
         "f_eBlendMode": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "f_fAlpha": {
           "maximum": 3.4028234663852886e+38,
@@ -1677,33 +992,15 @@
           "x-meido-integer-signed": true
         },
         "f_strFileName": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "f_strPropName": {
-          "type": "string"
-        },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
           "type": [
             "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
+            "string"
           ]
         },
         "infColParam": {
@@ -1726,56 +1023,11 @@
             }
           ]
         },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "posDefHokuroTatooSlotId": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "preInfColData": {
           "anyOf": [
@@ -1789,7 +1041,14 @@
         },
         "preMaskData": {
           "items": {
-            "$ref": "#/$defs/KCES_MaskData"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_MaskData"
+              }
+            ]
           },
           "type": [
             "null",
@@ -1797,11 +1056,21 @@
           ]
         },
         "preTexCompoTypeStr": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "preTransTexData": {
           "items": {
-            "$ref": "#/$defs/KCES_TransTexData"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_TransTexData"
+              }
+            ]
           },
           "type": [
             "null",
@@ -1809,10 +1078,16 @@
           ]
         },
         "saveTag": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "slotId": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "version": {
           "maximum": 2147483647,
@@ -1861,78 +1136,6 @@
             }
           ]
         },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "pos": {
           "$ref": "#/$defs/KCES_Vector2"
         },
@@ -1961,32 +1164,11 @@
     "KCES_TupleStringInt": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "item1": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "item2": {
           "maximum": 2147483647,
@@ -1994,54 +1176,6 @@
           "type": "integer",
           "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
         }
       },
       "required": [
@@ -2053,78 +1187,6 @@
     "KCES_Vector2": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "x": {
           "maximum": 3.4028234663852886e+38,
           "minimum": -3.4028234663852886e+38,
@@ -2145,78 +1207,6 @@
     "KCES_Vector2Int": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "x": {
           "maximum": 2147483647,
           "minimum": -2147483648,
@@ -2241,78 +1231,6 @@
     "KCES_Vector4": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "w": {
           "maximum": 3.4028234663852886e+38,
           "minimum": -3.4028234663852886e+38,
@@ -2351,7 +1269,14 @@
     "assetArray": {
       "description": "The ordered Parts.Menu values stored at MessagePack Key(1).",
       "items": {
-        "$ref": "#/$defs/KCES_Menu"
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$ref": "#/$defs/KCES_Menu"
+          }
+        ]
       },
       "title": "Menu asset array",
       "type": [
@@ -2384,27 +1309,13 @@
         }
       ]
     },
-    "fieldCount": {
-      "description": "Stored MessagePack indexed-array width metadata.",
-      "maximum": 2147483647,
-      "minimum": -2147483648,
-      "title": "Container field count",
-      "type": [
-        "null",
-        "integer"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve it when editing existing data.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "It controls compatibility with future container fields but is not a menu gameplay value.",
-      "x-meido-integer-bits": 32,
-      "x-meido-integer-signed": true,
-      "x-meido-risk": "high"
-    },
     "fileName": {
       "description": "The container name stored at MessagePack Key(0).",
       "title": "Asset-container file name",
-      "type": "string",
+      "type": [
+        "null",
+        "string"
+      ],
       "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep the expected .menuassets name and preserve the source case when round-tripping.",
       "x-meido-edit-role": "resource_identity",
@@ -2430,121 +1341,6 @@
           "symbol": "PartsMenuManager.Reload"
         }
       ]
-    },
-    "futureSlots": {
-      "description": "Raw MessagePack values beyond the known container keys.",
-      "items": {
-        "contentEncoding": "base64",
-        "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-        "type": [
-          "null",
-          "string"
-        ]
-      },
-      "title": "Container future slots",
-      "type": [
-        "null",
-        "array"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Keep every future slot unchanged.",
-      "x-meido-edit-role": "opaque_preserve",
-      "x-meido-game-usage": "Current KCES does not interpret these slots.",
-      "x-meido-risk": "critical"
-    },
-    "nilSlots": {
-      "description": "Per-slot nil markers retained by the lossless codec.",
-      "items": {
-        "maximum": 2147483647,
-        "minimum": -2147483648,
-        "type": "integer",
-        "x-meido-integer-bits": 32,
-        "x-meido-integer-signed": true
-      },
-      "title": "Container nil-slot metadata",
-      "type": [
-        "null",
-        "array"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve it together with assetArray nil elements.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "Nil-versus-empty state affects MessagePack shape rather than menu semantics.",
-      "x-meido-risk": "high"
-    },
-    "nullElements": {
-      "additionalProperties": {
-        "items": {
-          "type": "boolean"
-        },
-        "type": [
-          "null",
-          "array"
-        ]
-      },
-      "description": "Positions of null elements in the asset array.",
-      "title": "Null asset elements",
-      "type": [
-        "null",
-        "object"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Do not compact the array unless every dependent index is intentionally rewritten.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "The manager may skip null entries while preserving array positions.",
-      "x-meido-risk": "high"
-    },
-    "nullMapValueKeys": {
-      "additionalProperties": {
-        "items": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "type": [
-          "null",
-          "array"
-        ]
-      },
-      "description": "Raw null-map metadata from indexed nested objects.",
-      "title": "Null map values",
-      "type": [
-        "null",
-        "object"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve unchanged.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "The game serializer distinguishes null map values from absent keys.",
-      "x-meido-risk": "high"
-    },
-    "rootNil": {
-      "description": "Whether the entire asset container root was nil.",
-      "title": "MessagePack nil root",
-      "type": "boolean",
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Keep rootNil and assetArray state consistent.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "A nil root represents an absent asset container rather than an empty menu list.",
-      "x-meido-risk": "critical"
-    },
-    "trailingData": {
-      "contentEncoding": "base64",
-      "description": "Bytes after the first MessagePack root value.",
-      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-      "title": "Asset-container trailing bytes",
-      "type": [
-        "null",
-        "string"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve unchanged trailingData.",
-      "x-meido-edit-role": "opaque_preserve",
-      "x-meido-game-usage": "The manager does not consume this region.",
-      "x-meido-risk": "critical"
     }
   },
   "required": [
@@ -2552,7 +1348,10 @@
     "assetArray"
   ],
   "title": "kces.menuassets editing JSON",
-  "type": "object",
+  "type": [
+    "null",
+    "object"
+  ],
   "x-meido-format-id": "kces.menuassets",
   "x-meido-native-suffixes": [
     ".menuassets"

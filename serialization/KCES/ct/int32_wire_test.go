@@ -185,18 +185,20 @@ func TestVirtualFileSizeCSharpInt32WireBounds(t *testing.T) {
 }
 
 func validCatalogForInt32Test(kind CatalogKind) *AssetBundleCatalog {
+	name := "int32"
 	catalog := &AssetBundleCatalog{
 		Kind:        kind,
 		Version:     1000,
 		CatalogType: CatalogTypeParts,
 		PackageType: PackageTypePlugin,
-		Name:        "int32",
+		Name:        &name,
 	}
 	if kind == CatalogKindVirtualAsset {
 		return catalog
 	}
 	itemName := "int32.menuassets"
-	catalog.ResourceFileNames = []string{"int32.aba"}
-	catalog.Items = []CatalogItem{{ResourceIndex: 0, Name: itemName, Hash: HashStringIgnoreCase(itemName)}}
+	resourceName := "int32.aba"
+	catalog.ResourceFileNames = []*string{&resourceName}
+	catalog.Items = []*CatalogItem{{ResourceIndex: 0, Name: &itemName, Hash: HashStringIgnoreCase(itemName)}}
 	return catalog
 }

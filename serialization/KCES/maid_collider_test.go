@@ -70,13 +70,8 @@ func TestMaidColliderRejectsMalformedButPreservesRuntimeValues(t *testing.T) {
 		}
 	}
 	extended := append(append([]byte(nil), encoded...), 0xde, 0xad)
-	withTrailing, err := DecodeMaidCollider(extended)
-	if err != nil || !bytes.Equal(withTrailing.TrailingData, []byte{0xde, 0xad}) {
-		t.Fatalf("trailing bytes were not preserved: value=%+v err=%v", withTrailing, err)
-	}
-	reencodedTrailing, err := EncodeMaidCollider(withTrailing)
-	if err != nil || !bytes.Equal(reencodedTrailing, extended) {
-		t.Fatalf("trailing-byte round trip = %x, %v; want %x", reencodedTrailing, err, extended)
+	if _, err := DecodeMaidCollider(extended); err == nil || !strings.Contains(err.Error(), "trailing") {
+		t.Fatalf("trailing-data error = %v", err)
 	}
 
 	tests := []struct {

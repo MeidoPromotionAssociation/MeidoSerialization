@@ -63,31 +63,19 @@ const (
 // A .ct file is a KCES resource catalog container storing virtual files such as catalog and ExtensionNameList
 // The game reads the "catalog" virtual file through CatalogUtility.FromCatalog<T> to obtain resource indexes
 type ContentTable struct {
-	Version        int32                               `json:"Version"`                  // 保存的根 VirtualDirectory 版本；零值原样保留 / Stored root VirtualDirectory version; zero is preserved
-	Versionless    bool                                `json:"Versionless,omitempty"`    // 历史根无版本 [目录, 文件] 形式 / Historical root [directories, files] form with no version slot
-	FilesOnly      bool                                `json:"FilesOnly,omitempty"`      // 历史根 [版本, 文件] 形式 / Historical root [version, files] form
-	DirectoriesNil bool                                `json:"DirectoriesNil,omitempty"` // 根 allDirectorys 使用 MessagePack nil / Root allDirectorys was encoded as MessagePack nil
-	FilesNil       bool                                `json:"FilesNil,omitempty"`       // 根 allFiles 使用 MessagePack nil / Root allFiles was encoded as MessagePack nil
-	FieldCount     *int32                              `json:"FieldCount,omitempty"`     // 非标准根 indexed array 的槽数 / Non-canonical root indexed-array width
-	FutureSlots    [][]byte                            `json:"FutureSlots,omitempty"`    // 根已知槽之后保留的原始 MessagePack 值 / Verbatim root MessagePack values after known slots
-	Directories    map[string]VirtualDirectoryMetadata `json:"Directories,omitempty"`    // 每个子目录路径的元数据，包含空目录 / Metadata for every child directory path, including empty directories
-	Files          map[string]VirtualFile              `json:"Files"`                    // 虚拟文件表，键为文件名，值为位置和大小 / Virtual file table keyed by file name with position and size values
-	Raw            []byte                              `json:"-"`                        // 完整文件原始字节，用于按偏移提取虚拟文件内容 / Raw bytes of the full file used to slice virtual file contents by offset
-	dataEnd        int64                               // 实际虚拟文件数据区末尾，零值表示使用 len(Raw) / End of the virtual-file payload area; zero means len(Raw)
+	Version     int32                               `json:"Version"`               // 保存的根 VirtualDirectory 版本 / Stored root VirtualDirectory version
+	Directories map[string]VirtualDirectoryMetadata `json:"Directories,omitempty"` // 子目录路径及其真实版本字段，包含空目录 / Child-directory paths and their real version fields, including empty directories
+	Files       map[string]VirtualFile              `json:"Files"`                 // 虚拟文件表，键为文件名，值为位置和大小 / Virtual file table keyed by file name with position and size values
+	Raw         []byte                              `json:"-"`                     // 完整文件原始字节，用于按偏移提取虚拟文件内容 / Raw bytes of the full file used to slice virtual file contents by offset
+	dataEnd     int64                               // 实际虚拟文件数据区末尾，零值表示使用 len(Raw) / End of the virtual-file payload area; zero means len(Raw)
 }
 
-// VirtualDirectoryMetadata 保存一个子 VirtualDirectory 的 indexed object 形状
-// 路径在 ContentTable.Directories 中以规范化的斜杠分隔键保存，缺少条目表示新建目录并继承根布局，解码得到的每个目录都会有条目
-// VirtualDirectoryMetadata preserves the indexed-object shape of one child VirtualDirectory
-// Paths are stored as canonical slash-separated keys in ContentTable.Directories; a missing entry denotes a newly-created directory that inherits the root layout, and every decoded directory receives an entry
+// VirtualDirectoryMetadata 保存子 VirtualDirectory 的真实字段
+// 路径在 ContentTable.Directories 中以规范化的斜杠分隔键保存，解码得到的每个目录都会有条目
+// VirtualDirectoryMetadata stores the real fields of a child VirtualDirectory
+// Paths use canonical slash-separated keys in ContentTable.Directories and every decoded directory has an entry
 type VirtualDirectoryMetadata struct {
-	Version        int32    `json:"Version"`                  // 子 VirtualDirectory 的版本值 / Child VirtualDirectory version value
-	Versionless    bool     `json:"Versionless,omitempty"`    // 子目录使用无版本布局 / Child directory uses the versionless layout
-	FilesOnly      bool     `json:"FilesOnly,omitempty"`      // 子目录使用 [版本, 文件] 布局 / Child directory uses the [version, files] layout
-	DirectoriesNil bool     `json:"DirectoriesNil,omitempty"` // 子目录表编码为 nil / Child directory map was encoded as nil
-	FilesNil       bool     `json:"FilesNil,omitempty"`       // 文件表编码为 nil / File map was encoded as nil
-	FieldCount     *int32   `json:"FieldCount,omitempty"`     // 子目录 indexed array 的实际槽数 / Actual child-directory indexed-array width
-	FutureSlots    [][]byte `json:"FutureSlots,omitempty"`    // 已知槽之后保留的原始 MessagePack 值 / Verbatim MessagePack values after known slots
+	Version int32 `json:"Version"` // 子 VirtualDirectory 的版本值 / Child VirtualDirectory version value
 }
 
 // VirtualFile 表示虚拟文件系统中的一个文件条目
@@ -95,19 +83,8 @@ type VirtualDirectoryMetadata struct {
 // VirtualFile represents one file entry in the virtual file system
 // It matches the C# VirtualFile MessagePack indexed array [Key(0)=position, Key(1)=size]
 type VirtualFile struct {
-	Position    int64    `json:"Position"`              // 文件数据在 .ct 文件中的绝对字节偏移，从文件开头计算且包含 header / Absolute byte offset of file data inside the .ct file, counted from file start including header
-	Size        int32    `json:"Size"`                  // 文件数据的字节大小 / File data size in bytes
-	FieldCount  *int32   `json:"FieldCount,omitempty"`  // 非标准 indexed array 的槽数 / Non-canonical indexed-array width
-	FutureSlots [][]byte `json:"FutureSlots,omitempty"` // position 和 size 后的原始 MessagePack 值 / Verbatim MessagePack values after position and size
-}
-
-// VirtualFileMetadata 保存与位置无关的 VirtualFile indexed object 形状
-// 语义包装器重建载荷偏移时使用此元数据保留短数组和未来槽位
-// VirtualFileMetadata preserves the position-independent portion of a VirtualFile indexed-object shape
-// Semantic wrappers use it when rebuilding payload offsets while retaining short arrays and future slots
-type VirtualFileMetadata struct {
-	FieldCount  *int32   `json:"FieldCount,omitempty"`  // VirtualFile indexed array 的实际槽数 / Actual VirtualFile indexed-array width
-	FutureSlots [][]byte `json:"FutureSlots,omitempty"` // 已知字段之后的原始 MessagePack 值 / Verbatim MessagePack values after known fields
+	Position int64 `json:"Position"` // 文件数据在 .ct 文件中的绝对字节偏移，从文件开头计算且包含 header / Absolute byte offset of file data inside the .ct file, counted from file start including header
+	Size     int32 `json:"Size"`     // 文件数据的字节大小 / File data size in bytes
 }
 
 // ReadContentTable 从 reader 中读取并解析 .ct 文件
@@ -214,24 +191,11 @@ func WriteContentTable(w io.Writer, ct *ContentTable) error {
 		updated := entry.file
 		updated.Position = offset
 		updated.Size = fileSize
-		// 历史零宽 VirtualFile 没有 position 槽位，空数据无需搬移，因此保留解码得到的零值而不制造无法编码的位置
-		// A zero-width historical VirtualFile has no position slot; empty data needs no relocation, so its decoded zero value is retained instead of manufacturing an unencodable position
-		if entry.file.FieldCount != nil && *entry.file.FieldCount < 1 && len(entry.data) == 0 {
-			updated.Position = entry.file.Position
-		}
 		updatedFiles[entry.name] = updated
 		offset += int64(len(entry.data))
 	}
 
-	rootMetadata := VirtualDirectoryMetadata{
-		Version:        ct.Version,
-		Versionless:    ct.Versionless,
-		FilesOnly:      ct.FilesOnly,
-		DirectoriesNil: ct.DirectoriesNil,
-		FilesNil:       ct.FilesNil,
-		FieldCount:     ct.FieldCount,
-		FutureSlots:    ct.FutureSlots,
-	}
+	rootMetadata := VirtualDirectoryMetadata{Version: ct.Version}
 	dirArray, err := encodeVirtualDirectoryTree(rootMetadata, ct.Directories, updatedFiles)
 	if err != nil {
 		return err
@@ -372,143 +336,15 @@ func (ct *ContentTable) GetFileNames() []string {
 	return names
 }
 
-// GetVirtualDirectoryMetadata 返回重建已解码目录树所需的最小元数据
-// 可从扁平文件和子路径推导出的规范非空目录会被省略，空目录以及版本或布局不同于父目录的节点会明确保留
-// GetVirtualDirectoryMetadata returns the minimal metadata needed to recreate the decoded directory tree
-// Canonical non-empty directories derivable from flattened file and child paths are omitted, while empty directories and nodes whose version or layout differs from the parent remain explicit
+// GetVirtualDirectoryMetadata 返回子目录真实字段的深拷贝
+// GetVirtualDirectoryMetadata returns a deep copy of the real child-directory fields
 func (ct *ContentTable) GetVirtualDirectoryMetadata() map[string]VirtualDirectoryMetadata {
 	if ct == nil || len(ct.Directories) == 0 {
 		return nil
 	}
-	root := VirtualDirectoryMetadata{Version: ct.Version, Versionless: ct.Versionless}
-	result := make(map[string]VirtualDirectoryMetadata)
+	result := make(map[string]VirtualDirectoryMetadata, len(ct.Directories))
 	for path, metadata := range ct.Directories {
-		parent := root
-		if separator := strings.LastIndexByte(path, '/'); separator >= 0 {
-			parentPath := path[:separator]
-			if parentMetadata, ok := ct.Directories[parentPath]; ok {
-				parent = parentMetadata
-			}
-		}
-		expected := VirtualDirectoryMetadata{Version: parent.Version, Versionless: parent.Versionless}
-		hasContent := false
-		prefix := path + "/"
-		for fileName := range ct.Files {
-			if strings.HasPrefix(fileName, prefix) {
-				hasContent = true
-				break
-			}
-		}
-		if !hasContent {
-			for childPath := range ct.Directories {
-				if childPath != path && strings.HasPrefix(childPath, prefix) {
-					hasContent = true
-					break
-				}
-			}
-		}
-		if hasContent && virtualDirectoryMetadataEqual(metadata, expected) {
-			continue
-		}
-		result[path] = cloneVirtualDirectoryMetadata(metadata)
-	}
-	if len(result) == 0 {
-		return nil
-	}
-	return result
-}
-
-// virtualDirectoryMetadataEqual 判断两份 VirtualDirectory 线格式元数据是否相同
-// virtualDirectoryMetadataEqual reports whether two VirtualDirectory wire-metadata values are equal
-func virtualDirectoryMetadataEqual(left, right VirtualDirectoryMetadata) bool {
-	if left.Version != right.Version || left.Versionless != right.Versionless || left.FilesOnly != right.FilesOnly || left.DirectoriesNil != right.DirectoriesNil || left.FilesNil != right.FilesNil {
-		return false
-	}
-	if (left.FieldCount == nil) != (right.FieldCount == nil) || left.FieldCount != nil && *left.FieldCount != *right.FieldCount {
-		return false
-	}
-	if len(left.FutureSlots) != len(right.FutureSlots) {
-		return false
-	}
-	for index := range left.FutureSlots {
-		if string(left.FutureSlots[index]) != string(right.FutureSlots[index]) {
-			return false
-		}
-	}
-	return true
-}
-
-// cloneVirtualDirectoryMetadata 深拷贝 VirtualDirectory 线格式元数据
-// cloneVirtualDirectoryMetadata makes a deep copy of VirtualDirectory wire metadata
-func cloneVirtualDirectoryMetadata(value VirtualDirectoryMetadata) VirtualDirectoryMetadata {
-	result := value
-	if value.FieldCount != nil {
-		fieldCount := *value.FieldCount
-		result.FieldCount = &fieldCount
-	}
-	result.FutureSlots = cloneRawByteSlots(value.FutureSlots)
-	return result
-}
-
-// GetVirtualFileMetadata 返回表中各文件非规范且与位置无关的线格式元数据
-// 返回的映射和字节切片均为深拷贝，可以独立修改
-// GetVirtualFileMetadata returns non-canonical, position-independent wire metadata for files in the table
-// The returned map and byte slices are deep copies and may be edited independently
-func (ct *ContentTable) GetVirtualFileMetadata() map[string]VirtualFileMetadata {
-	if ct == nil {
-		return nil
-	}
-	result := make(map[string]VirtualFileMetadata)
-	for name, file := range ct.Files {
-		if file.FieldCount == nil && len(file.FutureSlots) == 0 {
-			continue
-		}
-		metadata := VirtualFileMetadata{FutureSlots: cloneRawByteSlots(file.FutureSlots)}
-		if file.FieldCount != nil {
-			fieldCount := *file.FieldCount
-			metadata.FieldCount = &fieldCount
-		}
-		result[name] = metadata
-	}
-	if len(result) == 0 {
-		return nil
-	}
-	return result
-}
-
-// ApplyVirtualFileMetadata 在语义包装器重建文件载荷与偏移后覆盖短数组和未来槽位元数据
-// 不存在文件的元数据会被拒绝，因为静默忽略会丢失编辑文档中的线格式状态
-// ApplyVirtualFileMetadata overlays short-array and future-slot metadata after a semantic wrapper rebuilds file payloads and offsets
-// Metadata for a missing file is rejected because silently ignoring it would lose wire state from the editing document
-func (ct *ContentTable) ApplyVirtualFileMetadata(metadata map[string]VirtualFileMetadata) error {
-	if ct == nil {
-		return fmt.Errorf("nil content table")
-	}
-	for name, shape := range metadata {
-		file, exists := ct.Files[name]
-		if !exists {
-			return fmt.Errorf("VirtualFile metadata refers to missing file %q", name)
-		}
-		file.FieldCount = nil
-		if shape.FieldCount != nil {
-			fieldCount := *shape.FieldCount
-			file.FieldCount = &fieldCount
-		}
-		file.FutureSlots = cloneRawByteSlots(shape.FutureSlots)
-		ct.Files[name] = file
-	}
-	return nil
-}
-
-// cloneRawByteSlots 深拷贝保存原始 MessagePack 槽位的字节切片
-// cloneRawByteSlots deep-copies byte slices containing raw MessagePack slots
-func cloneRawByteSlots(values [][]byte) [][]byte {
-	if values == nil {
-		return nil
-	}
-	result := make([][]byte, len(values))
-	for index := range values {
-		result[index] = append([]byte(nil), values[index]...)
+		result[path] = metadata
 	}
 	return result
 }
@@ -569,23 +405,17 @@ func (ct *ContentTable) DecodeMsgpackFile(name string, out interface{}) error {
 	return DecodeMsgpack(decoded, out)
 }
 
-// decodeVirtualDirectory 解码一个 MessagePack VirtualDirectory，并保留每个嵌套 indexed object 的形状
-// 未来槽位使用 codec.Raw，使未知值（包括扩展值）能够逐字节写回而不会被解释或丢弃
-// decodeVirtualDirectory decodes one MessagePack VirtualDirectory while retaining the shape of every nested indexed object
-// Future slots use codec.Raw so unknown values, including extension values, can be written back byte-for-byte instead of being interpreted or dropped
+// decodeVirtualDirectory 解码一个固定三槽 MessagePack VirtualDirectory
+// decodeVirtualDirectory decodes one fixed three-slot MessagePack VirtualDirectory
 func (ct *ContentTable) decodeVirtualDirectory(data []byte) error {
 	root, err := decodeRawMsgpackArray(data, "VirtualDirectory root")
 	if err != nil {
 		return err
 	}
-
+	if len(root) != 3 {
+		return fmt.Errorf("unsupported VirtualDirectory root indexed-array width %d, expected 3", len(root))
+	}
 	ct.Version = 0
-	ct.Versionless = false
-	ct.FilesOnly = false
-	ct.DirectoriesNil = false
-	ct.FilesNil = false
-	ct.FieldCount = nil
-	ct.FutureSlots = nil
 	ct.Directories = make(map[string]VirtualDirectoryMetadata)
 	ct.Files = make(map[string]VirtualFile)
 	return ct.extractDirectoryFilesRaw(root, "")
@@ -594,96 +424,35 @@ func (ct *ContentTable) decodeVirtualDirectory(data []byte) error {
 // extractDirectoryFilesRaw 从一个 VirtualDirectory indexed array 递归提取目录和文件
 // extractDirectoryFilesRaw recursively extracts directories and files from one VirtualDirectory indexed array
 func (ct *ContentTable) extractDirectoryFilesRaw(arr []codec.Raw, prefix string) error {
-	metadata := VirtualDirectoryMetadata{}
-	var directoriesRaw codec.Raw
-	var filesRaw codec.Raw
-	var directoriesPresent bool
-	var filesPresent bool
-	knownFieldCount := 3
-
-	if len(arr) == 0 {
-		// 此处没有可用于推断含版本布局的版本值，因此原样保留零宽数组并明确记录缺失状态
-		// No version value is available to infer the versioned layout, so the zero-width array is retained exactly and its absence recorded explicitly
-		metadata.Versionless = true
-		knownFieldCount = 2
-	} else {
-		var first interface{}
-		if err := decodeSingleRawMsgpackValue(arr[0], &first, "VirtualDirectory layout discriminator"); err != nil {
-			return fmt.Errorf("VirtualDirectory %q: %w", prefix, err)
-		}
-		if isIntegerValue(first) {
-			version, ok := toInt32(first)
-			if !ok {
-				return fmt.Errorf("VirtualDirectory %q version is outside the Int32 range", prefix)
-			}
-			metadata.Version = version
-			switch len(arr) {
-			case 1:
-				// 这是只包含 Key(0) 的生成式短 indexed object
-				// This is a generated short indexed object containing only Key(0)
-			case 2:
-				// 这是历史紧凑形式 [version, allFiles]
-				// This is the historical compact form [version, allFiles]
-				metadata.FilesOnly = true
-				knownFieldCount = 2
-				filesRaw = arr[1]
-				filesPresent = true
-			default:
-				directoriesRaw = arr[1]
-				filesRaw = arr[2]
-				directoriesPresent = true
-				filesPresent = true
-			}
-		} else {
-			// 这是不含 Key(0) 的历史形式 [allDirectorys, allFiles]
-			// This is the historical form [allDirectorys, allFiles] without Key(0)
-			metadata.Versionless = true
-			knownFieldCount = 2
-			directoriesRaw = arr[0]
-			directoriesPresent = true
-			if len(arr) >= 2 {
-				filesRaw = arr[1]
-				filesPresent = true
-			}
-		}
+	if len(arr) != 3 {
+		return fmt.Errorf("unsupported VirtualDirectory %q indexed-array width %d, expected 3", prefix, len(arr))
 	}
-
-	if len(arr) != knownFieldCount {
-		fieldCount, err := checkedInt32Count(int64(len(arr)), fmt.Sprintf("VirtualDirectory %q field count", prefix))
-		if err != nil {
-			return err
-		}
-		metadata.FieldCount = &fieldCount
+	var rawVersion interface{}
+	if err := decodeSingleRawMsgpackValue(arr[0], &rawVersion, fmt.Sprintf("VirtualDirectory %q version", prefix)); err != nil {
+		return err
 	}
-	if len(arr) > knownFieldCount {
-		metadata.FutureSlots = cloneCodecRawSlots(arr[knownFieldCount:])
+	version, ok := toInt32(rawVersion)
+	if !ok {
+		return fmt.Errorf("VirtualDirectory %q version must be an Int32 MessagePack integer, got %T", prefix, rawVersion)
 	}
-
-	var directories map[string]codec.Raw
-	if directoriesPresent {
-		var err error
-		directories, metadata.DirectoriesNil, err = decodeVirtualDirectoryRawMap(directoriesRaw, fmt.Sprintf("VirtualDirectory %q allDirectorys", prefix))
-		if err != nil {
-			return err
-		}
+	metadata := VirtualDirectoryMetadata{Version: version}
+	directories, directoriesNil, err := decodeVirtualDirectoryRawMap(arr[1], fmt.Sprintf("VirtualDirectory %q allDirectorys", prefix))
+	if err != nil {
+		return err
 	}
-	var files map[string]codec.Raw
-	if filesPresent {
-		var err error
-		files, metadata.FilesNil, err = decodeVirtualDirectoryRawMap(filesRaw, fmt.Sprintf("VirtualDirectory %q allFiles", prefix))
-		if err != nil {
-			return err
-		}
+	if directoriesNil {
+		return fmt.Errorf("VirtualDirectory %q allDirectorys must not be nil", prefix)
+	}
+	files, filesNil, err := decodeVirtualDirectoryRawMap(arr[2], fmt.Sprintf("VirtualDirectory %q allFiles", prefix))
+	if err != nil {
+		return err
+	}
+	if filesNil {
+		return fmt.Errorf("VirtualDirectory %q allFiles must not be nil", prefix)
 	}
 
 	if prefix == "" {
 		ct.Version = metadata.Version
-		ct.Versionless = metadata.Versionless
-		ct.FilesOnly = metadata.FilesOnly
-		ct.DirectoriesNil = metadata.DirectoriesNil
-		ct.FilesNil = metadata.FilesNil
-		ct.FieldCount = metadata.FieldCount
-		ct.FutureSlots = metadata.FutureSlots
 	} else {
 		if _, exists := ct.Directories[prefix]; exists {
 			return fmt.Errorf("duplicate VirtualDirectory path %q", prefix)
@@ -875,65 +644,36 @@ func decodeSingleRawMsgpackValue(data []byte, out interface{}, label string) err
 	return nil
 }
 
-// cloneCodecRawSlots 深拷贝 codec.Raw 槽位，并将 ugorji 的空切片 nil 表示恢复为 0xc0
-// cloneCodecRawSlots deep-copies codec.Raw slots and restores ugorji's empty-slice nil representation to 0xc0
-func cloneCodecRawSlots(values []codec.Raw) [][]byte {
-	if values == nil {
-		return nil
-	}
-	result := make([][]byte, len(values))
-	for index := range values {
-		if len(values[index]) == 0 {
-			result[index] = []byte{0xc0}
-		} else {
-			result[index] = append([]byte(nil), values[index]...)
-		}
-	}
-	return result
-}
-
-// decodeVirtualFileRaw 解码 VirtualFile indexed array，并保留短数组宽度与未来槽位
-// decodeVirtualFileRaw decodes a VirtualFile indexed array while preserving short-array width and future slots
+// decodeVirtualFileRaw 解码固定两槽 VirtualFile indexed array
+// decodeVirtualFileRaw decodes the fixed two-slot VirtualFile indexed array
 func decodeVirtualFileRaw(data []byte) (VirtualFile, error) {
 	fields, err := decodeRawMsgpackArray(data, "VirtualFile")
 	if err != nil {
 		return VirtualFile{}, err
 	}
-	file := VirtualFile{}
 	if len(fields) != 2 {
-		fieldCount, err := checkedInt32Count(int64(len(fields)), "VirtualFile field count")
-		if err != nil {
-			return VirtualFile{}, err
-		}
-		file.FieldCount = &fieldCount
+		return VirtualFile{}, fmt.Errorf("unsupported VirtualFile indexed-array width %d, expected 2", len(fields))
 	}
-	if len(fields) >= 1 {
-		var position interface{}
-		if err := decodeSingleRawMsgpackValue(fields[0], &position, "VirtualFile.position"); err != nil {
-			return VirtualFile{}, err
-		}
-		var ok bool
-		file.Position, ok = toInt64(position)
-		if !ok {
-			return VirtualFile{}, fmt.Errorf("position/size: position must be an Int64-compatible MessagePack integer, got %T", position)
-		}
+	file := VirtualFile{}
+	var position interface{}
+	if err := decodeSingleRawMsgpackValue(fields[0], &position, "VirtualFile.position"); err != nil {
+		return VirtualFile{}, err
 	}
-	if len(fields) >= 2 {
-		var size interface{}
-		if err := decodeSingleRawMsgpackValue(fields[1], &size, "VirtualFile.size"); err != nil {
-			return VirtualFile{}, err
-		}
-		var ok bool
-		file.Size, ok = toInt32(size)
-		if !ok {
-			if isIntegerValue(size) {
-				return VirtualFile{}, fmt.Errorf("position/size: size is outside the Int32 range")
-			}
-			return VirtualFile{}, fmt.Errorf("position/size: size must be an Int32 MessagePack integer, got %T", size)
-		}
+	var ok bool
+	file.Position, ok = toInt64(position)
+	if !ok {
+		return VirtualFile{}, fmt.Errorf("position/size: position must be an Int64-compatible MessagePack integer, got %T", position)
 	}
-	if len(fields) > 2 {
-		file.FutureSlots = cloneCodecRawSlots(fields[2:])
+	var size interface{}
+	if err := decodeSingleRawMsgpackValue(fields[1], &size, "VirtualFile.size"); err != nil {
+		return VirtualFile{}, err
+	}
+	file.Size, ok = toInt32(size)
+	if !ok {
+		if isIntegerValue(size) {
+			return VirtualFile{}, fmt.Errorf("position/size: size is outside the Int32 range")
+		}
+		return VirtualFile{}, fmt.Errorf("position/size: size must be an Int32 MessagePack integer, got %T", size)
 	}
 	return file, nil
 }
@@ -942,8 +682,8 @@ func decodeVirtualFileRaw(data []byte) (VirtualFile, error) {
 // decodeVirtualFile converts a decoded MessagePack indexed array [position, size] to VirtualFile
 func decodeVirtualFile(val interface{}) (VirtualFile, error) {
 	arr, ok := val.([]interface{})
-	if !ok || len(arr) < 2 {
-		return VirtualFile{}, fmt.Errorf("VirtualFile: expected array(2+), got %T", val)
+	if !ok || len(arr) != 2 {
+		return VirtualFile{}, fmt.Errorf("VirtualFile: expected array(2), got %T", val)
 	}
 
 	pos, ok1 := toInt64(arr[0])
@@ -1021,8 +761,8 @@ func ensureVirtualDirNode(root *virtualDirNode, parts []string) *virtualDirNode 
 	return node
 }
 
-// encodeVirtualDirNode 按所选历史或当前布局递归编码一个 VirtualDirectory 节点
-// encodeVirtualDirNode recursively encodes a VirtualDirectory node using its selected current or historical layout
+// encodeVirtualDirNode 按游戏当前固定布局递归编码一个 VirtualDirectory 节点
+// encodeVirtualDirNode recursively encodes a VirtualDirectory node using the game's current fixed layout
 func encodeVirtualDirNode(node *virtualDirNode, inherited VirtualDirectoryMetadata, path string) ([]interface{}, error) {
 	metadata := inherited
 	if node.metadata != nil {
@@ -1032,26 +772,13 @@ func encodeVirtualDirNode(node *virtualDirNode, inherited VirtualDirectoryMetada
 	if label == "" {
 		label = "<root>"
 	}
-	if metadata.Versionless && metadata.FilesOnly {
-		return nil, fmt.Errorf("VirtualDirectory %q cannot be both versionless and filesOnly", label)
-	}
-	if metadata.FilesOnly && len(node.dirs) != 0 {
-		return nil, fmt.Errorf("VirtualDirectory %q filesOnly layout cannot represent %d child directories", label, len(node.dirs))
-	}
-	if metadata.DirectoriesNil && len(node.dirs) != 0 {
-		return nil, fmt.Errorf("VirtualDirectory %q directoriesNil would discard %d child directories", label, len(node.dirs))
-	}
-	if metadata.FilesNil && len(node.files) != 0 {
-		return nil, fmt.Errorf("VirtualDirectory %q filesNil would discard %d files", label, len(node.files))
-	}
-
 	dirs := make(map[string]interface{}, len(node.dirs))
 	for name, child := range node.dirs {
 		childPath := name
 		if path != "" {
 			childPath = path + "/" + name
 		}
-		childDefault := VirtualDirectoryMetadata{Version: metadata.Version, Versionless: metadata.Versionless}
+		childDefault := VirtualDirectoryMetadata{Version: metadata.Version}
 		encoded, err := encodeVirtualDirNode(child, childDefault, childPath)
 		if err != nil {
 			return nil, err
@@ -1063,55 +790,7 @@ func encodeVirtualDirNode(node *virtualDirNode, inherited VirtualDirectoryMetada
 		return nil, err
 	}
 
-	var directoriesValue interface{} = dirs
-	if metadata.DirectoriesNil {
-		directoriesValue = nil
-	}
-	var filesValue interface{} = files
-	if metadata.FilesNil {
-		filesValue = nil
-	}
-
-	known := []interface{}{metadata.Version, directoriesValue, filesValue}
-	if metadata.Versionless {
-		known = []interface{}{directoriesValue, filesValue}
-	} else if metadata.FilesOnly {
-		known = []interface{}{metadata.Version, filesValue}
-	}
-	fieldCount, err := resolveIndexedObjectFieldCount(metadata.FieldCount, int64(len(known)), metadata.FutureSlots, "VirtualDirectory "+label)
-	if err != nil {
-		return nil, err
-	}
-	if !metadata.Versionless && fieldCount < 1 && metadata.Version != 0 {
-		return nil, fmt.Errorf("VirtualDirectory %q fieldCount %d would discard version=%d", label, fieldCount, metadata.Version)
-	}
-	if metadata.Versionless {
-		if fieldCount < 1 && len(node.dirs) != 0 {
-			return nil, fmt.Errorf("VirtualDirectory %q fieldCount %d would discard child directories", label, fieldCount)
-		}
-		if fieldCount < 2 && len(node.files) != 0 {
-			return nil, fmt.Errorf("VirtualDirectory %q fieldCount %d would discard files", label, fieldCount)
-		}
-	} else if metadata.FilesOnly {
-		if fieldCount < 2 && len(node.files) != 0 {
-			return nil, fmt.Errorf("VirtualDirectory %q fieldCount %d would discard files", label, fieldCount)
-		}
-	} else {
-		if fieldCount < 2 && len(node.dirs) != 0 {
-			return nil, fmt.Errorf("VirtualDirectory %q fieldCount %d would discard child directories", label, fieldCount)
-		}
-		if fieldCount < 3 && len(node.files) != 0 {
-			return nil, fmt.Errorf("VirtualDirectory %q fieldCount %d would discard files", label, fieldCount)
-		}
-	}
-	result := make([]interface{}, 0, fieldCount)
-	for index := int64(0); index < fieldCount && index < int64(len(known)); index++ {
-		result = append(result, known[index])
-	}
-	for _, raw := range metadata.FutureSlots {
-		result = append(result, codec.Raw(append([]byte(nil), raw...)))
-	}
-	return result, nil
+	return []interface{}{metadata.Version, dirs, files}, nil
 }
 
 // encodeVirtualFilesMap 编码一个 VirtualDirectory 的 allFiles 映射
@@ -1128,65 +807,16 @@ func encodeVirtualFilesMap(files map[string]VirtualFile, directoryLabel string) 
 	return result, nil
 }
 
-// encodeVirtualFile 按保留的数组宽度和未来槽位编码 VirtualFile
-// encodeVirtualFile encodes a VirtualFile using its retained array width and future slots
+// encodeVirtualFile 按固定两槽布局编码 VirtualFile
+// encodeVirtualFile encodes a VirtualFile using the fixed two-slot layout
 func encodeVirtualFile(file VirtualFile, label string) ([]interface{}, error) {
-	fieldCount, err := resolveIndexedObjectFieldCount(file.FieldCount, 2, file.FutureSlots, label)
-	if err != nil {
-		return nil, err
+	if file.Position < 0 {
+		return nil, fmt.Errorf("%s position must be non-negative", label)
 	}
-	if fieldCount < 1 && file.Position != 0 {
-		return nil, fmt.Errorf("%s fieldCount %d would discard position=%d", label, fieldCount, file.Position)
+	if file.Size < 0 {
+		return nil, fmt.Errorf("%s size must be non-negative", label)
 	}
-	if fieldCount < 2 && file.Size != 0 {
-		return nil, fmt.Errorf("%s fieldCount %d would discard size=%d", label, fieldCount, file.Size)
-	}
-	known := []interface{}{file.Position, file.Size}
-	result := make([]interface{}, 0, fieldCount)
-	for index := int64(0); index < fieldCount && index < int64(len(known)); index++ {
-		result = append(result, known[index])
-	}
-	for _, raw := range file.FutureSlots {
-		result = append(result, codec.Raw(append([]byte(nil), raw...)))
-	}
-	return result, nil
-}
-
-// resolveIndexedObjectFieldCount 解析 indexed object 的输出槽数并校验未来槽位数量与内容
-// resolveIndexedObjectFieldCount resolves an indexed object's output width and validates the count and content of future slots
-func resolveIndexedObjectFieldCount(fieldCount *int32, known int64, futureSlots [][]byte, label string) (int64, error) {
-	if known < 0 || known > math.MaxInt32 {
-		return 0, fmt.Errorf("%s known field count %d is outside the C# Int32 array-header range", label, known)
-	}
-	if int64(len(futureSlots)) > math.MaxInt32 {
-		return 0, fmt.Errorf("%s futureSlots length %d exceeds the C# Int32 array-header limit", label, len(futureSlots))
-	}
-	count := known
-	if fieldCount != nil {
-		if *fieldCount < 0 {
-			return 0, fmt.Errorf("%s fieldCount %d is outside the C# Int32 array-header range", label, *fieldCount)
-		}
-		count = int64(*fieldCount)
-	} else if len(futureSlots) != 0 {
-		count += int64(len(futureSlots))
-	}
-	if count > math.MaxInt32 {
-		return 0, fmt.Errorf("%s fieldCount %d exceeds the C# Int32 array-header limit", label, count)
-	}
-	expectedFuture := int64(0)
-	if count > known {
-		expectedFuture = count - known
-	}
-	if int64(len(futureSlots)) != expectedFuture {
-		return 0, fmt.Errorf("%s fieldCount %d requires %d futureSlots, got %d", label, count, expectedFuture, len(futureSlots))
-	}
-	for index, raw := range futureSlots {
-		var value codec.Raw
-		if err := decodeSingleRawMsgpackValue(raw, &value, fmt.Sprintf("%s futureSlots[%d]", label, index)); err != nil {
-			return 0, err
-		}
-	}
-	return count, nil
+	return []interface{}{file.Position, file.Size}, nil
 }
 
 // splitVirtualPath 将虚拟路径拆分为非空且非点号的组成部分

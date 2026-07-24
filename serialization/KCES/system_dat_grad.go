@@ -12,25 +12,18 @@ import (
 // MessagePack layout for EditData/GradSv{n} gradation-point virtual files inside system.dat
 // This payload has no standalone disk extension
 
-const (
-	maxGradPointsMessagePackDepth = 256
-)
-
-// GradPointsData 表示 system.dat/EditData/GradSv 加索引文件中的原始 Standard MessagePack 载荷
-// 它对应游戏 GradPointsData 类的 indexed array 字段，GradaPointPosRates 与 EditMPN 是当前界面不读取的旧字段，但仍属于线格式并会保留
-// GradPointsData represents the raw Standard MessagePack payload stored in a system.dat/EditData/GradSv file suffixed by its index
-// It corresponds to the indexed array fields of the game GradPointsData class, while GradaPointPosRates and EditMPN are legacy fields not read by the current UI but still preserved as part of the wire contract
+// GradPointsData 表示 system.dat/EditData/GradSv 加索引文件中的类型化 Standard MessagePack 对象
+// 它对应游戏 GradPointsData 类的固定 indexed array 字段，GradaPointPosRates 与 EditMPN 是当前界面不读取但仍按真实类型建模的旧字段
+// GradPointsData represents the typed Standard MessagePack object stored in a system.dat/EditData/GradSv file suffixed by its index
+// It corresponds to the fixed indexed-array fields of the game GradPointsData class, while GradaPointPosRates and EditMPN are legacy fields not read by the current UI but still modeled with their real types
 type GradPointsData struct {
-	MessagePackRootMetadata                   // 根值 nil 与尾部字节元数据 / Root nil and trailing-byte metadata
-	GradPointParam          []map[int32]int32 `json:"gradPointParam"`        // Key 0 的各渐变点颜色参数字典，键布局与 PaletteColorSaveData 相同 / Per-point color-parameter maps at Key 0 using the same key layout as PaletteColorSaveData
-	ControlPointPosValue    []float32         `json:"controlPointPosValue"`  // Key 1 的各渐变控制点中心位置 / Center positions of gradation control points at Key 1
-	GradaPointPosRates      []float32         `json:"gradaPointPosRates"`    // Key 2 的旧式渐变点位置比例，当前游戏界面不读取 / Legacy gradation-point position rates at Key 2, not read by the current game UI
-	EditMPN                 int32             `json:"editMpn"`               // Key 3 的旧式编辑 MPN 整数，当前游戏界面不读取 / Legacy edited MPN integer at Key 3, not read by the current game UI
-	PointRangeAfterRates    []float32         `json:"pointRangeAfterRates"`  // Key 4 的各控制点后侧范围值 / After-range values for control points at Key 4
-	PointRangeBeforeRates   []float32         `json:"pointRangeBeforeRates"` // Key 5 的各控制点前侧范围值 / Before-range values for control points at Key 5
-	IsSave                  int32             `json:"isSave"`                // Key 6 的保存状态，游戏以 1 表示已保存 / Save state at Key 6, with 1 indicating saved in the game
-	FieldCount              *int32            `json:"fieldCount,omitempty"`  // 原始 indexed object 的槽位数，标准宽度 7 时可省略 / Slot count of the original indexed object, omittable for the standard width of 7
-	FutureSlots             [][]byte          `json:"futureSlots,omitempty"` // Key 7 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 7
+	GradPointParam        []map[int32]int32 `json:"gradPointParam"`        // Key 0 的各渐变点颜色参数字典，键布局与 PaletteColorSaveData 相同 / Per-point color-parameter maps at Key 0 using the same key layout as PaletteColorSaveData
+	ControlPointPosValue  []float32         `json:"controlPointPosValue"`  // Key 1 的各渐变控制点中心位置 / Center positions of gradation control points at Key 1
+	GradaPointPosRates    []float32         `json:"gradaPointPosRates"`    // Key 2 的旧式渐变点位置比例，当前游戏界面不读取 / Legacy gradation-point position rates at Key 2, not read by the current game UI
+	EditMPN               int32             `json:"editMpn"`               // Key 3 的旧式编辑 MPN 整数，当前游戏界面不读取 / Legacy edited MPN integer at Key 3, not read by the current game UI
+	PointRangeAfterRates  []float32         `json:"pointRangeAfterRates"`  // Key 4 的各控制点后侧范围值 / After-range values for control points at Key 4
+	PointRangeBeforeRates []float32         `json:"pointRangeBeforeRates"` // Key 5 的各控制点前侧范围值 / Before-range values for control points at Key 5
+	IsSave                int32             `json:"isSave"`                // Key 6 的保存状态，游戏以 1 表示已保存 / Save state at Key 6, with 1 indicating saved in the game
 }
 
 // NewGradPointsData 显式返回当前游戏字段初始化器为新对象创建的默认空列表
@@ -45,24 +38,18 @@ func NewGradPointsData() *GradPointsData {
 	}
 }
 
-// DecodeGradPointsData 解码一个未压缩的 Standard MessagePack 值
-// 缺失槽位保持线模型零值，未知未来槽位被消费后原样保留，根值之后的剩余字节保存在 TrailingData 中
-// DecodeGradPointsData decodes one uncompressed Standard MessagePack value
-// Missing slots retain wire-model zero values, unknown future slots are consumed and retained verbatim, and remaining bytes after the root are stored in TrailingData
+// DecodeGradPointsData 解码一个固定七槽且完整消费输入的未压缩 Standard MessagePack 值
+// DecodeGradPointsData decodes one uncompressed Standard MessagePack value with the fixed seven-slot layout and consumes the complete input
 func DecodeGradPointsData(data []byte) (*GradPointsData, error) {
 	reader := gradPointsMessagePackReader{data: data}
 	if len(data) > 0 && data[0] == 0xc0 {
 		reader.pos = 1
-		trailing, err := messagePackRootTrailingAfterParsed(data, reader.pos, "GradPointsData")
-		if err != nil {
-			return nil, err
-		}
 		// 生成的类格式化器对 nil 根值返回 null
 		// GradationColorBall 会在调用 GradPointParamToPartsColors 前检查结果，因此此 nil 根值是有意义的缺失状态
 		// The generated class formatter returns null for a nil root
 		// GradationColorBall checks the result before calling GradPointParamToPartsColors, so this nil root is a meaningful absence state
-		if len(trailing) != 0 {
-			return &GradPointsData{MessagePackRootMetadata: MessagePackRootMetadata{RootNil: true, TrailingData: trailing}}, nil
+		if reader.pos != int64(len(data)) {
+			return nil, fmt.Errorf("GradPointsData has %d trailing bytes", int64(len(data))-reader.pos)
 		}
 		return nil, nil
 	}
@@ -71,16 +58,11 @@ func DecodeGradPointsData(data []byte) (*GradPointsData, error) {
 		return nil, err
 	}
 
-	value := &GradPointsData{}
 	if fieldCount != 7 {
-		storedFieldCount := int32(fieldCount)
-		value.FieldCount = &storedFieldCount
+		return nil, fmt.Errorf("unsupported GradPointsData indexed-array width %d, expected 7", fieldCount)
 	}
-	if fieldCount > 7 {
-		value.FutureSlots = makeKCESCountedSliceForAppend[[]byte](uint64(fieldCount - 7))
-	}
-	knownFields := min(fieldCount, 7)
-	for field := int64(0); field < knownFields; field++ {
+	value := &GradPointsData{}
+	for field := int64(0); field < 7; field++ {
 		switch field {
 		case 0:
 			value.GradPointParam, err = reader.readColorMapList("gradPointParam")
@@ -101,75 +83,30 @@ func DecodeGradPointsData(data []byte) (*GradPointsData, error) {
 			return nil, err
 		}
 	}
-	for field := int64(7); field < fieldCount; field++ {
-		start := reader.pos
-		if err := reader.skipValue(0); err != nil {
-			return nil, fmt.Errorf("GradPointsData future field[%d]: %w", field, err)
-		}
-		value.FutureSlots = append(value.FutureSlots, append([]byte(nil), reader.data[start:reader.pos]...))
-	}
-	trailing, err := messagePackRootTrailingAfterParsed(data, reader.pos, "GradPointsData")
-	if err != nil {
-		return nil, err
+	if reader.pos != int64(len(data)) {
+		return nil, fmt.Errorf("GradPointsData has %d trailing bytes", int64(len(data))-reader.pos)
 	}
 	if err := validateGradPointsData(value); err != nil {
 		return nil, fmt.Errorf("validate decoded GradPointsData: %w", err)
 	}
-	value.TrailingData = trailing
 	return value, nil
 }
 
-// EncodeGradPointsData 将当前七个 indexed 字段编码为原始 Standard MessagePack
+// EncodeGradPointsData 将当前七个类型化 indexed 字段编码为 Standard MessagePack
 // 字典键按数值升序写出以得到确定输出，调用者的切片与映射只读且不会被重排或修改
-// EncodeGradPointsData encodes the seven current indexed fields as raw Standard MessagePack
+// EncodeGradPointsData encodes the seven current typed indexed fields as Standard MessagePack
 // Dictionary keys are emitted in ascending numeric order for deterministic output while caller slices and maps are only read and never reordered or modified
 func EncodeGradPointsData(value *GradPointsData) ([]byte, error) {
 	if value == nil {
 		return []byte{0xc0}, nil
 	}
-	if out, handled, err := encodeNilMessagePackRootIfRequested(
-		value.MessagePackRootMetadata,
-		value.GradPointParam != nil || value.ControlPointPosValue != nil || value.GradaPointPosRates != nil ||
-			value.EditMPN != 0 || value.PointRangeAfterRates != nil || value.PointRangeBeforeRates != nil ||
-			value.IsSave != 0 || value.FieldCount != nil || len(value.FutureSlots) != 0,
-		"GradPointsData",
-	); handled {
-		return out, err
-	}
-	fieldCount, err := resolveIndexedFieldCount(value.FieldCount, 7, value.FutureSlots, "GradPointsData")
-	if err != nil {
-		return nil, err
-	}
-	if fieldCount < 1 && value.GradPointParam != nil {
-		return nil, fmt.Errorf("GradPointsData fieldCount %d would discard gradPointParam", fieldCount)
-	}
-	if fieldCount < 2 && value.ControlPointPosValue != nil {
-		return nil, fmt.Errorf("GradPointsData fieldCount %d would discard controlPointPosValue", fieldCount)
-	}
-	if fieldCount < 3 && value.GradaPointPosRates != nil {
-		return nil, fmt.Errorf("GradPointsData fieldCount %d would discard gradaPointPosRates", fieldCount)
-	}
-	if fieldCount < 4 && value.EditMPN != 0 {
-		return nil, fmt.Errorf("GradPointsData fieldCount %d would discard editMpn=%d", fieldCount, value.EditMPN)
-	}
-	if fieldCount < 5 && value.PointRangeAfterRates != nil {
-		return nil, fmt.Errorf("GradPointsData fieldCount %d would discard pointRangeAfterRates", fieldCount)
-	}
-	if fieldCount < 6 && value.PointRangeBeforeRates != nil {
-		return nil, fmt.Errorf("GradPointsData fieldCount %d would discard pointRangeBeforeRates", fieldCount)
-	}
-	if fieldCount < 7 && value.IsSave != 0 {
-		return nil, fmt.Errorf("GradPointsData fieldCount %d would discard isSave=%d", fieldCount, value.IsSave)
-	}
 	if err := validateGradPointsData(value); err != nil {
 		return nil, fmt.Errorf("validate GradPointsData: %w", err)
 	}
 
-	// 保留已存储的 indexed object 宽度，新构造值使用全部七个已知字段
-	// Preserve the stored indexed object width while newly constructed values use all seven known fields
 	out := make([]byte, 0, kcesInitialCollectionCapacity)
-	out = appendGradPointsArrayHeader(out, fieldCount)
-	if fieldCount >= 1 {
+	out = appendGradPointsArrayHeader(out, 7)
+	{
 		if value.GradPointParam == nil {
 			out = append(out, 0xc0)
 		} else {
@@ -192,28 +129,25 @@ func EncodeGradPointsData(value *GradPointsData) ([]byte, error) {
 			}
 		}
 	}
-	if fieldCount >= 2 {
+	{
 		out = appendGradPointsFloat32List(out, value.ControlPointPosValue)
 	}
-	if fieldCount >= 3 {
+	{
 		out = appendGradPointsFloat32List(out, value.GradaPointPosRates)
 	}
-	if fieldCount >= 4 {
+	{
 		out = appendGradPointsInt32(out, value.EditMPN)
 	}
-	if fieldCount >= 5 {
+	{
 		out = appendGradPointsFloat32List(out, value.PointRangeAfterRates)
 	}
-	if fieldCount >= 6 {
+	{
 		out = appendGradPointsFloat32List(out, value.PointRangeBeforeRates)
 	}
-	if fieldCount >= 7 {
+	{
 		out = appendGradPointsInt32(out, value.IsSave)
 	}
-	for _, slot := range value.FutureSlots {
-		out = append(out, slot...)
-	}
-	return appendMessagePackRootTrailing(out, value.MessagePackRootMetadata), nil
+	return out, nil
 }
 
 // validateGradPointsData 验证集合长度、颜色字典整数以及标量字段均可由目标 MessagePack 类型表示
@@ -582,132 +516,6 @@ func (r *gradPointsMessagePackReader) readInt32(context string) (int32, error) {
 		return 0, fmt.Errorf("%s signed value %d is outside the Int32 range [%d,%d]", context, signed, int64(math.MinInt32), int64(math.MaxInt32))
 	}
 	return int32(signed), nil
-}
-
-// skipValue 跳过一个完整未来 MessagePack 值并限制最大嵌套深度
-// skipValue skips one complete future MessagePack value while enforcing a maximum nesting depth
-func (r *gradPointsMessagePackReader) skipValue(depth int64) error {
-	if depth >= maxGradPointsMessagePackDepth {
-		return fmt.Errorf("MessagePack nesting exceeds safety limit %d", maxGradPointsMessagePackDepth)
-	}
-	code, err := r.readByte("MessagePack value")
-	if err != nil {
-		return err
-	}
-	switch {
-	case code <= 0x7f || code >= 0xe0:
-		return nil
-	case code >= 0xa0 && code <= 0xbf:
-		_, err = r.readBytes(int64(code&0x1f), "fixstr payload")
-		return err
-	case code >= 0x90 && code <= 0x9f:
-		return r.skipValues(int64(code&0x0f), depth+1)
-	case code >= 0x80 && code <= 0x8f:
-		return r.skipValues(int64(code&0x0f)*2, depth+1)
-	}
-
-	switch code {
-	case 0xc0, 0xc2, 0xc3:
-		return nil
-	case 0xc1:
-		return fmt.Errorf("reserved MessagePack marker 0xc1")
-	case 0xc4, 0xd9:
-		length, err := r.readUnsignedLength(1, "8-bit length")
-		if err != nil {
-			return err
-		}
-		_, err = r.readBytes(length, "MessagePack payload")
-		return err
-	case 0xc5, 0xda:
-		length, err := r.readUnsignedLength(2, "16-bit length")
-		if err != nil {
-			return err
-		}
-		_, err = r.readBytes(length, "MessagePack payload")
-		return err
-	case 0xc6, 0xdb:
-		length, err := r.readUnsignedLength(4, "32-bit length")
-		if err != nil {
-			return err
-		}
-		_, err = r.readBytes(length, "MessagePack payload")
-		return err
-	case 0xc7, 0xc8, 0xc9:
-		width := map[byte]int64{0xc7: 1, 0xc8: 2, 0xc9: 4}[code]
-		length, err := r.readUnsignedLength(width, "extension length")
-		if err != nil {
-			return err
-		}
-		_, err = r.readBytes(length+1, "extension type and payload")
-		return err
-	case 0xca, 0xce, 0xd2:
-		_, err = r.readBytes(4, "four-byte MessagePack scalar")
-		return err
-	case 0xcb, 0xcf, 0xd3:
-		_, err = r.readBytes(8, "eight-byte MessagePack scalar")
-		return err
-	case 0xcc, 0xd0:
-		_, err = r.readBytes(1, "one-byte MessagePack scalar")
-		return err
-	case 0xcd, 0xd1:
-		_, err = r.readBytes(2, "two-byte MessagePack scalar")
-		return err
-	case 0xd4, 0xd5, 0xd6, 0xd7, 0xd8:
-		length := map[byte]int64{0xd4: 1, 0xd5: 2, 0xd6: 4, 0xd7: 8, 0xd8: 16}[code]
-		_, err = r.readBytes(length+1, "fixed extension type and payload")
-		return err
-	case 0xdc, 0xdd:
-		width := map[byte]int64{0xdc: 2, 0xdd: 4}[code]
-		count, err := r.readUnsignedLength(width, "array length")
-		if err != nil {
-			return err
-		}
-		return r.skipValues(count, depth+1)
-	case 0xde, 0xdf:
-		width := map[byte]int64{0xde: 2, 0xdf: 4}[code]
-		count, err := r.readUnsignedLength(width, "map length")
-		if err != nil {
-			return err
-		}
-		return r.skipValues(count*2, depth+1)
-	default:
-		return fmt.Errorf("unsupported MessagePack marker 0x%02x", code)
-	}
-}
-
-// skipValues 逐个跳过集合值，并在递归前按剩余字节限制声明数量
-// skipValues skips collection values one by one and bounds the declared count by remaining bytes before recursion
-func (r *gradPointsMessagePackReader) skipValues(count, depth int64) error {
-	if count > int64(len(r.data))-r.pos {
-		return fmt.Errorf("MessagePack collection is truncated: declares %d values with only %d bytes remaining", count, int64(len(r.data))-r.pos)
-	}
-	for index := int64(0); index < count; index++ {
-		if err := r.skipValue(depth); err != nil {
-			return fmt.Errorf("value[%d]: %w", index, err)
-		}
-	}
-	return nil
-}
-
-// readUnsignedLength 按一、二或四字节大端无符号宽度读取 MessagePack 长度
-// readUnsignedLength reads a MessagePack length using a one-byte, two-byte, or four-byte big-endian unsigned width
-func (r *gradPointsMessagePackReader) readUnsignedLength(width int64, context string) (int64, error) {
-	bytes, err := r.readBytes(width, context)
-	if err != nil {
-		return 0, err
-	}
-	var value uint64
-	switch width {
-	case 1:
-		value = uint64(bytes[0])
-	case 2:
-		value = uint64(binary.BigEndian.Uint16(bytes))
-	case 4:
-		value = uint64(binary.BigEndian.Uint32(bytes))
-	default:
-		return 0, fmt.Errorf("internal invalid MessagePack length width %d", width)
-	}
-	return int64(value), nil
 }
 
 // appendGradPointsFloat32List 写入可空的 Float32 列表并为每项使用标准 float32 标记

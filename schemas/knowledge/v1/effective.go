@@ -69,15 +69,15 @@ func genericGuide(formatID, schemaID string, schema map[string]any) Guide {
 		Fields: fields,
 		Rules: []Rule{
 			{
-				ID: "preserve-unreviewed-fields", Severity: "error",
-				Summary: "Preserve fields without source-reviewed semantics.",
-				Details: "Only the serialization shape is confirmed. Keep unrequested values unchanged, especially raw, reserved, future, trailing, hash, ID, version, and base64 fields.",
+				ID: "respect-schema-fields", Severity: "error",
+				Summary: "Retain modeled values without inventing unsupported wire state.",
+				Details: "Only the published serialization shape is confirmed. Keep unrequested typed values unchanged and retain base64 only where the schema represents a real byte-array field. Never add raw, reserved, future-slot, trailing-data, or parse-fallback fields that are absent from the schema.",
 			},
 		},
 		Workflow: []string{
 			"Read the format JSON Schema and this guide before editing.",
 			"Inspect a real file to obtain values; do not invent required identifiers or resources.",
-			"Change only fields required by the stated objective and preserve all other values.",
+			"Change only fields required by the stated objective, retain other typed values and semantic binary assets, and never invent fields absent from the schema.",
 			"Call meido.validate_editing_json after editing, then convert only after validation succeeds.",
 		},
 		Warnings: []string{
@@ -195,17 +195,16 @@ func genericField(path, pointer, name string, schema map[string]any) Field {
 	}
 	role := "schema_field"
 	risk := "medium"
-	lower := strings.ToLower(name)
-	if encoding, _ := schema["contentEncoding"].(string); encoding == "base64" ||
-		strings.Contains(lower, "raw") || strings.Contains(lower, "reserved") ||
-		strings.Contains(lower, "future") || strings.Contains(lower, "trailing") {
-		role = "opaque_preserve"
+	guidance := "Retain the typed value unless the editing objective and a reviewed guide explicitly require changing it."
+	if encoding, _ := schema["contentEncoding"].(string); encoding == "base64" {
+		role = "binary_payload"
 		risk = "critical"
+		guidance = "Treat this as native byte-array data only; retain the exact bytes unless a reviewed asset-specific transformation applies, and never use it as a typed-decoder fallback."
 	}
 	return Field{
 		JSONPath: path, SchemaPointer: pointer, Title: title, Description: description,
 		GameUsage: "Only serialization shape is confirmed; game-runtime use has no source-reviewed profile.",
-		EditRole:  role, EditGuidance: "Preserve the existing value unless the editing objective and a reviewed guide explicitly require changing it.",
+		EditRole:  role, EditGuidance: guidance,
 		Risk: risk, Confidence: ConfidenceSchemaOnly,
 	}
 }

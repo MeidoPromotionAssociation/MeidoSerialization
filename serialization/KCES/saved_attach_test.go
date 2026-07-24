@@ -13,26 +13,35 @@ import (
 
 func savedAttachString(value string) *string { return &value }
 
-func TestSavedAttachHierarchyOrderToleratesMapEdits(t *testing.T) {
+func TestSavedAttachHierarchyWritesCanonicalOrder(t *testing.T) {
 	values := map[string]SavedAttachPosRotScale{
 		"aBone": {},
 		"bBone": {},
 		"cBone": {},
 	}
 	var wire bytes.Buffer
-	if err := writeSavedAttachHierarchy(stream.NewBinaryWriter(&wire), values, []string{"bBone", "removed"}, "item"); err != nil {
+	if err := writeSavedAttachHierarchy(stream.NewBinaryWriter(&wire), values, "item"); err != nil {
 		t.Fatalf("writeSavedAttachHierarchy: %v", err)
 	}
 	remaining := bytes.NewReader(wire.Bytes())
-	decoded, order, err := readSavedAttachHierarchy(stream.NewBinaryReader(remaining), remaining, "item")
+	decoded, err := readSavedAttachHierarchy(stream.NewBinaryReader(remaining), remaining, "item")
 	if err != nil {
 		t.Fatalf("readSavedAttachHierarchy: %v", err)
 	}
-	if !reflect.DeepEqual(order, []string{"bBone", "aBone", "cBone"}) {
-		t.Fatalf("hierarchy order = %#v, want preserved live keys followed by sorted additions", order)
-	}
 	if !reflect.DeepEqual(decoded, values) {
 		t.Fatalf("hierarchy values changed: got %#v want %#v", decoded, values)
+	}
+
+	var second bytes.Buffer
+	if err := writeSavedAttachHierarchy(stream.NewBinaryWriter(&second), map[string]SavedAttachPosRotScale{
+		"cBone": {},
+		"aBone": {},
+		"bBone": {},
+	}, "item"); err != nil {
+		t.Fatalf("write second hierarchy: %v", err)
+	}
+	if !bytes.Equal(second.Bytes(), wire.Bytes()) {
+		t.Fatal("equivalent hierarchy maps did not produce canonical bytes")
 	}
 }
 
@@ -43,7 +52,6 @@ func TestSavedAttachCurrentRoundTripPreservesVersionsAndDoesNotMutate(t *testing
 		Items: []SavedAttachData{
 			{
 				Version:                SavedAttachRecordVersion,
-				ExplicitVersion:        true,
 				PartName:               savedAttachString("HatPoint"),
 				Enabled:                true,
 				MyRID:                  math.MaxUint64,
@@ -73,7 +81,6 @@ func TestSavedAttachCurrentRoundTripPreservesVersionsAndDoesNotMutate(t *testing
 			},
 			{
 				Version:                SavedAttachRecordVersion,
-				ExplicitVersion:        true,
 				PartName:               nil,
 				MySlotID:               "-1",
 				TargetSlotID:           "end",
@@ -135,7 +142,7 @@ func TestSavedAttachCurrentRoundTripPreservesVersionsAndDoesNotMutate(t *testing
 	}
 }
 
-func TestSavedAttachLegacy2000RecordLayout(t *testing.T) {
+func TestSavedAttachLegacy2000RecordNormalizesToExplicitLayout(t *testing.T) {
 	legacy := &SavedAttachFile{
 		Signature: SavedAttachSignature,
 		Version:   SavedAttachFileVersion,
@@ -156,8 +163,8 @@ func TestSavedAttachLegacy2000RecordLayout(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Independently inspect the start of the first record: the 2000 layout has
-	// no empty-string/version sentinel and starts directly with partName.
+	// Encoding has one canonical shape for both supported record versions: an
+	// empty-string sentinel followed by the typed record version.
 	r := bytes.NewReader(encoded)
 	br := stream.NewBinaryReader(r)
 	if signature, _ := br.ReadString(); signature != SavedAttachSignature {
@@ -167,10 +174,13 @@ func TestSavedAttachLegacy2000RecordLayout(t *testing.T) {
 	_, _ = br.ReadInt32()
 	present, err := br.ReadBool()
 	if err != nil || !present {
-		t.Fatalf("legacy partName presence=%v err=%v", present, err)
+		t.Fatalf("record sentinel presence=%v err=%v", present, err)
 	}
-	if partName, err := br.ReadString(); err != nil || partName != "legacy-part" {
-		t.Fatalf("legacy first string=%q err=%v", partName, err)
+	if sentinel, err := br.ReadString(); err != nil || sentinel != "" {
+		t.Fatalf("record sentinel=%q err=%v", sentinel, err)
+	}
+	if recordVersion, err := br.ReadInt32(); err != nil || recordVersion != SavedAttachFileVersion {
+		t.Fatalf("record version=%d err=%v", recordVersion, err)
 	}
 
 	decoded, err := DecodeSavedAttach(encoded)
@@ -188,27 +198,31 @@ func TestSavedAttachLegacy2000RecordLayout(t *testing.T) {
 		t.Fatal("legacy saved-attach wire changed after round-trip")
 	}
 
-	// Deserialize treats both null/empty first strings as an explicit-version
-	// sentinel. Although the game's current writer does not emit this variant,
-	// an explicit 2000 record follows the same legacy field layout and is valid
-	// for the game reader.
-	versionedLegacy := manualCurrentSavedAttach(t, "accHat", "body", SavedAttachFileVersion, nil, false)
-	decodedVersioned, err := DecodeSavedAttach(versionedLegacy)
+	// The old implicit 2000 layout remains readable, but it is normalized to the
+	// canonical explicit layout when encoded again.
+	implicitLegacy := removeSavedAttachVersionPrefix(t, manualCurrentSavedAttach(t, "accHat", "body", SavedAttachFileVersion, nil, false))
+	decodedVersioned, err := DecodeSavedAttach(implicitLegacy)
 	if err != nil {
-		t.Fatalf("decode explicitly versioned legacy record: %v", err)
+		t.Fatalf("decode implicit legacy record: %v", err)
 	}
 	if decodedVersioned.Items[0].Version != SavedAttachFileVersion || decodedVersioned.Items[0].TargetSlotNo != 0 {
-		t.Fatalf("unexpected explicitly versioned legacy record: %+v", decodedVersioned.Items[0])
+		t.Fatalf("unexpected implicit legacy record: %+v", decodedVersioned.Items[0])
+	}
+	normalized, err := EncodeSavedAttach(decodedVersioned)
+	if err != nil {
+		t.Fatalf("normalize implicit legacy record: %v", err)
+	}
+	if bytes.Equal(normalized, implicitLegacy) {
+		t.Fatal("implicit legacy record was not normalized to the explicit layout")
 	}
 }
 
 func TestSavedAttachRejectsMalformedAndGameIncompatibleData(t *testing.T) {
 	valid, err := EncodeSavedAttach(&SavedAttachFile{Signature: SavedAttachSignature, Version: SavedAttachFileVersion, Items: []SavedAttachData{{
-		Version:         SavedAttachRecordVersion,
-		ExplicitVersion: true,
-		PartName:        savedAttachString("part"),
-		MySlotID:        "accHat",
-		TargetSlotID:    "body",
+		Version:      SavedAttachRecordVersion,
+		PartName:     savedAttachString("part"),
+		MySlotID:     "accHat",
+		TargetSlotID: "body",
 	}}})
 	if err != nil {
 		t.Fatal(err)
@@ -219,13 +233,8 @@ func TestSavedAttachRejectsMalformedAndGameIncompatibleData(t *testing.T) {
 		}
 	}
 	extended := append(append([]byte(nil), valid...), 0xde, 0xad)
-	decodedTrailing, err := DecodeSavedAttach(extended)
-	if err != nil || !bytes.Equal(decodedTrailing.TrailingData, []byte{0xde, 0xad}) {
-		t.Fatalf("trailing bytes were not preserved: decoded=%+v err=%v", decodedTrailing, err)
-	}
-	reencodedTrailing, err := EncodeSavedAttach(decodedTrailing)
-	if err != nil || !bytes.Equal(reencodedTrailing, extended) {
-		t.Fatalf("trailing-byte round trip=%x err=%v want=%x", reencodedTrailing, err, extended)
+	if _, err := DecodeSavedAttach(extended); err == nil || !strings.Contains(strings.ToLower(err.Error()), "trailing") {
+		t.Fatalf("trailing-data error=%v", err)
 	}
 	negativeCountWire := append(manualSavedAttachHeader(t, SavedAttachSignature, SavedAttachFileVersion, -1), 1, 2, 3)
 	if _, err := DecodeSavedAttach(negativeCountWire); err == nil || !strings.Contains(err.Error(), "negative") {
@@ -254,25 +263,24 @@ func TestSavedAttachRejectsMalformedAndGameIncompatibleData(t *testing.T) {
 		})
 	}
 
-	// Both version integers are data fields ignored/gated by the game reader;
-	// the serializer must retain them instead of silently upgrading to 2000 or
-	// 2001. A record >=2001 uses the same targetSlotNo-bearing layout.
+	// The current library supports only the outer and record layouts verified
+	// against the game source.
 	outerLegacy := manualSavedAttachHeader(t, SavedAttachSignature, 1999, 0)
-	decodedOuterLegacy, err := DecodeSavedAttach(outerLegacy)
-	if err != nil || decodedOuterLegacy.Version != 1999 {
-		t.Fatalf("outer version was not preserved: decoded=%+v err=%v", decodedOuterLegacy, err)
+	if _, err := DecodeSavedAttach(outerLegacy); err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Fatalf("unsupported outer version error=%v", err)
 	}
 	futureRecord := manualCurrentSavedAttach(t, "accHat", "body", 2002, nil, false)
-	decodedFuture, err := DecodeSavedAttach(futureRecord)
-	if err != nil || decodedFuture.Items[0].Version != 2002 || !decodedFuture.Items[0].ExplicitVersion {
-		t.Fatalf("record version was not preserved: decoded=%+v err=%v", decodedFuture, err)
+	if _, err := DecodeSavedAttach(futureRecord); err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Fatalf("unsupported record version error=%v", err)
 	}
-	reencodedFuture, err := EncodeSavedAttach(decodedFuture)
-	if err != nil || !bytes.Equal(reencodedFuture, futureRecord) {
-		t.Fatalf("future-layout record wire changed: equal=%v err=%v", bytes.Equal(reencodedFuture, futureRecord), err)
+	if _, err := EncodeSavedAttach(&SavedAttachFile{Signature: SavedAttachSignature, Version: 1999}); err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Fatalf("encode unsupported outer version error=%v", err)
+	}
+	if _, err := EncodeSavedAttach(&SavedAttachFile{Signature: SavedAttachSignature, Version: SavedAttachFileVersion, Items: []SavedAttachData{{Version: 2002}}}); err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Fatalf("encode unsupported record version error=%v", err)
 	}
 
-	badSlot := &SavedAttachFile{Signature: SavedAttachSignature, Items: []SavedAttachData{{PartName: savedAttachString("part"), MySlotID: "acchat", TargetSlotID: "body"}}}
+	badSlot := &SavedAttachFile{Signature: SavedAttachSignature, Version: SavedAttachFileVersion, Items: []SavedAttachData{{Version: SavedAttachRecordVersion, PartName: savedAttachString("part"), MySlotID: "acchat", TargetSlotID: "body"}}}
 	wire, err := EncodeSavedAttach(badSlot)
 	if err != nil {
 		t.Fatalf("opaque SlotID encode error=%v", err)
@@ -282,7 +290,7 @@ func TestSavedAttachRejectsMalformedAndGameIncompatibleData(t *testing.T) {
 		t.Fatalf("opaque SlotID round trip=%+v err=%v", decodedSlot, err)
 	}
 	for _, partName := range []*string{nil, savedAttachString("")} {
-		versionedLegacy := &SavedAttachFile{Signature: SavedAttachSignature, Items: []SavedAttachData{{Version: 2000, PartName: partName, MySlotID: "body", TargetSlotID: "body"}}}
+		versionedLegacy := &SavedAttachFile{Signature: SavedAttachSignature, Version: SavedAttachFileVersion, Items: []SavedAttachData{{Version: 2000, PartName: partName, MySlotID: "body", TargetSlotID: "body"}}}
 		wire, err := EncodeSavedAttach(versionedLegacy)
 		if err != nil {
 			t.Fatalf("encode explicitly versioned legacy partName=%v: %v", partName, err)
@@ -297,7 +305,7 @@ func TestSavedAttachRejectsMalformedAndGameIncompatibleData(t *testing.T) {
 		t.Fatalf("wrong format error=%v", err)
 	}
 	invalidUTF8 := string([]byte{0xff})
-	badText := &SavedAttachFile{Signature: SavedAttachSignature, Items: []SavedAttachData{{PartName: &invalidUTF8, MySlotID: "body", TargetSlotID: "body"}}}
+	badText := &SavedAttachFile{Signature: SavedAttachSignature, Version: SavedAttachFileVersion, Items: []SavedAttachData{{Version: SavedAttachRecordVersion, PartName: &invalidUTF8, MySlotID: "body", TargetSlotID: "body"}}}
 	invalidWire, err := EncodeSavedAttach(badText)
 	if err != nil {
 		t.Fatalf("invalid UTF-8 wire string was rejected: %v", err)
@@ -307,7 +315,7 @@ func TestSavedAttachRejectsMalformedAndGameIncompatibleData(t *testing.T) {
 		t.Fatalf("invalid UTF-8 wire string changed: decoded=%+v err=%v", invalidDecoded, err)
 	}
 	longString := strings.Repeat("x", (10<<20)+1)
-	longText := &SavedAttachFile{Signature: SavedAttachSignature, Items: []SavedAttachData{{PartName: &longString, MySlotID: "body", TargetSlotID: "body"}}}
+	longText := &SavedAttachFile{Signature: SavedAttachSignature, Version: SavedAttachFileVersion, Items: []SavedAttachData{{Version: SavedAttachRecordVersion, PartName: &longString, MySlotID: "body", TargetSlotID: "body"}}}
 	longWire, err := EncodeSavedAttach(longText)
 	if err != nil {
 		t.Fatalf("valid string above the former implementation limit was rejected: %v", err)
@@ -317,7 +325,7 @@ func TestSavedAttachRejectsMalformedAndGameIncompatibleData(t *testing.T) {
 		t.Fatalf("long string round trip failed: decoded=%v err=%v", longDecoded != nil, err)
 	}
 
-	unrepresentable := &SavedAttachFile{Signature: SavedAttachSignature, Items: []SavedAttachData{{
+	unrepresentable := &SavedAttachFile{Signature: SavedAttachSignature, Version: SavedAttachFileVersion, Items: []SavedAttachData{{
 		Version: 2000, PartName: savedAttachString("part"), MySlotID: "body", TargetSlotID: "body", TargetSlotNo: 1,
 	}}}
 	if _, err := EncodeSavedAttach(unrepresentable); err == nil || !strings.Contains(err.Error(), "targetSlotNo") {
@@ -329,7 +337,6 @@ func TestSavedAttachRejectsNegativeBoneHierarchyCount(t *testing.T) {
 	value := NewSavedAttachFile()
 	value.Items = []SavedAttachData{{
 		Version:               SavedAttachRecordVersion,
-		ExplicitVersion:       true,
 		MySlotID:              "body",
 		TargetSlotID:          "body",
 		BoneAttachedHierarchy: map[string]SavedAttachPosRotScale{},
@@ -350,7 +357,7 @@ func TestSavedAttachRejectsNegativeBoneHierarchyCount(t *testing.T) {
 
 func TestSavedAttachSlotIDStringsAreOpaque(t *testing.T) {
 	for _, value := range []string{"", "body", "accHat", "none", "accAcc73", "Body", "acchat", "2147483648", "body,1", "future-slot"} {
-		input := &SavedAttachFile{Signature: SavedAttachSignature, Items: []SavedAttachData{{PartName: savedAttachString("part"), MySlotID: value, TargetSlotID: value}}}
+		input := &SavedAttachFile{Signature: SavedAttachSignature, Version: SavedAttachFileVersion, Items: []SavedAttachData{{Version: SavedAttachRecordVersion, PartName: savedAttachString("part"), MySlotID: value, TargetSlotID: value}}}
 		wire, err := EncodeSavedAttach(input)
 		if err != nil {
 			t.Fatalf("EncodeSavedAttach(%q): %v", value, err)
@@ -376,6 +383,38 @@ func manualSavedAttachHeader(t *testing.T, signature string, version, count int3
 		t.Fatal(err)
 	}
 	return out.Bytes()
+}
+
+func removeSavedAttachVersionPrefix(t *testing.T, wire []byte) []byte {
+	t.Helper()
+	r := bytes.NewReader(wire)
+	br := stream.NewBinaryReader(r)
+	if _, err := br.ReadString(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := br.ReadInt32(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := br.ReadInt32(); err != nil {
+		t.Fatal(err)
+	}
+	recordStart := len(wire) - r.Len()
+	present, err := br.ReadBool()
+	if err != nil || !present {
+		t.Fatalf("version sentinel presence=%v err=%v", present, err)
+	}
+	sentinel, err := br.ReadString()
+	if err != nil || sentinel != "" {
+		t.Fatalf("version sentinel=%q err=%v", sentinel, err)
+	}
+	if _, err := br.ReadInt32(); err != nil {
+		t.Fatal(err)
+	}
+	recordBody := len(wire) - r.Len()
+	result := make([]byte, 0, len(wire)-(recordBody-recordStart))
+	result = append(result, wire[:recordStart]...)
+	result = append(result, wire[recordBody:]...)
+	return result
 }
 
 // manualCurrentSavedAttach constructs a game-shaped record independently of

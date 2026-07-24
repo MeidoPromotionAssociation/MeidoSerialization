@@ -1,7 +1,6 @@
 package KCES
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -85,7 +84,7 @@ func TestExportNameMapServiceSourceConstructedRoundTripAndProbe(t *testing.T) {
 	}
 }
 
-func TestExportNameMapRoutingPreservesSchemaAnomaliesAndAcceptsNilEntries(t *testing.T) {
+func TestExportNameMapRoutingRejectsMalformedNativeAndNullEntries(t *testing.T) {
 	dir := t.TempDir()
 	badNative := filepath.Join(dir, "renamed.enm")
 	if err := os.WriteFile(badNative, []byte(`{"version":1000,"serializeData":null}`), 0644); err != nil {
@@ -94,40 +93,28 @@ func TestExportNameMapRoutingPreservesSchemaAnomaliesAndAcceptsNilEntries(t *tes
 	if !IsKCESExportNameMapFile(badNative) {
 		t.Fatal("all non-JSON .enm paths should be native candidates")
 	}
-	info, matched, err := (&FileTypeService{}).TryFileTypeDetermine(badNative)
-	if !matched || err != nil || info.FileType != "enm" || info.Version != 1000 {
-		t.Fatalf("schema-anomalous native probe: matched=%v info=%+v err=%v", matched, info, err)
+	_, matched, err := (&FileTypeService{}).TryFileTypeDetermine(badNative)
+	if !matched || err == nil {
+		t.Fatalf("malformed native probe: matched=%v err=%v, want matched validation error", matched, err)
 	}
 	jsonPath := badNative + ".json"
-	backPath := filepath.Join(dir, "back.enm")
 	service := &ExportNameMapService{}
-	if err := service.ConvertExportNameMapToJSON(TestConversionContext, badNative, jsonPath, TestConversionMaxOutput); err != nil {
-		t.Fatalf("ConvertExportNameMapToJSON() error = %v", err)
-	}
-	if err := service.ConvertJSONToExportNameMap(TestConversionContext, jsonPath, backPath, TestConversionMaxOutput); err != nil {
-		t.Fatalf("ConvertJSONToExportNameMap() error = %v", err)
-	}
-	want, err := os.ReadFile(badNative)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, err := os.ReadFile(backPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(got, want) {
-		t.Fatalf("schema-anomalous native text changed: got %s want %s", got, want)
+	if err := service.ConvertExportNameMapToJSON(TestConversionContext, badNative, jsonPath, TestConversionMaxOutput); err == nil {
+		t.Fatal("ConvertExportNameMapToJSON accepted null serializeData")
 	}
 
 	nilJSON := filepath.Join(dir, "renamed.enm.json")
 	if err := os.WriteFile(nilJSON, []byte(`{"format":"kces-export-name-map","version":1000,"entries":null}`), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if !IsKCESExportNameMapJSONFile(nilJSON) {
-		t.Fatal("editing route rejected a representable nil entry list")
+	if IsKCESExportNameMapJSONFile(nilJSON) {
+		t.Fatal("editing route accepted a null entry list")
 	}
-	info, matched, err = (&FileTypeService{}).TryFileTypeDetermine(nilJSON)
-	if err != nil || !matched || info.FileType != "enm" || info.Version != 1000 {
-		t.Fatalf("nil-entry editing probe: matched=%v info=%+v err=%v", matched, info, err)
+	_, matched, err = (&FileTypeService{}).TryFileTypeDetermine(nilJSON)
+	if !matched || err == nil {
+		t.Fatalf("null-entry editing probe: matched=%v err=%v, want matched validation error", matched, err)
+	}
+	if err := service.ConvertJSONToExportNameMap(TestConversionContext, nilJSON, filepath.Join(dir, "back.enm"), TestConversionMaxOutput); err == nil {
+		t.Fatal("ConvertJSONToExportNameMap accepted a null entry list")
 	}
 }

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
-	"github.com/ugorji/go/codec"
 )
 
 func validKCESPresetCoreForTest(t *testing.T) *KCESPresetCore {
@@ -22,22 +21,16 @@ func validKCESPresetCoreForTest(t *testing.T) *KCESPresetCore {
 func TestKCESPresetGameLayoutRoundTrip(t *testing.T) {
 	core := validKCESPresetCoreForTest(t)
 	core.Version = 778
-	containerFieldCount := int32(4)
-	thumbnailFieldCount := int32(3)
+	presetName := "audit"
 	input := &KCESPreset{
-		ContainerVersion:     777,
-		ContainerFieldCount:  &containerFieldCount,
-		ContainerFutureSlots: [][]byte{{0xcc, 0x09}},
+		ContainerVersion: 777,
 		ContainerDirectories: map[string]ct.VirtualDirectoryMetadata{
 			"future": {Version: -4},
 			"empty":  {Version: 777},
 		},
-		ContainerVirtualFiles: map[string]ct.VirtualFileMetadata{
-			"thumbnail": {FieldCount: &thumbnailFieldCount, FutureSlots: [][]byte{{0xd4, 0x01, 0x7f}}},
-		},
 		Thumbnail: []byte{0x89, 'P', 'N', 'G', 1, 2, 3},
 		MaidData:  core,
-		Meta:      &KCESPresetMeta{Version: 779, Data: map[string]string{"presetName": "audit"}},
+		Meta:      &KCESPresetMeta{Version: 779, Data: map[string]*string{"presetName": &presetName}},
 		ExtraFiles: map[string][]byte{
 			"future/data": {7, 8, 9},
 		},
@@ -73,8 +66,8 @@ func TestKCESPresetGameLayoutRoundTrip(t *testing.T) {
 	if decoded.MaidData.Version != 778 || decoded.Meta == nil || decoded.Meta.Version != 779 {
 		t.Fatalf("nested versions were not preserved: core=%+v meta=%+v", decoded.MaidData, decoded.Meta)
 	}
-	if !reflect.DeepEqual(decoded.ContainerFieldCount, input.ContainerFieldCount) || !reflect.DeepEqual(decoded.ContainerFutureSlots, input.ContainerFutureSlots) || !reflect.DeepEqual(decoded.ContainerDirectories, input.ContainerDirectories) || !reflect.DeepEqual(decoded.ContainerVirtualFiles, input.ContainerVirtualFiles) {
-		t.Fatalf("container wire metadata changed:\n got  %+v\n want %+v", decoded, input)
+	if !reflect.DeepEqual(decoded.ContainerDirectories, input.ContainerDirectories) {
+		t.Fatalf("container directory fields changed:\n got  %+v\n want %+v", decoded, input)
 	}
 	if !bytes.Equal(decoded.Thumbnail, input.Thumbnail) ||
 		!bytes.Equal(decoded.MaidData.PropData, input.MaidData.PropData) ||
@@ -111,6 +104,29 @@ func TestKCESPresetRejectsMissingOrCorruptOuterGameFiles(t *testing.T) {
 		t.Fatalf("corrupt maiddata error = %v", err)
 	}
 
+	nullCore, err := ct.CompressLz4BlockArray([]byte{0xc0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	table = &ct.ContentTable{
+		Version: 1000,
+		Raw:     make([]byte, ct.HeaderSize),
+		Files:   make(map[string]ct.VirtualFile),
+	}
+	if err := table.AddFile(kcesPresetThumbnailFile, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := table.AddFile(kcesPresetMaidDataFile, nullCore); err != nil {
+		t.Fatal(err)
+	}
+	var nullMaidData bytes.Buffer
+	if err := ct.WriteContentTable(&nullMaidData, table); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeKCESPreset(nullMaidData.Bytes()); err == nil || !strings.Contains(err.Error(), "root must not be null") {
+		t.Fatalf("null maiddata root error = %v", err)
+	}
+
 	table = &ct.ContentTable{
 		Version: 1000,
 		Raw:     make([]byte, ct.HeaderSize),
@@ -130,117 +146,126 @@ func TestKCESPresetRejectsMissingOrCorruptOuterGameFiles(t *testing.T) {
 	}
 }
 
-func TestKCESPresetPreservesOpaqueInnerBlocksAndMessagePackTrailingData(t *testing.T) {
-	tail := []byte{0xde, 0xad, 0xbe, 0xef}
-	input := &KCESPreset{
+func TestKCESPresetRejectsMalformedKnownBlocksAndMessagePackTrailingData(t *testing.T) {
+	malformed := &KCESPreset{
 		Thumbnail: []byte{1, 2, 3},
 		MaidData: &KCESPresetCore{
-			Version:      -7,
-			PropData:     []byte{0xff, 0x00, 0x01},
-			ColorData:    nil,
-			BodyData:     []byte{},
-			TrailingData: append([]byte(nil), tail...),
-		},
-		Meta: &KCESPresetMeta{
-			Version:      0,
-			Data:         map[string]string{"future": "value"},
-			TrailingData: []byte{0xc1, 0x99},
+			Version:  1000,
+			PropData: []byte{0xff, 0x00, 0x01},
 		},
 	}
-
-	encoded, err := EncodeKCESPreset(input)
-	if err != nil {
-		t.Fatalf("EncodeKCESPreset opaque inner blocks: %v", err)
-	}
-	decoded, err := DecodeKCESPreset(encoded)
-	if err != nil {
-		t.Fatalf("DecodeKCESPreset opaque inner blocks: %v", err)
-	}
-	if decoded.MaidData.Version != -7 || decoded.Meta == nil || decoded.Meta.Version != 0 {
-		t.Fatalf("explicit versions changed: maid=%d meta=%+v", decoded.MaidData.Version, decoded.Meta)
-	}
-	if !bytes.Equal(decoded.MaidData.PropData, input.MaidData.PropData) ||
-		decoded.MaidData.ColorData != nil ||
-		decoded.MaidData.BodyData == nil ||
-		!bytes.Equal(decoded.MaidData.TrailingData, input.MaidData.TrailingData) ||
-		!bytes.Equal(decoded.Meta.TrailingData, input.Meta.TrailingData) {
-		t.Fatalf("opaque preset payload changed:\n got  %+v\n want %+v", decoded, input)
+	if _, err := EncodeKCESPreset(malformed); err == nil || !strings.Contains(err.Error(), "propData") {
+		t.Fatalf("malformed known block error = %v", err)
 	}
 
-	reencoded, err := EncodeKCESPreset(decoded)
+	core := validKCESPresetCoreForTest(t)
+	coreMessagePack, err := ct.EncodeIndexedMsgpack(core)
 	if err != nil {
-		t.Fatalf("re-encode opaque preset: %v", err)
+		t.Fatal(err)
 	}
-	decodedAgain, err := DecodeKCESPreset(reencoded)
+	coreMessagePack = append(coreMessagePack, 0xde, 0xad)
+	coreWithTrailing, err := ct.CompressLz4BlockArray(coreMessagePack)
 	if err != nil {
-		t.Fatalf("decode re-encoded opaque preset: %v", err)
+		t.Fatal(err)
 	}
-	if !bytes.Equal(decodedAgain.MaidData.TrailingData, tail) || !bytes.Equal(decodedAgain.Meta.TrailingData, input.Meta.TrailingData) {
-		t.Fatalf("MessagePack trailing bytes changed after second round trip: %+v", decodedAgain)
+	table := &ct.ContentTable{Version: 1000, Raw: make([]byte, ct.HeaderSize), Files: make(map[string]ct.VirtualFile)}
+	if err := table.AddFile(kcesPresetThumbnailFile, []byte{1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := table.AddFile(kcesPresetMaidDataFile, coreWithTrailing); err != nil {
+		t.Fatal(err)
+	}
+	var wire bytes.Buffer
+	if err := ct.WriteContentTable(&wire, table); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeKCESPreset(wire.Bytes()); err == nil || !strings.Contains(strings.ToLower(err.Error()), "trailing") {
+		t.Fatalf("maiddata trailing-data error = %v", err)
 	}
 }
 
-func TestKCESPresetPreservesIndexedFutureAndNullMetadata(t *testing.T) {
-	coreFuture := codec.Raw{0xd4, 0x23, 0x01}
-	metaFuture := codec.Raw{0x81, 0xa1, 'x', 0xcc, 0x80}
-	table := &ct.ContentTable{
-		Version: 1000,
-		Raw:     make([]byte, ct.HeaderSize),
-		Files:   make(map[string]ct.VirtualFile),
-	}
-	table.AddFile(kcesPresetThumbnailFile, []byte{1, 2, 3})
-	table.AddFile(kcesPresetMaidDataFile, compressIndexedTestValue(t, []interface{}{
-		int64(1000), nil, []byte{}, []byte{7}, coreFuture,
-	}))
-	table.AddFile(kcesPresetMetaFile, compressIndexedTestValue(t, []interface{}{
-		int64(1000), map[string]interface{}{"null": nil, "value": "ok"}, metaFuture,
-	}))
-	var wire bytes.Buffer
-	if err := ct.WriteContentTable(&wire, table); err != nil {
-		t.Fatalf("build preset wire: %v", err)
+func TestKCESPresetRejectsFutureSlotsAndUsesTypedNullMapValues(t *testing.T) {
+	writePreset := func(maidData, metaData []byte) []byte {
+		t.Helper()
+		table := &ct.ContentTable{Version: 1000, Raw: make([]byte, ct.HeaderSize), Files: make(map[string]ct.VirtualFile)}
+		if err := table.AddFile(kcesPresetThumbnailFile, []byte{1, 2, 3}); err != nil {
+			t.Fatal(err)
+		}
+		if err := table.AddFile(kcesPresetMaidDataFile, maidData); err != nil {
+			t.Fatal(err)
+		}
+		if metaData != nil {
+			if err := table.AddFile(kcesPresetMetaFile, metaData); err != nil {
+				t.Fatal(err)
+			}
+		}
+		var wire bytes.Buffer
+		if err := ct.WriteContentTable(&wire, table); err != nil {
+			t.Fatal(err)
+		}
+		return wire.Bytes()
 	}
 
-	preset, err := DecodeKCESPreset(wire.Bytes())
+	core := validKCESPresetCoreForTest(t)
+	validCore, err := encodeCompressedMsgpack(core, "test core")
 	if err != nil {
-		t.Fatalf("DecodeKCESPreset: %v", err)
+		t.Fatal(err)
 	}
-	assertIndexedMetadata(t, preset.MaidData.IndexedObjectMetadata, 5, coreFuture)
-	assertIndexedMetadata(t, preset.Meta.IndexedObjectMetadata, 3, metaFuture)
-	assertNullMapKey(t, preset.Meta.IndexedObjectMetadata, 1, "null")
-	if preset.MaidData.PropData != nil || preset.MaidData.ColorData == nil || preset.Meta.Data["null"] != "" {
-		t.Fatalf("decoded preset nil/empty values changed: maid=%+v meta=%+v", preset.MaidData, preset.Meta)
+	coreWithFutureSlot := compressIndexedTestValue(t, []interface{}{
+		int64(core.Version), core.PropData, core.ColorData, core.BodyData, int64(1),
+	})
+	if _, err := DecodeKCESPreset(writePreset(coreWithFutureSlot, nil)); err == nil {
+		t.Fatal("preset maiddata accepted a high MessagePack key")
 	}
 
+	metaWithFutureSlot := compressIndexedTestValue(t, []interface{}{
+		int64(1000), map[string]interface{}{"value": "ok"}, int64(1),
+	})
+	if _, err := DecodeKCESPreset(writePreset(validCore, metaWithFutureSlot)); err == nil {
+		t.Fatal("preset meta accepted a high MessagePack key")
+	}
+
+	nullMeta, err := encodeCompressedMsgpack(nil, "test null meta")
+	if err != nil {
+		t.Fatal(err)
+	}
+	nullMetaPreset, err := DecodeKCESPreset(writePreset(validCore, nullMeta))
+	if err != nil {
+		t.Fatalf("DecodeKCESPreset null meta: %v", err)
+	}
+	if nullMetaPreset.Meta != nil {
+		t.Fatalf("decoded null meta = %+v, want nil", nullMetaPreset.Meta)
+	}
+	canonical, err := EncodeKCESPreset(nullMetaPreset)
+	if err != nil {
+		t.Fatalf("EncodeKCESPreset canonical null meta: %v", err)
+	}
+	canonicalTable, err := ct.ReadContentTable(bytes.NewReader(canonical))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := canonicalTable.Files[kcesPresetMetaFile]; ok {
+		t.Fatal("canonical preset retained a null meta virtual file")
+	}
+
+	metaWithNull := compressIndexedTestValue(t, []interface{}{
+		int64(1000), map[string]interface{}{"null": nil, "value": "ok"},
+	})
+	preset, err := DecodeKCESPreset(writePreset(validCore, metaWithNull))
+	if err != nil {
+		t.Fatalf("DecodeKCESPreset typed null map: %v", err)
+	}
+	if preset.Meta == nil || preset.Meta.Data["null"] != nil || preset.Meta.Data["value"] == nil || *preset.Meta.Data["value"] != "ok" {
+		t.Fatalf("typed meta nullability changed: %+v", preset.Meta)
+	}
 	reencoded, err := EncodeKCESPreset(preset)
 	if err != nil {
-		t.Fatalf("EncodeKCESPreset: %v", err)
+		t.Fatalf("EncodeKCESPreset typed null map: %v", err)
 	}
-	reencodedTable, err := ct.ReadContentTable(bytes.NewReader(reencoded))
-	if err != nil {
-		t.Fatalf("ReadContentTable: %v", err)
+	redecoded, err := DecodeKCESPreset(reencoded)
+	if err != nil || redecoded.Meta.Data["null"] != nil {
+		t.Fatalf("typed meta nullability round trip: meta=%+v err=%v", redecoded.Meta, err)
 	}
-	coreCompressed, err := reencodedTable.GetFileData(kcesPresetMaidDataFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	coreSlots := decodeCompressedIndexedTestArray(t, coreCompressed)
-	if len(coreSlots) != 5 || !rawMessagePackEqual(coreSlots[4], coreFuture) {
-		t.Fatalf("re-encoded core slots = % x", coreSlots)
-	}
-	assertRawNil(t, coreSlots[1], "preset propData")
-	metaCompressed, err := reencodedTable.GetFileData(kcesPresetMetaFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	metaSlots := decodeCompressedIndexedTestArray(t, metaCompressed)
-	if len(metaSlots) != 3 || !rawMessagePackEqual(metaSlots[2], metaFuture) {
-		t.Fatalf("re-encoded meta slots = % x", metaSlots)
-	}
-	var metaMap map[string]codec.Raw
-	if err := ct.DecodeMsgpack(metaSlots[1], &metaMap); err != nil {
-		t.Fatalf("decode re-encoded meta map: %v", err)
-	}
-	assertRawNil(t, metaMap["null"], "preset metaData null value")
 }
 
 func TestKCESPresetMetaDictionaryAndReservedFiles(t *testing.T) {

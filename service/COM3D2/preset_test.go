@@ -86,6 +86,7 @@ func TestPresetServiceExpandsCOM3D25EmbeddedPresetData(t *testing.T) {
 	}
 	colorPresetID := "embedded-color"
 	warpointName := "future-warpoint"
+	flagSource := "COM3D2.5"
 	embeddedColorPreset, err := serializationKCES.NewColorPreset("12345678-1234-1234-1234-123456789abc")
 	if err != nil {
 		t.Fatalf("NewColorPreset: %v", err)
@@ -105,7 +106,7 @@ func TestPresetServiceExpandsCOM3D25EmbeddedPresetData(t *testing.T) {
 						ID:               &colorPresetID,
 						SerializedPreset: embeddedColorPreset,
 					},
-					Flags: map[string]string{"source": "COM3D2.5"},
+					Flags: map[string]*string{"source": &flagSource},
 				},
 				SubProperties: []*serializationKCES.KCESPresetSubProperty{{
 					Number:                    1,

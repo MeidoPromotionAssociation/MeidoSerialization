@@ -318,10 +318,10 @@ func pattern(path, title, description, gameUsage, editRole, editGuidance string,
 
 func preserveUnknownRule() Rule {
 	return Rule{
-		ID:       "preserve-unreviewed-and-opaque-data",
+		ID:       "respect-typed-and-binary-data",
 		Severity: "error",
-		Summary:  "Preserve every field without verified editing semantics.",
-		Details:  "Keep schema_only fields, unknown indexed slots, nil markers, ordering metadata, trailing bytes, hashes, IDs, versions, and base64 payloads unchanged unless the editing objective explicitly requires a reviewed transformation.",
+		Summary:  "Retain modeled values and semantic binary assets without inventing unsupported wire state.",
+		Details:  "Keep typed fields whose purpose is unknown, hashes, IDs, versions, and byte arrays whose native meaning is asset data or an independently unrecognized virtual file. Unknown indexed slots, synthetic nil flags, ordering metadata, trailing bytes, and raw or base64 parse-failure fallbacks are not editing fields and must be rejected by the decoder.",
 	}
 }
 
@@ -329,7 +329,7 @@ func standardWorkflow(formatID string) []string {
 	return []string{
 		"Read meido://schemas/" + formatID + " and this guide before editing.",
 		"Convert a real source file to editing JSON; do not invent identifiers, resource names, bone paths, hashes, or enum values.",
-		"Change only the fields required by the objective and preserve all schema_only and opaque values.",
+		"Change only the fields required by the objective, retain other typed values and semantic binary assets, and never invent fields absent from the schema.",
 		"Call meido.validate_editing_json and convert back to native only after validation succeeds.",
 		"Test the result in the target game build when the edit affects rendering, animation, physics, attachment, catalog lookup, or character state.",
 	}

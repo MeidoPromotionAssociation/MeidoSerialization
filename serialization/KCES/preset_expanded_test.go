@@ -20,7 +20,7 @@ func TestExpandedKCESPresetDecodesAllKnownInnerBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExpandKCESPreset: %v", err)
 	}
-	if expanded.MaidData == nil || expanded.MaidData.PropData == nil || expanded.MaidData.ColorData == nil || expanded.MaidData.BodyData == nil {
+	if expanded.MaidData.PropData == nil || expanded.MaidData.ColorData == nil || expanded.MaidData.BodyData == nil {
 		t.Fatalf("known inner blocks were not expanded: %+v", expanded.MaidData)
 	}
 	if expanded.MaidData.PropData.Signature != KCESPresetPropertyListSignature ||
@@ -59,6 +59,38 @@ func TestExpandedKCESPresetDecodesAllKnownInnerBlocks(t *testing.T) {
 	}
 }
 
+func TestKCESPresetJSONAlwaysUsesExpandedTypedBlocks(t *testing.T) {
+	opaque, err := NewKCESPreset()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(opaque)
+	if err != nil {
+		t.Fatalf("marshal binary preset envelope: %v", err)
+	}
+	for _, field := range []string{`"propData":{`, `"colorData":{`, `"bodyData":{`} {
+		if !bytes.Contains(data, []byte(field)) {
+			t.Fatalf("typed preset JSON lacks %s: %s", field, data)
+		}
+	}
+	if bytes.Contains(data, []byte(`"propData":"`)) || bytes.Contains(data, []byte(`"colorData":"`)) || bytes.Contains(data, []byte(`"bodyData":"`)) {
+		t.Fatalf("binary preset envelope exposed Base64 inner data: %s", data)
+	}
+
+	var decoded KCESPreset
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal typed preset JSON into binary envelope: %v", err)
+	}
+	if len(decoded.MaidData.PropData) == 0 || len(decoded.MaidData.ColorData) == 0 || len(decoded.MaidData.BodyData) == 0 {
+		t.Fatalf("typed preset JSON did not rebuild all binary blocks: %+v", decoded.MaidData)
+	}
+
+	rawFallback := []byte(`{"format":"kces-virtual-directory-preset","containerVersion":1000,"thumbnail":null,"maidData":{"version":1000,"propData":"AA==","colorData":"AA==","bodyData":"AA=="}}`)
+	if err := json.Unmarshal(rawFallback, &decoded); err == nil || !strings.Contains(err.Error(), "cannot unmarshal") && !strings.Contains(err.Error(), "unknown field") {
+		t.Fatalf("raw preset Base64 fallback error = %v", err)
+	}
+}
+
 func TestExpandKCESPresetRejectsMalformedPresentInnerBlock(t *testing.T) {
 	value, err := NewKCESPreset()
 	if err != nil {
@@ -89,5 +121,17 @@ func TestExpandedKCESPresetPreservesNilInnerBlock(t *testing.T) {
 	}
 	if collapsed.MaidData.ColorData != nil {
 		t.Fatalf("collapsed colorData = %x, want nil", collapsed.MaidData.ColorData)
+	}
+}
+
+func TestExpandedKCESPresetJSONRequiresNonNullMaidData(t *testing.T) {
+	for _, data := range []string{
+		`{"format":"kces-virtual-directory-preset","containerVersion":1000,"thumbnail":null}`,
+		`{"format":"kces-virtual-directory-preset","containerVersion":1000,"thumbnail":null,"maidData":null}`,
+	} {
+		var value ExpandedKCESPreset
+		if err := json.Unmarshal([]byte(data), &value); err == nil {
+			t.Fatalf("json.Unmarshal(%s) unexpectedly succeeded", data)
+		}
 	}
 }

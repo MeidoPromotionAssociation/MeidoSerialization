@@ -2,15 +2,14 @@ package KCES
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"io"
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/strictjson"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
@@ -29,7 +28,6 @@ const (
 
 	PayloadKindDynamicBoneStatus       = "dynamic-bone-status"
 	PayloadKindJSONString              = "msgpack-json-string"
-	PayloadKindRawMsgpack              = "raw-msgpack"
 	PayloadKindColliderPackage         = "collider-package"
 	PayloadKindLimbCollider            = "limb-collider-package"
 	PayloadKindIKCollider              = "ik-collider-package"
@@ -106,47 +104,179 @@ func DescribeKCESPayload(extension string) (KCESPayloadDescriptor, bool) {
 // KCESPayloadEnvelope is a JSON-editable envelope for native KCES MessagePack resources and COM3D2-compatible JSON sidecars written by KCES ExportCM
 // StorageVariant is authoritative during encoding because several extensions are shared by those incompatible wire formats
 type KCESPayloadEnvelope struct {
-	Format              string               `json:"format"`                        // 封套族，kces-msgpack-lz4 或 kces-exportcm-sidecar / Envelope family, either kces-msgpack-lz4 or kces-exportcm-sidecar
-	Extension           string               `json:"extension"`                     // 原始文件扩展名，用于判定载荷类型 / Original file extension used to determine payload kind
-	LengthPrefixed      bool                 `json:"lengthPrefixed"`                // 是否带 4 字节长度前缀 / Whether a 4-byte length prefix is present
-	StorageVariant      string               `json:"storageVariant"`                // 实际 wire 形态；同一扩展名可能有 KCES 与 ExportCM 两种 wire / Exact wire variant; an extension can have both KCES and ExportCM forms
-	Kind                string               `json:"kind"`                          // 解析后的载荷类型 / Decoded payload kind
-	DynamicBone         *DynamicBoneStatus   `json:"dynamicBoneStatus,omitempty"`   // 动态骨骼配置载荷 / DynamicBone configuration payload
-	ColliderPackage     *ColliderPackage     `json:"colliderPackage,omitempty"`     // 通用碰撞体包载荷 / Generic collider package payload
-	LimbCollider        *LimbColliderPackage `json:"limbColliderPackage,omitempty"` // LimbColliderMgr 保存的碰撞体包 / Collider package saved by LimbColliderMgr
-	IKCollider          *IKColliderPackage   `json:"ikColliderPackage,omitempty"`   // IKColliderSaveLoader 保存的碰撞体包 / Collider package saved by IKColliderSaveLoader
-	ClothParams         *ClothParams         `json:"clothParams,omitempty"`         // MagicaCloth.ClothParams 载荷 / MagicaCloth.ClothParams payload
-	Text                string               `json:"text,omitempty"`                // 字符串载荷原文 / Original text payload
-	JSON                json.RawMessage      `json:"json,omitempty"`                // 当字符串载荷是 JSON 时的压缩 JSON / Compacted JSON when the text payload contains JSON
-	MsgpackBase64       string               `json:"msgpackBase64,omitempty"`       // 未识别 MessagePack 载荷的 base64 数据 / Base64 data for unrecognized MessagePack payloads
-	MsgpackJSONPreview  json.RawMessage      `json:"msgpackJsonPreview,omitempty"`  // 未识别载荷的 JSON 预览 / JSON preview for unrecognized payloads
-	MsgpackRootNil      bool                 `json:"msgpackRootNil,omitempty"`      // 已识别根值是否为 MessagePack nil / Whether a recognized root value was MessagePack nil
-	MsgpackTrailingData []byte               `json:"msgpackTrailingData,omitempty"` // 已识别根值之后 MessagePack-CSharp 未读取的原始字节 / Raw bytes left unread after a recognized root value
+	Format          string               `json:"format"`                        // 封套族，kces-msgpack-lz4 或 kces-exportcm-sidecar / Envelope family, either kces-msgpack-lz4 or kces-exportcm-sidecar
+	Extension       string               `json:"extension"`                     // 原始文件扩展名，用于判定载荷类型 / Original file extension used to determine payload kind
+	StorageVariant  string               `json:"storageVariant"`                // 实际 wire 形态；同一扩展名可能有 KCES 与 ExportCM 两种 wire / Exact wire variant; an extension can have both KCES and ExportCM forms
+	Kind            string               `json:"kind"`                          // 解析后的载荷类型 / Decoded payload kind
+	DynamicBone     *DynamicBoneStatus   `json:"dynamicBoneStatus,omitempty"`   // 动态骨骼配置载荷 / DynamicBone configuration payload
+	ColliderPackage *ColliderPackage     `json:"colliderPackage,omitempty"`     // 通用碰撞体包载荷 / Generic collider package payload
+	LimbCollider    *LimbColliderPackage `json:"limbColliderPackage,omitempty"` // LimbColliderMgr 保存的碰撞体包 / Collider package saved by LimbColliderMgr
+	IKCollider      *IKColliderPackage   `json:"ikColliderPackage,omitempty"`   // IKColliderSaveLoader 保存的碰撞体包 / Collider package saved by IKColliderSaveLoader
+	ClothParams     *ClothParams         `json:"clothParams,omitempty"`         // MagicaCloth.ClothParams 载荷 / MagicaCloth.ClothParams payload
+	JSON            json.RawMessage      `json:"json,omitempty"`                // 当字符串载荷是 JSON 时的压缩 JSON / Compacted JSON when the text payload contains JSON
 }
 
-// UnmarshalJSON 严格解码载荷封套 JSON 并拒绝未知字段或尾随值
-// UnmarshalJSON strictly decodes payload-envelope JSON and rejects unknown fields or trailing values
+// kcesPayloadEnvelopeJSON 以原始 JSON 值区分 union 分支字段缺失与显式 null / kcesPayloadEnvelopeJSON distinguishes missing union branch fields from explicit null by retaining each JSON value
+type kcesPayloadEnvelopeJSON struct {
+	Format          string          `json:"format"`                        // 封套族 / Envelope family
+	Extension       string          `json:"extension"`                     // 原始文件扩展名 / Original file extension
+	StorageVariant  string          `json:"storageVariant"`                // 实际线格式变体 / Exact wire variant
+	Kind            string          `json:"kind"`                          // union 判别类型 / Union discriminator
+	DynamicBone     json.RawMessage `json:"dynamicBoneStatus,omitempty"`   // 动态骨骼分支原始 JSON 值 / Raw JSON value for the DynamicBone branch
+	ColliderPackage json.RawMessage `json:"colliderPackage,omitempty"`     // 通用碰撞体分支原始 JSON 值 / Raw JSON value for the generic collider branch
+	LimbCollider    json.RawMessage `json:"limbColliderPackage,omitempty"` // LimbCollider 分支原始 JSON 值 / Raw JSON value for the LimbCollider branch
+	IKCollider      json.RawMessage `json:"ikColliderPackage,omitempty"`   // IKCollider 分支原始 JSON 值 / Raw JSON value for the IKCollider branch
+	ClothParams     json.RawMessage `json:"clothParams,omitempty"`         // ClothParams 分支原始 JSON 值 / Raw JSON value for the ClothParams branch
+	JSON            json.RawMessage `json:"json,omitempty"`                // JSON 语义分支原始值 / Raw value for the semantic JSON branch
+}
+
+// MarshalJSON 仅写出 kind 对应的活动 union 分支并让类型化 nil 根显式成为 JSON null
+// MarshalJSON emits only the union branch selected by kind and represents a typed nil root as explicit JSON null
+func (e KCESPayloadEnvelope) MarshalJSON() ([]byte, error) {
+	active := payloadRootFieldName(e.Kind)
+	if active == "" {
+		return nil, fmt.Errorf("unsupported KCES payload kind %q", e.Kind)
+	}
+	if err := validateKCESPayloadJSONInactiveRoots(&e, active); err != nil {
+		return nil, err
+	}
+
+	raw := kcesPayloadEnvelopeJSON{
+		Format:         e.Format,
+		Extension:      e.Extension,
+		StorageVariant: e.StorageVariant,
+		Kind:           e.Kind,
+	}
+	var err error
+	switch active {
+	case "dynamicBoneStatus":
+		raw.DynamicBone, err = json.Marshal(e.DynamicBone)
+	case "colliderPackage":
+		raw.ColliderPackage, err = json.Marshal(e.ColliderPackage)
+	case "limbColliderPackage":
+		raw.LimbCollider, err = json.Marshal(e.LimbCollider)
+	case "ikColliderPackage":
+		raw.IKCollider, err = json.Marshal(e.IKCollider)
+	case "clothParams":
+		raw.ClothParams, err = json.Marshal(e.ClothParams)
+	case "json":
+		if e.JSON == nil {
+			raw.JSON = json.RawMessage("null")
+		} else {
+			raw.JSON = append(json.RawMessage(nil), e.JSON...)
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("marshal active payload field %s: %w", active, err)
+	}
+	return json.Marshal(raw)
+}
+
+// UnmarshalJSON 严格解码载荷封套 JSON，要求活动 union 分支存在，并拒绝未知字段、非活动分支或尾随值
+// UnmarshalJSON strictly decodes payload-envelope JSON, requires the active union branch, and rejects unknown fields, inactive branches, or trailing values
 func (e *KCESPayloadEnvelope) UnmarshalJSON(data []byte) error {
 	if !utf8.Valid(data) {
 		return fmt.Errorf("KCES payload JSON is not valid UTF-8")
 	}
-	type envelopeAlias KCESPayloadEnvelope
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.UseNumber()
-	dec.DisallowUnknownFields()
-	var alias envelopeAlias
-	if err := dec.Decode(&alias); err != nil {
+	var raw kcesPayloadEnvelopeJSON
+	if err := decodeKCESJSONStrict(data, &raw); err != nil {
 		return err
 	}
-	var trailing interface{}
-	if err := dec.Decode(&trailing); err != io.EOF {
-		if err == nil {
-			return fmt.Errorf("trailing JSON value")
-		}
-		return fmt.Errorf("trailing content: %w", err)
+	active := payloadRootFieldName(raw.Kind)
+	if active == "" {
+		return fmt.Errorf("unsupported KCES payload kind %q", raw.Kind)
 	}
-	*e = KCESPayloadEnvelope(alias)
+	if err := validateKCESPayloadJSONRootPresence(&raw, active); err != nil {
+		return err
+	}
+
+	value := KCESPayloadEnvelope{
+		Format:         raw.Format,
+		Extension:      raw.Extension,
+		StorageVariant: raw.StorageVariant,
+		Kind:           raw.Kind,
+	}
+	var err error
+	switch active {
+	case "dynamicBoneStatus":
+		err = decodeKCESJSONStrict(raw.DynamicBone, &value.DynamicBone)
+	case "colliderPackage":
+		err = decodeKCESJSONStrict(raw.ColliderPackage, &value.ColliderPackage)
+	case "limbColliderPackage":
+		err = decodeKCESJSONStrict(raw.LimbCollider, &value.LimbCollider)
+	case "ikColliderPackage":
+		err = decodeKCESJSONStrict(raw.IKCollider, &value.IKCollider)
+	case "clothParams":
+		err = decodeKCESJSONStrict(raw.ClothParams, &value.ClothParams)
+	case "json":
+		trimmed := bytes.TrimSpace(raw.JSON)
+		if bytes.Equal(trimmed, []byte("null")) && raw.Kind == PayloadKindJSONString {
+			value.JSON = nil
+		} else {
+			var compact bytes.Buffer
+			if compactErr := json.Compact(&compact, trimmed); compactErr != nil {
+				err = compactErr
+			} else {
+				value.JSON = append(json.RawMessage(nil), compact.Bytes()...)
+			}
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("decode active payload field %s: %w", active, err)
+	}
+	*e = value
 	return nil
+}
+
+// validateKCESPayloadJSONInactiveRoots 拒绝 Go 封套中与 kind 不匹配且实际携带值的 union 分支
+// validateKCESPayloadJSONInactiveRoots rejects populated Go envelope branches that do not match kind
+func validateKCESPayloadJSONInactiveRoots(e *KCESPayloadEnvelope, active string) error {
+	for _, root := range []struct {
+		name    string
+		present bool
+	}{
+		{name: "dynamicBoneStatus", present: e.DynamicBone != nil},
+		{name: "colliderPackage", present: e.ColliderPackage != nil},
+		{name: "limbColliderPackage", present: e.LimbCollider != nil},
+		{name: "ikColliderPackage", present: e.IKCollider != nil},
+		{name: "clothParams", present: e.ClothParams != nil},
+		{name: "json", present: len(e.JSON) != 0},
+	} {
+		if root.present && root.name != active {
+			return fmt.Errorf("%s is inactive for payload kind %q", root.name, e.Kind)
+		}
+	}
+	return nil
+}
+
+// validateKCESPayloadJSONRootPresence 要求活动分支字段出现并拒绝所有出现的非活动分支，包括显式 null
+// validateKCESPayloadJSONRootPresence requires the active branch field and rejects every present inactive branch including explicit null
+func validateKCESPayloadJSONRootPresence(raw *kcesPayloadEnvelopeJSON, active string) error {
+	for _, root := range []struct {
+		name string
+		data json.RawMessage
+	}{
+		{name: "dynamicBoneStatus", data: raw.DynamicBone},
+		{name: "colliderPackage", data: raw.ColliderPackage},
+		{name: "limbColliderPackage", data: raw.LimbCollider},
+		{name: "ikColliderPackage", data: raw.IKCollider},
+		{name: "clothParams", data: raw.ClothParams},
+		{name: "json", data: raw.JSON},
+	} {
+		if root.name == active && len(root.data) == 0 {
+			return fmt.Errorf("payload kind %q requires field %s", raw.Kind, active)
+		}
+		if root.name != active && len(root.data) != 0 {
+			return fmt.Errorf("%s is inactive for payload kind %q", root.name, raw.Kind)
+		}
+	}
+	return nil
+}
+
+// decodeKCESJSONStrict 解码单个完整 JSON 值并递归拒绝结构体未知字段
+// decodeKCESJSONStrict decodes one complete JSON value and recursively rejects unknown struct fields
+func decodeKCESJSONStrict(data []byte, out any) error {
+	return strictjson.Decode(data, out)
 }
 
 // DecodeKCESPayload 尝试扩展名声明的原生 KCES 与 ExportCM 线格式并拒绝歧义结果
@@ -175,6 +305,10 @@ func DecodeKCESPayload(data []byte, extension string) (*KCESPayloadEnvelope, err
 // decodeKCESMessagePackPayload decodes an LZ4 Block Array MessagePack payload with a validated length prefix when required
 func decodeKCESMessagePackPayload(data []byte, extension string) (*KCESPayloadEnvelope, error) {
 	ext := NormalizeKCESPayloadExtension(extension)
+	descriptor, ok := kcesPayloadDescriptorByExtension[ext]
+	if !ok {
+		return nil, fmt.Errorf("unsupported KCES payload extension %q", extension)
+	}
 	payload, lengthPrefixed, err := StripLengthPrefix(data)
 	if err != nil {
 		return nil, err
@@ -197,105 +331,93 @@ func decodeKCESMessagePackPayload(data []byte, extension string) (*KCESPayloadEn
 	env := &KCESPayloadEnvelope{
 		Format:         PayloadFormatKCESMessagePack,
 		Extension:      ext,
-		LengthPrefixed: lengthPrefixed,
 		StorageVariant: PayloadStorageInt32LZ4MessagePack,
 	}
-	kind := payloadKindForExtension(ext)
-	var root, trailing []byte
-	if kind != PayloadKindRawMsgpack {
-		root, trailing, err = ct.SplitFirstMsgpackValue(decompressed)
-		if err != nil {
-			return nil, fmt.Errorf("split %s payload root MessagePack value: %w", ext, err)
-		}
-		if len(root) == 1 && root[0] == 0xc0 {
-			env.Kind = kind
-			env.MsgpackRootNil = true
-			env.MsgpackTrailingData = append([]byte(nil), trailing...)
-			return env, nil
-		}
-	}
+	kind := descriptor.Kind
 	decodeRoot := func(out interface{}) error {
-		return ct.DecodeMsgpack(root, out)
+		return ct.DecodeMsgpack(decompressed, out)
 	}
 
 	switch kind {
 	case PayloadKindDynamicBoneStatus:
-		status := &DynamicBoneStatus{}
-		if err := decodeRoot(status); err != nil {
+		var status *DynamicBoneStatus
+		if err := decodeRoot(&status); err != nil {
 			return nil, fmt.Errorf("decode DynamicBoneStatus: %w", err)
 		}
-		if err := validateDynamicBoneStatusForEncoding(status); err != nil {
-			return nil, fmt.Errorf("validate decoded DynamicBoneStatus: %w", err)
+		if status != nil {
+			if err := validateDynamicBoneStatusForEncoding(status); err != nil {
+				return nil, fmt.Errorf("validate decoded DynamicBoneStatus: %w", err)
+			}
 		}
 		env.Kind = PayloadKindDynamicBoneStatus
 		env.DynamicBone = status
 	case PayloadKindJSONString:
-		var text string
+		var text *string
 		if err := decodeRoot(&text); err != nil {
 			return nil, fmt.Errorf("decode JSON string payload: %w", err)
 		}
-		if !json.Valid([]byte(text)) {
+		env.Kind = PayloadKindJSONString
+		if text == nil {
+			break
+		}
+		if !json.Valid([]byte(*text)) {
 			return nil, fmt.Errorf("decode JSON string payload: inner Magica JSON is invalid")
 		}
-		env.Kind = PayloadKindJSONString
-		env.Text = text
 		var compact bytes.Buffer
-		if err := json.Compact(&compact, []byte(text)); err != nil {
+		if err := json.Compact(&compact, []byte(*text)); err != nil {
 			return nil, fmt.Errorf("compact inner Magica JSON: %w", err)
 		}
 		env.JSON = append(json.RawMessage(nil), compact.Bytes()...)
 	case PayloadKindColliderPackage:
-		pkg := &ColliderPackage{}
-		if err := decodeRoot(pkg); err != nil {
+		var pkg *ColliderPackage
+		if err := decodeRoot(&pkg); err != nil {
 			return nil, fmt.Errorf("decode ColliderPackage msgpack: %w", err)
 		}
-		if err := validateColliderPackageForEncoding(pkg); err != nil {
-			return nil, fmt.Errorf("validate decoded ColliderPackage: %w", err)
+		if pkg != nil {
+			if err := validateColliderPackageForEncoding(pkg); err != nil {
+				return nil, fmt.Errorf("validate decoded ColliderPackage: %w", err)
+			}
 		}
 		env.Kind = PayloadKindColliderPackage
 		env.ColliderPackage = pkg
 	case PayloadKindLimbCollider:
-		pkg := &LimbColliderPackage{}
-		if err := decodeRoot(pkg); err != nil {
+		var pkg *LimbColliderPackage
+		if err := decodeRoot(&pkg); err != nil {
 			return nil, fmt.Errorf("decode LimbColliderPackage msgpack: %w", err)
 		}
-		if err := validateLimbColliderPackageForEncoding(pkg); err != nil {
-			return nil, fmt.Errorf("validate decoded LimbColliderPackage: %w", err)
+		if pkg != nil {
+			if err := validateLimbColliderPackageForEncoding(pkg); err != nil {
+				return nil, fmt.Errorf("validate decoded LimbColliderPackage: %w", err)
+			}
 		}
 		env.Kind = PayloadKindLimbCollider
 		env.LimbCollider = pkg
 	case PayloadKindIKCollider:
-		pkg := &IKColliderPackage{}
-		if err := decodeRoot(pkg); err != nil {
+		var pkg *IKColliderPackage
+		if err := decodeRoot(&pkg); err != nil {
 			return nil, fmt.Errorf("decode IKColliderPackage msgpack: %w", err)
 		}
-		if err := validateIKColliderPackageForEncoding(pkg); err != nil {
-			return nil, fmt.Errorf("validate decoded IKColliderPackage: %w", err)
+		if pkg != nil {
+			if err := validateIKColliderPackageForEncoding(pkg); err != nil {
+				return nil, fmt.Errorf("validate decoded IKColliderPackage: %w", err)
+			}
 		}
 		env.Kind = PayloadKindIKCollider
 		env.IKCollider = pkg
 	case PayloadKindClothParams:
-		params := &ClothParams{}
-		if err := decodeRoot(params); err != nil {
+		var params *ClothParams
+		if err := decodeRoot(&params); err != nil {
 			return nil, fmt.Errorf("decode ClothParams: %w", err)
 		}
-		if err := validateClothParamsForEncoding(params); err != nil {
-			return nil, fmt.Errorf("validate decoded ClothParams: %w", err)
+		if params != nil {
+			if err := validateClothParamsForEncoding(params); err != nil {
+				return nil, fmt.Errorf("validate decoded ClothParams: %w", err)
+			}
 		}
 		env.Kind = PayloadKindClothParams
 		env.ClothParams = params
 	default:
-		env.Kind = PayloadKindRawMsgpack
-		env.MsgpackBase64 = base64.StdEncoding.EncodeToString(decompressed)
-		var raw interface{}
-		if err := ct.DecodeMsgpack(decompressed, &raw); err == nil {
-			if preview, err := json.Marshal(raw); err == nil {
-				env.MsgpackJSONPreview = preview
-			}
-		}
-	}
-	if env.Kind != PayloadKindRawMsgpack {
-		env.MsgpackTrailingData = append([]byte(nil), trailing...)
+		return nil, fmt.Errorf("unsupported KCES payload kind %q for extension %q", kind, ext)
 	}
 
 	return env, nil
@@ -310,20 +432,6 @@ func EncodeKCESPayload(env *KCESPayloadEnvelope) ([]byte, error) {
 	ext := NormalizeKCESPayloadExtension(env.Extension)
 	descriptor, ok := kcesPayloadDescriptorByExtension[ext]
 	if !ok {
-		// 在 storageVariant 引入前导出的可编辑 JSON 始终表示原有的 Int32 加 LZ4 MessagePack 线格式
-		// Editable JSON emitted before storageVariant was introduced always represented the original Int32 plus LZ4 MessagePack wire format
-		if env.Extension == "" && env.Format == PayloadFormatKCESMessagePack && env.StorageVariant == PayloadStorageInt32LZ4MessagePack && env.Kind == PayloadKindRawMsgpack {
-			if len(env.MsgpackTrailingData) != 0 {
-				return nil, fmt.Errorf("raw-msgpack already stores the complete decompressed stream in msgpackBase64; msgpackTrailingData must be empty")
-			}
-			if env.MsgpackRootNil || payloadEnvelopeHasTypedRootExceptRaw(env) {
-				return nil, fmt.Errorf("raw-msgpack envelope has incompatible typed or trailing fields")
-			}
-			if _, err := base64.StdEncoding.DecodeString(env.MsgpackBase64); err != nil {
-				return nil, fmt.Errorf("decode msgpackBase64: %w", err)
-			}
-			return encodeKCESMessagePackPayload(env)
-		}
 		return nil, fmt.Errorf("unsupported or non-canonical KCES payload extension %q", env.Extension)
 	}
 	if env.Extension != ext {
@@ -347,16 +455,13 @@ func EncodeKCESPayload(env *KCESPayloadEnvelope) ([]byte, error) {
 		if env.Format != PayloadFormatKCESMessagePack {
 			return nil, fmt.Errorf("payload format %q is incompatible with storageVariant %q", env.Format, env.StorageVariant)
 		}
-		if !descriptor.LengthPrefixed || !env.LengthPrefixed {
-			return nil, fmt.Errorf("extension %q requires lengthPrefixed=true for storageVariant %q", ext, env.StorageVariant)
+		if !descriptor.LengthPrefixed {
+			return nil, fmt.Errorf("extension %q does not declare the required int32-length MessagePack storage", ext)
 		}
 		return encodeKCESMessagePackPayload(env)
 	case PayloadStorageExportCMUnityJSON, PayloadStorageExportCMDotNetStringJSON:
 		if env.Format != PayloadFormatKCESExportCM {
 			return nil, fmt.Errorf("payload format %q is incompatible with storageVariant %q", env.Format, env.StorageVariant)
-		}
-		if env.LengthPrefixed {
-			return nil, fmt.Errorf("ExportCM storageVariant %q requires lengthPrefixed=false", env.StorageVariant)
 		}
 		return encodeExportCMPayload(env, env.StorageVariant)
 	default:
@@ -364,79 +469,53 @@ func EncodeKCESPayload(env *KCESPayloadEnvelope) ([]byte, error) {
 	}
 }
 
-func payloadEnvelopeHasTypedRootExceptRaw(env *KCESPayloadEnvelope) bool {
-	return env.DynamicBone != nil || env.ColliderPackage != nil || env.LimbCollider != nil || env.IKCollider != nil || env.ClothParams != nil || env.Text != "" || len(env.JSON) != 0
-}
-
 func validateKCESPayloadEnvelopeRoots(env *KCESPayloadEnvelope, descriptor kcesPayloadDescriptor) error {
 	if env.StorageVariant == PayloadStorageInt32LZ4MessagePack {
 		if env.Kind != descriptor.Kind {
 			return fmt.Errorf("extension %q with storageVariant %q requires kind %q, got %q", descriptor.Extension, env.StorageVariant, descriptor.Kind, env.Kind)
 		}
-		if env.Format != PayloadFormatKCESMessagePack || env.LengthPrefixed != descriptor.LengthPrefixed {
-			return fmt.Errorf("extension %q requires native tuple format=%q, storageVariant=%q, kind=%q, lengthPrefixed=%v", descriptor.Extension, PayloadFormatKCESMessagePack, PayloadStorageInt32LZ4MessagePack, descriptor.Kind, descriptor.LengthPrefixed)
+		if env.Format != PayloadFormatKCESMessagePack {
+			return fmt.Errorf("extension %q requires native tuple format=%q, storageVariant=%q, kind=%q", descriptor.Extension, PayloadFormatKCESMessagePack, PayloadStorageInt32LZ4MessagePack, descriptor.Kind)
 		}
-		if env.MsgpackRootNil {
-			if payloadEnvelopeHasTypedRoot(env) {
-				return fmt.Errorf("msgpackRootNil cannot be combined with a populated payload root")
-			}
-			return nil
-		}
-		if len(env.MsgpackJSONPreview) != 0 {
-			return fmt.Errorf("msgpackJsonPreview is only valid for raw-msgpack payloads")
-		}
-		activePresent := false
 		switch descriptor.Kind {
 		case PayloadKindDynamicBoneStatus:
-			activePresent = env.DynamicBone != nil
 		case PayloadKindColliderPackage:
-			activePresent = env.ColliderPackage != nil
 		case PayloadKindLimbCollider:
-			activePresent = env.LimbCollider != nil
 		case PayloadKindIKCollider:
-			activePresent = env.IKCollider != nil
 		case PayloadKindClothParams:
-			activePresent = env.ClothParams != nil
 		case PayloadKindJSONString:
-			if env.Text == "" && len(env.JSON) == 0 {
-				return fmt.Errorf("string payload requires text or json")
-			}
 		default:
 			return fmt.Errorf("unsupported native payload kind %q for extension %q", descriptor.Kind, descriptor.Extension)
 		}
-		if !activePresent && descriptor.Kind != PayloadKindJSONString {
-			return fmt.Errorf("payload kind %q requires its typed root", descriptor.Kind)
-		}
-		if env.Kind != PayloadKindJSONString && (env.Text != "" || len(env.JSON) != 0) {
-			return fmt.Errorf("text/json fields are inactive for payload kind %q", env.Kind)
-		}
-		if env.MsgpackBase64 != "" {
-			return fmt.Errorf("msgpackBase64 is inactive for payload kind %q", env.Kind)
+		if env.Kind != PayloadKindJSONString && len(env.JSON) != 0 {
+			return fmt.Errorf("json is inactive for payload kind %q", env.Kind)
 		}
 		for name, present := range map[string]bool{
 			"dynamicBoneStatus": env.DynamicBone != nil, "colliderPackage": env.ColliderPackage != nil,
 			"limbColliderPackage": env.LimbCollider != nil, "ikColliderPackage": env.IKCollider != nil,
 			"clothParams": env.ClothParams != nil,
 		} {
-			if present && name != nativeRootFieldName(descriptor.Kind) {
+			if present && name != payloadRootFieldName(descriptor.Kind) {
 				return fmt.Errorf("%s is inactive for payload kind %q", name, descriptor.Kind)
 			}
 		}
 		return nil
 	}
-	if descriptor.ExportCMKind == "" || env.Format != PayloadFormatKCESExportCM || env.Kind != descriptor.ExportCMKind || env.StorageVariant != descriptor.ExportCMStorageVariant || env.LengthPrefixed {
+	if descriptor.ExportCMKind == "" || env.Format != PayloadFormatKCESExportCM || env.Kind != descriptor.ExportCMKind || env.StorageVariant != descriptor.ExportCMStorageVariant {
 		return fmt.Errorf("extension %q has an inconsistent ExportCM payload tuple", descriptor.Extension)
 	}
-	if env.MsgpackRootNil || len(env.MsgpackTrailingData) != 0 || env.MsgpackBase64 != "" || len(env.MsgpackJSONPreview) != 0 || env.DynamicBone != nil || env.ColliderPackage != nil || env.LimbCollider != nil || env.IKCollider != nil || env.ClothParams != nil {
+	if env.DynamicBone != nil || env.ColliderPackage != nil || env.LimbCollider != nil || env.IKCollider != nil || env.ClothParams != nil {
 		return fmt.Errorf("ExportCM payload has inactive native MessagePack fields")
 	}
-	if env.Text == "" && len(env.JSON) == 0 {
-		return fmt.Errorf("ExportCM payload requires text or json")
+	if len(env.JSON) == 0 {
+		return fmt.Errorf("ExportCM payload requires json")
 	}
 	return nil
 }
 
-func nativeRootFieldName(kind string) string {
+// payloadRootFieldName 返回 kind 在 editing JSON 中选择的活动 union 字段
+// payloadRootFieldName returns the active editing-JSON union field selected by kind
+func payloadRootFieldName(kind string) string {
 	switch kind {
 	case PayloadKindDynamicBoneStatus:
 		return "dynamicBoneStatus"
@@ -448,6 +527,8 @@ func nativeRootFieldName(kind string) string {
 		return "ikColliderPackage"
 	case PayloadKindClothParams:
 		return "clothParams"
+	case PayloadKindJSONString, PayloadKindExportCMDynamicBoneJSON, PayloadKindExportCMColliderJSON:
+		return "json"
 	default:
 		return ""
 	}
@@ -467,139 +548,93 @@ func encodeKCESMessagePackPayload(env *KCESPayloadEnvelope) ([]byte, error) {
 
 	var msgpackData []byte
 	var err error
-	if env.MsgpackRootNil {
-		if kind == PayloadKindRawMsgpack {
-			return nil, fmt.Errorf("raw-msgpack already stores the complete decompressed stream in msgpackBase64; msgpackRootNil must be false")
+	switch kind {
+	case PayloadKindDynamicBoneStatus:
+		if env.DynamicBone == nil {
+			msgpackData, err = ct.EncodeMsgpack(nil)
+			break
 		}
-		if payloadEnvelopeHasTypedRoot(env) {
-			return nil, fmt.Errorf("msgpackRootNil would discard populated payload fields")
+		if err := validateDynamicBoneStatusForEncoding(env.DynamicBone); err != nil {
+			return nil, err
 		}
-		msgpackData = []byte{0xc0}
-	} else {
-		switch kind {
-		case PayloadKindDynamicBoneStatus:
-			if env.DynamicBone == nil {
-				return nil, fmt.Errorf("dynamicBoneStatus is required")
-			}
-			if err := validateDynamicBoneStatusForEncoding(env.DynamicBone); err != nil {
-				return nil, err
-			}
-			normalized := normalizeDynamicBoneStatusForEncoding(env.DynamicBone)
-			msgpackData, err = ct.EncodeIndexedMsgpack(normalized)
-		case PayloadKindJSONString:
-			text, selectErr := editableMessagePackJSONString(env)
-			if selectErr != nil {
-				return nil, selectErr
-			}
-			msgpackData, err = ct.EncodeMsgpack(text)
-		case PayloadKindColliderPackage:
-			if env.ColliderPackage == nil {
-				return nil, fmt.Errorf("colliderPackage is required")
-			}
-			if err := validateColliderPackageForEncoding(env.ColliderPackage); err != nil {
-				return nil, err
-			}
-			normalized := normalizeColliderPackageForEncoding(env.ColliderPackage)
-			msgpackData, err = ct.EncodeIndexedMsgpack(normalized)
-		case PayloadKindLimbCollider:
-			if env.LimbCollider == nil {
-				return nil, fmt.Errorf("limbColliderPackage is required")
-			}
-			if err := validateLimbColliderPackageForEncoding(env.LimbCollider); err != nil {
-				return nil, err
-			}
-			normalized := normalizeLimbColliderPackageForEncoding(env.LimbCollider)
-			msgpackData, err = ct.EncodeIndexedMsgpack(normalized)
-		case PayloadKindIKCollider:
-			if env.IKCollider == nil {
-				return nil, fmt.Errorf("ikColliderPackage is required")
-			}
-			if err := validateIKColliderPackageForEncoding(env.IKCollider); err != nil {
-				return nil, err
-			}
-			normalized := normalizeIKColliderPackageForEncoding(env.IKCollider)
-			msgpackData, err = ct.EncodeIndexedMsgpack(normalized)
-		case PayloadKindClothParams:
-			if env.ClothParams == nil {
-				return nil, fmt.Errorf("clothParams is required")
-			}
-			if err := validateClothParamsForEncoding(env.ClothParams); err != nil {
-				return nil, err
-			}
-			msgpackData, err = ct.EncodeIndexedMsgpack(env.ClothParams)
-		case PayloadKindRawMsgpack:
-			if len(env.MsgpackTrailingData) != 0 {
-				return nil, fmt.Errorf("raw-msgpack already stores the complete decompressed stream in msgpackBase64; msgpackTrailingData must be empty")
-			}
-			msgpackData, err = base64.StdEncoding.DecodeString(env.MsgpackBase64)
-			if err != nil {
-				return nil, fmt.Errorf("decode msgpackBase64: %w", err)
-			}
-		default:
-			return nil, fmt.Errorf("unsupported KCES payload kind %q", kind)
+		normalized := normalizeDynamicBoneStatusForEncoding(env.DynamicBone)
+		msgpackData, err = ct.EncodeIndexedMsgpack(normalized)
+	case PayloadKindJSONString:
+		if env.JSON == nil {
+			msgpackData, err = ct.EncodeMsgpack(nil)
+			break
 		}
+		text, selectErr := editableMessagePackJSONString(env)
+		if selectErr != nil {
+			return nil, selectErr
+		}
+		msgpackData, err = ct.EncodeMsgpack(text)
+	case PayloadKindColliderPackage:
+		if env.ColliderPackage == nil {
+			msgpackData, err = ct.EncodeMsgpack(nil)
+			break
+		}
+		if err := validateColliderPackageForEncoding(env.ColliderPackage); err != nil {
+			return nil, err
+		}
+		normalized := normalizeColliderPackageForEncoding(env.ColliderPackage)
+		msgpackData, err = ct.EncodeIndexedMsgpack(normalized)
+	case PayloadKindLimbCollider:
+		if env.LimbCollider == nil {
+			msgpackData, err = ct.EncodeMsgpack(nil)
+			break
+		}
+		if err := validateLimbColliderPackageForEncoding(env.LimbCollider); err != nil {
+			return nil, err
+		}
+		normalized := normalizeLimbColliderPackageForEncoding(env.LimbCollider)
+		msgpackData, err = ct.EncodeIndexedMsgpack(normalized)
+	case PayloadKindIKCollider:
+		if env.IKCollider == nil {
+			msgpackData, err = ct.EncodeMsgpack(nil)
+			break
+		}
+		if err := validateIKColliderPackageForEncoding(env.IKCollider); err != nil {
+			return nil, err
+		}
+		normalized := normalizeIKColliderPackageForEncoding(env.IKCollider)
+		msgpackData, err = ct.EncodeIndexedMsgpack(normalized)
+	case PayloadKindClothParams:
+		if env.ClothParams == nil {
+			msgpackData, err = ct.EncodeMsgpack(nil)
+			break
+		}
+		if err := validateClothParamsForEncoding(env.ClothParams); err != nil {
+			return nil, err
+		}
+		msgpackData, err = ct.EncodeIndexedMsgpack(env.ClothParams)
+	default:
+		return nil, fmt.Errorf("unsupported KCES payload kind %q", kind)
 	}
 	if err != nil {
 		return nil, err
-	}
-	if kind != PayloadKindRawMsgpack {
-		msgpackData = append(msgpackData, env.MsgpackTrailingData...)
 	}
 	compressed, err := ct.CompressLz4BlockArray(msgpackData)
 	if err != nil {
 		return nil, fmt.Errorf("compress %s payload: %w", ext, err)
 	}
-	if env.LengthPrefixed || IsLengthPrefixedKCESPayloadExtension(ext) {
+	if IsLengthPrefixedKCESPayloadExtension(ext) {
 		return AddLengthPrefix(compressed), nil
 	}
 	return compressed, nil
 }
 
-// payloadEnvelopeHasTypedRoot 判断封套是否包含会被 MessagePack nil 根值丢弃的已解析载荷
-// payloadEnvelopeHasTypedRoot reports whether the envelope contains a parsed payload that a MessagePack nil root would discard
-func payloadEnvelopeHasTypedRoot(env *KCESPayloadEnvelope) bool {
-	return env.DynamicBone != nil ||
-		env.ColliderPackage != nil ||
-		env.LimbCollider != nil ||
-		env.IKCollider != nil ||
-		env.ClothParams != nil ||
-		env.Text != "" ||
-		len(env.JSON) != 0 ||
-		env.MsgpackBase64 != "" ||
-		len(env.MsgpackJSONPreview) != 0
-}
-
-// editableMessagePackJSONString 选择 MessagePack 载荷中应保存的准确字符串
-// Text 是原始线格式字符串，JSON 是可编辑解析视图，JSON 未变化时逐字节保留包括无意义空白在内的 Text，实际编辑后写出紧凑 JSON，且不执行游戏迁移或 JsonUtility 回调
-// editableMessagePackJSONString selects the exact string stored in the MessagePack payload
-// Text is the original wire string and JSON is its editable parsed view, preserving Text byte-for-byte including insignificant whitespace when unchanged and emitting compact JSON after an actual edit without running game migrations or JsonUtility callbacks
+// editableMessagePackJSONString 将 MessagePack 字符串载荷中的 JSON 语义内容规范化为紧凑字符串
+// editableMessagePackJSONString normalizes semantic JSON content from a MessagePack string payload into a compact string
 func editableMessagePackJSONString(env *KCESPayloadEnvelope) (string, error) {
-	if len(env.JSON) != 0 {
-		if !utf8.Valid(env.JSON) {
-			return "", fmt.Errorf("json payload is not valid UTF-8")
-		}
-		var compactJSON bytes.Buffer
-		if err := json.Compact(&compactJSON, env.JSON); err != nil {
-			return "", fmt.Errorf("json payload is invalid: %w", err)
-		}
-
-		if env.Text != "" && utf8.ValidString(env.Text) {
-			var compactText bytes.Buffer
-			if err := json.Compact(&compactText, []byte(env.Text)); err == nil && bytes.Equal(compactText.Bytes(), compactJSON.Bytes()) {
-				return env.Text, nil
-			}
-		}
-		return compactJSON.String(), nil
+	if !utf8.Valid(env.JSON) {
+		return "", fmt.Errorf("json payload is not valid UTF-8")
 	}
-
-	if !utf8.ValidString(env.Text) {
-		return "", fmt.Errorf("inner Magica JSON payload is not valid UTF-8")
+	var compactJSON bytes.Buffer
+	if err := json.Compact(&compactJSON, env.JSON); err != nil {
+		return "", fmt.Errorf("json payload is invalid: %w", err)
 	}
-	var compact bytes.Buffer
-	if err := json.Compact(&compact, []byte(env.Text)); err != nil {
-		return "", fmt.Errorf("inner Magica JSON payload is invalid: %w", err)
-	}
-	return env.Text, nil
+	return compactJSON.String(), nil
 }
 
 // StripLengthPrefix 仅在首个小端 UInt32 与剩余字节数完全一致时移除长度前缀
@@ -653,11 +688,11 @@ func NormalizeKCESPayloadExtension(pathOrExt string) string {
 	return ""
 }
 
-// payloadKindForExtension 返回扩展名声明的原生载荷类型，未知扩展名回退为原始 MessagePack
-// payloadKindForExtension returns the native payload kind declared by an extension or falls back to raw MessagePack for an unknown extension
+// payloadKindForExtension 返回扩展名声明的原生载荷类型，未知扩展名返回空字符串
+// payloadKindForExtension returns the native payload kind declared by an extension and an empty string for an unknown extension
 func payloadKindForExtension(ext string) string {
 	if descriptor, ok := kcesPayloadDescriptorByExtension[NormalizeKCESPayloadExtension(ext)]; ok {
 		return descriptor.Kind
 	}
-	return PayloadKindRawMsgpack
+	return ""
 }

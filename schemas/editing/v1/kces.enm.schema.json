@@ -70,26 +70,6 @@
         }
       ]
     },
-    "nativeDecodeError": {
-      "description": "A diagnostic captured when the native wrapper or nested dictionary could not be fully normalized.",
-      "title": "Native decode diagnostic",
-      "type": "string",
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Do not turn this diagnostic into a resource-map entry.",
-      "x-meido-edit-role": "diagnostic_metadata",
-      "x-meido-game-usage": "The game has no field with this name; it is an editing-layer explanation of a partially decoded file.",
-      "x-meido-risk": "low"
-    },
-    "nativeText": {
-      "description": "The original JsonUtility document retained for byte-preserving output when entries are unchanged.",
-      "title": "Original native JSON",
-      "type": "string",
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve it when no semantic edit is made; allow the writer to regenerate it after changing entries.",
-      "x-meido-edit-role": "serialization_cache",
-      "x-meido-game-usage": "The game consumes the native wrapper, not this editing-only copy.",
-      "x-meido-risk": "medium"
-    },
     "version": {
       "description": "The JsonUtility FixVersion value, normally 1000.",
       "maximum": 2147483647,

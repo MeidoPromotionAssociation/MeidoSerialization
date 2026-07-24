@@ -56,14 +56,6 @@ func (v Vector4) CodecEncodeSelf(e *codec.Encoder) { ct.EncodeIndexedObjectSelf(
 // CodecDecodeSelf decodes Vector4 using the shared indexed-object rules
 func (v *Vector4) CodecDecodeSelf(d *codec.Decoder) { ct.DecodeIndexedObjectSelf(d, v) }
 
-// CodecEncodeSelf 按共享 indexed-object 规则编码 PartsColor
-// CodecEncodeSelf encodes PartsColor using the shared indexed-object rules
-func (v PartsColor) CodecEncodeSelf(e *codec.Encoder) { ct.EncodeIndexedObjectSelf(e, &v) }
-
-// CodecDecodeSelf 按共享 indexed-object 规则解码 PartsColor
-// CodecDecodeSelf decodes PartsColor using the shared indexed-object rules
-func (v *PartsColor) CodecDecodeSelf(d *codec.Decoder) { ct.DecodeIndexedObjectSelf(d, v) }
-
 // CodecEncodeSelf 按共享 indexed-object 规则编码 PreMulTexDatas
 // CodecEncodeSelf encodes PreMulTexDatas using the shared indexed-object rules
 func (v PreMulTexDatas) CodecEncodeSelf(e *codec.Encoder) { ct.EncodeIndexedObjectSelf(e, &v) }

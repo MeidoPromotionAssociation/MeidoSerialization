@@ -15,6 +15,7 @@ import (
 	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
 	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
 	serializationKCESCT "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
 	"github.com/google/jsonschema-go/jsonschema"
 	strictschema "github.com/santhosh-tekuri/jsonschema/v6"
 )
@@ -132,18 +133,15 @@ func TestGeneratedFloat32SchemasEnforceFiniteRange(t *testing.T) {
 	}
 }
 
-func TestGeneratedSchemasRejectMalformedBase64(t *testing.T) {
+func TestGeneratedKCESPayloadSchemasRejectRemovedRawFields(t *testing.T) {
 	schema := compileGeneratedSchema(t, "kces.dbconf")
 	for _, test := range []struct {
 		name  string
-		value string
-		valid bool
+		value any
 	}{
-		{name: "valid padded", value: "AQ==", valid: true},
-		{name: "valid unpadded quartet", value: "YWJj", valid: true},
-		{name: "invalid character", value: "AA*A", valid: false},
-		{name: "invalid padding", value: "A===", valid: false},
-		{name: "non-multiple length", value: "AAA", valid: false},
+		{name: "base64-shaped value", value: "AQ=="},
+		{name: "invalid base64 value", value: "AA*A"},
+		{name: "null value", value: nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			descriptor, ok := serializationKCES.DescribeKCESPayload(".dbconf")
@@ -153,7 +151,7 @@ func TestGeneratedSchemasRejectMalformedBase64(t *testing.T) {
 			envelope := nativeNilPayloadEnvelope(descriptor)
 			instance := jsonObject(t, envelope)
 			instance["msgpackTrailingData"] = test.value
-			assertSchemaValidation(t, schema, instance, test.valid)
+			assertSchemaValidation(t, schema, instance, false)
 		})
 	}
 }
@@ -177,8 +175,10 @@ func TestGeneratedLimbColliderSchemaRequiresMaidPropCollider(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			envelope := nativePayloadEnvelope(descriptor)
-			envelope.LimbCollider.Items[0].Collider = test.collider
-			assertSchemaValidation(t, schema, jsonObject(t, envelope), test.valid)
+			instance := jsonObject(t, envelope)
+			items := instance["limbColliderPackage"].(map[string]any)["items"].([]any)
+			items[0].(map[string]any)["collider"] = jsonObject(t, test.collider)
+			assertSchemaValidation(t, schema, instance, test.valid)
 		})
 	}
 }
@@ -204,7 +204,6 @@ func TestGeneratedKCESPayloadSchemasBindDescriptorTuplesAndRoots(t *testing.T) {
 				{name: "format", property: "format", value: "wrong-format"},
 				{name: "storage", property: "storageVariant", value: "wrong-storage"},
 				{name: "kind", property: "kind", value: "wrong-kind"},
-				{name: "length prefix", property: "lengthPrefixed", value: !descriptor.LengthPrefixed},
 			} {
 				t.Run("reject "+mismatch.name, func(t *testing.T) {
 					instance := jsonObject(t, native)
@@ -240,7 +239,6 @@ func TestGeneratedKCESPayloadSchemasBindDescriptorTuplesAndRoots(t *testing.T) {
 				exportEnvelope := &serializationKCES.KCESPayloadEnvelope{
 					Format:         serializationKCES.PayloadFormatKCESExportCM,
 					Extension:      descriptor.Extension,
-					LengthPrefixed: false,
 					StorageVariant: descriptor.ExportCMStorageVariant,
 					Kind:           descriptor.ExportCMKind,
 					JSON:           json.RawMessage(`{"ok":true}`),
@@ -316,7 +314,11 @@ func TestGeneratedSchemasAcceptRootEditingJSON(t *testing.T) {
 			t.Fatalf("%s: resolve schema: %v", spec.id, err)
 		}
 
-		root := reflect.New(spec.root)
+		rootType := spec.root
+		for rootType.Kind() == reflect.Pointer {
+			rootType = rootType.Elem()
+		}
+		root := reflect.New(rootType)
 		if root.Elem().Type() == typeOf[serializationKCES.KCESPayloadEnvelope]() {
 			extension := "." + strings.TrimPrefix(spec.id, "kces.")
 			descriptor, ok := serializationKCES.DescribeKCESPayload(extension)
@@ -326,10 +328,11 @@ func TestGeneratedSchemasAcceptRootEditingJSON(t *testing.T) {
 			envelope := root.Interface().(*serializationKCES.KCESPayloadEnvelope)
 			envelope.Format = serializationKCES.PayloadFormatKCESMessagePack
 			envelope.Extension = descriptor.Extension
-			envelope.LengthPrefixed = descriptor.LengthPrefixed
 			envelope.StorageVariant = serializationKCES.PayloadStorageInt32LZ4MessagePack
 			envelope.Kind = descriptor.Kind
-			envelope.MsgpackRootNil = true
+		} else if root.Elem().Type() == typeOf[KCESService.CtEnvelope]() {
+			envelope := root.Interface().(*KCESService.CtEnvelope)
+			envelope.Catalog.Kind = serializationKCESCT.CatalogKindAssetBundle
 		} else if extension := root.Elem().FieldByName("Extension"); extension.IsValid() && extension.CanSet() && extension.Kind() == reflect.String && strings.HasPrefix(spec.id, "kces.") {
 			extension.SetString("." + strings.TrimPrefix(spec.id, "kces."))
 		}
@@ -345,6 +348,59 @@ func TestGeneratedSchemasAcceptRootEditingJSON(t *testing.T) {
 			t.Fatalf("%s: root editing JSON %s does not match schema: %v", spec.id, editingJSON, err)
 		}
 	}
+}
+
+func TestGeneratedKCESPartsSchemasAcceptRootNull(t *testing.T) {
+	for _, formatID := range []string{"kces.menuassets", "kces.materialassets", "kces.pmatassets", "kces.model"} {
+		t.Run(formatID, func(t *testing.T) {
+			schema := compileGeneratedSchema(t, formatID)
+			assertSchemaValidation(t, schema, nil, true)
+		})
+	}
+}
+
+func TestGeneratedRequiredKCESObjectsRejectNull(t *testing.T) {
+	opaquePreset, err := serializationKCES.NewKCESPreset()
+	if err != nil {
+		t.Fatal(err)
+	}
+	preset, err := serializationKCES.ExpandKCESPreset(opaquePreset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bridge := serializationKCES.NewKCESBridgeSession("session")
+	contentTable := &KCESService.CtEnvelope{
+		Format: KCESService.CtEnvelopeFormat,
+		Catalog: serializationKCESCT.AssetBundleCatalog{
+			Kind: serializationKCESCT.CatalogKindAssetBundle,
+		},
+	}
+
+	tests := []struct {
+		formatID string
+		value    any
+		property string
+	}{
+		{formatID: "kces.preset", value: preset, property: "maidData"},
+		{formatID: "kces.bridge_session", value: bridge, property: "sessionData"},
+		{formatID: "kces.ct", value: contentTable, property: "catalog"},
+	}
+	for _, test := range tests {
+		t.Run(test.formatID, func(t *testing.T) {
+			schema := compileGeneratedSchema(t, test.formatID)
+			instance := jsonObject(t, test.value)
+			assertSchemaValidation(t, schema, instance, true)
+			instance[test.property] = nil
+			assertSchemaValidation(t, schema, instance, false)
+		})
+	}
+
+	t.Run("kces.bridge_session sessionId", func(t *testing.T) {
+		schema := compileGeneratedSchema(t, "kces.bridge_session")
+		instance := jsonObject(t, bridge)
+		instance["sessionData"].(map[string]any)["sessionId"] = nil
+		assertSchemaValidation(t, schema, instance, false)
+	})
 }
 
 func TestPublishedSchemasMatchGeneratedSchemas(t *testing.T) {
@@ -401,11 +457,11 @@ func TestColliderRefSchemaBindsDiscriminatorToConcreteObject(t *testing.T) {
 		t.Fatalf("ColliderRef schema = %#v", definitions["KCES_ColliderRef"])
 	}
 	branches, ok := colliderRef["oneOf"].([]any)
-	if !ok || len(branches) != 5 {
+	if !ok || len(branches) != 4 {
 		t.Fatalf("ColliderRef oneOf = %#v", colliderRef["oneOf"])
 	}
 	seen := make(map[int]bool)
-	for _, rawBranch := range branches[:4] {
+	for _, rawBranch := range branches {
 		branch := rawBranch.(map[string]any)
 		properties := branch["properties"].(map[string]any)
 		typeSchema := properties["type"].(map[string]any)
@@ -423,20 +479,6 @@ func TestColliderRefSchemaBindsDiscriminatorToConcreteObject(t *testing.T) {
 			t.Fatalf("ColliderRef oneOf is missing tag %d", tag)
 		}
 	}
-	rawBranch := branches[4].(map[string]any)
-	required := rawBranch["required"].([]any)
-	if !containsAny(required, "colliderRaw") {
-		t.Fatalf("raw union branch required = %#v", required)
-	}
-}
-
-func containsAny(values []any, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
 }
 
 func TestGeneratedSchemasPublishExact64BitIntegerBounds(t *testing.T) {
@@ -750,7 +792,6 @@ func nativePayloadEnvelope(descriptor serializationKCES.KCESPayloadDescriptor) *
 	envelope := &serializationKCES.KCESPayloadEnvelope{
 		Format:         serializationKCES.PayloadFormatKCESMessagePack,
 		Extension:      descriptor.Extension,
-		LengthPrefixed: descriptor.LengthPrefixed,
 		StorageVariant: serializationKCES.PayloadStorageInt32LZ4MessagePack,
 		Kind:           descriptor.Kind,
 	}
@@ -762,7 +803,7 @@ func nativePayloadEnvelope(descriptor serializationKCES.KCESPayloadDescriptor) *
 	case serializationKCES.PayloadKindLimbCollider:
 		envelope.LimbCollider = &serializationKCES.LimbColliderPackage{
 			Version: 1000,
-			Items: []serializationKCES.LimbColliderItem{{
+			Items: []*serializationKCES.LimbColliderItem{{
 				Version: 1000, Collider: serializationKCES.NewColliderMaidProp(),
 			}},
 		}
@@ -771,7 +812,7 @@ func nativePayloadEnvelope(descriptor serializationKCES.KCESPayloadDescriptor) *
 	case serializationKCES.PayloadKindClothParams:
 		envelope.ClothParams = serializationKCES.NewClothParams()
 	case serializationKCES.PayloadKindJSONString:
-		envelope.Text = "{}"
+		envelope.JSON = json.RawMessage(`{}`)
 	default:
 		panic("unsupported native payload kind " + descriptor.Kind)
 	}
@@ -782,10 +823,8 @@ func nativeNilPayloadEnvelope(descriptor serializationKCES.KCESPayloadDescriptor
 	return &serializationKCES.KCESPayloadEnvelope{
 		Format:         serializationKCES.PayloadFormatKCESMessagePack,
 		Extension:      descriptor.Extension,
-		LengthPrefixed: descriptor.LengthPrefixed,
 		StorageVariant: serializationKCES.PayloadStorageInt32LZ4MessagePack,
 		Kind:           descriptor.Kind,
-		MsgpackRootNil: true,
 	}
 }
 

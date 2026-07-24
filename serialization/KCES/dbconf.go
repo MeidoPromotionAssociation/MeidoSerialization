@@ -1,9 +1,6 @@
 package KCES
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 	"github.com/ugorji/go/codec"
 )
@@ -33,35 +30,33 @@ var dbconfPayloadDescriptor = kcesPayloadDescriptor{
 // DynamicBoneStatus corresponds to the game's DynamicBoneStatus
 // The game writes it as a MessagePack indexed array with the version at Key(0) and fields at Key(1) through Key(15)
 type DynamicBoneStatus struct {
-	_struct                struct{}                    `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"`                 // 索引对象的线格式元数据 / Indexed-object wire metadata
-	Version                int32                       `json:"version"`             // 版本号，通常为 1000 / Version value, usually 1000
-	Damping                float32                     `json:"damping"`             // 阻尼值 / Damping value
-	DampingKeyFrames       []DynamicBoneAnimationFrame `json:"dampingKeyFrames"`    // 阻尼动画关键帧 / Damping animation keyframes
-	Elasticity             float32                     `json:"elasticity"`          // 弹性值 / Elasticity value
-	ElasticityKeyFrames    []DynamicBoneAnimationFrame `json:"elasticityKeyFrames"` // 弹性动画关键帧 / Elasticity animation keyframes
-	Stiffness              float32                     `json:"stiffness"`           // 刚性值 / Stiffness value
-	StiffnessKeyFrames     []DynamicBoneAnimationFrame `json:"stiffnessKeyFrames"`  // 刚性动画关键帧 / Stiffness animation keyframes
-	Inert                  float32                     `json:"inert"`               // 惯性值 / Inert value
-	InertKeyFrames         []DynamicBoneAnimationFrame `json:"inertKeyFrames"`      // 惯性动画关键帧 / Inert animation keyframes
-	Radius                 float32                     `json:"radius"`              // 碰撞半径 / Collision radius
-	RadiusKeyFrames        []DynamicBoneAnimationFrame `json:"radiusKeyFrames"`     // 半径动画关键帧 / Radius animation keyframes
-	EndLength              float32                     `json:"endLength"`           // 末端长度 / End length
-	EndOffset              Vector3                     `json:"endOffset"`           // 末端偏移 / End offset
-	Gravity                Vector3                     `json:"gravity"`             // 重力向量 / Gravity vector
-	Force                  Vector3                     `json:"force"`               // 外力向量 / External force vector
-	FreezeAxis             int32                       `json:"freezeAxis"`          // 冻结轴枚举 / Freeze-axis enum
+	_struct             struct{}                     `codec:",toarray"`           // 强制按数组编码 / Forces array encoding
+	Version             int32                        `json:"version"`             // 版本号，通常为 1000 / Version value, usually 1000
+	Damping             float32                      `json:"damping"`             // 阻尼值 / Damping value
+	DampingKeyFrames    []*DynamicBoneAnimationFrame `json:"dampingKeyFrames"`    // 可空阻尼动画关键帧对象数组 / Array of nullable damping animation keyframe objects
+	Elasticity          float32                      `json:"elasticity"`          // 弹性值 / Elasticity value
+	ElasticityKeyFrames []*DynamicBoneAnimationFrame `json:"elasticityKeyFrames"` // 可空弹性动画关键帧对象数组 / Array of nullable elasticity animation keyframe objects
+	Stiffness           float32                      `json:"stiffness"`           // 刚性值 / Stiffness value
+	StiffnessKeyFrames  []*DynamicBoneAnimationFrame `json:"stiffnessKeyFrames"`  // 可空刚性动画关键帧对象数组 / Array of nullable stiffness animation keyframe objects
+	Inert               float32                      `json:"inert"`               // 惯性值 / Inert value
+	InertKeyFrames      []*DynamicBoneAnimationFrame `json:"inertKeyFrames"`      // 可空惯性动画关键帧对象数组 / Array of nullable inert animation keyframe objects
+	Radius              float32                      `json:"radius"`              // 碰撞半径 / Collision radius
+	RadiusKeyFrames     []*DynamicBoneAnimationFrame `json:"radiusKeyFrames"`     // 可空半径动画关键帧对象数组 / Array of nullable radius animation keyframe objects
+	EndLength           float32                      `json:"endLength"`           // 末端长度 / End length
+	EndOffset           Vector3                      `json:"endOffset"`           // 末端偏移 / End offset
+	Gravity             Vector3                      `json:"gravity"`             // 重力向量 / Gravity vector
+	Force               Vector3                      `json:"force"`               // 外力向量 / External force vector
+	FreezeAxis          int32                        `json:"freezeAxis"`          // 冻结轴枚举 / Freeze-axis enum
 }
 
 // DynamicBoneAnimationFrame 表示 DynamicBoneStatus 的一个动画关键帧
 // DynamicBoneAnimationFrame represents one animation keyframe in DynamicBoneStatus
 type DynamicBoneAnimationFrame struct {
-	_struct                struct{}    `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"` // 索引对象的线格式元数据 / Indexed-object wire metadata
-	Time                   float32     `json:"time"`       // 关键帧时间 / Keyframe time
-	Value                  float32     `json:"value"`      // 关键帧值 / Keyframe value
-	InTangent              float32     `json:"inTangent"`  // 入切线 / Incoming tangent
-	OutTangent             float32     `json:"outTangent"` // 出切线 / Outgoing tangent
+	_struct    struct{} `codec:",toarray"`  // 强制按数组编码 / Forces array encoding
+	Time       float32  `json:"time"`       // 关键帧时间 / Keyframe time
+	Value      float32  `json:"value"`      // 关键帧值 / Keyframe value
+	InTangent  float32  `json:"inTangent"`  // 入切线 / Incoming tangent
+	OutTangent float32  `json:"outTangent"` // 出切线 / Outgoing tangent
 }
 
 // CodecEncodeSelf 按游戏的 indexed-array 格式编码 DynamicBoneStatus
@@ -107,7 +102,7 @@ func NewDynamicBoneStatus() *DynamicBoneStatus {
 func (s *DynamicBoneStatus) UnmarshalJSON(data []byte) error {
 	type dynamicBoneStatusJSON DynamicBoneStatus
 	var value dynamicBoneStatusJSON
-	if err := json.Unmarshal(data, &value); err != nil {
+	if err := decodeKCESJSONStrict(data, &value); err != nil {
 		return err
 	}
 	*s = DynamicBoneStatus(value)
@@ -122,7 +117,7 @@ func DecodeDynamicBoneStatusFile(data []byte) (*DynamicBoneStatus, error) {
 		return nil, err
 	}
 	if env.DynamicBone == nil {
-		return nil, fmt.Errorf("payload is not DynamicBoneStatus")
+		return nil, nil
 	}
 	return env.DynamicBone, nil
 }
@@ -133,7 +128,6 @@ func EncodeDynamicBoneStatusFile(status *DynamicBoneStatus) ([]byte, error) {
 	env := &KCESPayloadEnvelope{
 		Format:         PayloadFormatKCESMessagePack,
 		Extension:      KCESDBConfExtension,
-		LengthPrefixed: true,
 		StorageVariant: PayloadStorageInt32LZ4MessagePack,
 		Kind:           PayloadKindDynamicBoneStatus,
 		DynamicBone:    status,

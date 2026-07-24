@@ -2,7 +2,6 @@ package KCES
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"math"
 	"os"
@@ -37,73 +36,38 @@ func TestDecodeKCESPayloadRequiresGameLengthPrefix(t *testing.T) {
 	}
 }
 
-func TestRecognizedKCESPayloadNilRootRoundTrip(t *testing.T) {
-	tail := []byte{0xde, 0xad, 0xc1}
-	compressed, err := ct.CompressLz4BlockArray(append([]byte{0xc0}, tail...))
-	if err != nil {
-		t.Fatalf("compress nil payload root: %v", err)
-	}
-	wire := AddLengthPrefix(compressed)
-	tests := []struct {
-		extension string
-		kind      string
-	}{
-		{extension: ".dbconf", kind: PayloadKindDynamicBoneStatus},
-		{extension: ".db2conf", kind: PayloadKindJSONString},
-		{extension: ".dbcol", kind: PayloadKindColliderPackage},
-		{extension: ".limbcol", kind: PayloadKindLimbCollider},
-		{extension: ".ikcol", kind: PayloadKindIKCollider},
-		{extension: ".dsbconf", kind: PayloadKindClothParams},
-	}
-	for _, test := range tests {
-		t.Run(test.extension, func(t *testing.T) {
-			env, err := DecodeKCESPayload(wire, test.extension)
+func TestRecognizedKCESPayloadRoundTripsTypedNilRoot(t *testing.T) {
+	for _, extension := range []string{".dbconf", ".db2conf", ".dbcol", ".limbcol", ".ikcol", ".dsbconf"} {
+		t.Run(extension, func(t *testing.T) {
+			compressed, err := ct.CompressLz4BlockArray([]byte{0xc0})
 			if err != nil {
-				t.Fatalf("DecodeKCESPayload: %v", err)
+				t.Fatalf("compress nil payload root: %v", err)
 			}
-			if env.Kind != test.kind || !env.MsgpackRootNil {
-				t.Fatalf("decoded nil root kind/rootNil = %q/%v, want %q/true", env.Kind, env.MsgpackRootNil, test.kind)
-			}
-			if !bytes.Equal(env.MsgpackTrailingData, tail) {
-				t.Fatalf("decoded trailing = % x, want % x", env.MsgpackTrailingData, tail)
-			}
-			reencoded, err := EncodeKCESPayload(env)
+			envelope, err := DecodeKCESPayload(AddLengthPrefix(compressed), extension)
 			if err != nil {
-				t.Fatalf("EncodeKCESPayload: %v", err)
+				t.Fatalf("DecodeKCESPayload rejected typed nil root: %v", err)
 			}
-			payload, _, err := StripLengthPrefix(reencoded)
+			if !payloadActiveRootIsNil(envelope) {
+				t.Fatalf("typed nil root became populated: %+v", envelope)
+			}
+			reencoded, err := EncodeKCESPayload(envelope)
 			if err != nil {
-				t.Fatalf("StripLengthPrefix: %v", err)
+				t.Fatalf("EncodeKCESPayload rejected typed nil root: %v", err)
 			}
-			decompressed, err := ct.DecompressLz4BlockArray(payload)
+			roundTrip, err := DecodeKCESPayload(reencoded, extension)
+			if err != nil || !payloadActiveRootIsNil(roundTrip) {
+				t.Fatalf("typed nil root round trip: envelope=%+v error=%v", roundTrip, err)
+			}
+
+			compressed, err = ct.CompressLz4BlockArray([]byte{0xc0, 0xc0})
 			if err != nil {
-				t.Fatalf("DecompressLz4BlockArray: %v", err)
+				t.Fatalf("compress nil payload root with trailing value: %v", err)
 			}
-			want := append([]byte{0xc0}, tail...)
-			if !bytes.Equal(decompressed, want) {
-				t.Fatalf("re-encoded nil root = % x, want % x", decompressed, want)
+			if _, err := DecodeKCESPayload(AddLengthPrefix(compressed), extension); err == nil ||
+				!strings.Contains(strings.ToLower(err.Error()), "trailing") {
+				t.Fatalf("DecodeKCESPayload trailing-data error = %v", err)
 			}
 		})
-	}
-}
-
-func TestKCESPayloadNilRootRejectsDiscardedTypedData(t *testing.T) {
-	env := &KCESPayloadEnvelope{
-		Format:         PayloadFormatKCESMessagePack,
-		Extension:      ".dbconf",
-		StorageVariant: PayloadStorageInt32LZ4MessagePack,
-		Kind:           PayloadKindDynamicBoneStatus,
-		MsgpackRootNil: true,
-		DynamicBone:    &DynamicBoneStatus{},
-	}
-	if _, err := EncodeKCESPayload(env); err == nil {
-		t.Fatal("msgpackRootNil silently discarded dynamicBoneStatus")
-	}
-	env.DynamicBone = nil
-	env.Kind = PayloadKindRawMsgpack
-	env.MsgpackBase64 = "wA=="
-	if _, err := EncodeKCESPayload(env); err == nil {
-		t.Fatal("raw-msgpack accepted ambiguous msgpackRootNil")
 	}
 }
 
@@ -113,7 +77,7 @@ func TestDynamicBoneStatusPayloadRoundTrip(t *testing.T) {
 		Damping:   0.6,
 		Gravity:   Vector3{Y: -0.05},
 		EndOffset: Vector3{X: 1, Y: 2, Z: 3},
-		DampingKeyFrames: []DynamicBoneAnimationFrame{
+		DampingKeyFrames: []*DynamicBoneAnimationFrame{
 			{Time: 0, Value: 0.25, InTangent: 0, OutTangent: 1},
 		},
 		FreezeAxis: 2,
@@ -162,7 +126,6 @@ func TestJSONStringPayloadRoundTrip(t *testing.T) {
 	env := &KCESPayloadEnvelope{
 		Format:         PayloadFormatKCESMessagePack,
 		Extension:      ".db2conf",
-		LengthPrefixed: true,
 		StorageVariant: PayloadStorageInt32LZ4MessagePack,
 		Kind:           PayloadKindJSONString,
 		JSON:           json.RawMessage(`{"clothType":1,"rootRotation":0.5}`),
@@ -175,7 +138,7 @@ func TestJSONStringPayloadRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload: %v", err)
 	}
-	if decoded.Kind != PayloadKindJSONString || decoded.Text != `{"clothType":1,"rootRotation":0.5}` {
+	if decoded.Kind != PayloadKindJSONString {
 		t.Fatalf("unexpected decoded JSON string payload: %+v", decoded)
 	}
 	if !bytes.Equal(decoded.JSON, []byte(`{"clothType":1,"rootRotation":0.5}`)) {
@@ -183,7 +146,7 @@ func TestJSONStringPayloadRoundTrip(t *testing.T) {
 	}
 }
 
-func TestJSONStringPayloadPreservesOriginalTextUntilEdited(t *testing.T) {
+func TestJSONStringPayloadPreservesOnlyJSONSemantics(t *testing.T) {
 	original := "{\r\n  \"clothType\" : 1,\r\n  \"future\" : [ 1, 2 ]\r\n}\r\n"
 	msgpack, err := ct.EncodeMsgpack(original)
 	if err != nil {
@@ -199,16 +162,23 @@ func TestJSONStringPayloadPreservesOriginalTextUntilEdited(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload() error = %v", err)
 	}
-	if envelope.Text != original || !bytes.Equal(envelope.JSON, []byte(`{"clothType":1,"future":[1,2]}`)) {
-		t.Fatalf("decoded text/json = %q / %s", envelope.Text, envelope.JSON)
+	if !bytes.Equal(envelope.JSON, []byte(`{"clothType":1,"future":[1,2]}`)) {
+		t.Fatalf("decoded JSON = %s", envelope.JSON)
 	}
 
 	unchanged, err := EncodeKCESPayload(envelope)
 	if err != nil {
 		t.Fatalf("EncodeKCESPayload(unchanged) error = %v", err)
 	}
-	if !bytes.Equal(unchanged, wire) {
-		t.Fatalf("unchanged JSON string was rebuilt:\n got  %x\n want %x", unchanged, wire)
+	if bytes.Equal(unchanged, wire) {
+		t.Fatal("JSON string unexpectedly retained formatting-only source bytes")
+	}
+	unchangedEnvelope, err := DecodeKCESPayload(unchanged, ".db2conf")
+	if err != nil {
+		t.Fatalf("DecodeKCESPayload(normalized) error = %v", err)
+	}
+	if !bytes.Equal(unchangedEnvelope.JSON, envelope.JSON) {
+		t.Fatalf("normalized JSON semantics changed: got %s, want %s", unchangedEnvelope.JSON, envelope.JSON)
 	}
 
 	envelope.JSON = json.RawMessage(` { "clothType" : 2, "future" : null } `)
@@ -220,14 +190,14 @@ func TestJSONStringPayloadPreservesOriginalTextUntilEdited(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload(edited) error = %v", err)
 	}
-	if redecoded.Text != `{"clothType":2,"future":null}` {
-		t.Fatalf("edited JSON string = %q", redecoded.Text)
+	if !bytes.Equal(redecoded.JSON, []byte(`{"clothType":2,"future":null}`)) {
+		t.Fatalf("edited JSON = %s", redecoded.JSON)
 	}
 }
 
 func TestJSONStringPayloadCanExplicitlyStoreJSONNull(t *testing.T) {
 	envelope := &KCESPayloadEnvelope{
-		Format: PayloadFormatKCESMessagePack, Extension: ".dsl2conf", LengthPrefixed: true,
+		Format: PayloadFormatKCESMessagePack, Extension: ".dsl2conf",
 		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindJSONString,
 		JSON: json.RawMessage(`null`),
 	}
@@ -239,12 +209,12 @@ func TestJSONStringPayloadCanExplicitlyStoreJSONNull(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload() error = %v", err)
 	}
-	if decoded.Text != "null" || !bytes.Equal(decoded.JSON, []byte("null")) {
-		t.Fatalf("decoded null payload = text %q, json %s", decoded.Text, decoded.JSON)
+	if !bytes.Equal(decoded.JSON, []byte("null")) {
+		t.Fatalf("decoded null payload JSON = %s", decoded.JSON)
 	}
 }
 
-func TestRecognizedMessagePackPayloadPreservesTrailingBytes(t *testing.T) {
+func TestRecognizedMessagePackPayloadRejectsTrailingBytes(t *testing.T) {
 	root, err := ct.EncodeMsgpack(`{"clothType":1}`)
 	if err != nil {
 		t.Fatal(err)
@@ -257,38 +227,18 @@ func TestRecognizedMessagePackPayloadPreservesTrailingBytes(t *testing.T) {
 	}
 	wire := AddLengthPrefix(compressed)
 
-	envelope, err := DecodeKCESPayload(wire, ".db2conf")
-	if err != nil {
-		t.Fatalf("DecodeKCESPayload: %v", err)
-	}
-	if !bytes.Equal(envelope.MsgpackTrailingData, tail) {
-		t.Fatalf("msgpackTrailingData = % x, want % x", envelope.MsgpackTrailingData, tail)
-	}
-
-	reencoded, err := EncodeKCESPayload(envelope)
-	if err != nil {
-		t.Fatalf("EncodeKCESPayload: %v", err)
-	}
-	reencodedPayload, prefixed, err := StripLengthPrefix(reencoded)
-	if err != nil || !prefixed {
-		t.Fatalf("StripLengthPrefix: prefixed=%v err=%v", prefixed, err)
-	}
-	reencodedDecompressed, err := ct.DecompressLz4BlockArray(reencodedPayload)
-	if err != nil {
-		t.Fatalf("DecompressLz4BlockArray: %v", err)
-	}
-	if !bytes.Equal(reencodedDecompressed, decompressed) {
-		t.Fatalf("recognized payload stream changed:\n got  % x\n want % x", reencodedDecompressed, decompressed)
+	if _, err := DecodeKCESPayload(wire, ".db2conf"); err == nil || !strings.Contains(strings.ToLower(err.Error()), "trailing") {
+		t.Fatalf("DecodeKCESPayload trailing-data error = %v", err)
 	}
 }
 
 func TestJSONStringPayloadRejectsInvalidInnerJSON(t *testing.T) {
 	env := &KCESPayloadEnvelope{
-		Format: PayloadFormatKCESMessagePack, Extension: ".db2conf", LengthPrefixed: true,
+		Format: PayloadFormatKCESMessagePack, Extension: ".db2conf",
 		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindJSONString,
-		Text: `{not-json}`,
+		JSON: json.RawMessage(`{not-json}`),
 	}
-	if _, err := EncodeKCESPayload(env); err == nil || !strings.Contains(err.Error(), "Magica JSON") {
+	if _, err := EncodeKCESPayload(env); err == nil || !strings.Contains(strings.ToLower(err.Error()), "invalid") {
 		t.Fatalf("EncodeKCESPayload error = %v, want invalid inner JSON rejection", err)
 	}
 
@@ -305,7 +255,7 @@ func TestJSONStringPayloadRejectsInvalidInnerJSON(t *testing.T) {
 	}
 }
 
-func TestRawMsgpackPayloadRoundTrip(t *testing.T) {
+func TestKCESPayloadRejectsUnknownExtension(t *testing.T) {
 	msgpackData, err := ct.EncodeMsgpack([]interface{}{int64(1000), []interface{}{"union-like", uint64(42)}})
 	if err != nil {
 		t.Fatalf("EncodeMsgpack: %v", err)
@@ -316,75 +266,23 @@ func TestRawMsgpackPayloadRoundTrip(t *testing.T) {
 	}
 	input := AddLengthPrefix(compressed)
 
-	env, err := DecodeKCESPayload(input, ".unknown")
-	if err != nil {
-		t.Fatalf("DecodeKCESPayload: %v", err)
-	}
-	if env.Kind != PayloadKindRawMsgpack {
-		t.Fatalf("kind got %q", env.Kind)
-	}
-	if env.MsgpackBase64 != base64.StdEncoding.EncodeToString(msgpackData) {
-		t.Fatalf("raw msgpack was not preserved")
-	}
-	if len(env.MsgpackJSONPreview) == 0 {
-		t.Fatalf("expected JSON preview")
-	}
-
-	out, err := EncodeKCESPayload(env)
-	if err != nil {
-		t.Fatalf("EncodeKCESPayload: %v", err)
-	}
-	outPayload, prefixed, err := StripLengthPrefix(out)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !prefixed {
-		t.Fatalf("expected length prefix")
-	}
-	decodedMsgpack, err := ct.DecompressLz4BlockArray(outPayload)
-	if err != nil {
-		t.Fatalf("DecompressLz4BlockArray: %v", err)
-	}
-	if !bytes.Equal(decodedMsgpack, msgpackData) {
-		t.Fatalf("msgpack changed after raw round-trip")
-	}
-}
-
-func TestRawMsgpackPayloadDoesNotDuplicateTrailingAnnotation(t *testing.T) {
-	completeStream := []byte{0x01, 0xde, 0xad, 0xbe, 0xef}
-	compressed, err := ct.CompressLz4BlockArray(completeStream)
-	if err != nil {
-		t.Fatal(err)
-	}
-	envelope, err := DecodeKCESPayload(compressed, ".unknown")
-	if err != nil {
-		t.Fatalf("DecodeKCESPayload: %v", err)
-	}
-	if envelope.MsgpackTrailingData != nil {
-		t.Fatalf("raw payload unexpectedly split trailing bytes: % x", envelope.MsgpackTrailingData)
-	}
-	if got, err := base64.StdEncoding.DecodeString(envelope.MsgpackBase64); err != nil || !bytes.Equal(got, completeStream) {
-		t.Fatalf("raw msgpackBase64 = % x, err=%v", got, err)
-	}
-
-	envelope.MsgpackTrailingData = []byte{1}
-	if _, err := EncodeKCESPayload(envelope); err == nil || !strings.Contains(err.Error(), "already stores the complete") {
-		t.Fatalf("ambiguous raw trailing annotation error = %v", err)
+	if _, err := DecodeKCESPayload(input, ".unknown"); err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Fatalf("DecodeKCESPayload unknown-extension error = %v", err)
 	}
 }
 
 func TestClothParamsPayloadRoundTrip(t *testing.T) {
 	params := &ClothParams{
-		Radius:                           BezierParam{StartValue: 0.02, EndValue: 0.04, UseEndValue: true},
-		Mass:                             BezierParam{StartValue: 1, EndValue: 1},
+		Radius:                           &BezierParam{StartValue: 0.02, EndValue: 0.04, UseEndValue: true},
+		Mass:                             &BezierParam{StartValue: 1, EndValue: 1},
 		UseGravity:                       true,
-		Gravity:                          BezierParam{StartValue: -9.8, EndValue: -9.8},
+		Gravity:                          &BezierParam{StartValue: -9.8, EndValue: -9.8},
 		UseDrag:                          true,
-		Drag:                             BezierParam{StartValue: 0.02, EndValue: 0.02, UseEndValue: true},
+		Drag:                             &BezierParam{StartValue: 0.02, EndValue: 0.02, UseEndValue: true},
 		UseMaxVelocity:                   true,
-		MaxVelocity:                      BezierParam{StartValue: 3, EndValue: 3},
-		WorldMoveInfluence:               BezierParam{StartValue: 0.5, EndValue: 0.5},
-		WorldRotationInfluence:           BezierParam{StartValue: 0.5, EndValue: 0.5},
+		MaxVelocity:                      &BezierParam{StartValue: 3, EndValue: 3},
+		WorldMoveInfluence:               &BezierParam{StartValue: 0.5, EndValue: 0.5},
+		WorldRotationInfluence:           &BezierParam{StartValue: 0.5, EndValue: 0.5},
 		MassInfluence:                    0.3,
 		WindInfluence:                    1,
 		WindRandomScale:                  0.7,
@@ -396,43 +294,43 @@ func TestClothParamsPayloadRoundTrip(t *testing.T) {
 		ClampDistanceMinRatio:            0.7,
 		ClampDistanceMaxRatio:            1.1,
 		ClampDistanceVelocityInfluence:   0.2,
-		ClampPositionLength:              BezierParam{StartValue: 0.03, EndValue: 0.2, UseEndValue: true},
+		ClampPositionLength:              &BezierParam{StartValue: 0.03, EndValue: 0.2, UseEndValue: true},
 		ClampPositionRatioX:              1,
 		ClampPositionRatioY:              1,
 		ClampPositionRatioZ:              1,
 		ClampPositionVelocityInfluence:   0.2,
-		ClampRotationAngle:               BezierParam{StartValue: 30, EndValue: 30, UseEndValue: true},
+		ClampRotationAngle:               &BezierParam{StartValue: 30, EndValue: 30, UseEndValue: true},
 		ClampRotationVelocityInfluence:   0.2,
 		RestoreDistanceVelocityInfluence: 1,
-		StructDistanceStiffness:          BezierParam{StartValue: 1, EndValue: 1},
+		StructDistanceStiffness:          &BezierParam{StartValue: 1, EndValue: 1},
 		BendDistanceMaxCount:             2,
-		BendDistanceStiffness:            BezierParam{StartValue: 0.5, EndValue: 0.5},
+		BendDistanceStiffness:            &BezierParam{StartValue: 0.5, EndValue: 0.5},
 		NearDistanceMaxCount:             3,
 		NearDistanceMaxDepth:             1,
-		NearDistanceLength:               BezierParam{StartValue: 0.1, EndValue: 0.1, UseEndValue: true},
-		NearDistanceStiffness:            BezierParam{StartValue: 0.3, EndValue: 0.3},
-		RestoreRotation:                  BezierParam{StartValue: 0.3, EndValue: 0.1, UseEndValue: true},
+		NearDistanceLength:               &BezierParam{StartValue: 0.1, EndValue: 0.1, UseEndValue: true},
+		NearDistanceStiffness:            &BezierParam{StartValue: 0.3, EndValue: 0.3},
+		RestoreRotation:                  &BezierParam{StartValue: 0.3, EndValue: 0.1, UseEndValue: true},
 		SpringPower:                      0.017,
 		SpringRadius:                     0.1,
 		SpringScaleX:                     1,
 		SpringScaleY:                     1,
 		SpringScaleZ:                     1,
 		SpringIntensity:                  1,
-		SpringDirectionAtten:             BezierParam{StartValue: 1, EndValue: 0, UseEndValue: true, CurveValue: 0.234, UseCurveValue: true},
-		SpringDistanceAtten:              BezierParam{StartValue: 1, EndValue: 0, UseEndValue: true, CurveValue: 0.395, UseCurveValue: true},
+		SpringDirectionAtten:             &BezierParam{StartValue: 1, EndValue: 0, UseEndValue: true, CurveValue: 0.234, UseCurveValue: true},
+		SpringDistanceAtten:              &BezierParam{StartValue: 1, EndValue: 0, UseEndValue: true, CurveValue: 0.395, UseCurveValue: true},
 		AdjustRotationPower:              5,
-		TriangleBend:                     BezierParam{StartValue: 0.5, EndValue: 0.5, UseEndValue: true},
+		TriangleBend:                     &BezierParam{StartValue: 0.5, EndValue: 0.5, UseEndValue: true},
 		MaxVolumeLength:                  0.1,
-		VolumeStretchStiffness:           BezierParam{StartValue: 0.5, EndValue: 0.5, UseEndValue: true},
-		VolumeShearStiffness:             BezierParam{StartValue: 0.5, EndValue: 0.5, UseEndValue: true},
+		VolumeStretchStiffness:           &BezierParam{StartValue: 0.5, EndValue: 0.5, UseEndValue: true},
+		VolumeShearStiffness:             &BezierParam{StartValue: 0.5, EndValue: 0.5, UseEndValue: true},
 		Friction:                         0.2,
 		UsePenetration:                   true,
 		PenetrationMode:                  ClothPenetrationModeColliderPenetration,
 		PenetrationAxis:                  ClothPenetrationAxisInverseZ,
 		PenetrationMaxDepth:              1,
-		PenetrationConnectDistance:       BezierParam{StartValue: 0.2, EndValue: 0.3, UseEndValue: true},
-		PenetrationDistance:              BezierParam{StartValue: 0.1, EndValue: 0.2, UseEndValue: true},
-		PenetrationRadius:                BezierParam{StartValue: 0.3, EndValue: 1, UseEndValue: true},
+		PenetrationConnectDistance:       &BezierParam{StartValue: 0.2, EndValue: 0.3, UseEndValue: true},
+		PenetrationDistance:              &BezierParam{StartValue: 0.1, EndValue: 0.2, UseEndValue: true},
+		PenetrationRadius:                &BezierParam{StartValue: 0.3, EndValue: 1, UseEndValue: true},
 		UseLineAvarageRotation:           true,
 		GravityDirection:                 Vector3{Y: 1},
 		MaxMoveSpeed:                     10,
@@ -462,19 +360,18 @@ func TestColliderPackagePayloadRoundTrip(t *testing.T) {
 	env := &KCESPayloadEnvelope{
 		Format:         PayloadFormatKCESMessagePack,
 		Extension:      ".dbcol",
-		LengthPrefixed: true,
 		StorageVariant: PayloadStorageInt32LZ4MessagePack,
 		Kind:           PayloadKindColliderPackage,
 		ColliderPackage: &ColliderPackage{
 			Version: 1000,
-			Colliders: []ColliderRef{
+			Colliders: []*ColliderRef{
 				{
 					Type: 1,
 					Collider: &ColliderCapsule{
 						ColliderObject: ColliderObject{
 							Version:       1000,
-							ParentName:    "Bip01 Head",
-							SelfName:      "Collider",
+							ParentName:    payloadTestString("Bip01 Head"),
+							SelfName:      payloadTestString("Collider"),
 							LocalPosition: Vector3{X: 1},
 							LocalRotation: Vector4{W: 1},
 							LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
@@ -488,7 +385,7 @@ func TestColliderPackagePayloadRoundTrip(t *testing.T) {
 					},
 				},
 			},
-			LimbEnableList: []ColliderState{{Version: 1000, LimbType: 0, IsEnable: true}},
+			LimbEnableList: []*ColliderState{{Version: 1000, LimbType: 0, IsEnable: true}},
 		},
 	}
 	encoded, err := EncodeKCESPayload(env)
@@ -506,7 +403,7 @@ func TestColliderPackagePayloadRoundTrip(t *testing.T) {
 	if !ok {
 		t.Fatalf("unexpected collider type: %T", decoded.ColliderPackage.Colliders[0].Collider)
 	}
-	if collider.ParentName != "Bip01 Head" {
+	if collider.ParentName == nil || *collider.ParentName != "Bip01 Head" {
 		t.Fatalf("unexpected collider: %+v", decoded.ColliderPackage.Colliders[0])
 	}
 
@@ -598,19 +495,18 @@ func TestGroupedColliderPayloadRoundTrip(t *testing.T) {
 			env: &KCESPayloadEnvelope{
 				Format:         PayloadFormatKCESMessagePack,
 				Extension:      ".limbcol",
-				LengthPrefixed: true,
 				StorageVariant: PayloadStorageInt32LZ4MessagePack,
 				Kind:           PayloadKindLimbCollider,
 				LimbCollider: &LimbColliderPackage{
 					Version: 1000,
-					Items: []LimbColliderItem{{
+					Items: []*LimbColliderItem{{
 						Version: 1000,
 						Target:  0,
 						Collider: &ColliderMaidProp{
 							ColliderObject: ColliderObject{
 								Version:       1002,
-								ParentName:    "Bip01 L UpperArm",
-								SelfName:      "Arm",
+								ParentName:    payloadTestString("Bip01 L UpperArm"),
+								SelfName:      payloadTestString("Arm"),
 								LocalRotation: Vector4{W: 1},
 								LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
 								Bound:         ColliderBoundOutside,
@@ -629,21 +525,20 @@ func TestGroupedColliderPayloadRoundTrip(t *testing.T) {
 			env: &KCESPayloadEnvelope{
 				Format:         PayloadFormatKCESMessagePack,
 				Extension:      ".ikcol",
-				LengthPrefixed: true,
 				StorageVariant: PayloadStorageInt32LZ4MessagePack,
 				Kind:           PayloadKindIKCollider,
 				IKCollider: &IKColliderPackage{
 					Version: 1000,
-					Groups: []IKColliderGroup{{
+					Groups: []*IKColliderGroup{{
 						Version: 1000,
 						Target:  1,
-						Colliders: []ColliderRef{{
+						Colliders: []*ColliderRef{{
 							Type: 2,
 							Collider: &ColliderSphere{
 								ColliderObject: ColliderObject{
 									Version:       1000,
-									ParentName:    "Bip01 R Hand",
-									SelfName:      "ColliderObject",
+									ParentName:    payloadTestString("Bip01 R Hand"),
+									SelfName:      payloadTestString("ColliderObject"),
 									LocalRotation: Vector4{W: 1},
 									LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
 									Bound:         ColliderBoundInside,
@@ -680,14 +575,14 @@ func TestColliderMaidPropVersionEncodingLayout(t *testing.T) {
 		CenterMpnList:          []int32{7},
 		StartRadiusMpnList:     []int32{40, 41},
 		EndRadiusMpnList:       []int32{42, 43},
-		CenterMpnNameList:      []string{"center"},
-		StartRadiusMpnNameList: []string{"start"},
-		EndRadiusMpnNameList:   []string{"end"},
+		CenterMpnNameList:      []*string{payloadTestString("center")},
+		StartRadiusMpnNameList: []*string{payloadTestString("start")},
+		EndRadiusMpnNameList:   []*string{payloadTestString("end")},
 	}
 	envelope := &KCESPayloadEnvelope{
-		Format: PayloadFormatKCESMessagePack, Extension: ".limbcol", LengthPrefixed: true,
+		Format: PayloadFormatKCESMessagePack, Extension: ".limbcol",
 		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindLimbCollider,
-		LimbCollider: &LimbColliderPackage{Items: []LimbColliderItem{{
+		LimbCollider: &LimbColliderPackage{Items: []*LimbColliderItem{{
 			Collider: value,
 		}}},
 	}
@@ -709,7 +604,7 @@ func TestColliderMaidPropVersionEncodingLayout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload: %v", err)
 	}
-	got := decoded.LimbCollider.Items[0].Collider.(*ColliderMaidProp)
+	got := decoded.LimbCollider.Items[0].Collider
 	if got.Version != 1001 || !reflect.DeepEqual(got.CenterMpnNameList, value.CenterMpnNameList) ||
 		!reflect.DeepEqual(got.StartRadiusMpnNameList, value.StartRadiusMpnNameList) ||
 		!reflect.DeepEqual(got.EndRadiusMpnNameList, value.EndRadiusMpnNameList) {
@@ -801,8 +696,7 @@ func TestEncodeKCESPayloadRejectsDescriptorContractViolations(t *testing.T) {
 			}{
 				{name: "format", mutate: func(env *KCESPayloadEnvelope) { env.Format = PayloadFormatKCESExportCM }},
 				{name: "storage", mutate: func(env *KCESPayloadEnvelope) { env.StorageVariant = "wrong-storage" }},
-				{name: "kind", mutate: func(env *KCESPayloadEnvelope) { env.Kind = PayloadKindRawMsgpack }},
-				{name: "length prefix", mutate: func(env *KCESPayloadEnvelope) { env.LengthPrefixed = !descriptor.LengthPrefixed }},
+				{name: "kind", mutate: func(env *KCESPayloadEnvelope) { env.Kind = "wrong-kind" }},
 			} {
 				t.Run("tuple "+mismatch.name, func(t *testing.T) {
 					envelope := newDescriptorNativeEnvelope(descriptor)
@@ -811,10 +705,17 @@ func TestEncodeKCESPayloadRejectsDescriptorContractViolations(t *testing.T) {
 				})
 			}
 
-			t.Run("missing active root", func(t *testing.T) {
+			t.Run("typed null active root", func(t *testing.T) {
 				envelope := newDescriptorNativeEnvelope(descriptor)
 				clearDescriptorActiveRoot(envelope, descriptor.Kind)
-				assertPayloadEncodeRejected(t, envelope)
+				wire, err := EncodeKCESPayload(envelope)
+				if err != nil {
+					t.Fatalf("EncodeKCESPayload rejected typed null active root: %v", err)
+				}
+				decoded, err := DecodeKCESPayload(wire, descriptor.Extension)
+				if err != nil || !payloadActiveRootIsNil(decoded) {
+					t.Fatalf("typed null active root round trip: envelope=%+v error=%v", decoded, err)
+				}
 			})
 
 			t.Run("inactive typed root", func(t *testing.T) {
@@ -824,59 +725,23 @@ func TestEncodeKCESPayloadRejectsDescriptorContractViolations(t *testing.T) {
 			})
 
 			if descriptor.Kind != PayloadKindJSONString {
-				for _, field := range []struct {
-					name   string
-					mutate func(*KCESPayloadEnvelope)
-				}{
-					{name: "text", mutate: func(env *KCESPayloadEnvelope) { env.Text = "{}" }},
-					{name: "json", mutate: func(env *KCESPayloadEnvelope) { env.JSON = json.RawMessage(`{}`) }},
-				} {
-					t.Run("inactive "+field.name, func(t *testing.T) {
-						envelope := newDescriptorNativeEnvelope(descriptor)
-						field.mutate(envelope)
-						assertPayloadEncodeRejected(t, envelope)
-					})
-				}
-			}
-
-			for _, field := range []struct {
-				name   string
-				mutate func(*KCESPayloadEnvelope)
-			}{
-				{name: "msgpackBase64", mutate: func(env *KCESPayloadEnvelope) { env.MsgpackBase64 = "wA==" }},
-				{name: "msgpackJsonPreview", mutate: func(env *KCESPayloadEnvelope) { env.MsgpackJSONPreview = json.RawMessage(`null`) }},
-			} {
-				t.Run("inactive "+field.name, func(t *testing.T) {
+				t.Run("inactive json", func(t *testing.T) {
 					envelope := newDescriptorNativeEnvelope(descriptor)
-					field.mutate(envelope)
+					envelope.JSON = json.RawMessage(`{}`)
 					assertPayloadEncodeRejected(t, envelope)
 				})
 			}
-
-			t.Run("nil root with typed root", func(t *testing.T) {
-				envelope := newDescriptorNativeEnvelope(descriptor)
-				envelope.MsgpackRootNil = true
-				assertPayloadEncodeRejected(t, envelope)
-			})
 
 			if descriptor.ExportCMKind != "" {
 				exportEnvelope := newDescriptorExportCMEnvelope(descriptor)
 				if _, err := EncodeKCESPayload(exportEnvelope); err != nil {
 					t.Fatalf("valid ExportCM tuple: %v", err)
 				}
-				for _, field := range []struct {
-					name   string
-					mutate func(*KCESPayloadEnvelope)
-				}{
-					{name: "typed root", mutate: func(env *KCESPayloadEnvelope) { env.DynamicBone = NewDynamicBoneStatus() }},
-					{name: "trailing MessagePack", mutate: func(env *KCESPayloadEnvelope) { env.MsgpackTrailingData = []byte{0xc0} }},
-				} {
-					t.Run("ExportCM native "+field.name, func(t *testing.T) {
-						envelope := newDescriptorExportCMEnvelope(descriptor)
-						field.mutate(envelope)
-						assertPayloadEncodeRejected(t, envelope)
-					})
-				}
+				t.Run("ExportCM native typed root", func(t *testing.T) {
+					envelope := newDescriptorExportCMEnvelope(descriptor)
+					envelope.DynamicBone = NewDynamicBoneStatus()
+					assertPayloadEncodeRejected(t, envelope)
+				})
 			}
 		})
 	}
@@ -886,7 +751,6 @@ func newDescriptorNativeEnvelope(descriptor kcesPayloadDescriptor) *KCESPayloadE
 	envelope := &KCESPayloadEnvelope{
 		Format:         PayloadFormatKCESMessagePack,
 		Extension:      descriptor.Extension,
-		LengthPrefixed: descriptor.LengthPrefixed,
 		StorageVariant: PayloadStorageInt32LZ4MessagePack,
 		Kind:           descriptor.Kind,
 	}
@@ -902,7 +766,7 @@ func newDescriptorNativeEnvelope(descriptor kcesPayloadDescriptor) *KCESPayloadE
 	case PayloadKindClothParams:
 		envelope.ClothParams = NewClothParams()
 	case PayloadKindJSONString:
-		envelope.Text = "{}"
+		envelope.JSON = json.RawMessage(`{}`)
 	default:
 		panic("unsupported native payload kind " + descriptor.Kind)
 	}
@@ -932,8 +796,29 @@ func clearDescriptorActiveRoot(envelope *KCESPayloadEnvelope, kind string) {
 	case PayloadKindClothParams:
 		envelope.ClothParams = nil
 	case PayloadKindJSONString:
-		envelope.Text = ""
 		envelope.JSON = nil
+	}
+}
+
+func payloadActiveRootIsNil(envelope *KCESPayloadEnvelope) bool {
+	if envelope == nil {
+		return false
+	}
+	switch envelope.Kind {
+	case PayloadKindDynamicBoneStatus:
+		return envelope.DynamicBone == nil
+	case PayloadKindColliderPackage:
+		return envelope.ColliderPackage == nil
+	case PayloadKindLimbCollider:
+		return envelope.LimbCollider == nil
+	case PayloadKindIKCollider:
+		return envelope.IKCollider == nil
+	case PayloadKindClothParams:
+		return envelope.ClothParams == nil
+	case PayloadKindJSONString:
+		return envelope.JSON == nil
+	default:
+		return false
 	}
 }
 
@@ -951,6 +836,8 @@ func assertPayloadEncodeRejected(t *testing.T, envelope *KCESPayloadEnvelope) {
 		t.Fatalf("EncodeKCESPayload unexpectedly accepted %+v", envelope)
 	}
 }
+
+func payloadTestString(value string) *string { return &value }
 
 func TestKCESJSONTextDescriptorsCoverExtensions(t *testing.T) {
 	expected := []string{
@@ -976,7 +863,6 @@ func TestKCESMessagePackPayloadRejectsExtensionKindMismatch(t *testing.T) {
 	envelope := &KCESPayloadEnvelope{
 		Format:         PayloadFormatKCESMessagePack,
 		Extension:      KCESDBConfExtension,
-		LengthPrefixed: true,
 		StorageVariant: PayloadStorageInt32LZ4MessagePack,
 		Kind:           PayloadKindClothParams,
 		ClothParams:    NewClothParams(),

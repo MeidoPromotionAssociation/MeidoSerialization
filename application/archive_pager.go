@@ -48,8 +48,8 @@ func (p *ArchivePager) Decode(listing ArchiveListing, token string) (int, error)
 	if p == nil {
 		return 0, archivePageTokenError("pager is unavailable")
 	}
-	raw, err := base64.RawURLEncoding.DecodeString(token)
-	if err != nil {
+	raw, err := base64.RawURLEncoding.Strict().DecodeString(token)
+	if err != nil || base64.RawURLEncoding.EncodeToString(raw) != token {
 		return 0, archivePageTokenError("token encoding is invalid")
 	}
 	const fixedPayload = 1 + 8 + 2 + sha256.Size

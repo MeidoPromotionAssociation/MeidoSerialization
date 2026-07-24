@@ -43,24 +43,20 @@ const (
 
 // ColorPreset 表示 MaidEdit.ColorPreset 与 MaidEdit.ColorPresetSlot 共用的序列化基类
 // 两个派生类没有增加 MessagePack Key，因此线格式字节完全相同
-// ID 与 BaseMenuFile 使用指针是因为 C# 字符串格式化器允许 nil，InstanceGUID 为保持 API 兼容使用字符串并另以 InstanceGUIDIsNil 保留 nil 线状态
+// ID、BaseMenuFile 与 InstanceGUID 使用指针，因为 C# 字符串格式化器允许 nil
 // 普通解码不会重现游戏 Guid.NewGuid 回调，非空线格式值保持不透明，因为游戏不会对它调用 Guid.Parse
 // ColorPreset represents the serialized base shared by MaidEdit.ColorPreset and MaidEdit.ColorPresetSlot
 // Neither derived class adds MessagePack keys, so their wire bytes are identical
-// ID and BaseMenuFile use pointers because the C# string formatter permits nil, while InstanceGUID remains a string for API compatibility and uses InstanceGUIDIsNil to retain the nil wire state
+// ID, BaseMenuFile, and InstanceGUID use pointers because the C# string formatter permits nil
 // Ordinary decoding does not reproduce the game Guid.NewGuid callback, and a non-empty wire value remains opaque because the game never passes it through Guid.Parse
 type ColorPreset struct {
-	MessagePackRootMetadata                         // 根值 nil 与尾部字节元数据 / Root nil and trailing-byte metadata
-	Version                 int32                   `json:"version"`                     // Key 0 的预设版本，当前 FixVersion 为 1004 / Preset version at Key 0, with a current FixVersion of 1004
-	ID                      *string                 `json:"id"`                          // Key 1 的预设标识，用户预设保存时也作为虚拟文件名 / Preset identifier at Key 1, also used as the virtual filename for user presets
-	BaseMenuFile            *string                 `json:"baseMenuFile"`                // Key 2 的基础颜色预设菜单文件名 / Base color-preset menu filename at Key 2
-	UserCreated             bool                    `json:"userCreated"`                 // Key 3 的用户创建标志，游戏据此决定是否保存预设二进制 / User-created flag at Key 3, used by the game to decide whether to save preset bytes
-	IsAdvancedMode          bool                    `json:"isAdvancedMode"`              // Key 4 的高级模式状态 / Advanced-mode state at Key 4
-	ColorPackList           []*ColorPresetColorPack `json:"colorPackList"`               // Key 5 的颜色层包列表 / Color-layer pack list at Key 5
-	InstanceGUID            string                  `json:"instanceGuid"`                // Key 6 的实例标识，非空线格式值由游戏作为不透明字符串使用 / Instance identifier at Key 6, with non-empty wire values treated as opaque strings by the game
-	InstanceGUIDIsNil       bool                    `json:"instanceGuidIsNil,omitempty"` // Key 6 是否显式为 MessagePack nil / Whether Key 6 was explicitly MessagePack nil
-	FieldCount              *int32                  `json:"fieldCount,omitempty"`        // 原始 indexed object 的槽位数，标准宽度 7 时可省略 / Slot count of the original indexed object, omittable for the standard width of 7
-	FutureSlots             [][]byte                `json:"futureSlots,omitempty"`       // Key 7 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 7
+	Version        int32                   `json:"version"`        // Key 0 的预设版本，当前 FixVersion 为 1004 / Preset version at Key 0, with a current FixVersion of 1004
+	ID             *string                 `json:"id"`             // Key 1 的预设标识，用户预设保存时也作为虚拟文件名 / Preset identifier at Key 1, also used as the virtual filename for user presets
+	BaseMenuFile   *string                 `json:"baseMenuFile"`   // Key 2 的基础颜色预设菜单文件名 / Base color-preset menu filename at Key 2
+	UserCreated    bool                    `json:"userCreated"`    // Key 3 的用户创建标志，游戏据此决定是否保存预设二进制 / User-created flag at Key 3, used by the game to decide whether to save preset bytes
+	IsAdvancedMode bool                    `json:"isAdvancedMode"` // Key 4 的高级模式状态 / Advanced-mode state at Key 4
+	ColorPackList  []*ColorPresetColorPack `json:"colorPackList"`  // Key 5 的颜色层包列表 / Color-layer pack list at Key 5
+	InstanceGUID   *string                 `json:"instanceGuid"`   // Key 6 的可空实例标识，非空值由游戏作为不透明字符串使用 / Nullable instance identifier at Key 6, with non-empty values treated as opaque strings by the game
 }
 
 // ColorPresetSlot 是 ColorPreset 的线格式别名，游戏派生类型没有新增 Key
@@ -72,19 +68,16 @@ type ColorPresetSlot = ColorPreset
 // ColorPresetColorPack preserves every serialized CustomColorPresetColorPack field including private mpnNames and allowedMpnOverRide
 // The game CopyTo method accidentally omits allowedMpnOverRide, but this codec models the wire itself and therefore does not discard it
 type ColorPresetColorPack struct {
-	Version            int32                        `json:"version"`                // Key 0 的色包版本，当前 FixVersion 为 1001 / Color-pack version at Key 0, with a current FixVersion of 1001
-	MPNs               []int32                      `json:"mpns"`                   // Key 1 的 MPN 数值数组，当前版本反序列化回调会用 MPNNames 解析结果覆盖它 / Numeric MPN array at Key 1, overwritten by parsed MPNNames in the current-version deserialization callback
-	LayerName          *string                      `json:"layerName"`              // Key 2 的 SavedTexData 层名称 / SavedTexData layer name at Key 2
-	ViewName           *string                      `json:"viewName"`               // Key 3 的界面显示名称 / UI display name at Key 3
-	Type               ColorPresetPackType          `json:"type"`                   // Key 4 的颜色与透明度应用模式 / Color and alpha application mode at Key 4
-	ColorList          []*ColorPresetLayerFreeColor `json:"colorList"`              // Key 5 的普通层颜色列表 / Normal layer-color list at Key 5
-	GradationColorList []*ColorPresetGradationColor `json:"gradationColorList"`     // Key 6 的渐变颜色点列表 / Gradation-color point list at Key 6
-	Alpha              float32                      `json:"alpha"`                  // Key 7 的乘算透明度 / Multiplied alpha at Key 7
-	AllowedMPNOverride bool                         `json:"allowedMpnOverRide"`     // Key 8 的 MPN 覆盖许可标志 / MPN override permission flag at Key 8
-	MPNNames           []string                     `json:"mpnNames"`               // Key 9 的 MPN 名称数组，当前反序列化回调用它重建 MPNs / MPN-name array at Key 9, used by the current deserialization callback to rebuild MPNs
-	MPNNameNulls       []bool                       `json:"mpnNameNulls,omitempty"` // MPNNames 各项是否在线格式中为 nil 的库内保真元数据 / Library fidelity metadata recording which MPNNames entries were nil on the wire
-	FieldCount         *int32                       `json:"fieldCount,omitempty"`   // 原始 indexed object 的槽位数，标准宽度 10 时可省略 / Slot count of the original indexed object, omittable for the standard width of 10
-	FutureSlots        [][]byte                     `json:"futureSlots,omitempty"`  // Key 10 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 10
+	Version            int32                        `json:"version"`            // Key 0 的色包版本，当前 FixVersion 为 1001 / Color-pack version at Key 0, with a current FixVersion of 1001
+	MPNs               []int32                      `json:"mpns"`               // Key 1 的 MPN 数值数组，当前版本反序列化回调会用 MPNNames 解析结果覆盖它 / Numeric MPN array at Key 1, overwritten by parsed MPNNames in the current-version deserialization callback
+	LayerName          *string                      `json:"layerName"`          // Key 2 的 SavedTexData 层名称 / SavedTexData layer name at Key 2
+	ViewName           *string                      `json:"viewName"`           // Key 3 的界面显示名称 / UI display name at Key 3
+	Type               ColorPresetPackType          `json:"type"`               // Key 4 的颜色与透明度应用模式 / Color and alpha application mode at Key 4
+	ColorList          []*ColorPresetLayerFreeColor `json:"colorList"`          // Key 5 的普通层颜色列表 / Normal layer-color list at Key 5
+	GradationColorList []*ColorPresetGradationColor `json:"gradationColorList"` // Key 6 的渐变颜色点列表 / Gradation-color point list at Key 6
+	Alpha              float32                      `json:"alpha"`              // Key 7 的乘算透明度 / Multiplied alpha at Key 7
+	AllowedMPNOverride bool                         `json:"allowedMpnOverRide"` // Key 8 的 MPN 覆盖许可标志 / MPN override permission flag at Key 8
+	MPNNames           []*string                    `json:"mpnNames"`           // Key 9 的项目可空 MPN 名称数组，当前反序列化回调用它重建 MPNs / MPN-name array with nullable entries at Key 9, used by the current deserialization callback to rebuild MPNs
 }
 
 // ColorPresetFreeColor 公开 FreeColor 的四个私有原始字段
@@ -92,24 +85,20 @@ type ColorPresetColorPack struct {
 // ColorPresetFreeColor exposes the four private raw fields of FreeColor
 // The MessagePack private-member resolver does not pass these values through the clamping public properties
 type ColorPresetFreeColor struct {
-	Version     int32    `json:"version"`               // Key 0 的 FreeColor 版本，当前 FixVersion 为 1000 / FreeColor version at Key 0, with a current FixVersion of 1000
-	Hue         int32    `json:"hue"`                   // Key 1 的私有原始色相 hue_ / Private raw hue_ value at Key 1
-	Saturation  int32    `json:"saturation"`            // Key 2 的私有原始饱和度 saturation_ / Private raw saturation_ value at Key 2
-	Brightness  int32    `json:"brightness"`            // Key 3 的私有原始亮度 brightness_，不是 rawBrighteness 加 255 表示 / Private raw brightness_ value at Key 3, not the rawBrighteness plus-255 representation
-	Contrast    int32    `json:"contrast"`              // Key 4 的私有原始对比度 contrast_ / Private raw contrast_ value at Key 4
-	FieldCount  *int32   `json:"fieldCount,omitempty"`  // 原始 indexed object 的槽位数，标准宽度 5 时可省略 / Slot count of the original indexed object, omittable for the standard width of 5
-	FutureSlots [][]byte `json:"futureSlots,omitempty"` // Key 5 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 5
+	Version    int32 `json:"version"`    // Key 0 的 FreeColor 版本，当前 FixVersion 为 1000 / FreeColor version at Key 0, with a current FixVersion of 1000
+	Hue        int32 `json:"hue"`        // Key 1 的私有原始色相 hue_ / Private raw hue_ value at Key 1
+	Saturation int32 `json:"saturation"` // Key 2 的私有原始饱和度 saturation_ / Private raw saturation_ value at Key 2
+	Brightness int32 `json:"brightness"` // Key 3 的私有原始亮度 brightness_，不是 rawBrighteness 加 255 表示 / Private raw brightness_ value at Key 3, not the rawBrighteness plus-255 representation
+	Contrast   int32 `json:"contrast"`   // Key 4 的私有原始对比度 contrast_ / Private raw contrast_ value at Key 4
 }
 
 // ColorPresetLayerFreeColor 表示 LayerFreeColor 包含继承版本在内的四槽 indexed object
 // ColorPresetLayerFreeColor represents the four-slot LayerFreeColor indexed object including its inherited version
 type ColorPresetLayerFreeColor struct {
-	Version     int32                 `json:"version"`               // Key 0 的 LayerFreeColor 版本，当前 FixVersion 为 1000 / LayerFreeColor version at Key 0, with a current FixVersion of 1000
-	BaseColor   *ColorPresetFreeColor `json:"baseColor"`             // Key 1 的可空基础 FreeColor / Nullable base FreeColor at Key 1
-	ShadowColor *ColorPresetFreeColor `json:"shadowColor"`           // Key 2 的可空阴影 FreeColor / Nullable shadow FreeColor at Key 2
-	ShadowRate  int32                 `json:"shadowRate"`            // Key 3 的私有原始阴影比例 shadowRate_ / Private raw shadowRate_ value at Key 3
-	FieldCount  *int32                `json:"fieldCount,omitempty"`  // 原始 indexed object 的槽位数，标准宽度 4 时可省略 / Slot count of the original indexed object, omittable for the standard width of 4
-	FutureSlots [][]byte              `json:"futureSlots,omitempty"` // Key 4 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 4
+	Version     int32                 `json:"version"`     // Key 0 的 LayerFreeColor 版本，当前 FixVersion 为 1000 / LayerFreeColor version at Key 0, with a current FixVersion of 1000
+	BaseColor   *ColorPresetFreeColor `json:"baseColor"`   // Key 1 的可空基础 FreeColor / Nullable base FreeColor at Key 1
+	ShadowColor *ColorPresetFreeColor `json:"shadowColor"` // Key 2 的可空阴影 FreeColor / Nullable shadow FreeColor at Key 2
+	ShadowRate  int32                 `json:"shadowRate"`  // Key 3 的私有原始阴影比例 shadowRate_ / Private raw shadowRate_ value at Key 3
 }
 
 // ColorPresetControlSlider 只包含 ControlSlider 唯一序列化的私有 value_ 字段
@@ -117,9 +106,7 @@ type ColorPresetLayerFreeColor struct {
 // ColorPresetControlSlider contains the only serialized private value_ field of ControlSlider
 // Its readonly range is ignored by MessagePack and rebuilt as 0 through 1 by the C# constructor
 type ColorPresetControlSlider struct {
-	Value       float32  `json:"value"`                 // Key 0 的私有原始滑块值 value_，私有成员解析不会钳制它 / Private raw slider value_ at Key 0, not clamped by private-member deserialization
-	FieldCount  *int32   `json:"fieldCount,omitempty"`  // 原始 indexed object 的槽位数，标准宽度 1 时可省略 / Slot count of the original indexed object, omittable for the standard width of 1
-	FutureSlots [][]byte `json:"futureSlots,omitempty"` // Key 1 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 1
+	Value float32 `json:"value"` // Key 0 的私有原始滑块值 value_，私有成员解析不会钳制它 / Private raw slider value_ at Key 0, not clamped by private-member deserialization
 }
 
 // ColorPresetGradationColor 在 LayerFreeColor 四个槽位后增加三个 ControlSlider
@@ -132,8 +119,6 @@ type ColorPresetGradationColor struct {
 	Position    *ColorPresetControlSlider `json:"controlPointPosition"`    // Key 4 的渐变控制点中心位置滑块 / Gradation control-point center-position slider at Key 4
 	RangeBefore *ColorPresetControlSlider `json:"controlPointRangeBefore"` // Key 5 的控制点前侧范围滑块 / Control-point before-range slider at Key 5
 	RangeAfter  *ColorPresetControlSlider `json:"controlPointRangeAfter"`  // Key 6 的控制点后侧范围滑块 / Control-point after-range slider at Key 6
-	FieldCount  *int32                    `json:"fieldCount,omitempty"`    // 原始 indexed object 的槽位数，标准宽度 7 时可省略 / Slot count of the original indexed object, omittable for the standard width of 7
-	FutureSlots [][]byte                  `json:"futureSlots,omitempty"`   // Key 7 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 7
 }
 
 // NewColorPreset 创建与 C# 构造函数一致的确定性默认值，但要求调用者提供 GUID，避免 Guid.NewGuid 在序列化代码中隐藏身份变化
@@ -157,7 +142,7 @@ func newColorPresetDefaults(instanceGUID string) *ColorPreset {
 	return &ColorPreset{
 		Version:       ColorPresetVersion,
 		ColorPackList: make([]*ColorPresetColorPack, 0),
-		InstanceGUID:  instanceGUID,
+		InstanceGUID:  &instanceGUID,
 	}
 }
 
@@ -229,8 +214,8 @@ func DecodeColorPresetSlotWithInstanceGUID(data []byte, constructorGUID string) 
 	return DecodeColorPresetWithInstanceGUID(data, constructorGUID)
 }
 
-// decodeColorPreset 解压颜色预设根值，按 indexed object 宽度读取已知字段并保留未来槽位和根尾部
-// decodeColorPreset decompresses a color-preset root, reads known fields according to indexed object width, and preserves future slots and root trailing bytes
+// decodeColorPreset 解压固定七槽的颜色预设根值并要求完整消费解压后的输入
+// decodeColorPreset decompresses a fixed seven-slot color-preset root and requires complete consumption of the decompressed input
 func decodeColorPreset(data []byte, constructorGUID string) (*ColorPreset, error) {
 	raw, err := ct.DecompressLz4BlockArray(data)
 	if err != nil {
@@ -239,12 +224,8 @@ func decodeColorPreset(data []byte, constructorGUID string) (*ColorPreset, error
 
 	r := simpleEditDataReader{data: raw}
 	if r.tryReadNil() {
-		trailing, err := messagePackRootTrailingAfterParsed(raw, r.pos, "ColorPreset")
-		if err != nil {
+		if err := r.requireEOF("ColorPreset"); err != nil {
 			return nil, err
-		}
-		if len(trailing) != 0 {
-			return &ColorPreset{MessagePackRootMetadata: MessagePackRootMetadata{RootNil: true, TrailingData: trailing}}, nil
 		}
 		return nil, nil
 	}
@@ -252,159 +233,81 @@ func decodeColorPreset(data []byte, constructorGUID string) (*ColorPreset, error
 	if err != nil {
 		return nil, err
 	}
-	value := &ColorPreset{InstanceGUID: constructorGUID}
 	if fieldCount != 7 {
-		storedFieldCount := int32(fieldCount)
-		value.FieldCount = &storedFieldCount
+		return nil, fmt.Errorf("unsupported ColorPreset indexed-array width %d, expected 7", fieldCount)
 	}
-	if fieldCount >= 1 {
-		value.Version, err = r.readInt32("ColorPreset.version")
-		if err != nil {
-			return nil, err
-		}
-	}
-	if fieldCount >= 2 {
-		value.ID, err = colorPresetReadNullableString(&r, "ColorPreset.id")
-		if err != nil {
-			return nil, err
-		}
-	}
-	if fieldCount >= 3 {
-		value.BaseMenuFile, err = colorPresetReadNullableString(&r, "ColorPreset.baseMenuFile")
-		if err != nil {
-			return nil, err
-		}
-	}
-	if fieldCount >= 4 {
-		value.UserCreated, err = colorPresetReadBool(&r, "ColorPreset.userCreated")
-		if err != nil {
-			return nil, err
-		}
-	}
-	if fieldCount >= 5 {
-		value.IsAdvancedMode, err = colorPresetReadBool(&r, "ColorPreset.isAdvancedMode_")
-		if err != nil {
-			return nil, err
-		}
-	}
-	if fieldCount >= 6 {
-		value.ColorPackList, err = colorPresetReadPackList(&r, "ColorPreset.colorPackList")
-		if err != nil {
-			return nil, err
-		}
-	}
-	if fieldCount >= 7 {
-		guid, readErr := colorPresetReadNullableString(&r, "ColorPreset.instanceGuid")
-		if readErr != nil {
-			return nil, readErr
-		}
-		if (guid == nil || *guid == "") && constructorGUID != "" {
-			value.InstanceGUID = constructorGUID
-		} else if guid != nil {
-			value.InstanceGUID = *guid
-		}
-		value.InstanceGUIDIsNil = guid == nil
-	}
-	value.FutureSlots, err = colorPresetReadFutureFields(&r, 7, fieldCount, "ColorPreset")
+	value := &ColorPreset{}
+	value.Version, err = r.readInt32("ColorPreset.version")
 	if err != nil {
 		return nil, err
 	}
-	trailing, err := messagePackRootTrailingAfterParsed(raw, r.pos, "ColorPreset")
+	value.ID, err = colorPresetReadNullableString(&r, "ColorPreset.id")
 	if err != nil {
+		return nil, err
+	}
+	value.BaseMenuFile, err = colorPresetReadNullableString(&r, "ColorPreset.baseMenuFile")
+	if err != nil {
+		return nil, err
+	}
+	value.UserCreated, err = colorPresetReadBool(&r, "ColorPreset.userCreated")
+	if err != nil {
+		return nil, err
+	}
+	value.IsAdvancedMode, err = colorPresetReadBool(&r, "ColorPreset.isAdvancedMode_")
+	if err != nil {
+		return nil, err
+	}
+	value.ColorPackList, err = colorPresetReadPackList(&r, "ColorPreset.colorPackList")
+	if err != nil {
+		return nil, err
+	}
+	value.InstanceGUID, err = colorPresetReadNullableString(&r, "ColorPreset.instanceGuid")
+	if err != nil {
+		return nil, err
+	}
+	if constructorGUID != "" && (value.InstanceGUID == nil || *value.InstanceGUID == "") {
+		value.InstanceGUID = &constructorGUID
+	}
+	if err := r.requireEOF("ColorPreset"); err != nil {
 		return nil, err
 	}
 	if err := validateDecodedColorPreset(value); err != nil {
 		return nil, err
 	}
-	value.TrailingData = trailing
 	return value, nil
 }
 
-// EncodeColorPreset 按 FieldCount 与 FutureSlots 表示的 indexed object 宽度写出预设而不调用游戏迁移或序列化回调
+// EncodeColorPreset 按固定七槽 indexed object 写出预设而不调用游戏迁移或序列化回调
 // 所有显式版本以及数值和名称两组 MPN 数组都按调用者提供内容保留
-// EncodeColorPreset emits the indexed object width represented by FieldCount and FutureSlots without invoking game migration or serialization callbacks
+// EncodeColorPreset emits the fixed seven-slot indexed object without invoking game migration or serialization callbacks
 // Every explicit version and both numeric and named MPN arrays are preserved as supplied by the caller
 func EncodeColorPreset(value *ColorPreset) ([]byte, error) {
 	if value == nil {
 		return []byte{0xc0}, nil
 	}
-	if raw, handled, err := encodeNilMessagePackRootIfRequested(
-		value.MessagePackRootMetadata,
-		value.Version != 0 || value.ID != nil || value.BaseMenuFile != nil || value.UserCreated || value.IsAdvancedMode ||
-			value.ColorPackList != nil || value.InstanceGUID != "" || value.InstanceGUIDIsNil || value.FieldCount != nil || len(value.FutureSlots) != 0,
-		"ColorPreset",
-	); handled {
-		if err != nil {
-			return nil, err
-		}
-		return colorPresetCompress(raw)
-	}
-	fieldCount, err := resolveIndexedFieldCount(value.FieldCount, 7, value.FutureSlots, "ColorPreset")
-	if err != nil {
-		return nil, err
-	}
-	if fieldCount < 1 && value.Version != 0 {
-		return nil, fmt.Errorf("ColorPreset fieldCount %d would discard version=%d", fieldCount, value.Version)
-	}
-	if fieldCount < 2 && value.ID != nil {
-		return nil, fmt.Errorf("ColorPreset fieldCount %d would discard id", fieldCount)
-	}
-	if fieldCount < 3 && value.BaseMenuFile != nil {
-		return nil, fmt.Errorf("ColorPreset fieldCount %d would discard baseMenuFile", fieldCount)
-	}
-	if fieldCount < 4 && value.UserCreated {
-		return nil, fmt.Errorf("ColorPreset fieldCount %d would discard userCreated", fieldCount)
-	}
-	if fieldCount < 5 && value.IsAdvancedMode {
-		return nil, fmt.Errorf("ColorPreset fieldCount %d would discard isAdvancedMode", fieldCount)
-	}
-	if fieldCount < 6 && value.ColorPackList != nil {
-		return nil, fmt.Errorf("ColorPreset fieldCount %d would discard colorPackList", fieldCount)
-	}
 	if err := validateColorPresetForEncoding(value); err != nil {
 		return nil, err
 	}
 
-	raw := simpleEditDataAppendArrayHeader(nil, fieldCount)
-	if fieldCount >= 1 {
-		raw = simpleEditDataAppendInt32(raw, value.Version)
-	}
-	if fieldCount >= 2 {
-		raw = colorPresetAppendNullableString(raw, value.ID)
-	}
-	if fieldCount >= 3 {
-		raw = colorPresetAppendNullableString(raw, value.BaseMenuFile)
-	}
-	if fieldCount >= 4 {
-		raw = colorPresetAppendBool(raw, value.UserCreated)
-	}
-	if fieldCount >= 5 {
-		raw = colorPresetAppendBool(raw, value.IsAdvancedMode)
-	}
-	if fieldCount >= 6 {
-		if value.ColorPackList == nil {
-			raw = append(raw, 0xc0)
-		} else {
-			raw = simpleEditDataAppendArrayHeader(raw, int64(len(value.ColorPackList)))
-			for index, pack := range value.ColorPackList {
-				raw, err = colorPresetAppendPack(raw, pack, fmt.Sprintf("ColorPreset.colorPackList[%d]", index))
-				if err != nil {
-					return nil, err
-				}
+	raw := simpleEditDataAppendArrayHeader(nil, 7)
+	raw = simpleEditDataAppendInt32(raw, value.Version)
+	raw = colorPresetAppendNullableString(raw, value.ID)
+	raw = colorPresetAppendNullableString(raw, value.BaseMenuFile)
+	raw = colorPresetAppendBool(raw, value.UserCreated)
+	raw = colorPresetAppendBool(raw, value.IsAdvancedMode)
+	if value.ColorPackList == nil {
+		raw = append(raw, 0xc0)
+	} else {
+		raw = simpleEditDataAppendArrayHeader(raw, int64(len(value.ColorPackList)))
+		for index, pack := range value.ColorPackList {
+			var err error
+			raw, err = colorPresetAppendPack(raw, pack, fmt.Sprintf("ColorPreset.colorPackList[%d]", index))
+			if err != nil {
+				return nil, err
 			}
 		}
 	}
-	if fieldCount >= 7 {
-		if value.InstanceGUIDIsNil {
-			raw = append(raw, 0xc0)
-		} else {
-			raw = simpleEditDataAppendString(raw, value.InstanceGUID)
-		}
-	}
-	for _, slot := range value.FutureSlots {
-		raw = append(raw, slot...)
-	}
-	raw = appendMessagePackRootTrailing(raw, value.MessagePackRootMetadata)
+	raw = colorPresetAppendNullableString(raw, value.InstanceGUID)
 	return colorPresetCompress(raw)
 }
 
@@ -436,7 +339,7 @@ func validateColorPresetForEncoding(value *ColorPreset) error {
 	if err := colorPresetValidateNullableString(value.BaseMenuFile, "ColorPreset.baseMenuFile"); err != nil {
 		return err
 	}
-	if err := colorPresetValidateString(value.InstanceGUID, "ColorPreset.instanceGuid"); err != nil {
+	if err := colorPresetValidateNullableString(value.InstanceGUID, "ColorPreset.instanceGuid"); err != nil {
 		return err
 	}
 	for index, pack := range value.ColorPackList {
@@ -491,8 +394,8 @@ func colorPresetReadPackList(r *simpleEditDataReader, path string) ([]*ColorPres
 	return result, nil
 }
 
-// colorPresetReadPack 按 CustomColorPresetColorPack 的十个当前 Key 读取一个可空色包并保留未来槽位
-// colorPresetReadPack reads one nullable color pack using the ten current CustomColorPresetColorPack keys and preserves future slots
+// colorPresetReadPack 按 CustomColorPresetColorPack 的固定十槽布局读取一个可空色包
+// colorPresetReadPack reads one nullable color pack using the fixed ten-slot CustomColorPresetColorPack layout
 func colorPresetReadPack(r *simpleEditDataReader, path string) (*ColorPresetColorPack, error) {
 	if r.tryReadNil() {
 		return nil, nil
@@ -501,73 +404,48 @@ func colorPresetReadPack(r *simpleEditDataReader, path string) (*ColorPresetColo
 	if err != nil {
 		return nil, err
 	}
-	value := &ColorPresetColorPack{}
 	if fieldCount != 10 {
-		storedFieldCount := int32(fieldCount)
-		value.FieldCount = &storedFieldCount
+		return nil, fmt.Errorf("unsupported %s indexed-array width %d, expected 10", path, fieldCount)
 	}
-	if fieldCount >= 1 {
-		value.Version, err = r.readInt32(path + ".version")
-		if err != nil {
-			return nil, err
-		}
+	value := &ColorPresetColorPack{}
+	value.Version, err = r.readInt32(path + ".version")
+	if err != nil {
+		return nil, err
 	}
-	if fieldCount >= 2 {
-		value.MPNs, err = colorPresetReadInt32Array(r, path+".mpns")
-		if err != nil {
-			return nil, err
-		}
+	value.MPNs, err = colorPresetReadInt32Array(r, path+".mpns")
+	if err != nil {
+		return nil, err
 	}
-	if fieldCount >= 3 {
-		value.LayerName, err = colorPresetReadNullableString(r, path+".layerName")
-		if err != nil {
-			return nil, err
-		}
+	value.LayerName, err = colorPresetReadNullableString(r, path+".layerName")
+	if err != nil {
+		return nil, err
 	}
-	if fieldCount >= 4 {
-		value.ViewName, err = colorPresetReadNullableString(r, path+".viewName")
-		if err != nil {
-			return nil, err
-		}
+	value.ViewName, err = colorPresetReadNullableString(r, path+".viewName")
+	if err != nil {
+		return nil, err
 	}
-	if fieldCount >= 5 {
-		typeValue, readErr := r.readInt32(path + ".type")
-		if readErr != nil {
-			return nil, readErr
-		}
-		value.Type = ColorPresetPackType(typeValue)
+	typeValue, readErr := r.readInt32(path + ".type")
+	if readErr != nil {
+		return nil, readErr
 	}
-	if fieldCount >= 6 {
-		value.ColorList, err = colorPresetReadLayerList(r, path+".colorList")
-		if err != nil {
-			return nil, err
-		}
+	value.Type = ColorPresetPackType(typeValue)
+	value.ColorList, err = colorPresetReadLayerList(r, path+".colorList")
+	if err != nil {
+		return nil, err
 	}
-	if fieldCount >= 7 {
-		value.GradationColorList, err = colorPresetReadGradationList(r, path+".gradationColorList")
-		if err != nil {
-			return nil, err
-		}
+	value.GradationColorList, err = colorPresetReadGradationList(r, path+".gradationColorList")
+	if err != nil {
+		return nil, err
 	}
-	if fieldCount >= 8 {
-		value.Alpha, err = colorPresetReadSingle(r, path+".alpha")
-		if err != nil {
-			return nil, err
-		}
+	value.Alpha, err = colorPresetReadSingle(r, path+".alpha")
+	if err != nil {
+		return nil, err
 	}
-	if fieldCount >= 9 {
-		value.AllowedMPNOverride, err = colorPresetReadBool(r, path+".allowedMpnOverRide")
-		if err != nil {
-			return nil, err
-		}
+	value.AllowedMPNOverride, err = colorPresetReadBool(r, path+".allowedMpnOverRide")
+	if err != nil {
+		return nil, err
 	}
-	if fieldCount >= 10 {
-		value.MPNNames, value.MPNNameNulls, err = colorPresetReadStringArray(r, path+".mpnNames")
-		if err != nil {
-			return nil, err
-		}
-	}
-	value.FutureSlots, err = colorPresetReadFutureFields(r, 10, fieldCount, path)
+	value.MPNNames, err = colorPresetReadStringArray(r, path+".mpnNames")
 	if err != nil {
 		return nil, err
 	}
@@ -577,8 +455,8 @@ func colorPresetReadPack(r *simpleEditDataReader, path string) (*ColorPresetColo
 	return value, nil
 }
 
-// validateColorPresetPack 验证色包字段、MPN 数组、名称 nil 元数据及嵌套颜色列表可无损表示
-// validateColorPresetPack verifies that color-pack fields, MPN arrays, name nil metadata, and nested color lists can be represented losslessly
+// validateColorPresetPack 验证色包字段、MPN 数组及嵌套颜色列表可由目标类型表示
+// validateColorPresetPack verifies that color-pack fields, MPN arrays, and nested color lists fit their target types
 func validateColorPresetPack(value *ColorPresetColorPack, path string, decoded bool) error {
 	if value == nil {
 		return nil
@@ -587,17 +465,11 @@ func validateColorPresetPack(value *ColorPresetColorPack, path string, decoded b
 	if uint64(len(value.MPNs)) > math.MaxUint32 || uint64(len(value.MPNNames)) > math.MaxUint32 {
 		return fmt.Errorf("%s MPN collection exceeds the MessagePack array32 limit", path)
 	}
-	if value.MPNNameNulls != nil && len(value.MPNNameNulls) != len(value.MPNNames) {
-		return fmt.Errorf("%s.mpnNameNulls length %d does not match mpnNames length %d", path, len(value.MPNNameNulls), len(value.MPNNames))
-	}
 	for index, name := range value.MPNNames {
-		if value.MPNNameNulls != nil && value.MPNNameNulls[index] {
-			if name != "" {
-				return fmt.Errorf("%s.mpnNameNulls[%d] would discard non-empty mpnNames value", path, index)
-			}
+		if name == nil {
 			continue
 		}
-		if err := colorPresetValidateString(name, fmt.Sprintf("%s.mpnNames[%d]", path, index)); err != nil {
+		if err := colorPresetValidateString(*name, fmt.Sprintf("%s.mpnNames[%d]", path, index)); err != nil {
 			return err
 		}
 	}
@@ -624,120 +496,65 @@ func validateColorPresetPack(value *ColorPresetColorPack, path string, decoded b
 	return nil
 }
 
-// colorPresetAppendPack 按保留的 indexed object 宽度写入一个可空 CustomColorPresetColorPack
-// colorPresetAppendPack writes one nullable CustomColorPresetColorPack using its preserved indexed object width
+// colorPresetAppendPack 按固定十槽布局写入一个可空 CustomColorPresetColorPack
+// colorPresetAppendPack writes one nullable CustomColorPresetColorPack using the fixed ten-slot layout
 func colorPresetAppendPack(dst []byte, value *ColorPresetColorPack, path string) ([]byte, error) {
 	if value == nil {
 		return append(dst, 0xc0), nil
 	}
-	fieldCount, err := resolveIndexedFieldCount(value.FieldCount, 10, value.FutureSlots, path)
-	if err != nil {
-		return nil, err
-	}
-	if fieldCount < 1 && value.Version != 0 {
-		return nil, fmt.Errorf("%s fieldCount %d would discard version=%d", path, fieldCount, value.Version)
-	}
-	if fieldCount < 2 && value.MPNs != nil {
-		return nil, fmt.Errorf("%s fieldCount %d would discard mpns", path, fieldCount)
-	}
-	if fieldCount < 3 && value.LayerName != nil {
-		return nil, fmt.Errorf("%s fieldCount %d would discard layerName", path, fieldCount)
-	}
-	if fieldCount < 4 && value.ViewName != nil {
-		return nil, fmt.Errorf("%s fieldCount %d would discard viewName", path, fieldCount)
-	}
-	if fieldCount < 5 && value.Type != 0 {
-		return nil, fmt.Errorf("%s fieldCount %d would discard type=%d", path, fieldCount, value.Type)
-	}
-	if fieldCount < 6 && value.ColorList != nil {
-		return nil, fmt.Errorf("%s fieldCount %d would discard colorList", path, fieldCount)
-	}
-	if fieldCount < 7 && value.GradationColorList != nil {
-		return nil, fmt.Errorf("%s fieldCount %d would discard gradationColorList", path, fieldCount)
-	}
-	if fieldCount < 8 && math.Float32bits(value.Alpha) != 0 {
-		return nil, fmt.Errorf("%s fieldCount %d would discard alpha", path, fieldCount)
-	}
-	if fieldCount < 9 && value.AllowedMPNOverride {
-		return nil, fmt.Errorf("%s fieldCount %d would discard allowedMpnOverRide", path, fieldCount)
-	}
-	if fieldCount < 10 && (value.MPNNames != nil || value.MPNNameNulls != nil) {
-		return nil, fmt.Errorf("%s fieldCount %d would discard mpnNames", path, fieldCount)
-	}
 	if err := validateColorPresetPack(value, path, false); err != nil {
 		return nil, err
 	}
-	dst = simpleEditDataAppendArrayHeader(dst, fieldCount)
-	if fieldCount >= 1 {
-		dst = simpleEditDataAppendInt32(dst, value.Version)
+	dst = simpleEditDataAppendArrayHeader(dst, 10)
+	dst = simpleEditDataAppendInt32(dst, value.Version)
+	if value.MPNs == nil {
+		dst = append(dst, 0xc0)
+	} else {
+		dst = simpleEditDataAppendArrayHeader(dst, int64(len(value.MPNs)))
+		for _, mpn := range value.MPNs {
+			dst = simpleEditDataAppendInt32(dst, mpn)
+		}
 	}
-	if fieldCount >= 2 {
-		if value.MPNs == nil {
-			dst = append(dst, 0xc0)
-		} else {
-			dst = simpleEditDataAppendArrayHeader(dst, int64(len(value.MPNs)))
-			for _, mpn := range value.MPNs {
-				dst = simpleEditDataAppendInt32(dst, mpn)
+	dst = colorPresetAppendNullableString(dst, value.LayerName)
+	dst = colorPresetAppendNullableString(dst, value.ViewName)
+	dst = simpleEditDataAppendInt32(dst, int32(value.Type))
+	if value.ColorList == nil {
+		dst = append(dst, 0xc0)
+	} else {
+		dst = simpleEditDataAppendArrayHeader(dst, int64(len(value.ColorList)))
+		for index, color := range value.ColorList {
+			var err error
+			dst, err = colorPresetAppendLayer(dst, color, fmt.Sprintf("%s.colorList[%d]", path, index))
+			if err != nil {
+				return nil, err
 			}
 		}
 	}
-	if fieldCount >= 3 {
-		dst = colorPresetAppendNullableString(dst, value.LayerName)
-	}
-	if fieldCount >= 4 {
-		dst = colorPresetAppendNullableString(dst, value.ViewName)
-	}
-	if fieldCount >= 5 {
-		dst = simpleEditDataAppendInt32(dst, int32(value.Type))
-	}
-	if fieldCount >= 6 {
-		if value.ColorList == nil {
-			dst = append(dst, 0xc0)
-		} else {
-			dst = simpleEditDataAppendArrayHeader(dst, int64(len(value.ColorList)))
-			for index, color := range value.ColorList {
-				dst, err = colorPresetAppendLayer(dst, color, fmt.Sprintf("%s.colorList[%d]", path, index))
-				if err != nil {
-					return nil, err
-				}
+	if value.GradationColorList == nil {
+		dst = append(dst, 0xc0)
+	} else {
+		dst = simpleEditDataAppendArrayHeader(dst, int64(len(value.GradationColorList)))
+		for index, color := range value.GradationColorList {
+			var err error
+			dst, err = colorPresetAppendGradation(dst, color, fmt.Sprintf("%s.gradationColorList[%d]", path, index))
+			if err != nil {
+				return nil, err
 			}
 		}
 	}
-	if fieldCount >= 7 {
-		if value.GradationColorList == nil {
-			dst = append(dst, 0xc0)
-		} else {
-			dst = simpleEditDataAppendArrayHeader(dst, int64(len(value.GradationColorList)))
-			for index, color := range value.GradationColorList {
-				dst, err = colorPresetAppendGradation(dst, color, fmt.Sprintf("%s.gradationColorList[%d]", path, index))
-				if err != nil {
-					return nil, err
-				}
+	dst = colorPresetAppendFloat32(dst, value.Alpha)
+	dst = colorPresetAppendBool(dst, value.AllowedMPNOverride)
+	if value.MPNNames == nil {
+		dst = append(dst, 0xc0)
+	} else {
+		dst = simpleEditDataAppendArrayHeader(dst, int64(len(value.MPNNames)))
+		for _, name := range value.MPNNames {
+			if name == nil {
+				dst = append(dst, 0xc0)
+			} else {
+				dst = simpleEditDataAppendString(dst, *name)
 			}
 		}
-	}
-	if fieldCount >= 8 {
-		dst = colorPresetAppendFloat32(dst, value.Alpha)
-	}
-	if fieldCount >= 9 {
-		dst = colorPresetAppendBool(dst, value.AllowedMPNOverride)
-	}
-	if fieldCount >= 10 {
-		if value.MPNNames == nil {
-			dst = append(dst, 0xc0)
-		} else {
-			dst = simpleEditDataAppendArrayHeader(dst, int64(len(value.MPNNames)))
-			for index, name := range value.MPNNames {
-				if value.MPNNameNulls != nil && value.MPNNameNulls[index] {
-					dst = append(dst, 0xc0)
-				} else {
-					dst = simpleEditDataAppendString(dst, name)
-				}
-			}
-		}
-	}
-	for _, slot := range value.FutureSlots {
-		dst = append(dst, slot...)
 	}
 	return dst, nil
 }
@@ -763,8 +580,8 @@ func colorPresetReadLayerList(r *simpleEditDataReader, path string) ([]*ColorPre
 	return result, nil
 }
 
-// colorPresetReadLayer 按 LayerFreeColor 的四个当前 Key 读取一个可空普通层颜色并保留未来槽位
-// colorPresetReadLayer reads one nullable normal layer color using the four current LayerFreeColor keys and preserves future slots
+// colorPresetReadLayer 按 LayerFreeColor 的固定四槽布局读取一个可空普通层颜色
+// colorPresetReadLayer reads one nullable normal layer color using the fixed four-slot LayerFreeColor layout
 func colorPresetReadLayer(r *simpleEditDataReader, path string) (*ColorPresetLayerFreeColor, error) {
 	if r.tryReadNil() {
 		return nil, nil
@@ -773,36 +590,23 @@ func colorPresetReadLayer(r *simpleEditDataReader, path string) (*ColorPresetLay
 	if err != nil {
 		return nil, err
 	}
-	value := &ColorPresetLayerFreeColor{}
 	if fieldCount != 4 {
-		storedFieldCount := int32(fieldCount)
-		value.FieldCount = &storedFieldCount
+		return nil, fmt.Errorf("unsupported %s indexed-array width %d, expected 4", path, fieldCount)
 	}
-	if fieldCount >= 1 {
-		value.Version, err = r.readInt32(path + ".version")
-		if err != nil {
-			return nil, err
-		}
+	value := &ColorPresetLayerFreeColor{}
+	value.Version, err = r.readInt32(path + ".version")
+	if err != nil {
+		return nil, err
 	}
-	if fieldCount >= 2 {
-		value.BaseColor, err = colorPresetReadFreeColor(r, path+".baseColor")
-		if err != nil {
-			return nil, err
-		}
+	value.BaseColor, err = colorPresetReadFreeColor(r, path+".baseColor")
+	if err != nil {
+		return nil, err
 	}
-	if fieldCount >= 3 {
-		value.ShadowColor, err = colorPresetReadFreeColor(r, path+".shadowColor")
-		if err != nil {
-			return nil, err
-		}
+	value.ShadowColor, err = colorPresetReadFreeColor(r, path+".shadowColor")
+	if err != nil {
+		return nil, err
 	}
-	if fieldCount >= 4 {
-		value.ShadowRate, err = r.readInt32(path + ".shadowRate_")
-		if err != nil {
-			return nil, err
-		}
-	}
-	value.FutureSlots, err = colorPresetReadFutureFields(r, 4, fieldCount, path)
+	value.ShadowRate, err = r.readInt32(path + ".shadowRate_")
 	if err != nil {
 		return nil, err
 	}
@@ -825,58 +629,32 @@ func validateColorPresetLayer(value *ColorPresetLayerFreeColor, path string, dec
 	return nil
 }
 
-// colorPresetAppendLayer 按保留的 indexed object 宽度写入一个可空 LayerFreeColor
-// colorPresetAppendLayer writes one nullable LayerFreeColor using its preserved indexed object width
+// colorPresetAppendLayer 按固定四槽布局写入一个可空 LayerFreeColor
+// colorPresetAppendLayer writes one nullable LayerFreeColor using the fixed four-slot layout
 func colorPresetAppendLayer(dst []byte, value *ColorPresetLayerFreeColor, path string) ([]byte, error) {
 	if value == nil {
 		return append(dst, 0xc0), nil
 	}
-	fieldCount, err := resolveIndexedFieldCount(value.FieldCount, 4, value.FutureSlots, path)
-	if err != nil {
-		return nil, err
-	}
-	if fieldCount < 1 && value.Version != 0 {
-		return nil, fmt.Errorf("%s fieldCount %d would discard version=%d", path, fieldCount, value.Version)
-	}
-	if fieldCount < 2 && value.BaseColor != nil {
-		return nil, fmt.Errorf("%s fieldCount %d would discard baseColor", path, fieldCount)
-	}
-	if fieldCount < 3 && value.ShadowColor != nil {
-		return nil, fmt.Errorf("%s fieldCount %d would discard shadowColor", path, fieldCount)
-	}
-	if fieldCount < 4 && value.ShadowRate != 0 {
-		return nil, fmt.Errorf("%s fieldCount %d would discard shadowRate=%d", path, fieldCount, value.ShadowRate)
-	}
 	if err := validateColorPresetLayer(value, path, false); err != nil {
 		return nil, err
 	}
-	dst = simpleEditDataAppendArrayHeader(dst, fieldCount)
-	if fieldCount >= 1 {
-		dst = simpleEditDataAppendInt32(dst, value.Version)
+	dst = simpleEditDataAppendArrayHeader(dst, 4)
+	dst = simpleEditDataAppendInt32(dst, value.Version)
+	var err error
+	dst, err = colorPresetAppendFree(dst, value.BaseColor, path+".baseColor")
+	if err != nil {
+		return nil, err
 	}
-	if fieldCount >= 2 {
-		dst, err = colorPresetAppendFree(dst, value.BaseColor, path+".baseColor")
-		if err != nil {
-			return nil, err
-		}
+	dst, err = colorPresetAppendFree(dst, value.ShadowColor, path+".shadowColor")
+	if err != nil {
+		return nil, err
 	}
-	if fieldCount >= 3 {
-		dst, err = colorPresetAppendFree(dst, value.ShadowColor, path+".shadowColor")
-		if err != nil {
-			return nil, err
-		}
-	}
-	if fieldCount >= 4 {
-		dst = simpleEditDataAppendInt32(dst, value.ShadowRate)
-	}
-	for _, slot := range value.FutureSlots {
-		dst = append(dst, slot...)
-	}
+	dst = simpleEditDataAppendInt32(dst, value.ShadowRate)
 	return dst, nil
 }
 
-// colorPresetReadFreeColor 按 FreeColor 的版本和四个私有原始字段读取一个可空颜色并保留未来槽位
-// colorPresetReadFreeColor reads one nullable color using the FreeColor version and four private raw fields and preserves future slots
+// colorPresetReadFreeColor 按 FreeColor 的固定五槽布局读取版本和四个私有原始字段
+// colorPresetReadFreeColor reads one nullable color using the fixed five-slot FreeColor layout containing its version and four private raw fields
 func colorPresetReadFreeColor(r *simpleEditDataReader, path string) (*ColorPresetFreeColor, error) {
 	if r.tryReadNil() {
 		return nil, nil
@@ -885,22 +663,17 @@ func colorPresetReadFreeColor(r *simpleEditDataReader, path string) (*ColorPrese
 	if err != nil {
 		return nil, err
 	}
-	value := &ColorPresetFreeColor{}
 	if fieldCount != 5 {
-		storedFieldCount := int32(fieldCount)
-		value.FieldCount = &storedFieldCount
+		return nil, fmt.Errorf("unsupported %s indexed-array width %d, expected 5", path, fieldCount)
 	}
+	value := &ColorPresetFreeColor{}
 	fields := []*int32{&value.Version, &value.Hue, &value.Saturation, &value.Brightness, &value.Contrast}
 	names := []string{"version", "hue_", "saturation_", "brightness_", "contrast_"}
-	for index := int64(0); index < fieldCount && index < int64(len(fields)); index++ {
+	for index := int64(0); index < 5; index++ {
 		*fields[index], err = r.readInt32(path + "." + names[index])
 		if err != nil {
 			return nil, err
 		}
-	}
-	value.FutureSlots, err = colorPresetReadFutureFields(r, 5, fieldCount, path)
-	if err != nil {
-		return nil, err
 	}
 	return value, nil
 }
@@ -915,34 +688,22 @@ func validateColorPresetFree(value *ColorPresetFreeColor, path string, decoded b
 	return nil
 }
 
-// colorPresetAppendFree 按保留的 indexed object 宽度写入一个可空 FreeColor
-// colorPresetAppendFree writes one nullable FreeColor using its preserved indexed object width
+// colorPresetAppendFree 按固定五槽布局写入一个可空 FreeColor
+// colorPresetAppendFree writes one nullable FreeColor using the fixed five-slot layout
 func colorPresetAppendFree(dst []byte, value *ColorPresetFreeColor, path string) ([]byte, error) {
 	if value == nil {
 		return append(dst, 0xc0), nil
-	}
-	fieldCount, err := resolveIndexedFieldCount(value.FieldCount, 5, value.FutureSlots, path)
-	if err != nil {
-		return nil, err
 	}
 	fields := []struct {
 		name  string // 用于字段丢弃错误的名称 / Name used in field-discard errors
 		value int32  // 对应槽位的原始整数值 / Raw integer value for the corresponding slot
 	}{{"version", value.Version}, {"hue", value.Hue}, {"saturation", value.Saturation}, {"brightness", value.Brightness}, {"contrast", value.Contrast}}
-	for index, field := range fields {
-		if fieldCount <= int64(index) && field.value != 0 {
-			return nil, fmt.Errorf("%s fieldCount %d would discard %s=%d", path, fieldCount, field.name, field.value)
-		}
-	}
 	if err := validateColorPresetFree(value, path, false); err != nil {
 		return nil, err
 	}
-	dst = simpleEditDataAppendArrayHeader(dst, fieldCount)
-	for index := int64(0); index < fieldCount && index < int64(len(fields)); index++ {
+	dst = simpleEditDataAppendArrayHeader(dst, 5)
+	for index := int64(0); index < 5; index++ {
 		dst = simpleEditDataAppendInt32(dst, fields[index].value)
-	}
-	for _, slot := range value.FutureSlots {
-		dst = append(dst, slot...)
 	}
 	return dst, nil
 }
@@ -968,8 +729,8 @@ func colorPresetReadGradationList(r *simpleEditDataReader, path string) ([]*Colo
 	return result, nil
 }
 
-// colorPresetReadGradation 按 GradationColor 的七个当前 Key 读取一个可空渐变颜色并保留未来槽位
-// colorPresetReadGradation reads one nullable gradation color using the seven current GradationColor keys and preserves future slots
+// colorPresetReadGradation 按 GradationColor 的固定七槽布局读取一个可空渐变颜色
+// colorPresetReadGradation reads one nullable gradation color using the fixed seven-slot GradationColor layout
 func colorPresetReadGradation(r *simpleEditDataReader, path string) (*ColorPresetGradationColor, error) {
 	if r.tryReadNil() {
 		return nil, nil
@@ -978,36 +739,29 @@ func colorPresetReadGradation(r *simpleEditDataReader, path string) (*ColorPrese
 	if err != nil {
 		return nil, err
 	}
-	value := &ColorPresetGradationColor{}
 	if fieldCount != 7 {
-		storedFieldCount := int32(fieldCount)
-		value.FieldCount = &storedFieldCount
+		return nil, fmt.Errorf("unsupported %s indexed-array width %d, expected 7", path, fieldCount)
 	}
-	if fieldCount >= 1 {
-		value.Version, err = r.readInt32(path + ".version")
-	}
-	if err == nil && fieldCount >= 2 {
+	value := &ColorPresetGradationColor{}
+	value.Version, err = r.readInt32(path + ".version")
+	if err == nil {
 		value.BaseColor, err = colorPresetReadFreeColor(r, path+".baseColor")
 	}
-	if err == nil && fieldCount >= 3 {
+	if err == nil {
 		value.ShadowColor, err = colorPresetReadFreeColor(r, path+".shadowColor")
 	}
-	if err == nil && fieldCount >= 4 {
+	if err == nil {
 		value.ShadowRate, err = r.readInt32(path + ".shadowRate_")
 	}
-	if err == nil && fieldCount >= 5 {
+	if err == nil {
 		value.Position, err = colorPresetReadControlSlider(r, path+".controlPointPosition")
 	}
-	if err == nil && fieldCount >= 6 {
+	if err == nil {
 		value.RangeBefore, err = colorPresetReadControlSlider(r, path+".controlPointRangeBefore")
 	}
-	if err == nil && fieldCount >= 7 {
+	if err == nil {
 		value.RangeAfter, err = colorPresetReadControlSlider(r, path+".controlPointRangeAfter")
 	}
-	if err != nil {
-		return nil, err
-	}
-	value.FutureSlots, err = colorPresetReadFutureFields(r, 7, fieldCount, path)
 	if err != nil {
 		return nil, err
 	}
@@ -1031,103 +785,53 @@ func validateColorPresetGradation(value *ColorPresetGradationColor, path string,
 	return nil
 }
 
-// colorPresetAppendGradation 按保留的 indexed object 宽度写入一个可空 GradationColor 及三个滑块
-// colorPresetAppendGradation writes one nullable GradationColor and its three sliders using the preserved indexed object width
+// colorPresetAppendGradation 按固定七槽布局写入一个可空 GradationColor 及三个滑块
+// colorPresetAppendGradation writes one nullable GradationColor and its three sliders using the fixed seven-slot layout
 func colorPresetAppendGradation(dst []byte, value *ColorPresetGradationColor, path string) ([]byte, error) {
 	if value == nil {
 		return append(dst, 0xc0), nil
 	}
-	fieldCount, err := resolveIndexedFieldCount(value.FieldCount, 7, value.FutureSlots, path)
-	if err != nil {
-		return nil, err
-	}
-	if fieldCount < 1 && value.Version != 0 {
-		return nil, fmt.Errorf("%s fieldCount %d would discard version=%d", path, fieldCount, value.Version)
-	}
-	if fieldCount < 2 && value.BaseColor != nil {
-		return nil, fmt.Errorf("%s fieldCount %d would discard baseColor", path, fieldCount)
-	}
-	if fieldCount < 3 && value.ShadowColor != nil {
-		return nil, fmt.Errorf("%s fieldCount %d would discard shadowColor", path, fieldCount)
-	}
-	if fieldCount < 4 && value.ShadowRate != 0 {
-		return nil, fmt.Errorf("%s fieldCount %d would discard shadowRate=%d", path, fieldCount, value.ShadowRate)
-	}
-	if fieldCount < 5 && value.Position != nil {
-		return nil, fmt.Errorf("%s fieldCount %d would discard controlPointPosition", path, fieldCount)
-	}
-	if fieldCount < 6 && value.RangeBefore != nil {
-		return nil, fmt.Errorf("%s fieldCount %d would discard controlPointRangeBefore", path, fieldCount)
-	}
-	if fieldCount < 7 && value.RangeAfter != nil {
-		return nil, fmt.Errorf("%s fieldCount %d would discard controlPointRangeAfter", path, fieldCount)
-	}
 	if err := validateColorPresetGradation(value, path, false); err != nil {
 		return nil, err
 	}
-	dst = simpleEditDataAppendArrayHeader(dst, fieldCount)
-	if fieldCount >= 1 {
-		dst = simpleEditDataAppendInt32(dst, value.Version)
+	dst = simpleEditDataAppendArrayHeader(dst, 7)
+	dst = simpleEditDataAppendInt32(dst, value.Version)
+	var err error
+	dst, err = colorPresetAppendFree(dst, value.BaseColor, path+".baseColor")
+	if err != nil {
+		return nil, err
 	}
-	if fieldCount >= 2 {
-		dst, err = colorPresetAppendFree(dst, value.BaseColor, path+".baseColor")
-		if err != nil {
-			return nil, err
-		}
+	dst, err = colorPresetAppendFree(dst, value.ShadowColor, path+".shadowColor")
+	if err != nil {
+		return nil, err
 	}
-	if fieldCount >= 3 {
-		dst, err = colorPresetAppendFree(dst, value.ShadowColor, path+".shadowColor")
-		if err != nil {
-			return nil, err
-		}
-	}
-	if fieldCount >= 4 {
-		dst = simpleEditDataAppendInt32(dst, value.ShadowRate)
-	}
+	dst = simpleEditDataAppendInt32(dst, value.ShadowRate)
 	sliders := []struct {
 		value *ColorPresetControlSlider // 待写入的可空滑块 / Nullable slider to write
 		name  string                    // 用于字段路径的滑块名称 / Slider name used in field paths
 	}{{value.Position, "controlPointPosition"}, {value.RangeBefore, "controlPointRangeBefore"}, {value.RangeAfter, "controlPointRangeAfter"}}
-	for index, slider := range sliders {
-		if fieldCount < 5+int64(index) {
-			break
-		}
+	for _, slider := range sliders {
 		dst, err = colorPresetAppendControlSlider(dst, slider.value, path+"."+slider.name)
 		if err != nil {
 			return nil, err
 		}
 	}
-	for _, slot := range value.FutureSlots {
-		dst = append(dst, slot...)
-	}
 	return dst, nil
 }
 
-// colorPresetAppendControlSlider 按保留的 indexed object 宽度写入一个可空 ControlSlider 原始值
-// colorPresetAppendControlSlider writes one nullable raw ControlSlider value using its preserved indexed object width
+// colorPresetAppendControlSlider 按固定一槽布局写入一个可空 ControlSlider 原始值
+// colorPresetAppendControlSlider writes one nullable raw ControlSlider value using the fixed one-slot layout
 func colorPresetAppendControlSlider(dst []byte, value *ColorPresetControlSlider, path string) ([]byte, error) {
 	if value == nil {
 		return append(dst, 0xc0), nil
 	}
-	fieldCount, err := resolveIndexedFieldCount(value.FieldCount, 1, value.FutureSlots, path)
-	if err != nil {
-		return nil, err
-	}
-	if fieldCount < 1 && math.Float32bits(value.Value) != 0 {
-		return nil, fmt.Errorf("%s fieldCount %d would discard value", path, fieldCount)
-	}
-	dst = simpleEditDataAppendArrayHeader(dst, fieldCount)
-	if fieldCount >= 1 {
-		dst = colorPresetAppendFloat32(dst, value.Value)
-	}
-	for _, slot := range value.FutureSlots {
-		dst = append(dst, slot...)
-	}
+	dst = simpleEditDataAppendArrayHeader(dst, 1)
+	dst = colorPresetAppendFloat32(dst, value.Value)
 	return dst, nil
 }
 
-// colorPresetReadControlSlider 读取一个可空 ControlSlider 的私有 value_ 与未来槽位
-// colorPresetReadControlSlider reads the private value_ and future slots of one nullable ControlSlider
+// colorPresetReadControlSlider 读取一个固定一槽的可空 ControlSlider 私有 value_
+// colorPresetReadControlSlider reads the private value_ of one nullable fixed one-slot ControlSlider
 func colorPresetReadControlSlider(r *simpleEditDataReader, path string) (*ColorPresetControlSlider, error) {
 	if r.tryReadNil() {
 		return nil, nil
@@ -1136,18 +840,11 @@ func colorPresetReadControlSlider(r *simpleEditDataReader, path string) (*ColorP
 	if err != nil {
 		return nil, err
 	}
-	value := &ColorPresetControlSlider{}
 	if fieldCount != 1 {
-		storedFieldCount := int32(fieldCount)
-		value.FieldCount = &storedFieldCount
+		return nil, fmt.Errorf("unsupported %s indexed-array width %d, expected 1", path, fieldCount)
 	}
-	if fieldCount >= 1 {
-		value.Value, err = colorPresetReadSingle(r, path+".value_")
-		if err != nil {
-			return nil, err
-		}
-	}
-	value.FutureSlots, err = colorPresetReadFutureFields(r, 1, fieldCount, path)
+	value := &ColorPresetControlSlider{}
+	value.Value, err = colorPresetReadSingle(r, path+".value_")
 	if err != nil {
 		return nil, err
 	}
@@ -1176,41 +873,31 @@ func colorPresetReadInt32Array(r *simpleEditDataReader, path string) ([]int32, e
 	return result, nil
 }
 
-// colorPresetReadStringArray 读取可空字符串数组，并以平行布尔切片保留各项目的 nil 线状态
-// colorPresetReadStringArray reads a nullable string array and preserves each entry nil wire state in a parallel Boolean slice
-func colorPresetReadStringArray(r *simpleEditDataReader, path string) ([]string, []bool, error) {
+// colorPresetReadStringArray 读取列表及其可空字符串项目
+// colorPresetReadStringArray reads a list whose string entries may be nil
+func colorPresetReadStringArray(r *simpleEditDataReader, path string) ([]*string, error) {
 	if r.tryReadNil() {
-		return nil, nil, nil
+		return nil, nil
 	}
 	count, err := colorPresetReadCollectionHeader(r, path)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	result := makeKCESCountedSliceForAppend[string](uint64(count))
-	var nulls []bool
+	result := makeKCESCountedSliceForAppend[*string](uint64(count))
 	for index := int64(0); index < count; index++ {
 		if r.tryReadNil() {
-			if nulls == nil {
-				nulls = makeKCESCountedSliceForAppend[bool](uint64(count))
-				for range result {
-					nulls = append(nulls, false)
-				}
-			}
-			result = append(result, "")
-			nulls = append(nulls, true)
+			result = append(result, nil)
 			continue
 		}
 		value, readErr := r.readString(fmt.Sprintf("%s[%d]", path, index))
 		err = readErr
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		result = append(result, value)
-		if nulls != nil {
-			nulls = append(nulls, false)
-		}
+		valueCopy := value
+		result = append(result, &valueCopy)
 	}
-	return result, nulls, nil
+	return result, nil
 }
 
 // colorPresetReadNullableString 读取 MessagePack nil 或一个字符串并返回指针表示
@@ -1340,23 +1027,6 @@ func colorPresetReadCollectionHeader(r *simpleEditDataReader, path string) (int6
 		return 0, err
 	}
 	return count, nil
-}
-
-// colorPresetReadFutureFields 跳过已知 Key 之后的字段并逐项复制完整 MessagePack 原始值
-// colorPresetReadFutureFields skips fields after the known keys and copies each complete raw MessagePack value
-func colorPresetReadFutureFields(r *simpleEditDataReader, known, count int64, path string) ([][]byte, error) {
-	if count <= known {
-		return nil, nil
-	}
-	result := makeKCESCountedSliceForAppend[[]byte](uint64(count - known))
-	for field := known; field < count; field++ {
-		start := r.pos
-		if err := r.skipValue(0); err != nil {
-			return nil, fmt.Errorf("skip %s future Key(%d): %w", path, field, err)
-		}
-		result = append(result, append([]byte(nil), r.data[start:r.pos]...))
-	}
-	return result, nil
 }
 
 // colorPresetValidateNullableString 在非 nil 时验证字符串的 UTF-8 与 str32 长度

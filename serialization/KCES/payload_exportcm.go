@@ -47,10 +47,8 @@ func decodeExportCMPayload(data []byte, extension string) (*KCESPayloadEnvelope,
 	return &KCESPayloadEnvelope{
 		Format:         PayloadFormatKCESExportCM,
 		Extension:      ext,
-		LengthPrefixed: false,
 		StorageVariant: storageVariant,
 		Kind:           descriptor.ExportCMKind,
-		Text:           string(jsonData),
 		JSON:           compact,
 	}, nil
 }
@@ -59,9 +57,6 @@ func decodeExportCMPayload(data []byte, extension string) (*KCESPayloadEnvelope,
 // encodeExportCMPayload validates the extension, kind, and storage variant before encoding an ExportCM JSON sidecar
 func encodeExportCMPayload(env *KCESPayloadEnvelope, storageVariant string) ([]byte, error) {
 	ext := NormalizeKCESPayloadExtension(env.Extension)
-	if env.LengthPrefixed {
-		return nil, fmt.Errorf("ExportCM storageVariant %q does not use the int32 lengthPrefixed wire", storageVariant)
-	}
 
 	descriptor, ok := kcesPayloadDescriptorByExtension[ext]
 	if !ok || descriptor.ExportCMKind == "" {
@@ -87,39 +82,20 @@ func encodeExportCMPayload(env *KCESPayloadEnvelope, storageVariant string) ([]b
 	return append([]byte(nil), jsonData...), nil
 }
 
-// editableExportCMJSON 选择应写出的 JSON 字节，并在编辑视图未变化时复用原始文本
-// editableExportCMJSON selects the JSON bytes to write and reuses the original text when the editable view is unchanged
+// editableExportCMJSON 校验并返回规范化的 ExportCM JSON 语义内容
+// editableExportCMJSON validates and returns normalized semantic ExportCM JSON content
 func editableExportCMJSON(env *KCESPayloadEnvelope) ([]byte, error) {
-	if len(env.JSON) != 0 {
-		if !utf8.Valid(env.JSON) {
-			return nil, fmt.Errorf("ExportCM envelope json is not valid UTF-8")
-		}
-		compactJSON, err := compactExportCMJSON(env.JSON)
-		if err != nil {
-			return nil, err
-		}
-
-		// Text 是解码器捕获的准确旁车字符串，JSON 是可编辑解析视图，语义未变化时逐字节保留原始空白和可选 UTF-8 BOM，仅在实际编辑后改用紧凑 JSON
-		// Text is the exact sidecar string captured by the decoder and JSON is its editable parsed view, preserving original whitespace and an optional UTF-8 BOM byte-for-byte when semantically unchanged and using compact JSON only after an actual edit
-		if env.Text != "" && utf8.ValidString(env.Text) {
-			compactText, textErr := compactExportCMJSON([]byte(env.Text))
-			if textErr == nil && bytes.Equal(compactText, compactJSON) {
-				return []byte(env.Text), nil
-			}
-		}
-		return append([]byte(nil), compactJSON...), nil
+	if len(env.JSON) == 0 {
+		return nil, fmt.Errorf("ExportCM envelope json is required")
 	}
-	if !utf8.ValidString(env.Text) {
-		return nil, fmt.Errorf("ExportCM envelope text is not valid UTF-8")
+	if !utf8.Valid(env.JSON) {
+		return nil, fmt.Errorf("ExportCM envelope json is not valid UTF-8")
 	}
-	if env.Text == "" {
-		return nil, fmt.Errorf("ExportCM envelope json or text is required")
-	}
-	text := []byte(env.Text)
-	if _, err := compactExportCMJSON(text); err != nil {
+	compactJSON, err := compactExportCMJSON(env.JSON)
+	if err != nil {
 		return nil, err
 	}
-	return text, nil
+	return append([]byte(nil), compactJSON...), nil
 }
 
 // compactExportCMJSON 去除可选 UTF-8 BOM 并返回校验后的紧凑 JSON

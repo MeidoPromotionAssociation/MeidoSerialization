@@ -22,7 +22,6 @@ func TestSavedAttachServiceJSONRoundTrip(t *testing.T) {
 		Version:   serializationKCES.SavedAttachFileVersion,
 		Items: []serializationKCES.SavedAttachData{{
 			Version:                serializationKCES.SavedAttachRecordVersion,
-			ExplicitVersion:        true,
 			PartName:               &partName,
 			Enabled:                true,
 			MyRID:                  1,
@@ -100,10 +99,9 @@ func TestSavedAttachServiceJSONRoundTrip(t *testing.T) {
 	}
 }
 
-func TestSavedAttachServicePreservesTrailingData(t *testing.T) {
+func TestSavedAttachServiceRejectsTrailingData(t *testing.T) {
 	dir := t.TempDir()
 	value := serializationKCES.NewSavedAttachFile()
-	value.TrailingData = []byte{0xde, 0xad, 0xbe, 0xef}
 	wire, err := serializationKCES.EncodeSavedAttach(value)
 	if err != nil {
 		t.Fatal(err)
@@ -111,19 +109,16 @@ func TestSavedAttachServicePreservesTrailingData(t *testing.T) {
 
 	inputPath := filepath.Join(dir, "metadata.sad")
 	jsonPath := inputPath + ".json"
-	outputPath := filepath.Join(dir, "metadata-roundtrip.sad")
+	wire = append(wire, 0xde, 0xad, 0xbe, 0xef)
 	if err := os.WriteFile(inputPath, wire, 0644); err != nil {
 		t.Fatal(err)
 	}
 	service := &SavedAttachService{}
-	if err := service.ConvertSavedAttachToJSON(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
-		t.Fatal(err)
+	if err := service.ConvertSavedAttachToJSON(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err == nil {
+		t.Fatal("saved-attach trailing data was accepted")
 	}
-	if err := service.ConvertJSONToSavedAttach(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
-		t.Fatal(err)
-	}
-	if got := mustReadTestFile(t, outputPath); !bytes.Equal(got, wire) {
-		t.Fatalf("saved-attach trailing data changed: got %x want %x", got, wire)
+	if _, err := os.Stat(jsonPath); !os.IsNotExist(err) {
+		t.Fatalf("failed conversion created JSON output: %v", err)
 	}
 }
 
@@ -145,11 +140,13 @@ func TestSavedAttachServiceStrictJSONAndRouting(t *testing.T) {
 		t.Fatalf("malformed .sad probe: matched=%v info=%+v err=%v", matched, info, probeErr)
 	}
 	for name, body := range map[string]string{
-		"missing envelope": `{}`,
-		"empty format":     `{"format":"","signature":"SAVED_ATTACH_DATA","version":2000,"items":[]}`,
-		"empty signature":  `{"format":"kces-saved-attach","signature":"","version":2000,"items":[]}`,
-		"unknown":          `{"format":"kces-saved-attach","signature":"SAVED_ATTACH_DATA","version":2000,"items":[],"future":1}`,
-		"trailing":         `{"format":"kces-saved-attach","signature":"SAVED_ATTACH_DATA","version":2000,"items":[]} {}`,
+		"missing envelope":    `{}`,
+		"empty format":        `{"format":"","signature":"SAVED_ATTACH_DATA","version":2000,"items":[]}`,
+		"empty signature":     `{"format":"kces-saved-attach","signature":"","version":2000,"items":[]}`,
+		"unknown":             `{"format":"kces-saved-attach","signature":"SAVED_ATTACH_DATA","version":2000,"items":[],"future":1}`,
+		"trailing":            `{"format":"kces-saved-attach","signature":"SAVED_ATTACH_DATA","version":2000,"items":[]} {}`,
+		"null record version": `{"format":"kces-saved-attach","signature":"SAVED_ATTACH_DATA","version":2000,"items":[{"version":null}]}`,
+		"unsupported version": `{"format":"kces-saved-attach","signature":"SAVED_ATTACH_DATA","version":0,"items":[]}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -173,15 +170,6 @@ func TestSavedAttachServiceStrictJSONAndRouting(t *testing.T) {
 		body  string
 		check func(*testing.T, *serializationKCES.SavedAttachFile)
 	}{
-		{
-			name: "zero version",
-			body: `{"format":"kces-saved-attach","signature":"SAVED_ATTACH_DATA","version":0,"items":[]}`,
-			check: func(t *testing.T, value *serializationKCES.SavedAttachFile) {
-				if value.Version != 0 {
-					t.Fatalf("version = %d, want preserved 0", value.Version)
-				}
-			},
-		},
 		{
 			name: "opaque slot IDs",
 			body: `{"format":"kces-saved-attach","signature":"SAVED_ATTACH_DATA","version":2000,"items":[{"version":2001,"mySlotId":"acchat","targetSlotId":"future_Slot"}]}`,

@@ -8,25 +8,21 @@ import (
 )
 
 func TestKCESPresetEditCustomizeDataTypedRoundTrip(t *testing.T) {
-	fieldCount := int32(4)
 	id := "embedded"
 	warpoint := "HairPoint"
+	flagA := "first"
+	flagZ := "last"
 	colorPreset, err := NewColorPreset("12345678-1234-1234-1234-123456789abc")
 	if err != nil {
 		t.Fatal(err)
 	}
 	base := &KCESPresetEditBaseData{
-		MessagePackRootMetadata: MessagePackRootMetadata{TrailingData: []byte{0xde, 0xad}},
-		IndexedObjectMetadata: &IndexedObjectMetadata{
-			FieldCount:  &fieldCount,
-			FutureSlots: [][]byte{{0x81, 0xa1, 'x', 0xc3}},
-		},
 		Version: -100,
 		ColorPreset: &KCESPresetEditColorPreset{
 			ID:               &id,
 			SerializedPreset: colorPreset,
 		},
-		Flags: map[string]string{"z": "last", "a": "first"},
+		Flags: map[string]*string{"z": &flagZ, "a": &flagA, "nullable": nil},
 	}
 	wire, err := EncodeKCESPresetEditBaseData(base)
 	if err != nil {
@@ -72,27 +68,28 @@ func TestKCESPresetEditCustomizeDataTypedRoundTrip(t *testing.T) {
 	}
 }
 
-func TestKCESPresetEditCustomizeDataRootNilAndEmptySerializedPreset(t *testing.T) {
-	nilBase, err := DecodeKCESPresetEditBaseData([]byte{0xc0, 0x01})
+func TestKCESPresetEditCustomizeDataNullableRootAndSerializedPreset(t *testing.T) {
+	nilBase, err := DecodeKCESPresetEditBaseData([]byte{0xc0})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !nilBase.RootNil || !bytes.Equal(nilBase.TrailingData, []byte{0x01}) {
+	if nilBase != nil {
 		t.Fatalf("nil BaseData = %+v", nilBase)
 	}
-	reencoded, err := EncodeKCESPresetEditBaseData(nilBase)
+	reencoded, err := EncodeKCESPresetEditBaseData(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(reencoded, []byte{0xc0, 0x01}) {
+	if !bytes.Equal(reencoded, []byte{0xc0}) {
 		t.Fatalf("nil BaseData wire = %x", reencoded)
+	}
+	if _, err := DecodeKCESPresetEditBaseData([]byte{0xc0, 0x01}); err == nil {
+		t.Fatal("BaseData accepted trailing bytes after nil root")
 	}
 
 	value := &KCESPresetEditBaseData{
-		Version: KCESPresetEditBaseDataVersion,
-		ColorPreset: &KCESPresetEditColorPreset{
-			SerializedPresetEmpty: true,
-		},
+		Version:     KCESPresetEditBaseDataVersion,
+		ColorPreset: &KCESPresetEditColorPreset{},
 	}
 	wire, err := EncodeKCESPresetEditBaseData(value)
 	if err != nil {
@@ -102,7 +99,7 @@ func TestKCESPresetEditCustomizeDataRootNilAndEmptySerializedPreset(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if decoded.ColorPreset == nil || !decoded.ColorPreset.SerializedPresetEmpty || decoded.ColorPreset.SerializedPreset != nil {
-		t.Fatalf("empty serializedPreset = %+v", decoded.ColorPreset)
+	if decoded.ColorPreset == nil || decoded.ColorPreset.SerializedPreset != nil {
+		t.Fatalf("nullable serializedPreset = %+v", decoded.ColorPreset)
 	}
 }

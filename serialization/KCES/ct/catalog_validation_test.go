@@ -8,8 +8,13 @@ import (
 
 func TestEncodeCatalog_PreservesGameLookupValues(t *testing.T) {
 	valid := func() *AssetBundleCatalog {
-		first := CatalogItem{ResourceIndex: 0, Name: "a.menuassets", Hash: HashStringIgnoreCase("a.menuassets")}
-		second := CatalogItem{ResourceIndex: 0, Name: "z.menuassets", Hash: HashStringIgnoreCase("z.menuassets")}
+		firstName := "a.menuassets"
+		secondName := "z.menuassets"
+		catalogName := "validation_test"
+		resourceName := "validation_test.aba"
+		extension := ".menuassets"
+		first := CatalogItem{ResourceIndex: 0, Name: &firstName, Hash: HashStringIgnoreCase(firstName)}
+		second := CatalogItem{ResourceIndex: 0, Name: &secondName, Hash: HashStringIgnoreCase(secondName)}
 		if first.Hash > second.Hash {
 			first, second = second, first
 		}
@@ -18,11 +23,11 @@ func TestEncodeCatalog_PreservesGameLookupValues(t *testing.T) {
 			Version:           1000,
 			CatalogType:       CatalogTypeParts,
 			PackageType:       PackageTypePlugin,
-			Name:              "validation_test",
+			Name:              &catalogName,
 			Hash:              HashStringIgnoreCase("validation_test.aba"),
-			ResourceFileNames: []string{"validation_test.aba"},
-			ExtensionList:     []string{".menuassets"},
-			Items:             []CatalogItem{first, second},
+			ResourceFileNames: []*string{&resourceName},
+			ExtensionList:     []*string{&extension},
+			Items:             []*CatalogItem{&first, &second},
 		}
 	}
 
@@ -44,7 +49,11 @@ func TestEncodeCatalog_PreservesGameLookupValues(t *testing.T) {
 		{name: "bad_resource_index", edit: func(c *AssetBundleCatalog) { c.Items[0].ResourceIndex = 1 }},
 		{name: "wrong_item_hash", edit: func(c *AssetBundleCatalog) { c.Items[0].Hash++ }},
 		{name: "unsorted_items", edit: func(c *AssetBundleCatalog) { c.Items[0], c.Items[1] = c.Items[1], c.Items[0] }},
-		{name: "duplicate_extension", edit: func(c *AssetBundleCatalog) { c.ExtensionList = []string{".menuassets", ".MENUASSETS"} }},
+		{name: "duplicate_extension", edit: func(c *AssetBundleCatalog) {
+			first := ".menuassets"
+			second := ".MENUASSETS"
+			c.ExtensionList = []*string{&first, &second}
+		}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -67,13 +76,16 @@ func TestEncodeCatalog_PreservesGameLookupValues(t *testing.T) {
 
 func TestEncodeCatalog_PreservesVersionWithoutMutatingInput(t *testing.T) {
 	name := "canonical.menuassets"
+	catalogName := "canonical"
+	resourceName := "canonical.aba"
 	catalog := &AssetBundleCatalog{
+		Kind:              CatalogKindAssetBundle,
 		CatalogType:       CatalogTypeParts,
 		PackageType:       PackageTypePlugin,
-		Name:              "canonical",
+		Name:              &catalogName,
 		Hash:              HashStringIgnoreCase("canonical.aba"),
-		ResourceFileNames: []string{"canonical.aba"},
-		Items:             []CatalogItem{{ResourceIndex: 0, Name: name, Hash: HashStringIgnoreCase(name)}},
+		ResourceFileNames: []*string{&resourceName},
+		Items:             []*CatalogItem{{ResourceIndex: 0, Name: &name, Hash: HashStringIgnoreCase(name)}},
 	}
 	encoded, err := EncodeCatalog(catalog)
 	if err != nil {
@@ -101,7 +113,7 @@ func TestCatalogDecodersRejectMalformedEntries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := DecodeCatalog(malformedCatalog); err == nil || !strings.Contains(err.Error(), "items[0]") {
+	if _, err := DecodeCatalog(malformedCatalog); err == nil || !strings.Contains(err.Error(), "CatalogItem") || !strings.Contains(err.Error(), "hash") {
 		t.Fatalf("malformed catalog item error got %v", err)
 	}
 
@@ -124,13 +136,13 @@ func TestEncodeExtensionNameList_PreservesNamesAndHashes(t *testing.T) {
 	}
 	lists := []*ExtensionNameList{
 		{
-			Extension: ".menuassets",
-			Data: []ExtensionNamePack{
-				{Name: "test.menuassets", Hash: HashStringIgnoreCase("test.menuassets") + 1},
-				{Name: "test.menuassets", Hash: 0},
+			Extension: catalogValidationStringPointer(".menuassets"),
+			Data: []*ExtensionNamePack{
+				{Name: catalogValidationStringPointer("test.menuassets"), Hash: HashStringIgnoreCase("test.menuassets") + 1},
+				{Name: catalogValidationStringPointer("test.menuassets"), Hash: 0},
 			},
 		},
-		{Extension: "", Data: nil},
+		{Extension: catalogValidationStringPointer(""), Data: nil},
 	}
 	for _, list := range lists {
 		encoded, err := EncodeExtensionNameList(list)
@@ -146,3 +158,5 @@ func TestEncodeExtensionNameList_PreservesNamesAndHashes(t *testing.T) {
 		}
 	}
 }
+
+func catalogValidationStringPointer(value string) *string { return &value }

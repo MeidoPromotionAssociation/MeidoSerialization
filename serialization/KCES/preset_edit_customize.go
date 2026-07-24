@@ -22,61 +22,52 @@ const (
 // KCESPresetEditColorPreset corresponds to EditCustomizeData.ColorPreset
 // Its nested serializeBinary byte string is a complete known ColorPreset or ColorPresetSlot MessagePack value and is therefore exposed as a typed model
 type KCESPresetEditColorPreset struct {
-	*IndexedObjectMetadata              // ColorPreset 引用对象的线格式元数据 / Wire metadata for the ColorPreset reference object
-	ID                     *string      `json:"id"`                              // 颜色预设标识，游戏也会保存菜单文件名 / Color-preset identifier, also populated with a menu filename by the game
-	SerializedPreset       *ColorPreset `json:"serializedPreset"`                // 解码后的嵌套颜色预设 / Decoded nested color preset
-	SerializedPresetEmpty  bool         `json:"serializedPresetEmpty,omitempty"` // serializeBinary 是否为非 nil 空数组 / Whether serializeBinary was a non-nil empty array
+	ID               *string      `json:"id"`               // 颜色预设标识，游戏也会保存菜单文件名 / Color-preset identifier, also populated with a menu filename by the game
+	SerializedPreset *ColorPreset `json:"serializedPreset"` // 解码后的嵌套颜色预设 / Decoded nested color preset
 }
 
 // KCESPresetEditBaseData 是保存在 PropBase.editBaseData 中的 Standard MessagePack 对象
 // KCESPresetEditBaseData is the Standard MessagePack object stored in PropBase.editBaseData
 type KCESPresetEditBaseData struct {
-	MessagePackRootMetadata                            // 根值 nil 与尾部字节元数据 / Root nil and trailing-byte metadata
-	*IndexedObjectMetadata                             // BaseData 的线格式元数据 / BaseData wire metadata
-	Version                 int32                      `json:"version"`     // BaseData 对象版本 / BaseData object version
-	ColorPreset             *KCESPresetEditColorPreset `json:"colorPreset"` // 属性颜色预设引用 / Property color-preset reference
-	Flags                   map[string]string          `json:"flags"`       // 编辑自定义字符串标志字典 / Edit-customization string flag map
+	Version     int32                      `json:"version"`     // BaseData 对象版本 / BaseData object version
+	ColorPreset *KCESPresetEditColorPreset `json:"colorPreset"` // 属性颜色预设引用 / Property color-preset reference
+	Flags       map[string]*string         `json:"flags"`       // 编辑自定义字符串标志字典，值可为 nil / Edit-customization string flag map with nullable values
 }
 
 // KCESPresetEditUnitData 是保存在 SubProp.editUnitData 中的 Standard MessagePack 对象
 // KCESPresetEditUnitData is the Standard MessagePack object stored in SubProp.editUnitData
 type KCESPresetEditUnitData struct {
-	MessagePackRootMetadata         // 根值 nil 与尾部字节元数据 / Root nil and trailing-byte metadata
-	*IndexedObjectMetadata          // UnitData 的线格式元数据 / UnitData wire metadata
-	Version                 int32   `json:"version"`      // UnitData 对象版本 / UnitData object version
-	PositionX               float32 `json:"positionX"`    // 编辑单位的 X 位置 / X position of the edit unit
-	PositionY               float32 `json:"positionY"`    // 编辑单位的 Y 位置 / Y position of the edit unit
-	WarpointName            *string `json:"warpointName"` // 编辑单位的定位点名称 / Positioning-point name of the edit unit
+	Version      int32   `json:"version"`      // UnitData 对象版本 / UnitData object version
+	PositionX    float32 `json:"positionX"`    // 编辑单位的 X 位置 / X position of the edit unit
+	PositionY    float32 `json:"positionY"`    // 编辑单位的 Y 位置 / Y position of the edit unit
+	WarpointName *string `json:"warpointName"` // 编辑单位的定位点名称 / Positioning-point name of the edit unit
 }
 
 // kcesPresetEditColorPresetWire 表示 EditCustomizeData.ColorPreset 的原始二槽布局
 // kcesPresetEditColorPresetWire represents the raw two-slot layout of EditCustomizeData.ColorPreset
 type kcesPresetEditColorPresetWire struct {
-	_struct                struct{}    `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"` // ColorPreset 引用对象的线格式元数据 / Wire metadata for the ColorPreset reference object
-	ID                     *string     `json:"-"` // 颜色预设标识 / Color-preset identifier
-	SerializeBinary        []byte      `json:"-"` // 嵌套颜色预设 MessagePack 字节 / Nested color-preset MessagePack bytes
+	_struct         struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	ID              *string  `json:"-"`         // 颜色预设标识 / Color-preset identifier
+	SerializeBinary []byte   `json:"-"`         // 嵌套颜色预设 MessagePack 字节 / Nested color-preset MessagePack bytes
 }
 
 // kcesPresetEditBaseDataWire 表示 BaseData 的原始 indexed-array 布局
 // kcesPresetEditBaseDataWire represents the raw indexed-array layout of BaseData
 type kcesPresetEditBaseDataWire struct {
-	_struct                struct{}                       `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"`                    // BaseData 的线格式元数据 / BaseData wire metadata
-	Version                int32                          `json:"-"` // BaseData 对象版本 / BaseData object version
-	ColorPreset            *kcesPresetEditColorPresetWire `json:"-"` // 原始颜色预设引用 / Raw color-preset reference
-	Flags                  map[string]string              `json:"-"` // 编辑自定义标志字典 / Edit-customization flag map
+	_struct     struct{}                       `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	Version     int32                          `json:"-"`         // BaseData 对象版本 / BaseData object version
+	ColorPreset *kcesPresetEditColorPresetWire `json:"-"`         // 原始颜色预设引用 / Raw color-preset reference
+	Flags       map[string]*string             `json:"-"`         // 编辑自定义标志字典，值可为 nil / Edit-customization flag map with nullable values
 }
 
 // kcesPresetEditUnitDataWire 表示 UnitData 的原始 indexed-array 布局
 // kcesPresetEditUnitDataWire represents the raw indexed-array layout of UnitData
 type kcesPresetEditUnitDataWire struct {
-	_struct                struct{}    `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"` // UnitData 的线格式元数据 / UnitData wire metadata
-	Version                int32       `json:"-"` // UnitData 对象版本 / UnitData object version
-	PositionX              float32     `json:"-"` // 编辑单位的 X 位置 / X position of the edit unit
-	PositionY              float32     `json:"-"` // 编辑单位的 Y 位置 / Y position of the edit unit
-	WarpointName           *string     `json:"-"` // 编辑单位的定位点名称 / Positioning-point name of the edit unit
+	_struct      struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	Version      int32    `json:"-"`         // UnitData 对象版本 / UnitData object version
+	PositionX    float32  `json:"-"`         // 编辑单位的 X 位置 / X position of the edit unit
+	PositionY    float32  `json:"-"`         // 编辑单位的 Y 位置 / Y position of the edit unit
+	WarpointName *string  `json:"-"`         // 编辑单位的定位点名称 / Positioning-point name of the edit unit
 }
 
 // CodecEncodeSelf 按共享 indexed-object 规则编码颜色预设引用线格式
@@ -118,22 +109,20 @@ func (v *kcesPresetEditUnitDataWire) CodecDecodeSelf(d *codec.Decoder) {
 // DecodeKCESPresetEditBaseData 解码 PropBase.editBaseData 的 Standard MessagePack 根值
 // DecodeKCESPresetEditBaseData decodes the Standard MessagePack root stored in PropBase.editBaseData
 func DecodeKCESPresetEditBaseData(data []byte) (*KCESPresetEditBaseData, error) {
-	root, trailing, rootNil, err := splitKCESPresetEditRoot(data, "EditCustomizeData.BaseData")
+	root, rootNil, err := splitKCESPresetEditRoot(data, "EditCustomizeData.BaseData")
 	if err != nil {
 		return nil, err
 	}
 	if rootNil {
-		return &KCESPresetEditBaseData{MessagePackRootMetadata: MessagePackRootMetadata{RootNil: true, TrailingData: trailing}}, nil
+		return nil, nil
 	}
 	var wire kcesPresetEditBaseDataWire
 	if err := decodeKCESPresetEditWire(root, &wire, "EditCustomizeData.BaseData"); err != nil {
 		return nil, err
 	}
 	value := &KCESPresetEditBaseData{
-		MessagePackRootMetadata: MessagePackRootMetadata{TrailingData: trailing},
-		IndexedObjectMetadata:   wire.IndexedObjectMetadata,
-		Version:                 wire.Version,
-		Flags:                   wire.Flags,
+		Version: wire.Version,
+		Flags:   wire.Flags,
 	}
 	if wire.ColorPreset != nil {
 		value.ColorPreset, err = expandKCESPresetEditColorPreset(wire.ColorPreset)
@@ -144,23 +133,15 @@ func DecodeKCESPresetEditBaseData(data []byte) (*KCESPresetEditBaseData, error) 
 	return value, nil
 }
 
-// EncodeKCESPresetEditBaseData 编码 PropBase.editBaseData 并保留根值尾部
-// EncodeKCESPresetEditBaseData encodes PropBase.editBaseData and preserves root trailing bytes
+// EncodeKCESPresetEditBaseData 按固定三槽布局编码 PropBase.editBaseData
+// EncodeKCESPresetEditBaseData encodes PropBase.editBaseData using its fixed three-slot layout
 func EncodeKCESPresetEditBaseData(value *KCESPresetEditBaseData) ([]byte, error) {
 	if value == nil {
 		return []byte{0xc0}, nil
 	}
-	if out, handled, err := encodeNilMessagePackRootIfRequested(
-		value.MessagePackRootMetadata,
-		value.Version != 0 || value.ColorPreset != nil || value.Flags != nil || kcesPresetEditMetadataHasPayload(value.IndexedObjectMetadata),
-		"EditCustomizeData.BaseData",
-	); handled {
-		return out, err
-	}
 	wire := kcesPresetEditBaseDataWire{
-		IndexedObjectMetadata: value.IndexedObjectMetadata,
-		Version:               value.Version,
-		Flags:                 value.Flags,
+		Version: value.Version,
+		Flags:   value.Flags,
 	}
 	var err error
 	if value.ColorPreset != nil {
@@ -173,58 +154,48 @@ func EncodeKCESPresetEditBaseData(value *KCESPresetEditBaseData) ([]byte, error)
 	if err != nil {
 		return nil, fmt.Errorf("encode EditCustomizeData.BaseData MessagePack: %w", err)
 	}
-	return appendMessagePackRootTrailing(root, value.MessagePackRootMetadata), nil
+	return root, nil
 }
 
 // DecodeKCESPresetEditUnitData 解码 SubProp.editUnitData 的 Standard MessagePack 根值
 // DecodeKCESPresetEditUnitData decodes the Standard MessagePack root stored in SubProp.editUnitData
 func DecodeKCESPresetEditUnitData(data []byte) (*KCESPresetEditUnitData, error) {
-	root, trailing, rootNil, err := splitKCESPresetEditRoot(data, "EditCustomizeData.UnitData")
+	root, rootNil, err := splitKCESPresetEditRoot(data, "EditCustomizeData.UnitData")
 	if err != nil {
 		return nil, err
 	}
 	if rootNil {
-		return &KCESPresetEditUnitData{MessagePackRootMetadata: MessagePackRootMetadata{RootNil: true, TrailingData: trailing}}, nil
+		return nil, nil
 	}
 	var wire kcesPresetEditUnitDataWire
 	if err := decodeKCESPresetEditWire(root, &wire, "EditCustomizeData.UnitData"); err != nil {
 		return nil, err
 	}
 	return &KCESPresetEditUnitData{
-		MessagePackRootMetadata: MessagePackRootMetadata{TrailingData: trailing},
-		IndexedObjectMetadata:   wire.IndexedObjectMetadata,
-		Version:                 wire.Version,
-		PositionX:               wire.PositionX,
-		PositionY:               wire.PositionY,
-		WarpointName:            wire.WarpointName,
+		Version:      wire.Version,
+		PositionX:    wire.PositionX,
+		PositionY:    wire.PositionY,
+		WarpointName: wire.WarpointName,
 	}, nil
 }
 
-// EncodeKCESPresetEditUnitData 编码 SubProp.editUnitData 并保留根值尾部
-// EncodeKCESPresetEditUnitData encodes SubProp.editUnitData and preserves root trailing bytes
+// EncodeKCESPresetEditUnitData 按固定四槽布局编码 SubProp.editUnitData
+// EncodeKCESPresetEditUnitData encodes SubProp.editUnitData using its fixed four-slot layout
 func EncodeKCESPresetEditUnitData(value *KCESPresetEditUnitData) ([]byte, error) {
 	if value == nil {
 		return []byte{0xc0}, nil
 	}
-	if out, handled, err := encodeNilMessagePackRootIfRequested(
-		value.MessagePackRootMetadata,
-		value.Version != 0 || value.PositionX != 0 || value.PositionY != 0 || value.WarpointName != nil || kcesPresetEditMetadataHasPayload(value.IndexedObjectMetadata),
-		"EditCustomizeData.UnitData",
-	); handled {
-		return out, err
-	}
 	wire := kcesPresetEditUnitDataWire{
-		IndexedObjectMetadata: value.IndexedObjectMetadata,
-		Version:               value.Version,
-		PositionX:             value.PositionX,
-		PositionY:             value.PositionY,
-		WarpointName:          value.WarpointName,
+		Version:      value.Version,
+		PositionX:    value.PositionX,
+		PositionY:    value.PositionY,
+		WarpointName: value.WarpointName,
 	}
 	root, err := ct.EncodeIndexedMsgpack(&wire)
 	if err != nil {
 		return nil, fmt.Errorf("encode EditCustomizeData.UnitData MessagePack: %w", err)
 	}
-	return appendMessagePackRootTrailing(root, value.MessagePackRootMetadata), nil
+	return root, nil
 }
 
 // NewKCESPresetEditBaseData 创建使用当前版本和游戏字段默认值的新 BaseData
@@ -233,7 +204,7 @@ func NewKCESPresetEditBaseData() *KCESPresetEditBaseData {
 	return &KCESPresetEditBaseData{
 		Version:     KCESPresetEditBaseDataVersion,
 		ColorPreset: &KCESPresetEditColorPreset{},
-		Flags:       map[string]string{},
+		Flags:       map[string]*string{},
 	}
 }
 
@@ -247,19 +218,14 @@ func NewKCESPresetEditUnitData() *KCESPresetEditUnitData {
 // expandKCESPresetEditColorPreset expands nested serializeBinary into a typed color preset
 func expandKCESPresetEditColorPreset(wire *kcesPresetEditColorPresetWire) (*KCESPresetEditColorPreset, error) {
 	value := &KCESPresetEditColorPreset{
-		IndexedObjectMetadata: wire.IndexedObjectMetadata,
-		ID:                    wire.ID,
+		ID: wire.ID,
 	}
 	if wire.SerializeBinary != nil {
-		if len(wire.SerializeBinary) == 0 {
-			value.SerializedPresetEmpty = true
-		} else {
-			preset, err := DecodeColorPreset(wire.SerializeBinary)
-			if err != nil {
-				return nil, fmt.Errorf("decode serializeBinary ColorPreset: %w", err)
-			}
-			value.SerializedPreset = preset
+		preset, err := DecodeColorPreset(wire.SerializeBinary)
+		if err != nil {
+			return nil, fmt.Errorf("decode serializeBinary ColorPreset: %w", err)
 		}
+		value.SerializedPreset = preset
 	}
 	return value, nil
 }
@@ -267,16 +233,10 @@ func expandKCESPresetEditColorPreset(wire *kcesPresetEditColorPresetWire) (*KCES
 // collapseKCESPresetEditColorPreset 将强类型颜色预设折叠回 serializeBinary 字节
 // collapseKCESPresetEditColorPreset collapses a typed color preset back into serializeBinary bytes
 func collapseKCESPresetEditColorPreset(value *KCESPresetEditColorPreset) (*kcesPresetEditColorPresetWire, error) {
-	if value.SerializedPresetEmpty && value.SerializedPreset != nil {
-		return nil, fmt.Errorf("serializedPresetEmpty conflicts with populated serializedPreset")
-	}
 	wire := &kcesPresetEditColorPresetWire{
-		IndexedObjectMetadata: value.IndexedObjectMetadata,
-		ID:                    value.ID,
+		ID: value.ID,
 	}
-	if value.SerializedPresetEmpty {
-		wire.SerializeBinary = []byte{}
-	} else if value.SerializedPreset != nil {
+	if value.SerializedPreset != nil {
 		data, err := EncodeColorPreset(value.SerializedPreset)
 		if err != nil {
 			return nil, fmt.Errorf("encode serializedPreset ColorPreset: %w", err)
@@ -286,31 +246,23 @@ func collapseKCESPresetEditColorPreset(value *KCESPresetEditColorPreset) (*kcesP
 	return wire, nil
 }
 
-// splitKCESPresetEditRoot 拆分首个 MessagePack 根值、尾部字节和 nil 状态
-// splitKCESPresetEditRoot splits the first MessagePack root value, trailing bytes, and nil state
-func splitKCESPresetEditRoot(data []byte, name string) (root, trailing []byte, rootNil bool, err error) {
-	root, trailing, err = ct.SplitFirstMsgpackValue(data)
-	if err != nil {
-		return nil, nil, false, fmt.Errorf("decode %s root MessagePack: %w", name, err)
+// splitKCESPresetEditRoot 拆分唯一完整的 MessagePack 根值并返回 nil 状态
+// splitKCESPresetEditRoot splits the sole complete MessagePack root value and reports its nil state
+func splitKCESPresetEditRoot(data []byte, name string) (root []byte, rootNil bool, err error) {
+	if len(data) == 1 && data[0] == 0xc0 {
+		return append([]byte(nil), data...), true, nil
 	}
-	return root, trailing, len(root) == 1 && root[0] == 0xc0, nil
+	if len(data) == 0 {
+		return nil, false, fmt.Errorf("decode %s root MessagePack: empty input", name)
+	}
+	return append([]byte(nil), data...), false, nil
 }
 
 // decodeKCESPresetEditWire 解码一个必须占满根值的 EditCustomizeData 线格式对象
 // decodeKCESPresetEditWire decodes an EditCustomizeData wire object that must consume the complete root value
 func decodeKCESPresetEditWire(root []byte, out interface{}, name string) error {
-	consumed, err := ct.DecodeMsgpackWithConsumed(root, out)
-	if err != nil {
+	if err := ct.DecodeMsgpack(root, out); err != nil {
 		return fmt.Errorf("decode %s MessagePack: %w", name, err)
 	}
-	if consumed != int64(len(root)) {
-		return fmt.Errorf("decode %s consumed %d of %d root bytes", name, consumed, len(root))
-	}
 	return nil
-}
-
-// kcesPresetEditMetadataHasPayload 判断 indexed-object 元数据是否包含非默认线格式状态
-// kcesPresetEditMetadataHasPayload reports whether indexed-object metadata contains nondefault wire state
-func kcesPresetEditMetadataHasPayload(metadata *IndexedObjectMetadata) bool {
-	return metadata != nil && indexedObjectMetadataHasPayload(*metadata)
 }

@@ -42,29 +42,35 @@ func TestCatalogItemsResolveToAbaAssets(t *testing.T) {
 
 			resourceAssets := make([]map[uint64]int32, len(catalog.ResourceFileNames))
 			for i, resourceName := range catalog.ResourceFileNames {
-				resourcePath := filepath.Join(filepath.Dir(ctPath), resourceName)
+				if resourceName == nil {
+					continue
+				}
+				resourcePath := filepath.Join(filepath.Dir(ctPath), *resourceName)
 				if _, err := os.Stat(resourcePath); err != nil {
 					t.Skipf("resource .aba file %s not available: %v", resourcePath, err)
 				}
 				assets, err := collectAbaAssetTypes(resourcePath)
 				if err != nil {
 					if isEncryptedAbaError(err) {
-						t.Skipf("resource .aba file %s is encrypted and cannot be inspected: %v", resourceName, err)
+						t.Skipf("resource .aba file %s is encrypted and cannot be inspected: %v", *resourceName, err)
 					}
-					t.Fatalf("collect assets from %s: %v", resourceName, err)
+					t.Fatalf("collect assets from %s: %v", *resourceName, err)
 				}
 				resourceAssets[i] = assets
 			}
 
 			for _, item := range catalog.Items {
+				if item == nil {
+					continue
+				}
 				if item.ResourceIndex < 0 || int64(item.ResourceIndex) >= int64(len(resourceAssets)) {
-					t.Fatalf("catalog item %q resourceIndex=%d out of bounds", item.Name, item.ResourceIndex)
+					t.Fatalf("catalog item %q resourceIndex=%d out of bounds", testStringValue(item.Name), item.ResourceIndex)
 				}
 				if !catalogItemShouldResolveToAsset(item) {
 					continue
 				}
 				if _, ok := resourceAssets[item.ResourceIndex][item.Hash]; !ok {
-					t.Fatalf("catalog item %q not found in resource %q", item.Name, catalog.ResourceFileNames[item.ResourceIndex])
+					t.Fatalf("catalog item %q not found in resource %q", testStringValue(item.Name), testStringValue(catalog.ResourceFileNames[item.ResourceIndex]))
 				}
 			}
 			checked++
@@ -112,8 +118,11 @@ func collectAbaAssetTypes(path string) (map[uint64]int32, error) {
 	return assetTypes, nil
 }
 
-func catalogItemShouldResolveToAsset(item ct.CatalogItem) bool {
-	ext := strings.ToLower(filepath.Ext(item.Name))
+func catalogItemShouldResolveToAsset(item *ct.CatalogItem) bool {
+	if item == nil || item.Name == nil {
+		return false
+	}
+	ext := strings.ToLower(filepath.Ext(*item.Name))
 	return ext != "" && ext != ".null"
 }
 

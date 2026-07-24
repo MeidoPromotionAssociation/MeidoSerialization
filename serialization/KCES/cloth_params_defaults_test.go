@@ -2,12 +2,13 @@ package KCES
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
-func TestDecodeClothParamsShortArrayKeepsOnlyPresentFields(t *testing.T) {
+func TestDecodeClothParamsRejectsUnknownShortArray(t *testing.T) {
 	radius := []interface{}{float64(0.9), float64(0.8), true, float64(0.7), true}
 	msgpackData, err := ct.EncodeMsgpack([]interface{}{radius})
 	if err != nil {
@@ -18,19 +19,9 @@ func TestDecodeClothParamsShortArrayKeepsOnlyPresentFields(t *testing.T) {
 		t.Fatalf("CompressLz4BlockArray: %v", err)
 	}
 
-	env, err := DecodeKCESPayload(AddLengthPrefix(compressed), ".dsbconf")
-	if err != nil {
-		t.Fatalf("DecodeKCESPayload: %v", err)
-	}
-	p := env.ClothParams
-	if p == nil {
-		t.Fatal("DecodeKCESPayload returned nil ClothParams")
-	}
-	if p.Radius.StartValue != 0.9 || p.Radius.EndValue != 0.8 || !p.Radius.UseCurveValue {
-		t.Fatalf("present radius key was not decoded: %+v", p.Radius)
-	}
-	if p.Mass != (BezierParam{}) || p.Gravity != (BezierParam{}) || p.WindInfluence != 0 || p.DisableDistance != 0 {
-		t.Fatalf("short payload gained game constructor defaults: %+v", p)
+	_, err = DecodeKCESPayload(AddLengthPrefix(compressed), ".dsbconf")
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "width") {
+		t.Fatalf("DecodeKCESPayload() error = %v, want unsupported indexed-array width", err)
 	}
 }
 
@@ -43,7 +34,7 @@ func TestClothParamsJSONOmittedFieldsRemainZero(t *testing.T) {
 	if p.UseGravity || p.MassInfluence != 0 || p.GravityDirection != (Vector3{X: 2}) {
 		t.Fatalf("explicit JSON values were overwritten: %+v", p)
 	}
-	if p.Mass != (BezierParam{}) || p.Gravity != (BezierParam{}) || p.WindInfluence != 0 || p.DisableDistance != 0 {
+	if p.Mass != nil || p.Gravity != nil || p.WindInfluence != 0 || p.DisableDistance != 0 {
 		t.Fatalf("omitted JSON fields gained game constructor defaults: %+v", p)
 	}
 	created := NewClothParams()
@@ -52,6 +43,10 @@ func TestClothParamsJSONOmittedFieldsRemainZero(t *testing.T) {
 
 func assertClothGameDefaults(t *testing.T, p *ClothParams) {
 	t.Helper()
+	if p.Mass == nil || p.Gravity == nil || p.Drag == nil || p.MaxVelocity == nil ||
+		p.SpringDirectionAtten == nil || p.PenetrationRadius == nil {
+		t.Fatalf("NewClothParams returned nil initialized curve: %+v", p)
+	}
 	checks := []struct {
 		name string
 		got  float32

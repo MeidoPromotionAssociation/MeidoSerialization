@@ -30,7 +30,7 @@ func TestModelEncodersAcceptInt32BoundariesWithoutMutation(t *testing.T) {
 		t.Fatalf("EncodeModel mutated caller\nbefore: %s\nafter:  %s", before, after)
 	}
 
-	assets := &ModelAssets{Assets: []Model{model}}
+	assets := &ModelAssets{Assets: []*Model{&model}}
 	assetsBefore := mustMarshalModelInt32Test(t, assets)
 	if _, err := EncodeModelAssets(assets); err != nil {
 		t.Fatalf("EncodeModelAssets rejected exact Int32 boundaries: %v", err)
@@ -41,14 +41,17 @@ func TestModelEncodersAcceptInt32BoundariesWithoutMutation(t *testing.T) {
 }
 
 func validModelForInt32Test() Model {
+	root := modelInt32String("root")
+	morph := modelInt32String("morph")
+	groupName := modelInt32String("group")
 	return Model{
 		Version:          modelFixVersion,
-		ModelName:        "root",
-		TransData:        []TransData{{Name: "root", ParentNo: -1}},
-		BoneNames:        []string{"root"},
-		MaterialFileName: []string{},
-		Morphs: []BlendData{{
-			Name:   "morph",
+		ModelName:        root,
+		TransData:        []*TransData{{Name: root, ParentNo: -1}},
+		BoneNames:        []*string{root},
+		MaterialFileName: []*string{},
+		Morphs: []*BlendData{{
+			Name:   morph,
 			VIndex: []int32{0},
 			Vert:   []Vector3{{}},
 			Norm:   []Vector3{{}},
@@ -56,15 +59,15 @@ func validModelForInt32Test() Model {
 		}},
 		SkinThick: &SkinThickness{
 			Use: true,
-			Groups: map[string]ThicknessGroup{
+			Groups: map[string]*ThicknessGroup{
 				"group": {
-					GroupName:       "group",
-					StartBoneName:   "root",
-					EndBoneName:     "root",
+					GroupName:       groupName,
+					StartBoneName:   root,
+					EndBoneName:     root,
 					StepAngleDegree: 1,
-					Points: []ThicknessPoint{{
-						TargetBoneName: "root",
-						DistanceParAngle: []ThicknessDefPerAngle{{
+					Points: []*ThicknessPoint{{
+						TargetBoneName: root,
+						DistanceParAngle: []*ThicknessDefPerAngle{{
 							AngleDegree: 0,
 							VertexIndex: 0,
 						}},
@@ -74,6 +77,8 @@ func validModelForInt32Test() Model {
 		},
 	}
 }
+
+func modelInt32String(value string) *string { return &value }
 
 func mustMarshalModelInt32Test(t *testing.T, value interface{}) []byte {
 	t.Helper()

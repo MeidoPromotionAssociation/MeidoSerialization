@@ -28,9 +28,8 @@ const (
 // MaidColliderFile represents the custom BinaryReader payload consumed by MaidColliderCollect
 // In the System AssetBundle these TextAssets are named maid_collider and maid_collider_touch, while source resource names additionally use .bytes
 type MaidColliderFile struct {
-	Format       string                `json:"format"`                 // JSON 表示格式标识 / JSON representation format identifier
-	Colliders    []MaidCapsuleCollider `json:"colliders"`              // 胶囊碰撞体列表 / Capsule-collider list
-	TrailingData []byte                `json:"trailingData,omitempty"` // 游戏读取声明条目后忽略的尾部字节 / Trailing bytes ignored by the game after reading the declared entries
+	Format    string                `json:"format"`    // JSON 表示格式标识 / JSON representation format identifier
+	Colliders []MaidCapsuleCollider `json:"colliders"` // 胶囊碰撞体列表 / Capsule-collider list
 }
 
 // MaidCapsuleCollider 表示一个绑定到骨骼路径的 Unity 胶囊碰撞体
@@ -43,8 +42,8 @@ type MaidCapsuleCollider struct {
 	Radius    float32 `json:"radius"`    // 胶囊半径 / Capsule radius
 }
 
-// DecodeMaidCollider 解码无签名的女仆胶囊碰撞体列表并保留尾部字节
-// DecodeMaidCollider decodes a signatureless maid capsule-collider list and preserves trailing bytes
+// DecodeMaidCollider 解码一个完整的无签名女仆胶囊碰撞体列表并拒绝尾部字节
+// DecodeMaidCollider decodes one complete signatureless maid capsule-collider list and rejects trailing bytes
 func DecodeMaidCollider(data []byte) (*MaidColliderFile, error) {
 	if len(data) < 4 {
 		return nil, fmt.Errorf("maid collider payload is too short: %d", len(data))
@@ -95,16 +94,13 @@ func DecodeMaidCollider(data []byte) (*MaidColliderFile, error) {
 		result.Colliders = append(result.Colliders, entry)
 	}
 	if r.Len() != 0 {
-		result.TrailingData = make([]byte, r.Len())
-		if _, err := r.Read(result.TrailingData); err != nil {
-			return nil, fmt.Errorf("read maid collider trailing data: %w", err)
-		}
+		return nil, fmt.Errorf("maid collider has %d bytes of trailing data", r.Len())
 	}
 	return result, nil
 }
 
-// EncodeMaidCollider 编码无签名的女仆胶囊碰撞体列表及保留尾部字节
-// EncodeMaidCollider encodes a signatureless maid capsule-collider list and its preserved trailing bytes
+// EncodeMaidCollider 编码一个完整的无签名女仆胶囊碰撞体列表
+// EncodeMaidCollider encodes one complete signatureless maid capsule-collider list
 func EncodeMaidCollider(value *MaidColliderFile) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil maid collider payload")
@@ -143,11 +139,6 @@ func EncodeMaidCollider(value *MaidColliderFile) ([]byte, error) {
 		}
 		if err := writer.WriteFloat32(entry.Radius); err != nil {
 			return nil, err
-		}
-	}
-	if len(value.TrailingData) != 0 {
-		if _, err := out.Write(value.TrailingData); err != nil {
-			return nil, fmt.Errorf("write maid collider trailing data: %w", err)
 		}
 	}
 	return out.Bytes(), nil

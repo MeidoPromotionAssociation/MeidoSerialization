@@ -64,8 +64,8 @@ func inspectKcesCatalog(path string) error {
 
 	fmt.Printf("=== Catalog ===\n")
 	fmt.Printf("  Version:           %d\n", cat.Version)
-	fmt.Printf("  Name:              %q\n", cat.Name)
-	fmt.Printf("  SubName:           %q\n", cat.SubName)
+	fmt.Printf("  Name:              %q\n", formatNullableStringForCLI(cat.Name))
+	fmt.Printf("  SubName:           %q\n", formatNullableStringForCLI(cat.SubName))
 	fmt.Printf("  CatalogType:       %d\n", cat.CatalogType)
 	fmt.Printf("  PackageType:       %d\n", cat.PackageType)
 	fmt.Printf("  Priority:          %d\n", cat.Priority)
@@ -77,22 +77,48 @@ func inspectKcesCatalog(path string) error {
 
 	fmt.Printf("\n=== Items (%d) ===\n", len(cat.Items))
 	for i, item := range cat.Items {
-		fmt.Printf("  [%d] resourceIndex=%d name=%q hash=%d\n", i, item.ResourceIndex, item.Name, item.Hash)
+		if item == nil {
+			fmt.Printf("  [%d] null\n", i)
+			continue
+		}
+		fmt.Printf("  [%d] resourceIndex=%d name=%q hash=%d\n", i, item.ResourceIndex, formatNullableStringForCLI(item.Name), item.Hash)
 	}
 
-	for _, ext := range cat.ExtensionList {
+	for index, extension := range cat.ExtensionList {
+		if extension == nil {
+			fmt.Printf("\n=== ExtensionNameList[%d] null ===\n", index)
+			continue
+		}
+		ext := *extension
 		enl, err := ct.DecodeExtensionNameListFromCt(table, ext)
 		if err != nil {
 			fmt.Printf("\n=== ExtensionNameList %q (decode failed: %v) ===\n", ext, err)
 			continue
 		}
+		if enl == nil {
+			fmt.Printf("\n=== ExtensionNameList %q null ===\n", ext)
+			continue
+		}
 		fmt.Printf("\n=== ExtensionNameList %q (%d entries) ===\n", ext, len(enl.Data))
 		for i, p := range enl.Data {
-			fmt.Printf("  [%d] name=%q hash=%d\n", i, p.Name, p.Hash)
+			if p == nil {
+				fmt.Printf("  [%d] null\n", i)
+				continue
+			}
+			fmt.Printf("  [%d] name=%q hash=%d\n", i, formatNullableStringForCLI(p.Name), p.Hash)
 		}
 	}
 
 	return nil
+}
+
+// formatNullableStringForCLI 将可空字符串转换为 CLI 输出文本，nil 显示为 <nil>
+// formatNullableStringForCLI converts a nullable string to CLI text and displays nil as <nil>
+func formatNullableStringForCLI(value *string) string {
+	if value == nil {
+		return "<nil>"
+	}
+	return *value
 }
 
 func init() {

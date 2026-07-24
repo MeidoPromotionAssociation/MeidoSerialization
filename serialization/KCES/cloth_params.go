@@ -1,7 +1,6 @@
 package KCES
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -21,7 +20,7 @@ func DecodeClothParamsFile(data []byte, extension string) (*ClothParams, error) 
 		return nil, err
 	}
 	if env.ClothParams == nil {
-		return nil, fmt.Errorf("payload is not ClothParams")
+		return nil, nil
 	}
 	return env.ClothParams, nil
 }
@@ -38,7 +37,6 @@ func EncodeClothParamsFile(params *ClothParams, extension string) ([]byte, error
 	env := &KCESPayloadEnvelope{
 		Format:         PayloadFormatKCESMessagePack,
 		Extension:      ext,
-		LengthPrefixed: true,
 		StorageVariant: PayloadStorageInt32LZ4MessagePack,
 		Kind:           PayloadKindClothParams,
 		ClothParams:    params,
@@ -49,19 +47,18 @@ func EncodeClothParamsFile(params *ClothParams, extension string) ([]byte, error
 // BezierParam 对应 MagicaCloth.BezierParam
 // BezierParam corresponds to MagicaCloth.BezierParam
 type BezierParam struct {
-	_struct                struct{}    `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"` // 索引对象的线格式元数据 / Indexed-object wire metadata
-	StartValue             float32     `json:"startValue"`    // 起始值 / Start value
-	EndValue               float32     `json:"endValue"`      // 结束值 / End value
-	UseEndValue            bool        `json:"useEndValue"`   // 是否使用结束值 / Whether the end value is used
-	CurveValue             float32     `json:"curveValue"`    // 曲线值 / Curve value
-	UseCurveValue          bool        `json:"useCurveValue"` // 是否使用曲线值 / Whether the curve value is used
+	_struct       struct{} `codec:",toarray"`     // 强制按数组编码 / Forces array encoding
+	StartValue    float32  `json:"startValue"`    // 起始值 / Start value
+	EndValue      float32  `json:"endValue"`      // 结束值 / End value
+	UseEndValue   bool     `json:"useEndValue"`   // 是否使用结束值 / Whether the end value is used
+	CurveValue    float32  `json:"curveValue"`    // 曲线值 / Curve value
+	UseCurveValue bool     `json:"useCurveValue"` // 是否使用曲线值 / Whether the curve value is used
 }
 
 // newBezierParam 按游戏字段顺序创建一个 BezierParam 值
 // newBezierParam creates a BezierParam value in the game's field order
-func newBezierParam(start, end float32, useEnd bool, curve float32, useCurve bool) BezierParam {
-	return BezierParam{
+func newBezierParam(start, end float32, useEnd bool, curve float32, useCurve bool) *BezierParam {
+	return &BezierParam{
 		StartValue:    start,
 		EndValue:      end,
 		UseEndValue:   useEnd,
@@ -113,24 +110,21 @@ const (
 )
 
 // ClothParams 对应 MagicaCloth.ClothParams
-// MessagePack-CSharp 以 Key(0) 至 Key(82) 的 indexed array 写入，Key(4)、Key(5) 和 Key(56) 是当前游戏类型中的空洞并需要保留
+// MessagePack-CSharp 以 Key(0) 至 Key(82) 的固定 indexed array 写入，Key(4)、Key(5) 和 Key(56) 是当前游戏类型中必须为 nil 的稀疏槽
 // ClothParams corresponds to MagicaCloth.ClothParams
-// MessagePack-CSharp writes Key(0) through Key(82) as an indexed array with sparse holes at Key(4), Key(5), and Key(56) that must be preserved
+// MessagePack-CSharp writes Key(0) through Key(82) as a fixed indexed array whose sparse slots at Key(4), Key(5), and Key(56) must be nil
 type ClothParams struct {
-	_struct                          struct{}             `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata           `codec:"-"`          // 索引对象的线格式元数据 / Indexed-object wire metadata
-	Radius                           BezierParam          `json:"radius"`                           // 粒子半径曲线参数 / Particle radius curve parameter
-	Mass                             BezierParam          `json:"mass"`                             // 质量曲线参数 / Mass curve parameter
+	_struct                          struct{}             `codec:",toarray" kces:"nil=4,5,56"`      // 强制按数组编码并声明固定 nil 稀疏 Key / Forces array encoding and declares fixed nil sparse keys
+	Radius                           *BezierParam         `json:"radius"`                           // 可空粒子半径曲线参数 / Nullable particle-radius curve parameter
+	Mass                             *BezierParam         `json:"mass"`                             // 可空质量曲线参数 / Nullable mass curve parameter
 	UseGravity                       bool                 `json:"useGravity"`                       // 是否使用重力 / Whether gravity is enabled
-	Gravity                          BezierParam          `json:"gravity"`                          // 重力强度曲线参数 / Gravity strength curve parameter
-	Reserved04                       RawMessagePackSlot   `json:"reserved04,omitempty"`             // C# 无 Key(4)；原始稀疏槽位 / C# has no Key(4); raw sparse slot
-	Reserved05                       RawMessagePackSlot   `json:"reserved05,omitempty"`             // C# 无 Key(5)；原始稀疏槽位 / C# has no Key(5); raw sparse slot
+	Gravity                          *BezierParam         `json:"gravity"`                          // 可空重力强度曲线参数 / Nullable gravity-strength curve parameter
 	UseDrag                          bool                 `json:"useDrag"`                          // 是否使用阻力 / Whether drag is enabled
-	Drag                             BezierParam          `json:"drag"`                             // 阻力曲线参数 / Drag curve parameter
+	Drag                             *BezierParam         `json:"drag"`                             // 可空阻力曲线参数 / Nullable drag curve parameter
 	UseMaxVelocity                   bool                 `json:"useMaxVelocity"`                   // 是否限制最大速度 / Whether maximum velocity is limited
-	MaxVelocity                      BezierParam          `json:"maxVelocity"`                      // 最大速度曲线参数 / Maximum velocity curve parameter
-	WorldMoveInfluence               BezierParam          `json:"worldMoveInfluence"`               // 世界移动影响曲线参数 / World movement influence curve parameter
-	WorldRotationInfluence           BezierParam          `json:"worldRotationInfluence"`           // 世界旋转影响曲线参数 / World rotation influence curve parameter
+	MaxVelocity                      *BezierParam         `json:"maxVelocity"`                      // 可空最大速度曲线参数 / Nullable maximum-velocity curve parameter
+	WorldMoveInfluence               *BezierParam         `json:"worldMoveInfluence"`               // 可空世界移动影响曲线参数 / Nullable world-movement influence curve parameter
+	WorldRotationInfluence           *BezierParam         `json:"worldRotationInfluence"`           // 可空世界旋转影响曲线参数 / Nullable world-rotation influence curve parameter
 	MassInfluence                    float32              `json:"massInfluence"`                    // 质量影响系数 / Mass influence factor
 	WindInfluence                    float32              `json:"windInfluence"`                    // 风力影响系数 / Wind influence factor
 	WindRandomScale                  float32              `json:"windRandomScale"`                  // 风力随机缩放 / Wind random scale
@@ -145,26 +139,26 @@ type ClothParams struct {
 	ClampDistanceMaxRatio            float32              `json:"clampDistanceMaxRatio"`            // 距离比例最大值 / Maximum distance ratio
 	ClampDistanceVelocityInfluence   float32              `json:"clampDistanceVelocityInfluence"`   // 距离约束速度影响系数 / Velocity influence for distance clamp
 	UseClampPositionLength           bool                 `json:"useClampPositionLength"`           // 是否启用位置长度约束 / Whether position-length clamp is enabled
-	ClampPositionLength              BezierParam          `json:"clampPositionLength"`              // 位置长度约束曲线参数 / Position-length clamp curve parameter
+	ClampPositionLength              *BezierParam         `json:"clampPositionLength"`              // 可空位置长度约束曲线参数 / Nullable position-length clamp curve parameter
 	ClampPositionRatioX              float32              `json:"clampPositionRatioX"`              // X 轴位置约束比例 / X-axis position clamp ratio
 	ClampPositionRatioY              float32              `json:"clampPositionRatioY"`              // Y 轴位置约束比例 / Y-axis position clamp ratio
 	ClampPositionRatioZ              float32              `json:"clampPositionRatioZ"`              // Z 轴位置约束比例 / Z-axis position clamp ratio
 	ClampPositionVelocityInfluence   float32              `json:"clampPositionVelocityInfluence"`   // 位置约束速度影响系数 / Velocity influence for position clamp
 	UseClampRotation                 bool                 `json:"useClampRotation"`                 // 是否启用旋转约束 / Whether rotation clamp is enabled
-	ClampRotationAngle               BezierParam          `json:"clampRotationAngle"`               // 旋转角度约束曲线参数 / Rotation angle clamp curve parameter
+	ClampRotationAngle               *BezierParam         `json:"clampRotationAngle"`               // 可空旋转角度约束曲线参数 / Nullable rotation-angle clamp curve parameter
 	ClampRotationVelocityInfluence   float32              `json:"clampRotationVelocityInfluence"`   // 旋转约束速度影响系数 / Velocity influence for rotation clamp
 	RestoreDistanceVelocityInfluence float32              `json:"restoreDistanceVelocityInfluence"` // 距离恢复速度影响系数 / Velocity influence for distance restoration
-	StructDistanceStiffness          BezierParam          `json:"structDistanceStiffness"`          // 结构距离刚性曲线参数 / Structural distance stiffness curve parameter
+	StructDistanceStiffness          *BezierParam         `json:"structDistanceStiffness"`          // 可空结构距离刚性曲线参数 / Nullable structural-distance stiffness curve parameter
 	UseBendDistance                  bool                 `json:"useBendDistance"`                  // 是否启用弯曲距离约束 / Whether bend-distance constraint is enabled
 	BendDistanceMaxCount             int32                `json:"bendDistanceMaxCount"`             // 弯曲距离最大计算数量 / Maximum bend-distance count
-	BendDistanceStiffness            BezierParam          `json:"bendDistanceStiffness"`            // 弯曲距离刚性曲线参数 / Bend-distance stiffness curve parameter
+	BendDistanceStiffness            *BezierParam         `json:"bendDistanceStiffness"`            // 可空弯曲距离刚性曲线参数 / Nullable bend-distance stiffness curve parameter
 	UseNearDistance                  bool                 `json:"useNearDistance"`                  // 是否启用近邻距离约束 / Whether near-distance constraint is enabled
 	NearDistanceMaxCount             int32                `json:"nearDistanceMaxCount"`             // 近邻距离最大计算数量 / Maximum near-distance count
 	NearDistanceMaxDepth             float32              `json:"nearDistanceMaxDepth"`             // 近邻距离最大深度 / Maximum near-distance depth
-	NearDistanceLength               BezierParam          `json:"nearDistanceLength"`               // 近邻距离长度曲线参数 / Near-distance length curve parameter
-	NearDistanceStiffness            BezierParam          `json:"nearDistanceStiffness"`            // 近邻距离刚性曲线参数 / Near-distance stiffness curve parameter
+	NearDistanceLength               *BezierParam         `json:"nearDistanceLength"`               // 可空近邻距离长度曲线参数 / Nullable near-distance length curve parameter
+	NearDistanceStiffness            *BezierParam         `json:"nearDistanceStiffness"`            // 可空近邻距离刚性曲线参数 / Nullable near-distance stiffness curve parameter
 	UseRestoreRotation               bool                 `json:"useRestoreRotation"`               // 是否启用旋转恢复 / Whether rotation restoration is enabled
-	RestoreRotation                  BezierParam          `json:"restoreRotation"`                  // 旋转恢复曲线参数 / Rotation restoration curve parameter
+	RestoreRotation                  *BezierParam         `json:"restoreRotation"`                  // 可空旋转恢复曲线参数 / Nullable rotation-restoration curve parameter
 	RestoreRotationVelocityInfluence float32              `json:"restoreRotationVelocityInfluence"` // 旋转恢复速度影响系数 / Velocity influence for rotation restoration
 	UseSpring                        bool                 `json:"useSpring"`                        // 是否启用弹簧力 / Whether spring force is enabled
 	SpringPower                      float32              `json:"springPower"`                      // 弹簧力强度 / Spring force power
@@ -173,17 +167,16 @@ type ClothParams struct {
 	SpringScaleY                     float32              `json:"springScaleY"`                     // 弹簧 Y 轴缩放 / Spring Y-axis scale
 	SpringScaleZ                     float32              `json:"springScaleZ"`                     // 弹簧 Z 轴缩放 / Spring Z-axis scale
 	SpringIntensity                  float32              `json:"springIntensity"`                  // 弹簧强度 / Spring intensity
-	SpringDirectionAtten             BezierParam          `json:"springDirectionAtten"`             // 弹簧方向衰减曲线参数 / Spring direction attenuation curve parameter
-	SpringDistanceAtten              BezierParam          `json:"springDistanceAtten"`              // 弹簧距离衰减曲线参数 / Spring distance attenuation curve parameter
-	Reserved56                       RawMessagePackSlot   `json:"reserved56,omitempty"`             // C# 无 Key(56)；原始稀疏槽位 / C# has no Key(56); raw sparse slot
+	SpringDirectionAtten             *BezierParam         `json:"springDirectionAtten"`             // 可空弹簧方向衰减曲线参数 / Nullable spring-direction attenuation curve parameter
+	SpringDistanceAtten              *BezierParam         `json:"springDistanceAtten"`              // 可空弹簧距离衰减曲线参数 / Nullable spring-distance attenuation curve parameter
 	AdjustMode                       ClothAdjustMode      `json:"adjustMode"`                       // 调整模式枚举 / Adjustment mode enum
 	AdjustRotationPower              float32              `json:"adjustRotationPower"`              // 调整旋转力度 / Adjustment rotation power
 	UseTriangleBend                  bool                 `json:"useTriangleBend"`                  // 是否启用三角形弯曲 / Whether triangle bend is enabled
-	TriangleBend                     BezierParam          `json:"triangleBend"`                     // 三角形弯曲曲线参数 / Triangle bend curve parameter
+	TriangleBend                     *BezierParam         `json:"triangleBend"`                     // 可空三角形弯曲曲线参数 / Nullable triangle-bend curve parameter
 	UseVolume                        bool                 `json:"useVolume"`                        // 是否启用体积约束 / Whether volume constraint is enabled
 	MaxVolumeLength                  float32              `json:"maxVolumeLength"`                  // 最大体积边长 / Maximum volume length
-	VolumeStretchStiffness           BezierParam          `json:"volumeStretchStiffness"`           // 体积拉伸刚性曲线参数 / Volume stretch stiffness curve parameter
-	VolumeShearStiffness             BezierParam          `json:"volumeShearStiffness"`             // 体积剪切刚性曲线参数 / Volume shear stiffness curve parameter
+	VolumeStretchStiffness           *BezierParam         `json:"volumeStretchStiffness"`           // 可空体积拉伸刚性曲线参数 / Nullable volume-stretch stiffness curve parameter
+	VolumeShearStiffness             *BezierParam         `json:"volumeShearStiffness"`             // 可空体积剪切刚性曲线参数 / Nullable volume-shear stiffness curve parameter
 	UseCollision                     bool                 `json:"useCollision"`                     // 是否启用碰撞 / Whether collision is enabled
 	Friction                         float32              `json:"friction"`                         // 摩擦系数 / Friction coefficient
 	KeepInitialShape                 bool                 `json:"keepInitialShape"`                 // 是否保持初始形状 / Whether the initial shape is kept
@@ -191,9 +184,9 @@ type ClothParams struct {
 	PenetrationMode                  ClothPenetrationMode `json:"penetrationMode"`                  // 穿透修正模式枚举 / Penetration correction mode enum
 	PenetrationAxis                  ClothPenetrationAxis `json:"penetrationAxis"`                  // 穿透修正轴枚举 / Penetration correction axis enum
 	PenetrationMaxDepth              float32              `json:"penetrationMaxDepth"`              // 最大穿透深度 / Maximum penetration depth
-	PenetrationConnectDistance       BezierParam          `json:"penetrationConnectDistance"`       // 穿透连接距离曲线参数 / Penetration connection distance curve parameter
-	PenetrationDistance              BezierParam          `json:"penetrationDistance"`              // 穿透距离曲线参数 / Penetration distance curve parameter
-	PenetrationRadius                BezierParam          `json:"penetrationRadius"`                // 穿透半径曲线参数 / Penetration radius curve parameter
+	PenetrationConnectDistance       *BezierParam         `json:"penetrationConnectDistance"`       // 可空穿透连接距离曲线参数 / Nullable penetration-connection distance curve parameter
+	PenetrationDistance              *BezierParam         `json:"penetrationDistance"`              // 可空穿透距离曲线参数 / Nullable penetration-distance curve parameter
+	PenetrationRadius                *BezierParam         `json:"penetrationRadius"`                // 可空穿透半径曲线参数 / Nullable penetration-radius curve parameter
 	UseLineAvarageRotation           bool                 `json:"useLineAvarageRotation"`           // 是否使用线段平均旋转，字段名保留游戏 Avarage 拼写 / Whether line average rotation is used, keeping the game's Avarage spelling
 	UseFixedNonRotation              bool                 `json:"useFixedNonRotation"`              // 是否固定非旋转姿态 / Whether non-rotation pose is fixed
 	GravityDirection                 Vector3              `json:"gravityDirection"`                 // 重力方向 / Gravity direction
@@ -279,7 +272,7 @@ func NewClothParams() *ClothParams {
 func (p *ClothParams) UnmarshalJSON(data []byte) error {
 	type plainClothParams ClothParams
 	var value plainClothParams
-	if err := json.Unmarshal(data, &value); err != nil {
+	if err := decodeKCESJSONStrict(data, &value); err != nil {
 		return err
 	}
 	*p = ClothParams(value)

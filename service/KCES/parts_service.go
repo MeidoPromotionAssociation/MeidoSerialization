@@ -1,6 +1,7 @@
 package KCES
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -50,6 +51,9 @@ func IsKCESPartsJSONFile(path string) bool {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return false
+		}
+		if bytes.Equal(bytes.TrimSpace(trimJSONUTF8BOM(data)), []byte("null")) {
+			return true
 		}
 		var obj map[string]json.RawMessage
 		if err := json.Unmarshal(trimJSONUTF8BOM(data), &obj); err != nil {
@@ -138,29 +142,29 @@ func encodePartsJSON(ext string, data []byte) ([]byte, error) {
 	data = trimJSONUTF8BOM(data)
 	switch strings.ToLower(ext) {
 	case ".menuassets":
-		var assets KCES.MenuAssets
+		var assets *KCES.MenuAssets
 		if err := decodeStrictJSON(data, &assets, "KCES menuassets JSON"); err != nil {
 			return nil, fmt.Errorf("parse menuassets json: %w", err)
 		}
-		return KCES.EncodeMenuAssets(&assets)
+		return KCES.EncodeMenuAssets(assets)
 	case ".materialassets":
-		var assets KCES.MaterialAssets
+		var assets *KCES.MaterialAssets
 		if err := decodeStrictJSON(data, &assets, "KCES materialassets JSON"); err != nil {
 			return nil, fmt.Errorf("parse materialassets json: %w", err)
 		}
-		return KCES.EncodeMaterialAssets(&assets)
+		return KCES.EncodeMaterialAssets(assets)
 	case ".pmatassets":
-		var assets KCES.PriorityMaterialAssets
+		var assets *KCES.PriorityMaterialAssets
 		if err := decodeStrictJSON(data, &assets, "KCES pmatassets JSON"); err != nil {
 			return nil, fmt.Errorf("parse pmatassets json: %w", err)
 		}
-		return KCES.EncodePriorityMaterialAssets(&assets)
+		return KCES.EncodePriorityMaterialAssets(assets)
 	case ".model":
-		var model KCES.Model
+		var model *KCES.Model
 		if err := decodeStrictJSON(data, &model, "KCES model JSON"); err != nil {
 			return nil, fmt.Errorf("parse model json: %w", err)
 		}
-		return KCES.EncodeModel(&model)
+		return KCES.EncodeModel(model)
 	default:
 		return nil, fmt.Errorf("unsupported KCES parts JSON type: %s", ext)
 	}

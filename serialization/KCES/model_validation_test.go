@@ -5,12 +5,12 @@ import "testing"
 func TestModelNameSelectsExactlyOneTransform(t *testing.T) {
 	tests := []struct {
 		name      string
-		modelName string
-		transData []TransData
+		modelName *string
+		transData []*TransData
 	}{
-		{name: "missing selector", transData: []TransData{{Name: "root", ParentNo: -1}}},
-		{name: "unknown selector", modelName: "missing", transData: []TransData{{Name: "root", ParentNo: -1}}},
-		{name: "ambiguous selector", modelName: "root", transData: []TransData{{Name: "root", ParentNo: -1}, {Name: "root", ParentNo: -1}}},
+		{name: "missing selector", transData: []*TransData{{Name: modelValidationString("root"), ParentNo: -1}}},
+		{name: "unknown selector", modelName: modelValidationString("missing"), transData: []*TransData{{Name: modelValidationString("root"), ParentNo: -1}}},
+		{name: "ambiguous selector", modelName: modelValidationString("root"), transData: []*TransData{{Name: modelValidationString("root"), ParentNo: -1}, {Name: modelValidationString("root"), ParentNo: -1}}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -21,7 +21,7 @@ func TestModelNameSelectsExactlyOneTransform(t *testing.T) {
 		})
 	}
 
-	if _, err := EncodeModel(&Model{ModelName: "root", TransData: []TransData{{Name: "root", ParentNo: -1}}}); err != nil {
+	if _, err := EncodeModel(&Model{ModelName: modelValidationString("root"), TransData: []*TransData{{Name: modelValidationString("root"), ParentNo: -1}}}); err != nil {
 		t.Fatalf("EncodeModel rejected a unique modelName selector: %v", err)
 	}
 	if _, err := EncodeModel(&Model{}); err != nil {
@@ -30,30 +30,30 @@ func TestModelNameSelectsExactlyOneTransform(t *testing.T) {
 }
 
 func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing.T) {
-	validMorph := func() BlendData {
-		return BlendData{
-			Name:   "morph",
+	validMorph := func() *BlendData {
+		return &BlendData{
+			Name:   modelValidationString("morph"),
 			VIndex: []int32{0},
 			Vert:   []Vector3{{}},
 			Norm:   []Vector3{{}},
 			Tan:    []Vector4{{}},
 		}
 	}
-	withSkinPoint := func(point ThicknessPoint) *SkinThickness {
+	withSkinPoint := func(point *ThicknessPoint) *SkinThickness {
 		return &SkinThickness{
 			Use: true,
-			Groups: map[string]ThicknessGroup{
+			Groups: map[string]*ThicknessGroup{
 				"group": {
-					GroupName: "group",
-					Points:    []ThicknessPoint{point},
+					GroupName: modelValidationString("group"),
+					Points:    []*ThicknessPoint{point},
 				},
 			},
 		}
 	}
-	validSkinPoint := func() ThicknessPoint {
-		return ThicknessPoint{
-			TargetBoneName:   "root",
-			DistanceParAngle: []ThicknessDefPerAngle{{AngleDegree: 0, VertexIndex: 0}},
+	validSkinPoint := func() *ThicknessPoint {
+		return &ThicknessPoint{
+			TargetBoneName:   modelValidationString("root"),
+			DistanceParAngle: []*ThicknessDefPerAngle{{AngleDegree: 0, VertexIndex: 0}},
 		}
 	}
 
@@ -93,8 +93,8 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 			name: "parent cycle",
 			model: func() Model {
 				model := validModelForStructureTest()
-				model.TransData = []TransData{{Name: "a", ParentNo: 1}, {Name: "b", ParentNo: 0}}
-				model.ModelName = "a"
+				model.TransData = []*TransData{{Name: modelValidationString("a"), ParentNo: 1}, {Name: modelValidationString("b"), ParentNo: 0}}
+				model.ModelName = modelValidationString("a")
 				return model
 			},
 			want: "cycle",
@@ -105,7 +105,7 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 				model := validModelForStructureTest()
 				morph := validMorph()
 				morph.VIndex = nil
-				model.Morphs = []BlendData{morph}
+				model.Morphs = []*BlendData{morph}
 				return model
 			},
 			want: "morphs[0].v_index",
@@ -116,7 +116,7 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 				model := validModelForStructureTest()
 				morph := validMorph()
 				morph.Vert = nil
-				model.Morphs = []BlendData{morph}
+				model.Morphs = []*BlendData{morph}
 				return model
 			},
 			want: "morphs[0].vert",
@@ -127,7 +127,7 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 				model := validModelForStructureTest()
 				morph := validMorph()
 				morph.Norm = nil
-				model.Morphs = []BlendData{morph}
+				model.Morphs = []*BlendData{morph}
 				return model
 			},
 			want: "morphs[0].norm",
@@ -138,7 +138,7 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 				model := validModelForStructureTest()
 				morph := validMorph()
 				morph.Tan = nil
-				model.Morphs = []BlendData{morph}
+				model.Morphs = []*BlendData{morph}
 				return model
 			},
 			want: "morphs[0].tan",
@@ -149,7 +149,7 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 				model := validModelForStructureTest()
 				morph := validMorph()
 				morph.Vert = []Vector3{}
-				model.Morphs = []BlendData{morph}
+				model.Morphs = []*BlendData{morph}
 				return model
 			},
 			want: "morphs[0].vert length",
@@ -160,7 +160,7 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 				model := validModelForStructureTest()
 				morph := validMorph()
 				morph.Norm = []Vector3{}
-				model.Morphs = []BlendData{morph}
+				model.Morphs = []*BlendData{morph}
 				return model
 			},
 			want: "morphs[0].norm length",
@@ -171,7 +171,7 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 				model := validModelForStructureTest()
 				morph := validMorph()
 				morph.Tan = []Vector4{}
-				model.Morphs = []BlendData{morph}
+				model.Morphs = []*BlendData{morph}
 				return model
 			},
 			want: "morphs[0].tan length",
@@ -182,7 +182,7 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 				model := validModelForStructureTest()
 				morph := validMorph()
 				morph.VIndex[0] = -1
-				model.Morphs = []BlendData{morph}
+				model.Morphs = []*BlendData{morph}
 				return model
 			},
 			want: "morphs[0].v_index[0]",
@@ -200,7 +200,7 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 			name: "empty skin groups",
 			model: func() Model {
 				model := validModelForStructureTest()
-				model.SkinThick = &SkinThickness{Use: true, Groups: map[string]ThicknessGroup{}}
+				model.SkinThick = &SkinThickness{Use: true, Groups: map[string]*ThicknessGroup{}}
 				return model
 			},
 			want: "skinThick.groups",
@@ -209,7 +209,7 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 			name: "nil skin points",
 			model: func() Model {
 				model := validModelForStructureTest()
-				model.SkinThick = &SkinThickness{Use: true, Groups: map[string]ThicknessGroup{"group": {GroupName: "group"}}}
+				model.SkinThick = &SkinThickness{Use: true, Groups: map[string]*ThicknessGroup{"group": {GroupName: modelValidationString("group")}}}
 				return model
 			},
 			want: "skinThick.groups[\"group\"].points",
@@ -218,7 +218,7 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 			name: "empty skin points",
 			model: func() Model {
 				model := validModelForStructureTest()
-				model.SkinThick = &SkinThickness{Use: true, Groups: map[string]ThicknessGroup{"group": {GroupName: "group", Points: []ThicknessPoint{}}}}
+				model.SkinThick = &SkinThickness{Use: true, Groups: map[string]*ThicknessGroup{"group": {GroupName: modelValidationString("group"), Points: []*ThicknessPoint{}}}}
 				return model
 			},
 			want: "skinThick.groups[\"group\"].points",
@@ -239,7 +239,7 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 			model: func() Model {
 				model := validModelForStructureTest()
 				point := validSkinPoint()
-				point.DistanceParAngle = []ThicknessDefPerAngle{}
+				point.DistanceParAngle = []*ThicknessDefPerAngle{}
 				model.SkinThick = withSkinPoint(point)
 				return model
 			},
@@ -264,7 +264,7 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 	}{
 		{name: "model", encode: func(model Model) ([]byte, error) { return EncodeModel(&model) }},
 		{name: "model assets", encode: func(model Model) ([]byte, error) {
-			return EncodeModelAssets(&ModelAssets{Assets: []Model{model}})
+			return EncodeModelAssets(&ModelAssets{Assets: []*Model{&model}})
 		}},
 	}
 	for _, test := range tests {
@@ -280,8 +280,8 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 
 func TestEncodeModelDoesNotGuessExternalMeshVertexUpperBound(t *testing.T) {
 	model := validModelForStructureTest()
-	model.Morphs = []BlendData{{
-		Name:   "external-mesh-bound",
+	model.Morphs = []*BlendData{{
+		Name:   modelValidationString("external-mesh-bound"),
 		VIndex: []int32{1 << 30},
 		Vert:   []Vector3{{}},
 		Norm:   []Vector3{{}},
@@ -294,11 +294,13 @@ func TestEncodeModelDoesNotGuessExternalMeshVertexUpperBound(t *testing.T) {
 
 func validModelForStructureTest() Model {
 	return Model{
-		ModelName:        "root",
-		TransData:        []TransData{{Name: "root", ParentNo: -1}},
-		BoneNames:        []string{},
-		MaterialFileName: []string{},
-		Morphs:           []BlendData{},
+		ModelName:        modelValidationString("root"),
+		TransData:        []*TransData{{Name: modelValidationString("root"), ParentNo: -1}},
+		BoneNames:        []*string{},
+		MaterialFileName: []*string{},
+		Morphs:           []*BlendData{},
 		SkinThick:        &SkinThickness{},
 	}
 }
+
+func modelValidationString(value string) *string { return &value }

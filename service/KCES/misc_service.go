@@ -1,15 +1,12 @@
 package KCES
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
-	"unicode/utf8"
 
 	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
 )
@@ -128,27 +125,12 @@ func encodeMiscJSON(ext string, data []byte) ([]byte, error) {
 // Keeping this validation in one place prevents malformed KCES-only files
 // from falling through to the legacy JSON/CSV heuristics.
 func decodeKCESJSONTextEditingJSON(data []byte, expectedExtension string) (*serializationKCES.KCESJSONText, error) {
-	data = trimJSONUTF8BOM(data)
-	if !utf8.Valid(data) {
-		return nil, fmt.Errorf("KCES JSON-text envelope is not valid UTF-8")
-	}
-
 	var editing struct {
 		Extension *string         `json:"extension"`
-		Text      *string         `json:"text"`
 		JSON      json.RawMessage `json:"json"`
 	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&editing); err != nil {
+	if err := decodeStrictJSON(data, &editing, "KCES JSON-text envelope"); err != nil {
 		return nil, err
-	}
-	var trailing interface{}
-	if err := decoder.Decode(&trailing); err != io.EOF {
-		if err == nil {
-			return nil, fmt.Errorf("trailing JSON value")
-		}
-		return nil, fmt.Errorf("trailing content: %w", err)
 	}
 
 	expected := serializationKCES.NormalizeKCESJSONTextExtension(expectedExtension)
@@ -172,9 +154,6 @@ func decodeKCESJSONTextEditingJSON(data []byte, expectedExtension string) (*seri
 	value := &serializationKCES.KCESJSONText{
 		Extension: extension,
 		JSON:      append(json.RawMessage(nil), editing.JSON...),
-	}
-	if editing.Text != nil {
-		value.Text = *editing.Text
 	}
 	if _, err := serializationKCES.EncodeKCESJSONText(value); err != nil {
 		return nil, err

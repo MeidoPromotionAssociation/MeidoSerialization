@@ -1,12 +1,13 @@
 package KCES
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
-func TestDecodeDynamicBoneStatusShortArrayKeepsOnlyPresentFields(t *testing.T) {
+func TestDecodeDynamicBoneStatusRejectsUnknownShortArray(t *testing.T) {
 	msgpackData, err := ct.EncodeMsgpack([]interface{}{int64(999)})
 	if err != nil {
 		t.Fatalf("EncodeMsgpack: %v", err)
@@ -16,19 +17,9 @@ func TestDecodeDynamicBoneStatusShortArrayKeepsOnlyPresentFields(t *testing.T) {
 		t.Fatalf("CompressLz4BlockArray: %v", err)
 	}
 
-	env, err := DecodeKCESPayload(AddLengthPrefix(compressed), ".dbconf")
-	if err != nil {
-		t.Fatalf("DecodeKCESPayload: %v", err)
-	}
-	status := env.DynamicBone
-	if status == nil {
-		t.Fatal("DecodeKCESPayload returned nil DynamicBoneStatus")
-	}
-	if status.Version != 999 {
-		t.Fatalf("version = %d, want legacy value 999", status.Version)
-	}
-	if status.Damping != 0 || status.Elasticity != 0 || status.Stiffness != 0 || status.Gravity != (Vector3{}) {
-		t.Fatalf("missing fields gained game constructor defaults: %+v", status)
+	_, err = DecodeKCESPayload(AddLengthPrefix(compressed), ".dbconf")
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "width") {
+		t.Fatalf("DecodeKCESPayload() error = %v, want unsupported indexed-array width", err)
 	}
 }
 
@@ -102,7 +93,7 @@ func TestPartsAssetsEncodersPreserveNilAssets(t *testing.T) {
 }
 
 func TestMaterialAssetsEncoderPreservesNilPropertyArrays(t *testing.T) {
-	assets := &MaterialAssets{Assets: []Material{{}}}
+	assets := &MaterialAssets{Assets: []*Material{{}}}
 	encoded, err := EncodeMaterialAssets(assets)
 	if err != nil {
 		t.Fatalf("EncodeMaterialAssets: %v", err)
@@ -124,8 +115,11 @@ func TestMaterialAssetsEncoderPreservesNilPropertyArrays(t *testing.T) {
 }
 
 func TestModelEncodersPreserveNilMembers(t *testing.T) {
-	assertNil := func(t *testing.T, model Model) {
+	assertNil := func(t *testing.T, model *Model) {
 		t.Helper()
+		if model == nil {
+			t.Fatal("model unexpectedly decoded as null")
+		}
 		if model.TransData != nil || model.BoneNames != nil || model.MaterialFileName != nil || model.Morphs != nil {
 			t.Fatalf("nil model arrays were silently changed: %+v", model)
 		}
@@ -133,8 +127,11 @@ func TestModelEncodersPreserveNilMembers(t *testing.T) {
 			t.Fatal("nil skinThick was silently synthesized")
 		}
 	}
-	assertInputUntouched := func(t *testing.T, model Model) {
+	assertInputUntouched := func(t *testing.T, model *Model) {
 		t.Helper()
+		if model == nil {
+			t.Fatal("input model unexpectedly null")
+		}
 		if model.TransData != nil || model.BoneNames != nil || model.MaterialFileName != nil ||
 			model.Morphs != nil || model.SkinThick != nil {
 			t.Fatalf("encoding mutated input: %+v", model)
@@ -147,16 +144,16 @@ func TestModelEncodersPreserveNilMembers(t *testing.T) {
 		if err != nil {
 			t.Fatalf("EncodeModel: %v", err)
 		}
-		assertInputUntouched(t, *model)
+		assertInputUntouched(t, model)
 		decoded, err := DecodeModel(encoded)
 		if err != nil {
 			t.Fatalf("DecodeModel: %v", err)
 		}
-		assertNil(t, *decoded)
+		assertNil(t, decoded)
 	})
 
 	t.Run("model assets", func(t *testing.T) {
-		assets := &ModelAssets{Assets: []Model{{}}}
+		assets := &ModelAssets{Assets: []*Model{{}}}
 		encoded, err := EncodeModelAssets(assets)
 		if err != nil {
 			t.Fatalf("EncodeModelAssets: %v", err)

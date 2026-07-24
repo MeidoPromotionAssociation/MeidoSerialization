@@ -49,6 +49,57 @@ func TestReadAssetsFileSupportsLegacyBigIDEnabled(t *testing.T) {
 	}
 }
 
+func TestReadAssetsFilePreservesFixedHeaderFields(t *testing.T) {
+	metadata := buildAssetsMetadataForTest(t, 22, nil, nil)
+	data := buildSerializedFileForMetadataTest(t, 22, metadata, nil, 0)
+	binary.BigEndian.PutUint32(data[0:4], 0x10203040)
+	binary.BigEndian.PutUint32(data[4:8], 0x50607080)
+	binary.BigEndian.PutUint32(data[12:16], 0x90a0b0c0)
+	copy(data[17:20], []byte{1, 2, 3})
+	binary.BigEndian.PutUint64(data[40:48], uint64(0xfedcba9876543210))
+
+	af, err := ReadAssetsFile(data)
+	if err != nil {
+		t.Fatalf("ReadAssetsFile: %v", err)
+	}
+	header := af.Header
+	if header.LegacyMetadataSize != 0x10203040 || header.LegacyFileSize != 0x50607080 || header.LegacyDataOffset != 0x90a0b0c0 {
+		t.Fatalf("legacy header fields were not preserved: %+v", header)
+	}
+	if header.Reserved != [3]byte{1, 2, 3} || header.LargeFilesUnknown != int64(-81985529216486896) {
+		t.Fatalf("reserved or unknown header fields were not preserved: %+v", header)
+	}
+}
+
+func TestReadAssetsFilePreservesLegacyObjectFields(t *testing.T) {
+	for _, version := range []uint32{12, 15, 16} {
+		t.Run(fmt.Sprintf("v%d", version), func(t *testing.T) {
+			scriptTypeIndex := int16(23)
+			asset := metadataAssetForTest{pathID: 1, offset: 0, size: 1, scriptTypeIndex: &scriptTypeIndex, stripped: 1}
+			metadata := buildAssetsMetadataForTest(t, version, []metadataAssetForTest{asset}, nil)
+			data := buildSerializedFileForMetadataTest(t, version, metadata, []byte{0}, 0)
+			af, err := ReadAssetsFile(data)
+			if err != nil {
+				t.Fatalf("ReadAssetsFile: %v", err)
+			}
+			info := af.Metadata.AssetInfos[0]
+			if info.ScriptTypeIndex != scriptTypeIndex {
+				t.Fatalf("ScriptTypeIndex = %d, want %d", info.ScriptTypeIndex, scriptTypeIndex)
+			}
+			if version < 16 && info.LegacyClassID != uint16(ClassIDTextAsset) {
+				t.Fatalf("LegacyClassID = %d, want %d", info.LegacyClassID, ClassIDTextAsset)
+			}
+			wantStripped := byte(0)
+			if version >= 15 {
+				wantStripped = 1
+			}
+			if info.Stripped != wantStripped {
+				t.Fatalf("Stripped = %d, want %d", info.Stripped, wantStripped)
+			}
+		})
+	}
+}
+
 func TestReadAssetsFileMetadataCannotConsumePaddingOrObjectData(t *testing.T) {
 	fullMetadata := buildAssetsMetadataForTest(t, 22, nil, nil)
 	// Remove script count, external count, ref type count, and UserInformation.
@@ -227,7 +278,7 @@ func TestReadAssetsFileParsesScriptTypesBeforeExternalFiles(t *testing.T) {
 	}
 }
 
-func TestReadAssetsFilePreservesFullMetadataTypeAndTailFields(t *testing.T) {
+func TestReadAssetsFileReadsFullMetadataTypeAndTailFields(t *testing.T) {
 	const version = uint32(22)
 	var metadata bytes.Buffer
 	metadata.WriteString("2021.3.3f1\x00")
@@ -264,7 +315,6 @@ func TestReadAssetsFilePreservesFullMetadataTypeAndTailFields(t *testing.T) {
 	metadata.WriteString("Example.Namespace\x00")
 	metadata.WriteString("Example.Assembly\x00")
 	metadata.WriteString("user information\x00")
-	metadata.Write([]byte{0xaa, 0xbb, 0xcc})
 
 	data := buildSerializedFileForMetadataTest(t, version, metadata.Bytes(), nil, 0)
 	af, err := ReadAssetsFile(data)
@@ -290,8 +340,14 @@ func TestReadAssetsFilePreservesFullMetadataTypeAndTailFields(t *testing.T) {
 	if refType.ClassName != "ReferencedClass" || refType.Namespace != "Example.Namespace" || refType.AssemblyName != "Example.Assembly" || refType.Nodes[0].RefTypeHash != 0x8877665544332211 {
 		t.Fatalf("RefType = %+v", refType)
 	}
-	if af.Metadata.UserInformation != "user information" || !bytes.Equal(af.Metadata.TrailingData, []byte{0xaa, 0xbb, 0xcc}) {
-		t.Fatalf("UserInformation=%q TrailingData=% x", af.Metadata.UserInformation, af.Metadata.TrailingData)
+	if af.Metadata.UserInformation != "user information" {
+		t.Fatalf("UserInformation=%q", af.Metadata.UserInformation)
+	}
+
+	metadataWithTrailing := append(append([]byte(nil), metadata.Bytes()...), 0xaa, 0xbb, 0xcc)
+	dataWithTrailing := buildSerializedFileForMetadataTest(t, version, metadataWithTrailing, nil, 0)
+	if _, err := ReadAssetsFile(dataWithTrailing); err == nil {
+		t.Fatal("ReadAssetsFile accepted bytes after UserInformation")
 	}
 }
 
@@ -515,9 +571,11 @@ func TestReadAssetsFileAllReadableKCESSamples(t *testing.T) {
 }
 
 type metadataAssetForTest struct {
-	pathID int64
-	offset uint64
-	size   uint32
+	pathID          int64
+	offset          uint64
+	size            uint32
+	scriptTypeIndex *int16
+	stripped        byte
 }
 
 func buildAssetsMetadataForTest(t *testing.T, version uint32, assets []metadataAssetForTest, mutateType func(*bytes.Buffer)) []byte {
@@ -580,10 +638,14 @@ func buildAssetsMetadataForTestWithBigID(t *testing.T, version uint32, bigIDEnab
 			writeLEForAssetsTest(t, &metadata, int16(ClassIDTextAsset))
 		}
 		if version <= 16 {
-			writeLEForAssetsTest(t, &metadata, uint16(0xffff))
+			scriptTypeIndex := int16(-1)
+			if asset.scriptTypeIndex != nil {
+				scriptTypeIndex = *asset.scriptTypeIndex
+			}
+			writeLEForAssetsTest(t, &metadata, scriptTypeIndex)
 		}
 		if version >= 15 && version <= 16 {
-			metadata.WriteByte(0)
+			metadata.WriteByte(asset.stripped)
 		}
 	}
 

@@ -352,13 +352,15 @@ func TestDirectoryProcessing(t *testing.T) {
 
 func TestKCESPartsConvertCommands(t *testing.T) {
 	tempDir := t.TempDir()
+	assetsFileName := "test.pmatassets"
+	materialFileName := "test.pmat"
 	assets := &serializationKCES.PriorityMaterialAssets{
-		FileName: "test.pmatassets",
-		Assets: []serializationKCES.PriorityMaterial{
+		FileName: &assetsFileName,
+		Assets: []*serializationKCES.PriorityMaterial{
 			{
 				Version:     1000,
 				ID:          12345,
-				FileName:    "test.pmat",
+				FileName:    &materialFileName,
 				RenderQueue: 3000,
 				TargetID:    67890,
 			},
@@ -397,7 +399,7 @@ func TestKCESPartsConvertCommands(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodePriorityMaterialAssets failed: %v", err)
 	}
-	if decoded.FileName != assets.FileName || len(decoded.Assets) != 1 || decoded.Assets[0].FileName != "test.pmat" {
+	if decoded.FileName == nil || assets.FileName == nil || *decoded.FileName != *assets.FileName || len(decoded.Assets) != 1 || decoded.Assets[0] == nil || decoded.Assets[0].FileName == nil || *decoded.Assets[0].FileName != "test.pmat" {
 		t.Fatalf("unexpected decoded KCES parts: %+v", decoded)
 	}
 
@@ -482,7 +484,7 @@ func TestKCESCtConvertCommands(t *testing.T) {
 	if err := json.Unmarshal(jsonData, &envelope); err != nil {
 		t.Fatalf("decode .ct JSON: %v", err)
 	}
-	if envelope.Format != KCESService.CtEnvelopeFormat || envelope.Catalog == nil || envelope.Catalog.Name != "cm3d2_megane002" {
+	if envelope.Format != KCESService.CtEnvelopeFormat || envelope.Catalog.Name == nil || *envelope.Catalog.Name != "cm3d2_megane002" {
 		t.Fatalf("unexpected .ct JSON envelope: %+v", envelope)
 	}
 	if envelope.ExtensionNameLists[".menuassets"] == nil || envelope.ExtensionNameLists[".model"] == nil {
@@ -496,7 +498,7 @@ func TestKCESCtConvertCommands(t *testing.T) {
 		t.Fatalf("convert2mod .ct JSON failed: %v", err)
 	}
 	catalog := readCatalogFromCtForCommandTest(t, inputPath)
-	if catalog.Name != "cm3d2_megane002" || len(catalog.Items) == 0 {
+	if catalog.Name == nil || *catalog.Name != "cm3d2_megane002" || len(catalog.Items) == 0 {
 		t.Fatalf("unexpected round-trip catalog: %+v", catalog)
 	}
 }

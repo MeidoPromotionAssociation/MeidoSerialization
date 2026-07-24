@@ -3,61 +3,59 @@ package ct
 import (
 	"bytes"
 	"encoding/binary"
-	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/ugorji/go/codec"
 )
 
-func TestVirtualDirectoryPreservesNestedWireMetadata(t *testing.T) {
-	rootFuture := codec.Raw{0xd4, 0x2a, 0x7f}
-	emptyFuture := codec.Raw{0xcc, 0x01}
-	legacyFuture := codec.Raw{0x81, 0xa1, 'x', 0x92, 0xc0, 0xc3}
-	fileFuture := codec.Raw{0xd6, 0x03, 0, 0, 0, 7}
-
+func TestVirtualDirectoryFixedLayoutRoundTrip(t *testing.T) {
 	root := []interface{}{
-		int64(-3),
+		int64(1000),
 		map[string]interface{}{
-			"emptyNil": []interface{}{int64(-5), nil, nil, emptyFuture},
-			"legacy":   []interface{}{map[string]interface{}{}, nil, legacyFuture},
-			"filesOnly": []interface{}{
-				int64(77),
+			"empty": []interface{}{
+				int64(1001),
+				map[string]interface{}{},
+				map[string]interface{}{},
+			},
+			"nested": []interface{}{
+				int64(1002),
 				map[string]interface{}{
-					"short.bin": []interface{}{int64(HeaderSize), int64(0), fileFuture},
+					"leaf": []interface{}{
+						int64(1003),
+						map[string]interface{}{},
+						map[string]interface{}{},
+					},
+				},
+				map[string]interface{}{
+					"empty.bin": []interface{}{int64(HeaderSize), int64(0)},
 				},
 			},
-			"short": []interface{}{int64(0)},
 		},
-		nil,
-		rootFuture,
+		map[string]interface{}{},
 	}
-	wire := makeVirtualDirectoryTestContainer(t, root)
-
-	table, err := ReadContentTable(bytes.NewReader(wire))
+	table, err := ReadContentTable(bytes.NewReader(makeVirtualDirectoryTestContainer(t, encodeVirtualDirectoryTestValue(t, root))))
 	if err != nil {
 		t.Fatalf("ReadContentTable() error = %v", err)
 	}
-	if table.Version != -3 || table.Versionless || table.FilesOnly || !table.FilesNil || table.FieldCount == nil || *table.FieldCount != 4 || !reflect.DeepEqual(table.FutureSlots, [][]byte{rootFuture}) {
-		t.Fatalf("root metadata changed: %+v", table)
+	if table.Version != 1000 {
+		t.Fatalf("Version = %d, want 1000", table.Version)
 	}
-	if len(table.Directories) != 4 {
-		t.Fatalf("empty/nested directories were lost: %#v", table.Directories)
+	wantDirectories := map[string]VirtualDirectoryMetadata{
+		"empty":       {Version: 1001},
+		"nested":      {Version: 1002},
+		"nested/leaf": {Version: 1003},
 	}
-	if got := table.Directories["emptyNil"]; got.Version != -5 || !got.DirectoriesNil || !got.FilesNil || got.FieldCount == nil || *got.FieldCount != 4 || !reflect.DeepEqual(got.FutureSlots, [][]byte{emptyFuture}) {
-		t.Fatalf("emptyNil metadata = %#v", got)
+	if len(table.Directories) != len(wantDirectories) {
+		t.Fatalf("Directories = %#v, want %#v", table.Directories, wantDirectories)
 	}
-	if got := table.Directories["legacy"]; !got.Versionless || got.FilesOnly || got.DirectoriesNil || !got.FilesNil || got.FieldCount == nil || *got.FieldCount != 3 || !reflect.DeepEqual(got.FutureSlots, [][]byte{legacyFuture}) {
-		t.Fatalf("legacy metadata = %#v", got)
+	for path, want := range wantDirectories {
+		if got, ok := table.Directories[path]; !ok || got != want {
+			t.Fatalf("Directories[%q] = %#v, exists=%v, want %#v", path, got, ok, want)
+		}
 	}
-	if got := table.Directories["filesOnly"]; got.Version != 77 || !got.FilesOnly || got.Versionless || got.FieldCount != nil {
-		t.Fatalf("filesOnly metadata = %#v", got)
-	}
-	if got := table.Directories["short"]; got.Version != 0 || got.Versionless || got.FieldCount == nil || *got.FieldCount != 1 {
-		t.Fatalf("short metadata = %#v", got)
-	}
-	file, ok := table.Files["filesOnly/short.bin"]
-	if !ok || file.Position != HeaderSize || file.Size != 0 || file.FieldCount == nil || *file.FieldCount != 3 || !reflect.DeepEqual(file.FutureSlots, [][]byte{fileFuture}) {
-		t.Fatalf("future VirtualFile metadata = %#v, exists=%v", file, ok)
+	if got, ok := table.Files["nested/empty.bin"]; !ok || got != (VirtualFile{Position: HeaderSize, Size: 0}) {
+		t.Fatalf("Files[nested/empty.bin] = %#v, exists=%v", got, ok)
 	}
 
 	var rewritten bytes.Buffer
@@ -68,76 +66,76 @@ func TestVirtualDirectoryPreservesNestedWireMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadContentTable(round trip) error = %v", err)
 	}
-	if roundTrip.Version != table.Version || roundTrip.Versionless != table.Versionless || roundTrip.FilesOnly != table.FilesOnly || roundTrip.DirectoriesNil != table.DirectoriesNil || roundTrip.FilesNil != table.FilesNil || !reflect.DeepEqual(roundTrip.FieldCount, table.FieldCount) || !reflect.DeepEqual(roundTrip.FutureSlots, table.FutureSlots) {
-		t.Fatalf("root shape changed:\n got  %+v\n want %+v", roundTrip, table)
+	if roundTrip.Version != table.Version || len(roundTrip.Directories) != len(table.Directories) || len(roundTrip.Files) != len(table.Files) {
+		t.Fatalf("round-trip table changed:\n got  %#v\n want %#v", roundTrip, table)
 	}
-	if !reflect.DeepEqual(roundTrip.Directories, table.Directories) {
-		t.Fatalf("directory metadata changed:\n got  %#v\n want %#v", roundTrip.Directories, table.Directories)
-	}
-	if !reflect.DeepEqual(roundTrip.Files, table.Files) {
-		t.Fatalf("VirtualFile metadata changed:\n got  %#v\n want %#v", roundTrip.Files, table.Files)
-	}
-}
-
-func TestVirtualDirectoryPreservesShortVirtualFiles(t *testing.T) {
-	for _, fields := range [][]interface{}{
-		{},
-		{int64(HeaderSize)},
-	} {
-		root := []interface{}{
-			int64(0),
-			map[string]interface{}{},
-			map[string]interface{}{"empty.bin": fields},
-		}
-		wire := makeVirtualDirectoryTestContainer(t, root)
-		table, err := ReadContentTable(bytes.NewReader(wire))
-		if err != nil {
-			t.Fatalf("ReadContentTable(%v) error = %v", fields, err)
-		}
-		file := table.Files["empty.bin"]
-		if file.FieldCount == nil || *file.FieldCount != int32(len(fields)) || file.Size != 0 {
-			t.Fatalf("short VirtualFile %v decoded as %#v", fields, file)
-		}
-		var out bytes.Buffer
-		if err := WriteContentTable(&out, table); err != nil {
-			t.Fatalf("WriteContentTable(%v) error = %v", fields, err)
-		}
-		roundTrip, err := ReadContentTable(bytes.NewReader(out.Bytes()))
-		if err != nil {
-			t.Fatalf("ReadContentTable(round trip %v) error = %v", fields, err)
-		}
-		if got := roundTrip.Files["empty.bin"]; got.FieldCount == nil || *got.FieldCount != int32(len(fields)) || got.Size != 0 {
-			t.Fatalf("short VirtualFile width changed: %#v", got)
+	for path, want := range table.Directories {
+		if got := roundTrip.Directories[path]; got != want {
+			t.Fatalf("round-trip Directories[%q] = %#v, want %#v", path, got, want)
 		}
 	}
 }
 
-func TestVirtualDirectoryRejectsMalformedFutureSlot(t *testing.T) {
-	fieldCount := int32(4)
-	table := &ContentTable{
-		Version:     0,
-		FieldCount:  &fieldCount,
-		FutureSlots: [][]byte{{0x92, 0x01}},
-		Raw:         make([]byte, HeaderSize),
-		Files:       map[string]VirtualFile{},
+func TestVirtualDirectoryRejectsUnsupportedShapes(t *testing.T) {
+	emptyMap := map[string]interface{}{}
+	validFile := []interface{}{int64(HeaderSize), int64(0)}
+	validDirectory := func() []interface{} {
+		return []interface{}{int64(1000), emptyMap, emptyMap}
 	}
-	var out bytes.Buffer
-	if err := WriteContentTable(&out, table); err == nil {
-		t.Fatal("WriteContentTable unexpectedly accepted a truncated future slot")
+	tests := []struct {
+		name    string
+		root    []interface{}
+		message string
+	}{
+		{name: "short root", root: []interface{}{int64(1000), emptyMap}, message: "root indexed-array width 2, expected 3"},
+		{name: "high root slot", root: []interface{}{int64(1000), emptyMap, emptyMap, nil}, message: "root indexed-array width 4, expected 3"},
+		{name: "nil root directories", root: []interface{}{int64(1000), nil, emptyMap}, message: "allDirectorys must not be nil"},
+		{name: "nil root files", root: []interface{}{int64(1000), emptyMap, nil}, message: "allFiles must not be nil"},
+		{name: "short child", root: []interface{}{int64(1000), map[string]interface{}{"bad": []interface{}{int64(1000), emptyMap}}, emptyMap}, message: "indexed-array width 2, expected 3"},
+		{name: "high child slot", root: []interface{}{int64(1000), map[string]interface{}{"bad": append(validDirectory(), nil)}, emptyMap}, message: "indexed-array width 4, expected 3"},
+		{name: "nil child directories", root: []interface{}{int64(1000), map[string]interface{}{"bad": []interface{}{int64(1000), nil, emptyMap}}, emptyMap}, message: "allDirectorys must not be nil"},
+		{name: "nil child files", root: []interface{}{int64(1000), map[string]interface{}{"bad": []interface{}{int64(1000), emptyMap, nil}}, emptyMap}, message: "allFiles must not be nil"},
+		{name: "short file", root: []interface{}{int64(1000), emptyMap, map[string]interface{}{"bad.bin": []interface{}{int64(HeaderSize)}}}, message: "VirtualFile indexed-array width 1, expected 2"},
+		{name: "high file slot", root: []interface{}{int64(1000), emptyMap, map[string]interface{}{"bad.bin": append(validFile, nil)}}, message: "VirtualFile indexed-array width 3, expected 2"},
 	}
-	if out.Len() != 0 {
-		t.Fatalf("writer received %d bytes before future-slot validation failed", out.Len())
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			wire := makeVirtualDirectoryTestContainer(t, encodeVirtualDirectoryTestValue(t, test.root))
+			_, err := ReadContentTable(bytes.NewReader(wire))
+			if err == nil || !strings.Contains(err.Error(), test.message) {
+				t.Fatalf("ReadContentTable() error = %v, want substring %q", err, test.message)
+			}
+		})
 	}
 }
 
-func makeVirtualDirectoryTestContainer(t *testing.T, root []interface{}) []byte {
+func TestVirtualDirectoryRejectsTrailingMessagePackData(t *testing.T) {
+	metadata := encodeVirtualDirectoryTestValue(t, []interface{}{
+		int64(1000),
+		map[string]interface{}{},
+		map[string]interface{}{},
+	})
+	metadata = append(metadata, 0xc0)
+	_, err := ReadContentTable(bytes.NewReader(makeVirtualDirectoryTestContainer(t, metadata)))
+	if err == nil || !strings.Contains(err.Error(), "trailing MessagePack bytes") {
+		t.Fatalf("ReadContentTable() error = %v, want trailing MessagePack bytes", err)
+	}
+}
+
+func encodeVirtualDirectoryTestValue(t *testing.T, value interface{}) []byte {
 	t.Helper()
 	h := &codec.MsgpackHandle{}
 	h.Raw = true
 	var metadata []byte
-	if err := codec.NewEncoderBytes(&metadata, h).Encode(root); err != nil {
+	if err := codec.NewEncoderBytes(&metadata, h).Encode(value); err != nil {
 		t.Fatalf("encode VirtualDirectory metadata: %v", err)
 	}
+	return metadata
+}
+
+func makeVirtualDirectoryTestContainer(t *testing.T, metadata []byte) []byte {
+	t.Helper()
 	compressed, err := CompressLz4BlockArray(metadata)
 	if err != nil {
 		t.Fatalf("compress VirtualDirectory metadata: %v", err)

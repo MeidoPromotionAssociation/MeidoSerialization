@@ -13,7 +13,6 @@ import (
 func TestKCESPathsRoundTrip(t *testing.T) {
 	input := NewKCESPathsFile()
 	input.Paths = []string{"system", "parts", "日本語", "cas"}
-	input.TrailingData = []byte{0xaa, 0xbb}
 	encoded, err := EncodeKCESPaths(input)
 	if err != nil {
 		t.Fatal(err)
@@ -36,9 +35,8 @@ func TestKCESPathsRejectsMalformedWireAndJSONValues(t *testing.T) {
 	}
 
 	t.Run("trailing", func(t *testing.T) {
-		decoded, err := DecodeKCESPaths(append(append([]byte(nil), valid...), 0))
-		if err != nil || !bytes.Equal(decoded.TrailingData, []byte{0}) {
-			t.Fatalf("decoded=%+v error=%v", decoded, err)
+		if _, err := DecodeKCESPaths(append(append([]byte(nil), valid...), 0)); err == nil || !strings.Contains(err.Error(), "trailing") {
+			t.Fatalf("trailing-data error=%v", err)
 		}
 	})
 	t.Run("negative count", func(t *testing.T) {

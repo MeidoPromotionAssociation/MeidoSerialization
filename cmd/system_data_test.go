@@ -7,16 +7,18 @@ import (
 	"testing"
 
 	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
 func TestKCESSystemDataConvertCommandsAndFilters(t *testing.T) {
-	colors := make(map[int]int, 9)
-	for i := 0; i <= 8; i++ {
+	colors := make(map[int32]int32, 9)
+	for i := int32(0); i <= 8; i++ {
 		colors[i] = i
 	}
 	want := &serializationKCES.KCESSystemData{
-		Format:  serializationKCES.KCESSystemDataFormat,
-		Version: 1000,
+		Format:      serializationKCES.KCESSystemDataFormat,
+		Version:     1000,
+		Directories: map[string]ct.VirtualDirectoryMetadata{"EditData": {Version: 1000}},
 		EditData: []serializationKCES.KCESEditDataFile{{
 			Path:         "EditData/PaletteColorSave0",
 			Kind:         serializationKCES.KCESEditDataPaletteColor,

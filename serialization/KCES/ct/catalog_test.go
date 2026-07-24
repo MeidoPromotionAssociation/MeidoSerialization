@@ -36,32 +36,49 @@ func TestDecodeCatalogFromCt(t *testing.T) {
 			if cat.Version == 0 {
 				t.Error("catalog version is 0")
 			}
+			catalogName := "<nil>"
+			if cat.Name != nil {
+				catalogName = *cat.Name
+			}
 			t.Logf("Catalog: version=%d type=%d pkg=%d priority=%d name=%q",
-				cat.Version, cat.CatalogType, cat.PackageType, cat.Priority, cat.Name)
+				cat.Version, cat.CatalogType, cat.PackageType, cat.Priority, catalogName)
 			t.Logf("  ResourceFileNames: %v", cat.ResourceFileNames)
 			t.Logf("  ExtensionList: %v", cat.ExtensionList)
 			t.Logf("  Items: %d", len(cat.Items))
 
 			for _, item := range cat.Items {
-				expectedHash := HashStringIgnoreCase(item.Name)
+				if item == nil || item.Name == nil {
+					t.Fatalf("catalog item or item name is null")
+				}
+				expectedHash := HashStringIgnoreCase(*item.Name)
 				if item.Hash != expectedHash {
-					t.Errorf("item %q: hash mismatch got=%d want=%d", item.Name, item.Hash, expectedHash)
+					t.Errorf("item %q: hash mismatch got=%d want=%d", *item.Name, item.Hash, expectedHash)
 				}
 			}
 
 			// 验证每个 extensionList 条目都能在 .ct 中找到对应的 ExtensionNameList 文件
 			for _, ext := range cat.ExtensionList {
-				enl, err := DecodeExtensionNameListFromCt(table, ext)
+				if ext == nil {
+					t.Fatalf("catalog extension is null")
+				}
+				enl, err := DecodeExtensionNameListFromCt(table, *ext)
 				if err != nil {
-					t.Errorf("DecodeExtensionNameListFromCt(%q) failed: %v", ext, err)
+					t.Errorf("DecodeExtensionNameListFromCt(%q) failed: %v", *ext, err)
 					continue
 				}
-				t.Logf("  ExtensionNameList %q: extension=%q packs=%d", ext, enl.Extension, len(enl.Data))
+				extensionName := "<nil>"
+				if enl.Extension != nil {
+					extensionName = *enl.Extension
+				}
+				t.Logf("  ExtensionNameList %q: extension=%q packs=%d", *ext, extensionName, len(enl.Data))
 
 				for _, pack := range enl.Data {
-					expectedHash := HashStringIgnoreCase(pack.Name)
+					if pack == nil || pack.Name == nil {
+						t.Fatalf("extension-name entry or name is null")
+					}
+					expectedHash := HashStringIgnoreCase(*pack.Name)
 					if pack.Hash != expectedHash {
-						t.Errorf("  pack %q: hash mismatch got=%d want=%d", pack.Name, pack.Hash, expectedHash)
+						t.Errorf("  pack %q: hash mismatch got=%d want=%d", *pack.Name, pack.Hash, expectedHash)
 					}
 				}
 			}

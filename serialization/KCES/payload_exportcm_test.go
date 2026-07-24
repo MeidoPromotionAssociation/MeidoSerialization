@@ -64,9 +64,6 @@ func TestExportCMPayloadVariantsRoundTrip(t *testing.T) {
 			if envelope.Kind != test.wantKind {
 				t.Fatalf("Kind = %q, want %q", envelope.Kind, test.wantKind)
 			}
-			if envelope.LengthPrefixed {
-				t.Fatal("LengthPrefixed describes the int32+LZ4 wire and must be false for ExportCM JSON")
-			}
 			if !json.Valid(envelope.JSON) || !bytes.Equal(envelope.JSON, test.wantJSON) {
 				t.Fatalf("JSON = %s, want %s", envelope.JSON, test.wantJSON)
 			}
@@ -136,12 +133,12 @@ func TestExportCMPayloadRejectsMalformedWire(t *testing.T) {
 	}
 }
 
-func TestExportCMPayloadPreservesConsumerSpecificJSONVerbatim(t *testing.T) {
+func TestExportCMPayloadPreservesConsumerSpecificJSONSemantics(t *testing.T) {
 	t.Parallel()
 
 	// ExportCM only stores JsonUtility output (or a BinaryWriter string holding
 	// it). Missing fields, null lists, unknown versions, and inner collider
-	// strings are interpreted by the game after this wire layer has finished.
+	// strings remain JSON semantics, while insignificant whitespace is discarded.
 	tests := []struct {
 		name      string
 		extension string
@@ -171,14 +168,26 @@ func TestExportCMPayloadPreservesConsumerSpecificJSONVerbatim(t *testing.T) {
 			if err != nil {
 				t.Fatalf("EncodeKCESPayload() error = %v", err)
 			}
-			if !bytes.Equal(encoded, wire) {
-				t.Fatalf("consumer-specific JSON changed:\n got  %x\n want %x", encoded, wire)
+			var compact bytes.Buffer
+			if err := json.Compact(&compact, test.jsonText); err != nil {
+				t.Fatalf("compact expected JSON: %v", err)
+			}
+			wantJSON := compact.Bytes()
+			if !bytes.Equal(envelope.JSON, wantJSON) {
+				t.Fatalf("consumer-specific JSON semantics changed:\n got  %s\n want %s", envelope.JSON, wantJSON)
+			}
+			wantWire := wantJSON
+			if test.extension == ".dslcol" {
+				wantWire = appendDotNetStringForTest(nil, wantJSON)
+			}
+			if !bytes.Equal(encoded, wantWire) {
+				t.Fatalf("normalized consumer-specific JSON changed:\n got  %x\n want %x", encoded, wantWire)
 			}
 		})
 	}
 }
 
-func TestExportCMPayloadPreservesOriginalJSONTextUntilEdited(t *testing.T) {
+func TestExportCMPayloadKeepsOnlyJSONSemantics(t *testing.T) {
 	t.Parallel()
 
 	originalJSON := append([]byte{0xef, 0xbb, 0xbf}, []byte("{\r\n  \"version\" : 0,\r\n  \"future\" : [ 1, 2 ]\r\n}\r\n")...)
@@ -194,16 +203,21 @@ func TestExportCMPayloadPreservesOriginalJSONTextUntilEdited(t *testing.T) {
 			if err != nil {
 				t.Fatalf("DecodeKCESPayload() error = %v", err)
 			}
-			if envelope.Text != string(originalJSON) {
-				t.Fatalf("Text did not retain the original BOM/whitespace: %x", []byte(envelope.Text))
+			wantJSON := []byte(`{"version":0,"future":[1,2]}`)
+			if !bytes.Equal(envelope.JSON, wantJSON) {
+				t.Fatalf("semantic JSON = %s, want %s", envelope.JSON, wantJSON)
 			}
 
-			unchanged, err := EncodeKCESPayload(envelope)
+			normalized, err := EncodeKCESPayload(envelope)
 			if err != nil {
-				t.Fatalf("EncodeKCESPayload(unchanged) error = %v", err)
+				t.Fatalf("EncodeKCESPayload(normalized) error = %v", err)
 			}
-			if !bytes.Equal(unchanged, wire) {
-				t.Fatalf("unchanged JSON text was rebuilt:\n got  %x\n want %x", unchanged, wire)
+			wantNormalized := wantJSON
+			if extension == ".dslcol" {
+				wantNormalized = appendDotNetStringForTest(nil, wantJSON)
+			}
+			if !bytes.Equal(normalized, wantNormalized) {
+				t.Fatalf("normalized JSON wire = %x, want %x", normalized, wantNormalized)
 			}
 
 			envelope.JSON = json.RawMessage(` { "edited" : true } `)
@@ -211,10 +225,10 @@ func TestExportCMPayloadPreservesOriginalJSONTextUntilEdited(t *testing.T) {
 			if err != nil {
 				t.Fatalf("EncodeKCESPayload(edited) error = %v", err)
 			}
-			wantJSON := []byte(`{"edited":true}`)
-			want := wantJSON
+			wantEditedJSON := []byte(`{"edited":true}`)
+			want := wantEditedJSON
 			if extension == ".dslcol" {
-				want = appendDotNetStringForTest(nil, wantJSON)
+				want = appendDotNetStringForTest(nil, wantEditedJSON)
 			}
 			if !bytes.Equal(edited, want) {
 				t.Fatalf("edited JSON wire = %x, want %x", edited, want)

@@ -137,18 +137,17 @@ func TestPayloadService_ColliderPackageRoundTrip(t *testing.T) {
 	env := &serializationKCES.KCESPayloadEnvelope{
 		Format:         serializationKCES.PayloadFormatKCESMessagePack,
 		Extension:      ".dbcol",
-		LengthPrefixed: true,
 		StorageVariant: serializationKCES.PayloadStorageInt32LZ4MessagePack,
 		Kind:           serializationKCES.PayloadKindColliderPackage,
 		ColliderPackage: &serializationKCES.ColliderPackage{
 			Version: 1000,
-			Colliders: []serializationKCES.ColliderRef{{
+			Colliders: []*serializationKCES.ColliderRef{{
 				Type: 2,
 				Collider: &serializationKCES.ColliderSphere{
 					ColliderObject: serializationKCES.ColliderObject{
 						Version:       1000,
-						ParentName:    "Bip01 Neck",
-						SelfName:      "Collider",
+						ParentName:    testStringPointer("Bip01 Neck"),
+						SelfName:      testStringPointer("Collider"),
 						LocalRotation: serializationKCES.Vector4{W: 1},
 						LocalScale:    serializationKCES.Vector3{X: 1, Y: 1, Z: 1},
 						Bound:         serializationKCES.ColliderBoundOutside,
@@ -156,7 +155,7 @@ func TestPayloadService_ColliderPackageRoundTrip(t *testing.T) {
 					Radius: 0.05,
 				},
 			}},
-			LimbEnableList: []serializationKCES.ColliderState{{Version: 1000, LimbType: 0, IsEnable: true}},
+			LimbEnableList: []*serializationKCES.ColliderState{{Version: 1000, LimbType: 0, IsEnable: true}},
 		},
 	}
 	encoded, err := serializationKCES.EncodeKCESPayload(env)
@@ -194,7 +193,7 @@ func TestPayloadService_ColliderPackageRoundTrip(t *testing.T) {
 		t.Fatalf("DecodeKCESPayload output: %v", err)
 	}
 	c0, ok := roundTrip.ColliderPackage.Colliders[0].Collider.(*serializationKCES.ColliderSphere)
-	if !ok || c0 == nil || c0.ParentName != "Bip01 Neck" {
+	if !ok || c0 == nil || testStringValue(c0.ParentName) != "Bip01 Neck" {
 		t.Fatalf("unexpected round-trip collider package: %+v", roundTrip)
 	}
 }
@@ -217,20 +216,19 @@ func testPayloadServiceClothParamsRoundTrip(t *testing.T, ext string) {
 	env := &serializationKCES.KCESPayloadEnvelope{
 		Format:         serializationKCES.PayloadFormatKCESMessagePack,
 		Extension:      ext,
-		LengthPrefixed: true,
 		StorageVariant: serializationKCES.PayloadStorageInt32LZ4MessagePack,
 		Kind:           serializationKCES.PayloadKindClothParams,
 		ClothParams: &serializationKCES.ClothParams{
-			Radius:                         serializationKCES.BezierParam{StartValue: 0.02, EndValue: 0.04, UseEndValue: true},
-			Mass:                           serializationKCES.BezierParam{StartValue: 1, EndValue: 1},
+			Radius:                         &serializationKCES.BezierParam{StartValue: 0.02, EndValue: 0.04, UseEndValue: true},
+			Mass:                           &serializationKCES.BezierParam{StartValue: 1, EndValue: 1},
 			UseGravity:                     true,
-			Gravity:                        serializationKCES.BezierParam{StartValue: -9.8, EndValue: -9.8},
+			Gravity:                        &serializationKCES.BezierParam{StartValue: -9.8, EndValue: -9.8},
 			UseDrag:                        true,
-			Drag:                           serializationKCES.BezierParam{StartValue: 0.02, EndValue: 0.02, UseEndValue: true},
+			Drag:                           &serializationKCES.BezierParam{StartValue: 0.02, EndValue: 0.02, UseEndValue: true},
 			UseMaxVelocity:                 true,
-			MaxVelocity:                    serializationKCES.BezierParam{StartValue: 3, EndValue: 3},
-			WorldMoveInfluence:             serializationKCES.BezierParam{StartValue: 0.5, EndValue: 0.5},
-			WorldRotationInfluence:         serializationKCES.BezierParam{StartValue: 0.5, EndValue: 0.5},
+			MaxVelocity:                    &serializationKCES.BezierParam{StartValue: 3, EndValue: 3},
+			WorldMoveInfluence:             &serializationKCES.BezierParam{StartValue: 0.5, EndValue: 0.5},
+			WorldRotationInfluence:         &serializationKCES.BezierParam{StartValue: 0.5, EndValue: 0.5},
 			DisableDistance:                20,
 			DisableFadeDistance:            5,
 			UseClampDistanceRatio:          true,
@@ -239,9 +237,9 @@ func testPayloadServiceClothParamsRoundTrip(t *testing.T, ext string) {
 			UsePenetration:                 true,
 			PenetrationMode:                serializationKCES.ClothPenetrationModeColliderPenetration,
 			PenetrationAxis:                serializationKCES.ClothPenetrationAxisInverseZ,
-			PenetrationConnectDistance:     serializationKCES.BezierParam{StartValue: 0.2, EndValue: 0.3, UseEndValue: true},
-			PenetrationDistance:            serializationKCES.BezierParam{StartValue: 0.1, EndValue: 0.2, UseEndValue: true},
-			PenetrationRadius:              serializationKCES.BezierParam{StartValue: 0.3, EndValue: 1, UseEndValue: true},
+			PenetrationConnectDistance:     &serializationKCES.BezierParam{StartValue: 0.2, EndValue: 0.3, UseEndValue: true},
+			PenetrationDistance:            &serializationKCES.BezierParam{StartValue: 0.1, EndValue: 0.2, UseEndValue: true},
+			PenetrationRadius:              &serializationKCES.BezierParam{StartValue: 0.3, EndValue: 1, UseEndValue: true},
 			UseLineAvarageRotation:         true,
 			GravityDirection:               serializationKCES.Vector3{Y: 1},
 			MaxMoveSpeed:                   10,
@@ -302,6 +300,13 @@ func TestPayloadService_FixedSamplesJSONRoundTrip(t *testing.T) {
 				sample := sample
 				t.Run(filepath.Base(sample), func(t *testing.T) {
 					name := filepath.Base(sample)
+					if name == "default_accmimi_col.dbcol" || name == "default_yure_col.dbcol" {
+						err := service.ConvertPayloadToJson(TestConversionContext, sample, filepath.Join(t.TempDir(), name+".json"), TestConversionMaxOutput)
+						if err == nil || !strings.Contains(err.Error(), "sparse slot 13 must be nil") {
+							t.Fatalf("ConvertPayloadToJson error = %v, want non-nil undeclared MaidProp slot rejection", err)
+						}
+						return
+					}
 					tmpDir := t.TempDir()
 					jsonPath := filepath.Join(tmpDir, name+".json")
 					outPath := filepath.Join(tmpDir, name)

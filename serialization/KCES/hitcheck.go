@@ -20,9 +20,8 @@ const HitCheckSignature = "HitCheck"
 // HitCheck 表示 KCES hitcheck 二进制文件
 // HitCheck represents a KCES hitcheck binary file
 type HitCheck struct {
-	Signature    string          `json:"signature"`              // 文件签名，通常为 HitCheck / File signature, usually HitCheck
-	Entries      []HitCheckEntry `json:"entries"`                // hitcheck 条目列表 / Hitcheck entry list
-	TrailingData []byte          `json:"trailingData,omitempty"` // 游戏读取 count 项后忽略的尾部字节 / Trailing bytes ignored by the game after reading count entries
+	Signature string          `json:"signature"` // 文件签名，通常为 HitCheck / File signature, usually HitCheck
+	Entries   []HitCheckEntry `json:"entries"`   // hitcheck 条目列表 / Hitcheck entry list
 }
 
 // HitCheckEntry 表示一个 hitcheck 球形检测条目
@@ -38,8 +37,8 @@ type HitCheckEntry struct {
 	RL        int32   `json:"rl"`        // 左右标记，对应游戏 THitSphere.RL / Left/right marker, matching game THitSphere.RL
 }
 
-// DecodeHitCheck 解码 hitcheck 球形检测列表并保留游戏忽略的尾部数据
-// DecodeHitCheck decodes a hitcheck sphere list and preserves trailing data ignored by the game
+// DecodeHitCheck 解码一个完整的 hitcheck 球形检测列表并拒绝根记录后的尾部数据
+// DecodeHitCheck decodes one complete hitcheck sphere list and rejects trailing data after the root record
 func DecodeHitCheck(data []byte) (*HitCheck, error) {
 	reader := bytes.NewReader(data)
 	br := stream.NewBinaryReader(reader)
@@ -79,17 +78,14 @@ func DecodeHitCheck(data []byte) (*HitCheck, error) {
 	}
 
 	if reader.Len() != 0 {
-		out.TrailingData = make([]byte, reader.Len())
-		if _, err := reader.Read(out.TrailingData); err != nil {
-			return nil, fmt.Errorf("read hitcheck trailing data: %w", err)
-		}
+		return nil, fmt.Errorf("hitcheck has %d bytes of trailing data", reader.Len())
 	}
 
 	return out, nil
 }
 
-// EncodeHitCheck 编码 hitcheck 球形检测列表及其保留的尾部数据
-// EncodeHitCheck encodes a hitcheck sphere list and its preserved trailing data
+// EncodeHitCheck 编码一个完整的 hitcheck 球形检测列表
+// EncodeHitCheck encodes one complete hitcheck sphere list
 func EncodeHitCheck(value *HitCheck) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil hitcheck")
@@ -116,11 +112,6 @@ func EncodeHitCheck(value *HitCheck) ([]byte, error) {
 	for i := range value.Entries {
 		if err := writeHitCheckEntry(bw, &value.Entries[i], int64(i)); err != nil {
 			return nil, err
-		}
-	}
-	if len(value.TrailingData) != 0 {
-		if _, err := buf.Write(value.TrailingData); err != nil {
-			return nil, fmt.Errorf("write hitcheck trailing data: %w", err)
 		}
 	}
 	return buf.Bytes(), nil

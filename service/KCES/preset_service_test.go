@@ -1,9 +1,9 @@
 package KCES
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
@@ -29,12 +29,13 @@ func TestKCESPresetServiceDistinguishesLegacyAndCurrentFormats(t *testing.T) {
 	jsonPath := currentPath + ".json"
 	backPath := filepath.Join(tempDir, "back.preset")
 	core := mustKCESPresetCoreForServiceTest(t)
+	presetName := "service"
 
 	encoded, err := serializationKCES.EncodeKCESPreset(&serializationKCES.KCESPreset{
 		ContainerVersion: 1000,
 		Thumbnail:        []byte("png"),
 		MaidData:         core,
-		Meta:             &serializationKCES.KCESPresetMeta{Version: 1000, Data: map[string]string{"presetName": "service"}},
+		Meta:             &serializationKCES.KCESPresetMeta{Version: 1000, Data: map[string]*string{"presetName": &presetName}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -74,7 +75,11 @@ func TestKCESPresetServiceDistinguishesLegacyAndCurrentFormats(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadPresetFile(back): %v", err)
 	}
-	if !bytes.Equal(back.MaidData.PropData, core.PropData) || back.Meta.Data["presetName"] != "service" {
+	want, err := serializationKCES.DecodeExpandedKCESPreset(encoded)
+	if err != nil {
+		t.Fatalf("DecodeExpandedKCESPreset: %v", err)
+	}
+	if !reflect.DeepEqual(back, want) {
 		t.Fatalf("service round-trip mismatch: %+v", back)
 	}
 

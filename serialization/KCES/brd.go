@@ -23,26 +23,21 @@ const (
 	// GP03BridgeVersion 是 KCES 1.34.4 写出的桥接版本
 	// GP03BridgeVersion is the bridge version emitted by KCES 1.34.4
 	GP03BridgeVersion int32 = 2001
-	// GP03BridgeCOM3D2Version 由 COM3D2_5 Maid.ExportBridgeGP03 为反向 COM3D2 到 KCES 传输写出，已观察的游戏输出会将旧预设槽留空，也可能将当前预设槽留空，外层序列化器有意不强制任何内部载荷约定
-	// GP03BridgeCOM3D2Version is emitted by COM3D2_5 Maid.ExportBridgeGP03 for reverse COM3D2-to-KCES transfer, where observed game output leaves the legacy slot empty and may leave the current-preset slot empty, so the outer serializer deliberately enforces neither inner-payload convention
+	// GP03BridgeCOM3D2Version 由 COM3D2_5 Maid.ExportBridgeGP03 为反向 COM3D2 到 KCES 传输写出，该版本的旧预设块必须为空
+	// GP03BridgeCOM3D2Version is emitted by COM3D2_5 Maid.ExportBridgeGP03 for reverse COM3D2-to-KCES transfer and requires an empty legacy-preset block
 	GP03BridgeCOM3D2Version int32 = 2000
 	// KCESGP03BridgeFormat 标识可编辑 JSON 表示
 	// KCESGP03BridgeFormat identifies the editable JSON representation
 	KCESGP03BridgeFormat = "kces-gp03-bridge"
 )
 
-// GP03BridgeFile 表示 KCES ExportCM.cs v2001 与 COM3D2_5 Maid.ExportBridgeGP03 v2000 共用的 GP03 桥接外层线格式
-// LegacyPreset 和 CurrentPreset 有意保持不透明，因为其内部格式具有独立版本和游戏迁移回调，外层编解码器只逐字节保留两个长度分隔的字节串
-// GP03BridgeFile represents the shared GP03 bridge outer wire written by KCES ExportCM.cs v2001 and COM3D2_5 Maid.ExportBridgeGP03 v2000
-// LegacyPreset and CurrentPreset remain deliberately opaque because their inner formats have independent versions and game-side migration callbacks, so the outer codec only preserves both length-delimited byte strings verbatim
+// GP03BridgeFile 表示 KCES ExportCM.cs v2001 与 COM3D2_5 Maid.ExportBridgeGP03 v2000 共用的内部 wire framing，两个预设块会在 service 层立即解码且不进入 editing JSON / GP03BridgeFile represents the internal wire framing shared by KCES ExportCM.cs v2001 and COM3D2_5 Maid.ExportBridgeGP03 v2000, with both preset blocks immediately decoded by the service layer and excluded from editing JSON
 type GP03BridgeFile struct {
-	Format        string `json:"format"`                 // JSON 表示格式标识 / JSON representation format identifier
-	Signature     string `json:"signature"`              // 文件签名 GP03_BRIDGE / File signature GP03_BRIDGE
-	Version       int32  `json:"version"`                // 外层桥接版本 / Outer bridge version
-	GUID          string `json:"guid"`                   // 传输角色的 GUID / GUID of the transferred character
-	LegacyPreset  []byte `json:"legacyPreset"`           // 不透明的旧版预设字节块 / Opaque legacy-preset byte block
-	CurrentPreset []byte `json:"currentPreset"`          // 不透明的当前预设字节块 / Opaque current-preset byte block
-	TrailingData  []byte `json:"trailingData,omitempty"` // 游戏读取两个预设块后忽略的尾部字节 / Trailing bytes ignored by the game after reading both preset blocks
+	Signature     string // 文件签名 GP03_BRIDGE / File signature GP03_BRIDGE
+	Version       int32  // 外层桥接版本 / Outer bridge version
+	GUID          string // 传输角色的 GUID / GUID of the transferred character
+	LegacyPreset  []byte `json:"-"` // v2001 的 COM3D2 preset wire 块，v2000 必须为空 / COM3D2 preset wire block for v2001, required to be empty for v2000
+	CurrentPreset []byte `json:"-"` // 可空 KCES preset wire 块 / Nullable KCES preset wire block
 }
 
 // IsGP03BridgeData 判断数据是否以 GP03_BRIDGE 的 BinaryWriter 编码开头，完整校验仍由 DecodeGP03Bridge 负责
@@ -53,8 +48,8 @@ func IsGP03BridgeData(data []byte) bool {
 	return bytes.HasPrefix(data, []byte("\x0b"+GP03BridgeSignature))
 }
 
-// DecodeGP03Bridge 解码共用桥接布局，保存的版本和两个长度分隔预设块均保持不透明并逐字节保留
-// DecodeGP03Bridge decodes the shared bridge layout while keeping stored versions and both length-delimited preset blobs opaque and byte-exact
+// DecodeGP03Bridge 解码共用桥接 framing 并严格校验支持的版本、块长度和文件结尾
+// DecodeGP03Bridge decodes the shared bridge framing and strictly validates the supported version, block lengths, and file end
 func DecodeGP03Bridge(data []byte) (*GP03BridgeFile, error) {
 	r := bytes.NewReader(data)
 	br := stream.NewBinaryReader(r)
@@ -70,6 +65,9 @@ func DecodeGP03Bridge(data []byte) (*GP03BridgeFile, error) {
 	version, err := br.ReadInt32()
 	if err != nil {
 		return nil, fmt.Errorf("read GP03 bridge version: %w", err)
+	}
+	if version != GP03BridgeVersion && version != GP03BridgeCOM3D2Version {
+		return nil, fmt.Errorf("unsupported GP03 bridge version %d", version)
 	}
 
 	guid, err := readGP03BridgeString(br, "GUID")
@@ -93,6 +91,9 @@ func DecodeGP03Bridge(data []byte) (*GP03BridgeFile, error) {
 	if _, err := io.ReadFull(r, legacyPreset); err != nil {
 		return nil, fmt.Errorf("read GP03 bridge legacy preset payload: %w", err)
 	}
+	if version == GP03BridgeCOM3D2Version && len(legacyPreset) != 0 {
+		return nil, fmt.Errorf("GP03 bridge version %d legacy preset block must be empty", version)
+	}
 
 	currentLength, err := br.ReadInt32()
 	if err != nil {
@@ -109,7 +110,6 @@ func DecodeGP03Bridge(data []byte) (*GP03BridgeFile, error) {
 		return nil, fmt.Errorf("read GP03 bridge current preset payload: %w", err)
 	}
 	result := &GP03BridgeFile{
-		Format:        KCESGP03BridgeFormat,
 		Signature:     signature,
 		Version:       version,
 		GUID:          guid,
@@ -117,10 +117,7 @@ func DecodeGP03Bridge(data []byte) (*GP03BridgeFile, error) {
 		CurrentPreset: currentPreset,
 	}
 	if r.Len() != 0 {
-		result.TrailingData = make([]byte, r.Len())
-		if _, err := io.ReadFull(r, result.TrailingData); err != nil {
-			return nil, fmt.Errorf("read GP03 bridge trailing data: %w", err)
-		}
+		return nil, fmt.Errorf("GP03 bridge has %d bytes of trailing data", r.Len())
 	}
 	return result, nil
 }
@@ -131,14 +128,17 @@ func EncodeGP03Bridge(value *GP03BridgeFile) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil GP03 bridge")
 	}
-	if value.Format != "" && value.Format != KCESGP03BridgeFormat {
-		return nil, fmt.Errorf("unsupported GP03 bridge JSON format %q", value.Format)
-	}
 	signature := value.Signature
 	if signature != GP03BridgeSignature {
 		return nil, fmt.Errorf("invalid GP03 bridge signature %q (expected %q)", signature, GP03BridgeSignature)
 	}
 	version := value.Version
+	if version != GP03BridgeVersion && version != GP03BridgeCOM3D2Version {
+		return nil, fmt.Errorf("unsupported GP03 bridge version %d", version)
+	}
+	if version == GP03BridgeCOM3D2Version && len(value.LegacyPreset) != 0 {
+		return nil, fmt.Errorf("GP03 bridge version %d legacy preset block must be empty", version)
+	}
 	if uint64(len(value.LegacyPreset)) > uint64(math.MaxInt32) {
 		return nil, fmt.Errorf("GP03 bridge legacy preset length %d exceeds Int32", len(value.LegacyPreset))
 	}
@@ -169,11 +169,6 @@ func EncodeGP03Bridge(value *GP03BridgeFile) ([]byte, error) {
 	if err := bw.WriteBytes(value.CurrentPreset); err != nil {
 		return nil, fmt.Errorf("write GP03 bridge current preset: %w", err)
 	}
-	if len(value.TrailingData) != 0 {
-		if err := bw.WriteBytes(value.TrailingData); err != nil {
-			return nil, fmt.Errorf("write GP03 bridge trailing data: %w", err)
-		}
-	}
 	return out.Bytes(), nil
 }
 
@@ -181,7 +176,6 @@ func EncodeGP03Bridge(value *GP03BridgeFile) ([]byte, error) {
 // NewGP03BridgeFile creates a new bridge file with the current KCES signature and version
 func NewGP03BridgeFile() *GP03BridgeFile {
 	return &GP03BridgeFile{
-		Format:    KCESGP03BridgeFormat,
 		Signature: GP03BridgeSignature,
 		Version:   GP03BridgeVersion,
 	}

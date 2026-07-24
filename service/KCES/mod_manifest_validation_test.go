@@ -172,8 +172,8 @@ func TestPackModManifestPreservesPatchSubName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if catalog.PackageType != ct.PackageTypePluginPatch || catalog.SubName != manifest.SubName {
-		t.Fatalf("patch catalog got package=%d subName=%q", catalog.PackageType, catalog.SubName)
+	if catalog.PackageType != ct.PackageTypePluginPatch || testStringValue(catalog.SubName) != manifest.SubName {
+		t.Fatalf("patch catalog got package=%d subName=%q", catalog.PackageType, testStringValue(catalog.SubName))
 	}
 }
 

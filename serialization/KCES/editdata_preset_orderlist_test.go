@@ -99,72 +99,32 @@ func TestColorPresetOrderListMatchesGameCompressionThresholdAndHasNoLengthPrefix
 	}
 }
 
-func TestColorPresetOrderListVersionPreservationAndIndexedCompatibility(t *testing.T) {
-	t.Run("empty short array keeps zero serialized value", func(t *testing.T) {
-		decoded := colorPresetOrderListDecodeRaw(t, []byte{0x90})
-		if decoded.Version != 0 || decoded.IDOrderList != nil {
-			t.Fatalf("decoded short object = %#v, want version=0 and nil list", decoded)
-		}
-	})
+func TestColorPresetOrderListFixedLayoutAndVersionPreservation(t *testing.T) {
+	name := "guid"
+	value := &ColorPresetOrderList{Version: -123, IDOrderList: []*string{&name}}
+	before := &ColorPresetOrderList{Version: value.Version, IDOrderList: append([]*string(nil), value.IDOrderList...)}
+	encoded, err := EncodeColorPresetOrderList(value)
+	if err != nil {
+		t.Fatalf("EncodeColorPresetOrderList() error = %v", err)
+	}
+	if !reflect.DeepEqual(value, before) {
+		t.Fatalf("encoder modified caller: got %#v, want %#v", value, before)
+	}
+	decoded, err := DecodeColorPresetOrderList(encoded)
+	if err != nil || decoded.Version != -123 {
+		t.Fatalf("version round trip = %#v, %v", decoded, err)
+	}
 
-	t.Run("legacy version is preserved because Migrate is empty", func(t *testing.T) {
-		decoded := colorPresetOrderListDecodeRaw(t, []byte{0x91, 0xcd, 0x03, 0xe7}) // [999]
-		if decoded.Version != 999 || decoded.IDOrderList != nil {
-			t.Fatalf("decoded legacy object = %#v, want version=999 and nil list", decoded)
-		}
-	})
-
-	t.Run("future version and slots are preserved", func(t *testing.T) {
-		raw := []byte{
-			0x94,
-			0xcd, 0x04, 0x4c, // version = 1100
-			0x91, 0xa1, 'x',
-			0x82, 0xa1, 'a', 0x91, 0xc0, 0xa1, 'b', 0xc7, 0x01, 0x2a, 0xff,
-			0xd6, 0x01, 0, 0, 0, 7,
-		}
-		decoded := colorPresetOrderListDecodeRaw(t, raw)
-		fieldCount := int32(4)
-		want := &ColorPresetOrderList{
-			Version:     1100,
-			IDOrderList: []*string{colorPresetOrderString("x")},
-			FieldCount:  &fieldCount,
-			FutureSlots: [][]byte{
-				{0x82, 0xa1, 'a', 0x91, 0xc0, 0xa1, 'b', 0xc7, 0x01, 0x2a, 0xff},
-				{0xd6, 0x01, 0, 0, 0, 7},
-			},
-		}
-		if !reflect.DeepEqual(decoded, want) {
-			t.Fatalf("decoded future object = %#v, want %#v", decoded, want)
-		}
-		reencoded, err := EncodeColorPresetOrderList(decoded)
-		if err != nil {
-			t.Fatal(err)
-		}
-		reencoded, err = ct.DecompressLz4BlockArray(reencoded)
-		if err != nil || !bytes.Equal(reencoded, raw) {
-			t.Fatalf("future object wire changed: equal=%v err=%v", bytes.Equal(reencoded, raw), err)
-		}
-	})
-
-	t.Run("encoding preserves version without mutating caller", func(t *testing.T) {
-		name := "guid"
-		value := &ColorPresetOrderList{Version: -123, IDOrderList: []*string{&name}}
-		before := &ColorPresetOrderList{Version: value.Version, IDOrderList: append([]*string(nil), value.IDOrderList...)}
-		encoded, err := EncodeColorPresetOrderList(value)
-		if err != nil {
-			t.Fatalf("EncodeColorPresetOrderList() error = %v", err)
-		}
-		if !reflect.DeepEqual(value, before) {
-			t.Fatalf("encoder modified caller: got %#v, want %#v", value, before)
-		}
-		decoded, err := DecodeColorPresetOrderList(encoded)
-		if err != nil {
-			t.Fatalf("DecodeColorPresetOrderList(encoded) error = %v", err)
-		}
-		if decoded.Version != -123 {
-			t.Fatalf("encoded version = %d, want preserved -123", decoded.Version)
-		}
-	})
+	for name, raw := range map[string][]byte{
+		"short":     {0x91, 0xcd, 0x03, 0xe8},
+		"high slot": {0x93, 0xcd, 0x03, 0xe8, 0x90, 0xc0},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := DecodeColorPresetOrderList(raw); err == nil || !strings.Contains(err.Error(), "indexed-array width") {
+				t.Fatalf("DecodeColorPresetOrderList() error = %v", err)
+			}
+		})
+	}
 }
 
 func TestColorPresetOrderListNullableStringsAndUTF8(t *testing.T) {

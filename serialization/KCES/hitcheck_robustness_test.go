@@ -1,7 +1,6 @@
 package KCES
 
 import (
-	"bytes"
 	"encoding/binary"
 	"strings"
 	"testing"
@@ -34,21 +33,16 @@ func TestEncodeHitCheckRejectsNonGameSignature(t *testing.T) {
 	}
 }
 
-func TestHitCheckPreservesTrailingBytesAndRejectsNegativeCount(t *testing.T) {
+func TestHitCheckRejectsTrailingBytesAndNegativeCount(t *testing.T) {
 	t.Run("ordinary trailing bytes", func(t *testing.T) {
 		value := NewHitCheck()
-		value.TrailingData = []byte{0xde, 0xad, 0xbe, 0xef}
 		wire, err := EncodeHitCheck(value)
 		if err != nil {
 			t.Fatal(err)
 		}
-		decoded, err := DecodeHitCheck(wire)
-		if err != nil || !bytes.Equal(decoded.TrailingData, value.TrailingData) {
-			t.Fatalf("DecodeHitCheck() = %+v, %v", decoded, err)
-		}
-		reencoded, err := EncodeHitCheck(decoded)
-		if err != nil || !bytes.Equal(reencoded, wire) {
-			t.Fatalf("trailing-byte round trip = %x, %v; want %x", reencoded, err, wire)
+		wire = append(wire, 0xde, 0xad, 0xbe, 0xef)
+		if _, err := DecodeHitCheck(wire); err == nil || !strings.Contains(err.Error(), "trailing") {
+			t.Fatalf("DecodeHitCheck() error = %v, want trailing-data rejection", err)
 		}
 	})
 

@@ -36,15 +36,15 @@ func TestGP03BridgeServiceJSONRoundTripAndFileTypeProbe(t *testing.T) {
 	if err := service.ConvertBridgeToJSON(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertBridgeToJSON: %v", err)
 	}
-	var envelope serializationKCES.GP03BridgeFile
+	var envelope GP03BridgeEditing
 	if err := json.Unmarshal(mustReadTestFile(t, jsonPath), &envelope); err != nil {
 		t.Fatalf("unmarshal bridge JSON: %v", err)
 	}
 	if envelope.Format != serializationKCES.KCESGP03BridgeFormat || envelope.Signature != serializationKCES.GP03BridgeSignature || envelope.Version != serializationKCES.GP03BridgeVersion {
 		t.Fatalf("unexpected bridge JSON envelope: %+v", envelope)
 	}
-	if !bytes.Equal(envelope.LegacyPreset, value.LegacyPreset) || !bytes.Equal(envelope.CurrentPreset, value.CurrentPreset) {
-		t.Fatal("bridge JSON did not preserve embedded preset blobs")
+	if envelope.LegacyPreset == nil || envelope.CurrentPreset == nil {
+		t.Fatal("bridge JSON did not expose both embedded blocks as typed presets")
 	}
 
 	for _, path := range []string{inputPath, renamedPath, jsonPath} {
@@ -71,7 +71,7 @@ func TestGP03BridgeServiceJSONRoundTripAndFileTypeProbe(t *testing.T) {
 	if err := service.ConvertJSONToBridge(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJSONToBridge: %v", err)
 	}
-	decodedInput, err := serializationKCES.DecodeGP03Bridge(native)
+	decodedInput, err := decodeGP03Bridge(native)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,15 @@ func TestGP03BridgeServiceStrictJSONAndRouting(t *testing.T) {
 		t.Fatalf("malformed .brd probe: matched=%v info=%+v err=%v", matched, info, probeErr)
 	}
 
-	valid := sourceConstructedServiceBridge(t)
+	validWire := sourceConstructedServiceBridge(t)
+	validNative, err := serializationKCES.EncodeGP03Bridge(validWire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid, err := decodeGP03Bridge(validNative)
+	if err != nil {
+		t.Fatal(err)
+	}
 	validJSON, err := json.Marshal(valid)
 	if err != nil {
 		t.Fatal(err)
@@ -126,6 +134,7 @@ func TestGP03BridgeServiceStrictJSONAndRouting(t *testing.T) {
 		"unknown":      unknown,
 		"trailing":     trailing,
 		"invalid utf8": {'{', '"', 'x', '"', ':', '"', 0xff, '"', '}'},
+		"null guid":    []byte(`{"format":"kces-gp03-bridge","signature":"GP03_BRIDGE","version":2001,"guid":null,"legacyPreset":null,"currentPreset":null}`),
 	} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -143,18 +152,18 @@ func TestGP03BridgeServiceStrictJSONAndRouting(t *testing.T) {
 		})
 	}
 	for name, body := range map[string][]byte{
-		"missing opaque blob": missing,
-		"null opaque blobs":   []byte(`{"format":"kces-gp03-bridge","signature":"GP03_BRIDGE","version":2001,"guid":"g","legacyPreset":null,"currentPreset":null}`),
+		"missing typed preset field": missing,
+		"raw base64 preset":          []byte(`{"format":"kces-gp03-bridge","signature":"GP03_BRIDGE","version":2001,"guid":"g","legacyPreset":"AA==","currentPreset":null}`),
 	} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
-			inputPath := filepath.Join(dir, "opaque.brd.json")
-			outputPath := filepath.Join(dir, "opaque.brd")
+			inputPath := filepath.Join(dir, "bad.brd.json")
+			outputPath := filepath.Join(dir, "bad.brd")
 			if err := os.WriteFile(inputPath, body, 0644); err != nil {
 				t.Fatal(err)
 			}
-			if err := service.ConvertJSONToBridge(TestConversionContext, inputPath, outputPath, TestConversionMaxOutput); err != nil {
-				t.Fatalf("representable opaque blobs rejected: %v", err)
+			if err := service.ConvertJSONToBridge(TestConversionContext, inputPath, outputPath, TestConversionMaxOutput); err == nil {
+				t.Fatal("missing typed field or raw preset fallback was accepted")
 			}
 		})
 	}
@@ -226,7 +235,6 @@ func sourceConstructedServiceBridge(t *testing.T) *serializationKCES.GP03BridgeF
 		t.Fatal(err)
 	}
 	return &serializationKCES.GP03BridgeFile{
-		Format:        serializationKCES.KCESGP03BridgeFormat,
 		Signature:     serializationKCES.GP03BridgeSignature,
 		Version:       serializationKCES.GP03BridgeVersion,
 		GUID:          "source-constructed-guid",

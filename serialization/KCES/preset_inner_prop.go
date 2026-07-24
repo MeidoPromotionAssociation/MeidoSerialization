@@ -10,8 +10,8 @@ import (
 // .preset 内 GP03_MPROP_LIST 和 GP03_MPROP 属性块的详细读写与校验实现
 // Detailed reader, writer, and validation implementation for GP03_MPROP_LIST and GP03_MPROP property blocks inside .preset
 
-// DecodeKCESPresetPropertyData 解码 Maid.SerializeProp 写出的属性字典并保留已知列表结构后的字节
-// DecodeKCESPresetPropertyData decodes the property dictionary written by Maid.SerializeProp and preserves bytes after the known list layout
+// DecodeKCESPresetPropertyData 解码 Maid.SerializeProp 写出的完整属性字典
+// DecodeKCESPresetPropertyData decodes the complete property dictionary written by Maid.SerializeProp
 func DecodeKCESPresetPropertyData(data []byte) (*KCESPresetPropertyList, error) {
 	r := newKCESPresetInnerReader(data)
 	signature, err := r.readString("KCES preset property-list signature")
@@ -47,10 +47,7 @@ func DecodeKCESPresetPropertyData(data []byte) (*KCESPresetPropertyList, error) 
 		result.Properties = append(result.Properties, KCESPresetNamedProperty{Key: key, Property: property})
 	}
 	if r.r.Len() != 0 {
-		result.TrailingData, err = r.br.ReadBytes(int64(r.r.Len()))
-		if err != nil {
-			return nil, fmt.Errorf("read KCES preset property-list trailingData: %w", err)
-		}
+		return nil, fmt.Errorf("KCES preset property-list has %d trailing bytes", r.r.Len())
 	}
 	return result, nil
 }
@@ -374,7 +371,7 @@ func readKCESPresetTextureMasks(r *kcesPresetInnerReader, path string) ([]KCESPr
 
 // readKCESPresetTextureTransforms 读取可空且项目不可为 nil 的 TexLay.TransTexData 列表
 // readKCESPresetTextureTransforms reads a nullable TexLay.TransTexData list whose entries are non-null
-func readKCESPresetTextureTransforms(r *kcesPresetInnerReader, path string, depth int64) ([]*KCESPresetTextureTransform, error) {
+func readKCESPresetTextureTransforms(r *kcesPresetInnerReader, path string, depth int64) ([]KCESPresetTextureTransform, error) {
 	present, err := r.br.ReadBool()
 	if err != nil {
 		return nil, fmt.Errorf("read %s presence: %w", path, err)
@@ -386,13 +383,13 @@ func readKCESPresetTextureTransforms(r *kcesPresetInnerReader, path string, dept
 	if err != nil {
 		return nil, err
 	}
-	result := makeKCESCountedSliceForAppend[*KCESPresetTextureTransform](uint64(count))
+	result := makeKCESCountedSliceForAppend[KCESPresetTextureTransform](uint64(count))
 	for index := int64(0); index < count; index++ {
 		value, err := readKCESPresetTextureTransform(r, fmt.Sprintf("%s[%d]", path, index), depth+1)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, &value)
+		result = append(result, value)
 	}
 	return result, nil
 }
@@ -813,8 +810,8 @@ func readKCESPresetSubProperty(r *kcesPresetInnerReader, path string, version in
 	return value, nil
 }
 
-// EncodeKCESPresetPropertyData 编码 GP03_MPROP_LIST 属性字典并保留属性顺序、重复键和尾部字节
-// EncodeKCESPresetPropertyData encodes the GP03_MPROP_LIST property dictionary while preserving order, repeated keys, and trailing bytes
+// EncodeKCESPresetPropertyData 编码 GP03_MPROP_LIST 属性字典并保留属性顺序和重复键
+// EncodeKCESPresetPropertyData encodes the GP03_MPROP_LIST property dictionary while preserving order and repeated keys
 func EncodeKCESPresetPropertyData(value *KCESPresetPropertyList) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil KCES preset property data")
@@ -850,9 +847,6 @@ func EncodeKCESPresetPropertyData(value *KCESPresetPropertyList) ([]byte, error)
 		if err := writeKCESPresetProperty(bw, &entry.Property, path+".property"); err != nil {
 			return nil, err
 		}
-	}
-	if err := bw.WriteBytes(value.TrailingData); err != nil {
-		return nil, err
 	}
 	return out.Bytes(), nil
 }
@@ -1151,9 +1145,9 @@ func writeKCESPresetTextureMasks(bw *stream.BinaryWriter, values []KCESPresetTex
 	return nil
 }
 
-// writeKCESPresetTextureTransforms 写入可空的 TexLay.TransTexData 列表并拒绝 nil 项
-// writeKCESPresetTextureTransforms writes a nullable TexLay.TransTexData list and rejects nil entries
-func writeKCESPresetTextureTransforms(bw *stream.BinaryWriter, values []*KCESPresetTextureTransform, path string, depth int64) error {
+// writeKCESPresetTextureTransforms 写入可空且项目固定为值的 TexLay.TransTexData 列表
+// writeKCESPresetTextureTransforms writes a nullable TexLay.TransTexData list whose entries are fixed values
+func writeKCESPresetTextureTransforms(bw *stream.BinaryWriter, values []KCESPresetTextureTransform, path string, depth int64) error {
 	if err := bw.WriteBool(values != nil); err != nil {
 		return err
 	}
@@ -1166,11 +1160,8 @@ func writeKCESPresetTextureTransforms(bw *stream.BinaryWriter, values []*KCESPre
 	if err := bw.WriteInt32(int32(len(values))); err != nil {
 		return err
 	}
-	for index, value := range values {
-		if value == nil {
-			return fmt.Errorf("%s[%d] is nil; TransTexData list entries are not nullable", path, index)
-		}
-		if err := writeKCESPresetTextureTransform(bw, value, fmt.Sprintf("%s[%d]", path, index), depth+1); err != nil {
+	for index := range values {
+		if err := writeKCESPresetTextureTransform(bw, &values[index], fmt.Sprintf("%s[%d]", path, index), depth+1); err != nil {
 			return err
 		}
 	}

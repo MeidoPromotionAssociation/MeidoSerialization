@@ -18,13 +18,6 @@ const (
 
 	blockSize = 65536
 
-	// 本包旧版本曾写出类型号反向的私有布局，即数组、含总大小的 ext 99 以及多个块 ext 98
-	// 为保持旧文件可读仍接受该布局，但绝不再写出
-	// Older versions of this package emitted a private layout with reversed type numbers, consisting of an array, ext 99 carrying total size, and ext 98 blocks
-	// The layout remains accepted for old-file readability but is never emitted
-	legacyLz4ArrayType = 99
-	legacyLz4BlockType = 98
-
 	// 大小字段由输入控制，此限制防止微小畸形输入在 LZ4 校验前触发无界分配
 	// Size fields are input-controlled, and this limit prevents a tiny malformed input from causing an unbounded allocation before LZ4 validation
 	maxLz4DecompressedSize = 1 << 30
@@ -32,46 +25,12 @@ const (
 	messagePackInitialCollectionCapacity = 1024
 )
 
-// MessagePackRootMetadata 保留强类型根值之外的字节
-// RootNil 仅用于 nil 根值后仍有尾部字节、因而不能只用 nil Go 指针表示的情况
-// MessagePackRootMetadata preserves bytes outside a typed root value
-// RootNil is used only when a nil root has trailing bytes and therefore cannot be represented by a nil Go pointer alone
-type MessagePackRootMetadata struct {
-	RootNil      bool   `json:"rootNil,omitempty"`      // 根 MessagePack 值是否显式为 nil / Whether the root MessagePack value was explicitly nil
-	TrailingData []byte `json:"trailingData,omitempty"` // 完整根值之后逐字节保留的数据 / Data preserved byte-for-byte after the complete root value
-}
-
-// IndexedObjectMetadata 保留 MessagePack-CSharp int-key 对象的精确宽度和未知尾部 Key
-// nil FieldCount 表示使用当前已知宽度，除非 FutureSlots 将其扩展
-// IndexedObjectMetadata preserves the exact width and unknown trailing keys of a MessagePack-CSharp int-key object
-// A nil FieldCount means the current known width unless FutureSlots extends it
-type IndexedObjectMetadata struct {
-	FieldCount  *int32   `json:"fieldCount,omitempty"`  // 原始 indexed object 数组的槽位数 / Slot count of the original indexed object array
-	FutureSlots [][]byte `json:"futureSlots,omitempty"` // 已知 Key 之后各未知槽位的完整原始 MessagePack 值 / Complete raw MessagePack values for unknown slots after known keys
-}
-
-// TypedIndexedObjectMetadata 在宽度和未来槽位元数据上增加普通强类型 Go 模型所需的 null 标注
-// Go 标量、值字段和值元素切片自身无法区分 MessagePack nil 与零值，这些紧凑标注使共享 indexed object 适配器能恢复 nil 标记
-// 因此编辑 JSON 无需重复保存每个已知字段的原始字节
-// TypedIndexedObjectMetadata extends width and future-slot metadata with null annotations needed by ordinary typed Go models
-// Go scalars, value fields, and slices of value elements cannot distinguish MessagePack nil from zero values by themselves, so these compact annotations let the shared indexed object adapter restore nil markers
-// Editing JSON therefore does not need to duplicate raw bytes for every known field
-type TypedIndexedObjectMetadata struct {
-	FieldCount       *int32             `json:"fieldCount,omitempty"`       // 原始 indexed object 数组的槽位数 / Slot count of the original indexed object array
-	FutureSlots      [][]byte           `json:"futureSlots,omitempty"`      // 已知 Key 之后各未知槽位的完整原始 MessagePack 值 / Complete raw MessagePack values for unknown slots after known keys
-	NilSlots         []int32            `json:"nilSlots,omitempty"`         // 在线格式中显式为 nil 的已知标量或值槽位索引 / Known scalar or value slot indices explicitly nil on the wire
-	NullElements     map[int32][]bool   `json:"nullElements,omitempty"`     // 按槽位记录值切片中各元素的 nil 线状态 / Per-slot nil wire-state flags for elements of value slices
-	NullMapValueKeys map[int32][][]byte `json:"nullMapValueKeys,omitempty"` // 按槽位记录值映射中具有 nil 值的完整原始 Key / Per-slot complete raw keys whose values were nil in value maps
-}
-
 // DecompressLz4BlockArray 处理 MessagePack-CSharp 的 Lz4Block 与 Lz4BlockArray 格式
 // 标准多块布局是 array N+1、含各块 MessagePack 解压大小的 ext 98 头和后续 bin 块
 // 单块布局是 ext 99，其载荷为一个 MessagePack 解压大小及压缩数据
-// 还会只读兼容本包旧版写出的 ext 类型号反向私有布局，但不会再写出该布局
 // DecompressLz4BlockArray handles MessagePack-CSharp Lz4Block and Lz4BlockArray forms
 // The standard multi-block layout is array N+1 with an ext 98 header containing MessagePack decompressed sizes followed by bin blocks
 // The single-block layout is ext 99 whose payload contains one MessagePack decompressed size and compressed data
-// It also read-only accepts the old private layout emitted by this package with reversed extension type numbers but never emits that layout
 func DecompressLz4BlockArray(data []byte) ([]byte, error) {
 	if len(data) == 0 {
 		return data, nil
@@ -112,14 +71,10 @@ func DecompressLz4BlockArray(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read Lz4BlockArray header: %w", err)
 	}
-	switch extType {
-	case int8(Lz4ArrayType):
-		return decompressStandardLz4BlockArray(data, pos, arrayLen, headerPayload)
-	case int8(legacyLz4ArrayType):
-		return decompressLegacyLz4BlockArray(data, pos, arrayLen, headerPayload)
-	default:
+	if extType != int8(Lz4ArrayType) {
 		return data, nil
 	}
+	return decompressStandardLz4BlockArray(data, pos, arrayLen, headerPayload)
 }
 
 // decompressSingleLz4Block 解码 ext 99 载荷中的 MessagePack 解压大小并解压单块
@@ -133,7 +88,7 @@ func decompressSingleLz4Block(payload []byte) ([]byte, error) {
 		return nil, err
 	}
 	compressed := payload[consumed:]
-	return decompressLz4Bytes(compressed, uncompressedSize, false)
+	return decompressLz4Bytes(compressed, uncompressedSize)
 }
 
 // decompressStandardLz4BlockArray 解压标准 ext 98 大小头加 bin 块的多块布局
@@ -158,7 +113,7 @@ func decompressStandardLz4BlockArray(data []byte, pos, arrayLen int64, headerPay
 		if err != nil {
 			return nil, fmt.Errorf("read Lz4BlockArray bin[%d]: %w", i, err)
 		}
-		block, err := decompressLz4Bytes(compressed, uncompressedSize, false)
+		block, err := decompressLz4Bytes(compressed, uncompressedSize)
 		if err != nil {
 			return nil, fmt.Errorf("decompress Lz4BlockArray block[%d]: %w", i, err)
 		}
@@ -170,49 +125,9 @@ func decompressStandardLz4BlockArray(data []byte, pos, arrayLen int64, headerPay
 	return result, nil
 }
 
-// decompressLegacyLz4BlockArray 只读解压本包旧版类型号反向的私有多块布局
-// decompressLegacyLz4BlockArray read-only decompresses the old private multi-block layout from this package with reversed type numbers
-func decompressLegacyLz4BlockArray(data []byte, pos, arrayLen int64, headerPayload []byte) ([]byte, error) {
-	totalSize, err := decodeFixedWidthInt(headerPayload)
-	if err != nil {
-		return nil, fmt.Errorf("decode legacy Lz4BlockArray size: %w", err)
-	}
-	if err := validateLz4Size(totalSize); err != nil {
-		return nil, err
-	}
-	expectedBlocks := int64(0)
-	if totalSize > 0 {
-		expectedBlocks = (totalSize + blockSize - 1) / blockSize
-	}
-	if arrayLen-1 != expectedBlocks {
-		return nil, fmt.Errorf("legacy Lz4BlockArray blocks=%d but size %d requires %d", arrayLen-1, totalSize, expectedBlocks)
-	}
-
-	result := make([]byte, 0, totalSize)
-	for i := int64(0); i < expectedBlocks; i++ {
-		extType, blockPayload, err := readExtPayload(data, &pos)
-		if err != nil {
-			return nil, fmt.Errorf("read legacy Lz4BlockArray block[%d]: %w", i, err)
-		}
-		if extType != int8(legacyLz4BlockType) {
-			return nil, fmt.Errorf("legacy block[%d]: expected ext type %d, got %d", i, legacyLz4BlockType, extType)
-		}
-		expectedSize := min(int64(blockSize), totalSize-int64(len(result)))
-		block, err := decompressLz4Bytes(blockPayload, expectedSize, true)
-		if err != nil {
-			return nil, fmt.Errorf("decompress legacy block[%d]: %w", i, err)
-		}
-		result = append(result, block...)
-	}
-	if pos != int64(len(data)) {
-		return nil, fmt.Errorf("legacy Lz4BlockArray has %d trailing bytes", int64(len(data))-pos)
-	}
-	return result, nil
-}
-
-// decompressLz4Bytes 将一个 LZ4 块解压到精确目标大小，并可为旧布局接受等长原始块
-// decompressLz4Bytes decompresses one LZ4 block to an exact target size and may accept equal-length raw blocks for the legacy layout
-func decompressLz4Bytes(compressed []byte, uncompressedSize int64, allowRaw bool) ([]byte, error) {
+// decompressLz4Bytes 将一个 LZ4 块解压到精确目标大小
+// decompressLz4Bytes decompresses one LZ4 block to an exact target size
+func decompressLz4Bytes(compressed []byte, uncompressedSize int64) ([]byte, error) {
 	if err := validateLz4Size(uncompressedSize); err != nil {
 		return nil, err
 	}
@@ -227,9 +142,6 @@ func decompressLz4Bytes(compressed []byte, uncompressedSize int64, allowRaw bool
 	n, err := lz4.UncompressBlock(compressed, dst)
 	if err == nil && int64(n) == uncompressedSize {
 		return dst, nil
-	}
-	if allowRaw && int64(len(compressed)) == uncompressedSize {
-		return append([]byte(nil), compressed...), nil
 	}
 	if err != nil {
 		return nil, err
@@ -716,8 +628,8 @@ func WriteExt(buf []byte, extType int8, payload []byte) []byte {
 	return append(buf, payload...)
 }
 
-// newMsgpackHandle 创建用于安全解码当前 KCES MessagePack 规范及定位原始根值的句柄
-// newMsgpackHandle creates a handle for safely decoding the current KCES MessagePack specification and locating raw root values
+// newMsgpackHandle 创建用于安全解码当前 KCES MessagePack 规范的句柄
+// newMsgpackHandle creates a handle for safely decoding the current KCES MessagePack specification
 func newMsgpackHandle() *codec.MsgpackHandle {
 	h := &codec.MsgpackHandle{}
 	// KCES 使用当前 MessagePack 规范，byte[] 是 Binary 而不是旧式 Raw 或 String 载体
@@ -725,9 +637,9 @@ func newMsgpackHandle() *codec.MsgpackHandle {
 	// KCES uses the current MessagePack specification where byte[] is Binary rather than the legacy Raw or String carrier
 	// WriteExt also lets the decoder distinguish String from Binary when decoding interface values
 	h.WriteExt = true
-	// Raw 在解码时安全，使 SplitFirstMsgpackValue 能遍历恰好一个值而不解释映射、扩展载荷、数值标记或未来字段
+	// Raw 仅用于具体类型解码器临时捕获 union 值以读取判别标记，不能进入公开编辑模型
 	// 编码 codec.Raw 仍须在独立编码句柄上显式启用，因为盲目写入原始字节不安全
-	// Raw is decode-safe and lets SplitFirstMsgpackValue traverse exactly one value without interpreting maps, extension payloads, numeric markers, or future fields
+	// Raw is used only by concrete decoders to capture a union value temporarily while reading its discriminator and never enters a public editing model
 	// Encoding codec.Raw remains opt-in on a separate encoder handle because blindly writing raw bytes is unsafe
 	h.Raw = true
 	h.RawToString = false
@@ -747,46 +659,26 @@ func newMsgpackEncoderHandle(allowRaw bool) *codec.MsgpackHandle {
 	h := &codec.MsgpackHandle{}
 	h.WriteExt = true
 	h.Raw = allowRaw
+	// 游戏按键查找 VirtualDirectory 字典且 VirtualFile 使用绝对偏移，字典顺序不承载语义；规范排序让重建结果与已排序的数据块顺序保持一致
+	// The game looks up VirtualDirectory dictionaries by key and VirtualFile uses absolute offsets, so map order has no semantic role; canonical ordering keeps rebuilt metadata aligned with the already sorted data-block order
+	h.Canonical = true
 	h.MaxDepth = 256
 	return h
 }
 
-// DecodeMsgpackWithConsumed 解码第一个 MessagePack 值并返回该值精确消费的输入字节数
-// MessagePack-CSharp Deserialize<T> 在所选格式化器完成后返回且不要求 EOF，因此重写游戏文件的调用者可保留根值之后的数据
-// DecodeMsgpackWithConsumed decodes the first MessagePack value and reports exactly how many input bytes it consumed
-// MessagePack-CSharp Deserialize<T> returns after the selected formatter finishes and does not require EOF, allowing callers rewriting game files to retain data after the root value
-func DecodeMsgpackWithConsumed(data []byte, out interface{}) (int64, error) {
+// DecodeMsgpack 解码唯一的完整 MessagePack 根值并拒绝任何尾部字节
+// DecodeMsgpack decodes the sole complete MessagePack root value and rejects any trailing bytes
+func DecodeMsgpack(data []byte, out interface{}) error {
 	h := newMsgpackHandle()
 	dec := codec.NewDecoderBytes(data, h)
 	if err := dec.Decode(out); err != nil {
-		return int64(dec.NumBytesRead()), err
+		return err
 	}
-	return int64(dec.NumBytesRead()), nil
-}
-
-// DecodeMsgpack 将第一个 MessagePack 值解码到目标对象，与游戏 Deserialize<T> 一样不要求根后 EOF
-// 需要保留根值之后字节的调用者应使用 DecodeMsgpackWithConsumed
-// DecodeMsgpack decodes the first MessagePack value into a target and like the game Deserialize<T> does not require EOF after the root
-// Callers that need to retain bytes after the root should use DecodeMsgpackWithConsumed
-func DecodeMsgpack(data []byte, out interface{}) error {
-	_, err := DecodeMsgpackWithConsumed(data, out)
-	return err
-}
-
-// SplitFirstMsgpackValue 使用编解码库定位一个完整根值，并逐字节返回根值与尾部两侧
-// 它有意解码为 codec.Raw，避免仅为寻找根边界就把重复映射键、扩展值、非标准数值标记和未知字段转换成有损 Go 值
-// SplitFirstMsgpackValue uses the codec library to locate one complete root value and returns both root and trailing sides byte-for-byte
-// It deliberately decodes into codec.Raw so duplicate map keys, extension values, non-canonical numeric markers, and unknown fields are not converted into a lossy Go value merely to find the root boundary
-func SplitFirstMsgpackValue(data []byte) (root, trailing []byte, err error) {
-	var raw codec.Raw
-	consumed, err := DecodeMsgpackWithConsumed(data, &raw)
-	if err != nil {
-		return nil, nil, err
+	consumed := int64(dec.NumBytesRead())
+	if consumed != int64(len(data)) {
+		return fmt.Errorf("trailing data after MessagePack root: %d bytes", int64(len(data))-consumed)
 	}
-	if consumed < 0 || consumed > int64(len(data)) {
-		return nil, nil, fmt.Errorf("MessagePack decoder consumed invalid byte count %d of %d", consumed, len(data))
-	}
-	return append([]byte(nil), data[:consumed]...), append([]byte(nil), data[consumed:]...), nil
+	return nil
 }
 
 // EncodeMsgpack 使用不允许注入 codec.Raw 的当前 KCES 句柄编码普通 MessagePack 对象
@@ -801,27 +693,11 @@ func EncodeMsgpack(v interface{}) ([]byte, error) {
 	return out, nil
 }
 
-// EncodeIndexedMsgpack 编码通过 codec.Selfer 和 EncodeIndexedObjectSelf 实现的 indexed object 模型
-// Raw 模式仅用于辅助函数在确认每个字节切片恰含一个完整 MessagePack 值后注入未来槽位
-// 要求 codec.Selfer 可阻止含任意 codec.Raw 的切片或映射进入此校验边界，普通调用者应继续使用禁用 Raw 的 EncodeMsgpack
-// EncodeIndexedMsgpack encodes an indexed object model implemented through codec.Selfer and EncodeIndexedObjectSelf
-// Raw mode exists only so the helper can inject future slots after verifying that every byte slice contains exactly one complete MessagePack value
-// Requiring codec.Selfer prevents arbitrary slices or maps containing codec.Raw from entering this validation boundary, and ordinary callers should keep using EncodeMsgpack with Raw disabled
+// EncodeIndexedMsgpack 编码通过 codec.Selfer 和 EncodeIndexedObjectSelf 实现的固定 indexed object 模型
+// Raw 模式仅供已验证的 union 编码器临时写入具体类型槽位，普通调用者继续使用禁用 Raw 的 EncodeMsgpack
+// EncodeIndexedMsgpack encodes a fixed indexed object model implemented through codec.Selfer and EncodeIndexedObjectSelf
+// Raw mode is used only by validated union encoders to write a temporary concrete-value slot, while ordinary callers continue to use EncodeMsgpack with Raw disabled
 func EncodeIndexedMsgpack(v codec.Selfer) ([]byte, error) {
-	h := newMsgpackEncoderHandle(true)
-	var out []byte
-	enc := codec.NewEncoderBytes(&out, h)
-	if err := enc.Encode(v); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// encodeMsgpackAllowRaw 仅供先将每个 codec.Raw 槽位验证为单个完整 MessagePack 值的模型使用
-// 与 EncodeMsgpack 分离可防止普通编码器注入任意原始字节
-// encodeMsgpackAllowRaw is reserved for models that first validate every codec.Raw slot as one complete MessagePack value
-// Keeping it separate from EncodeMsgpack prevents arbitrary raw-byte injection in ordinary encoders
-func encodeMsgpackAllowRaw(v interface{}) ([]byte, error) {
 	h := newMsgpackEncoderHandle(true)
 	var out []byte
 	enc := codec.NewEncoderBytes(&out, h)

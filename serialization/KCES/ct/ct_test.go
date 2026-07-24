@@ -214,3 +214,33 @@ func TestWriteContentTable_NestedFilesRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+func TestWriteContentTableIsDeterministic(t *testing.T) {
+	raw := append(make([]byte, HeaderSize), []byte("abcdefgh")...)
+	copy(raw[:7], FileSignature)
+	raw[7] = SerializeTypeMsgPack
+	table := &ContentTable{
+		Version: ctVersion,
+		Raw:     raw,
+		Files: map[string]VirtualFile{
+			"z":        {Position: HeaderSize, Size: 2},
+			"a":        {Position: HeaderSize + 2, Size: 2},
+			"nested/z": {Position: HeaderSize + 4, Size: 2},
+			"nested/a": {Position: HeaderSize + 6, Size: 2},
+		},
+	}
+
+	var first bytes.Buffer
+	if err := WriteContentTable(&first, table); err != nil {
+		t.Fatal(err)
+	}
+	for iteration := int64(0); iteration < 64; iteration++ {
+		var next bytes.Buffer
+		if err := WriteContentTable(&next, table); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(next.Bytes(), first.Bytes()) {
+			t.Fatalf("encoding %d changed ContentTable bytes", iteration)
+		}
+	}
+}

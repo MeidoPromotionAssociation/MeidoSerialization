@@ -295,16 +295,15 @@ func TestEngineRejectsColliderObjectThatDoesNotMatchDiscriminator(t *testing.T) 
 	valid, err := json.Marshal(&serializationKCES.KCESPayloadEnvelope{
 		Format:         serializationKCES.PayloadFormatKCESMessagePack,
 		Extension:      ".dbcol",
-		LengthPrefixed: true,
 		StorageVariant: serializationKCES.PayloadStorageInt32LZ4MessagePack,
 		Kind:           serializationKCES.PayloadKindColliderPackage,
 		ColliderPackage: &serializationKCES.ColliderPackage{
 			Version: 1000,
-			Colliders: []serializationKCES.ColliderRef{{
+			Colliders: []*serializationKCES.ColliderRef{{
 				Type:     serializationKCES.ColliderTypeCapsule,
 				Collider: serializationKCES.NewColliderCapsule(),
 			}},
-			LimbEnableList: []serializationKCES.ColliderState{{Version: 1000, LimbType: 0, IsEnable: true}},
+			LimbEnableList: []*serializationKCES.ColliderState{{Version: 1000, LimbType: 0, IsEnable: true}},
 		},
 	})
 	if err != nil {

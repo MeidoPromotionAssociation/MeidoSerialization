@@ -19,12 +19,11 @@ func TestKCESSavedAttachCommandRoutes(t *testing.T) {
 		Signature: serializationKCES.SavedAttachSignature,
 		Version:   serializationKCES.SavedAttachFileVersion,
 		Items: []serializationKCES.SavedAttachData{{
-			Version:         serializationKCES.SavedAttachRecordVersion,
-			ExplicitVersion: true,
-			PartName:        &partName,
-			Enabled:         true,
-			MySlotID:        "accHat",
-			TargetSlotID:    "body",
+			Version:      serializationKCES.SavedAttachRecordVersion,
+			PartName:     &partName,
+			Enabled:      true,
+			MySlotID:     "accHat",
+			TargetSlotID: "body",
 		}},
 	})
 	if err != nil {
@@ -92,11 +91,10 @@ func TestConvertToModUppercaseJSONDoesNotOverwriteInput(t *testing.T) {
 		Signature: serializationKCES.SavedAttachSignature,
 		Version:   serializationKCES.SavedAttachFileVersion,
 		Items: []serializationKCES.SavedAttachData{{
-			Version:         serializationKCES.SavedAttachRecordVersion,
-			ExplicitVersion: true,
-			PartName:        &partName,
-			MySlotID:        "body",
-			TargetSlotID:    "body",
+			Version:      serializationKCES.SavedAttachRecordVersion,
+			PartName:     &partName,
+			MySlotID:     "body",
+			TargetSlotID: "body",
 		}},
 	})
 	if err != nil {

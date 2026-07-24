@@ -8,13 +8,15 @@ import (
 	"testing"
 
 	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
 func TestKCESBridgeSessionCommandRoutesStrictAndNonStrict(t *testing.T) {
 	want := serializationKCES.NewKCESBridgeSession("cli-session")
 	want.SessionData.HideMenuFileIDs = []uint64{1, ^uint64(0)}
-	want.SessionData.FutureSlots = [][]byte{{0x81, 0xa1, 'x', 0xc3}}
-	*want.SessionData.FieldCount = 4
+	want.ContainerDirectories = map[string]ct.VirtualDirectoryMetadata{
+		"future": {Version: 1000},
+	}
 	want.ExtraFiles = map[string][]byte{"future/data": {1, 2, 3}}
 	native, err := serializationKCES.EncodeKCESBridgeSession(want)
 	if err != nil {

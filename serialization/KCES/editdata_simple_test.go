@@ -99,7 +99,7 @@ func TestPresetPanelNameSaveDataCollectionAndStringHeaderBoundaries(t *testing.T
 	}
 }
 
-func TestPresetPanelNameSaveDataMatchesIndexedObjectCompatibility(t *testing.T) {
+func TestPresetPanelNameSaveDataUsesFixedIndexedObjectLayout(t *testing.T) {
 	// DynamicObjectTypeBuilder returns nil for a nil class value. PresetPanel's
 	// caller treats a nil result as missing data and regenerates BOX1..BOX10.
 	decodedNil, err := DecodePresetPanelNameSaveData([]byte{0xc0})
@@ -111,27 +111,15 @@ func TestPresetPanelNameSaveDataMatchesIndexedObjectCompatibility(t *testing.T) 
 		t.Fatalf("EncodePresetPanelNameSaveData(nil) = (%x, %v), want c0", encodedNil, err)
 	}
 
-	// Future indexed-object slots are skipped by DynamicObjectTypeBuilder.
-	wire := editDataAppendArrayHeader(nil, 3)
-	wire = append(wire, editDataPresetNamesWire([]*string{nil, editDataString("BOX2")})[1:]...)
-	wire = append(wire, 0x92, 0x01, 0x02)      // unknown Key(1)
-	wire = append(wire, 0x81, 0xa1, 'x', 0xc3) // unknown Key(2)
-	decoded, err := DecodePresetPanelNameSaveData(wire)
-	if err != nil {
-		t.Fatalf("DecodePresetPanelNameSaveData(future keys) error = %v", err)
-	}
-	fieldCount := int32(3)
-	want := &PresetPanelNameSaveData{
-		BoxNameList: []*string{nil, editDataString("BOX2")},
-		FieldCount:  &fieldCount,
-		FutureSlots: [][]byte{{0x92, 0x01, 0x02}, {0x81, 0xa1, 'x', 0xc3}},
-	}
-	if !reflect.DeepEqual(decoded, want) {
-		t.Fatalf("future-key decode = %#v, want %#v", decoded, want)
-	}
-	reencoded, err := EncodePresetPanelNameSaveData(decoded)
-	if err != nil || !bytes.Equal(reencoded, wire) {
-		t.Fatalf("future-key wire changed: equal=%v err=%v", bytes.Equal(reencoded, wire), err)
+	for name, wire := range map[string][]byte{
+		"short":     {0x90},
+		"high slot": {0x92, 0x90, 0xc0},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := DecodePresetPanelNameSaveData(wire); err == nil || !strings.Contains(err.Error(), "indexed-array width") {
+				t.Fatalf("DecodePresetPanelNameSaveData() error = %v", err)
+			}
+		})
 	}
 }
 
@@ -238,43 +226,22 @@ func TestPaletteColorSaveDataRoundTripAndDeterministicWire(t *testing.T) {
 	}
 }
 
-func TestPaletteColorSaveDataMatchesIndexedObjectCompatibility(t *testing.T) {
+func TestPaletteColorSaveDataUsesFixedIndexedObjectLayout(t *testing.T) {
 	colors := editDataNineColors()
 	colors[99] = 12345 // Dictionary<int,int> permits and preserves unknown keys.
-
-	// Key(1) and Key(2) are absent in an old/short indexed object. The game's
-	// parameterless constructor leaves both int fields at zero.
 	shortWire := editDataAppendArrayHeader(nil, 1)
 	shortWire = append(shortWire, editDataPaletteMap(colors, true)...)
-	decoded, err := DecodePaletteColorSaveData(shortWire)
-	if err != nil {
-		t.Fatalf("DecodePaletteColorSaveData(short object) error = %v", err)
-	}
-	if decoded.FieldCount == nil || *decoded.FieldCount != 1 || !reflect.DeepEqual(decoded.Color, colors) || decoded.Index != 0 || decoded.IsSave != 0 {
-		t.Fatalf("short-object decode changed shape/value: %#v", decoded)
-	}
-	reencoded, err := EncodePaletteColorSaveData(decoded)
-	if err != nil || len(reencoded) == 0 || reencoded[0] != 0x91 {
-		t.Fatalf("short-object width changed: wire=%x err=%v", reencoded, err)
+	if _, err := DecodePaletteColorSaveData(shortWire); err == nil || !strings.Contains(err.Error(), "indexed-array width 1, expected 3") {
+		t.Fatalf("short-object error = %v", err)
 	}
 
-	// A future Key(3) is skipped. It is distinct from bytes trailing after the
-	// root value, which this library deliberately rejects.
 	longWire := editDataAppendArrayHeader(nil, 4)
 	longWire = append(longWire, editDataPaletteMap(colors, true)...)
 	longWire = editDataAppendInt(longWire, 3)
 	longWire = editDataAppendInt(longWire, 1)
 	longWire = append(longWire, 0x82, 0xa1, 'a', 0x91, 0xc0, 0xa1, 'b', 0xc7, 0x01, 0x2a, 0xff)
-	decoded, err = DecodePaletteColorSaveData(longWire)
-	if err != nil {
-		t.Fatalf("DecodePaletteColorSaveData(future key) error = %v", err)
-	}
-	if decoded.FieldCount == nil || *decoded.FieldCount != 4 || len(decoded.FutureSlots) != 1 || !reflect.DeepEqual(decoded.Color, colors) || decoded.Index != 3 || decoded.IsSave != 1 {
-		t.Fatalf("future-key decode changed shape/value: %#v", decoded)
-	}
-	reencoded, err = EncodePaletteColorSaveData(decoded)
-	if err != nil || len(reencoded) == 0 || reencoded[0] != 0x94 || !bytes.HasSuffix(reencoded, decoded.FutureSlots[0]) {
-		t.Fatalf("future-key shape/raw value changed: wire=%x err=%v", reencoded, err)
+	if _, err := DecodePaletteColorSaveData(longWire); err == nil || !strings.Contains(err.Error(), "indexed-array width 4, expected 3") {
+		t.Fatalf("high-slot error = %v", err)
 	}
 }
 
@@ -440,7 +407,7 @@ func TestSimpleEditDataDecoderTruncationsNeverSucceedOrPanic(t *testing.T) {
 	}
 }
 
-func TestPresetPanelNameSaveDataSkipsEveryFutureMessagePackFamily(t *testing.T) {
+func TestPresetPanelNameSaveDataRejectsEveryHighSlotMessagePackFamily(t *testing.T) {
 	values := map[string][]byte{
 		"positive fixint": {0x01},
 		"negative fixint": {0xff},
@@ -482,12 +449,8 @@ func TestPresetPanelNameSaveDataSkipsEveryFutureMessagePackFamily(t *testing.T) 
 	for name, value := range values {
 		t.Run(name, func(t *testing.T) {
 			wire := append([]byte{0x92, 0x90}, value...)
-			decoded, err := DecodePresetPanelNameSaveData(wire)
-			if err != nil {
-				t.Fatalf("DecodePresetPanelNameSaveData(future %s) error = %v", name, err)
-			}
-			if decoded == nil || decoded.BoxNameList == nil || len(decoded.BoxNameList) != 0 {
-				t.Fatalf("future %s changed known fields: %#v", name, decoded)
+			if _, err := DecodePresetPanelNameSaveData(wire); err == nil || !strings.Contains(err.Error(), "indexed-array width 2") {
+				t.Fatalf("DecodePresetPanelNameSaveData(high slot %s) error = %v", name, err)
 			}
 		})
 	}

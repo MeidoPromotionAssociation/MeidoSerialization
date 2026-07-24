@@ -13,78 +13,6 @@
           "minimum": -3.4028234663852886e+38,
           "type": "number"
         },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "startValue": {
           "maximum": 3.4028234663852886e+38,
           "minimum": -3.4028234663852886e+38,
@@ -129,7 +57,14 @@
           "x-meido-integer-signed": true
         },
         "bendDistanceStiffness": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "clampDistanceMaxRatio": {
           "maximum": 3.4028234663852886e+38,
@@ -147,7 +82,14 @@
           "type": "number"
         },
         "clampPositionLength": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "clampPositionRatioX": {
           "maximum": 3.4028234663852886e+38,
@@ -170,7 +112,14 @@
           "type": "number"
         },
         "clampRotationAngle": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "clampRotationVelocityInfluence": {
           "maximum": 3.4028234663852886e+38,
@@ -193,39 +142,29 @@
           "type": "number"
         },
         "drag": {
-          "$ref": "#/$defs/KCES_BezierParam"
-        },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "friction": {
           "maximum": 3.4028234663852886e+38,
           "minimum": -3.4028234663852886e+38,
           "type": "number"
         },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "gravity": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "gravityDirection": {
           "$ref": "#/$defs/KCES_Vector3"
@@ -234,7 +173,14 @@
           "type": "boolean"
         },
         "mass": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "massInfluence": {
           "maximum": 3.4028234663852886e+38,
@@ -252,7 +198,14 @@
           "type": "number"
         },
         "maxVelocity": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "maxVolumeLength": {
           "maximum": 3.4028234663852886e+38,
@@ -260,7 +213,14 @@
           "type": "number"
         },
         "nearDistanceLength": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "nearDistanceMaxCount": {
           "maximum": 2147483647,
@@ -275,54 +235,13 @@
           "type": "number"
         },
         "nearDistanceStiffness": {
-          "$ref": "#/$defs/KCES_BezierParam"
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
+          "anyOf": [
+            {
+              "type": "null"
             },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
           ]
         },
         "penetrationAxis": {
@@ -333,10 +252,24 @@
           "x-meido-integer-signed": true
         },
         "penetrationConnectDistance": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "penetrationDistance": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "penetrationMaxDepth": {
           "maximum": 3.4028234663852886e+38,
@@ -351,33 +284,23 @@
           "x-meido-integer-signed": true
         },
         "penetrationRadius": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "radius": {
-          "$ref": "#/$defs/KCES_BezierParam"
-        },
-        "reserved04": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "reserved05": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "reserved56": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-          "type": [
-            "null",
-            "string"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
           ]
         },
         "resetStabilizationTime": {
@@ -391,7 +314,14 @@
           "type": "number"
         },
         "restoreRotation": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "restoreRotationVelocityInfluence": {
           "maximum": 3.4028234663852886e+38,
@@ -399,10 +329,24 @@
           "type": "number"
         },
         "springDirectionAtten": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "springDistanceAtten": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "springIntensity": {
           "maximum": 3.4028234663852886e+38,
@@ -435,7 +379,14 @@
           "type": "number"
         },
         "structDistanceStiffness": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "teleportDistance": {
           "maximum": 3.4028234663852886e+38,
@@ -455,7 +406,14 @@
           "type": "number"
         },
         "triangleBend": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "useBendDistance": {
           "type": "boolean"
@@ -512,10 +470,24 @@
           "type": "boolean"
         },
         "volumeShearStiffness": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "volumeStretchStiffness": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "windInfluence": {
           "maximum": 3.4028234663852886e+38,
@@ -528,10 +500,24 @@
           "type": "number"
         },
         "worldMoveInfluence": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         },
         "worldRotationInfluence": {
-          "$ref": "#/$defs/KCES_BezierParam"
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_BezierParam"
+            }
+          ]
         }
       },
       "required": [
@@ -643,30 +629,6 @@
           "minimum": -3.4028234663852886e+38,
           "type": "number"
         },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "height": {
           "maximum": 3.4028234663852886e+38,
           "minimum": -3.4028234663852886e+38,
@@ -684,59 +646,17 @@
         "localScale": {
           "$ref": "#/$defs/KCES_Vector3"
         },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "parentName": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "selfName": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "startRadius": {
           "maximum": 3.4028234663852886e+38,
@@ -796,7 +716,10 @@
         },
         "centerMpnNameList": {
           "items": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "type": [
             "null",
@@ -833,27 +756,6 @@
         },
         "endRadiusMpnNameList": {
           "items": {
-            "type": "string"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": [
               "null",
               "string"
@@ -891,83 +793,17 @@
           "minimum": -3.4028234663852886e+38,
           "type": "number"
         },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "parentName": {
-          "type": "string"
-        },
-        "reserved13": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "reserved14": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "reserved15": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
           "type": [
             "null",
             "string"
           ]
         },
         "selfName": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "startRadius": {
           "maximum": 3.4028234663852886e+38,
@@ -989,7 +825,10 @@
         },
         "startRadiusMpnNameList": {
           "items": {
-            "type": "string"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "type": [
             "null",
@@ -1035,30 +874,13 @@
       "properties": {
         "colliders": {
           "items": {
-            "$ref": "#/$defs/KCES_ColliderRef"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_ColliderRef"
+              }
             ]
           },
           "type": [
@@ -1068,59 +890,18 @@
         },
         "limbEnableList": {
           "items": {
-            "$ref": "#/$defs/KCES_ColliderState"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_ColliderState"
+              }
             ]
           },
           "type": [
             "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
+            "array"
           ]
         },
         "version": {
@@ -1133,7 +914,8 @@
       },
       "required": [
         "version",
-        "colliders"
+        "colliders",
+        "limbEnableList"
       ],
       "type": "object"
     },
@@ -1157,30 +939,6 @@
           "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
         },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "isDirectionInverse": {
           "type": "boolean"
         },
@@ -1193,59 +951,17 @@
         "localScale": {
           "$ref": "#/$defs/KCES_Vector3"
         },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "parentName": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "selfName": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "version": {
           "maximum": 2147483647,
@@ -1273,11 +989,6 @@
       "additionalProperties": false,
       "oneOf": [
         {
-          "not": {
-            "required": [
-              "colliderRaw"
-            ]
-          },
           "properties": {
             "collider": {
               "anyOf": [
@@ -1305,11 +1016,6 @@
           "type": "object"
         },
         {
-          "not": {
-            "required": [
-              "colliderRaw"
-            ]
-          },
           "properties": {
             "collider": {
               "anyOf": [
@@ -1337,11 +1043,6 @@
           "type": "object"
         },
         {
-          "not": {
-            "required": [
-              "colliderRaw"
-            ]
-          },
           "properties": {
             "collider": {
               "anyOf": [
@@ -1369,11 +1070,6 @@
           "type": "object"
         },
         {
-          "not": {
-            "required": [
-              "colliderRaw"
-            ]
-          },
           "properties": {
             "collider": {
               "anyOf": [
@@ -1397,30 +1093,6 @@
           "required": [
             "type",
             "collider"
-          ],
-          "type": "object"
-        },
-        {
-          "properties": {
-            "collider": {
-              "type": "null"
-            },
-            "colliderRaw": {
-              "contentEncoding": "base64",
-              "type": "string"
-            },
-            "type": {
-              "maximum": 2147483647,
-              "minimum": -2147483648,
-              "type": "integer",
-              "x-meido-integer-bits": 32,
-              "x-meido-integer-signed": true
-            }
-          },
-          "required": [
-            "type",
-            "collider",
-            "colliderRaw"
           ],
           "type": "object"
         }
@@ -1448,30 +1120,6 @@
                   "x-meido-integer-bits": 32,
                   "x-meido-integer-signed": true
                 },
-                "fieldCount": {
-                  "maximum": 2147483647,
-                  "minimum": -2147483648,
-                  "type": [
-                    "null",
-                    "integer"
-                  ],
-                  "x-meido-integer-bits": 32,
-                  "x-meido-integer-signed": true
-                },
-                "futureSlots": {
-                  "items": {
-                    "contentEncoding": "base64",
-                    "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-                    "type": [
-                      "null",
-                      "string"
-                    ]
-                  },
-                  "type": [
-                    "null",
-                    "array"
-                  ]
-                },
                 "isDirectionInverse": {
                   "type": "boolean"
                 },
@@ -1484,59 +1132,17 @@
                 "localScale": {
                   "$ref": "#/$defs/KCES_Vector3"
                 },
-                "nilSlots": {
-                  "items": {
-                    "maximum": 2147483647,
-                    "minimum": -2147483648,
-                    "type": "integer",
-                    "x-meido-integer-bits": 32,
-                    "x-meido-integer-signed": true
-                  },
-                  "type": [
-                    "null",
-                    "array"
-                  ]
-                },
-                "nullElements": {
-                  "additionalProperties": {
-                    "items": {
-                      "type": "boolean"
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
-                  },
-                  "type": [
-                    "null",
-                    "object"
-                  ]
-                },
-                "nullMapValueKeys": {
-                  "additionalProperties": {
-                    "items": {
-                      "contentEncoding": "base64",
-                      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
-                  },
-                  "type": [
-                    "null",
-                    "object"
-                  ]
-                },
                 "parentName": {
-                  "type": "string"
+                  "type": [
+                    "null",
+                    "string"
+                  ]
                 },
                 "selfName": {
-                  "type": "string"
+                  "type": [
+                    "null",
+                    "string"
+                  ]
                 },
                 "version": {
                   "maximum": 2147483647,
@@ -1585,30 +1191,6 @@
                   "minimum": -3.4028234663852886e+38,
                   "type": "number"
                 },
-                "fieldCount": {
-                  "maximum": 2147483647,
-                  "minimum": -2147483648,
-                  "type": [
-                    "null",
-                    "integer"
-                  ],
-                  "x-meido-integer-bits": 32,
-                  "x-meido-integer-signed": true
-                },
-                "futureSlots": {
-                  "items": {
-                    "contentEncoding": "base64",
-                    "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-                    "type": [
-                      "null",
-                      "string"
-                    ]
-                  },
-                  "type": [
-                    "null",
-                    "array"
-                  ]
-                },
                 "height": {
                   "maximum": 3.4028234663852886e+38,
                   "minimum": -3.4028234663852886e+38,
@@ -1626,59 +1208,17 @@
                 "localScale": {
                   "$ref": "#/$defs/KCES_Vector3"
                 },
-                "nilSlots": {
-                  "items": {
-                    "maximum": 2147483647,
-                    "minimum": -2147483648,
-                    "type": "integer",
-                    "x-meido-integer-bits": 32,
-                    "x-meido-integer-signed": true
-                  },
-                  "type": [
-                    "null",
-                    "array"
-                  ]
-                },
-                "nullElements": {
-                  "additionalProperties": {
-                    "items": {
-                      "type": "boolean"
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
-                  },
-                  "type": [
-                    "null",
-                    "object"
-                  ]
-                },
-                "nullMapValueKeys": {
-                  "additionalProperties": {
-                    "items": {
-                      "contentEncoding": "base64",
-                      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
-                  },
-                  "type": [
-                    "null",
-                    "object"
-                  ]
-                },
                 "parentName": {
-                  "type": "string"
+                  "type": [
+                    "null",
+                    "string"
+                  ]
                 },
                 "selfName": {
-                  "type": "string"
+                  "type": [
+                    "null",
+                    "string"
+                  ]
                 },
                 "startRadius": {
                   "maximum": 3.4028234663852886e+38,
@@ -1723,30 +1263,6 @@
                 "center": {
                   "$ref": "#/$defs/KCES_Vector3"
                 },
-                "fieldCount": {
-                  "maximum": 2147483647,
-                  "minimum": -2147483648,
-                  "type": [
-                    "null",
-                    "integer"
-                  ],
-                  "x-meido-integer-bits": 32,
-                  "x-meido-integer-signed": true
-                },
-                "futureSlots": {
-                  "items": {
-                    "contentEncoding": "base64",
-                    "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-                    "type": [
-                      "null",
-                      "string"
-                    ]
-                  },
-                  "type": [
-                    "null",
-                    "array"
-                  ]
-                },
                 "localPosition": {
                   "$ref": "#/$defs/KCES_Vector3"
                 },
@@ -1756,56 +1272,11 @@
                 "localScale": {
                   "$ref": "#/$defs/KCES_Vector3"
                 },
-                "nilSlots": {
-                  "items": {
-                    "maximum": 2147483647,
-                    "minimum": -2147483648,
-                    "type": "integer",
-                    "x-meido-integer-bits": 32,
-                    "x-meido-integer-signed": true
-                  },
-                  "type": [
-                    "null",
-                    "array"
-                  ]
-                },
-                "nullElements": {
-                  "additionalProperties": {
-                    "items": {
-                      "type": "boolean"
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
-                  },
-                  "type": [
-                    "null",
-                    "object"
-                  ]
-                },
-                "nullMapValueKeys": {
-                  "additionalProperties": {
-                    "items": {
-                      "contentEncoding": "base64",
-                      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
-                  },
-                  "type": [
-                    "null",
-                    "object"
-                  ]
-                },
                 "parentName": {
-                  "type": "string"
+                  "type": [
+                    "null",
+                    "string"
+                  ]
                 },
                 "radius": {
                   "maximum": 3.4028234663852886e+38,
@@ -1813,7 +1284,10 @@
                   "type": "number"
                 },
                 "selfName": {
-                  "type": "string"
+                  "type": [
+                    "null",
+                    "string"
+                  ]
                 },
                 "version": {
                   "maximum": 2147483647,
@@ -1864,7 +1338,10 @@
                 },
                 "centerMpnNameList": {
                   "items": {
-                    "type": "string"
+                    "type": [
+                      "null",
+                      "string"
+                    ]
                   },
                   "type": [
                     "null",
@@ -1901,27 +1378,6 @@
                 },
                 "endRadiusMpnNameList": {
                   "items": {
-                    "type": "string"
-                  },
-                  "type": [
-                    "null",
-                    "array"
-                  ]
-                },
-                "fieldCount": {
-                  "maximum": 2147483647,
-                  "minimum": -2147483648,
-                  "type": [
-                    "null",
-                    "integer"
-                  ],
-                  "x-meido-integer-bits": 32,
-                  "x-meido-integer-signed": true
-                },
-                "futureSlots": {
-                  "items": {
-                    "contentEncoding": "base64",
-                    "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
                     "type": [
                       "null",
                       "string"
@@ -1959,83 +1415,17 @@
                   "minimum": -3.4028234663852886e+38,
                   "type": "number"
                 },
-                "nilSlots": {
-                  "items": {
-                    "maximum": 2147483647,
-                    "minimum": -2147483648,
-                    "type": "integer",
-                    "x-meido-integer-bits": 32,
-                    "x-meido-integer-signed": true
-                  },
-                  "type": [
-                    "null",
-                    "array"
-                  ]
-                },
-                "nullElements": {
-                  "additionalProperties": {
-                    "items": {
-                      "type": "boolean"
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
-                  },
-                  "type": [
-                    "null",
-                    "object"
-                  ]
-                },
-                "nullMapValueKeys": {
-                  "additionalProperties": {
-                    "items": {
-                      "contentEncoding": "base64",
-                      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-                      "type": [
-                        "null",
-                        "string"
-                      ]
-                    },
-                    "type": [
-                      "null",
-                      "array"
-                    ]
-                  },
-                  "type": [
-                    "null",
-                    "object"
-                  ]
-                },
                 "parentName": {
-                  "type": "string"
-                },
-                "reserved13": {
-                  "contentEncoding": "base64",
-                  "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "reserved14": {
-                  "contentEncoding": "base64",
-                  "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-                  "type": [
-                    "null",
-                    "string"
-                  ]
-                },
-                "reserved15": {
-                  "contentEncoding": "base64",
-                  "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
                   "type": [
                     "null",
                     "string"
                   ]
                 },
                 "selfName": {
-                  "type": "string"
+                  "type": [
+                    "null",
+                    "string"
+                  ]
                 },
                 "startRadius": {
                   "maximum": 3.4028234663852886e+38,
@@ -2057,7 +1447,10 @@
                 },
                 "startRadiusMpnNameList": {
                   "items": {
-                    "type": "string"
+                    "type": [
+                      "null",
+                      "string"
+                    ]
                   },
                   "type": [
                     "null",
@@ -2100,86 +1493,6 @@
             }
           ]
         },
-        "colliderRaw": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "type": {
           "maximum": 2147483647,
           "minimum": -2147483648,
@@ -2207,30 +1520,6 @@
         "center": {
           "$ref": "#/$defs/KCES_Vector3"
         },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "localPosition": {
           "$ref": "#/$defs/KCES_Vector3"
         },
@@ -2240,56 +1529,11 @@
         "localScale": {
           "$ref": "#/$defs/KCES_Vector3"
         },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "parentName": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "radius": {
           "maximum": 3.4028234663852886e+38,
@@ -2297,7 +1541,10 @@
           "type": "number"
         },
         "selfName": {
-          "type": "string"
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "version": {
           "maximum": 2147483647,
@@ -2323,30 +1570,6 @@
     "KCES_ColliderState": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "isEnable": {
           "type": "boolean"
         },
@@ -2356,54 +1579,6 @@
           "type": "integer",
           "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
         },
         "version": {
           "maximum": 2147483647,
@@ -2423,82 +1598,10 @@
     "KCES_DynamicBoneAnimationFrame": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "inTangent": {
           "maximum": 3.4028234663852886e+38,
           "minimum": -3.4028234663852886e+38,
           "type": "number"
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
         },
         "outTangent": {
           "maximum": 3.4028234663852886e+38,
@@ -2534,7 +1637,14 @@
         },
         "dampingKeyFrames": {
           "items": {
-            "$ref": "#/$defs/KCES_DynamicBoneAnimationFrame"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_DynamicBoneAnimationFrame"
+              }
+            ]
           },
           "type": [
             "null",
@@ -2548,7 +1658,14 @@
         },
         "elasticityKeyFrames": {
           "items": {
-            "$ref": "#/$defs/KCES_DynamicBoneAnimationFrame"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_DynamicBoneAnimationFrame"
+              }
+            ]
           },
           "type": [
             "null",
@@ -2563,16 +1680,6 @@
         "endOffset": {
           "$ref": "#/$defs/KCES_Vector3"
         },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
         "force": {
           "$ref": "#/$defs/KCES_Vector3"
         },
@@ -2582,20 +1689,6 @@
           "type": "integer",
           "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
         },
         "gravity": {
           "$ref": "#/$defs/KCES_Vector3"
@@ -2607,59 +1700,18 @@
         },
         "inertKeyFrames": {
           "items": {
-            "$ref": "#/$defs/KCES_DynamicBoneAnimationFrame"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_DynamicBoneAnimationFrame"
+              }
             ]
           },
           "type": [
             "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
+            "array"
           ]
         },
         "radius": {
@@ -2669,7 +1721,14 @@
         },
         "radiusKeyFrames": {
           "items": {
-            "$ref": "#/$defs/KCES_DynamicBoneAnimationFrame"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_DynamicBoneAnimationFrame"
+              }
+            ]
           },
           "type": [
             "null",
@@ -2683,7 +1742,14 @@
         },
         "stiffnessKeyFrames": {
           "items": {
-            "$ref": "#/$defs/KCES_DynamicBoneAnimationFrame"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_DynamicBoneAnimationFrame"
+              }
+            ]
           },
           "type": [
             "null",
@@ -2723,83 +1789,18 @@
       "properties": {
         "colliders": {
           "items": {
-            "$ref": "#/$defs/KCES_ColliderRef"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_ColliderRef"
+              }
             ]
           },
           "type": [
             "null",
             "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
           ]
         },
         "target": {
@@ -2827,85 +1828,20 @@
     "KCES_IKColliderPackage": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "groups": {
           "items": {
-            "$ref": "#/$defs/KCES_IKColliderGroup"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_IKColliderGroup"
+              }
             ]
           },
           "type": [
             "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
+            "array"
           ]
         },
         "version": {
@@ -2924,32 +1860,6 @@
     },
     "KCES_LimbColliderItem": {
       "additionalProperties": false,
-      "oneOf": [
-        {
-          "not": {
-            "required": [
-              "colliderRaw"
-            ]
-          }
-        },
-        {
-          "properties": {
-            "collider": {
-              "type": "null"
-            },
-            "colliderRaw": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "string"
-              ]
-            }
-          },
-          "required": [
-            "colliderRaw"
-          ]
-        }
-      ],
       "properties": {
         "collider": {
           "anyOf": [
@@ -2959,86 +1869,6 @@
             {
               "$ref": "#/$defs/KCES_ColliderMaidProp"
             }
-          ]
-        },
-        "colliderRaw": {
-          "contentEncoding": "base64",
-          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-          "type": [
-            "null",
-            "string"
-          ]
-        },
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
           ]
         },
         "target": {
@@ -3066,85 +1896,20 @@
     "KCES_LimbColliderPackage": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
         "items": {
           "items": {
-            "$ref": "#/$defs/KCES_LimbColliderItem"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/KCES_LimbColliderItem"
+              }
             ]
           },
           "type": [
             "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
+            "array"
           ]
         },
         "version": {
@@ -3164,78 +1929,6 @@
     "KCES_Vector3": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "x": {
           "maximum": 3.4028234663852886e+38,
           "minimum": -3.4028234663852886e+38,
@@ -3262,78 +1955,6 @@
     "KCES_Vector4": {
       "additionalProperties": false,
       "properties": {
-        "fieldCount": {
-          "maximum": 2147483647,
-          "minimum": -2147483648,
-          "type": [
-            "null",
-            "integer"
-          ],
-          "x-meido-integer-bits": 32,
-          "x-meido-integer-signed": true
-        },
-        "futureSlots": {
-          "items": {
-            "contentEncoding": "base64",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nilSlots": {
-          "items": {
-            "maximum": 2147483647,
-            "minimum": -2147483648,
-            "type": "integer",
-            "x-meido-integer-bits": 32,
-            "x-meido-integer-signed": true
-          },
-          "type": [
-            "null",
-            "array"
-          ]
-        },
-        "nullElements": {
-          "additionalProperties": {
-            "items": {
-              "type": "boolean"
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
-        "nullMapValueKeys": {
-          "additionalProperties": {
-            "items": {
-              "contentEncoding": "base64",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": [
-                "null",
-                "string"
-              ]
-            },
-            "type": [
-              "null",
-              "array"
-            ]
-          },
-          "type": [
-            "null",
-            "object"
-          ]
-        },
         "w": {
           "maximum": 3.4028234663852886e+38,
           "minimum": -3.4028234663852886e+38,
@@ -3402,38 +2023,12 @@
         {
           "not": {
             "required": [
-              "text"
-            ]
-          }
-        },
-        {
-          "not": {
-            "required": [
               "json"
-            ]
-          }
-        },
-        {
-          "not": {
-            "required": [
-              "msgpackBase64"
-            ]
-          }
-        },
-        {
-          "not": {
-            "required": [
-              "msgpackJsonPreview"
             ]
           }
         }
       ],
       "properties": {
-        "dynamicBoneStatus": {
-          "not": {
-            "type": "null"
-          }
-        },
         "extension": {
           "const": ".dbconf",
           "type": "string"
@@ -3446,14 +2041,6 @@
           "const": "dynamic-bone-status",
           "type": "string"
         },
-        "lengthPrefixed": {
-          "const": true,
-          "type": "boolean"
-        },
-        "msgpackRootNil": {
-          "const": false,
-          "type": "boolean"
-        },
         "storageVariant": {
           "const": "int32-length-lz4-messagepack",
           "type": "string"
@@ -3462,7 +2049,6 @@
       "required": [
         "format",
         "extension",
-        "lengthPrefixed",
         "storageVariant",
         "kind",
         "dynamicBoneStatus"
@@ -3505,127 +2091,6 @@
               "clothParams"
             ]
           }
-        },
-        {
-          "not": {
-            "required": [
-              "text"
-            ]
-          }
-        },
-        {
-          "not": {
-            "required": [
-              "json"
-            ]
-          }
-        }
-      ],
-      "properties": {
-        "extension": {
-          "const": ".dbconf",
-          "type": "string"
-        },
-        "format": {
-          "const": "kces-msgpack-lz4",
-          "type": "string"
-        },
-        "kind": {
-          "const": "dynamic-bone-status",
-          "type": "string"
-        },
-        "lengthPrefixed": {
-          "const": true,
-          "type": "boolean"
-        },
-        "msgpackRootNil": {
-          "const": true,
-          "type": "boolean"
-        },
-        "storageVariant": {
-          "const": "int32-length-lz4-messagepack",
-          "type": "string"
-        }
-      },
-      "required": [
-        "format",
-        "extension",
-        "lengthPrefixed",
-        "storageVariant",
-        "kind",
-        "msgpackRootNil"
-      ],
-      "type": "object"
-    },
-    {
-      "allOf": [
-        {
-          "not": {
-            "required": [
-              "dynamicBoneStatus"
-            ]
-          }
-        },
-        {
-          "not": {
-            "required": [
-              "colliderPackage"
-            ]
-          }
-        },
-        {
-          "not": {
-            "required": [
-              "limbColliderPackage"
-            ]
-          }
-        },
-        {
-          "not": {
-            "required": [
-              "ikColliderPackage"
-            ]
-          }
-        },
-        {
-          "not": {
-            "required": [
-              "clothParams"
-            ]
-          }
-        },
-        {
-          "not": {
-            "required": [
-              "msgpackBase64"
-            ]
-          }
-        },
-        {
-          "not": {
-            "required": [
-              "msgpackJsonPreview"
-            ]
-          }
-        },
-        {
-          "not": {
-            "required": [
-              "msgpackTrailingData"
-            ]
-          }
-        }
-      ],
-      "anyOf": [
-        {
-          "required": [
-            "text"
-          ]
-        },
-        {
-          "required": [
-            "json"
-          ]
         }
       ],
       "properties": {
@@ -3641,14 +2106,6 @@
           "const": "exportcm-dynamic-bone-json",
           "type": "string"
         },
-        "lengthPrefixed": {
-          "const": false,
-          "type": "boolean"
-        },
-        "msgpackRootNil": {
-          "const": false,
-          "type": "boolean"
-        },
         "storageVariant": {
           "const": "exportcm-unity-json",
           "type": "string"
@@ -3657,9 +2114,9 @@
       "required": [
         "format",
         "extension",
-        "lengthPrefixed",
         "storageVariant",
-        "kind"
+        "kind",
+        "json"
       ],
       "type": "object"
     }
@@ -3677,7 +2134,7 @@
       "description": "A typed union alternative not selected by the .dbconf descriptor.",
       "title": "Inactive union field clothParams",
       "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Leave this field null unless a supported storage variant explicitly selects it.",
+      "x-meido-edit-guidance": "Omit this field completely unless a supported kind explicitly selects it.",
       "x-meido-edit-role": "union_alternative",
       "x-meido-game-usage": "The payload dispatcher rejects an extension/kind combination that does not match the descriptor.",
       "x-meido-risk": "critical",
@@ -3685,9 +2142,9 @@
         {
           "game_version": "KCES 1.34.4",
           "kind": "implementation_source",
-          "line_end": 410,
+          "line_end": 560,
           "line_start": 20,
-          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "observation": "The dispatcher binds every supported extension to a known payload kind and storage variant, fully decodes that typed root, and rejects unknown kinds or trailing MessagePack data.",
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
@@ -3705,7 +2162,7 @@
       "description": "A typed union alternative not selected by the .dbconf descriptor.",
       "title": "Inactive union field colliderPackage",
       "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Leave this field null unless a supported storage variant explicitly selects it.",
+      "x-meido-edit-guidance": "Omit this field completely unless a supported kind explicitly selects it.",
       "x-meido-edit-role": "union_alternative",
       "x-meido-game-usage": "The payload dispatcher rejects an extension/kind combination that does not match the descriptor.",
       "x-meido-risk": "critical",
@@ -3713,9 +2170,9 @@
         {
           "game_version": "KCES 1.34.4",
           "kind": "implementation_source",
-          "line_end": 410,
+          "line_end": 560,
           "line_start": 20,
-          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "observation": "The dispatcher binds every supported extension to a known payload kind and storage variant, fully decodes that typed root, and rejects unknown kinds or trailing MessagePack data.",
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
@@ -3733,7 +2190,7 @@
       "description": "The typed DynamicBoneStatus indexed object containing version, scalar physics values, curves, terminal geometry, forces, and freeze axis.",
       "title": "DynamicBone status",
       "x-meido-confidence": "verified",
-      "x-meido-edit-guidance": "Edit only fields confirmed by the DynamicBoneStatus profile and preserve keyframe/indexed metadata.",
+      "x-meido-edit-guidance": "Edit the typed fields confirmed by the DynamicBoneStatus profile; the current fixed indexed width and keys are validated automatically.",
       "x-meido-edit-role": "runtime_physics",
       "x-meido-game-usage": "DynamicYureBone applies this object to the legacy DynamicBone solver.",
       "x-meido-risk": "critical",
@@ -3750,9 +2207,9 @@
         {
           "game_version": "KCES 1.34.4",
           "kind": "implementation_source",
-          "line_end": 410,
+          "line_end": 560,
           "line_start": 20,
-          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "observation": "The dispatcher binds every supported extension to a known payload kind and storage variant, fully decodes that typed root, and rejects unknown kinds or trailing MessagePack data.",
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
@@ -3781,9 +2238,9 @@
         {
           "game_version": "KCES 1.34.4",
           "kind": "implementation_source",
-          "line_end": 410,
+          "line_end": 560,
           "line_start": 20,
-          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "observation": "The dispatcher binds every supported extension to a known payload kind and storage variant, fully decodes that typed root, and rejects unknown kinds or trailing MessagePack data.",
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
@@ -3811,9 +2268,9 @@
         {
           "game_version": "KCES 1.34.4",
           "kind": "implementation_source",
-          "line_end": 410,
+          "line_end": 560,
           "line_start": 20,
-          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "observation": "The dispatcher binds every supported extension to a known payload kind and storage variant, fully decodes that typed root, and rejects unknown kinds or trailing MessagePack data.",
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
@@ -3831,7 +2288,7 @@
       "description": "A typed union alternative not selected by the .dbconf descriptor.",
       "title": "Inactive union field ikColliderPackage",
       "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Leave this field null unless a supported storage variant explicitly selects it.",
+      "x-meido-edit-guidance": "Omit this field completely unless a supported kind explicitly selects it.",
       "x-meido-edit-role": "union_alternative",
       "x-meido-game-usage": "The payload dispatcher rejects an extension/kind combination that does not match the descriptor.",
       "x-meido-risk": "critical",
@@ -3839,29 +2296,29 @@
         {
           "game_version": "KCES 1.34.4",
           "kind": "implementation_source",
-          "line_end": 410,
+          "line_end": 560,
           "line_start": 20,
-          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "observation": "The dispatcher binds every supported extension to a known payload kind and storage variant, fully decodes that typed root, and rejects unknown kinds or trailing MessagePack data.",
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
       ]
     },
     "json": {
-      "description": "The normalized JSON view of a string or ExportCM sidecar payload.",
-      "title": "Parsed JSON view",
+      "description": "The normalized semantic JSON value selected only by a JSON payload kind.",
+      "title": "Semantic JSON payload",
       "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Edit only fields documented by the selected Unity JSON consumer and keep text/json semantically synchronized.",
+      "x-meido-edit-guidance": "Leave this field absent for non-JSON kinds and edit only members documented by the selected Unity JSON consumer.",
       "x-meido-edit-role": "opaque_domain_data",
-      "x-meido-game-usage": "The game-side JSON consumer receives the text; this view is an editing convenience.",
+      "x-meido-game-usage": "The encoder regenerates the MessagePack string or ExportCM sidecar directly from this value.",
       "x-meido-risk": "high",
       "x-meido-source-evidence": [
         {
           "game_version": "KCES 1.34.4",
           "kind": "implementation_source",
-          "line_end": 410,
+          "line_end": 560,
           "line_start": 20,
-          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "observation": "The dispatcher binds every supported extension to a known payload kind and storage variant, fully decodes that typed root, and rejects unknown kinds or trailing MessagePack data.",
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
@@ -3889,39 +2346,9 @@
         {
           "game_version": "KCES 1.34.4",
           "kind": "implementation_source",
-          "line_end": 410,
+          "line_end": 560,
           "line_start": 20,
-          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
-          "path": "serialization/KCES/payload.go",
-          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
-        }
-      ]
-    },
-    "lengthPrefixed": {
-      "description": "Whether a little-endian Int32 compressed-byte length precedes the payload.",
-      "title": "Compressed-length flag",
-      "type": "boolean",
-      "x-meido-confidence": "verified",
-      "x-meido-edit-guidance": "Use true for the native .dbconf payload and false for an ExportCM JSON sidecar.",
-      "x-meido-edit-role": "wire_framing",
-      "x-meido-game-usage": "The native loaders call BinaryReader.ReadInt32 before passing exactly that many bytes to MessagePack LZ4 decoding.",
-      "x-meido-risk": "critical",
-      "x-meido-source-evidence": [
-        {
-          "game_version": "KCES 1.34.4",
-          "kind": "game_source",
-          "line_end": 485,
-          "line_start": 212,
-          "observation": "DynamicBoneMgr selects .dbconf/.dbcol, .db2conf, .dsbconf/.dsb2conf, .dslconf/.dsl2conf/.dslcol, and default fallback names for the corresponding physics components.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/DynamicBoneMgr.cs",
-          "symbol": "DynamicBoneMgr.LoadDynamicYureBoneSetting/LoadMagica2DynamicYureBoneSetting"
-        },
-        {
-          "game_version": "KCES 1.34.4",
-          "kind": "implementation_source",
-          "line_end": 410,
-          "line_start": 20,
-          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "observation": "The dispatcher binds every supported extension to a known payload kind and storage variant, fully decodes that typed root, and rejects unknown kinds or trailing MessagePack data.",
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
@@ -3939,7 +2366,7 @@
       "description": "A typed union alternative not selected by the .dbconf descriptor.",
       "title": "Inactive union field limbColliderPackage",
       "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Leave this field null unless a supported storage variant explicitly selects it.",
+      "x-meido-edit-guidance": "Omit this field completely unless a supported kind explicitly selects it.",
       "x-meido-edit-role": "union_alternative",
       "x-meido-game-usage": "The payload dispatcher rejects an extension/kind combination that does not match the descriptor.",
       "x-meido-risk": "critical",
@@ -3947,101 +2374,9 @@
         {
           "game_version": "KCES 1.34.4",
           "kind": "implementation_source",
-          "line_end": 410,
+          "line_end": 560,
           "line_start": 20,
-          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
-          "path": "serialization/KCES/payload.go",
-          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
-        }
-      ]
-    },
-    "msgpackBase64": {
-      "contentEncoding": "base64",
-      "description": "The complete decompressed MessagePack bytes when no typed root decoder is available.",
-      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-      "title": "Raw MessagePack payload",
-      "type": [
-        "string"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Keep it unchanged and do not also populate a typed root unless the decoder explicitly supports that union.",
-      "x-meido-edit-role": "opaque_payload",
-      "x-meido-game-usage": "This is a lossless fallback for future or unknown payload kinds.",
-      "x-meido-risk": "critical",
-      "x-meido-source-evidence": [
-        {
-          "game_version": "KCES 1.34.4",
-          "kind": "implementation_source",
-          "line_end": 410,
-          "line_start": 20,
-          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
-          "path": "serialization/KCES/payload.go",
-          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
-        }
-      ]
-    },
-    "msgpackJsonPreview": {
-      "description": "A non-authoritative JSON inspection of an unknown MessagePack root.",
-      "title": "Raw MessagePack preview",
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Treat as read-only and preserve it only as a diagnostic.",
-      "x-meido-edit-role": "diagnostic_metadata",
-      "x-meido-game-usage": "The game consumes msgpackBase64, not this preview.",
-      "x-meido-risk": "high",
-      "x-meido-source-evidence": [
-        {
-          "game_version": "KCES 1.34.4",
-          "kind": "implementation_source",
-          "line_end": 410,
-          "line_start": 20,
-          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
-          "path": "serialization/KCES/payload.go",
-          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
-        }
-      ]
-    },
-    "msgpackRootNil": {
-      "description": "Whether the recognized MessagePack root was explicitly nil.",
-      "title": "MessagePack nil root",
-      "type": "boolean",
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve msgpackRootNil and do not combine it with a populated typed root.",
-      "x-meido-edit-role": "serialization_metadata",
-      "x-meido-game-usage": "The codec retains a nil root so a missing object is not silently rewritten as a zero-valued object.",
-      "x-meido-risk": "critical",
-      "x-meido-source-evidence": [
-        {
-          "game_version": "KCES 1.34.4",
-          "kind": "implementation_source",
-          "line_end": 410,
-          "line_start": 20,
-          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
-          "path": "serialization/KCES/payload.go",
-          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
-        }
-      ]
-    },
-    "msgpackTrailingData": {
-      "contentEncoding": "base64",
-      "description": "Raw bytes after the first recognized MessagePack value.",
-      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-      "title": "MessagePack trailing bytes",
-      "type": [
-        "null",
-        "string"
-      ],
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Preserve unchanged trailing bytes.",
-      "x-meido-edit-role": "opaque_preserve",
-      "x-meido-game-usage": "MessagePack-CSharp stops after the first value; the native game does not assign semantics to these bytes.",
-      "x-meido-risk": "critical",
-      "x-meido-source-evidence": [
-        {
-          "game_version": "KCES 1.34.4",
-          "kind": "implementation_source",
-          "line_end": 410,
-          "line_start": 20,
-          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "observation": "The dispatcher binds every supported extension to a known payload kind and storage variant, fully decodes that typed root, and rejects unknown kinds or trailing MessagePack data.",
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
@@ -4069,30 +2404,9 @@
         {
           "game_version": "KCES 1.34.4",
           "kind": "implementation_source",
-          "line_end": 410,
+          "line_end": 560,
           "line_start": 20,
-          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
-          "path": "serialization/KCES/payload.go",
-          "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
-        }
-      ]
-    },
-    "text": {
-      "description": "The original string payload when the selected kind is msgpack-json-string or an ExportCM JSON sidecar.",
-      "title": "String payload text",
-      "type": "string",
-      "x-meido-confidence": "serialization_only",
-      "x-meido-edit-guidance": "Populate it only for a string or sidecar variant and preserve original text when JSON is unchanged.",
-      "x-meido-edit-role": "opaque_payload",
-      "x-meido-game-usage": "Only string/JSON variants consume this field; other native roots ignore it.",
-      "x-meido-risk": "high",
-      "x-meido-source-evidence": [
-        {
-          "game_version": "KCES 1.34.4",
-          "kind": "implementation_source",
-          "line_end": 410,
-          "line_start": 20,
-          "observation": "The dispatcher binds an extension to a payload kind, storage variant, and optional length prefix, then preserves unknown MessagePack roots and trailing bytes.",
+          "observation": "The dispatcher binds every supported extension to a known payload kind and storage variant, fully decodes that typed root, and rejects unknown kinds or trailing MessagePack data.",
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
@@ -4102,7 +2416,6 @@
   "required": [
     "format",
     "extension",
-    "lengthPrefixed",
     "storageVariant",
     "kind"
   ],

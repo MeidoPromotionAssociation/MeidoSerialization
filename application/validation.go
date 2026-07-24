@@ -10,6 +10,7 @@ import (
 	"os"
 
 	editingv1 "github.com/MeidoPromotionAssociation/MeidoSerialization/schemas/editing/v1"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
 // validateEditingJSONPath performs the published structural contract check,

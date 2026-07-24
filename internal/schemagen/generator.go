@@ -186,22 +186,22 @@ func formatSpecs() []spec {
 		{id: "com3d2.timeline", root: typeOf[serializationCOM3D2.TimelineData]()},
 		{id: "com3d2.object_data", root: typeOf[serializationCOM3D2.DanceObjectData]()},
 		{id: "kces.bridge_session", root: typeOf[serializationKCES.KCESBridgeSession]()},
-		{id: "kces.brd", root: typeOf[serializationKCES.GP03BridgeFile]()},
+		{id: "kces.brd", root: typeOf[KCESService.GP03BridgeEditing]()},
 		{id: "kces.enm", root: typeOf[serializationKCES.KCESExportNameMap]()},
 		{id: "kces.sad", root: typeOf[serializationKCES.SavedAttachFile]()},
 		{id: "kces.system", root: typeOf[serializationKCES.KCESSystemData]()},
 		{id: "kces.paths", root: typeOf[serializationKCES.KCESPathsFile]()},
 		{id: "kces.maid_collider", root: typeOf[serializationKCES.MaidColliderFile]()},
-		{id: "kces.menuassets", root: typeOf[serializationKCES.MenuAssets]()},
-		{id: "kces.materialassets", root: typeOf[serializationKCES.MaterialAssets]()},
-		{id: "kces.pmatassets", root: typeOf[serializationKCES.PriorityMaterialAssets]()},
-		{id: "kces.model", root: typeOf[serializationKCES.Model]()},
+		{id: "kces.menuassets", root: typeOf[*serializationKCES.MenuAssets]()},
+		{id: "kces.materialassets", root: typeOf[*serializationKCES.MaterialAssets]()},
+		{id: "kces.pmatassets", root: typeOf[*serializationKCES.PriorityMaterialAssets]()},
+		{id: "kces.model", root: typeOf[*serializationKCES.Model]()},
 		{id: "kces.hitcheck", root: typeOf[serializationKCES.HitCheck]()},
 		{id: "kces.undressdat", root: typeOf[serializationKCES.KCESJSONText](), customize: markerCustomizer("extension", ".undressdat")},
 		{id: "kces.undresspdat", root: typeOf[serializationKCES.KCESJSONText](), customize: markerCustomizer("extension", ".undresspdat")},
 		{id: "kces.nson", root: typeOf[serializationKCES.KCESJSONText](), customize: markerCustomizer("extension", ".nson")},
 		{id: "kces.bytes", root: typeOf[KCESService.RawUnityObjectEnvelope]()},
-		{id: "kces.preset", root: typeOf[serializationKCES.KCESPreset]()},
+		{id: "kces.preset", root: typeOf[serializationKCES.ExpandedKCESPreset]()},
 		{id: "kces.ct", root: typeOf[KCESService.CtEnvelope]()},
 		{id: "kces.virtualdirectory", root: typeOf[KCESService.CtEnvelope]()},
 		{id: "kces.dbconf", root: typeOf[serializationKCES.KCESPayloadEnvelope](), customize: payloadEnvelopeCustomizer(".dbconf")},
@@ -229,8 +229,7 @@ func payloadEnvelopeCustomizer(extension string) func(*jsonschema.Schema) error 
 		}
 
 		branches := []*jsonschema.Schema{
-			payloadNativeBranch(descriptor, false),
-			payloadNativeBranch(descriptor, true),
+			payloadNativeBranch(descriptor),
 		}
 		if descriptor.ExportCMKind != "" {
 			branches = append(branches, payloadExportCMBranch(descriptor))
@@ -240,40 +239,25 @@ func payloadEnvelopeCustomizer(extension string) func(*jsonschema.Schema) error 
 	}
 }
 
-func payloadNativeBranch(descriptor serializationKCES.KCESPayloadDescriptor, rootNil bool) *jsonschema.Schema {
+func payloadNativeBranch(descriptor serializationKCES.KCESPayloadDescriptor) *jsonschema.Schema {
 	branch := payloadTupleBranch(
 		descriptor.Extension,
 		serializationKCES.PayloadFormatKCESMessagePack,
 		serializationKCES.PayloadStorageInt32LZ4MessagePack,
 		descriptor.Kind,
-		descriptor.LengthPrefixed,
 	)
-	branch.Properties["msgpackRootNil"] = &jsonschema.Schema{Type: "boolean", Const: anyPtr(rootNil)}
 	allRoots := payloadRootFieldNames()
-	if rootNil {
-		branch.Required = append(branch.Required, "msgpackRootNil")
-		branch.AllOf = forbidProperties(allRoots...)
-		return branch
-	}
-
 	active := nativePayloadRootField(descriptor.Kind)
 	if descriptor.Kind == serializationKCES.PayloadKindJSONString {
-		branch.AnyOf = []*jsonschema.Schema{
-			{Required: []string{"text"}},
-			{Required: []string{"json"}},
-		}
-		active = ""
-	} else {
-		branch.Properties[active] = &jsonschema.Schema{Not: &jsonschema.Schema{Type: "null"}}
-		branch.Required = append(branch.Required, active)
+		active = "json"
 	}
+	branch.Required = append(branch.Required, active)
 	forbidden := make([]string, 0, len(allRoots)+2)
 	for _, name := range allRoots {
-		if name != active && !(descriptor.Kind == serializationKCES.PayloadKindJSONString && (name == "text" || name == "json")) {
+		if name != active {
 			forbidden = append(forbidden, name)
 		}
 	}
-	forbidden = append(forbidden, "msgpackBase64", "msgpackJsonPreview")
 	branch.AllOf = forbidProperties(forbidden...)
 	return branch
 }
@@ -284,32 +268,25 @@ func payloadExportCMBranch(descriptor serializationKCES.KCESPayloadDescriptor) *
 		serializationKCES.PayloadFormatKCESExportCM,
 		descriptor.ExportCMStorageVariant,
 		descriptor.ExportCMKind,
-		false,
 	)
-	branch.Properties["msgpackRootNil"] = &jsonschema.Schema{Type: "boolean", Const: anyPtr(false)}
-	branch.AnyOf = []*jsonschema.Schema{
-		{Required: []string{"text"}},
-		{Required: []string{"json"}},
-	}
+	branch.Required = append(branch.Required, "json")
 	forbidden := []string{
 		"dynamicBoneStatus", "colliderPackage", "limbColliderPackage", "ikColliderPackage", "clothParams",
-		"msgpackBase64", "msgpackJsonPreview", "msgpackTrailingData",
 	}
 	branch.AllOf = forbidProperties(forbidden...)
 	return branch
 }
 
-func payloadTupleBranch(extension, format, storage, kind string, lengthPrefixed bool) *jsonschema.Schema {
+func payloadTupleBranch(extension, format, storage, kind string) *jsonschema.Schema {
 	return &jsonschema.Schema{
 		Type: "object",
 		Properties: map[string]*jsonschema.Schema{
 			"format":         {Type: "string", Const: anyPtr(format)},
 			"extension":      {Type: "string", Const: anyPtr(extension)},
-			"lengthPrefixed": {Type: "boolean", Const: anyPtr(lengthPrefixed)},
 			"storageVariant": {Type: "string", Const: anyPtr(storage)},
 			"kind":           {Type: "string", Const: anyPtr(kind)},
 		},
-		Required: []string{"format", "extension", "lengthPrefixed", "storageVariant", "kind"},
+		Required: []string{"format", "extension", "storageVariant", "kind"},
 	}
 }
 
@@ -331,7 +308,7 @@ func nativePayloadRootField(kind string) string {
 }
 
 func payloadRootFieldNames() []string {
-	return []string{"dynamicBoneStatus", "colliderPackage", "limbColliderPackage", "ikColliderPackage", "clothParams", "text", "json"}
+	return []string{"dynamicBoneStatus", "colliderPackage", "limbColliderPackage", "ikColliderPackage", "clothParams", "json"}
 }
 
 func forbidProperties(names ...string) []*jsonschema.Schema {

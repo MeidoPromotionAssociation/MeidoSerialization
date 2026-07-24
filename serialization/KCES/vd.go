@@ -32,55 +32,29 @@ const (
 	kcesBridgeSessionIDFile   = "session_id"
 )
 
-// KCESBridgeSession 表示写入 bridge_session.vd 的完整 VirtualDirectory
-// EditBridgeSessionData 识别的两个文件公开为专用字段，其余虚拟文件原样保留
-// KCESBridgeSession represents the complete VirtualDirectory written to bridge_session.vd
-// The two files understood by EditBridgeSessionData are exposed as dedicated fields while every other virtual file is retained verbatim
+// KCESBridgeSession 表示写入 bridge_session.vd 的完整 VirtualDirectory，两个已知文件公开为专用字段，其余独立虚拟文件原样保留 / KCESBridgeSession represents the complete VirtualDirectory written to bridge_session.vd, exposing its two known files as dedicated fields while retaining other independent virtual files verbatim
 type KCESBridgeSession struct {
-	Format                  string                                 `json:"format"`                            // 库的可编辑表示标识，不写入游戏文件 / Library editing-representation identifier, not written to the game file
-	ContainerVersion        int32                                  `json:"containerVersion"`                  // 外层 VirtualDirectory 对象版本 / Outer VirtualDirectory object version
-	ContainerVersionless    bool                                   `json:"containerVersionless,omitempty"`    // 原始外层对象是否缺少版本槽位 / Whether the original outer object omitted its version slot
-	ContainerFilesOnly      bool                                   `json:"containerFilesOnly,omitempty"`      // 原始外层对象是否采用仅文件兼容布局 / Whether the original outer object used the files-only compatibility layout
-	ContainerDirectoriesNil bool                                   `json:"containerDirectoriesNil,omitempty"` // 原始目录集合是否为 MessagePack nil / Whether the original directory collection was MessagePack nil
-	ContainerFilesNil       bool                                   `json:"containerFilesNil,omitempty"`       // 原始文件集合是否为 MessagePack nil / Whether the original file collection was MessagePack nil
-	ContainerFieldCount     *int32                                 `json:"containerFieldCount,omitempty"`     // 原始 VirtualDirectory indexed object 的槽位数 / Slot count of the original VirtualDirectory indexed object
-	ContainerFutureSlots    [][]byte                               `json:"containerFutureSlots,omitempty"`    // 当前模型未知的后续 VirtualDirectory 槽位原始值 / Raw later VirtualDirectory slot values unknown to the current model
-	ContainerDirectories    map[string]ct.VirtualDirectoryMetadata `json:"containerDirectories,omitempty"`    // 各虚拟目录的线格式元数据 / Wire metadata for each virtual directory
-	ContainerVirtualFiles   map[string]ct.VirtualFileMetadata      `json:"containerVirtualFiles,omitempty"`   // 各虚拟文件的线格式元数据 / Wire metadata for each virtual file
-	SessionData             *KCESBridgeSessionData                 `json:"sessionData"`                       // session_data 文件中的 EditBridgeSessionData 根值 / EditBridgeSessionData root value in the session_data file
-	SessionIDFileData       []byte                                 `json:"sessionIdFileData"`                 // session_id 文件的原始 UTF-8 字节，独立于 MessagePack 中的 sessionId / Raw UTF-8 bytes of the session_id file, independent of the sessionId inside MessagePack
-	ExtraFiles              map[string][]byte                      `json:"extraFiles,omitempty"`              // 两个保留名称之外的虚拟文件原始载荷 / Raw payloads of virtual files other than the two reserved names
+	Format               string                                 `json:"format"`                         // 库的可编辑表示标识，不写入游戏文件 / Library editing-representation identifier, not written to the game file
+	ContainerVersion     int32                                  `json:"containerVersion"`               // 外层 VirtualDirectory 对象版本 / Outer VirtualDirectory object version
+	ContainerDirectories map[string]ct.VirtualDirectoryMetadata `json:"containerDirectories,omitempty"` // 各虚拟目录的真实版本字段 / Real version fields of each virtual directory
+	SessionData          KCESBridgeSessionData                  `json:"sessionData"`                    // session_data 文件中的必需 EditBridgeSessionData 根值 / Required EditBridgeSessionData root value in the session_data file
+	ExtraFiles           map[string][]byte                      `json:"extraFiles,omitempty"`           // 两个保留名称之外虚拟文件的真实 byte[] 载荷 / Real byte-array payloads of virtual files other than the two reserved names
 }
 
-// KCESBridgeSessionData 对应 session_data 虚拟文件中的裸 Standard MessagePack indexed object
-// 其已知槽位依次为 Key 0 的版本、Key 1 的 sessionId 和 Key 2 的 HashSet<ulong>
-// HideMenuFileNames 是对应 C# IgnoreMember 的可选编辑标注，不在线格式中存在，编码器也不会用它重建或校验 HideMenuFileIDs
-// FutureSlots 将每个未知索引槽位保存为一个完整 MessagePack 原始值，以在校验边界和嵌套深度的同时保留未来 KCES 版本字段
-// KCESBridgeSessionData corresponds to the bare Standard MessagePack indexed object in the session_data virtual file
-// Its known slots are the version at Key 0, sessionId at Key 1, and HashSet<ulong> at Key 2
-// HideMenuFileNames is an optional editing annotation for the C# IgnoreMember, never exists on the wire, and is not used by the encoder to rebuild or validate HideMenuFileIDs
-// FutureSlots retains each unknown indexed slot as one complete raw MessagePack value so fields from later KCES builds survive while framing and nesting depth are still validated
+// KCESBridgeSessionData 对应 session_data 虚拟文件中的固定三槽 Standard MessagePack indexed object，依次保存版本、sessionId 和 HashSet<ulong> / KCESBridgeSessionData corresponds to the fixed three-slot Standard MessagePack indexed object in session_data, storing the version, sessionId, and HashSet<ulong> in order
 type KCESBridgeSessionData struct {
-	MessagePackRootMetadata           // 根值 nil 与尾部字节元数据 / Root nil and trailing-byte metadata
-	FieldCount              *int32    `json:"fieldCount,omitempty"`        // 原始 EditBridgeSessionData indexed object 的槽位数 / Slot count of the original EditBridgeSessionData indexed object
-	Version                 int32     `json:"version"`                     // Key 0 的版本，当前 FixVersion 为 0 / Version at Key 0, with a current FixVersion of 0
-	SessionID               string    `json:"sessionId"`                   // Key 1 的桥接会话标识 / Bridge session identifier at Key 1
-	SessionIDIsNil          bool      `json:"sessionIdIsNil,omitempty"`    // Key 1 是否显式为 MessagePack nil / Whether Key 1 was explicitly MessagePack nil
-	HideMenuFileIDs         []uint64  `json:"hideMenuFileIds"`             // Key 2 中需要隐藏的菜单文件 FNV-1a RID 集合 / Set of menu-file FNV-1a RIDs to hide at Key 2
-	HideMenuFileNames       *[]string `json:"hideMenuFileNames,omitempty"` // 对应 C# IgnoreMember 的库内编辑标注，不写入线格式 / Library editing annotation corresponding to the C# IgnoreMember, not written to the wire
-	FutureSlots             [][]byte  `json:"futureSlots,omitempty"`       // Key 3 起未知槽位的完整 MessagePack 原始值 / Complete raw MessagePack values of unknown slots starting at Key 3
+	Version         int32    `json:"version"`         // Key 0 的版本，当前 FixVersion 为 0 / Version at Key 0, with a current FixVersion of 0
+	SessionID       string   `json:"sessionId"`       // Key 1 的桥接会话标识，完整容器还要求与 session_id 文件一致 / Bridge session identifier at Key 1, also required to match the session_id file in a complete container
+	HideMenuFileIDs []uint64 `json:"hideMenuFileIds"` // Key 2 中需要隐藏的菜单文件 FNV-1a RID 集合 / Set of menu-file FNV-1a RIDs to hide at Key 2
 }
 
 // NewKCESBridgeSession 显式创建当前格式对象，解码器不会调用它或注入这些默认值
 // NewKCESBridgeSession explicitly creates a current-format object while decoders neither call it nor inject these defaults
 func NewKCESBridgeSession(sessionID string) *KCESBridgeSession {
-	fieldCount := int32(3)
 	return &KCESBridgeSession{
-		Format:            KCESBridgeSessionFormat,
-		ContainerVersion:  KCESBridgeSessionContainerVersion,
-		SessionIDFileData: []byte(sessionID),
-		SessionData: &KCESBridgeSessionData{
-			FieldCount:      &fieldCount,
+		Format:           KCESBridgeSessionFormat,
+		ContainerVersion: KCESBridgeSessionContainerVersion,
+		SessionData: KCESBridgeSessionData{
 			Version:         KCESBridgeSessionDataVersion,
 			SessionID:       sessionID,
 			HideMenuFileIDs: []uint64{},
@@ -120,19 +94,17 @@ func DecodeKCESBridgeSession(data []byte) (*KCESBridgeSession, error) {
 	if err != nil {
 		return nil, fmt.Errorf("required virtual file %q: %w", kcesBridgeSessionIDFile, err)
 	}
+	if !utf8.Valid(rawSessionID) {
+		return nil, fmt.Errorf("virtual file %q is not valid UTF-8", kcesBridgeSessionIDFile)
+	}
+	if string(rawSessionID) != sessionData.SessionID {
+		return nil, fmt.Errorf("virtual file %q does not match session_data.sessionId", kcesBridgeSessionIDFile)
+	}
 	result := &KCESBridgeSession{
-		Format:                  KCESBridgeSessionFormat,
-		ContainerVersion:        table.Version,
-		ContainerVersionless:    table.Versionless,
-		ContainerFilesOnly:      table.FilesOnly,
-		ContainerDirectoriesNil: table.DirectoriesNil,
-		ContainerFilesNil:       table.FilesNil,
-		ContainerFieldCount:     table.FieldCount,
-		ContainerFutureSlots:    table.FutureSlots,
-		ContainerDirectories:    table.GetVirtualDirectoryMetadata(),
-		ContainerVirtualFiles:   table.GetVirtualFileMetadata(),
-		SessionData:             sessionData,
-		SessionIDFileData:       append(make([]byte, 0, len(rawSessionID)), rawSessionID...),
+		Format:               KCESBridgeSessionFormat,
+		ContainerVersion:     table.Version,
+		ContainerDirectories: table.GetVirtualDirectoryMetadata(),
+		SessionData:          *sessionData,
 	}
 	for _, name := range table.GetFileNames() {
 		if name == kcesBridgeSessionDataFile || name == kcesBridgeSessionIDFile {
@@ -150,8 +122,8 @@ func DecodeKCESBridgeSession(data []byte) (*KCESBridgeSession, error) {
 	return result, nil
 }
 
-// EncodeKCESBridgeSession 写入表示但不调用内外层版本回调，并复制未知文件与未来 MessagePack 槽位
-// EncodeKCESBridgeSession writes the representation without invoking either version callback and copies unknown files and future MessagePack slots
+// EncodeKCESBridgeSession 从 typed sessionId 生成两个已知虚拟文件并复制真正未知文件
+// EncodeKCESBridgeSession generates both known virtual files from the typed sessionId and copies genuinely unknown files
 func EncodeKCESBridgeSession(value *KCESBridgeSession) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil KCES bridge session")
@@ -159,36 +131,21 @@ func EncodeKCESBridgeSession(value *KCESBridgeSession) ([]byte, error) {
 	if value.Format != "" && value.Format != KCESBridgeSessionFormat {
 		return nil, fmt.Errorf("unsupported KCES bridge session format %q", value.Format)
 	}
-	var rawSessionData []byte
-	var err error
-	if value.SessionData == nil {
-		rawSessionData = []byte{0xc0}
-	} else {
-		rawSessionData, err = encodeKCESBridgeSessionData(value.SessionData)
-		if err != nil {
-			return nil, fmt.Errorf("encode virtual file %q: %w", kcesBridgeSessionDataFile, err)
-		}
+	rawSessionData, err := encodeKCESBridgeSessionData(&value.SessionData)
+	if err != nil {
+		return nil, fmt.Errorf("encode virtual file %q: %w", kcesBridgeSessionDataFile, err)
 	}
 
 	table := &ct.ContentTable{
-		Version:        value.ContainerVersion,
-		Versionless:    value.ContainerVersionless,
-		FilesOnly:      value.ContainerFilesOnly,
-		DirectoriesNil: value.ContainerDirectoriesNil,
-		FilesNil:       value.ContainerFilesNil,
-		FieldCount:     value.ContainerFieldCount,
-		FutureSlots:    value.ContainerFutureSlots,
-		Directories:    value.ContainerDirectories,
-		Raw:            make([]byte, ct.HeaderSize),
-		Files:          make(map[string]ct.VirtualFile),
+		Version:     value.ContainerVersion,
+		Directories: value.ContainerDirectories,
+		Raw:         make([]byte, ct.HeaderSize),
+		Files:       make(map[string]ct.VirtualFile),
 	}
 	if err := table.AddFile(kcesBridgeSessionDataFile, rawSessionData); err != nil {
 		return nil, err
 	}
-	rawSessionID := value.SessionIDFileData
-	if rawSessionID == nil && value.SessionData != nil && !value.SessionData.SessionIDIsNil {
-		rawSessionID = []byte(value.SessionData.SessionID)
-	}
+	rawSessionID := []byte(value.SessionData.SessionID)
 	if err := table.AddFile(kcesBridgeSessionIDFile, append([]byte(nil), rawSessionID...)); err != nil {
 		return nil, err
 	}
@@ -200,10 +157,6 @@ func EncodeKCESBridgeSession(value *KCESBridgeSession) ([]byte, error) {
 			return nil, err
 		}
 	}
-	if err := table.ApplyVirtualFileMetadata(value.ContainerVirtualFiles); err != nil {
-		return nil, fmt.Errorf("KCES bridge session: %w", err)
-	}
-
 	var out bytes.Buffer
 	if err := ct.WriteContentTable(&out, table); err != nil {
 		return nil, fmt.Errorf("encode KCES bridge session VirtualDirectory: %w", err)
@@ -211,19 +164,12 @@ func EncodeKCESBridgeSession(value *KCESBridgeSession) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-// decodeKCESBridgeSessionData 解码 session_data 中的 Standard MessagePack indexed object 并保留未来槽位与根尾部
-// decodeKCESBridgeSessionData decodes the Standard MessagePack indexed object in session_data and preserves future slots and root trailing bytes
+// decodeKCESBridgeSessionData 解码 session_data 中固定三槽的 Standard MessagePack indexed object
+// decodeKCESBridgeSessionData decodes the fixed three-slot Standard MessagePack indexed object in session_data
 func decodeKCESBridgeSessionData(data []byte) (*KCESBridgeSessionData, error) {
 	reader := simpleEditDataReader{data: data}
 	if reader.tryReadNil() {
-		trailing, err := messagePackRootTrailingAfterParsed(data, reader.pos, "EditBridgeSessionData")
-		if err != nil {
-			return nil, err
-		}
-		if len(trailing) != 0 {
-			return &KCESBridgeSessionData{MessagePackRootMetadata: MessagePackRootMetadata{RootNil: true, TrailingData: trailing}}, nil
-		}
-		return nil, nil
+		return nil, fmt.Errorf("EditBridgeSessionData root must not be nil")
 	}
 	fieldCount, err := reader.readArrayLength("EditBridgeSessionData")
 	if err != nil {
@@ -233,127 +179,73 @@ func decodeKCESBridgeSessionData(data []byte) (*KCESBridgeSessionData, error) {
 		return nil, err
 	}
 
-	storedFieldCount := int32(fieldCount)
-	result := &KCESBridgeSessionData{FieldCount: &storedFieldCount}
-	if fieldCount >= 1 {
-		result.Version, err = reader.readInt32("EditBridgeSessionData.version")
-		if err != nil {
+	if fieldCount != 3 {
+		return nil, fmt.Errorf("unsupported EditBridgeSessionData indexed-array width %d, expected 3", fieldCount)
+	}
+	result := &KCESBridgeSessionData{}
+	result.Version, err = reader.readInt32("EditBridgeSessionData.version")
+	if err != nil {
+		return nil, err
+	}
+	if reader.tryReadNil() {
+		return nil, fmt.Errorf("EditBridgeSessionData.sessionId must not be null")
+	}
+	sessionID, readErr := readKCESBridgeSessionString(&reader, "EditBridgeSessionData.sessionId")
+	if readErr != nil {
+		return nil, readErr
+	}
+	result.SessionID = sessionID
+	if !reader.tryReadNil() {
+		setCount, readErr := reader.readArrayLength("EditBridgeSessionData.hideMenuFileIds")
+		if readErr != nil {
+			return nil, readErr
+		}
+		if err := reader.requirePossibleValues(setCount, "EditBridgeSessionData.hideMenuFileIds items"); err != nil {
 			return nil, err
 		}
-	}
-	if fieldCount >= 2 {
-		if reader.tryReadNil() {
-			result.SessionIDIsNil = true
-		} else {
-			result.SessionID, err = readKCESBridgeSessionString(&reader, "EditBridgeSessionData.sessionId")
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	if fieldCount >= 3 {
-		if !reader.tryReadNil() {
-			setCount, readErr := reader.readArrayLength("EditBridgeSessionData.hideMenuFileIds")
+		result.HideMenuFileIDs = makeKCESCountedSliceForAppend[uint64](uint64(setCount))
+		for i := int64(0); i < setCount; i++ {
+			id, readErr := readKCESBridgeSessionUInt64(&reader, fmt.Sprintf("EditBridgeSessionData.hideMenuFileIds[%d]", i))
 			if readErr != nil {
 				return nil, readErr
 			}
-			if err := reader.requirePossibleValues(setCount, "EditBridgeSessionData.hideMenuFileIds items"); err != nil {
-				return nil, err
-			}
-			result.HideMenuFileIDs = makeKCESCountedSliceForAppend[uint64](uint64(setCount))
-			for i := int64(0); i < setCount; i++ {
-				id, readErr := readKCESBridgeSessionUInt64(&reader, fmt.Sprintf("EditBridgeSessionData.hideMenuFileIds[%d]", i))
-				if readErr != nil {
-					return nil, readErr
-				}
-				result.HideMenuFileIDs = append(result.HideMenuFileIDs, id)
-			}
+			result.HideMenuFileIDs = append(result.HideMenuFileIDs, id)
 		}
 	}
-	if fieldCount > 3 {
-		result.FutureSlots = makeKCESCountedSliceForAppend[[]byte](uint64(fieldCount - 3))
+	if reader.pos != int64(len(data)) {
+		return nil, fmt.Errorf("trailing data after EditBridgeSessionData root: %d bytes", int64(len(data))-reader.pos)
 	}
-	for key := int64(3); key < fieldCount; key++ {
-		start := reader.pos
-		if err := reader.skipValue(0); err != nil {
-			return nil, fmt.Errorf("EditBridgeSessionData future Key(%d): %w", key, err)
-		}
-		result.FutureSlots = append(result.FutureSlots, append([]byte(nil), reader.data[start:reader.pos]...))
-	}
-	trailing, err := messagePackRootTrailingAfterParsed(data, reader.pos, "EditBridgeSessionData")
-	if err != nil {
-		return nil, err
-	}
-	result.TrailingData = trailing
 	return result, nil
 }
 
-// encodeKCESBridgeSessionData 编码 session_data 根值并阻止 FieldCount 静默丢弃已设置字段
-// encodeKCESBridgeSessionData encodes the session_data root while preventing FieldCount from silently discarding populated fields
+// encodeKCESBridgeSessionData 编码固定三槽 session_data 根值
+// encodeKCESBridgeSessionData encodes the fixed three-slot session_data root
 func encodeKCESBridgeSessionData(value *KCESBridgeSessionData) ([]byte, error) {
 	if value == nil {
-		return []byte{0xc0}, nil
+		return nil, fmt.Errorf("EditBridgeSessionData is nil")
 	}
-	if out, handled, err := encodeNilMessagePackRootIfRequested(
-		value.MessagePackRootMetadata,
-		value.FieldCount != nil || value.Version != 0 || value.SessionID != "" || value.SessionIDIsNil || value.HideMenuFileIDs != nil || len(value.FutureSlots) != 0,
-		"EditBridgeSessionData",
-	); handled {
-		return out, err
+	if !utf8.ValidString(value.SessionID) {
+		return nil, fmt.Errorf("sessionId is not valid UTF-8")
 	}
-	fieldCount, err := resolveIndexedFieldCount(value.FieldCount, 3, value.FutureSlots, "EditBridgeSessionData")
-	if err != nil {
-		return nil, err
-	}
-	if fieldCount < 1 && value.Version != 0 {
-		return nil, fmt.Errorf("fieldCount %d would discard version=%d", fieldCount, value.Version)
-	}
-	if fieldCount < 2 && (value.SessionID != "" || value.SessionIDIsNil) {
-		return nil, fmt.Errorf("fieldCount %d would discard sessionId", fieldCount)
-	}
-	if fieldCount < 3 && value.HideMenuFileIDs != nil {
-		return nil, fmt.Errorf("fieldCount %d would discard hideMenuFileIds", fieldCount)
-	}
-	if fieldCount >= 2 && !value.SessionIDIsNil {
-		if !utf8.ValidString(value.SessionID) {
-			return nil, fmt.Errorf("sessionId is not valid UTF-8")
-		}
-		if uint64(len(value.SessionID)) > math.MaxUint32 {
-			return nil, fmt.Errorf("sessionId has %d UTF-8 bytes, exceeding the MessagePack str32 limit", len(value.SessionID))
-		}
-	}
-	if fieldCount >= 2 && value.SessionIDIsNil && value.SessionID != "" {
-		return nil, fmt.Errorf("sessionIdIsNil would discard non-empty sessionId")
+	if uint64(len(value.SessionID)) > math.MaxUint32 {
+		return nil, fmt.Errorf("sessionId has %d UTF-8 bytes, exceeding the MessagePack str32 limit", len(value.SessionID))
 	}
 	if int64(len(value.HideMenuFileIDs)) > math.MaxInt32 {
 		return nil, fmt.Errorf("hideMenuFileIds has %d items, exceeding the C# Int32 array-header limit", len(value.HideMenuFileIDs))
 	}
 
-	out := simpleEditDataAppendArrayHeader(nil, fieldCount)
-	if fieldCount >= 1 {
-		out = simpleEditDataAppendInt32(out, value.Version)
-	}
-	if fieldCount >= 2 {
-		if value.SessionIDIsNil {
-			out = append(out, 0xc0)
-		} else {
-			out = simpleEditDataAppendString(out, value.SessionID)
+	out := simpleEditDataAppendArrayHeader(nil, 3)
+	out = simpleEditDataAppendInt32(out, value.Version)
+	out = simpleEditDataAppendString(out, value.SessionID)
+	if value.HideMenuFileIDs == nil {
+		out = append(out, 0xc0)
+	} else {
+		out = simpleEditDataAppendArrayHeader(out, int64(len(value.HideMenuFileIDs)))
+		for _, id := range value.HideMenuFileIDs {
+			out = appendKCESBridgeSessionUInt64(out, id)
 		}
 	}
-	if fieldCount >= 3 {
-		if value.HideMenuFileIDs == nil {
-			out = append(out, 0xc0)
-		} else {
-			out = simpleEditDataAppendArrayHeader(out, int64(len(value.HideMenuFileIDs)))
-			for _, id := range value.HideMenuFileIDs {
-				out = appendKCESBridgeSessionUInt64(out, id)
-			}
-		}
-	}
-	for _, slot := range value.FutureSlots {
-		out = append(out, slot...)
-	}
-	return appendMessagePackRootTrailing(out, value.MessagePackRootMetadata), nil
+	return out, nil
 }
 
 // KCESBridgeMenuFileID 显式计算游戏回调对一个非 nil 名称生成的值

@@ -1,7 +1,5 @@
 package KCES
 
-import "fmt"
-
 // .pmatassets
 // KCES 优先级材质资源容器，在 .aba 的 TextAsset 中保存 Parts.PriorityMaterial 数组
 // 载荷使用 LZ4 Block Array 压缩的 MessagePack indexed-array，当前 PriorityMaterial 固定版本为 1000
@@ -29,13 +27,12 @@ import "fmt"
 //	[Key(3)] renderQueue  float32 render queue value
 //	[Key(4)] targetId     uint64  target material ID
 type PriorityMaterial struct {
-	_struct                struct{}    `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"` // 索引对象的线格式元数据 / Indexed-object wire metadata
-	Version                int32       `json:"version"`     // 版本号，固定为 1000 / Version value, fixed to 1000
-	ID                     uint64      `json:"id"`          // 材质 ID，通常为 fileName 去扩展名后小写的 FNV hash / Material ID, usually lowercase extensionless fileName FNV hash
-	FileName               string      `json:"fileName"`    // 材质文件名，如 xxx.pmat / Material file name such as xxx.pmat
-	RenderQueue            float32     `json:"renderQueue"` // 渲染队列值，控制渲染顺序 / Render queue value controlling draw order
-	TargetID               uint64      `json:"targetId"`    // 目标材质 ID，指向被覆盖的材质 / Target material ID pointing to the overridden material
+	_struct     struct{} `codec:",toarray"`   // 强制按数组编码 / Forces array encoding
+	Version     int32    `json:"version"`     // 版本号，固定为 1000 / Version value, fixed to 1000
+	ID          uint64   `json:"id"`          // 材质 ID，通常为 fileName 去扩展名后小写的 FNV hash / Material ID, usually lowercase extensionless fileName FNV hash
+	FileName    *string  `json:"fileName"`    // 可空材质文件名，如 xxx.pmat / Nullable material file name such as xxx.pmat
+	RenderQueue float32  `json:"renderQueue"` // 渲染队列值，控制渲染顺序 / Render queue value controlling draw order
+	TargetID    uint64   `json:"targetId"`    // 目标材质 ID，指向被覆盖的材质 / Target material ID pointing to the overridden material
 }
 
 // PriorityMaterialAssets 表示优先级材质资源容器
@@ -47,29 +44,10 @@ type PriorityMaterial struct {
 // Its MessagePack indexed array stores the container filename followed by the PriorityMaterial array
 // The data is stored in TextAsset m_Script inside .aba and compressed with Lz4BlockArray
 type PriorityMaterialAssets struct {
-	_struct                struct{}           `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	*IndexedObjectMetadata `codec:"-"`        // 索引对象的线格式元数据 / Indexed-object wire metadata
-	FileName               string             `json:"fileName"`                         // 容器文件名，如 xxx.pmatassets / Container file name such as xxx.pmatassets
-	Assets                 []PriorityMaterial `json:"assetArray"`                       // 优先级材质数组 / Priority-material array
-	RootNil                bool               `codec:"-" json:"rootNil,omitempty"`      // 根 MessagePack 值是否为 nil / Whether the root MessagePack value was nil
-	TrailingData           []byte             `codec:"-" json:"trailingData,omitempty"` // 根 MessagePack 值之后游戏未读取的字节 / Bytes left unread after the root MessagePack value
+	_struct  struct{}            `codec:",toarray"`  // 强制按数组编码 / Forces array encoding
+	FileName *string             `json:"fileName"`   // 可空容器文件名，如 xxx.pmatassets / Nullable container file name such as xxx.pmatassets
+	Assets   []*PriorityMaterial `json:"assetArray"` // 可空优先级材质对象数组 / Array of nullable priority-material objects
 }
-
-// getMessagePackTrailing 返回根 MessagePack 值后的保留字节
-// getMessagePackTrailing returns the preserved bytes after the root MessagePack value
-func (a *PriorityMaterialAssets) getMessagePackTrailing() []byte { return a.TrailingData }
-
-// setMessagePackTrailing 设置根 MessagePack 值后的保留字节
-// setMessagePackTrailing sets the preserved bytes after the root MessagePack value
-func (a *PriorityMaterialAssets) setMessagePackTrailing(data []byte) { a.TrailingData = data }
-
-// getMessagePackRootNil 返回根 MessagePack 值是否为 nil
-// getMessagePackRootNil reports whether the root MessagePack value was nil
-func (a *PriorityMaterialAssets) getMessagePackRootNil() bool { return a.RootNil }
-
-// setMessagePackRootNil 设置根 MessagePack 值的 nil 标记
-// setMessagePackRootNil sets the nil marker for the root MessagePack value
-func (a *PriorityMaterialAssets) setMessagePackRootNil(value bool) { a.RootNil = value }
 
 const priorityMaterialFixVersion = 1000
 
@@ -105,8 +83,8 @@ func EncodePriorityMaterial(pm *PriorityMaterial) []interface{} {
 // DecodePriorityMaterialAssets decodes PriorityMaterialAssets from Lz4BlockArray-compressed MessagePack data
 // data should contain the raw TextAsset m_Script bytes
 func DecodePriorityMaterialAssets(data []byte) (*PriorityMaterialAssets, error) {
-	assets := &PriorityMaterialAssets{}
-	if err := decodeCompressedMsgpack(data, assets, "PriorityMaterialAssets"); err != nil {
+	var assets *PriorityMaterialAssets
+	if err := decodeCompressedMsgpack(data, &assets, "PriorityMaterialAssets"); err != nil {
 		return nil, err
 	}
 	return assets, nil
@@ -116,7 +94,7 @@ func DecodePriorityMaterialAssets(data []byte) (*PriorityMaterialAssets, error) 
 // EncodePriorityMaterialAssets encodes PriorityMaterialAssets as Lz4BlockArray-compressed MessagePack data
 func EncodePriorityMaterialAssets(assets *PriorityMaterialAssets) ([]byte, error) {
 	if assets == nil {
-		return nil, fmt.Errorf("PriorityMaterialAssets is nil")
+		return encodeCompressedMsgpack(nil, "PriorityMaterialAssets")
 	}
 	normalized := *assets
 	normalized.Assets = cloneSlicePreserveNil(assets.Assets)

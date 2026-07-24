@@ -69,11 +69,12 @@ func TestFileTypeServicePreservesLegacySharedExtensions(t *testing.T) {
 func TestFileTypeServiceRecognizesCurrentPresetAndJSONMarkers(t *testing.T) {
 	dir := t.TempDir()
 	service := &FileTypeService{}
+	presetName := "probe"
 	preset := &serializationKCES.KCESPreset{
 		ContainerVersion: 1000,
 		Thumbnail:        []byte{0x89, 'P', 'N', 'G', 1},
 		MaidData:         mustKCESPresetCoreForServiceTest(t),
-		Meta:             &serializationKCES.KCESPresetMeta{Version: 1000, Data: map[string]string{"presetName": "probe"}},
+		Meta:             &serializationKCES.KCESPresetMeta{Version: 1000, Data: map[string]*string{"presetName": &presetName}},
 	}
 	encoded, err := serializationKCES.EncodeKCESPreset(preset)
 	if err != nil {

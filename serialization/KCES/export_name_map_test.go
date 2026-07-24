@@ -83,7 +83,7 @@ func TestKCESExportNameMapEncodePreservesWithoutMutatingCaller(t *testing.T) {
 	}
 }
 
-func TestKCESExportNameMapPreservesConsumerSchemaAnomalies(t *testing.T) {
+func TestKCESExportNameMapRejectsConsumerSchemaAnomalies(t *testing.T) {
 	validNested := `{\"keys\":[\"internal.menu\"],\"values\":[\"0.menu\"]}`
 	tests := []struct {
 		name string
@@ -91,7 +91,7 @@ func TestKCESExportNameMapPreservesConsumerSchemaAnomalies(t *testing.T) {
 		want string
 	}{
 		{name: "invalid UTF-8", data: append([]byte(`{"version":1000,"serializeData":"`), 0xff), want: "UTF-8"},
-		{name: "trailing value", data: []byte(`{"version":1000,"serializeData":"` + validNested + `"} {}`), want: "invalid"},
+		{name: "trailing value", data: []byte(`{"version":1000,"serializeData":"` + validNested + `"} {}`), want: "trailing"},
 		{name: "missing version", data: []byte(`{"serializeData":"` + validNested + `"}`), want: "version"},
 		{name: "null version", data: []byte(`{"version":null,"serializeData":"` + validNested + `"}`), want: "version"},
 		{name: "version overflow", data: []byte(`{"version":2147483648,"serializeData":"` + validNested + `"}`), want: "version"},
@@ -111,60 +111,17 @@ func TestKCESExportNameMapPreservesConsumerSchemaAnomalies(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			decoded, err := DecodeKCESExportNameMap(test.data)
-			if test.name == "invalid UTF-8" || test.name == "trailing value" {
-				if err == nil || !strings.Contains(err.Error(), test.want) {
-					t.Fatalf("error = %v, want substring %q", err, test.want)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("DecodeKCESExportNameMap() error = %v", err)
-			}
-			if !strings.Contains(decoded.NativeDecodeError, test.want) {
-				t.Fatalf("nativeDecodeError = %q, want substring %q", decoded.NativeDecodeError, test.want)
-			}
-			encoded, err := EncodeKCESExportNameMap(decoded)
-			if err != nil || !bytes.Equal(encoded, test.data) {
-				t.Fatalf("schema-anomalous native round trip = %s, %v; want %s", encoded, err, test.data)
-			}
-			editing, err := EncodeKCESExportNameMapJSON(decoded)
-			if err != nil {
-				t.Fatalf("EncodeKCESExportNameMapJSON() error = %v", err)
-			}
-			fromEditing, err := DecodeKCESExportNameMapJSON(editing)
-			if err != nil {
-				t.Fatalf("DecodeKCESExportNameMapJSON() error = %v", err)
-			}
-			encodedAgain, err := EncodeKCESExportNameMap(fromEditing)
-			if err != nil || !bytes.Equal(encodedAgain, test.data) {
-				t.Fatalf("editing-envelope round trip = %s, %v; want %s", encodedAgain, err, test.data)
+			if _, err := DecodeKCESExportNameMap(test.data); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want substring %q", err, test.want)
 			}
 		})
 	}
 }
 
-func TestKCESExportNameMapPreservesUnknownJSONAndRebuildsOnlyAfterEdit(t *testing.T) {
+func TestKCESExportNameMapRejectsUnknownJSONFields(t *testing.T) {
 	native := []byte("\xef\xbb\xbf {\r\n  \"version\" : -7,\r\n  \"serializeData\" : \"{\\\"keys\\\":[\\\"a\\\"],\\\"values\\\":[\\\"b\\\"],\\\"futureNested\\\":true}\",\r\n  \"futureOuter\" : [1,2]\r\n}\r\n")
-	decoded, err := DecodeKCESExportNameMap(native)
-	if err != nil || decoded.NativeDecodeError != "" || decoded.Version != -7 || !reflect.DeepEqual(decoded.Entries, []KCESExportNameMapEntry{{InternalName: "a", FileName: "b"}}) {
-		t.Fatalf("DecodeKCESExportNameMap() = %+v, %v", decoded, err)
-	}
-	unchanged, err := EncodeKCESExportNameMap(decoded)
-	if err != nil || !bytes.Equal(unchanged, native) {
-		t.Fatalf("unchanged native text was rebuilt: %s, %v", unchanged, err)
-	}
-	decoded.Entries[0].FileName = "edited"
-	edited, err := EncodeKCESExportNameMap(decoded)
-	if err != nil {
-		t.Fatalf("EncodeKCESExportNameMap(edited) error = %v", err)
-	}
-	if bytes.Equal(edited, native) || bytes.Contains(edited, []byte("futureOuter")) || bytes.Contains(edited, []byte("futureNested")) {
-		t.Fatalf("typed edit did not rebuild the known native schema: %s", edited)
-	}
-	redecoded, err := DecodeKCESExportNameMap(edited)
-	if err != nil || len(redecoded.Entries) != 1 || redecoded.Entries[0].FileName != "edited" {
-		t.Fatalf("edited native = %+v, %v", redecoded, err)
+	if _, err := DecodeKCESExportNameMap(native); err == nil || !strings.Contains(err.Error(), "unknown") {
+		t.Fatalf("DecodeKCESExportNameMap() error = %v, want unknown-field rejection", err)
 	}
 }
 
@@ -225,11 +182,11 @@ func TestKCESExportNameMapEditingJSONIsStrictAndDeterministic(t *testing.T) {
 func TestKCESExportNameMapPreservesNilEntryList(t *testing.T) {
 	for name, encode := range map[string]func() error{
 		"native": func() error {
-			_, err := EncodeKCESExportNameMap(&KCESExportNameMap{})
+			_, err := EncodeKCESExportNameMap(&KCESExportNameMap{Version: KCESExportNameMapVersion})
 			return err
 		},
 		"editing": func() error {
-			_, err := EncodeKCESExportNameMapJSON(&KCESExportNameMap{})
+			_, err := EncodeKCESExportNameMapJSON(&KCESExportNameMap{Format: KCESExportNameMapFormat, Version: KCESExportNameMapVersion})
 			return err
 		},
 	} {
@@ -240,7 +197,7 @@ func TestKCESExportNameMapPreservesNilEntryList(t *testing.T) {
 		})
 	}
 
-	empty := &KCESExportNameMap{Entries: []KCESExportNameMapEntry{}}
+	empty := &KCESExportNameMap{Version: KCESExportNameMapVersion, Entries: []KCESExportNameMapEntry{}}
 	if _, err := EncodeKCESExportNameMap(empty); err != nil {
 		t.Fatalf("non-nil empty map should encode: %v", err)
 	}

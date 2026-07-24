@@ -15,93 +15,15 @@ import (
 // KCES 各格式共用的 MessagePack 根值、LZ4 Block Array 和基础值转换辅助函数
 // MessagePack-root, LZ4 Block Array, and primitive conversion helpers shared by KCES formats
 
-// messagePackTrailingCarrier 由根格式化结果后可能存在 MessagePack-CSharp 未读字节的顶层游戏记录实现，这些字节位于 indexed object 之外，不能成为另一个结构体槽位
-// messagePackTrailingCarrier is implemented by top-level game records whose formatter result may be followed by bytes left unread by MessagePack-CSharp, which are outside the indexed object and must never become another struct slot
-type messagePackTrailingCarrier interface {
-	getMessagePackTrailing() []byte
-	setMessagePackTrailing([]byte)
-}
-
-// messagePackRootCarrier 由需要保留 MessagePack nil 根值状态的顶层记录实现
-// messagePackRootCarrier is implemented by top-level records that preserve MessagePack nil-root state
-type messagePackRootCarrier interface {
-	getMessagePackRootNil() bool
-	setMessagePackRootNil(bool)
-}
-
-// MessagePackRootMetadata 与 ct 共用，使所有 MessagePack 模型采用相同的 JSON 和线格式注释结构
-// MessagePackRootMetadata is shared with ct so all MessagePack-facing models use one JSON and wire annotation shape
-type MessagePackRootMetadata = ct.MessagePackRootMetadata
-
-// IndexedObjectMetadata 记录已解码 MessagePack-CSharp int-key 数组的准确宽度，以及比当前类型模型更新的原始槽位
-// IndexedObjectMetadata records a decoded MessagePack-CSharp int-key array's exact width and raw slots newer than this library's typed model
-type IndexedObjectMetadata = ct.TypedIndexedObjectMetadata
-
-// messagePackRootTrailingAfterParsed 核对解析器消耗长度并返回首个根值后的尾部字节
-// messagePackRootTrailingAfterParsed verifies the parser's consumed length and returns bytes after the first root value
-func messagePackRootTrailingAfterParsed(data []byte, parsed int64, name string) ([]byte, error) {
-	if parsed < 0 || parsed > int64(len(data)) {
-		return nil, fmt.Errorf("decode %s parser consumed invalid byte count %d of %d", name, parsed, len(data))
-	}
-	root, trailing, err := ct.SplitFirstMsgpackValue(data)
-	if err != nil {
-		return nil, fmt.Errorf("decode %s root MessagePack value: %w", name, err)
-	}
-	if int64(len(root)) != parsed {
-		return nil, fmt.Errorf("decode %s parser consumed %d bytes but MessagePack library reports a %d-byte root value", name, parsed, len(root))
-	}
-	return trailing, nil
-}
-
-// encodeNilMessagePackRootIfRequested 在请求 nil 根值且没有有效载荷时写出 nil 与保留尾部
-// encodeNilMessagePackRootIfRequested writes a nil root and preserved trailing bytes when requested and no payload is populated
-func encodeNilMessagePackRootIfRequested(metadata MessagePackRootMetadata, hasPayload bool, name string) ([]byte, bool, error) {
-	if !metadata.RootNil {
-		return nil, false, nil
-	}
-	if hasPayload {
-		return nil, true, fmt.Errorf("%s rootNil would discard populated object fields", name)
-	}
-	out := make([]byte, 1, 1+len(metadata.TrailingData))
-	out[0] = 0xc0
-	out = append(out, metadata.TrailingData...)
-	return out, true, nil
-}
-
-// appendMessagePackRootTrailing 将保留的根值尾部字节追加到编码结果
-// appendMessagePackRootTrailing appends preserved root trailing bytes to encoded data
-func appendMessagePackRootTrailing(root []byte, metadata MessagePackRootMetadata) []byte {
-	return append(root, metadata.TrailingData...)
-}
-
-// decodeCompressedMsgpack 解压 LZ4 Block Array，解码首个 MessagePack 根值并保留根值状态与尾部
-// decodeCompressedMsgpack decompresses an LZ4 Block Array, decodes the first MessagePack root, and preserves root state and trailing bytes
+// decodeCompressedMsgpack 解压 LZ4 Block Array 并严格解码唯一的完整 MessagePack 根值
+// decodeCompressedMsgpack decompresses an LZ4 Block Array and strictly decodes its sole complete MessagePack root value
 func decodeCompressedMsgpack(data []byte, out interface{}, name string) error {
 	decompressed, err := ct.DecompressLz4BlockArray(data)
 	if err != nil {
 		return fmt.Errorf("decompress %s: %w", name, err)
 	}
-
-	root, trailing, err := ct.SplitFirstMsgpackValue(decompressed)
-	if err != nil {
-		return fmt.Errorf("split %s root msgpack: %w", name, err)
-	}
-	if carrier, ok := out.(messagePackRootCarrier); ok {
-		carrier.setMessagePackRootNil(false)
-		if len(root) == 1 && root[0] == 0xc0 {
-			resetMessagePackRootValue(out)
-			carrier.setMessagePackRootNil(true)
-			if trailingCarrier, ok := out.(messagePackTrailingCarrier); ok {
-				trailingCarrier.setMessagePackTrailing(append([]byte(nil), trailing...))
-			}
-			return nil
-		}
-	}
-	if err := ct.DecodeMsgpack(root, out); err != nil {
+	if err := ct.DecodeMsgpack(decompressed, out); err != nil {
 		return fmt.Errorf("decode %s msgpack: %w", name, err)
-	}
-	if trailingCarrier, ok := out.(messagePackTrailingCarrier); ok {
-		trailingCarrier.setMessagePackTrailing(append([]byte(nil), trailing...))
 	}
 	return nil
 }
@@ -117,28 +39,28 @@ func cloneSlicePreserveNil[T any](src []T) []T {
 	return dst
 }
 
-// encodeCompressedMsgpack 编码 indexed MessagePack 根值及保留尾部并使用 LZ4 Block Array 压缩
-// encodeCompressedMsgpack encodes an indexed MessagePack root with preserved trailing bytes and compresses it as an LZ4 Block Array
+// encodeCompressedMsgpack 编码固定布局的 indexed MessagePack 根值并使用 LZ4 Block Array 压缩
+// encodeCompressedMsgpack encodes a fixed-layout indexed MessagePack root and compresses it as an LZ4 Block Array
 func encodeCompressedMsgpack(v interface{}, name string) ([]byte, error) {
-	var encoded []byte
-	if carrier, ok := v.(messagePackRootCarrier); ok && carrier.getMessagePackRootNil() {
-		if messagePackRootHasPayload(v) {
-			return nil, fmt.Errorf("encode %s: rootNil would discard populated object fields", name)
-		}
-		encoded = []byte{0xc0}
-	} else {
-		var err error
-		selfer, ok := indexedMessagePackSelfer(v)
-		if !ok {
-			return nil, fmt.Errorf("encode %s: %T does not implement the indexed MessagePack codec", name, v)
-		}
-		encoded, err = ct.EncodeIndexedMsgpack(selfer)
+	rv := reflect.ValueOf(v)
+	if !rv.IsValid() || ((rv.Kind() == reflect.Ptr || rv.Kind() == reflect.Interface) && rv.IsNil()) {
+		encoded, err := ct.EncodeMsgpack(nil)
 		if err != nil {
-			return nil, fmt.Errorf("encode %s: %w", name, err)
+			return nil, fmt.Errorf("encode %s null root: %w", name, err)
 		}
+		compressed, err := ct.CompressLz4BlockArray(encoded)
+		if err != nil {
+			return nil, fmt.Errorf("compress %s: %w", name, err)
+		}
+		return compressed, nil
 	}
-	if carrier, ok := v.(messagePackTrailingCarrier); ok {
-		encoded = append(encoded, carrier.getMessagePackTrailing()...)
+	selfer, ok := indexedMessagePackSelfer(v)
+	if !ok {
+		return nil, fmt.Errorf("encode %s: %T does not implement the indexed MessagePack codec", name, v)
+	}
+	encoded, err := ct.EncodeIndexedMsgpack(selfer)
+	if err != nil {
+		return nil, fmt.Errorf("encode %s: %w", name, err)
 	}
 
 	compressed, err := ct.CompressLz4BlockArray(encoded)
@@ -162,66 +84,6 @@ func indexedMessagePackSelfer(value interface{}) (codec.Selfer, bool) {
 	copyPointer.Elem().Set(rv)
 	selfer, ok := copyPointer.Interface().(codec.Selfer)
 	return selfer, ok
-}
-
-// resetMessagePackRootValue 将可设置的非 nil 指针目标清零
-// resetMessagePackRootValue zeroes the target of a settable non-nil pointer
-func resetMessagePackRootValue(value interface{}) {
-	rv := reflect.ValueOf(value)
-	if rv.IsValid() && rv.Kind() == reflect.Ptr && !rv.IsNil() && rv.Elem().CanSet() {
-		rv.Elem().Set(reflect.Zero(rv.Elem().Type()))
-	}
-}
-
-// messagePackRootHasPayload 判断根对象是否含有不能被 nil 根值表示的有效字段
-// messagePackRootHasPayload reports whether a root object contains populated fields that a nil root cannot represent
-func messagePackRootHasPayload(value interface{}) bool {
-	rv := reflect.ValueOf(value)
-	if !rv.IsValid() || rv.Kind() != reflect.Ptr || rv.IsNil() {
-		return false
-	}
-	rv = rv.Elem()
-	if rv.Kind() != reflect.Struct {
-		return !rv.IsZero()
-	}
-	indexedType := reflect.TypeOf(IndexedObjectMetadata{})
-	indexedPtrType := reflect.PointerTo(indexedType)
-	for index := 0; index < rv.NumField(); index++ {
-		fieldType := rv.Type().Field(index)
-		field := rv.Field(index)
-		if fieldType.Name == "_struct" {
-			continue
-		}
-		if fieldType.Type == indexedType {
-			metadata := field.Interface().(IndexedObjectMetadata)
-			if indexedObjectMetadataHasPayload(metadata) {
-				return true
-			}
-			continue
-		}
-		if fieldType.Type == indexedPtrType {
-			if !field.IsNil() {
-				metadata := field.Interface().(*IndexedObjectMetadata)
-				if indexedObjectMetadataHasPayload(*metadata) {
-					return true
-				}
-			}
-			continue
-		}
-		if strings.Split(fieldType.Tag.Get("codec"), ",")[0] == "-" || fieldType.PkgPath != "" {
-			continue
-		}
-		if !field.IsZero() {
-			return true
-		}
-	}
-	return false
-}
-
-// indexedObjectMetadataHasPayload 判断 indexed-object 元数据是否记录了任何非默认线格式状态
-// indexedObjectMetadataHasPayload reports whether indexed-object metadata records any nondefault wire state
-func indexedObjectMetadataHasPayload(metadata IndexedObjectMetadata) bool {
-	return metadata.FieldCount != nil || len(metadata.FutureSlots) != 0 || len(metadata.NilSlots) != 0 || len(metadata.NullElements) != 0 || len(metadata.NullMapValueKeys) != 0
 }
 
 // decodeRawMsgpackArray 将通用数组重新编码后解码进强类型 indexed object

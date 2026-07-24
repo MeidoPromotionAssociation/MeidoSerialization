@@ -223,19 +223,20 @@ func TestPackService_PackToAbaAndCtProducesCatalogedAba(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeCatalogFromCt: %v", err)
 	}
-	if len(catalog.ResourceFileNames) != 1 || catalog.ResourceFileNames[0] != "sample_pack.aba" {
+	if len(catalog.ResourceFileNames) != 1 || testStringValue(catalog.ResourceFileNames[0]) != "sample_pack.aba" {
 		t.Fatalf("unexpected resource files: %+v", catalog.ResourceFileNames)
 	}
 
 	wantExts := map[string]bool{".anm": true, ".menuassets": true, ".mmesh": true, ".model": true, ".partsatlas": true, ".tex": true}
 	for _, ext := range catalog.ExtensionList {
-		delete(wantExts, ext)
-		enl, err := ct.DecodeExtensionNameListFromCt(table, ext)
+		extension := testStringValue(ext)
+		delete(wantExts, extension)
+		enl, err := ct.DecodeExtensionNameListFromCt(table, extension)
 		if err != nil {
-			t.Fatalf("DecodeExtensionNameListFromCt(%s): %v", ext, err)
+			t.Fatalf("DecodeExtensionNameListFromCt(%s): %v", extension, err)
 		}
 		if len(enl.Data) == 0 {
-			t.Fatalf("empty ExtensionNameList for %s", ext)
+			t.Fatalf("empty ExtensionNameList for %s", extension)
 		}
 	}
 	if len(wantExts) != 0 {
@@ -271,16 +272,20 @@ func TestPackService_PackToAbaAndCtProducesCatalogedAba(t *testing.T) {
 		"sample_sprite.tex":    aba.ClassIDSprite,
 	}
 	for _, item := range catalog.Items {
-		typeID, ok := assetTypes[item.Name]
-		if !ok {
-			t.Fatalf("catalog item %q not found in .aba", item.Name)
+		if item == nil {
+			t.Fatal("catalog contains a null item")
 		}
-		wantType, ok := wantTypes[item.Name]
+		itemName := testStringValue(item.Name)
+		typeID, ok := assetTypes[itemName]
 		if !ok {
-			t.Fatalf("unexpected catalog item %q", item.Name)
+			t.Fatalf("catalog item %q not found in .aba", itemName)
+		}
+		wantType, ok := wantTypes[itemName]
+		if !ok {
+			t.Fatalf("unexpected catalog item %q", itemName)
 		}
 		if typeID != wantType {
-			t.Fatalf("%s type got %d, want %d", item.Name, typeID, wantType)
+			t.Fatalf("%s type got %d, want %d", itemName, typeID, wantType)
 		}
 	}
 	if _, ok := assetTypes["sample.menuassets.typetree.json"]; ok {
@@ -378,13 +383,13 @@ func TestPackServicePreservesStreamingSidecarAsRawAbaEntry(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, item := range catalog.Items {
-		if item.Name == sidecarName {
+		if item != nil && testStringValue(item.Name) == sidecarName {
 			t.Fatalf("raw sidecar was incorrectly inserted into Catalog.Items: %+v", item)
 		}
 	}
 	for _, ext := range catalog.ExtensionList {
-		if strings.EqualFold(ext, ".resS") {
-			t.Fatalf("raw sidecar extension was incorrectly cataloged: %q", ext)
+		if strings.EqualFold(testStringValue(ext), ".resS") {
+			t.Fatalf("raw sidecar extension was incorrectly cataloged: %q", testStringValue(ext))
 		}
 	}
 }
@@ -562,7 +567,10 @@ func TestPackService_PackToAbaAndCtSkipsDerivedUnpackArtifacts(t *testing.T) {
 	}
 	gotNames := map[string]bool{}
 	for _, item := range catalog.Items {
-		gotNames[item.Name] = true
+		if item == nil {
+			t.Fatal("catalog contains a null item")
+		}
+		gotNames[testStringValue(item.Name)] = true
 	}
 	wantNames := []string{
 		"cm3d2_megane002.tex",
@@ -654,14 +662,14 @@ func TestPackService_PackToAbaAndCtUsesRawMetaLoadName(t *testing.T) {
 		t.Fatalf("DecodeCatalogFromCt: %v", err)
 	}
 	catalogName := "sactx-0-128x64-DXT5_BC3-nt008_team_star_glass.partsassets-e3baac46"
-	if len(catalog.Items) != 1 || catalog.Items[0].Name != catalogName {
+	if len(catalog.Items) != 1 || catalog.Items[0] == nil || testStringValue(catalog.Items[0].Name) != catalogName {
 		t.Fatalf("catalog item got %+v, want %q", catalog.Items, catalogName)
 	}
 	enl, err := ct.DecodeExtensionNameListFromCt(table, ".partsassets-e3baac46")
 	if err != nil {
 		t.Fatalf("DecodeExtensionNameListFromCt: %v", err)
 	}
-	if len(enl.Data) != 1 || enl.Data[0].Name != catalogName {
+	if len(enl.Data) != 1 || enl.Data[0] == nil || testStringValue(enl.Data[0].Name) != catalogName {
 		t.Fatalf("ExtensionNameList got %+v, want %q", enl.Data, catalogName)
 	}
 
@@ -729,14 +737,14 @@ func TestPackService_PackToAbaAndCtUsesTextAssetMeta(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeCatalogFromCt: %v", err)
 	}
-	if len(catalog.Items) != 1 || catalog.Items[0].Name != "parts_personal002.menuassets" {
+	if len(catalog.Items) != 1 || catalog.Items[0] == nil || testStringValue(catalog.Items[0].Name) != "parts_personal002.menuassets" {
 		t.Fatalf("catalog item got %+v, want parts_personal002.menuassets", catalog.Items)
 	}
 	enl, err := ct.DecodeExtensionNameListFromCt(table, ".menuassets")
 	if err != nil {
 		t.Fatalf("DecodeExtensionNameListFromCt: %v", err)
 	}
-	if len(enl.Data) != 1 || enl.Data[0].Name != "parts_personal002.menuassets" {
+	if len(enl.Data) != 1 || enl.Data[0] == nil || testStringValue(enl.Data[0].Name) != "parts_personal002.menuassets" {
 		t.Fatalf("ExtensionNameList got %+v, want parts_personal002.menuassets", enl.Data)
 	}
 
