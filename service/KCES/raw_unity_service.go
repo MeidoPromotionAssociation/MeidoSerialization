@@ -15,11 +15,7 @@ import (
 
 const RawUnityObjectFormat = "kces-unity-raw-object"
 
-// RawUnityObjectEnvelope 是从 .aba 提取的原始 Unity 序列化对象字节的 JSON 可编辑封套。
-// 对象数据本身无损保存，sidecar 元数据保留 PathID、加载名以及解释原始对象布局所需的 Unity 版本上下文。
-//
-// RawUnityObjectEnvelope is the JSON-editable wrapper for raw Unity serialized object bytes extracted from .aba files.
-// Object data is preserved losslessly while sidecar metadata keeps PathID, load name, and the Unity version context needed to interpret the original object layout.
+// RawUnityObjectEnvelope 是从 ABA 提取的原始 Unity 序列化对象字节的 JSON 可编辑封套 / RawUnityObjectEnvelope is the JSON-editable wrapper for raw Unity serialized object bytes extracted from an ABA
 type RawUnityObjectEnvelope struct {
 	Format                string                    `json:"format"`                          // 封套格式标识，固定为 kces-unity-raw-object / Envelope format marker, fixed to kces-unity-raw-object
 	ClassID               int32                     `json:"classId"`                         // Unity ClassID / Unity ClassID
@@ -38,11 +34,11 @@ type RawUnityObjectEnvelope struct {
 	TypeTree              *RawUnityTypeTreeEnvelope `json:"typeTree,omitempty"`              // 可选 TypeTree 只读视图 / Optional read-only TypeTree view
 }
 
-// RawUnityObjectService 提供原始 Unity 对象字节与 JSON 封套之间的转换服务。
-//
-// RawUnityObjectService converts raw Unity object bytes to and from JSON envelopes.
+// RawUnityObjectService 提供原始 Unity 对象字节与 JSON 封套之间的转换服务 / RawUnityObjectService converts raw Unity object bytes to and from JSON envelopes
 type RawUnityObjectService struct{}
 
+// IsKCESRawUnityBytesFile 判断路径是否为受支持的 KCES 原始 Unity 对象字节文件
+// IsKCESRawUnityBytesFile reports whether a path is a supported KCES raw Unity object byte file
 func IsKCESRawUnityBytesFile(path string) bool {
 	lower := strings.ToLower(path)
 	if strings.HasSuffix(lower, ".json") || !strings.HasSuffix(lower, ".bytes") {
@@ -52,6 +48,8 @@ func IsKCESRawUnityBytesFile(path string) bool {
 	return ok
 }
 
+// IsKCESRawUnityBytesJSONFile 判断路径是否为受支持的 KCES 原始 Unity 对象 JSON 文件
+// IsKCESRawUnityBytesJSONFile reports whether a path is a supported KCES raw Unity object JSON file
 func IsKCESRawUnityBytesJSONFile(path string) bool {
 	if !strings.HasSuffix(strings.ToLower(path), ".bytes.json") {
 		return false
@@ -69,6 +67,8 @@ func IsKCESRawUnityBytesJSONFile(path string) bool {
 	return header.Format == RawUnityObjectFormat
 }
 
+// ConvertRawUnityObjectToJson 将 KCES 原始 Unity 对象字节转换为可编辑 JSON 封套
+// ConvertRawUnityObjectToJson converts KCES raw Unity object bytes into an editable JSON envelope
 func (s *RawUnityObjectService) ConvertRawUnityObjectToJson(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
 	if err := checkConversionContext(ctx); err != nil {
 		return err
@@ -91,6 +91,8 @@ func (s *RawUnityObjectService) ConvertRawUnityObjectToJson(ctx context.Context,
 	return nil
 }
 
+// ConvertJsonToRawUnityObject 将可编辑 JSON 封套转换回 KCES 原始 Unity 对象字节
+// ConvertJsonToRawUnityObject converts an editable JSON envelope back into KCES raw Unity object bytes
 func (s *RawUnityObjectService) ConvertJsonToRawUnityObject(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
 	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
@@ -141,6 +143,8 @@ func (s *RawUnityObjectService) ConvertJsonToRawUnityObject(ctx context.Context,
 	return nil
 }
 
+// decodeRawUnityObjectEditingJSON 严格解码原始 Unity 对象编辑封套及其 Base64 数据
+// decodeRawUnityObjectEditingJSON strictly decodes a raw Unity object editing envelope and its Base64 data
 func decodeRawUnityObjectEditingJSON(data []byte) (*RawUnityObjectEnvelope, []byte, error) {
 	var envelope RawUnityObjectEnvelope
 	if err := decodeStrictJSON(data, &envelope, "KCES raw Unity object JSON"); err != nil {
@@ -162,6 +166,8 @@ func decodeRawUnityObjectEditingJSON(data []byte) (*RawUnityObjectEnvelope, []by
 	return &envelope, raw, nil
 }
 
+// ReadRawUnityObjectFile 读取原始 Unity 对象字节文件并构建 JSON 封套
+// ReadRawUnityObjectFile reads a raw Unity object byte file and builds its JSON envelope
 func (s *RawUnityObjectService) ReadRawUnityObjectFile(path string) (*RawUnityObjectEnvelope, error) {
 	kind, classID, ok := inferRawUnityObjectKind(path)
 	if !ok {
@@ -200,11 +206,15 @@ func (s *RawUnityObjectService) ReadRawUnityObjectFile(path string) (*RawUnityOb
 	}, nil
 }
 
+// hasRawAssetMeta 判断原始资源元数据是否包含需要保存的值
+// hasRawAssetMeta reports whether raw asset metadata contains values that need to be stored
 func hasRawAssetMeta(meta rawAssetMeta) bool {
 	return meta.PathID != 0 || meta.LoadName != "" || meta.UnityVersion != "" || meta.EngineVersion != "" ||
 		meta.TargetPlatform != nil || meta.AbaVersion != 0 || meta.GenerationVersion != "" || meta.SerializedFileVersion != 0
 }
 
+// inferRawUnityObjectKind 根据路径后缀推断原始 Unity 对象种类和 ClassID
+// inferRawUnityObjectKind infers a raw Unity object kind and ClassID from the path suffix
 func inferRawUnityObjectKind(path string) (string, int32, bool) {
 	lowerName := strings.ToLower(filepath.Base(path))
 	if strings.HasSuffix(lowerName, ".json") {
@@ -247,6 +257,8 @@ func inferRawUnityObjectKind(path string) (string, int32, bool) {
 	return kind, classID, ok
 }
 
+// inferRawUnityObjectName 从对象数据、加载名或文件名推断内部对象名称
+// inferRawUnityObjectName infers the internal object name from object data, the load name, or the file name
 func inferRawUnityObjectName(path string, data []byte, meta rawAssetMeta) string {
 	if name, ok := readRawUnityLeadingName(data); ok {
 		return name
@@ -280,8 +292,8 @@ func inferRawUnityObjectName(path string, data []byte, meta rawAssetMeta) string
 	return strings.TrimSuffix(name, filepath.Ext(name))
 }
 
-// readRawUnityLeadingName 读取 Unity 原始对象开头的受限长度名称。
-// readRawUnityLeadingName reads the bounded length-prefixed name at the start of a raw Unity object.
+// readRawUnityLeadingName 读取 Unity 原始对象开头的受限长度名称
+// readRawUnityLeadingName reads the bounded length-prefixed name at the start of a raw Unity object
 func readRawUnityLeadingName(data []byte) (string, bool) {
 	if len(data) < 4 {
 		return "", false
@@ -299,6 +311,8 @@ func readRawUnityLeadingName(data []byte) (string, bool) {
 	return name, true
 }
 
+// unityClassName 返回已知 Unity ClassID 对应的类型名称
+// unityClassName returns the type name for a known Unity ClassID
 func unityClassName(classID int32) string {
 	switch classID {
 	case aba.ClassIDGameObject:
@@ -323,6 +337,8 @@ func unityClassName(classID int32) string {
 		return "AnimationClip"
 	case aba.ClassIDAudioClip:
 		return "AudioClip"
+	case aba.ClassIDCubemap:
+		return "Cubemap"
 	case aba.ClassIDMonoBehaviour:
 		return "MonoBehaviour"
 	case aba.ClassIDMonoScript:

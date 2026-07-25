@@ -1,6 +1,7 @@
 package aba
 
 import (
+	"bytes"
 	"encoding/binary"
 	"testing"
 
@@ -59,6 +60,69 @@ func TestReadTypeTreeValue_AlignsNestedArrayNode(t *testing.T) {
 	if !ok || marker != 0x11223344 {
 		t.Fatalf("marker = %#x, ok=%v", marker, ok)
 	}
+	if root.ByteOffset != 0 || root.ByteSize != int64(len(data)) {
+		t.Fatalf("root byte range = [%d,%d), want [0,%d)", root.ByteOffset, root.ByteOffset+root.ByteSize, len(data))
+	}
+	valuesField := root.Field("values")
+	if valuesField == nil || valuesField.ByteOffset != 0 || valuesField.ByteSize != 8 {
+		t.Fatalf("values byte range = %+v, want offset 0 size 8", valuesField)
+	}
+
+	af := &AssetsFile{
+		Header: AssetsFileHeader{Version: 22},
+		Metadata: AssetsMetadata{
+			TypeTreeEnabled: true,
+			TypeTreeTypes:   []TypeTreeType{*tt},
+		},
+	}
+	info := &AssetInfo{TypeId: 1, TypeIdOrIndex: 0}
+	encoded, err := af.EncodeAssetValue(info, root)
+	if err != nil {
+		t.Fatalf("EncodeAssetValue: %v", err)
+	}
+	if !bytes.Equal(encoded, data) {
+		t.Fatalf("encoded bytes = % x, want % x", encoded, data)
+	}
+}
+
+func TestReadAndWriteTypeTreeFileSize(t *testing.T) {
+	stringBuffer := []byte("TestObject\x00Base\x00FileSize\x00m_Offset\x00")
+	tree := &TypeTreeType{
+		Nodes: []TypeTreeNode{
+			{Level: 0, TypeStrOff: 0, NameStrOff: 11},
+			{Level: 1, TypeStrOff: 16, NameStrOff: 25, ByteSize: 8},
+		},
+		StringBuffer: stringBuffer,
+	}
+	want := uint64(0xfedcba9876543210)
+	data := make([]byte, 8)
+	binary.LittleEndian.PutUint64(data, want)
+	r := binaryio.NewEndianReader(data, binary.LittleEndian)
+	root, next, err := readTypeTreeValue(tree, r, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if next != int64(len(tree.Nodes)) || r.Remaining() != 0 {
+		t.Fatalf("consumed node %d/%d with %d bytes remaining", next, len(tree.Nodes), r.Remaining())
+	}
+	got, ok := root.Field("m_Offset").UInt64()
+	if !ok || got != want {
+		t.Fatalf("FileSize = %#x, %t, want %#x", got, ok, want)
+	}
+	af := &AssetsFile{
+		Header: AssetsFileHeader{Version: 22},
+		Metadata: AssetsMetadata{
+			TypeTreeEnabled: true,
+			TypeTreeTypes:   []TypeTreeType{*tree},
+		},
+	}
+	encoded, err := af.EncodeAssetValue(&AssetInfo{TypeId: ClassIDAudioClip, TypeIdOrIndex: 0}, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(encoded, data) {
+		t.Fatalf("encoded FileSize = %x, want %x", encoded, data)
+	}
 }
 
 func TestReadAssetValue_ArrayAlignmentRealSamples(t *testing.T) {
@@ -93,8 +157,23 @@ func TestReadAssetValue_ArrayAlignmentRealSamples(t *testing.T) {
 					if info.TypeId != test.classID {
 						continue
 					}
-					if _, err := af.ReadAssetValue(info); err != nil {
+					root, err := af.ReadAssetValue(info)
+					if err != nil {
 						t.Errorf("ReadAssetValue(%q, PathID=%d, ClassID=%d): %v", dir.Name, info.PathId, info.TypeId, err)
+						continue
+					}
+					encoded, err := af.EncodeAssetValue(info, root)
+					if err != nil {
+						t.Errorf("EncodeAssetValue(%q, PathID=%d, ClassID=%d): %v", dir.Name, info.PathId, info.TypeId, err)
+						continue
+					}
+					original, err := af.GetAssetData(info)
+					if err != nil {
+						t.Errorf("GetAssetData(%q, PathID=%d, ClassID=%d): %v", dir.Name, info.PathId, info.TypeId, err)
+						continue
+					}
+					if !bytes.Equal(encoded, original) {
+						t.Errorf("TypeTree round trip changed %q PathID=%d ClassID=%d", dir.Name, info.PathId, info.TypeId)
 						continue
 					}
 					decoded++

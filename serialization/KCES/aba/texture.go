@@ -30,8 +30,7 @@ const (
 	TextureFormatRGBA64 int32 = 72
 )
 
-// Texture2DData 是导出 Unity Texture2D 所需的字段子集
-// Texture2DData is the subset of Unity Texture2D fields needed for export
+// Texture2DData 是导出 Unity Texture2D 所需的字段子集 / Texture2DData is the subset of Unity Texture2D fields needed for export
 type Texture2DData struct {
 	Name          string        // 贴图名称 / Texture name
 	Width         int32         // 贴图宽度 / Texture width
@@ -42,11 +41,10 @@ type Texture2DData struct {
 	StreamData    StreamingInfo // 外部流式数据引用 / External streamed data reference
 }
 
-// StreamingInfo 指向 .aba sidecar 文件中保存的贴图载荷
-// StreamingInfo points to texture payload stored in an .aba sidecar file
+// StreamingInfo 表示 Unity 对象指向 .resS、.resource 或 .resources 条目的流式载荷范围 / StreamingInfo represents a streamed payload range in a Unity .resS, .resource, or .resources entry
 type StreamingInfo struct {
 	Offset int64  // sidecar 文件内偏移 / Offset inside the sidecar file
-	Size   uint32 // 数据大小 / Data size
+	Size   uint64 // 数据大小，AudioClip 在线格式使用 UInt64 / Payload size, stored as UInt64 by the AudioClip wire format
 	Path   string // sidecar 文件路径 / Sidecar file path
 }
 
@@ -58,8 +56,7 @@ type AbaFileResolver func(name string) ([]byte, error)
 // AbaFileRangeResolver resolves a byte range within a non-serialized .aba entry; Texture2D m_StreamData commonly points into a large .resS sidecar, so range reads avoid loading the whole file for every texture
 type AbaFileRangeResolver func(name string, offset int64, size int64) ([]byte, error)
 
-// abaRangeResolverAdapter 在整文件 resolver 和范围 resolver 之间适配
-// abaRangeResolverAdapter adapts between whole-file and range resolvers
+// abaRangeResolverAdapter 在整文件 resolver 和范围 resolver 之间适配 / abaRangeResolverAdapter adapts between whole-file and range resolvers
 type abaRangeResolverAdapter struct {
 	whole   AbaFileResolver      // 整文件读取 resolver / Whole-file resolver
 	rangeFn AbaFileRangeResolver // 范围读取 resolver / Range-read resolver
@@ -144,6 +141,9 @@ func (af *AssetsFile) GetTexture2DDataRange(info *AssetInfo, resolver AbaFileRan
 			goto doneTextureDataCheck
 		}
 		start := tex.StreamData.Offset
+		if tex.StreamData.Size > math.MaxInt64 {
+			return tex, fmt.Errorf("texture stream size %d exceeds Int64 resolver range", tex.StreamData.Size)
+		}
 		size := int64(tex.StreamData.Size)
 		end, ok := addNonNegativeInt64(start, size)
 		if !ok {
@@ -166,35 +166,165 @@ doneTextureDataCheck:
 	return tex, nil
 }
 
-// readStreamingInfo 从 TypeTreeValue 读取 Texture2D.m_StreamData 的 offset、size 和 path
-// readStreamingInfo reads offset, size, and path from Texture2D.m_StreamData represented by TypeTreeValue
+// InlineTexture2DStreamData 将 Texture2D 的外部流式载荷写回 image data 并清空 m_StreamData
+// InlineTexture2DStreamData writes a Texture2D external stream payload back into image data and clears m_StreamData
+func (af *AssetsFile) InlineTexture2DStreamData(info *AssetInfo, resolver AbaFileRangeResolver) ([]byte, bool, error) {
+	return af.inlineTextureStreamData(info, resolver, ClassIDTexture2D, "Texture2D")
+}
+
+// InlineCubemapStreamData 将 Cubemap 的外部流式载荷写回 image data 并清空 m_StreamData
+// InlineCubemapStreamData writes a Cubemap external stream payload back into image data and clears m_StreamData
+func (af *AssetsFile) InlineCubemapStreamData(info *AssetInfo, resolver AbaFileRangeResolver) ([]byte, bool, error) {
+	return af.inlineTextureStreamData(info, resolver, ClassIDCubemap, "Cubemap")
+}
+
+// inlineTextureStreamData 内联共享 Texture 布局的图像载荷
+// inlineTextureStreamData inlines image payloads for objects that share the Texture layout
+func (af *AssetsFile) inlineTextureStreamData(info *AssetInfo, resolver AbaFileRangeResolver, expectedClassID int32, typeName string) ([]byte, bool, error) {
+	if af == nil {
+		return nil, false, fmt.Errorf("nil assets file")
+	}
+	if info == nil {
+		return nil, false, fmt.Errorf("nil asset info")
+	}
+	if info.TypeId != expectedClassID {
+		return nil, false, fmt.Errorf("asset PathID=%d has class ID %d instead of %s", info.PathId, info.TypeId, typeName)
+	}
+
+	root, err := af.ReadAssetValue(info)
+	if err != nil {
+		return nil, false, err
+	}
+	stream := root.Field("m_StreamData")
+	if stream == nil {
+		data, err := af.GetAssetData(info)
+		if err != nil {
+			return nil, false, err
+		}
+		return append([]byte(nil), data...), false, nil
+	}
+	streamInfo, err := readStreamingInfo(stream)
+	if err != nil {
+		return nil, false, err
+	}
+
+	imageDataValue := root.Field("image data")
+	if imageDataValue == nil {
+		imageDataValue = root.Field("m_ImageData")
+	}
+	if imageDataValue == nil {
+		return nil, false, fmt.Errorf("%s PathID=%d has no image data field", typeName, info.PathId)
+	}
+	imageData, ok := imageDataValue.Bytes()
+	if !ok {
+		return nil, false, fmt.Errorf("%s PathID=%d image data is not a byte array", typeName, info.PathId)
+	}
+
+	changed := streamInfo.Offset != 0 || streamInfo.Size != 0 || streamInfo.Path != ""
+	if streamInfo.Size > 0 {
+		if len(imageData) != 0 {
+			return nil, false, fmt.Errorf("%s PathID=%d has both inline image data and external stream data", typeName, info.PathId)
+		}
+		if resolver == nil {
+			return nil, false, fmt.Errorf("%s PathID=%d requires an external stream resolver", typeName, info.PathId)
+		}
+		streamName := normalizeStreamDataPath(streamInfo.Path)
+		if streamName == "" {
+			return nil, false, fmt.Errorf("%s PathID=%d has stream size %d with an empty stream path", typeName, info.PathId, streamInfo.Size)
+		}
+		if streamInfo.Size > math.MaxInt64 {
+			return nil, false, fmt.Errorf("%s PathID=%d stream size %d exceeds Int64 resolver range", typeName, info.PathId, streamInfo.Size)
+		}
+		imageData, err = resolver(streamName, streamInfo.Offset, int64(streamInfo.Size))
+		if err != nil {
+			return nil, false, fmt.Errorf("read %s PathID=%d stream data %q: %w", typeName, info.PathId, streamName, err)
+		}
+		if int64(len(imageData)) != int64(streamInfo.Size) {
+			return nil, false, fmt.Errorf("%s PathID=%d stream resolver returned %d bytes instead of %d", typeName, info.PathId, len(imageData), streamInfo.Size)
+		}
+		imageDataValue.Value = append([]byte(nil), imageData...)
+		imageDataValue.Children = nil
+	}
+
+	if uint64(len(imageData)) > uint64(math.MaxInt32) {
+		return nil, false, fmt.Errorf("%s PathID=%d inline image data length %d exceeds Int32 wire range", typeName, info.PathId, len(imageData))
+	}
+	if completeSize := root.Field("m_CompleteImageSize"); completeSize != nil {
+		completeSize.Value = int64(len(imageData))
+	}
+	clearStreamingInfo(stream)
+
+	if !changed {
+		data, err := af.GetAssetData(info)
+		if err != nil {
+			return nil, false, err
+		}
+		return append([]byte(nil), data...), false, nil
+	}
+	data, err := af.EncodeAssetValue(info, root)
+	if err != nil {
+		return nil, false, fmt.Errorf("encode inline %s PathID=%d: %w", typeName, info.PathId, err)
+	}
+	return data, true, nil
+}
+
+// readStreamingInfo 从 Texture、Mesh 或 AudioClip 的 TypeTreeValue 读取流路径、偏移和大小字段
+// readStreamingInfo reads streamed path, offset, and size fields from a Texture, Mesh, or AudioClip TypeTreeValue
 func readStreamingInfo(stream *TypeTreeValue) (StreamingInfo, error) {
 	var info StreamingInfo
 	if stream == nil {
 		return info, nil
 	}
-	if field := stream.Field("offset"); field != nil {
+	if field := firstTypeTreeField(stream, "offset", "m_Offset"); field != nil {
 		offset, ok := field.UInt64()
 		if !ok || offset > math.MaxInt64 {
-			return info, fmt.Errorf("Texture2D m_StreamData.offset is outside Int64 range")
+			return info, fmt.Errorf("stream offset is outside Int64 range")
 		}
 		info.Offset = int64(offset)
 	}
-	if field := stream.Field("size"); field != nil {
+	if field := firstTypeTreeField(stream, "size", "m_Size"); field != nil {
 		size, ok := field.UInt64()
-		if !ok || size > math.MaxUint32 {
-			return info, fmt.Errorf("Texture2D m_StreamData.size is outside UInt32 range")
+		if !ok {
+			return info, fmt.Errorf("stream size is not an unsigned integer")
 		}
-		info.Size = uint32(size)
+		info.Size = size
 	}
-	if field := stream.Field("path"); field != nil {
+	if field := firstTypeTreeField(stream, "path", "m_Source"); field != nil {
 		path, ok := field.String()
 		if !ok {
-			return info, fmt.Errorf("Texture2D m_StreamData.path is not a string")
+			return info, fmt.Errorf("stream path is not a string")
 		}
 		info.Path = path
 	}
 	return info, nil
+}
+
+// firstTypeTreeField 返回候选名称中第一个存在的直接字段
+// firstTypeTreeField returns the first existing direct field among the candidate names
+func firstTypeTreeField(value *TypeTreeValue, names ...string) *TypeTreeValue {
+	for _, name := range names {
+		if field := value.Field(name); field != nil {
+			return field
+		}
+	}
+	return nil
+}
+
+// clearStreamingInfo 将 Texture、Mesh 或 AudioClip 的流路径和偏移清零，并保留由调用方决定的内联大小
+// clearStreamingInfo clears streamed paths and offsets for Texture, Mesh, or AudioClip while leaving the inline size decision to the caller
+func clearStreamingInfo(stream *TypeTreeValue) {
+	if stream == nil {
+		return
+	}
+	if offset := firstTypeTreeField(stream, "offset", "m_Offset"); offset != nil {
+		offset.Value = uint64(0)
+	}
+	if size := firstTypeTreeField(stream, "size", "m_Size"); size != nil {
+		size.Value = uint64(0)
+	}
+	if streamPath := firstTypeTreeField(stream, "path", "m_Source"); streamPath != nil {
+		streamPath.Value = ""
+	}
 }
 
 // normalizeStreamDataPath 将 Unity stream data 路径转换为 .aba 条目查找所需的文件名

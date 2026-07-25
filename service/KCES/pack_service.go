@@ -1,279 +1,70 @@
 package KCES
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	pathpkg "path"
 	"path/filepath"
 	"reflect"
 	"strings"
-
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
 )
 
-// PackService 提供将目录打包为 KCES 格式的 .aba + .ct 文件。
-//
-// PackService provides services for packing directories into KCES .aba + .ct files.
+// PackService 提供将纯资源目录打包为 KCES ABA 和 CT 的服务 / PackService packs a plain resource directory into KCES ABA and CT files
 type PackService struct{}
 
-// PackToAbaAndCt 将指定目录打包为可由 KCES catalog 发现的 .aba + .ct。
-// 目录内文件会作为 AssetBundle 对象写入 .aba；.ct 只保存 catalog 和
-// ExtensionNameList。PNG/JPEG 会按资源名推断为 Texture2D，.tex.bytes 会透传为
-// Texture2D，.sprite.bytes 会透传为 Sprite，.mmesh 透传为 Mesh，
-// .partsatlas/.partsassets 透传为 SpriteAtlas，其他文件默认写为 TextAsset。
+// PackToAbaAndCt 扫描纯资源目录并在其父目录生成固定 Unity 2022.3.35f1 的 ABA 和 CT
+// PackToAbaAndCt scans a plain resource directory and emits fixed Unity 2022.3.35f1 ABA and CT files in its parent directory
 func (s *PackService) PackToAbaAndCt(dirPath string, outputBaseName string) error {
 	if outputBaseName == "" {
 		outputBaseName = filepath.Base(dirPath)
 	}
 
-	outputDir := filepath.Dir(dirPath)
 	manifest := ModManifest{
 		Name:        outputBaseName,
 		CatalogType: "Parts",
 		PackageType: "Plugin",
-		Assets:      []ModAsset{},
 	}
-
-	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if isLinkOrReparse(info) {
-			return fmt.Errorf("refusing symlink or reparse point input %q", path)
+	err := filepath.Walk(dirPath, func(filePath string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
 		if info.IsDir() {
 			return nil
 		}
-		if !info.Mode().IsRegular() {
-			return fmt.Errorf("refusing non-regular input %q", path)
-		}
-		if shouldSkipPackInput(path, outputBaseName) {
+		if shouldSkipPackInput(filePath, outputBaseName) {
 			return nil
 		}
-		relPath, relErr := filepath.Rel(dirPath, path)
-		if relErr != nil {
-			return fmt.Errorf("get relative path for %q: %w", path, relErr)
+		if isLinkOrReparse(info) {
+			return fmt.Errorf("refusing symlink or reparse point input %q", filePath)
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("refusing non-regular input %q", filePath)
+		}
+		relPath, err := filepath.Rel(dirPath, filePath)
+		if err != nil {
+			return fmt.Errorf("get relative path for %q: %w", filePath, err)
 		}
 		relPath = filepath.ToSlash(relPath)
 		name := inferAssetNameForPack(relPath)
 		manifest.Assets = append(manifest.Assets, ModAsset{
-			Name: name,
-			Path: relPath,
-			Kind: inferKindForPack(name, relPath),
+			Name:            name,
+			Path:            relPath,
+			Kind:            inferKindForPack(name, relPath),
+			preserveRawData: true,
 		})
 		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("scan directory failed: %w", err)
 	}
-
 	if len(manifest.Assets) == 0 {
-		return fmt.Errorf("no files found in directory")
+		return fmt.Errorf("no resource files found in directory")
 	}
-	return packModManifest(manifest, dirPath, outputDir)
+	return packModManifest(manifest, dirPath, filepath.Dir(dirPath))
 }
 
-// RepackAba 将已解压的 .aba 目录重新打包为 .aba 文件
-func (s *PackService) RepackAba(dirPath string, outPath string) error {
-	var entries []aba.AbaFileEntry
-	inputRoot, err := os.OpenRoot(dirPath)
-	if err != nil {
-		return fmt.Errorf("open input directory failed: %w", err)
-	}
-	defer inputRoot.Close()
-
-	var versionMetas []rawAssetMeta
-	var versionSources []string
-	if meta, ok, err := readRepackAbaMeta(inputRoot); err != nil {
-		return err
-	} else if ok {
-		versionMetas = append(versionMetas, meta)
-		versionSources = append(versionSources, abaMetaFileName)
-	}
-
-	err = filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if isLinkOrReparse(info) {
-			return fmt.Errorf("refusing symlink or reparse point input %q", path)
-		}
-		if info.IsDir() {
-			return nil
-		}
-		if !info.Mode().IsRegular() {
-			return fmt.Errorf("refusing non-regular input %q", path)
-		}
-		relPath, err := filepath.Rel(dirPath, path)
-		if err != nil {
-			return fmt.Errorf("get relative path for %q: %w", path, err)
-		}
-		slashPath := filepath.ToSlash(relPath)
-		if strings.EqualFold(slashPath, abaMetaFileName) {
-			return nil
-		}
-		const assetMetaSuffix = ".meta.json"
-		if strings.HasSuffix(strings.ToLower(relPath), assetMetaSuffix) {
-			assetRelPath := relPath[:len(relPath)-len(assetMetaSuffix)]
-			assetInfo, assetErr := inputRoot.Lstat(assetRelPath)
-			switch {
-			case assetErr == nil && assetInfo.Mode().IsRegular() && !isLinkOrReparse(assetInfo):
-				data, readErr := readPackRootRegularFile(inputRoot, relPath)
-				if readErr != nil {
-					return fmt.Errorf("read asset metadata %q failed: %w", slashPath, readErr)
-				}
-				var meta rawAssetMeta
-				if jsonErr := json.Unmarshal(trimJSONUTF8BOM(data), &meta); jsonErr != nil {
-					return fmt.Errorf("parse asset metadata %q failed: %w", slashPath, jsonErr)
-				}
-				versionMetas = append(versionMetas, meta)
-				versionSources = append(versionSources, slashPath)
-				return nil
-			case assetErr != nil && !os.IsNotExist(assetErr):
-				return fmt.Errorf("inspect asset for metadata %q failed: %w", slashPath, assetErr)
-			}
-		}
-		data, err := readPackRootRegularFile(inputRoot, relPath)
-		if err != nil {
-			return fmt.Errorf("read file %q failed: %w", filepath.ToSlash(relPath), err)
-		}
-		entries = append(entries, aba.AbaFileEntry{
-			Name:         slashPath,
-			Data:         data,
-			IsSerialized: isSerializedFile(slashPath),
-		})
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("scan directory failed: %w", err)
-	}
-
-	if len(entries) == 0 {
-		return fmt.Errorf("no files found in directory")
-	}
-	opts, err := resolveRepackAbaWriteOptions(versionMetas, versionSources)
-	if err != nil {
-		return fmt.Errorf("resolve UnityFS .aba context: %w", err)
-	}
-
-	f, err := os.Create(outPath)
-	if err != nil {
-		return fmt.Errorf("create output file failed: %w", err)
-	}
-	defer f.Close()
-
-	return aba.WriteAba(f, entries, opts)
-}
-
-func readRepackAbaMeta(root *os.Root) (rawAssetMeta, bool, error) {
-	info, err := root.Lstat(abaMetaFileName)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return rawAssetMeta{}, false, nil
-		}
-		return rawAssetMeta{}, false, fmt.Errorf("inspect UnityFS .aba metadata %q: %w", abaMetaFileName, err)
-	}
-	if isLinkOrReparse(info) || !info.Mode().IsRegular() {
-		return rawAssetMeta{}, false, fmt.Errorf("UnityFS .aba metadata %q is not a regular non-reparse file", abaMetaFileName)
-	}
-	data, err := readPackRootRegularFile(root, abaMetaFileName)
-	if err != nil {
-		return rawAssetMeta{}, false, fmt.Errorf("read UnityFS .aba metadata %q: %w", abaMetaFileName, err)
-	}
-	var meta abaMeta
-	if err := json.Unmarshal(trimJSONUTF8BOM(data), &meta); err != nil {
-		return rawAssetMeta{}, false, fmt.Errorf("parse UnityFS .aba metadata %q: %w", abaMetaFileName, err)
-	}
-	if meta.Format != abaMetaFormat {
-		return rawAssetMeta{}, false, fmt.Errorf("unsupported UnityFS .aba metadata format %q", meta.Format)
-	}
-	return rawAssetMeta{
-		EngineVersion:     meta.EngineVersion,
-		AbaVersion:        meta.AbaVersion,
-		GenerationVersion: meta.GenerationVersion,
-	}, true, nil
-}
-
-func resolveRepackAbaWriteOptions(metas []rawAssetMeta, sources []string) (*aba.AbaWriteOptions, error) {
-	opts := &aba.AbaWriteOptions{Compress: true}
-	var engineSource, unitySource, generationSource, abaSource string
-	var fallbackUnityVersion string
-	var abaSet bool
-	hasExactEngineVersion := false
-	for _, meta := range metas {
-		if meta.EngineVersion != "" {
-			hasExactEngineVersion = true
-			break
-		}
-	}
-
-	for i, meta := range metas {
-		source := fmt.Sprintf("metadata[%d]", i)
-		if i < len(sources) && sources[i] != "" {
-			source = sources[i]
-		}
-		if err := mergeRepackStringSetting("engineVersion", &opts.EngineVersion, &engineSource, meta.EngineVersion, source); err != nil {
-			return nil, err
-		}
-		if !hasExactEngineVersion {
-			if err := mergeRepackStringSetting("unityVersion", &fallbackUnityVersion, &unitySource, meta.UnityVersion, source); err != nil {
-				return nil, err
-			}
-		}
-		if err := mergeRepackStringSetting("generationVersion", &opts.GenerationVersion, &generationSource, meta.GenerationVersion, source); err != nil {
-			return nil, err
-		}
-		if meta.AbaVersion != 0 {
-			if err := mergeUint32Setting("abaVersion", &opts.Version, &abaSet, &abaSource, meta.AbaVersion, source); err != nil {
-				return nil, err
-			}
-		}
-	}
-	// Per-asset SerializedFile Unity versions are only a fallback for old
-	// sidecars which did not store the UnityFS engine header. If an exact engine
-	// version is present, RepackAba preserves it without imposing the game-side
-	// assumption that both version strings must be identical.
-	if opts.EngineVersion == "" {
-		opts.EngineVersion = fallbackUnityVersion
-		engineSource = unitySource
-	}
-
-	// Older sidecars may only contain the SerializedFile Unity version. Derive
-	// the observed KCES UnityFS family in that case; an explicit abaVersion
-	// always wins and is preserved exactly.
-	if !abaSet && opts.EngineVersion != "" {
-		major, minor, err := parseUnityMajorMinor(opts.EngineVersion)
-		if err != nil {
-			return nil, fmt.Errorf("derive abaVersion from engineVersion %q from %s: %w", opts.EngineVersion, settingSource(engineSource), err)
-		}
-		opts.Version = abaVersionForUnity(major, minor)
-	}
-	return opts, nil
-}
-
-func mergeRepackStringSetting(field string, dst *string, dstSource *string, candidate string, source string) error {
-	if candidate == "" {
-		return nil
-	}
-	if strings.IndexByte(candidate, 0) >= 0 {
-		return fmt.Errorf("invalid %s from %s: contains NUL", field, source)
-	}
-	if *dst == "" {
-		*dst = candidate
-		*dstSource = source
-		return nil
-	}
-	if *dst != candidate {
-		return fmt.Errorf("conflicting %s sidecars: %q from %s, %q from %s", field, *dst, *dstSource, candidate, source)
-	}
-	return nil
-}
-
-// isLinkOrReparse recognizes ordinary symlinks on every platform and also
-// checks the FileAttributes field exposed by Windows FileInfo.Sys. Reflection
-// keeps this package buildable on non-Windows hosts without splitting the
-// otherwise platform-neutral packing service into build-tagged files.
+// isLinkOrReparse 判断文件信息是否表示符号链接或 Windows reparse point
+// isLinkOrReparse reports whether file information represents a symbolic link or Windows reparse point
 func isLinkOrReparse(info os.FileInfo) bool {
 	if info == nil {
 		return false
@@ -281,42 +72,28 @@ func isLinkOrReparse(info os.FileInfo) bool {
 	if info.Mode()&os.ModeSymlink != 0 {
 		return true
 	}
-	v := reflect.ValueOf(info.Sys())
-	for v.IsValid() && v.Kind() == reflect.Pointer {
-		if v.IsNil() {
+	value := reflect.ValueOf(info.Sys())
+	for value.IsValid() && value.Kind() == reflect.Pointer {
+		if value.IsNil() {
 			return false
 		}
-		v = v.Elem()
+		value = value.Elem()
 	}
-	if !v.IsValid() || v.Kind() != reflect.Struct {
+	if !value.IsValid() || value.Kind() != reflect.Struct {
 		return false
 	}
-	field := v.FieldByName("FileAttributes")
+	field := value.FieldByName("FileAttributes")
 	if !field.IsValid() || !field.CanUint() {
 		return false
 	}
-	const fileAttributeReparsePoint = uint64(0x00000400)
+	const fileAttributeReparsePoint uint64 = 0x00000400
 	return field.Uint()&fileAttributeReparsePoint != 0
 }
 
-// isSerializedFile 判断文件是否为 Unity 序列化文件（AssetsFile）
-func isSerializedFile(name string) bool {
-	ext := strings.ToLower(filepath.Ext(name))
-	// .resS 和 .resource 不是序列化文件
-	if ext == ".ress" || ext == ".resource" || ext == ".resources" {
-		return false
-	}
-	// CAB- 开头的文件通常是序列化文件
-	base := filepath.Base(name)
-	if strings.HasPrefix(base, "CAB-") && ext == "" {
-		return true
-	}
-	// 没有扩展名或 .assets 扩展名的通常是序列化文件
-	return ext == "" || ext == ".assets"
-}
-
-func inferAssetNameForPack(path string) string {
-	name := filepath.Base(path)
+// inferAssetNameForPack 从纯目录文件名恢复 Unity 资源短名称
+// inferAssetNameForPack restores the short Unity resource name from a pure-directory file name
+func inferAssetNameForPack(packPath string) string {
+	name := filepath.Base(packPath)
 	lower := strings.ToLower(name)
 	if suffix, _, ok := rawUnityRootByteSuffixForPackName(lower); ok {
 		return name[:len(name)-len(suffix)]
@@ -342,7 +119,7 @@ func inferAssetNameForPack(path string) string {
 		return name[:len(name)-len(".bytes")]
 	case strings.HasSuffix(lower, ".anm.bytes"):
 		return name[:len(name)-len(".bytes")]
-	case strings.HasSuffix(lower, ".bytes") && isUnityRawObjectPackPath(path):
+	case strings.HasSuffix(lower, ".bytes") && isUnityRawObjectPackPath(packPath):
 		return name[:len(name)-len(".bytes")]
 	case strings.HasSuffix(lower, ".png"):
 		return name[:len(name)-len(".png")] + ".tex"
@@ -355,13 +132,15 @@ func inferAssetNameForPack(path string) string {
 	}
 }
 
-func inferKindForPack(name string, path string) string {
-	lowerPath := strings.ToLower(path)
+// inferKindForPack 根据纯目录路径和资源短名称确定 Unity 对象类型
+// inferKindForPack determines the Unity object type from a pure-directory path and short resource name
+func inferKindForPack(name string, packPath string) string {
+	lowerPath := strings.ToLower(packPath)
 	switch strings.ToLower(filepath.Ext(lowerPath)) {
 	case ".ress", ".resource", ".resources":
 		return "abaraw"
 	}
-	if _, kind, ok := rawUnityRootByteSuffixForPackName(strings.ToLower(filepath.Base(path))); ok {
+	if _, kind, ok := rawUnityRootByteSuffixForPackName(strings.ToLower(filepath.Base(packPath))); ok {
 		return kind
 	}
 	switch {
@@ -395,7 +174,7 @@ func inferKindForPack(name string, path string) string {
 		return "font"
 	}
 	if strings.HasSuffix(lowerPath, ".bytes") {
-		if kind, ok := unityRawKindForPackPath(path); ok {
+		if kind, ok := unityRawKindForPackPath(packPath); ok {
 			return kind
 		}
 	}
@@ -411,7 +190,7 @@ func inferKindForPack(name string, path string) string {
 	case ".anm":
 		return "animationclip"
 	}
-	switch strings.ToLower(filepath.Ext(path)) {
+	switch strings.ToLower(filepath.Ext(packPath)) {
 	case ".mmesh", ".mesh":
 		return "mesh"
 	case ".partsatlas", ".partsassets":
@@ -423,18 +202,20 @@ func inferKindForPack(name string, path string) string {
 	}
 }
 
-func rawUnityRootByteSuffixForPackName(lowerName string) (suffix string, kind string, ok bool) {
+// rawUnityRootByteSuffixForPackName 识别可放在纯目录根部的原始 Unity 对象后缀
+// rawUnityRootByteSuffixForPackName recognizes raw Unity object suffixes allowed at the pure-directory root
+func rawUnityRootByteSuffixForPackName(lowerName string) (string, string, bool) {
 	for _, candidate := range []struct {
 		suffix string
 		kind   string
 	}{
-		{".texture.bytes", "rawtexture2d"},
-		{".monoscript.bytes", "monoscript"},
-		{".monobehaviour.bytes", "monobehaviour"},
-		{".material.bytes", "material"},
-		{".shader.bytes", "shader"},
-		{".audioclip.bytes", "audioclip"},
-		{".font.bytes", "font"},
+		{suffix: ".texture.bytes", kind: "rawtexture2d"},
+		{suffix: ".monoscript.bytes", kind: "monoscript"},
+		{suffix: ".monobehaviour.bytes", kind: "monobehaviour"},
+		{suffix: ".material.bytes", kind: "material"},
+		{suffix: ".shader.bytes", kind: "shader"},
+		{suffix: ".audioclip.bytes", kind: "audioclip"},
+		{suffix: ".font.bytes", kind: "font"},
 	} {
 		if strings.HasSuffix(lowerName, candidate.suffix) {
 			return candidate.suffix, candidate.kind, true
@@ -443,15 +224,19 @@ func rawUnityRootByteSuffixForPackName(lowerName string) (suffix string, kind st
 	return "", "", false
 }
 
+// isUnityRawObjectPackPath 判断路径是否位于可识别的原始 Unity 对象类型目录
+// isUnityRawObjectPackPath reports whether a path belongs to a recognized raw Unity object type directory
 func isUnityRawObjectPackPath(packPath string) bool {
 	_, ok := unityRawKindForPackPath(packPath)
 	return ok
 }
 
+// unityRawKindForPackPath 根据纯目录的一级类型目录返回原始 Unity 对象 kind
+// unityRawKindForPackPath returns a raw Unity object kind from the pure directory's top-level type directory
 func unityRawKindForPackPath(packPath string) (string, bool) {
 	clean := filepath.ToSlash(packPath)
-	dir := strings.ToLower(pathpkg.Base(pathpkg.Dir(clean)))
-	switch dir {
+	directory := strings.ToLower(pathpkg.Base(pathpkg.Dir(clean)))
+	switch directory {
 	case "texture2d":
 		return "rawtexture2d", true
 	case "mesh":
@@ -462,36 +247,34 @@ func unityRawKindForPackPath(packPath string) (string, bool) {
 		return "spriteatlas", true
 	case "animationclip":
 		return "animationclip", true
-	case "gameobject", "transform", "material", "meshrenderer", "meshfilter", "shader", "audioclip", "monobehaviour", "monoscript", "font":
-		return dir, true
+	case "gameobject", "transform", "material", "meshrenderer", "meshfilter", "shader", "audioclip", "cubemap", "monobehaviour", "monoscript", "font":
+		return directory, true
 	default:
-		if _, ok := unityRawClassIDForKind(dir); ok {
-			return dir, true
+		if _, ok := unityRawClassIDForKind(directory); ok {
+			return directory, true
 		}
 		return "", false
 	}
 }
 
-func shouldSkipPackInput(path string, outputBaseName string) bool {
-	name := strings.ToLower(filepath.Base(path))
-	if name == "manifest.json" {
-		return true
-	}
-	if strings.HasSuffix(name, ".meta.json") {
-		return true
-	}
-	if strings.HasSuffix(name, ".typetree.json") {
+// shouldSkipPackInput 排除控制文件、旧 sidecar、当前输出和可从原始对象派生的预览文件
+// shouldSkipPackInput excludes control files, old sidecars, current outputs, and previews derived from raw objects
+func shouldSkipPackInput(filePath string, outputBaseName string) bool {
+	name := strings.ToLower(filepath.Base(filePath))
+	if name == "manifest.json" || strings.HasSuffix(name, ".meta.json") || strings.HasSuffix(name, ".typetree.json") {
 		return true
 	}
 	if outputBaseName == "" {
-		return shouldSkipDerivedPackInput(path)
+		return shouldSkipDerivedPackInput(filePath)
 	}
 	base := strings.ToLower(outputBaseName)
-	return name == base+".aba" || name == base+".ct" || shouldSkipDerivedPackInput(path)
+	return name == base+".aba" || name == base+".ct" || shouldSkipDerivedPackInput(filePath)
 }
 
-func shouldSkipDerivedPackInput(path string) bool {
-	for _, rawPath := range derivedPackArtifactRawPaths(path) {
+// shouldSkipDerivedPackInput 判断文件是否是同目录原始对象的派生预览
+// shouldSkipDerivedPackInput reports whether a file is a preview derived from a raw object in the same directory
+func shouldSkipDerivedPackInput(filePath string) bool {
+	for _, rawPath := range derivedPackArtifactRawPaths(filePath) {
 		if _, err := os.Stat(rawPath); err == nil {
 			return true
 		}
@@ -499,33 +282,35 @@ func shouldSkipDerivedPackInput(path string) bool {
 	return false
 }
 
-func derivedPackArtifactRawPaths(path string) []string {
-	dir := filepath.Dir(path)
-	name := filepath.Base(path)
+// derivedPackArtifactRawPaths 返回可能生成当前预览文件的原始对象路径
+// derivedPackArtifactRawPaths returns raw object paths that may have produced the current preview file
+func derivedPackArtifactRawPaths(filePath string) []string {
+	directory := filepath.Dir(filePath)
+	name := filepath.Base(filePath)
 	lower := strings.ToLower(name)
-	parent := strings.ToLower(filepath.Base(dir))
+	parent := strings.ToLower(filepath.Base(directory))
 
 	switch {
 	case parent == "texture2d" && strings.HasSuffix(lower, ".tex.png"):
-		return []string{filepath.Join(dir, name[:len(name)-len(".png")]+".bytes")}
+		return []string{filepath.Join(directory, name[:len(name)-len(".png")]+".bytes")}
 	case parent == "texture2d" && strings.HasSuffix(lower, ".tex.jpg"):
-		return []string{filepath.Join(dir, name[:len(name)-len(".jpg")]+".bytes")}
+		return []string{filepath.Join(directory, name[:len(name)-len(".jpg")]+".bytes")}
 	case parent == "texture2d" && strings.HasSuffix(lower, ".tex.jpeg"):
-		return []string{filepath.Join(dir, name[:len(name)-len(".jpeg")]+".bytes")}
+		return []string{filepath.Join(directory, name[:len(name)-len(".jpeg")]+".bytes")}
 	case parent == "texture2d" && strings.HasSuffix(lower, ".png"):
 		base := name[:len(name)-len(".png")]
 		return []string{
-			filepath.Join(dir, base+".bytes"),
-			filepath.Join(dir, base+".texture2d.bytes"),
+			filepath.Join(directory, base+".bytes"),
+			filepath.Join(directory, base+".texture2d.bytes"),
 		}
 	case parent == "sprite" && strings.HasSuffix(lower, ".png"):
-		return []string{filepath.Join(dir, name[:len(name)-len(".png")]+".sprite.bytes")}
+		return []string{filepath.Join(directory, name[:len(name)-len(".png")]+".sprite.bytes")}
 	case strings.HasSuffix(lower, ".tex.png"):
-		return []string{filepath.Join(dir, name[:len(name)-len(".png")]+".bytes")}
+		return []string{filepath.Join(directory, name[:len(name)-len(".png")]+".bytes")}
 	case strings.HasSuffix(lower, ".tex.jpg"):
-		return []string{filepath.Join(dir, name[:len(name)-len(".jpg")]+".bytes")}
+		return []string{filepath.Join(directory, name[:len(name)-len(".jpg")]+".bytes")}
 	case strings.HasSuffix(lower, ".tex.jpeg"):
-		return []string{filepath.Join(dir, name[:len(name)-len(".jpeg")]+".bytes")}
+		return []string{filepath.Join(directory, name[:len(name)-len(".jpeg")]+".bytes")}
 	default:
 		return nil
 	}

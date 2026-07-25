@@ -144,25 +144,56 @@ func rawUnitySampleKindFromSuffix(path string) (kind string, classID int32, ok b
 }
 
 func TestRawUnityObjectService_JSONRoundTripPreservesTypeTreeSidecar(t *testing.T) {
-	sourceAba := filepath.Join("..", "..", "testdata", "aba", "cm3d2_megane002.aba")
+	sourceAba := filepath.Join("..", "..", "testdata", "aba", "parts_personal_om015_gp003.aba")
 	if _, err := os.Stat(sourceAba); err != nil {
 		t.Skipf("sample not found: %v", err)
 	}
 
 	tmpDir := t.TempDir()
-	unpackDir := filepath.Join(tmpDir, "unpacked")
-	abaService := &AbaService{}
-	if err := abaService.UnpackAba(sourceAba, unpackDir); err != nil {
-		t.Fatalf("UnpackAba: %v", err)
+	inputPath := filepath.Join(tmpDir, "texture.tex.bytes")
+	bundle, bundleFile, err := (&AbaService{}).ReadAba(sourceAba)
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	inputPath := filepath.Join(unpackDir, "Texture2D", "cm3d2_megane002.tex.bytes")
-	if _, err := os.Stat(typeTreeSidecarPath(inputPath)); err != nil {
-		t.Fatalf("expected TypeTree sidecar: %v", err)
+	defer bundleFile.Close()
+	wroteFixture := false
+	for directoryIndex, directory := range bundle.BlockInfo.DirectoryInfos {
+		if !directory.IsSerialized() || wroteFixture {
+			continue
+		}
+		serialized, err := bundle.GetFileData(int64(directoryIndex))
+		if err != nil {
+			t.Fatal(err)
+		}
+		af, err := aba.ReadAssetsFile(serialized)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, entry := range af.GetAssetEntries() {
+			if entry.TypeId != aba.ClassIDTexture2D {
+				continue
+			}
+			info := af.GetAssetInfoByPathID(entry.PathId)
+			data, err := af.GetAssetData(info)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(inputPath, data, 0644); err != nil {
+				t.Fatal(err)
+			}
+			if err := writeRawUnityTypeTreeSidecar(inputPath, af, info, entry, entry.Name); err != nil {
+				t.Fatal(err)
+			}
+			wroteFixture = true
+			break
+		}
+	}
+	if !wroteFixture {
+		t.Fatal("target sample has no Texture2D fixture")
 	}
 
 	service := &RawUnityObjectService{}
-	jsonPath := filepath.Join(tmpDir, "cm3d2_megane002.tex.bytes.json")
+	jsonPath := filepath.Join(tmpDir, "texture.tex.bytes.json")
 	if err := service.ConvertRawUnityObjectToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertRawUnityObjectToJson: %v", err)
 	}

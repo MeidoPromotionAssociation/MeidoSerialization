@@ -8,89 +8,66 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
-func TestEncodeTexture2DData_MatchesRealKCESTypeTrees(t *testing.T) {
+func TestEncodeTexture2DDataMatchesRealUnity2022KCESTypeTree(t *testing.T) {
 	pixels := []byte{
 		0xff, 0x00, 0x00, 0xff,
 		0x00, 0xff, 0x00, 0x80,
 		0x00, 0x00, 0xff, 0x40,
 		0xff, 0xff, 0xff, 0x00,
 	}
-	tests := []struct {
-		name                 string
-		sample               string
-		unityVersion         string
-		wantMipmapLimitGroup bool
-	}{
-		{name: "Unity_2020_2", sample: "cm3d2_megane002.aba", unityVersion: "2020.2.4f1"},
-		{name: "Unity_2021_3", sample: "cm3d2_megane002.aba", unityVersion: "2021.3.37f1"},
-		{name: "Unity_2022_3", sample: "parts_bcc4_gp003_2.aba", unityVersion: "2022.3.62f2", wantMipmapLimitGroup: true},
+	tt := sampleTypeTree(t, "parts_bcc4_gp003_2.aba", ClassIDTexture2D)
+	data, err := encodeTexture2DData("2022.3.35f", "layout_test.tex", 2, 2, pixels)
+	if err != nil {
+		t.Fatalf("encodeTexture2DData: %v", err)
+	}
+	root := decodeObjectWithTypeTree(t, &tt, data)
+
+	assertTypeTreeString(t, root, "m_Name", "layout_test.tex")
+	assertTypeTreeInt(t, root, "m_ForcedFallbackFormat", int64(TextureFormatRGBA32))
+	assertTypeTreeInt(t, root, "m_Width", 2)
+	assertTypeTreeInt(t, root, "m_Height", 2)
+	assertTypeTreeInt(t, root, "m_CompleteImageSize", int64(len(pixels)))
+	assertTypeTreeInt(t, root, "m_TextureFormat", int64(TextureFormatRGBA32))
+	assertTypeTreeInt(t, root, "m_MipCount", 1)
+	assertTypeTreeBool(t, root, "m_IsReadable", true)
+	assertTypeTreeBool(t, root, "m_IsPreProcessed", false)
+	assertTypeTreeBool(t, root, "m_StreamingMipmaps", false)
+	assertTypeTreeBool(t, root, "m_IgnoreMipmapLimit", false)
+	assertTypeTreeString(t, root, "m_MipmapLimitGroupName", "")
+	if root.Field("m_IgnoreMasterTextureLimit") != nil {
+		t.Fatal("2022.3 type tree unexpectedly contains m_IgnoreMasterTextureLimit")
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			tt := sampleTypeTree(t, tc.sample, ClassIDTexture2D)
-			data, err := encodeTexture2DData(tc.unityVersion, "layout_test.tex", 2, 2, pixels)
-			if err != nil {
-				t.Fatalf("encodeTexture2DData: %v", err)
-			}
-			root := decodeObjectWithTypeTree(t, &tt, data)
-
-			assertTypeTreeString(t, root, "m_Name", "layout_test.tex")
-			assertTypeTreeInt(t, root, "m_ForcedFallbackFormat", int64(TextureFormatRGBA32))
-			assertTypeTreeInt(t, root, "m_Width", 2)
-			assertTypeTreeInt(t, root, "m_Height", 2)
-			assertTypeTreeInt(t, root, "m_CompleteImageSize", int64(len(pixels)))
-			assertTypeTreeInt(t, root, "m_TextureFormat", int64(TextureFormatRGBA32))
-			assertTypeTreeInt(t, root, "m_MipCount", 1)
-			assertTypeTreeBool(t, root, "m_IsReadable", true)
-			assertTypeTreeBool(t, root, "m_IsPreProcessed", false)
-			assertTypeTreeBool(t, root, "m_StreamingMipmaps", false)
-
-			if tc.wantMipmapLimitGroup {
-				assertTypeTreeBool(t, root, "m_IgnoreMipmapLimit", false)
-				assertTypeTreeString(t, root, "m_MipmapLimitGroupName", "")
-				if root.Field("m_IgnoreMasterTextureLimit") != nil {
-					t.Fatal("2022.3 type tree unexpectedly contains m_IgnoreMasterTextureLimit")
-				}
-			} else {
-				assertTypeTreeBool(t, root, "m_IgnoreMasterTextureLimit", false)
-				if root.Field("m_MipmapLimitGroupName") != nil {
-					t.Fatal("pre-2022 type tree unexpectedly contains m_MipmapLimitGroupName")
-				}
-			}
-
-			imageData, ok := root.Field("image data").Bytes()
-			if !ok || !bytes.Equal(imageData, pixels) {
-				t.Fatalf("image data got %x ok=%v, want %x", imageData, ok, pixels)
-			}
-			stream := root.Field("m_StreamData")
-			if stream == nil {
-				t.Fatal("m_StreamData missing")
-			}
-			assertTypeTreeInt(t, stream, "offset", 0)
-			assertTypeTreeInt(t, stream, "size", 0)
-			assertTypeTreeString(t, stream, "path", "")
-		})
+	imageData, ok := root.Field("image data").Bytes()
+	if !ok || !bytes.Equal(imageData, pixels) {
+		t.Fatalf("image data got %x ok=%v, want %x", imageData, ok, pixels)
 	}
+	stream := root.Field("m_StreamData")
+	if stream == nil {
+		t.Fatal("m_StreamData missing")
+	}
+	assertTypeTreeInt(t, stream, "offset", 0)
+	assertTypeTreeInt(t, stream, "size", 0)
+	assertTypeTreeString(t, stream, "path", "")
 }
 
 func TestSerializedFileWriterEmitsStandardEmptyMetadataTailTables(t *testing.T) {
-	writer := NewSerializedFileWriter("2021.3.3f1")
+	writer := NewSerializedFileWriter("2022.3.35f")
 	writer.AddTextAsset("tail.menuassets", []byte("payload"))
 	var out bytes.Buffer
 	if err := writer.Write(&out); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
 	data := out.Bytes()
-	const version22HeaderSize = 48
-	if len(data) < version22HeaderSize {
+	const version22HeaderSize int64 = 48
+	if int64(len(data)) < version22HeaderSize {
 		t.Fatalf("SerializedFile too short: %d", len(data))
 	}
 	if !bytes.Equal(data[0:8], make([]byte, 8)) || !bytes.Equal(data[12:16], make([]byte, 4)) {
 		t.Fatalf("v22 legacy header fields are not zero: % x / % x", data[0:8], data[12:16])
 	}
-	metadataSize := int(binary.BigEndian.Uint32(data[20:24]))
-	if metadataSize < 13 || version22HeaderSize+metadataSize > len(data) {
+	metadataSize := int64(binary.BigEndian.Uint32(data[20:24]))
+	if metadataSize < 13 || version22HeaderSize+metadataSize > int64(len(data)) {
 		t.Fatalf("invalid metadata size %d for %d-byte file", metadataSize, len(data))
 	}
 	tail := data[version22HeaderSize+metadataSize-13 : version22HeaderSize+metadataSize]
@@ -100,14 +77,14 @@ func TestSerializedFileWriterEmitsStandardEmptyMetadataTailTables(t *testing.T) 
 }
 
 func TestSerializedFileWriterOmitsTypeDependenciesWhenTypeTreeDisabled(t *testing.T) {
-	writer := NewSerializedFileWriter("2021.3.3f1")
+	writer := NewSerializedFileWriter("2022.3.35f")
 	writer.AddTextAsset("layout.menuassets", []byte("payload"))
 	var out bytes.Buffer
 	if err := writer.Write(&out); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
 	data := out.Bytes()
-	metadataSize := int(binary.BigEndian.Uint32(data[20:24]))
+	metadataSize := int64(binary.BigEndian.Uint32(data[20:24]))
 	r := binaryio.NewEndianReader(data[48:48+metadataSize], binary.LittleEndian)
 	if _, err := r.ReadNullString(); err != nil {
 		t.Fatalf("read Unity version: %v", err)
@@ -123,7 +100,7 @@ func TestSerializedFileWriterOmitsTypeDependenciesWhenTypeTreeDisabled(t *testin
 	if err != nil {
 		t.Fatalf("read type count: %v", err)
 	}
-	for i := 0; i < int(typeCount); i++ {
+	for i := int32(0); i < typeCount; i++ {
 		classID, err := r.ReadInt32()
 		if err != nil {
 			t.Fatalf("read type[%d] class ID: %v", i, err)
@@ -155,7 +132,7 @@ func TestSerializedFileWriterOmitsTypeDependenciesWhenTypeTreeDisabled(t *testin
 }
 
 func TestSerializedFileWriterAlignsEveryObjectToEightBytes(t *testing.T) {
-	writer := NewSerializedFileWriter("2021.3.3f1")
+	writer := NewSerializedFileWriter("2022.3.35f")
 	writer.AddRawObject(ClassIDMonoBehaviour, "a", []byte{1})
 	writer.AddRawObject(ClassIDMonoBehaviour, "b", []byte{2, 3, 4, 5, 6})
 
@@ -178,8 +155,8 @@ func TestSerializedFileWriterAlignsEveryObjectToEightBytes(t *testing.T) {
 }
 
 func TestEncodeAssetBundleObject_MatchesRealKCESTypeTree(t *testing.T) {
-	tt := sampleTypeTree(t, "cm3d2_megane002.aba", ClassIDAssetBundle)
-	w := NewSerializedFileWriter("2021.3.37f1")
+	tt := sampleTypeTree(t, "parts_bcc4_gp003_2.aba", ClassIDAssetBundle)
+	w := NewSerializedFileWriter("2022.3.35f")
 	pathID := w.AddTextAssetWithLoadName("inside.menuassets", "assets/test/inside.menuassets.bytes", []byte("payload"))
 	data, err := w.encodeAssetBundleObject()
 	if err != nil {
@@ -216,37 +193,39 @@ func TestEncodeAssetBundleObject_MatchesRealKCESTypeTree(t *testing.T) {
 	}
 }
 
-func TestSerializedFileWriter_RejectsInvalidTextureAndUnknownUnityLine(t *testing.T) {
+func TestSerializedFileWriterRejectsInvalidTextureAndUnsupportedUnityLine(t *testing.T) {
 	tests := []struct {
-		name       string
-		version    string
-		width      int
-		height     int
-		imageData  []byte
-		wantEncode bool
+		name      string
+		version   string
+		width     int64
+		height    int64
+		imageData []byte
 	}{
-		{name: "zero_width", version: "2021.3.37f1", height: 1, imageData: []byte{0, 0, 0, 0}},
-		{name: "negative_height", version: "2021.3.37f1", width: 1, height: -1, imageData: []byte{0, 0, 0, 0}},
-		{name: "wrong_rgba_size", version: "2021.3.37f1", width: 1, height: 1, imageData: []byte{0, 0, 0}},
+		{name: "zero_width", version: "2022.3.35f", height: 1, imageData: []byte{0, 0, 0, 0}},
+		{name: "negative_height", version: "2022.3.35f", width: 1, height: -1, imageData: []byte{0, 0, 0, 0}},
+		{name: "wrong_rgba_size", version: "2022.3.35f", width: 1, height: 1, imageData: []byte{0, 0, 0}},
+		{name: "legacy_unity_line", version: "2021.3.37f1", width: 1, height: 1, imageData: []byte{0, 0, 0, 0}},
 		{name: "unknown_unity_line", version: "2023.1.0f1", width: 1, height: 1, imageData: []byte{0, 0, 0, 0}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := encodeTexture2DData(tc.version, "invalid.tex", int64(tc.width), int64(tc.height), tc.imageData); err == nil {
+			if _, err := encodeTexture2DData(tc.version, "invalid.tex", tc.width, tc.height, tc.imageData); err == nil {
 				t.Fatal("encodeTexture2DData unexpectedly succeeded")
 			}
 		})
 	}
 
-	w := NewSerializedFileWriter("2023.1.0f1")
-	w.AddTextAsset("test.menuassets", []byte("payload"))
-	if err := w.Write(&bytes.Buffer{}); err == nil {
-		t.Fatal("Write unexpectedly accepted unsupported Unity line")
+	for _, version := range []string{"2021.3.37f1", "2023.1.0f1"} {
+		w := NewSerializedFileWriter(version)
+		w.AddTextAsset("test.menuassets", []byte("payload"))
+		if err := w.Write(&bytes.Buffer{}); err == nil {
+			t.Fatalf("Write unexpectedly accepted unsupported Unity line %q", version)
+		}
 	}
 }
 
 func TestSerializedFileWriter_RepeatedWriteIsDeterministic(t *testing.T) {
-	w := NewSerializedFileWriter("2021.3.37f1")
+	w := NewSerializedFileWriter("2022.3.35f")
 	w.AddTextAsset("test.menuassets", []byte("payload"))
 	var first, second bytes.Buffer
 	if err := w.Write(&first); err != nil {

@@ -2,13 +2,14 @@ package aba
 
 import (
 	"bytes"
+	"encoding/binary"
 	"io"
 	"strings"
 	"testing"
 )
 
 func TestSerializedFileWriter_TextAsset(t *testing.T) {
-	w := NewSerializedFileWriter("2021.3.37f1")
+	w := NewSerializedFileWriter("2022.3.35f")
 
 	script := []byte("hello world test data")
 	w.AddTextAsset("test.menuassets", script)
@@ -67,7 +68,7 @@ func TestSerializedFileWriter_TextAsset(t *testing.T) {
 
 func TestSerializedFileWriterPreservesLongAssetNameInEntries(t *testing.T) {
 	name := strings.Repeat("n", 5000)
-	w := NewSerializedFileWriter("2021.3.37f1")
+	w := NewSerializedFileWriter("2022.3.35f")
 	w.AddTextAsset(name, []byte("payload"))
 	var out bytes.Buffer
 	if err := w.Write(&out); err != nil {
@@ -87,7 +88,7 @@ func TestSerializedFileWriterPreservesLongAssetNameInEntries(t *testing.T) {
 }
 
 func TestSerializedFileWriter_InAba(t *testing.T) {
-	w := NewSerializedFileWriter("2021.3.37f1")
+	w := NewSerializedFileWriter("2022.3.35f")
 	w.AddTextAsset("parts.menuassets", []byte("menu data"))
 
 	var sfBuf bytes.Buffer
@@ -128,7 +129,7 @@ func TestSerializedFileWriter_InAba(t *testing.T) {
 }
 
 func TestSerializedFileWriter_MonoBehaviourTypeMetadata(t *testing.T) {
-	w := NewSerializedFileWriter("2021.3.37f1")
+	w := NewSerializedFileWriter("2022.3.35f")
 	raw := []byte{1, 2, 3, 4, 5, 6, 7, 8}
 	w.AddRawObject(ClassIDMonoBehaviour, "sample_monobehaviour", raw)
 
@@ -164,6 +165,47 @@ func TestSerializedFileWriter_MonoBehaviourTypeMetadata(t *testing.T) {
 	}
 }
 
+func TestSerializedFileWriter_AssociatesDistinctMonoBehaviourScriptTypes(t *testing.T) {
+	const scriptAPathID int64 = 101
+	const scriptBPathID int64 = 202
+	w := NewSerializedFileWriter("2022.3.35f")
+	w.AddRawObjectWithPathID(ClassIDMonoScript, "ScriptA", []byte{1}, scriptAPathID)
+	w.AddRawObjectWithPathID(ClassIDMonoScript, "ScriptB", []byte{2}, scriptBPathID)
+
+	monoA := make([]byte, 28)
+	monoA[12] = 1
+	binary.LittleEndian.PutUint64(monoA[20:28], uint64(scriptAPathID))
+	monoB := make([]byte, 28)
+	monoB[12] = 1
+	binary.LittleEndian.PutUint64(monoB[20:28], uint64(scriptBPathID))
+	w.AddRawObject(ClassIDMonoBehaviour, "BehaviourA", monoA)
+	w.AddRawObject(ClassIDMonoBehaviour, "BehaviourB", monoB)
+
+	var out bytes.Buffer
+	if err := w.Write(&out); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	af, err := ReadAssetsFile(out.Bytes())
+	if err != nil {
+		t.Fatalf("ReadAssetsFile: %v", err)
+	}
+	if len(af.Metadata.ScriptTypes) != 2 {
+		t.Fatalf("ScriptTypes count = %d, want 2", len(af.Metadata.ScriptTypes))
+	}
+	if af.Metadata.ScriptTypes[0].LocalIdentifierInFile != scriptAPathID || af.Metadata.ScriptTypes[1].LocalIdentifierInFile != scriptBPathID {
+		t.Fatalf("ScriptTypes = %+v", af.Metadata.ScriptTypes)
+	}
+	var monoTypes []TypeTreeType
+	for _, serializedType := range af.Metadata.TypeTreeTypes {
+		if serializedType.TypeId == ClassIDMonoBehaviour {
+			monoTypes = append(monoTypes, serializedType)
+		}
+	}
+	if len(monoTypes) != 2 || monoTypes[0].ScriptTypeIndex != 0 || monoTypes[1].ScriptTypeIndex != 1 {
+		t.Fatalf("MonoBehaviour SerializedTypes = %+v", monoTypes)
+	}
+}
+
 func TestSerializedFileWriter_RawObjectNameRewriteOnlyForNamedClasses(t *testing.T) {
 	oldData, err := encodeTextAssetData("old_name", []byte("payload"))
 	if err != nil {
@@ -177,7 +219,7 @@ func TestSerializedFileWriter_RawObjectNameRewriteOnlyForNamedClasses(t *testing
 		t.Fatalf("expected leading name rewrite for valid named object data")
 	}
 
-	w := NewSerializedFileWriter("2021.3.37f1")
+	w := NewSerializedFileWriter("2022.3.35f")
 	w.AddRawObject(ClassIDMaterial, "material_new", oldData)
 	w.AddRawObject(ClassIDTransform, "transform_new", oldData)
 
@@ -218,7 +260,7 @@ func TestSerializedFileWriter_RawObjectNameRewriteOnlyForNamedClasses(t *testing
 
 func TestSerializedFileWriter_PreservesOpaqueNamedObjectPayload(t *testing.T) {
 	raw := []byte{1, 2, 3}
-	w := NewSerializedFileWriter("2021.3.37f1")
+	w := NewSerializedFileWriter("2022.3.35f")
 	pathID := w.AddRawObjectWithLoadNameAndPathID(ClassIDTextAsset, "internal_name", "load_name", raw, 42)
 	if pathID != 42 {
 		t.Fatalf("PathID got %d, want 42", pathID)
@@ -252,6 +294,176 @@ func TestSerializedFileWriter_PreservesOpaqueNamedObjectPayload(t *testing.T) {
 	}
 }
 
+func TestSerializedFileWriter_PreservingRawObjectDoesNotRewriteLeadingName(t *testing.T) {
+	raw, err := encodeTextAssetData("original_name", []byte("payload"))
+	if err != nil {
+		t.Fatalf("encodeTextAssetData: %v", err)
+	}
+	w := NewSerializedFileWriter("2022.3.35f1")
+	pathID := w.AddRawObjectPreservingDataWithLoadNameAndPathID(ClassIDTextAsset, "directory_name", "load_name", raw, 42)
+
+	var buf bytes.Buffer
+	if err := w.Write(&buf); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	af, err := ReadAssetsFile(buf.Bytes())
+	if err != nil {
+		t.Fatalf("ReadAssetsFile: %v", err)
+	}
+	info := af.GetAssetInfoByPathID(pathID)
+	if info == nil {
+		t.Fatalf("raw object info PathID=%d not found", pathID)
+	}
+	got, err := af.GetAssetData(info)
+	if err != nil {
+		t.Fatalf("GetAssetData: %v", err)
+	}
+	if !bytes.Equal(got, raw) {
+		t.Fatalf("preserved raw data differs: got % x, want % x", got, raw)
+	}
+	if name, ok := readLeadingAlignedNameForTest(got); !ok || name != "original_name" {
+		t.Fatalf("leading name = %q, ok=%v; want original_name", name, ok)
+	}
+}
+
+func TestSerializedFileWriterStreamsRawObjectData(t *testing.T) {
+	raw := []byte("streamed-object-payload")
+	w := NewSerializedFileWriter("2022.3.35f1")
+	var calls int64
+	pathID := w.AddRawObjectSourcePreservingDataWithLoadNameAndPathID(
+		ClassIDTransform,
+		"streamed",
+		"streamed_load",
+		SerializedObjectDataSource{
+			Size:   uint32(len(raw)),
+			Prefix: append([]byte(nil), raw[:8]...),
+			WriteTo: func(out io.Writer) error {
+				calls++
+				if _, err := out.Write(raw[:7]); err != nil {
+					return err
+				}
+				_, err := out.Write(raw[7:])
+				return err
+			},
+		},
+		42,
+	)
+	var buf bytes.Buffer
+	if err := w.Write(&buf); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("source calls = %d, want 1", calls)
+	}
+	af, err := ReadAssetsFile(buf.Bytes())
+	if err != nil {
+		t.Fatalf("ReadAssetsFile: %v", err)
+	}
+	got, err := af.GetAssetData(af.GetAssetInfoByPathID(pathID))
+	if err != nil {
+		t.Fatalf("GetAssetData: %v", err)
+	}
+	if !bytes.Equal(got, raw) {
+		t.Fatalf("streamed object = %q, want %q", got, raw)
+	}
+}
+
+func TestSerializedFileWriterSizeDoesNotReadStreamedObjects(t *testing.T) {
+	payload := []byte("sized payload")
+	w := NewSerializedFileWriter("2022.3.35f1")
+	var calls int64
+	w.AddRawObjectSourcePreservingDataWithLoadNameAndPathID(
+		ClassIDTransform,
+		"sized",
+		"sized",
+		SerializedObjectDataSource{
+			Size: uint32(len(payload)),
+			WriteTo: func(out io.Writer) error {
+				calls++
+				_, err := out.Write(payload)
+				return err
+			},
+		},
+		1,
+	)
+	size, err := w.Size()
+	if err != nil {
+		t.Fatalf("Size: %v", err)
+	}
+	if calls != 0 {
+		t.Fatalf("Size invoked streamed source %d times", calls)
+	}
+	var out bytes.Buffer
+	if err := w.Write(&out); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if int64(out.Len()) != size {
+		t.Fatalf("Write size = %d, Size = %d", out.Len(), size)
+	}
+}
+
+func TestSerializedFileWriterRejectsIncorrectStreamedObjectSize(t *testing.T) {
+	tests := []struct {
+		name    string
+		size    uint32
+		payload []byte
+	}{
+		{name: "short", size: 4, payload: []byte("abc")},
+		{name: "long", size: 3, payload: []byte("abcd")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := NewSerializedFileWriter("2022.3.35f1")
+			w.AddRawObjectSourcePreservingDataWithLoadNameAndPathID(
+				ClassIDTransform,
+				"invalid",
+				"invalid",
+				SerializedObjectDataSource{
+					Size: tt.size,
+					WriteTo: func(out io.Writer) error {
+						_, err := out.Write(tt.payload)
+						return err
+					},
+				},
+				1,
+			)
+			if err := w.Write(io.Discard); err == nil {
+				t.Fatal("Write accepted an incorrect streamed object size")
+			}
+		})
+	}
+}
+
+func TestSerializedFileWriterWritesCopiedExternalFileTable(t *testing.T) {
+	externalFiles := []ExternalFile{{AssetPath: "virtual/path", Guid: [16]byte{8: 0x0f}, Type: 3, PathName: "Resources/unity_builtin_extra"}}
+	w := NewSerializedFileWriter("2022.3.35f1")
+	w.SetExternalFiles(externalFiles)
+	externalFiles[0].PathName = "mutated"
+	w.AddTextAsset("sample.txt", []byte("payload"))
+
+	var buf bytes.Buffer
+	if err := w.Write(&buf); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	af, err := ReadAssetsFile(buf.Bytes())
+	if err != nil {
+		t.Fatalf("ReadAssetsFile: %v", err)
+	}
+	want := ExternalFile{AssetPath: "virtual/path", Guid: [16]byte{8: 0x0f}, Type: 3, PathName: "Resources/unity_builtin_extra"}
+	if len(af.Metadata.ExternalFiles) != 1 || af.Metadata.ExternalFiles[0] != want {
+		t.Fatalf("ExternalFiles = %+v, want %+v", af.Metadata.ExternalFiles, want)
+	}
+}
+
+func TestSerializedFileWriterRejectsNULInExternalFilePath(t *testing.T) {
+	w := NewSerializedFileWriter("2022.3.35f1")
+	w.SetExternalFiles([]ExternalFile{{PathName: "bad\x00path"}})
+	var buf bytes.Buffer
+	if err := w.Write(&buf); err == nil || !strings.Contains(err.Error(), "contains NUL") {
+		t.Fatalf("Write error = %v, want NUL validation error", err)
+	}
+}
+
 func TestRewriteLeadingAlignedNameSupportsLongAndEmptyNames(t *testing.T) {
 	oldData, err := encodeTextAssetData(strings.Repeat("o", 5000), []byte("payload"))
 	if err != nil {
@@ -276,7 +488,7 @@ func TestRewriteLeadingAlignedNameSupportsLongAndEmptyNames(t *testing.T) {
 }
 
 func TestSerializedFileWriterRejectsZeroProgressWriter(t *testing.T) {
-	w := NewSerializedFileWriter("2021.3.37f1")
+	w := NewSerializedFileWriter("2022.3.35f")
 	w.AddTextAsset("test.menuassets", []byte("payload"))
 	err := w.Write(zeroProgressSerializedWriter{})
 	if err == nil || !strings.Contains(err.Error(), io.ErrShortWrite.Error()) {
@@ -294,7 +506,7 @@ func TestSerializedFileWriter_AssetBundleContainerKeepsLoadNames(t *testing.T) {
 		t.Fatalf("encodeTextAssetData: %v", err)
 	}
 
-	w := NewSerializedFileWriter("2021.3.37f1")
+	w := NewSerializedFileWriter("2022.3.35f")
 	pathID := w.AddRawObject(ClassIDTransform, "load_name", raw)
 
 	var buf bytes.Buffer
@@ -327,7 +539,7 @@ func TestSerializedFileWriter_AssetBundleContainerKeepsLoadNames(t *testing.T) {
 }
 
 func TestSerializedFileWriter_SeparatesInternalNameAndLoadName(t *testing.T) {
-	w := NewSerializedFileWriter("2021.3.37f1")
+	w := NewSerializedFileWriter("2022.3.35f")
 	pathID := w.AddTextAssetWithLoadName("parts_personal002.menuassets", "assets/gamedata/parts/parts_personal002/parts_personal002.menuassets.bytes", []byte("payload"))
 
 	var buf bytes.Buffer
@@ -361,7 +573,7 @@ func TestSerializedFileWriter_SeparatesInternalNameAndLoadName(t *testing.T) {
 }
 
 func TestSerializedFileWriter_ReadAssetBundleContainerEntries(t *testing.T) {
-	w := NewSerializedFileWriter("2021.3.37f1")
+	w := NewSerializedFileWriter("2022.3.35f")
 	firstID := w.AddTextAsset("first.menuassets", []byte("first"))
 	secondID := w.AddRawObject(ClassIDTransform, "second_transform", []byte{1, 2, 3, 4})
 
@@ -404,7 +616,7 @@ func TestSerializedFileWriter_ReadAssetBundleContainerEntries(t *testing.T) {
 }
 
 func TestSerializedFileWriter_PreservesPreferredRawObjectPathID(t *testing.T) {
-	w := NewSerializedFileWriter("2021.3.37f1")
+	w := NewSerializedFileWriter("2022.3.35f")
 	preferredID := int64(-1466831684398908746)
 	gotID := w.AddRawObjectWithPathID(ClassIDMonoBehaviour, "sample_monobehaviour", []byte{1, 2, 3, 4}, preferredID)
 	if gotID != preferredID {
@@ -436,7 +648,7 @@ func TestSerializedFileWriter_PreservesPreferredRawObjectPathID(t *testing.T) {
 }
 
 func TestSerializedFileWriter_DuplicatePreferredPathIDFallsBack(t *testing.T) {
-	w := NewSerializedFileWriter("2021.3.37f1")
+	w := NewSerializedFileWriter("2022.3.35f")
 	firstID := w.AddRawObjectWithPathID(ClassIDTransform, "first", []byte{1, 2, 3, 4}, 42)
 	secondID := w.AddRawObjectWithPathID(ClassIDTransform, "second", []byte{5, 6, 7, 8}, 42)
 	if firstID != 42 {

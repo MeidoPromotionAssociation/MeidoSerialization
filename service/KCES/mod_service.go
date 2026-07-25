@@ -11,6 +11,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -24,16 +25,14 @@ import (
 
 // ModManifest 定义 KCES MOD 的打包清单 / ModManifest defines the packing manifest for a KCES MOD
 type ModManifest struct {
-	Name         string     `json:"name"`                   // MOD 名称，同时作为输出文件名 name.ct 和 name.aba / MOD name, also used for output file names name.ct and name.aba
-	SubName      string     `json:"subName,omitempty"`      // PluginPatch/ExtraPatch 的依赖子名称 / Dependency sub-name for PluginPatch and ExtraPatch
-	CatalogType  string     `json:"catalogType"`            // 资源分类，可用 | 组合 Flags，如 Parts|PartsMeta / Resource category flags, combinable with |
-	PackageType  string     `json:"packageType"`            // 包类型，如 Plugin=1 / Package type such as Plugin=1
-	Priority     int32      `json:"priority"`               // 加载优先级 / Load priority
-	UnityVersion string     `json:"unityVersion,omitempty"` // 新建对象使用的 Unity 版本；原始 sidecar 必须与其一致 / Unity version for generated objects; raw sidecars must agree
-	Assets       []ModAsset `json:"assets"`                 // 资源列表 / Asset list
+	Name        string     `json:"name"`              // MOD 名称，同时作为输出文件名 name.ct 和 name.aba / MOD name, also used for output file names name.ct and name.aba
+	SubName     string     `json:"subName,omitempty"` // PluginPatch/ExtraPatch 的依赖子名称 / Dependency sub-name for PluginPatch and ExtraPatch
+	CatalogType string     `json:"catalogType"`       // 资源分类，可用 | 组合 Flags，如 Parts|PartsMeta / Resource category flags, combinable with |
+	PackageType string     `json:"packageType"`       // 包类型，如 Plugin=1 / Package type such as Plugin=1
+	Priority    int32      `json:"priority"`          // 加载优先级 / Load priority
+	Assets      []ModAsset `json:"assets"`            // 资源列表 / Asset list
 }
 
-// ModAsset 定义 MOD 中的单个资源文件 / ModAsset defines one asset file in a MOD
 // Kind 决定资源在 .aba 中的 Unity 对象类型 / Kind controls the Unity object type written into .aba:
 //   - "textasset"（默认）: TextAsset，适用于 .menuassets/.materialassets/.pmatassets/.model
 //   - "texture2d": Texture2D，适用于 .tex（源文件为 PNG/JPEG，自动解码为 RGBA32）
@@ -42,33 +41,27 @@ type ModManifest struct {
 //   - "sprite": Sprite，适用于 .sprite.bytes 原始对象数据透传
 //   - "spriteatlas": SpriteAtlas，适用于 .partsatlas/.partsassets 原始对象数据透传
 //   - "animationclip": AnimationClip，适用于 .anm 原始对象数据透传
-//   - "abaraw": UnityFS 非序列化 sidecar（.resS/.resource/.resources），不进入 catalog/m_Container
+//   - "cubemap": Cubemap 原始对象数据透传
 //   - 其他 Unity 原生类型可用小写 Class 名透传，如 "gameobject"、"transform"、"material"、
 //     "meshrenderer"、"meshfilter"、"shader"、"audioclip"、"monobehaviour"、"monoscript"、"font"
+//
+// ModAsset 定义 MOD 中的单个资源文件 / ModAsset defines one asset file in a MOD
 type ModAsset struct {
-	Name     string `json:"name"`               // 资源名称，如 xxx.menuassets，游戏通过此名称加载 / Resource name such as xxx.menuassets, used by the game for loading
-	LoadName string `json:"loadName,omitempty"` // AssetBundle m_Container 中的加载 key，通常与 Name 相同 / Load key in AssetBundle m_Container, usually same as Name
-	Path     string `json:"path"`               // 源文件路径，相对于 manifest 所在目录 / Source file path relative to the manifest directory
-	Kind     string `json:"kind"`               // 资源类型，如 textasset、texture2d、mesh、sprite / Asset kind such as textasset, texture2d, mesh, or sprite
-	// Catalog controls whether this object receives Catalog/ExtensionNameList
-	// entries. nil keeps the safe default: extension-bearing objects and
-	// extensionless TextAssets are catalogued, while extensionless raw Unity
-	// dependency objects are only placed in AssetBundle.m_Container.
-	Catalog *bool `json:"catalog,omitempty"`
+	Name            string `json:"name"` // 资源短名称，同时作为 m_Name、m_Container 键和 CT 名称 / Short resource name used as m_Name, the m_Container key, and the CT name
+	Path            string `json:"path"` // 源文件路径，相对于 manifest 所在目录 / Source file path relative to the manifest directory
+	Kind            string `json:"kind"` // 资源类型，如 textasset、texture2d、mesh、sprite / Asset kind such as textasset, texture2d, mesh, or sprite
+	preserveRawData bool   // 纯目录打包时是否严格保留原始对象字节 / Whether pure-directory packing must preserve raw object bytes exactly
 }
 
-// ModPackService 提供 KCES MOD 打包服务。
-//
-// ModPackService provides KCES MOD packing services.
+// ModPackService 提供 KCES MOD 打包服务 / ModPackService provides KCES MOD packing services
 type ModPackService struct{}
 
-// The current writer accepts byte slices for every object and .aba sidecar,
-// so packing is necessarily in-memory. Bound attacker-controlled source sizes
-// before io.ReadAll; larger multi-gigabyte KCES .resS files require a future
-// streaming AbaFileEntry API.
+// 当前写入器以字节切片接收对象，因此在 io.ReadAll 前限制不可信输入大小
+// The current writer accepts object byte slices, so untrusted input sizes are bounded before io.ReadAll
 const maxPackInMemoryAssetSize int64 = 1 << 30
 
 // PackMod 根据 manifest 生成 .ct + .aba 文件
+// PackMod generates paired .ct and .aba files from a manifest
 func (s *ModPackService) PackMod(manifestPath string, outputDir string) error {
 	manifestData, err := os.ReadFile(manifestPath)
 	if err != nil {
@@ -95,6 +88,8 @@ func (s *ModPackService) PackMod(manifestPath string, outputDir string) error {
 	return packModManifest(manifest, baseDir, outputDir)
 }
 
+// packModManifest 根据清单中的纯资源文件构建固定 Unity 2022.3.35f1 的 ABA 和对应 CT
+// packModManifest builds a fixed Unity 2022.3.35f1 ABA and matching CT from the manifest's plain resource files
 func packModManifest(manifest ModManifest, baseDir string, outputDir string) error {
 	if err := validateModOutputName(manifest.Name); err != nil {
 		return fmt.Errorf("manifest: invalid name %q: %w", manifest.Name, err)
@@ -120,67 +115,57 @@ func packModManifest(manifest ModManifest, baseDir string, outputDir string) err
 	}
 	defer sourceRoot.Close()
 
-	assetMetas := make([]rawAssetMeta, len(manifest.Assets))
-	metaSources := make([]string, len(manifest.Assets))
 	assetPaths := make([]string, len(manifest.Assets))
 	for i, asset := range manifest.Assets {
 		relPath, err := normalizeModAssetPath(asset.Path)
 		if err != nil {
 			return fmt.Errorf("asset %q: unsafe source path: %w", asset.Path, err)
 		}
-		meta, err := readAssetMetaStrictFromRoot(sourceRoot, relPath)
-		if err != nil {
-			return fmt.Errorf("asset %q: %w", asset.Path, err)
-		}
 		assetPaths[i] = relPath
-		assetMetas[i] = meta
-		metaSources[i] = asset.Path
 	}
-	versionMetas := assetMetas
-	versionSources := metaSources
-	if strings.TrimSpace(manifest.UnityVersion) != "" {
-		manifestVersion := strings.TrimSpace(manifest.UnityVersion)
-		versionMetas = append(append([]rawAssetMeta(nil), assetMetas...), rawAssetMeta{
-			UnityVersion:  manifestVersion,
-			EngineVersion: manifestVersion,
-		})
-		versionSources = append(append([]string(nil), metaSources...), "manifest unityVersion")
-	}
-	versionSettings, err := resolveUnityPackSettings(versionMetas, versionSources)
+	canonicalLoadNames, err := buildCanonicalLoadNames(manifest.Assets, assetPaths)
 	if err != nil {
-		return fmt.Errorf("resolve Unity version context: %w", err)
+		return fmt.Errorf("build canonical AssetBundle load names: %w", err)
 	}
+	versionSettings := resolveUnityPackSettings()
 
-	// 所有对象共享一个 SerializedFile；原始 Unity 对象必须使用同一版本上下文。
+	// 所有对象共享一个 SerializedFile，原始 Unity 对象必须使用同一版本上下文
+	// All objects share one SerializedFile, so raw Unity objects must use the same version context
 	sfWriter := aba.NewSerializedFileWriter(versionSettings.UnityVersion)
 	sfWriter.TargetPlatform = versionSettings.TargetPlatform
+	sfWriter.SetExternalFiles(canonicalKCESExternalFiles())
 
+	// catalogEntry 保存生成一个 CT 条目所需的短名称和扩展组 / catalogEntry stores the short name and extension group needed for one generated CT entry
 	type catalogEntry struct {
 		name string // catalog 资源名称 / Catalog resource name
 		ext  string // 资源扩展名 / Resource extension
 	}
 	var entries []catalogEntry
-	var abaSidecars []aba.AbaFileEntry
 	assetNames := make(map[uint64]string, len(manifest.Assets))
-	loadNames := make(map[string]string, len(manifest.Assets))
 	pathIDs := make(map[int64]string, len(manifest.Assets))
-	sidecarNames := make(map[string]string)
+	canonicalPaths := make([]string, 0, len(assetPaths))
+	for assetIndex, asset := range manifest.Assets {
+		kind := strings.ToLower(asset.Kind)
+		if kind == "" {
+			kind = inferKindForPack(asset.Name, asset.Path)
+		}
+		if kind == "abaraw" {
+			continue
+		}
+		canonicalPaths = append(canonicalPaths, filepath.ToSlash(assetPaths[assetIndex]))
+	}
+	canonicalPathIDs, err := buildCanonicalPathIDs(canonicalPaths)
+	if err != nil {
+		return fmt.Errorf("build canonical PathIDs: %w", err)
+	}
 
 	for assetIndex, a := range manifest.Assets {
 		relPath := assetPaths[assetIndex]
-		data, err := readPackRootRegularFile(sourceRoot, relPath)
-		if err != nil {
-			return fmt.Errorf("read asset %q: %w", a.Path, err)
-		}
-
 		name := a.Name
 		if name == "" {
 			name = filepath.Base(relPath)
 		}
-		loadName := a.LoadName
-		if loadName == "" {
-			loadName = name
-		}
+		loadName := canonicalLoadNames[assetIndex]
 		if name == "" || strings.IndexByte(name, 0) >= 0 {
 			return fmt.Errorf("asset %q: resolved name is empty or contains NUL", a.Path)
 		}
@@ -189,100 +174,92 @@ func packModManifest(manifest ModManifest, baseDir string, outputDir string) err
 		if kind == "" {
 			kind = inferKindForPack(name, a.Path)
 		}
-		meta := assetMetas[assetIndex]
 		if kind == "abaraw" {
-			if a.Catalog != nil && *a.Catalog {
-				return fmt.Errorf("asset %q: .aba sidecar cannot be inserted into the asset catalog", a.Path)
-			}
-			if meta.PathID != 0 || meta.LoadName != "" {
-				return fmt.Errorf("asset %q: .aba sidecar must not have Unity PathID/loadName metadata", a.Path)
-			}
-			key := strings.ToLower(filepath.ToSlash(name))
-			if previous, exists := sidecarNames[key]; exists {
-				return fmt.Errorf(".aba sidecars %q and %q use the same case-insensitive directory name", previous, name)
-			}
-			sidecarNames[key] = name
-			abaSidecars = append(abaSidecars, aba.AbaFileEntry{
-				Name: name,
-				Data: data,
-			})
-			continue
+			return fmt.Errorf("asset %q: .resS/.resource sidecars are not packable; stream payloads must be inlined into their Unity objects", a.Path)
 		}
-		if meta.LoadName != "" {
-			loadName = meta.LoadName
+		canonicalPath, err := canonicalAssetPathForID(filepath.ToSlash(relPath))
+		if err != nil {
+			return fmt.Errorf("asset %q: canonicalize path: %w", a.Path, err)
 		}
-		if meta.PathID != 0 {
-			if previous, exists := pathIDs[meta.PathID]; exists {
-				return fmt.Errorf("assets %q and %q request duplicate Unity PathID %d; silently reassigning one would break raw-object PPtr references", previous, name, meta.PathID)
+		pathID := canonicalPathIDs[canonicalPath]
+		if pathID != 0 {
+			if previous, exists := pathIDs[pathID]; exists {
+				return fmt.Errorf("assets %q and %q request duplicate Unity PathID %d; silently reassigning one would break raw-object PPtr references", previous, name, pathID)
 			}
-			pathIDs[meta.PathID] = name
+			pathIDs[pathID] = name
 		}
-		ext := strings.ToLower(filepath.Ext(name))
+		catalogName := name
+		if a.preserveRawData {
+			catalogName = loadName
+		}
+		ext := strings.ToLower(filepath.Ext(catalogName))
 		cataloged := ext != "" || kind == "textasset"
-		if a.Catalog != nil {
-			cataloged = *a.Catalog
-		}
-		// Only names exposed through Catalog.Items require unique lookup hashes;
-		// m_Container keys are checked independently below.
+		// 只有通过 Catalog.Items 暴露的名称需要唯一查找哈希，m_Container 键会在后面独立检查
+		// Only names exposed through Catalog.Items require unique lookup hashes, while m_Container keys are checked independently below
 		if cataloged {
-			nameHash := ct.HashStringIgnoreCase(name)
+			nameHash := ct.HashStringIgnoreCase(catalogName)
 			if previous, exists := assetNames[nameHash]; exists {
-				return fmt.Errorf("assets %q and %q have the same case-insensitive catalog hash %d", previous, name, nameHash)
+				return fmt.Errorf("assets %q and %q have the same case-insensitive catalog hash %d", previous, catalogName, nameHash)
 			}
-			assetNames[nameHash] = name
+			assetNames[nameHash] = catalogName
 		}
-		loadKey := strings.ToLower(loadName)
-		if previous, exists := loadNames[loadKey]; exists {
-			return fmt.Errorf("assets %q and %q use duplicate AssetBundle loadName %q", previous, name, loadName)
-		}
-		loadNames[loadKey] = name
-
 		if classID, ok := unityRawClassIDForKind(kind); ok {
-			sfWriter.AddRawObjectWithLoadNameAndPathID(classID, name, loadName, data, meta.PathID)
+			if a.preserveRawData {
+				source, err := newPackRootSerializedObjectSource(sourceRoot, relPath)
+				if err != nil {
+					return fmt.Errorf("open raw asset %q: %w", a.Path, err)
+				}
+				sfWriter.AddRawObjectSourcePreservingDataWithLoadNameAndPathID(classID, name, loadName, source, pathID)
+			} else {
+				data, err := readPackRootRegularFile(sourceRoot, relPath)
+				if err != nil {
+					return fmt.Errorf("read raw asset %q: %w", a.Path, err)
+				}
+				sfWriter.AddRawObjectWithLoadNameAndPathID(classID, name, loadName, data, pathID)
+			}
 		} else {
+			data, err := readPackRootRegularFile(sourceRoot, relPath)
+			if err != nil {
+				return fmt.Errorf("read asset %q: %w", a.Path, err)
+			}
 			switch kind {
 			case "texture2d":
 				width, height, rgba, err := decodeImageToRGBA32(data)
 				if err != nil {
 					return fmt.Errorf("decode image %q: %w", name, err)
 				}
-				sfWriter.AddTexture2DWithLoadNameAndPathID(name, loadName, width, height, rgba, meta.PathID)
+				sfWriter.AddTexture2DWithLoadNameAndPathID(name, loadName, width, height, rgba, pathID)
 			case "textasset":
-				sfWriter.AddTextAssetWithLoadNameAndPathID(name, loadName, data, meta.PathID)
+				sfWriter.AddTextAssetWithLoadNameAndPathID(name, loadName, data, pathID)
 			default:
 				return fmt.Errorf("asset %q: unsupported kind %q", a.Path, a.Kind)
 			}
 		}
 
 		if cataloged {
-			// Official system.ct stores the ExtensionNameList for resources with
-			// no suffix under the virtual-file/group name "null". The catalog item
-			// itself still uses the real extensionless asset name.
+			// 官方 system.ct 将无后缀资源的 ExtensionNameList 存在名为 null 的虚拟文件和分组中，catalog 条目仍使用真实的无扩展名资源名称
+			// Official system.ct stores the ExtensionNameList for extensionless resources under the virtual-file and group name null, while the catalog item still uses the real extensionless asset name
 			if ext == "" {
 				ext = "null"
 			}
-			entries = append(entries, catalogEntry{name: name, ext: ext})
+			entries = append(entries, catalogEntry{name: catalogName, ext: ext})
 		}
 	}
 
-	// 写入 SerializedFile → UnityFS .aba 文件
-	var sfBuf bytes.Buffer
-	if err := sfWriter.Write(&sfBuf); err != nil {
-		return fmt.Errorf("write SerializedFile: %w", err)
+	// 预先计算 SerializedFile 大小，UnityFS 随后两次调用同一流式生成器完成块表计算和最终写入
+	// Compute the SerializedFile size up front, then let UnityFS invoke the same streaming generator twice for block-table calculation and final output
+	serializedSize, err := sfWriter.Size()
+	if err != nil {
+		return fmt.Errorf("calculate SerializedFile size: %w", err)
 	}
-
 	abaEntries := []aba.AbaFileEntry{
-		{Name: "CAB-" + manifest.Name, Data: sfBuf.Bytes(), IsSerialized: true},
+		{Name: "CAB-" + manifest.Name, WriteTo: sfWriter.Write, Size: serializedSize, IsSerialized: true},
 	}
-	abaEntries = append(abaEntries, abaSidecars...)
-	var abaBuf bytes.Buffer
-	if err := aba.WriteAba(&abaBuf, abaEntries, &aba.AbaWriteOptions{
+	abaOptions := &aba.AbaWriteOptions{
 		EngineVersion:     versionSettings.EngineVersion,
 		GenerationVersion: versionSettings.GenerationVersion,
 		Version:           versionSettings.AbaVersion,
 		Compress:          true,
-	}); err != nil {
-		return fmt.Errorf("write .aba file: %w", err)
 	}
 
 	catalogName := manifest.Name
@@ -367,17 +344,22 @@ func packModManifest(manifest ModManifest, baseDir string, outputDir string) err
 		}
 	}
 
-	// 两个最终文件在触碰输出目录前都完整生成到内存。落盘由成对提交器
-	// 处理：先写同目录临时文件，再备份旧目标并逐一原子 rename；任何提交
-	// 错误都会删除本次新目标并恢复旧目标。
-	var ctBuf bytes.Buffer
-	if err := ct.WriteContentTable(&ctBuf, table); err != nil {
-		return fmt.Errorf("write .ct: %w", err)
-	}
-	if err := writePackOutputPair(
+	// 成对提交器将两个最终文件直接写入同目录临时文件，再备份旧目标并逐一原子重命名，任何提交错误都会删除本次新目标并恢复旧目标
+	// The paired committer writes both final files directly to same-directory temporary files, then backs up old targets, atomically renames each file, and restores the old targets after any commit failure
+	if err := writePackOutputPairWithWriters(
 		outputDir,
-		manifest.Name+".ct", ctBuf.Bytes(),
-		manifest.Name+".aba", abaBuf.Bytes(),
+		manifest.Name+".ct", func(out io.Writer) error {
+			if err := ct.WriteContentTable(out, table); err != nil {
+				return fmt.Errorf("write .ct: %w", err)
+			}
+			return nil
+		},
+		manifest.Name+".aba", func(out io.Writer) error {
+			if err := aba.WriteAba(out, abaEntries, abaOptions); err != nil {
+				return fmt.Errorf("write .aba file: %w", err)
+			}
+			return nil
+		},
 	); err != nil {
 		return fmt.Errorf("commit .ct/.aba output pair: %w", err)
 	}
@@ -385,9 +367,71 @@ func packModManifest(manifest ModManifest, baseDir string, outputDir string) err
 	return nil
 }
 
-// normalizeModAssetPath validates a manifest path before it is passed to
-// os.Root. Both slash styles are interpreted as separators so a manifest made
-// on another platform cannot hide a traversal from the current host.
+// buildCanonicalLoadNames 按规范路径为重复资源短名称分配稳定且不冲突的 AssetBundle 加载键
+// buildCanonicalLoadNames assigns stable non-conflicting AssetBundle load keys to duplicate short resource names using canonical paths
+func buildCanonicalLoadNames(assets []ModAsset, assetPaths []string) ([]string, error) {
+	if len(assets) != len(assetPaths) {
+		return nil, fmt.Errorf("asset count %d does not match path count %d", len(assets), len(assetPaths))
+	}
+	resolvedNames := make([]string, len(assets))
+	groups := make(map[string][]int64, len(assets))
+	reserved := make(map[string]struct{}, len(assets))
+	for assetIndex := int64(0); assetIndex < int64(len(assets)); assetIndex++ {
+		name := assets[assetIndex].Name
+		if name == "" {
+			name = filepath.Base(assetPaths[assetIndex])
+		}
+		if name == "" || strings.IndexByte(name, 0) >= 0 {
+			return nil, fmt.Errorf("asset %q resolves to an empty name or a name containing NUL", assets[assetIndex].Path)
+		}
+		resolvedNames[assetIndex] = name
+		key := strings.ToLower(name)
+		groups[key] = append(groups[key], assetIndex)
+		reserved[key] = struct{}{}
+	}
+	groupKeys := make([]string, 0, len(groups))
+	for key := range groups {
+		groupKeys = append(groupKeys, key)
+	}
+	sort.Strings(groupKeys)
+	result := make([]string, len(assets))
+	assigned := make(map[string]struct{}, len(assets))
+	for _, groupKey := range groupKeys {
+		indexes := groups[groupKey]
+		sort.Slice(indexes, func(i int, j int) bool {
+			left := strings.ToLower(filepath.ToSlash(assetPaths[indexes[i]]))
+			right := strings.ToLower(filepath.ToSlash(assetPaths[indexes[j]]))
+			if left != right {
+				return left < right
+			}
+			return indexes[i] < indexes[j]
+		})
+		for ordinal := int64(0); ordinal < int64(len(indexes)); ordinal++ {
+			assetIndex := indexes[ordinal]
+			candidate := resolvedNames[assetIndex]
+			if ordinal != 0 {
+				for suffix := int64(2); ; suffix++ {
+					candidate = canonicalOrdinalAssetName(resolvedNames[assetIndex], suffix)
+					key := strings.ToLower(candidate)
+					_, baseExists := reserved[key]
+					_, assignedExists := assigned[key]
+					if !baseExists && !assignedExists {
+						break
+					}
+					if suffix == math.MaxInt64 {
+						return nil, fmt.Errorf("cannot allocate a unique load name for %q", resolvedNames[assetIndex])
+					}
+				}
+			}
+			result[assetIndex] = candidate
+			assigned[strings.ToLower(candidate)] = struct{}{}
+		}
+	}
+	return result, nil
+}
+
+// normalizeModAssetPath 在交给 os.Root 前验证清单路径，并统一把两种斜杠解释为分隔符以阻止跨平台路径穿越
+// normalizeModAssetPath validates a manifest path before os.Root use and treats both slash styles as separators to prevent cross-platform traversal
 func normalizeModAssetPath(name string) (string, error) {
 	if name == "" {
 		return "", fmt.Errorf("path is empty")
@@ -411,8 +455,8 @@ func normalizeModAssetPath(name string) (string, error) {
 		if part == "." || part == ".." {
 			return "", fmt.Errorf("path contains unsafe component %q", part)
 		}
-		// A colon can address an alternate data stream on Windows even when the
-		// path has no drive prefix.
+		// 即使路径没有盘符，冒号在 Windows 上仍可访问备用数据流
+		// A colon can address an alternate data stream on Windows even without a drive prefix
 		if strings.ContainsRune(part, ':') {
 			return "", fmt.Errorf("path component %q contains ':'", part)
 		}
@@ -424,9 +468,8 @@ func normalizeModAssetPath(name string) (string, error) {
 	return rel, nil
 }
 
-// readPackRootRegularFile uses os.Root for the actual open, not merely for a
-// lexical containment check. Lstat checks reject symlink/reparse-point inputs;
-// the repeated identity check also detects ordinary replacements around open.
+// readPackRootRegularFile 通过 os.Root 打开普通文件，并以 Lstat 和文件身份复查阻止链接、reparse point 与并发替换
+// readPackRootRegularFile opens a regular file through os.Root and uses Lstat plus identity checks to reject links, reparse points, and concurrent replacement
 func readPackRootRegularFile(root *os.Root, relPath string) ([]byte, error) {
 	if root == nil {
 		return nil, fmt.Errorf("nil manifest asset root")
@@ -469,45 +512,185 @@ func readPackRootRegularFile(root *os.Root, relPath string) ([]byte, error) {
 	return data, nil
 }
 
-func readAssetMetaStrictFromRoot(root *os.Root, assetRelPath string) (rawAssetMeta, error) {
-	metaRelPath := assetRelPath + ".meta.json"
-	if _, err := root.Lstat(metaRelPath); err != nil {
-		if os.IsNotExist(err) {
-			return rawAssetMeta{}, nil
-		}
-		return rawAssetMeta{}, fmt.Errorf("inspect asset metadata %q: %w", metaRelPath, err)
+// newPackRootSerializedObjectSource 建立经过身份校验且可重复打开的原始对象流式数据源
+// newPackRootSerializedObjectSource creates an identity-checked streamed raw-object source that can be reopened
+func newPackRootSerializedObjectSource(root *os.Root, relPath string) (aba.SerializedObjectDataSource, error) {
+	if root == nil {
+		return aba.SerializedObjectDataSource{}, fmt.Errorf("nil manifest asset root")
 	}
-	data, err := readPackRootRegularFile(root, metaRelPath)
+	before, err := root.Lstat(relPath)
 	if err != nil {
-		return rawAssetMeta{}, fmt.Errorf("read asset metadata %q: %w", metaRelPath, err)
+		return aba.SerializedObjectDataSource{}, err
 	}
-	var meta rawAssetMeta
-	if err := json.Unmarshal(trimJSONUTF8BOM(data), &meta); err != nil {
-		return rawAssetMeta{}, fmt.Errorf("parse asset metadata %q: %w", metaRelPath, err)
+	if isLinkOrReparse(before) {
+		return aba.SerializedObjectDataSource{}, fmt.Errorf("refusing symlink or reparse point %q", relPath)
 	}
-	return meta, nil
+	if !before.Mode().IsRegular() {
+		return aba.SerializedObjectDataSource{}, fmt.Errorf("source %q is not a regular file", relPath)
+	}
+	if before.Size() < 0 || uint64(before.Size()) > uint64(math.MaxUint32) {
+		return aba.SerializedObjectDataSource{}, fmt.Errorf("source %q size %d exceeds SerializedFile UInt32 object-size range", relPath, before.Size())
+	}
+	prefixSize := before.Size()
+	const monoBehaviourPrefixSize int64 = 28
+	if prefixSize > monoBehaviourPrefixSize {
+		prefixSize = monoBehaviourPrefixSize
+	}
+	prefix, err := readVerifiedPackRootFilePrefix(root, relPath, before, prefixSize)
+	if err != nil {
+		return aba.SerializedObjectDataSource{}, err
+	}
+	return aba.SerializedObjectDataSource{
+		Size:   uint32(before.Size()),
+		Prefix: prefix,
+		WriteTo: func(out io.Writer) error {
+			return writeVerifiedPackRootFile(root, relPath, before, out)
+		},
+	}, nil
 }
 
+// readVerifiedPackRootFilePrefix 读取已检查普通文件的有界前缀并再次确认文件身份
+// readVerifiedPackRootFilePrefix reads a bounded prefix from a checked regular file and confirms its identity again
+func readVerifiedPackRootFilePrefix(root *os.Root, relPath string, expected os.FileInfo, size int64) ([]byte, error) {
+	if expected == nil || size < 0 || size > expected.Size() {
+		return nil, fmt.Errorf("invalid prefix size %d for source %q", size, relPath)
+	}
+	f, err := openVerifiedPackRootFile(root, relPath, expected)
+	if err != nil {
+		return nil, err
+	}
+	prefix := make([]byte, size)
+	_, readErr := io.ReadFull(f, prefix)
+	closeErr := f.Close()
+	if readErr != nil {
+		return nil, fmt.Errorf("read source %q prefix: %w", relPath, readErr)
+	}
+	if closeErr != nil {
+		return nil, fmt.Errorf("close source %q after prefix read: %w", relPath, closeErr)
+	}
+	if err := verifyPackRootFileIdentity(root, relPath, expected); err != nil {
+		return nil, err
+	}
+	return prefix, nil
+}
+
+// writeVerifiedPackRootFile 将已检查普通文件按精确大小复制到目标并复查身份
+// writeVerifiedPackRootFile copies a checked regular file at its exact size and verifies its identity afterward
+func writeVerifiedPackRootFile(root *os.Root, relPath string, expected os.FileInfo, out io.Writer) error {
+	if expected == nil || out == nil {
+		return fmt.Errorf("nil file identity or destination for source %q", relPath)
+	}
+	f, err := openVerifiedPackRootFile(root, relPath, expected)
+	if err != nil {
+		return err
+	}
+	written, copyErr := io.CopyN(out, f, expected.Size())
+	closeErr := f.Close()
+	if copyErr != nil {
+		return fmt.Errorf("copy source %q after %d bytes: %w", relPath, written, copyErr)
+	}
+	if written != expected.Size() {
+		return fmt.Errorf("copy source %q wrote %d bytes, want %d", relPath, written, expected.Size())
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close source %q after copy: %w", relPath, closeErr)
+	}
+	return verifyPackRootFileIdentity(root, relPath, expected)
+}
+
+// openVerifiedPackRootFile 打开预先检查的普通文件并确认句柄身份和大小未改变
+// openVerifiedPackRootFile opens a prechecked regular file and confirms that its handle identity and size are unchanged
+func openVerifiedPackRootFile(root *os.Root, relPath string, expected os.FileInfo) (*os.File, error) {
+	if root == nil || expected == nil {
+		return nil, fmt.Errorf("nil root or expected file identity for %q", relPath)
+	}
+	f, err := root.Open(relPath)
+	if err != nil {
+		return nil, err
+	}
+	opened, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, fmt.Errorf("inspect opened source %q: %w", relPath, err)
+	}
+	if !opened.Mode().IsRegular() || opened.Size() != expected.Size() || !os.SameFile(expected, opened) {
+		f.Close()
+		return nil, fmt.Errorf("source %q changed while opening", relPath)
+	}
+	if err := verifyPackRootFileIdentity(root, relPath, expected); err != nil {
+		f.Close()
+		return nil, err
+	}
+	return f, nil
+}
+
+// verifyPackRootFileIdentity 通过 Lstat 确认路径仍指向原来的普通非 reparse 文件
+// verifyPackRootFileIdentity uses Lstat to confirm that a path still names the original regular non-reparse file
+func verifyPackRootFileIdentity(root *os.Root, relPath string, expected os.FileInfo) error {
+	if root == nil || expected == nil {
+		return fmt.Errorf("nil root or expected file identity for %q", relPath)
+	}
+	after, err := root.Lstat(relPath)
+	if err != nil {
+		return fmt.Errorf("reinspect source %q: %w", relPath, err)
+	}
+	if isLinkOrReparse(after) || !after.Mode().IsRegular() || after.Size() != expected.Size() || !os.SameFile(expected, after) {
+		return fmt.Errorf("source %q changed or became a symlink/reparse point", relPath)
+	}
+	return nil
+}
+
+// packOutputState 记录成对输出提交期间单个文件的临时和备份状态 / packOutputState records one file's temporary and backup state during paired output commit
 type packOutputState struct {
-	name         string
-	data         []byte
-	tempName     string
-	tempInfo     os.FileInfo
-	backupName   string
-	installed    bool
-	hadOldTarget bool
+	name         string              // 最终文件名 / Final file name
+	data         []byte              // 待提交字节 / Bytes to commit
+	writeTo      packOutputWriteFunc // 直接生成待提交文件的回调 / Callback that directly generates the staged file
+	tempName     string              // 同目录临时文件名 / Temporary file name in the same directory
+	tempInfo     os.FileInfo         // 临时文件身份 / Temporary file identity
+	backupName   string              // 旧目标备份名 / Previous-target backup name
+	installed    bool                // 新目标是否已安装 / Whether the new target was installed
+	hadOldTarget bool                // 提交前是否存在旧目标 / Whether a previous target existed before commit
 }
 
+// packRenameFunc 表示可注入的根目录内重命名操作 / packRenameFunc represents an injectable rename operation within an opened root
 type packRenameFunc func(root *os.Root, oldName, newName string) error
 
+// packOutputWriteFunc 将一个完整输出写入事务临时文件
+// packOutputWriteFunc writes one complete output into a transactional temporary file
+type packOutputWriteFunc func(io.Writer) error
+
+// writePackOutputPair 以可回滚事务提交匹配的 CT 和 ABA 输出
+// writePackOutputPair commits matching CT and ABA outputs with rollback support
 func writePackOutputPair(outputDir, firstName string, firstData []byte, secondName string, secondData []byte) error {
 	return writePackOutputPairWithRename(outputDir, firstName, firstData, secondName, secondData, nil)
 }
 
-// writePackOutputPairWithRename has an injectable rename operation so the
-// rollback branch can be exercised deterministically without weakening the
-// production path.
+// writePackOutputPairWithRename 使用可注入重命名操作提交输出，使回滚分支可被确定性测试
+// writePackOutputPairWithRename commits outputs through an injectable rename operation so rollback can be tested deterministically
 func writePackOutputPairWithRename(outputDir, firstName string, firstData []byte, secondName string, secondData []byte, rename packRenameFunc) error {
+	outputs := []*packOutputState{
+		{name: firstName, data: firstData},
+		{name: secondName, data: secondData},
+	}
+	return writePackOutputStatesWithRename(outputDir, outputs, rename)
+}
+
+// writePackOutputPairWithWriters 以流式生成器和可回滚事务提交匹配的 CT 与 ABA 输出
+// writePackOutputPairWithWriters commits matching CT and ABA outputs from streaming generators with rollback support
+func writePackOutputPairWithWriters(outputDir string, firstName string, firstWriter packOutputWriteFunc, secondName string, secondWriter packOutputWriteFunc) error {
+	if firstWriter == nil || secondWriter == nil {
+		return fmt.Errorf("output writer is nil")
+	}
+	outputs := []*packOutputState{
+		{name: firstName, writeTo: firstWriter},
+		{name: secondName, writeTo: secondWriter},
+	}
+	return writePackOutputStatesWithRename(outputDir, outputs, nil)
+}
+
+// writePackOutputStatesWithRename 暂存、同步并以可注入重命名操作提交一组输出
+// writePackOutputStatesWithRename stages, synchronizes, and commits outputs through an injectable rename operation
+func writePackOutputStatesWithRename(outputDir string, outputs []*packOutputState, rename packRenameFunc) error {
 	root, err := openPackOutputRoot(outputDir)
 	if err != nil {
 		return err
@@ -519,11 +702,13 @@ func writePackOutputPairWithRename(outputDir, firstName string, firstData []byte
 		}
 	}
 
-	outputs := []*packOutputState{
-		{name: firstName, data: firstData},
-		{name: secondName, data: secondData},
-	}
 	for _, output := range outputs {
+		if output == nil {
+			return fmt.Errorf("nil output state")
+		}
+		if output.writeTo != nil && output.data != nil {
+			return fmt.Errorf("output %q has both bytes and a writer", output.name)
+		}
 		if err := validateModOutputName(strings.TrimSuffix(strings.TrimSuffix(output.name, ".ct"), ".aba")); err != nil {
 			return fmt.Errorf("unsafe output file name %q: %w", output.name, err)
 		}
@@ -532,9 +717,8 @@ func writePackOutputPairWithRename(outputDir, firstName string, firstData []byte
 		}
 	}
 
-	// Temp files are always cleaned. Backups are deliberately not removed by
-	// this defer: if rollback itself fails, preserving the old bytes under the
-	// reported backup name is safer than destroying the recovery copy.
+	// 临时文件始终清理，但此处不会删除备份，因为回滚本身失败时必须以错误中报告的备份名保留旧数据
+	// Temporary files are always cleaned, but this defer deliberately preserves backups because old data must remain under the reported backup name if rollback itself fails
 	defer func() {
 		for _, output := range outputs {
 			if output.tempName != "" {
@@ -554,6 +738,8 @@ func writePackOutputPairWithRename(outputDir, firstName string, firstData []byte
 	return nil
 }
 
+// openPackOutputRoot 安全打开非链接输出目录并确认打开前后的文件身份一致
+// openPackOutputRoot safely opens a non-link output directory and confirms its identity did not change
 func openPackOutputRoot(outputDir string) (*os.Root, error) {
 	if outputDir == "" {
 		return nil, fmt.Errorf("output directory is empty")
@@ -587,6 +773,8 @@ func openPackOutputRoot(outputDir string) (*os.Root, error) {
 	return root, nil
 }
 
+// inspectPackOutputTarget 确认已有输出目标是可替换的普通文件
+// inspectPackOutputTarget confirms that an existing output target is a replaceable regular file
 func inspectPackOutputTarget(root *os.Root, name string) error {
 	info, err := root.Lstat(name)
 	if os.IsNotExist(err) {
@@ -604,8 +792,10 @@ func inspectPackOutputTarget(root *os.Root, name string) error {
 	return nil
 }
 
+// stagePackOutput 在输出目录中创建并同步一个唯一临时文件
+// stagePackOutput creates and synchronizes one unique temporary file in the output directory
 func stagePackOutput(root *os.Root, output *packOutputState) error {
-	for attempt := 0; attempt < 32; attempt++ {
+	for attempt := int64(0); attempt < 32; attempt++ {
 		name, err := randomPackWorkName("tmp")
 		if err != nil {
 			return err
@@ -618,9 +808,11 @@ func stagePackOutput(root *os.Root, output *packOutputState) error {
 			return fmt.Errorf("create temporary output for %q: %w", output.name, err)
 		}
 		output.tempName = name
-		n, writeErr := f.Write(output.data)
-		if writeErr == nil && n != len(output.data) {
-			writeErr = io.ErrShortWrite
+		var writeErr error
+		if output.writeTo != nil {
+			writeErr = output.writeTo(f)
+		} else {
+			_, writeErr = io.Copy(f, bytes.NewReader(output.data))
 		}
 		if writeErr == nil {
 			writeErr = f.Sync()
@@ -641,6 +833,8 @@ func stagePackOutput(root *os.Root, output *packOutputState) error {
 	return fmt.Errorf("could not allocate temporary output for %q", output.name)
 }
 
+// randomPackWorkName 生成不可预测的事务工作文件名
+// randomPackWorkName generates an unpredictable transaction work-file name
 func randomPackWorkName(kind string) (string, error) {
 	var value [16]byte
 	if _, err := rand.Read(value[:]); err != nil {
@@ -649,8 +843,10 @@ func randomPackWorkName(kind string) (string, error) {
 	return ".meido-pack-" + hex.EncodeToString(value[:]) + "." + kind, nil
 }
 
+// unusedPackBackupName 在输出根目录中寻找尚未占用的随机备份名
+// unusedPackBackupName finds an unused random backup name inside the output root
 func unusedPackBackupName(root *os.Root) (string, error) {
-	for attempt := 0; attempt < 32; attempt++ {
+	for attempt := int64(0); attempt < 32; attempt++ {
 		name, err := randomPackWorkName("backup")
 		if err != nil {
 			return "", err
@@ -664,6 +860,8 @@ func unusedPackBackupName(root *os.Root) (string, error) {
 	return "", fmt.Errorf("could not allocate backup file name")
 }
 
+// commitPackOutputs 备份旧目标并安装全部暂存输出，任一步失败都会尝试回滚
+// commitPackOutputs backs up previous targets and installs all staged outputs, attempting rollback after any failure
 func commitPackOutputs(root *os.Root, outputs []*packOutputState, rename packRenameFunc) error {
 	rollbackFailure := func(commitErr error) error {
 		if rollbackErr := rollbackPackOutputs(root, outputs, rename); rollbackErr != nil {
@@ -672,9 +870,8 @@ func commitPackOutputs(root *os.Root, outputs []*packOutputState, rename packRen
 		return commitErr
 	}
 
-	// Windows does not provide a portable rename-over-existing contract through
-	// os.Root. Move each old target aside first, so installation always renames
-	// onto a vacant name and the previous pair remains available for rollback.
+	// Windows 无法通过 os.Root 提供可移植的覆盖式重命名契约，因此先移开每个旧目标，使安装始终重命名到空闲名称并保留旧文件对用于回滚
+	// Windows does not provide a portable rename-over-existing contract through os.Root, so each old target is moved aside first to install onto a vacant name while preserving the previous pair for rollback
 	for _, output := range outputs {
 		info, err := root.Lstat(output.name)
 		if os.IsNotExist(err) {
@@ -718,10 +915,12 @@ func commitPackOutputs(root *os.Root, outputs []*packOutputState, rename packRen
 	return errors.Join(cleanupErrs...)
 }
 
+// rollbackPackOutputs 删除本次安装的文件并恢复提交前备份
+// rollbackPackOutputs removes files installed by the current transaction and restores previous backups
 func rollbackPackOutputs(root *os.Root, outputs []*packOutputState, rename packRenameFunc) error {
 	var rollbackErrs []error
-	for i := len(outputs) - 1; i >= 0; i-- {
-		output := outputs[i]
+	for outputIndex := int64(len(outputs)) - 1; outputIndex >= 0; outputIndex-- {
+		output := outputs[outputIndex]
 		if !output.installed {
 			continue
 		}
@@ -740,8 +939,8 @@ func rollbackPackOutputs(root *os.Root, outputs []*packOutputState, rename packR
 		}
 		output.installed = false
 	}
-	for i := len(outputs) - 1; i >= 0; i-- {
-		output := outputs[i]
+	for outputIndex := int64(len(outputs)) - 1; outputIndex >= 0; outputIndex-- {
+		output := outputs[outputIndex]
 		if !output.hadOldTarget || output.backupName == "" {
 			continue
 		}
@@ -762,33 +961,8 @@ func rollbackPackOutputs(root *os.Root, outputs []*packOutputState, rename packR
 	return errors.Join(rollbackErrs...)
 }
 
-func readAssetMeta(assetPath string) rawAssetMeta {
-	meta, err := readAssetMetaStrict(assetPath)
-	if err != nil {
-		return rawAssetMeta{}
-	}
-	return meta
-}
-
-// inferKind 根据资源名称的扩展名推断 kind
-func inferKind(name string) string {
-	ext := strings.ToLower(filepath.Ext(name))
-	switch ext {
-	case ".tex":
-		return "texture2d"
-	case ".sprite":
-		return "sprite"
-	case ".mmesh":
-		return "mesh"
-	case ".partsatlas", ".partsassets":
-		return "spriteatlas"
-	case ".anm":
-		return "animationclip"
-	default:
-		return "textasset"
-	}
-}
-
+// unityRawClassIDForKind 将原始对象 kind 映射到精确 Unity class ID
+// unityRawClassIDForKind maps a raw object kind to its exact Unity class ID
 func unityRawClassIDForKind(kind string) (int32, bool) {
 	switch strings.ToLower(kind) {
 	case "rawtexture2d":
@@ -815,6 +989,8 @@ func unityRawClassIDForKind(kind string) (int32, bool) {
 		return aba.ClassIDShader, true
 	case "audioclip":
 		return aba.ClassIDAudioClip, true
+	case "cubemap":
+		return aba.ClassIDCubemap, true
 	case "monobehaviour":
 		return aba.ClassIDMonoBehaviour, true
 	case "monoscript":
@@ -832,8 +1008,8 @@ func unityRawClassIDForKind(kind string) (int32, bool) {
 	}
 }
 
-// decodeImageToRGBA32 将 PNG/JPEG 图片解码为 RGBA32 像素数据，并以固定宽度返回尺寸。
-// decodeImageToRGBA32 decodes a PNG or JPEG image into RGBA32 pixels and returns fixed-width dimensions.
+// decodeImageToRGBA32 将 PNG 或 JPEG 图片解码为 RGBA32 像素数据，并以固定宽度返回尺寸
+// decodeImageToRGBA32 decodes a PNG or JPEG image into RGBA32 pixels and returns fixed-width dimensions
 func decodeImageToRGBA32(data []byte) (width, height int64, rgba []byte, err error) {
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
@@ -841,13 +1017,14 @@ func decodeImageToRGBA32(data []byte) (width, height int64, rgba []byte, err err
 	}
 
 	bounds := img.Bounds()
-	w, h := bounds.Dx(), bounds.Dy()
-	pixels := make([]byte, w*h*4)
+	width = int64(bounds.Dx())
+	height = int64(bounds.Dy())
+	pixels := make([]byte, width*height*4)
 
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
-			r, g, b, a := img.At(bounds.Min.X+x, bounds.Min.Y+y).RGBA()
-			offset := (y*w + x) * 4
+	for y := int64(0); y < height; y++ {
+		for x := int64(0); x < width; x++ {
+			r, g, b, a := img.At(bounds.Min.X+int(x), bounds.Min.Y+int(y)).RGBA()
+			offset := (y*width + x) * 4
 			pixels[offset] = byte(r >> 8)
 			pixels[offset+1] = byte(g >> 8)
 			pixels[offset+2] = byte(b >> 8)
@@ -855,9 +1032,11 @@ func decodeImageToRGBA32(data []byte) (width, height int64, rgba []byte, err err
 		}
 	}
 
-	return int64(w), int64(h), pixels, nil
+	return width, height, pixels, nil
 }
 
+// parseCatalogType 解析可用竖线、逗号或加号组合的 KCES CatalogType 标志
+// parseCatalogType parses KCES CatalogType flags combined with pipes, commas, or plus signs
 func parseCatalogType(s string) (ct.CatalogType, error) {
 	values := map[string]ct.CatalogType{
 		"unknown":   ct.CatalogTypeUnknown,
@@ -895,6 +1074,8 @@ func parseCatalogType(s string) (ct.CatalogType, error) {
 	return result, nil
 }
 
+// parsePackageType 将清单包类型名称解析为 KCES CatalogPackageType
+// parsePackageType parses a manifest package-type name into KCES CatalogPackageType
 func parsePackageType(s string) (ct.CatalogPackageType, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "base":
@@ -914,6 +1095,8 @@ func parsePackageType(s string) (ct.CatalogPackageType, error) {
 	}
 }
 
+// validateModOutputName 验证 MOD 输出名是安全的单个相对文件名组件
+// validateModOutputName validates that a MOD output name is one safe relative file-name component
 func validateModOutputName(name string) error {
 	if strings.TrimSpace(name) == "" {
 		return fmt.Errorf("name is empty")

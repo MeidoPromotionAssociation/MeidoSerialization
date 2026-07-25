@@ -13,7 +13,7 @@ import (
 
 func buildAbaServiceSerializedFile(t *testing.T, add func(*aba.SerializedFileWriter)) []byte {
 	t.Helper()
-	w := aba.NewSerializedFileWriter("2021.3.3f1")
+	w := aba.NewSerializedFileWriter(defaultKCESUnityVersion)
 	if add != nil {
 		add(w)
 	}
@@ -27,7 +27,12 @@ func buildAbaServiceSerializedFile(t *testing.T, add func(*aba.SerializedFileWri
 func writeAbaServiceFile(t *testing.T, entries []aba.AbaFileEntry) string {
 	t.Helper()
 	var out bytes.Buffer
-	if err := aba.WriteAba(&out, entries, &aba.AbaWriteOptions{Compress: false}); err != nil {
+	if err := aba.WriteAba(&out, entries, &aba.AbaWriteOptions{
+		EngineVersion:     defaultKCESUnityVersion,
+		GenerationVersion: defaultKCESGenerationVersion,
+		Version:           defaultKCESAbaVersion,
+		Compress:          false,
+	}); err != nil {
 		t.Fatalf("write ABA fixture: %v", err)
 	}
 	path := filepath.Join(t.TempDir(), "fixture.aba")
@@ -184,34 +189,8 @@ func TestAbaServiceUnpackPreservesEmptyTextAsset(t *testing.T) {
 	if len(data) != 0 {
 		t.Fatalf("empty TextAsset contains %d bytes", len(data))
 	}
-	if _, err := os.Stat(filepath.Join(outDir, "TextAsset", "empty.txt.meta.json")); err != nil {
-		t.Fatalf("empty TextAsset metadata was not extracted: %v", err)
-	}
-}
-
-func TestUnpackAssetsFileReturnsRequiredRawObjectReadError(t *testing.T) {
-	af := &aba.AssetsFile{
-		Header: aba.AssetsFileHeader{Version: 22, DataOffset: 0},
-		Metadata: aba.AssetsMetadata{AssetInfos: []aba.AssetInfo{{
-			PathId:     7,
-			ByteOffset: 10,
-			ByteSize:   4,
-			TypeId:     aba.ClassIDMaterial,
-		}}},
-		Data: []byte{1},
-	}
-	root, err := openExtractionRoot(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer root.Close()
-
-	err = unpackAssetsFile(root, "CAB-out-of-range", &aba.Aba{}, af, nil, nil, nil, make(map[string]string))
-	if err == nil {
-		t.Fatal("unpackAssetsFile silently skipped an out-of-range raw object")
-	}
-	if !strings.Contains(err.Error(), "Material") || !strings.Contains(err.Error(), "PathID 7") || !strings.Contains(err.Error(), "CAB-out-of-range") {
-		t.Fatalf("raw object error lacks context: %v", err)
+	if _, err := os.Stat(filepath.Join(outDir, "TextAsset", "empty.txt.meta.json")); !os.IsNotExist(err) {
+		t.Fatalf("pure directory unexpectedly contains TextAsset metadata: %v", err)
 	}
 }
 
@@ -236,26 +215,34 @@ func TestAbaServiceUnpackKeepsRawTextureWhenPreviewFails(t *testing.T) {
 	if !bytes.Equal(data, rawTexture) {
 		t.Fatalf("raw Texture2D changed: got %x want %x", data, rawTexture)
 	}
-	if _, err := os.Stat(rawPath + ".meta.json"); err != nil {
-		t.Fatalf("raw Texture2D metadata was not retained: %v", err)
+	if _, err := os.Stat(rawPath + ".meta.json"); !os.IsNotExist(err) {
+		t.Fatalf("pure directory unexpectedly contains raw Texture2D metadata: %v", err)
 	}
 }
 
-func TestAbaServiceUnpackRejectsCollidingRequiredAssetPaths(t *testing.T) {
-	rawMaterial := []byte{4, 0, 0, 0, 's', 'a', 'm', 'e'}
+func TestAbaServiceUnpackDisambiguatesCollidingRequiredAssetPaths(t *testing.T) {
 	serialized := buildAbaServiceSerializedFile(t, func(w *aba.SerializedFileWriter) {
-		w.AddRawObject(aba.ClassIDMaterial, "same", rawMaterial)
-		w.AddRawObject(aba.ClassIDMaterial, "same", rawMaterial)
+		w.AddTextAsset("same.menuassets", []byte("first"))
+		w.AddTextAsset("same.menuassets", []byte("second"))
 	})
 	path := writeAbaServiceFile(t, []aba.AbaFileEntry{{
 		Name: "CAB-collision", Data: serialized, IsSerialized: true,
 	}})
+	outDir := filepath.Join(t.TempDir(), "out")
 
-	err := (&AbaService{}).UnpackAba(path, filepath.Join(t.TempDir(), "out"))
-	if err == nil {
-		t.Fatal("UnpackAba silently overwrote two assets mapped to the same required output path")
+	if err := (&AbaService{}).UnpackAba(path, outDir); err != nil {
+		t.Fatalf("UnpackAba: %v", err)
 	}
-	if !strings.Contains(err.Error(), "conflicts") || !strings.Contains(err.Error(), "Material") || !strings.Contains(err.Error(), "CAB-collision") {
-		t.Fatalf("path collision error lacks both asset contexts: %v", err)
+	for name, want := range map[string]string{
+		"same.menuassets":      "first",
+		"same_0002.menuassets": "second",
+	} {
+		got, err := os.ReadFile(filepath.Join(outDir, "TextAsset", name))
+		if err != nil {
+			t.Fatalf("read disambiguated asset %q: %v", name, err)
+		}
+		if string(got) != want {
+			t.Fatalf("disambiguated asset %q = %q, want %q", name, got, want)
+		}
 	}
 }

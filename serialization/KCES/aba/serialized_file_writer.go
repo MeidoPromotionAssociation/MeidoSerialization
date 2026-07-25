@@ -6,31 +6,52 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strings"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
-// SerializedFileWriter 用于生成 Unity SerializedFile v22 格式
-// 支持写入 TextAsset、Texture2D、原始对象和 Unity AssetBundle 容器对象，生成的文件可被 KCES 游戏通过 AssetBundle.LoadFromFile 加载
-// SerializedFileWriter generates Unity SerializedFile v22 data
-// It supports TextAsset, Texture2D, raw objects, and Unity AssetBundle container objects; KCES can load generated files through AssetBundle.LoadFromFile
+// SerializedFileWriter 生成包含 TextAsset、Texture2D、原始对象和 AssetBundle 容器的 Unity SerializedFile v22 / SerializedFileWriter generates Unity SerializedFile v22 data containing TextAsset, Texture2D, raw objects, and an AssetBundle container
 type SerializedFileWriter struct {
-	UnityVersion   string             // Unity 版本字符串，如 "2021.3.37f1" / Unity version string such as "2021.3.37f1"
+	UnityVersion   string             // Unity 版本字符串，默认固定为 2022.3.35f1 / Unity version string, fixed to 2022.3.35f1 by default
 	TargetPlatform uint32             // 目标平台 ID，5 表示 Windows Standalone / Target platform ID, with 5 meaning Windows Standalone
 	objects        []sfObject         // 待写入的对象列表 / Object list to write
 	nextPathId     int64              // 下一次自动分配的 PathID / Next automatically allocated PathID
 	usedPathIds    map[int64]struct{} // 已占用的 PathID 集合 / Set of already used PathIDs
+	externalFiles  []ExternalFile     // metadata 中按 fileID 顺序写入的外部文件 / External files written to metadata in fileID order
 	err            error              // 延迟到 Write 返回的构建错误 / Build error deferred until Write
 }
 
-// sfObject 表示待写入的一个序列化对象
-// sfObject represents one serialized object to write
+// SerializedObjectWriteFunc 将一个对象的完整序列化字节写入目标
+// SerializedObjectWriteFunc writes the complete serialized bytes of one object to a destination
+type SerializedObjectWriteFunc func(io.Writer) error
+
+// SerializedObjectDataSource 描述无需整体载入内存的序列化对象数据源 / SerializedObjectDataSource describes a serialized object source that does not need to be loaded completely into memory
+type SerializedObjectDataSource struct {
+	Size    uint32                    // 对象在线格式字节数 / Object byte size on the wire
+	Prefix  []byte                    // 用于读取稳定基类字段的对象前缀 / Object prefix used to inspect stable base fields
+	WriteTo SerializedObjectWriteFunc // 每次调用都写出恰好 Size 字节的回调 / Callback that writes exactly Size bytes on every call
+}
+
+// sfObject 表示待写入的一个序列化对象 / sfObject represents one serialized object to write
 type sfObject struct {
-	pathId   int64  // 对象 PathID / Object PathID
-	classId  int32  // Unity 类 ID / Unity class ID
-	name     string // 对象内部 m_Name / Internal object m_Name
-	loadName string // AssetBundle m_Container 加载名 / AssetBundle m_Container load name
-	data     []byte // 序列化后的对象数据 / Serialized object data
+	pathId       int64                     // 对象 PathID / Object PathID
+	classId      int32                     // Unity 类 ID / Unity class ID
+	scriptPathId int64                     // MonoBehaviour 的 m_Script 目标 PathID，其他类型为零 / MonoBehaviour m_Script target PathID, or zero for other classes
+	name         string                    // 对象内部 m_Name / Internal object m_Name
+	loadName     string                    // AssetBundle m_Container 加载名 / AssetBundle m_Container load name
+	data         []byte                    // 已在内存中的序列化对象数据 / Serialized object data already held in memory
+	dataSize     uint32                    // 对象在线格式字节数 / Object byte size on the wire
+	writeData    SerializedObjectWriteFunc // 流式对象写入回调 / Streaming object writer callback
+}
+
+// sfSerializedType 表示写入 metadata 的一个 SerializedType / sfSerializedType represents one SerializedType emitted into metadata
+type sfSerializedType struct {
+	classId         int32    // Unity 类 ID / Unity class ID
+	scriptTypeIndex int16    // MonoBehaviour 对应的 ScriptTypes 索引，非脚本类型为 -1 / ScriptTypes index for a MonoBehaviour, or -1 for non-script types
+	scriptPathId    int64    // 用于区分同一 class ID 下不同脚本类型的 MonoScript PathID / MonoScript PathID distinguishing script types that share one class ID
+	scriptIdHash    [16]byte // 脚本 ID 哈希，新建无 TypeTree 文件允许使用零值 / Script ID hash, which may be zero for a newly built file without TypeTree data
+	typeHash        [16]byte // 类型树哈希，新建无 TypeTree 文件允许使用零值 / Type-tree hash, which may be zero for a newly built file without TypeTree data
 }
 
 const (
@@ -44,7 +65,7 @@ const (
 // NewSerializedFileWriter creates a new SerializedFile v22 writer and validates the Unity version
 func NewSerializedFileWriter(unityVersion string) *SerializedFileWriter {
 	if unityVersion == "" {
-		unityVersion = "2021.3.37f1"
+		unityVersion = "2022.3.35f1"
 	}
 	w := &SerializedFileWriter{
 		UnityVersion:   unityVersion,
@@ -56,6 +77,30 @@ func NewSerializedFileWriter(unityVersion string) *SerializedFileWriter {
 		w.setError(err)
 	}
 	return w
+}
+
+// SetExternalFiles 设置 metadata 外部文件表并复制输入，使后续调用方修改不会改变写入结果
+// SetExternalFiles sets the metadata external-file table and copies the input so later caller mutations cannot alter the output
+func (w *SerializedFileWriter) SetExternalFiles(externalFiles []ExternalFile) {
+	if w == nil {
+		return
+	}
+	if _, err := int32WireLength("external file count", uint64(len(externalFiles))); err != nil {
+		w.setError(err)
+		return
+	}
+	for externalIndex := range externalFiles {
+		external := externalFiles[externalIndex]
+		if strings.IndexByte(external.AssetPath, 0) >= 0 {
+			w.setError(fmt.Errorf("external file[%d] asset path contains NUL", externalIndex))
+			return
+		}
+		if strings.IndexByte(external.PathName, 0) >= 0 {
+			w.setError(fmt.Errorf("external file[%d] path name contains NUL", externalIndex))
+			return
+		}
+	}
+	w.externalFiles = append(w.externalFiles[:0], externalFiles...)
 }
 
 // AddTextAsset 添加一个 TextAsset 对象，name 是资源名称，script 是 m_Script 数据
@@ -88,6 +133,11 @@ func (w *SerializedFileWriter) AddTextAssetWithLoadNameAndPathID(name string, lo
 		w.setError(fmt.Errorf("encode TextAsset %q: %w", name, err))
 		return 0
 	}
+	dataSize, err := uint32WireLength(fmt.Sprintf("TextAsset %q byte size", name), uint64(len(data)))
+	if err != nil {
+		w.setError(err)
+		return 0
+	}
 	actualPathID := w.reserveOrAllocatePathID(pathID)
 	w.objects = append(w.objects, sfObject{
 		pathId:   actualPathID,
@@ -95,6 +145,7 @@ func (w *SerializedFileWriter) AddTextAssetWithLoadNameAndPathID(name string, lo
 		name:     name,
 		loadName: nonEmptyLoadName(loadName, name),
 		data:     data,
+		dataSize: dataSize,
 	})
 	return actualPathID
 }
@@ -127,6 +178,11 @@ func (w *SerializedFileWriter) AddTexture2DWithLoadNameAndPathID(name string, lo
 		w.setError(fmt.Errorf("encode Texture2D %q: %w", name, err))
 		return 0
 	}
+	dataSize, err := uint32WireLength(fmt.Sprintf("Texture2D %q byte size", name), uint64(len(data)))
+	if err != nil {
+		w.setError(err)
+		return 0
+	}
 	actualPathID := w.reserveOrAllocatePathID(pathID)
 	w.objects = append(w.objects, sfObject{
 		pathId:   actualPathID,
@@ -134,6 +190,7 @@ func (w *SerializedFileWriter) AddTexture2DWithLoadNameAndPathID(name string, lo
 		name:     name,
 		loadName: nonEmptyLoadName(loadName, name),
 		data:     data,
+		dataSize: dataSize,
 	})
 	return actualPathID
 }
@@ -166,15 +223,86 @@ func (w *SerializedFileWriter) AddRawObjectWithLoadNameAndPathID(classId int32, 
 			data = rewritten
 		}
 	}
+	return w.addRawObject(classId, name, loadName, data, pathID)
+}
+
+// AddRawObjectPreservingDataWithLoadNameAndPathID 添加原始 Unity 对象并严格保留对象数据字节，仅使用 name 和 loadName 构建索引
+// AddRawObjectPreservingDataWithLoadNameAndPathID adds a raw Unity object while preserving its data bytes exactly and uses name and loadName only for indexing
+func (w *SerializedFileWriter) AddRawObjectPreservingDataWithLoadNameAndPathID(classId int32, name string, loadName string, data []byte, pathID int64) int64 {
+	return w.addRawObject(classId, name, loadName, data, pathID)
+}
+
+// AddRawObjectSourcePreservingDataWithLoadNameAndPathID 添加流式原始 Unity 对象并严格保留其数据字节
+// AddRawObjectSourcePreservingDataWithLoadNameAndPathID adds a streamed raw Unity object while preserving its data bytes exactly
+func (w *SerializedFileWriter) AddRawObjectSourcePreservingDataWithLoadNameAndPathID(classId int32, name string, loadName string, source SerializedObjectDataSource, pathID int64) int64 {
+	if source.WriteTo == nil {
+		w.setError(fmt.Errorf("raw object %q has a nil data-source writer", name))
+		return 0
+	}
+	if uint64(len(source.Prefix)) > uint64(source.Size) {
+		w.setError(fmt.Errorf("raw object %q prefix size %d exceeds object size %d", name, len(source.Prefix), source.Size))
+		return 0
+	}
 	actualPathID := w.reserveOrAllocatePathID(pathID)
+	var scriptPathID int64
+	if classId == ClassIDMonoBehaviour {
+		fileID, candidatePathID, ok := readMonoBehaviourScriptPPtr(source.Prefix)
+		if ok && fileID == 0 {
+			scriptPathID = candidatePathID
+		}
+	}
 	w.objects = append(w.objects, sfObject{
-		pathId:   actualPathID,
-		classId:  classId,
-		name:     name,
-		loadName: nonEmptyLoadName(loadName, name),
-		data:     data,
+		pathId:       actualPathID,
+		classId:      classId,
+		scriptPathId: scriptPathID,
+		name:         name,
+		loadName:     nonEmptyLoadName(loadName, name),
+		dataSize:     source.Size,
+		writeData:    source.WriteTo,
 	})
 	return actualPathID
+}
+
+// addRawObject 将准备好的对象字节和索引信息加入写入队列
+// addRawObject appends prepared object bytes and index information to the write queue
+func (w *SerializedFileWriter) addRawObject(classId int32, name string, loadName string, data []byte, pathID int64) int64 {
+	dataSize, err := uint32WireLength(fmt.Sprintf("raw object %q byte size", name), uint64(len(data)))
+	if err != nil {
+		w.setError(err)
+		return 0
+	}
+	actualPathID := w.reserveOrAllocatePathID(pathID)
+	var scriptPathID int64
+	if classId == ClassIDMonoBehaviour {
+		fileID, candidatePathID, ok := readMonoBehaviourScriptPPtr(data)
+		if ok && fileID == 0 {
+			scriptPathID = candidatePathID
+		}
+	}
+	w.objects = append(w.objects, sfObject{
+		pathId:       actualPathID,
+		classId:      classId,
+		scriptPathId: scriptPathID,
+		name:         name,
+		loadName:     nonEmptyLoadName(loadName, name),
+		data:         data,
+		dataSize:     dataSize,
+	})
+	return actualPathID
+}
+
+// readMonoBehaviourScriptPPtr 从 Unity 2019 及以后发布版 MonoBehaviour 的稳定基类前缀读取 m_Script 引用
+// readMonoBehaviourScriptPPtr reads the m_Script reference from the stable release-player MonoBehaviour base prefix used by Unity 2019 and later
+func readMonoBehaviourScriptPPtr(data []byte) (int32, int64, bool) {
+	const scriptFileIDOffset int64 = 16
+	const scriptPathIDOffset int64 = 20
+	const prefixSize int64 = 28
+	if int64(len(data)) < prefixSize {
+		return 0, 0, false
+	}
+	fileID := int32(binary.LittleEndian.Uint32(data[scriptFileIDOffset:scriptPathIDOffset]))
+	pathID := int64(binary.LittleEndian.Uint64(data[scriptPathIDOffset:prefixSize]))
+	return fileID, pathID, true
 }
 
 // nonEmptyLoadName 返回非空的 AssetBundle 加载键，空值时回退到对象名称
@@ -268,6 +396,7 @@ func rawObjectHasLeadingName(classId int32) bool {
 		ClassIDTextAsset,
 		ClassIDAnimationClip,
 		ClassIDAudioClip,
+		ClassIDCubemap,
 		ClassIDMonoScript,
 		ClassIDFont,
 		ClassIDSprite,
@@ -296,6 +425,63 @@ func rewriteLeadingAlignedName(data []byte, name string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// Size 计算完整 SerializedFile 的精确字节数且不读取流式对象数据
+// Size computes the exact complete SerializedFile byte size without reading streamed object data
+func (w *SerializedFileWriter) Size() (int64, error) {
+	if w == nil {
+		return 0, fmt.Errorf("nil SerializedFileWriter")
+	}
+	if w.err != nil {
+		return 0, w.err
+	}
+	if err := validateSerializedFileUnityVersion(w.UnityVersion); err != nil {
+		return 0, err
+	}
+	if _, err := int32WireLength("serialized object count", uint64(len(w.objects))+1); err != nil {
+		return 0, err
+	}
+	containerData, err := w.encodeAssetBundleObject()
+	if err != nil {
+		return 0, fmt.Errorf("encode AssetBundle object: %w", err)
+	}
+	containerDataSize, err := uint32WireLength("AssetBundle object byte size", uint64(len(containerData)))
+	if err != nil {
+		return 0, err
+	}
+	allObjects := make([]sfObject, 0, len(w.objects)+1)
+	allObjects = append(allObjects, w.objects...)
+	allObjects = append(allObjects, sfObject{
+		pathId:   w.nextAvailablePathID(),
+		classId:  ClassIDAssetBundle,
+		name:     "CAB-generated",
+		data:     containerData,
+		dataSize: containerDataSize,
+	})
+	serializedTypes, scriptTypes, err := collectSerializedTypes(allObjects)
+	if err != nil {
+		return 0, err
+	}
+	metadata, err := w.buildMetadata(allObjects, serializedTypes, scriptTypes)
+	if err != nil {
+		return 0, fmt.Errorf("build metadata: %w", err)
+	}
+	offsets, dataSectionSize, err := layoutDataSection(allObjects)
+	if err != nil {
+		return 0, fmt.Errorf("layout data section: %w", err)
+	}
+	metadata, err = w.buildMetadataWithOffsets(allObjects, serializedTypes, scriptTypes, offsets)
+	if err != nil {
+		return 0, fmt.Errorf("build metadata with offsets: %w", err)
+	}
+	const headerSize int64 = 48
+	dataOffset := binaryio.AlignOffset(headerSize+int64(len(metadata)), 16)
+	fileSize, ok := addNonNegativeInt64(dataOffset, dataSectionSize)
+	if !ok {
+		return 0, fmt.Errorf("serialized file size overflows Int64")
+	}
+	return fileSize, nil
+}
+
 // Write 将所有对象写入完整的 SerializedFile v22 格式，并自动追加 ClassID 142 AssetBundle 对象作为 m_Container 映射
 // Write emits a complete SerializedFile v22 and appends a ClassID 142 AssetBundle object containing the m_Container mapping
 func (w *SerializedFileWriter) Write(out io.Writer) error {
@@ -314,9 +500,10 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 	if _, err := int32WireLength("serialized object count", uint64(len(w.objects))+1); err != nil {
 		return err
 	}
-	for i := range w.objects {
-		if _, err := uint32WireLength(fmt.Sprintf("object[%d] %q byte size", i, w.objects[i].name), uint64(len(w.objects[i].data))); err != nil {
-			return err
+	for objectIndex := range w.objects {
+		object := w.objects[objectIndex]
+		if object.writeData == nil && uint64(len(object.data)) != uint64(object.dataSize) {
+			return fmt.Errorf("object[%d] %q has %d in-memory bytes but declares %d", objectIndex, object.name, len(object.data), object.dataSize)
 		}
 	}
 
@@ -326,23 +513,31 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("encode AssetBundle object: %w", err)
 	}
+	containerDataSize, err := uint32WireLength("AssetBundle object byte size", uint64(len(containerData)))
+	if err != nil {
+		return err
+	}
 	abPathId := w.nextAvailablePathID()
 	allObjects := make([]sfObject, 0, len(w.objects)+1)
 	allObjects = append(allObjects, w.objects...)
 	allObjects = append(allObjects, sfObject{
-		pathId:  abPathId,
-		classId: ClassIDAssetBundle,
-		name:    "CAB-generated",
-		data:    containerData,
+		pathId:   abPathId,
+		classId:  ClassIDAssetBundle,
+		name:     "CAB-generated",
+		data:     containerData,
+		dataSize: containerDataSize,
 	})
 
-	// 按首次出现顺序收集唯一 class ID
-	// Collect unique class IDs in first-seen order
-	classIds := collectClassIds(allObjects)
+	// 按首次出现顺序收集 SerializedType，并为不同 MonoScript 目标创建独立的 MonoBehaviour 类型
+	// Collect SerializedTypes in first-seen order and create a distinct MonoBehaviour type for each MonoScript target
+	serializedTypes, scriptTypes, err := collectSerializedTypes(allObjects)
+	if err != nil {
+		return err
+	}
 
 	// 首次构建 metadata 以确定其长度
 	// Build metadata once to determine its length
-	metadataBuf, err := w.buildMetadata(allObjects, classIds)
+	metadataBuf, err := w.buildMetadata(allObjects, serializedTypes, scriptTypes)
 	if err != nil {
 		return fmt.Errorf("build metadata: %w", err)
 	}
@@ -355,22 +550,22 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 	// Align the data-section start to 16 bytes
 	dataOffset := binaryio.AlignOffset(headerSize+int64(len(metadataBuf)), 16)
 
-	// 构建数据区并将每个对象起点对齐到八字节
-	// Build the data section with every object start aligned to eight bytes
-	dataBuf, objectOffsets, err := buildDataSection(allObjects)
+	// 计算数据区布局而不复制对象内容，并将每个对象起点对齐到八字节
+	// Compute the data-section layout without copying object contents and align every object start to eight bytes
+	objectOffsets, dataSectionSize, err := layoutDataSection(allObjects)
 	if err != nil {
-		return fmt.Errorf("build data section: %w", err)
+		return fmt.Errorf("layout data section: %w", err)
 	}
 
 	// 使用最终对象偏移重新构建 metadata
 	// Rebuild metadata with final object offsets
-	metadataBuf, err = w.buildMetadataWithOffsets(allObjects, classIds, objectOffsets)
+	metadataBuf, err = w.buildMetadataWithOffsets(allObjects, serializedTypes, scriptTypes, objectOffsets)
 	if err != nil {
 		return fmt.Errorf("build metadata with offsets: %w", err)
 	}
 	dataOffset = binaryio.AlignOffset(headerSize+int64(len(metadataBuf)), 16)
 
-	fileSize, ok := addNonNegativeInt64(dataOffset, int64(len(dataBuf)))
+	fileSize, ok := addNonNegativeInt64(dataOffset, dataSectionSize)
 	if !ok {
 		return fmt.Errorf("serialized file size overflows Int64")
 	}
@@ -435,7 +630,7 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 			return fmt.Errorf("write padding: %w", err)
 		}
 	}
-	if err := writeAbaBytes(out, dataBuf); err != nil {
+	if err := writeDataSection(out, allObjects, objectOffsets, dataSectionSize); err != nil {
 		return fmt.Errorf("write data: %w", err)
 	}
 	return nil
@@ -443,17 +638,17 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 
 // buildMetadata 构建对象偏移暂为零的 metadata，用于计算布局
 // buildMetadata builds metadata with provisional zero object offsets for layout calculation
-func (w *SerializedFileWriter) buildMetadata(objects []sfObject, classIds []int32) ([]byte, error) {
-	return w.buildMetadataWithOffsets(objects, classIds, nil)
+func (w *SerializedFileWriter) buildMetadata(objects []sfObject, serializedTypes []sfSerializedType, scriptTypes []LocalSerializedObjectIdentifier) ([]byte, error) {
+	return w.buildMetadataWithOffsets(objects, serializedTypes, scriptTypes, nil)
 }
 
-// buildMetadataWithOffsets 构建包含 SerializedTypes、AssetInfos 和空尾部表的 Little-Endian v22 metadata
-// buildMetadataWithOffsets builds Little-Endian v22 metadata containing SerializedTypes, AssetInfos, and empty tail tables
-func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, classIds []int32, offsets []int64) ([]byte, error) {
+// buildMetadataWithOffsets 构建包含 SerializedTypes、AssetInfos、ScriptTypes 和尾部表的 Little-Endian v22 metadata
+// buildMetadataWithOffsets builds Little-Endian v22 metadata containing SerializedTypes, AssetInfos, ScriptTypes, and the remaining tail tables
+func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, serializedTypes []sfSerializedType, scriptTypes []LocalSerializedObjectIdentifier, offsets []int64) ([]byte, error) {
 	if offsets != nil && len(offsets) != len(objects) {
 		return nil, fmt.Errorf("object offset count %d does not match object count %d", len(offsets), len(objects))
 	}
-	typeCount, err := int32WireLength("serialized type count", uint64(len(classIds)))
+	typeCount, err := int32WireLength("serialized type count", uint64(len(serializedTypes)))
 	if err != nil {
 		return nil, err
 	}
@@ -487,23 +682,23 @@ func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, clas
 	if err := bw.WriteInt32(typeCount); err != nil {
 		return nil, fmt.Errorf("write type count: %w", err)
 	}
-	for _, cid := range classIds {
-		if err := bw.WriteInt32(cid); err != nil { // TypeId
-			return nil, fmt.Errorf("write type id %d: %w", cid, err)
+	for _, serializedType := range serializedTypes {
+		if err := bw.WriteInt32(serializedType.classId); err != nil { // TypeId
+			return nil, fmt.Errorf("write type id %d: %w", serializedType.classId, err)
 		}
 		if err := bw.WriteByte(0); err != nil { // IsStrippedType
-			return nil, fmt.Errorf("write stripped flag for type %d: %w", cid, err)
+			return nil, fmt.Errorf("write stripped flag for type %d: %w", serializedType.classId, err)
 		}
-		if err := bw.WriteInt16(-1); err != nil { // ScriptTypeIndex
-			return nil, fmt.Errorf("write script type index for type %d: %w", cid, err)
+		if err := bw.WriteInt16(serializedType.scriptTypeIndex); err != nil { // ScriptTypeIndex
+			return nil, fmt.Errorf("write script type index for type %d: %w", serializedType.classId, err)
 		}
-		if cid == ClassIDMonoBehaviour {
-			if err := bw.WriteZeroes(16); err != nil { // ScriptIdHash
-				return nil, fmt.Errorf("write script id hash for type %d: %w", cid, err)
+		if serializedType.classId == ClassIDMonoBehaviour {
+			if err := bw.WriteBytes(serializedType.scriptIdHash[:]); err != nil { // ScriptIdHash
+				return nil, fmt.Errorf("write script id hash for type %d: %w", serializedType.classId, err)
 			}
 		}
-		if err := bw.WriteZeroes(16); err != nil { // TypeHash (zeroed)
-			return nil, fmt.Errorf("write type hash for type %d: %w", cid, err)
+		if err := bw.WriteBytes(serializedType.typeHash[:]); err != nil { // TypeHash
+			return nil, fmt.Errorf("write type hash for type %d: %w", serializedType.classId, err)
 		}
 	}
 
@@ -528,14 +723,10 @@ func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, clas
 		if err := bw.WriteInt64(offset); err != nil { // ByteOffset
 			return nil, fmt.Errorf("write asset info[%d] byte offset: %w", i, err)
 		}
-		byteSize, err := uint32WireLength(fmt.Sprintf("asset info[%d] byte size", i), uint64(len(obj.data)))
-		if err != nil {
-			return nil, err
-		}
-		if err := bw.WriteUInt32(byteSize); err != nil { // ByteSize
+		if err := bw.WriteUInt32(obj.dataSize); err != nil { // ByteSize
 			return nil, fmt.Errorf("write asset info[%d] byte size: %w", i, err)
 		}
-		typeIndex := classIdIndex(classIds, obj.classId)
+		typeIndex := serializedTypeIndex(serializedTypes, obj)
 		if typeIndex < 0 {
 			return nil, fmt.Errorf("asset info[%d] class ID %d is absent from serialized types", i, obj.classId)
 		}
@@ -544,16 +735,50 @@ func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, clas
 		}
 	}
 
-	// SerializedFile metadata 即使没有 MonoBehaviour 脚本引用，也在 AssetInfos 与 ExternalFiles 之间保存 ScriptTypes 计数，本写入器写零
-	// SerializedFile metadata stores ScriptTypes count between AssetInfos and ExternalFiles even without MonoBehaviour references; this writer emits zero
-	if err := bw.WriteUInt32(0); err != nil {
+	// ScriptTypes 将每个 MonoBehaviour SerializedType 连接到同一文件中的 MonoScript 对象
+	// ScriptTypes connect each MonoBehaviour SerializedType to its MonoScript object in the same file
+	scriptTypeCount, err := int32WireLength("script type count", uint64(len(scriptTypes)))
+	if err != nil {
+		return nil, err
+	}
+	if err := bw.WriteInt32(scriptTypeCount); err != nil {
 		return nil, fmt.Errorf("write script type count: %w", err)
 	}
+	for scriptIndex, identifier := range scriptTypes {
+		if err := bw.WriteInt32(identifier.LocalSerializedFileIndex); err != nil {
+			return nil, fmt.Errorf("write script type[%d] file index: %w", scriptIndex, err)
+		}
+		if err := bw.Align(4); err != nil {
+			return nil, fmt.Errorf("align script type[%d]: %w", scriptIndex, err)
+		}
+		if err := bw.WriteInt64(identifier.LocalIdentifierInFile); err != nil {
+			return nil, fmt.Errorf("write script type[%d] PathID: %w", scriptIndex, err)
+		}
+	}
 
-	// ExternalFiles 数量写零
-	// ExternalFiles count is zero
-	if err := bw.WriteUInt32(0); err != nil {
+	// ExternalFiles 按一基 fileID 对应的数组顺序写入完整引用记录
+	// ExternalFiles are emitted as complete reference records in the array order addressed by one-based fileIDs
+	externalFileCount, err := int32WireLength("external file count", uint64(len(w.externalFiles)))
+	if err != nil {
+		return nil, err
+	}
+	if err := bw.WriteInt32(externalFileCount); err != nil {
 		return nil, fmt.Errorf("write external file count: %w", err)
+	}
+	for externalIndex := range w.externalFiles {
+		external := w.externalFiles[externalIndex]
+		if err := bw.WriteNullString(external.AssetPath); err != nil {
+			return nil, fmt.Errorf("write external file[%d] asset path: %w", externalIndex, err)
+		}
+		if err := bw.WriteBytes(external.Guid[:]); err != nil {
+			return nil, fmt.Errorf("write external file[%d] GUID: %w", externalIndex, err)
+		}
+		if err := bw.WriteInt32(external.Type); err != nil {
+			return nil, fmt.Errorf("write external file[%d] type: %w", externalIndex, err)
+		}
+		if err := bw.WriteNullString(external.PathName); err != nil {
+			return nil, fmt.Errorf("write external file[%d] path name: %w", externalIndex, err)
+		}
 	}
 
 	// RefTypes 数量写零
@@ -665,9 +890,9 @@ func (w *SerializedFileWriter) encodeAssetBundleObject() ([]byte, error) {
 		return nil, fmt.Errorf("align AssetBundle m_IsStreamedSceneAssetBundle: %w", err)
 	}
 
-	// Unity 2020.2 至 2022.3 的全部 KCES 样本都含 m_ExplicitDataLayout、m_PathFlags 和 m_SceneHashes
+	// Unity 2022.3 KCES 样本含 m_ExplicitDataLayout、m_PathFlags 和 m_SceneHashes
 	// 省略这些字段会产生 Unity 内置 TypeTree 无法反序列化的截断 AssetBundle 对象
-	// Every KCES sample from Unity 2020.2 through 2022.3 contains m_ExplicitDataLayout, m_PathFlags, and m_SceneHashes
+	// Unity 2022.3 KCES samples contain m_ExplicitDataLayout, m_PathFlags, and m_SceneHashes
 	// Omitting them leaves a truncated AssetBundle object that Unity's built-in TypeTree cannot deserialize
 	if err := bw.WriteInt32(0); err != nil { // m_ExplicitDataLayout
 		return nil, fmt.Errorf("write AssetBundle m_ExplicitDataLayout: %w", err)
@@ -712,8 +937,8 @@ func encodeTextAssetData(name string, script []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// encodeTexture2DData 按 KCES 对应 Unity 版本的内置 TypeTree 编码内联 RGBA32 Texture2D
-// encodeTexture2DData encodes an inline RGBA32 Texture2D using the built-in TypeTree for the corresponding KCES Unity version
+// encodeTexture2DData 按 Unity 2022.3 内置 TypeTree 编码内联 RGBA32 Texture2D
+// encodeTexture2DData encodes an inline RGBA32 Texture2D using the Unity 2022.3 built-in TypeTree
 func encodeTexture2DData(unityVersion string, name string, width, height int64, imageData []byte) ([]byte, error) {
 	if width <= 0 || height <= 0 {
 		return nil, fmt.Errorf("invalid Texture2D dimensions %dx%d", width, height)
@@ -733,8 +958,7 @@ func encodeTexture2DData(unityVersion string, name string, width, height int64, 
 	if err != nil {
 		return nil, err
 	}
-	newMipmapLimitLayout, err := texture2DUsesMipmapLimitGroup(unityVersion)
-	if err != nil {
+	if err := validateSerializedFileUnityVersion(unityVersion); err != nil {
 		return nil, err
 	}
 
@@ -799,32 +1023,24 @@ func encodeTexture2DData(unityVersion string, name string, width, height int64, 
 		return nil, fmt.Errorf("write Texture2D m_MipCount: %w", err)
 	}
 
-	// m_IsReadable、m_IsPreProcessed 和版本特定的 mipmap limit 字段位于 m_StreamingMipmaps 之前
-	// m_IsReadable, m_IsPreProcessed, and version-specific mipmap-limit fields are serialized before m_StreamingMipmaps
+	// m_IsReadable、m_IsPreProcessed 和 Unity 2022.3 mipmap limit 字段位于 m_StreamingMipmaps 之前
+	// m_IsReadable, m_IsPreProcessed, and the Unity 2022.3 mipmap-limit fields are serialized before m_StreamingMipmaps
 	if err := bw.WriteByte(1); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_IsReadable: %w", err)
 	}
 	if err := bw.WriteByte(0); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_IsPreProcessed: %w", err)
 	}
-	if newMipmapLimitLayout {
-		// Unity 2022.3 写 m_IgnoreMipmapLimit 并随后写 m_MipmapLimitGroupName
-		// Unity 2022.3 writes m_IgnoreMipmapLimit followed by m_MipmapLimitGroupName
-		if err := bw.WriteByte(0); err != nil {
-			return nil, fmt.Errorf("write Texture2D m_IgnoreMipmapLimit: %w", err)
-		}
-		if err := bw.Align(4); err != nil {
-			return nil, fmt.Errorf("align Texture2D m_IgnoreMipmapLimit: %w", err)
-		}
-		if err := bw.WriteAlignedString(""); err != nil {
-			return nil, fmt.Errorf("write Texture2D m_MipmapLimitGroupName: %w", err)
-		}
-	} else {
-		// Unity 2020.2 与 2021.3 使用旧 m_IgnoreMasterTextureLimit 字段
-		// Unity 2020.2 and 2021.3 use the legacy m_IgnoreMasterTextureLimit field
-		if err := bw.WriteByte(0); err != nil {
-			return nil, fmt.Errorf("write Texture2D m_IgnoreMasterTextureLimit: %w", err)
-		}
+	// Unity 2022.3 写 m_IgnoreMipmapLimit 并随后写 m_MipmapLimitGroupName
+	// Unity 2022.3 writes m_IgnoreMipmapLimit followed by m_MipmapLimitGroupName
+	if err := bw.WriteByte(0); err != nil {
+		return nil, fmt.Errorf("write Texture2D m_IgnoreMipmapLimit: %w", err)
+	}
+	if err := bw.Align(4); err != nil {
+		return nil, fmt.Errorf("align Texture2D m_IgnoreMipmapLimit: %w", err)
+	}
+	if err := bw.WriteAlignedString(""); err != nil {
+		return nil, fmt.Errorf("write Texture2D m_MipmapLimitGroupName: %w", err)
 	}
 
 	// m_StreamingMipmaps 写为 false 并对齐到四字节
@@ -922,29 +1138,19 @@ func encodeTexture2DData(unityVersion string, name string, width, height int64, 
 	return buf.Bytes(), nil
 }
 
-// validateSerializedFileUnityVersion 将生成的内置对象布局限制为 KCES 样本中观察到的 Unity 版本线
-// Unity 会按该版本字符串解释原始对象字节，静默接受未知版本可能使其余字节完全相同的重打包文件无法读取
-// validateSerializedFileUnityVersion limits generated built-in object layouts to Unity lines observed in KCES samples
-// Unity interprets raw object bytes according to this version string, so accepting an unknown line could make an otherwise byte-identical repack unreadable
+// validateSerializedFileUnityVersion 将生成的内置对象布局限制为纯目录契约使用的 Unity 2022.3 版本线
+// Unity 会按该版本字符串解释原始对象字节，接受旧版或未知布局会使重打包文件无法读取
+// validateSerializedFileUnityVersion limits generated built-in object layouts to the Unity 2022.3 line used by the pure-directory contract
+// Unity interprets raw object bytes according to this version string, so accepting legacy or unknown layouts could make repacked files unreadable
 func validateSerializedFileUnityVersion(unityVersion string) error {
 	major, minor, err := parseUnityMajorMinor(unityVersion)
 	if err != nil {
 		return err
 	}
-	if (major == 2020 && minor == 2) || (major == 2021 && minor == 3) || (major == 2022 && minor == 3) {
+	if major == 2022 && minor == 3 {
 		return nil
 	}
-	return fmt.Errorf("unsupported KCES Unity version %q: supported lines are 2020.2, 2021.3, and 2022.3", unityVersion)
-}
-
-// texture2DUsesMipmapLimitGroup 判断 Texture2D 是否使用 Unity 2022 的 mipmap limit group 布局
-// texture2DUsesMipmapLimitGroup reports whether Texture2D uses the Unity 2022 mipmap-limit-group layout
-func texture2DUsesMipmapLimitGroup(unityVersion string) (bool, error) {
-	if err := validateSerializedFileUnityVersion(unityVersion); err != nil {
-		return false, err
-	}
-	major, _, _ := parseUnityMajorMinor(unityVersion)
-	return major >= 2022, nil
+	return fmt.Errorf("unsupported KCES Unity version %q: writer requires Unity 2022.3", unityVersion)
 }
 
 // parseUnityMajorMinor 从 Unity 版本字符串开头解析 major 和 minor 数字
@@ -957,47 +1163,179 @@ func parseUnityMajorMinor(unityVersion string) (int64, int64, error) {
 	return major, minor, nil
 }
 
-// buildDataSection 将对象数据按八字节边界排列，并返回各对象相对于数据区的偏移
-// buildDataSection lays out object data on eight-byte boundaries and returns offsets relative to the data section
-func buildDataSection(objects []sfObject) ([]byte, []int64, error) {
-	var buf bytes.Buffer
-	bw := binaryio.NewEndianWriter(&buf, binary.LittleEndian)
+// layoutDataSection 计算按八字节边界排列的对象偏移和数据区总大小
+// layoutDataSection computes eight-byte-aligned object offsets and the total data-section size
+func layoutDataSection(objects []sfObject) ([]int64, int64, error) {
 	offsets := make([]int64, len(objects))
-	for i, obj := range objects {
-		if err := bw.Align(8); err != nil {
-			return nil, nil, fmt.Errorf("align object[%d]: %w", i, err)
-		}
-		offsets[i] = int64(buf.Len())
-		if err := bw.WriteBytes(obj.data); err != nil {
-			return nil, nil, fmt.Errorf("write object[%d] data: %w", i, err)
+	var offset int64
+	for objectIndex := range objects {
+		offset = binaryio.AlignOffset(offset, 8)
+		offsets[objectIndex] = offset
+		var ok bool
+		offset, ok = addNonNegativeInt64(offset, int64(objects[objectIndex].dataSize))
+		if !ok {
+			return nil, 0, fmt.Errorf("object[%d] data range overflows Int64", objectIndex)
 		}
 	}
-	if err := bw.Align(8); err != nil {
-		return nil, nil, fmt.Errorf("align final object data: %w", err)
+	dataSectionSize := binaryio.AlignOffset(offset, 8)
+	if dataSectionSize < offset {
+		return nil, 0, fmt.Errorf("final object-data alignment overflows Int64")
 	}
-	return buf.Bytes(), offsets, nil
+	return offsets, dataSectionSize, nil
 }
 
-// collectClassIds 按首次出现顺序返回对象使用的唯一 class ID
-// collectClassIds returns unique class IDs used by objects in first-seen order
-func collectClassIds(objects []sfObject) []int32 {
-	seen := map[int32]bool{}
-	var ids []int32
+// writeDataSection 按预先计算的偏移流式写入全部对象及对齐填充
+// writeDataSection streams all objects and alignment padding at their precomputed offsets
+func writeDataSection(out io.Writer, objects []sfObject, offsets []int64, dataSectionSize int64) error {
+	if out == nil {
+		return fmt.Errorf("nil data-section writer")
+	}
+	if len(objects) != len(offsets) {
+		return fmt.Errorf("object count %d does not match offset count %d", len(objects), len(offsets))
+	}
+	var position int64
+	for objectIndex := range objects {
+		if offsets[objectIndex] < position {
+			return fmt.Errorf("object[%d] offset %d precedes current position %d", objectIndex, offsets[objectIndex], position)
+		}
+		if err := writeSerializedZeroes(out, offsets[objectIndex]-position); err != nil {
+			return fmt.Errorf("write object[%d] alignment: %w", objectIndex, err)
+		}
+		if err := writeSerializedObjectData(out, objects[objectIndex]); err != nil {
+			return fmt.Errorf("write object[%d] %q: %w", objectIndex, objects[objectIndex].name, err)
+		}
+		position = offsets[objectIndex] + int64(objects[objectIndex].dataSize)
+	}
+	if position > dataSectionSize {
+		return fmt.Errorf("object data ends at %d beyond section size %d", position, dataSectionSize)
+	}
+	return writeSerializedZeroes(out, dataSectionSize-position)
+}
+
+// writeSerializedObjectData 写入一个内存或流式对象并验证精确字节数
+// writeSerializedObjectData writes one in-memory or streamed object and validates its exact byte count
+func writeSerializedObjectData(out io.Writer, object sfObject) error {
+	if object.writeData == nil {
+		if uint64(len(object.data)) != uint64(object.dataSize) {
+			return fmt.Errorf("in-memory size %d does not match declared size %d", len(object.data), object.dataSize)
+		}
+		return writeAbaBytes(out, object.data)
+	}
+	exact := &serializedExactWriter{writer: out, remaining: int64(object.dataSize)}
+	if err := object.writeData(exact); err != nil {
+		return err
+	}
+	if exact.remaining != 0 {
+		return fmt.Errorf("stream wrote %d fewer bytes than declared", exact.remaining)
+	}
+	return nil
+}
+
+// serializedExactWriter 限制流式对象写入的剩余字节数 / serializedExactWriter limits the remaining bytes of a streamed object write
+type serializedExactWriter struct {
+	writer    io.Writer // 下游写入器 / Downstream writer
+	remaining int64     // 尚须写入的字节数 / Bytes still required
+}
+
+// Write 将字节转发到下游并拒绝超过对象声明大小的写入
+// Write forwards bytes downstream and rejects writes beyond the declared object size
+func (w *serializedExactWriter) Write(data []byte) (int, error) {
+	if w == nil || w.writer == nil {
+		return 0, fmt.Errorf("nil exact-size writer")
+	}
+	if int64(len(data)) > w.remaining {
+		return 0, fmt.Errorf("stream attempted to write %d bytes with only %d remaining", len(data), w.remaining)
+	}
+	n, err := w.writer.Write(data)
+	if n < 0 || n > len(data) {
+		return 0, fmt.Errorf("writer returned invalid byte count %d for %d-byte buffer", n, len(data))
+	}
+	w.remaining -= int64(n)
+	if err == nil && n == 0 && len(data) != 0 {
+		return 0, io.ErrShortWrite
+	}
+	return n, err
+}
+
+// writeSerializedZeroes 以有界缓冲区写入指定数量的零填充
+// writeSerializedZeroes writes a requested amount of zero padding through a bounded buffer
+func writeSerializedZeroes(out io.Writer, count int64) error {
+	if count < 0 {
+		return fmt.Errorf("negative zero-padding size %d", count)
+	}
+	var zeroes [4096]byte
+	for count > 0 {
+		size := int64(len(zeroes))
+		if size > count {
+			size = count
+		}
+		if err := writeAbaBytes(out, zeroes[:size]); err != nil {
+			return err
+		}
+		count -= size
+	}
+	return nil
+}
+
+// collectSerializedTypes 按对象首次出现顺序建立 SerializedTypes 和 ScriptTypes，并验证 MonoBehaviour 的本地脚本目标
+// collectSerializedTypes builds SerializedTypes and ScriptTypes in first-object order and validates local MonoScript targets used by MonoBehaviours
+func collectSerializedTypes(objects []sfObject) ([]sfSerializedType, []LocalSerializedObjectIdentifier, error) {
+	objectClasses := make(map[int64]int32, len(objects))
 	for _, obj := range objects {
-		if !seen[obj.classId] {
-			seen[obj.classId] = true
-			ids = append(ids, obj.classId)
+		if previous, exists := objectClasses[obj.pathId]; exists {
+			return nil, nil, fmt.Errorf("objects with class IDs %d and %d use duplicate PathID %d", previous, obj.classId, obj.pathId)
 		}
+		objectClasses[obj.pathId] = obj.classId
 	}
-	return ids
+
+	var serializedTypes []sfSerializedType
+	var scriptTypes []LocalSerializedObjectIdentifier
+	scriptIndexes := make(map[int64]int16)
+	for _, obj := range objects {
+		if serializedTypeIndex(serializedTypes, obj) >= 0 {
+			continue
+		}
+		serializedType := sfSerializedType{
+			classId:         obj.classId,
+			scriptTypeIndex: -1,
+			scriptPathId:    obj.scriptPathId,
+		}
+		if obj.classId == ClassIDMonoBehaviour && obj.scriptPathId != 0 {
+			targetClassID, exists := objectClasses[obj.scriptPathId]
+			if !exists {
+				return nil, nil, fmt.Errorf("MonoBehaviour PathID %d references missing MonoScript PathID %d", obj.pathId, obj.scriptPathId)
+			}
+			if targetClassID != ClassIDMonoScript {
+				return nil, nil, fmt.Errorf("MonoBehaviour PathID %d m_Script targets class ID %d at PathID %d instead of MonoScript", obj.pathId, targetClassID, obj.scriptPathId)
+			}
+			scriptIndex, exists := scriptIndexes[obj.scriptPathId]
+			if !exists {
+				if int64(len(scriptTypes)) > int64(math.MaxInt16) {
+					return nil, nil, fmt.Errorf("script type count %d exceeds Int16 ScriptTypeIndex range", len(scriptTypes)+1)
+				}
+				scriptIndex = int16(len(scriptTypes))
+				scriptIndexes[obj.scriptPathId] = scriptIndex
+				scriptTypes = append(scriptTypes, LocalSerializedObjectIdentifier{
+					LocalSerializedFileIndex: 0,
+					LocalIdentifierInFile:    obj.scriptPathId,
+				})
+			}
+			serializedType.scriptTypeIndex = scriptIndex
+		}
+		serializedTypes = append(serializedTypes, serializedType)
+	}
+	return serializedTypes, scriptTypes, nil
 }
 
-// classIdIndex 返回 class ID 在 SerializedTypes 列表中的索引，未找到时返回 -1
-// classIdIndex returns a class ID index in SerializedTypes or -1 when absent
-func classIdIndex(classIds []int32, id int32) int32 {
-	for i, cid := range classIds {
-		if cid == id {
-			return int32(i)
+// serializedTypeIndex 返回对象应使用的 SerializedType 索引，并按 MonoScript PathID 区分 MonoBehaviour 类型
+// serializedTypeIndex returns the SerializedType index for an object and distinguishes MonoBehaviour types by MonoScript PathID
+func serializedTypeIndex(serializedTypes []sfSerializedType, obj sfObject) int32 {
+	for typeIndex, serializedType := range serializedTypes {
+		if serializedType.classId != obj.classId {
+			continue
+		}
+		if obj.classId != ClassIDMonoBehaviour || serializedType.scriptPathId == obj.scriptPathId {
+			return int32(typeIndex)
 		}
 	}
 	return -1

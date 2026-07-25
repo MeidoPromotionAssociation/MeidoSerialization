@@ -47,16 +47,19 @@ import (
 //	  - UnityVersion, target platform, type-tree flag and definitions
 //	  - AssetInfos, external references, version-21+ reference types, and user information
 
-// AssetsFile 表示一个已解析的 Unity SerializedFile
-// AssetsFile represents one parsed Unity SerializedFile
+// AssetsFile 表示一个已解析的 Unity SerializedFile / AssetsFile represents one parsed Unity SerializedFile
 type AssetsFile struct {
-	Header   AssetsFileHeader // 文件头 / File header
-	Metadata AssetsMetadata   // 包含类型树和资源列表的元数据 / Metadata including type trees and asset list
-	Data     []byte           // 用于按偏移读取资源的原始文件数据 / Raw file bytes used to read assets by offset
+	Header    AssetsFileHeader        // 文件头 / File header
+	Metadata  AssetsMetadata          // 包含类型树和资源列表的元数据 / Metadata including type trees and asset list
+	Data      []byte                  // 用于按偏移读取资源的原始文件数据 / Raw file bytes used to read assets by offset
+	readRange AssetsFileRangeResolver // 未整体载入文件时使用的范围读取器 / Range reader used when the complete file is not loaded
 }
 
-// AssetsFileHeader 表示 Unity 序列化文件头
-// AssetsFileHeader represents a Unity serialized file header
+// AssetsFileRangeResolver 从 SerializedFile 的绝对偏移读取精确字节范围
+// AssetsFileRangeResolver reads an exact byte range at an absolute SerializedFile offset
+type AssetsFileRangeResolver func(offset int64, size int64) ([]byte, error)
+
+// AssetsFileHeader 表示 Unity 序列化文件头 / AssetsFileHeader represents a Unity serialized file header
 type AssetsFileHeader struct {
 	MetadataSize       uint32  // 元数据块大小 / Metadata block size
 	FileSize           int64   // 整个文件大小 / Total file size
@@ -70,8 +73,7 @@ type AssetsFileHeader struct {
 	LargeFilesUnknown  int64   // v22 扩展头末尾用途未知的 Int64 字段 / Int64 field of unknown purpose at the end of the v22 extended header
 }
 
-// AssetsMetadata 包含类型树、资源信息和 metadata 尾部
-// AssetsMetadata contains type trees, asset metadata, and the metadata tail
+// AssetsMetadata 包含类型树、资源信息和 metadata 尾部 / AssetsMetadata contains type trees, asset metadata, and the metadata tail
 type AssetsMetadata struct {
 	UnityVersion    string                            // Unity 版本字符串 / Unity version string
 	TargetPlatform  uint32                            // 目标平台 ID / Target platform ID
@@ -85,8 +87,7 @@ type AssetsMetadata struct {
 	UserInformation string                            // metadata 尾部用户信息 / User-information string at the metadata tail
 }
 
-// TypeTreeType 表示一个 Unity 类型的 TypeTree 定义
-// TypeTreeType represents the TypeTree definition for one Unity type
+// TypeTreeType 表示一个 Unity 类型的 TypeTree 定义 / TypeTreeType represents the TypeTree definition for one Unity type
 type TypeTreeType struct {
 	TypeId           int32          // 类型 ID，如 28=Texture2D、49=TextAsset / Class ID such as 28=Texture2D and 49=TextAsset
 	IsStrippedType   bool           // 是否被剥离 / Whether this type is stripped
@@ -101,8 +102,7 @@ type TypeTreeType struct {
 	AssemblyName     string         // 引用类型程序集名 / Referenced type assembly name
 }
 
-// TypeTreeNode 表示 Unity TypeTree 中的一个节点
-// TypeTreeNode represents one node in a Unity TypeTree
+// TypeTreeNode 表示 Unity TypeTree 中的一个节点 / TypeTreeNode represents one node in a Unity TypeTree
 type TypeTreeNode struct {
 	Version     uint16 // 节点版本 / Node version
 	Level       byte   // 层级深度 / Tree depth level
@@ -115,15 +115,13 @@ type TypeTreeNode struct {
 	RefTypeHash uint64 // v19+ 引用类型哈希 / Referenced-type hash in v19+
 }
 
-// LocalSerializedObjectIdentifier 标识 metadata 中的本地脚本对象
-// LocalSerializedObjectIdentifier identifies a local script object in metadata
+// LocalSerializedObjectIdentifier 标识 metadata 中的本地脚本对象 / LocalSerializedObjectIdentifier identifies a local script object in metadata
 type LocalSerializedObjectIdentifier struct {
 	LocalSerializedFileIndex int32 // 本地序列化文件索引 / Local serialized-file index
 	LocalIdentifierInFile    int64 // 文件内对象 ID / Local object identifier in the file
 }
 
-// AssetInfo 表示单个序列化对象的元信息
-// AssetInfo represents metadata for one serialized asset object
+// AssetInfo 表示单个序列化对象的元信息 / AssetInfo represents metadata for one serialized asset object
 type AssetInfo struct {
 	PathId          int64  // 文件内唯一标识资源的路径 ID / Asset PathID unique within the file
 	ByteOffset      int64  // 相对于 DataOffset 的偏移 / Offset relative to DataOffset
@@ -135,8 +133,7 @@ type AssetInfo struct {
 	Stripped        byte   // v15 至 v16 对象项中的 stripped 标记 / Stripped marker in v15 through v16 object entries
 }
 
-// ExternalFile 表示 SerializedFile 的外部文件引用
-// ExternalFile represents an external file reference from a SerializedFile
+// ExternalFile 表示 SerializedFile 的外部文件引用 / ExternalFile represents an external file reference from a SerializedFile
 type ExternalFile struct {
 	AssetPath string   // 缓存资源虚拟路径 / Virtual cached-asset path
 	Guid      [16]byte // 外部文件 GUID / External file GUID
@@ -147,98 +144,62 @@ type ExternalFile struct {
 // ReadAssetsFile 从字节数据中解析 Unity SerializedFile，并校验头部、metadata 边界和对象范围
 // ReadAssetsFile parses a Unity SerializedFile from bytes and validates its header, metadata bounds, and object ranges
 func ReadAssetsFile(data []byte) (*AssetsFile, error) {
-	af := &AssetsFile{Data: data}
+	resolver := func(offset int64, size int64) ([]byte, error) {
+		end, ok := addNonNegativeInt64(offset, size)
+		if !ok || offset < 0 || end > int64(len(data)) {
+			return nil, fmt.Errorf("serialized range [%d,%d) exceeds %d bytes", offset, end, len(data))
+		}
+		return data[offset:end], nil
+	}
+	return readAssetsFileFromRange(int64(len(data)), resolver, data)
+}
 
-	if len(data) < 20 {
-		return nil, fmt.Errorf("data too short for assets file header: %d bytes", len(data))
-	}
+// ReadAssetsFileRange 通过范围读取器解析 Unity SerializedFile，仅在访问对象时读取对象数据
+// ReadAssetsFileRange parses a Unity SerializedFile through a range reader and reads object data only when accessed
+func ReadAssetsFileRange(fileSize int64, resolver AssetsFileRangeResolver) (*AssetsFile, error) {
+	return readAssetsFileFromRange(fileSize, resolver, nil)
+}
 
-	// 首先以 Big-Endian 读取固定头部
-	// First read the fixed header in Big-Endian order
-	headerReader := binaryio.NewEndianReader(data, binary.BigEndian)
-	metadataSize, err := headerReader.ReadUInt32()
+// readAssetsFileFromRange 读取文件头和 metadata 并建立可延迟读取对象的 AssetsFile
+// readAssetsFileFromRange reads the header and metadata and builds an AssetsFile that can load objects lazily
+func readAssetsFileFromRange(fileSize int64, resolver AssetsFileRangeResolver, data []byte) (*AssetsFile, error) {
+	if resolver == nil {
+		return nil, fmt.Errorf("nil SerializedFile range resolver")
+	}
+	if fileSize < 20 {
+		return nil, fmt.Errorf("data too short for assets file header: %d bytes", fileSize)
+	}
+	probeSize := fileSize
+	if probeSize > 48 {
+		probeSize = 48
+	}
+	headerData, err := readAssetsFileRangeExact(resolver, 0, probeSize)
 	if err != nil {
-		return nil, fmt.Errorf("read metadata size failed: %w", err)
+		return nil, fmt.Errorf("read assets file header: %w", err)
 	}
-	fileSize, err := headerReader.ReadUInt32()
+	header, headerSize, err := parseAssetsFileHeader(headerData)
 	if err != nil {
-		return nil, fmt.Errorf("read file size failed: %w", err)
+		return nil, err
 	}
-	version, err := headerReader.ReadUInt32()
+	if header.FileSize != fileSize {
+		return nil, fmt.Errorf("serialized file size %d does not match input length %d", header.FileSize, fileSize)
+	}
+	if header.DataOffset < headerSize || header.DataOffset > header.FileSize {
+		return nil, fmt.Errorf("invalid serialized data offset %d for file size %d", header.DataOffset, header.FileSize)
+	}
+	metadataStart := headerSize
+	metadataEnd, ok := addNonNegativeInt64(metadataStart, int64(header.MetadataSize))
+	if !ok || metadataEnd > header.FileSize {
+		return nil, fmt.Errorf("serialized metadata range [%d, %d) exceeds declared file size %d", metadataStart, metadataEnd, header.FileSize)
+	}
+	if metadataEnd > header.DataOffset {
+		return nil, fmt.Errorf("serialized metadata end %d exceeds data offset %d", metadataEnd, header.DataOffset)
+	}
+	metadata, err := readAssetsFileRangeExact(resolver, metadataStart, int64(header.MetadataSize))
 	if err != nil {
-		return nil, fmt.Errorf("read version failed: %w", err)
+		return nil, fmt.Errorf("read serialized metadata: %w", err)
 	}
-	dataOffset, err := headerReader.ReadUInt32()
-	if err != nil {
-		return nil, fmt.Errorf("read data offset failed: %w", err)
-	}
-	endianness, err := headerReader.ReadByte()
-	if err != nil {
-		return nil, fmt.Errorf("read endianness failed: %w", err)
-	}
-	var headerPadding [3]byte
-	if err := headerReader.ReadFull(headerPadding[:]); err != nil {
-		return nil, fmt.Errorf("read header padding failed: %w", err)
-	}
-
-	af.Header.MetadataSize = metadataSize
-	af.Header.FileSize = int64(fileSize)
-	af.Header.Version = version
-	af.Header.DataOffset = int64(dataOffset)
-	af.Header.LegacyMetadataSize = metadataSize
-	af.Header.LegacyFileSize = fileSize
-	af.Header.LegacyDataOffset = dataOffset
-	af.Header.Reserved = headerPadding
-	if endianness > 1 {
-		return nil, fmt.Errorf("invalid serialized file endianness byte %d", endianness)
-	}
-	af.Header.Endianness = endianness == 1
-	if af.Header.Version < 12 || af.Header.Version > 22 {
-		return nil, fmt.Errorf("unsupported serialized file version %d (supported: 12-22)", af.Header.Version)
-	}
-
-	// v22 及以上追加扩展头部字段
-	// Version 22 and later append extended header fields
-	if af.Header.Version >= 22 {
-		af.Header.MetadataSize, err = headerReader.ReadUInt32()
-		if err != nil {
-			return nil, fmt.Errorf("read extended metadata size failed: %w", err)
-		}
-		fileSize64, err := headerReader.ReadInt64()
-		if err != nil {
-			return nil, fmt.Errorf("read extended file size failed: %w", err)
-		}
-		dataOffset64, err := headerReader.ReadInt64()
-		if err != nil {
-			return nil, fmt.Errorf("read extended data offset failed: %w", err)
-		}
-		af.Header.LargeFilesUnknown, err = headerReader.ReadInt64()
-		if err != nil {
-			return nil, fmt.Errorf("read extended header unknown field failed: %w", err)
-		}
-		if fileSize64 < 0 {
-			return nil, fmt.Errorf("extended serialized file size %d is negative", fileSize64)
-		}
-		if dataOffset64 < 0 {
-			return nil, fmt.Errorf("extended serialized data offset %d is negative", dataOffset64)
-		}
-		af.Header.FileSize = fileSize64
-		af.Header.DataOffset = dataOffset64
-	}
-	if af.Header.FileSize != int64(len(data)) {
-		return nil, fmt.Errorf("serialized file size %d does not match input length %d", af.Header.FileSize, len(data))
-	}
-	if af.Header.DataOffset < headerReader.Pos() || af.Header.DataOffset > af.Header.FileSize {
-		return nil, fmt.Errorf("invalid serialized data offset %d for file size %d", af.Header.DataOffset, af.Header.FileSize)
-	}
-	metadataStart := headerReader.Pos()
-	metadataEnd := metadataStart + int64(af.Header.MetadataSize)
-	if metadataEnd < metadataStart || metadataEnd > af.Header.FileSize {
-		return nil, fmt.Errorf("serialized metadata range [%d, %d) exceeds declared file size %d", metadataStart, metadataEnd, af.Header.FileSize)
-	}
-	if metadataEnd > af.Header.DataOffset {
-		return nil, fmt.Errorf("serialized metadata end %d exceeds data offset %d", metadataEnd, af.Header.DataOffset)
-	}
+	af := &AssetsFile{Header: header, Data: data, readRange: resolver}
 
 	// 根据 Endianness 确定 metadata 和对象字段的字节序
 	// Select metadata and object byte order from Endianness
@@ -251,15 +212,112 @@ func ReadAssetsFile(data []byte) (*AssetsFile, error) {
 
 	// 在限定的 metadata 切片中解析，伪造的内部计数或字符串无法越过对齐填充和对象数据
 	// Parse a bounded metadata slice so forged inner counts or strings cannot consume alignment padding or object bytes
-	metadata := data[metadataStart:metadataEnd]
 	if err := af.readMetadata(metadata, 0, order); err != nil {
 		return nil, fmt.Errorf("read metadata failed: %w", err)
 	}
 	if err := af.validateAssetInfos(); err != nil {
 		return nil, fmt.Errorf("validate asset infos failed: %w", err)
 	}
-
 	return af, nil
+}
+
+// parseAssetsFileHeader 解析 Big-Endian 固定头部及 v22 扩展头部并返回实际头部长度
+// parseAssetsFileHeader parses the Big-Endian fixed header and v22 extended header and returns the actual header length
+func parseAssetsFileHeader(data []byte) (AssetsFileHeader, int64, error) {
+	var header AssetsFileHeader
+	if len(data) < 20 {
+		return header, 0, fmt.Errorf("data too short for assets file header: %d bytes", len(data))
+	}
+
+	// 首先以 Big-Endian 读取固定头部
+	// First read the fixed header in Big-Endian order
+	headerReader := binaryio.NewEndianReader(data, binary.BigEndian)
+	metadataSize, err := headerReader.ReadUInt32()
+	if err != nil {
+		return header, 0, fmt.Errorf("read metadata size failed: %w", err)
+	}
+	fileSize, err := headerReader.ReadUInt32()
+	if err != nil {
+		return header, 0, fmt.Errorf("read file size failed: %w", err)
+	}
+	version, err := headerReader.ReadUInt32()
+	if err != nil {
+		return header, 0, fmt.Errorf("read version failed: %w", err)
+	}
+	dataOffset, err := headerReader.ReadUInt32()
+	if err != nil {
+		return header, 0, fmt.Errorf("read data offset failed: %w", err)
+	}
+	endianness, err := headerReader.ReadByte()
+	if err != nil {
+		return header, 0, fmt.Errorf("read endianness failed: %w", err)
+	}
+	var headerPadding [3]byte
+	if err := headerReader.ReadFull(headerPadding[:]); err != nil {
+		return header, 0, fmt.Errorf("read header padding failed: %w", err)
+	}
+
+	header.MetadataSize = metadataSize
+	header.FileSize = int64(fileSize)
+	header.Version = version
+	header.DataOffset = int64(dataOffset)
+	header.LegacyMetadataSize = metadataSize
+	header.LegacyFileSize = fileSize
+	header.LegacyDataOffset = dataOffset
+	header.Reserved = headerPadding
+	if endianness > 1 {
+		return header, 0, fmt.Errorf("invalid serialized file endianness byte %d", endianness)
+	}
+	header.Endianness = endianness == 1
+	if header.Version < 12 || header.Version > 22 {
+		return header, 0, fmt.Errorf("unsupported serialized file version %d (supported: 12-22)", header.Version)
+	}
+
+	// v22 及以上追加扩展头部字段
+	// Version 22 and later append extended header fields
+	if header.Version >= 22 {
+		header.MetadataSize, err = headerReader.ReadUInt32()
+		if err != nil {
+			return header, 0, fmt.Errorf("read extended metadata size failed: %w", err)
+		}
+		fileSize64, err := headerReader.ReadInt64()
+		if err != nil {
+			return header, 0, fmt.Errorf("read extended file size failed: %w", err)
+		}
+		dataOffset64, err := headerReader.ReadInt64()
+		if err != nil {
+			return header, 0, fmt.Errorf("read extended data offset failed: %w", err)
+		}
+		header.LargeFilesUnknown, err = headerReader.ReadInt64()
+		if err != nil {
+			return header, 0, fmt.Errorf("read extended header unknown field failed: %w", err)
+		}
+		if fileSize64 < 0 {
+			return header, 0, fmt.Errorf("extended serialized file size %d is negative", fileSize64)
+		}
+		if dataOffset64 < 0 {
+			return header, 0, fmt.Errorf("extended serialized data offset %d is negative", dataOffset64)
+		}
+		header.FileSize = fileSize64
+		header.DataOffset = dataOffset64
+	}
+	return header, headerReader.Pos(), nil
+}
+
+// readAssetsFileRangeExact 调用范围读取器并拒绝短读或超长结果
+// readAssetsFileRangeExact calls a range reader and rejects short or oversized results
+func readAssetsFileRangeExact(resolver AssetsFileRangeResolver, offset int64, size int64) ([]byte, error) {
+	if offset < 0 || size < 0 {
+		return nil, fmt.Errorf("negative serialized range offset=%d size=%d", offset, size)
+	}
+	data, err := resolver(offset, size)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) != size {
+		return nil, fmt.Errorf("serialized range offset=%d returned %d bytes, want %d", offset, len(data), size)
+	}
+	return data, nil
 }
 
 // GetAssetData 按 DataOffset、ByteOffset 和 ByteSize 提取指定资源的原始数据
@@ -268,23 +326,34 @@ func (af *AssetsFile) GetAssetData(info *AssetInfo) ([]byte, error) {
 	if af == nil || info == nil {
 		return nil, fmt.Errorf("nil assets file or asset info")
 	}
-	dataLen := int64(len(af.Data))
-	if af.Header.FileSize != 0 {
-		if af.Header.FileSize < 0 || af.Header.FileSize > dataLen {
+	dataLen := af.Header.FileSize
+	if dataLen == 0 {
+		dataLen = int64(len(af.Data))
+	}
+	if af.Data != nil {
+		if dataLen < 0 || dataLen > int64(len(af.Data)) {
 			return nil, fmt.Errorf("declared file size %d is invalid for %d data bytes", af.Header.FileSize, len(af.Data))
 		}
-		dataLen = af.Header.FileSize
+	} else if af.readRange == nil {
+		return nil, fmt.Errorf("assets file has neither complete data nor a range resolver")
 	}
 	if af.Header.DataOffset < 0 || af.Header.DataOffset > dataLen || info.ByteOffset < 0 || info.ByteOffset > dataLen-af.Header.DataOffset {
-		return nil, fmt.Errorf("asset data start out of bounds: dataOffset=%d byteOffset=%d in %d bytes", af.Header.DataOffset, info.ByteOffset, len(af.Data))
+		return nil, fmt.Errorf("asset data start out of bounds: dataOffset=%d byteOffset=%d in %d bytes", af.Header.DataOffset, info.ByteOffset, dataLen)
 	}
 	start := af.Header.DataOffset + info.ByteOffset
 	size := int64(info.ByteSize)
 	if size > dataLen-start {
-		return nil, fmt.Errorf("asset data out of bounds: start=%d size=%d in %d bytes", start, size, len(af.Data))
+		return nil, fmt.Errorf("asset data out of bounds: start=%d size=%d in %d bytes", start, size, dataLen)
 	}
 	end := start + size
-	return af.Data[start:end], nil
+	if af.Data != nil {
+		return af.Data[start:end], nil
+	}
+	data, err := readAssetsFileRangeExact(af.readRange, start, size)
+	if err != nil {
+		return nil, fmt.Errorf("read asset PathID %d range [%d,%d): %w", info.PathId, start, end, err)
+	}
+	return data, nil
 }
 
 // GetAssetsByType 返回指定 Unity class ID 的所有资源元信息
@@ -405,8 +474,7 @@ func (af *AssetsFile) readMetadata(data []byte, pos int64, order binary.ByteOrde
 	return nil
 }
 
-// assetsMetadataTail 保存 metadata 尾部各已知表
-// assetsMetadataTail stores the known metadata tail tables
+// assetsMetadataTail 保存 metadata 尾部各已知表 / assetsMetadataTail stores the known metadata tail tables
 type assetsMetadataTail struct {
 	ScriptTypes     []LocalSerializedObjectIdentifier // 本地脚本对象标识数组 / Local script-object identifiers
 	ExternalFiles   []ExternalFile                    // 外部文件引用数组 / External file references

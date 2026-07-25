@@ -22,6 +22,7 @@ const (
 	ClassIDTextAsset     int32 = 49
 	ClassIDAnimationClip int32 = 74
 	ClassIDAudioClip     int32 = 83
+	ClassIDCubemap       int32 = 89
 	ClassIDMonoBehaviour int32 = 114
 	ClassIDMonoScript    int32 = 115
 	ClassIDFont          int32 = 128
@@ -32,8 +33,7 @@ const (
 
 const classIDAssetBundle = ClassIDAssetBundle
 
-// AssetEntry 表示一个可提取的资源条目，包含名称、类型和数据范围信息
-// AssetEntry represents one extractable asset entry with name, type, and data-range metadata
+// AssetEntry 表示一个可提取的资源条目，包含名称、类型和数据范围信息 / AssetEntry represents one extractable asset entry with name, type, and data-range metadata
 type AssetEntry struct {
 	PathId   int64  // SerializedFile 中唯一标识对象的路径 ID / Path ID identifying the object within the SerializedFile
 	TypeId   int32  // 类型 ID / Unity class ID
@@ -170,6 +170,8 @@ func classIdToName(id int32) string {
 		return "AnimationClip"
 	case ClassIDAudioClip:
 		return "AudioClip"
+	case ClassIDCubemap:
+		return "Cubemap"
 	case ClassIDMonoBehaviour:
 		return "MonoBehaviour"
 	case ClassIDMonoScript:

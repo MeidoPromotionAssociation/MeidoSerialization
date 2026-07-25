@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"testing"
 
@@ -383,8 +384,32 @@ func TestPackMod_ExplicitUnityRawObjectKinds(t *testing.T) {
 	if assetTypes["type95_internal"] != 95 {
 		t.Fatalf("type95_internal type got %d, want Type_95", assetTypes["type95_internal"])
 	}
-	if info := af.GetAssetInfoByPathID(-95); info == nil || info.TypeId != 95 {
-		t.Fatalf("type95 PathID not preserved: %+v", info)
+	wantIDs, err := buildCanonicalPathIDs([]string{"material.bytes", "type95.bytes"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info := af.GetAssetInfoByPathID(wantIDs["type95.bytes"]); info == nil || info.TypeId != 95 {
+		t.Fatalf("type95 canonical PathID missing: %+v", info)
+	}
+	if info := af.GetAssetInfoByPathID(-95); info != nil {
+		t.Fatalf("legacy sidecar PathID was preserved: %+v", info)
+	}
+}
+
+func TestBuildCanonicalLoadNamesResolvesCrossTypeDuplicates(t *testing.T) {
+	assets := []ModAsset{
+		{Name: "ER_Sky.tex", Path: "Material/ER_Sky.bytes"},
+		{Name: "ER_Sky.tex", Path: "Cubemap/ER_Sky.bytes"},
+		{Name: "ER_Sky_0002.tex", Path: "Shader/ER_Sky_0002.bytes"},
+	}
+	paths := []string{assets[0].Path, assets[1].Path, assets[2].Path}
+	got, err := buildCanonicalLoadNames(assets, paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"ER_Sky_0003.tex", "ER_Sky.tex", "ER_Sky_0002.tex"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("load names = %v, want %v", got, want)
 	}
 }
 

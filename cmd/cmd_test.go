@@ -534,14 +534,14 @@ func TestKCESAutoConvertDirectoryIncludesCtAndRawUnityBytes(t *testing.T) {
 }
 
 func TestKCESAbaCtPackListUnpackCommands(t *testing.T) {
-	t.Run("list and unpack fixed samples", func(t *testing.T) {
+	t.Run("list and unpack Unity 2022.3 samples", func(t *testing.T) {
 		tempDir := t.TempDir()
-		abaPath := filepath.Join(tempDir, "cm3d2_megane002.aba")
-		ctPath := filepath.Join(tempDir, "cm3d2_megane002.ct")
-		if err := os.WriteFile(abaPath, mustReadFile(t, filepath.Join("../testdata", "aba", "cm3d2_megane002.aba")), 0644); err != nil {
+		abaPath := filepath.Join(tempDir, "system.aba")
+		ctPath := filepath.Join(tempDir, "system.ct")
+		if err := os.WriteFile(abaPath, mustReadFile(t, filepath.Join("../testdata", "aba", "system.aba")), 0644); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(ctPath, mustReadFile(t, filepath.Join("../testdata", "aba", "cm3d2_megane002.ct")), 0644); err != nil {
+		if err := os.WriteFile(ctPath, mustReadFile(t, filepath.Join("../testdata", "aba", "system.ct")), 0644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -549,14 +549,14 @@ func TestKCESAbaCtPackListUnpackCommands(t *testing.T) {
 		if err != nil {
 			t.Fatalf("listAba failed: %v", err)
 		}
-		if !strings.Contains(out, "cm3d2_megane002.menuassets") || !strings.Contains(out, "Texture2D") {
+		if !strings.Contains(out, "manIKCollider.ikcol") || !strings.Contains(out, "TextAsset") {
 			t.Fatalf("unexpected listAba output: %s", out)
 		}
 		out, err = executeCommand(RootCmd, "listCt", ctPath)
 		if err != nil {
 			t.Fatalf("listCt failed: %v", err)
 		}
-		if !strings.Contains(out, "catalog") || !strings.Contains(out, ".menuassets") {
+		if !strings.Contains(out, "catalog") || !strings.Contains(out, ".hitcheck") {
 			t.Fatalf("unexpected listCt output: %s", out)
 		}
 
@@ -564,11 +564,28 @@ func TestKCESAbaCtPackListUnpackCommands(t *testing.T) {
 		if _, err := executeCommand(RootCmd, "unpackAba", abaPath, "-o", abaOutDir); err != nil {
 			t.Fatalf("unpackAba failed: %v", err)
 		}
-		if _, err := os.Stat(filepath.Join(abaOutDir, "TextAsset", "cm3d2_megane002.menuassets")); err != nil {
+		if _, err := os.Stat(filepath.Join(abaOutDir, "TextAsset", "manIKCollider.ikcol")); err != nil {
 			t.Fatalf("expected unpacked TextAsset: %v", err)
 		}
-		if _, err := os.Stat(filepath.Join(abaOutDir, "Texture2D", "cm3d2_megane002.tex.bytes.typetree.json")); err != nil {
-			t.Fatalf("expected unpacked TypeTree sidecar: %v", err)
+		if _, err := os.Stat(filepath.Join(abaOutDir, "MonoScript", "DepthLUT.bytes")); err != nil {
+			t.Fatalf("expected unpacked MonoScript: %v", err)
+		}
+		if err := filepath.Walk(abaOutDir, func(path string, info os.FileInfo, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if info.IsDir() {
+				return nil
+			}
+			lower := strings.ToLower(path)
+			for _, suffix := range []string{".meta.json", ".typetree.json", ".ress", ".resource", ".resources", ".png"} {
+				if strings.HasSuffix(lower, suffix) {
+					t.Fatalf("unpackAba emitted forbidden artifact %q", path)
+				}
+			}
+			return nil
+		}); err != nil {
+			t.Fatalf("walk unpacked ABA directory: %v", err)
 		}
 
 		ctOutDir := filepath.Join(tempDir, "ct_unpacked")
@@ -577,6 +594,21 @@ func TestKCESAbaCtPackListUnpackCommands(t *testing.T) {
 		}
 		if _, err := os.Stat(filepath.Join(ctOutDir, "catalog")); err != nil {
 			t.Fatalf("expected unpacked catalog: %v", err)
+		}
+	})
+
+	t.Run("unpack UnityFS 7 sample", func(t *testing.T) {
+		legacyPath := filepath.Join("../testdata", "aba", "cm3d2_megane002.aba")
+		outDir := filepath.Join(t.TempDir(), "unityfs7")
+		if _, err := executeCommand(RootCmd, "unpackAba", legacyPath, "-o", outDir); err != nil {
+			t.Fatalf("unpackAba UnityFS 7 failed: %v", err)
+		}
+		entries, err := os.ReadDir(outDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) == 0 {
+			t.Fatal("unpackAba UnityFS 7 produced an empty directory")
 		}
 	})
 

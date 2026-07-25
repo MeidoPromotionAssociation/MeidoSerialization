@@ -1,6 +1,7 @@
 package KCES
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -105,6 +106,26 @@ func collectAbaAssetTypes(path string) (map[uint64]int32, error) {
 		if err != nil {
 			return nil, err
 		}
+		for assetIndex := range af.Metadata.AssetInfos {
+			bundleInfo := &af.Metadata.AssetInfos[assetIndex]
+			if bundleInfo.TypeId != aba.ClassIDAssetBundle {
+				continue
+			}
+			containerEntries, err := af.GetAssetBundleContainerEntries(bundleInfo)
+			if err != nil {
+				return nil, fmt.Errorf("read AssetBundle container: %w", err)
+			}
+			for _, containerEntry := range containerEntries {
+				if containerEntry.FileID != 0 || containerEntry.PathID == 0 || containerEntry.Name == "" {
+					continue
+				}
+				target := af.GetAssetInfoByPathID(containerEntry.PathID)
+				if target == nil {
+					return nil, fmt.Errorf("AssetBundle container %q references missing PathID %d", containerEntry.Name, containerEntry.PathID)
+				}
+				assetTypes[ct.HashStringIgnoreCase(containerEntry.Name)] = target.TypeId
+			}
+		}
 		for _, entry := range af.GetAssetEntries() {
 			if entry.Name == "" {
 				continue
@@ -123,7 +144,7 @@ func catalogItemShouldResolveToAsset(item *ct.CatalogItem) bool {
 		return false
 	}
 	ext := strings.ToLower(filepath.Ext(*item.Name))
-	return ext != "" && ext != ".null"
+	return ext != "" && ext != ".null" && ext != ".meta"
 }
 
 func isEncryptedAbaError(err error) bool {

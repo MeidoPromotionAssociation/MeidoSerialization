@@ -177,16 +177,15 @@ func TestPackModManifestPreservesPatchSubName(t *testing.T) {
 	}
 }
 
-func TestPackModManifestUnityVersionOptionControlsBothHeaders(t *testing.T) {
+func TestPackModManifestWritesFixedUnityContract(t *testing.T) {
 	tmpDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tmpDir, "asset.bin"), []byte("payload"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	manifest := ModManifest{
-		Name:         "manifest_version",
-		CatalogType:  "Parts",
-		PackageType:  "Plugin",
-		UnityVersion: "2022.3.62f2",
+		Name:        "manifest_version",
+		CatalogType: "Parts",
+		PackageType: "Plugin",
 		Assets: []ModAsset{{
 			Name: "asset.menuassets", Path: "asset.bin", Kind: "textasset",
 		}},
@@ -202,7 +201,7 @@ func TestPackModManifestUnityVersionOptionControlsBothHeaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if abaFile.Header.Version != 8 || abaFile.Header.EngineVersion != manifest.UnityVersion {
+	if abaFile.Header.Version != defaultKCESAbaVersion || abaFile.Header.EngineVersion != defaultKCESUnityVersion {
 		t.Fatalf(".aba header got version=%d engine=%q", abaFile.Header.Version, abaFile.Header.EngineVersion)
 	}
 	serialized, err := abaFile.GetFileData(0)
@@ -213,12 +212,12 @@ func TestPackModManifestUnityVersionOptionControlsBothHeaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if af.Metadata.UnityVersion != manifest.UnityVersion {
+	if af.Metadata.UnityVersion != defaultKCESUnityVersion || af.Metadata.TargetPlatform != defaultKCESTargetPlatform {
 		t.Fatalf("SerializedFile UnityVersion got %q", af.Metadata.UnityVersion)
 	}
 }
 
-func TestPackModManifestRejectsDuplicatePreferredPathID(t *testing.T) {
+func TestPackModManifestIgnoresLegacyPreferredPathID(t *testing.T) {
 	tmpDir := t.TempDir()
 	for _, name := range []string{"first.bin", "second.bin"} {
 		if err := os.WriteFile(filepath.Join(tmpDir, name), []byte(name), 0644); err != nil {
@@ -237,13 +236,36 @@ func TestPackModManifestRejectsDuplicatePreferredPathID(t *testing.T) {
 			{Name: "second.menuassets", Path: "second.bin", Kind: "textasset"},
 		},
 	}
-	err := packModManifest(manifest, tmpDir, tmpDir)
-	if err == nil || !strings.Contains(err.Error(), "duplicate Unity PathID 42") {
-		t.Fatalf("packModManifest error = %v, want duplicate PathID rejection", err)
+	if err := packModManifest(manifest, tmpDir, tmpDir); err != nil {
+		t.Fatalf("packModManifest: %v", err)
 	}
-	for _, extension := range []string{".ct", ".aba"} {
-		if _, statErr := os.Stat(filepath.Join(tmpDir, manifest.Name+extension)); !os.IsNotExist(statErr) {
-			t.Fatalf("duplicate PathID left %s output (stat error %v)", extension, statErr)
+	bundleBytes, err := os.ReadFile(filepath.Join(tmpDir, manifest.Name+".aba"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := aba.ReadAba(bytes.NewReader(bundleBytes))
+	if err != nil {
+		t.Fatal(err)
+	}
+	serialized, err := bundle.GetFileData(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	af, err := aba.ReadAssetsFile(serialized)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := buildCanonicalPathIDs([]string{"first.bin", "second.bin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := make(map[int64]bool)
+	for _, info := range af.Metadata.AssetInfos {
+		if info.TypeId == aba.ClassIDTextAsset {
+			seen[info.PathId] = true
 		}
+	}
+	if !seen[want["first.bin"]] || !seen[want["second.bin"]] || seen[42] {
+		t.Fatalf("TextAsset PathIDs = %v, want canonical IDs %v and no legacy ID 42", seen, want)
 	}
 }

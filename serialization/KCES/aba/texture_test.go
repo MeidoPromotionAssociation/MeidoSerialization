@@ -1,9 +1,13 @@
 package aba
 
 import (
+	"bytes"
+	"encoding/binary"
 	"math"
 	"strings"
 	"testing"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
 func TestGetTexture2DData_Sample(t *testing.T) {
@@ -78,8 +82,115 @@ func TestReadStreamingInfoRejectsUnrepresentableRanges(t *testing.T) {
 		t.Fatalf("oversized offset error = %v", err)
 	}
 	stream.Children[0].Value = uint64(1)
-	stream.Children[1].Value = uint64(math.MaxUint32) + 1
+	stream.Children[1].Value = int64(-1)
 	if _, err := readStreamingInfo(stream); err == nil || !strings.Contains(err.Error(), "size") {
-		t.Fatalf("oversized size error = %v", err)
+		t.Fatalf("negative size error = %v", err)
+	}
+}
+
+func TestInlineTexture2DStreamData(t *testing.T) {
+	var stringBuffer []byte
+	stringOffset := func(value string) uint32 {
+		offset := uint32(len(stringBuffer))
+		stringBuffer = append(stringBuffer, value...)
+		stringBuffer = append(stringBuffer, 0)
+		return offset
+	}
+	node := func(level byte, metaFlags uint32, typeName, name string) TypeTreeNode {
+		return TypeTreeNode{
+			Level:      level,
+			TypeStrOff: stringOffset(typeName),
+			NameStrOff: stringOffset(name),
+			MetaFlags:  metaFlags,
+		}
+	}
+	tt := TypeTreeType{
+		TypeId: ClassIDTexture2D,
+		Nodes: []TypeTreeNode{
+			node(0, 0, "Texture2D", "Base"),
+			node(1, 0, "string", "m_Name"),
+			node(1, 0, "int", "m_CompleteImageSize"),
+			node(1, 0x4000, "TypelessData", "image data"),
+			node(1, 0, "StreamingInfo", "m_StreamData"),
+			node(2, 0, "UInt64", "offset"),
+			node(2, 0, "unsigned int", "size"),
+			node(2, 0, "string", "path"),
+		},
+		StringBuffer: stringBuffer,
+	}
+
+	var source bytes.Buffer
+	w := binaryio.NewEndianWriter(&source, binary.LittleEndian)
+	if err := w.WriteAlignedString("streamed"); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.WriteInt32(4); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.WriteInt32(0); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Align(4); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.WriteUInt64(3); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.WriteUInt32(4); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.WriteAlignedString("x.resS"); err != nil {
+		t.Fatal(err)
+	}
+
+	info := AssetInfo{
+		PathId:        7,
+		ByteSize:      uint32(source.Len()),
+		TypeIdOrIndex: 0,
+		TypeId:        ClassIDTexture2D,
+	}
+	af := &AssetsFile{
+		Header: AssetsFileHeader{Version: 22},
+		Metadata: AssetsMetadata{
+			TypeTreeEnabled: true,
+			TypeTreeTypes:   []TypeTreeType{tt},
+		},
+		Data: source.Bytes(),
+	}
+
+	encoded, changed, err := af.InlineTexture2DStreamData(&info, func(name string, offset int64, size int64) ([]byte, error) {
+		if name != "x.resS" || offset != 3 || size != 4 {
+			t.Fatalf("resolver request = %q[%d:%d]", name, offset, offset+size)
+		}
+		return []byte("ABCD"), nil
+	})
+	if err != nil {
+		t.Fatalf("InlineTexture2DStreamData: %v", err)
+	}
+	if !changed {
+		t.Fatal("InlineTexture2DStreamData reported no change")
+	}
+
+	reparsed := *af
+	reparsed.Data = encoded
+	info.ByteSize = uint32(len(encoded))
+	root, err := reparsed.ReadAssetValue(&info)
+	if err != nil {
+		t.Fatalf("ReadAssetValue after inline: %v", err)
+	}
+	imageData, ok := root.Field("image data").Bytes()
+	if !ok || !bytes.Equal(imageData, []byte("ABCD")) {
+		t.Fatalf("inline image data = %q, ok=%v", imageData, ok)
+	}
+	completeSize, ok := root.Field("m_CompleteImageSize").Int64()
+	if !ok || completeSize != 4 {
+		t.Fatalf("m_CompleteImageSize = %d, ok=%v", completeSize, ok)
+	}
+	streamInfo, err := readStreamingInfo(root.Field("m_StreamData"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if streamInfo.Offset != 0 || streamInfo.Size != 0 || streamInfo.Path != "" {
+		t.Fatalf("m_StreamData was not cleared: %+v", streamInfo)
 	}
 }

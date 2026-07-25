@@ -2,6 +2,7 @@ package aba
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -89,5 +90,75 @@ func TestWriteAba_RoundTrip(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestWriteAbaReaderAtEntryRoundTrip(t *testing.T) {
+	data := bytes.Repeat([]byte("streamed ABA entry"), 20000)
+	var out bytes.Buffer
+	if err := WriteAba(&out, []AbaFileEntry{{
+		Name:         "CAB-streamed",
+		ReaderAt:     bytes.NewReader(data),
+		Size:         int64(len(data)),
+		IsSerialized: true,
+	}}, &AbaWriteOptions{Compress: true}); err != nil {
+		t.Fatalf("WriteAba: %v", err)
+	}
+	bundle, err := ReadAba(bytes.NewReader(out.Bytes()))
+	if err != nil {
+		t.Fatalf("ReadAba: %v", err)
+	}
+	got, err := bundle.GetFileData(0)
+	if err != nil {
+		t.Fatalf("GetFileData: %v", err)
+	}
+	if !bytes.Equal(got, data) {
+		t.Fatalf("streamed entry differs: got %d bytes, want %d", len(got), len(data))
+	}
+}
+
+func TestWriteAbaGeneratedEntryRoundTrip(t *testing.T) {
+	data := bytes.Repeat([]byte("generated ABA entry"), 20000)
+	var calls int64
+	var out bytes.Buffer
+	if err := WriteAba(&out, []AbaFileEntry{{
+		Name: "CAB-generated-stream",
+		WriteTo: func(destination io.Writer) error {
+			calls++
+			_, err := io.Copy(destination, bytes.NewReader(data))
+			return err
+		},
+		Size:         int64(len(data)),
+		IsSerialized: true,
+	}}, &AbaWriteOptions{Compress: true}); err != nil {
+		t.Fatalf("WriteAba: %v", err)
+	}
+	if calls != 2 {
+		t.Fatalf("generator calls = %d, want 2", calls)
+	}
+	bundle, err := ReadAba(bytes.NewReader(out.Bytes()))
+	if err != nil {
+		t.Fatalf("ReadAba: %v", err)
+	}
+	got, err := bundle.GetFileData(0)
+	if err != nil {
+		t.Fatalf("GetFileData: %v", err)
+	}
+	if !bytes.Equal(got, data) {
+		t.Fatalf("generated entry differs: got %d bytes, want %d", len(got), len(data))
+	}
+}
+
+func TestWriteAbaRejectsIncorrectGeneratedEntrySize(t *testing.T) {
+	err := WriteAba(io.Discard, []AbaFileEntry{{
+		Name: "short",
+		WriteTo: func(destination io.Writer) error {
+			_, err := destination.Write([]byte("abc"))
+			return err
+		},
+		Size: 4,
+	}}, nil)
+	if err == nil {
+		t.Fatal("WriteAba accepted a short generated entry")
 	}
 }

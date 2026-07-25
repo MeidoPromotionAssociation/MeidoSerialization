@@ -9,51 +9,61 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 )
 
-// TypeTreeValue 是根据内嵌 TypeTree 解码出的 Unity 序列化值
-// 它只暴露 KCES 提取器所需的小型导航和转换 API
-// TypeTreeValue is a decoded Unity serialized value built from an embedded TypeTree
-// It intentionally exposes only the small navigation and conversion API needed by KCES extractors
+// TypeTreeValue 是根据内嵌 TypeTree 解码且仅暴露 KCES 所需导航 API 的 Unity 序列化值 / TypeTreeValue is a Unity serialized value decoded from an embedded TypeTree with only the navigation API needed by KCES
 type TypeTreeValue struct {
-	TypeName string           // Unity 类型名 / Unity type name
-	Name     string           // 字段名或节点名 / Field or node name
-	Value    interface{}      // 原始标量值或字节数组 / Raw scalar value or byte array
-	Children []*TypeTreeValue // 子节点列表 / Child node list
+	TypeName   string           // Unity 类型名 / Unity type name
+	Name       string           // 字段名或节点名 / Field or node name
+	Value      interface{}      // 原始标量值或字节数组 / Raw scalar value or byte array
+	Children   []*TypeTreeValue // 子节点列表 / Child node list
+	NodeIndex  int64            // 对应 TypeTree 节点索引 / Corresponding TypeTree node index
+	ByteOffset int64            // 值在对象数据中的起始偏移 / Start offset of the value in object data
+	ByteSize   int64            // 值及其尾部对齐占用的字节数 / Byte count occupied by the value and trailing alignment
 }
 
 // ReadAssetValue 使用资源的 TypeTree 解码对象，并确认类型树和对象数据均被完整消费
 // ReadAssetValue decodes an asset object with its TypeTree and verifies that both the tree and object data are fully consumed
 func (af *AssetsFile) ReadAssetValue(info *AssetInfo) (*TypeTreeValue, error) {
+	root, consumed, objectSize, err := af.readAssetValuePrefix(info)
+	if err != nil {
+		return nil, err
+	}
+	if consumed != objectSize {
+		return nil, fmt.Errorf("type tree for class %d left %d unread object bytes", info.TypeId, objectSize-consumed)
+	}
+	return root, nil
+}
+
+// readAssetValuePrefix 使用 TypeTree 解码对象字段并返回已消费字节数，供 AudioClip 等在字段树后附加内联载荷的布局使用
+// readAssetValuePrefix decodes object fields with a TypeTree and returns the consumed byte count for layouts such as AudioClip that append inline payload bytes after the field tree
+func (af *AssetsFile) readAssetValuePrefix(info *AssetInfo) (*TypeTreeValue, int64, int64, error) {
 	if af == nil {
-		return nil, fmt.Errorf("nil assets file")
+		return nil, 0, 0, fmt.Errorf("nil assets file")
 	}
 	if info == nil {
-		return nil, fmt.Errorf("nil asset info")
+		return nil, 0, 0, fmt.Errorf("nil asset info")
 	}
 	tt, err := af.typeTreeForAsset(info)
 	if err != nil {
-		return nil, err
+		return nil, 0, 0, err
 	}
 	if len(tt.Nodes) == 0 {
-		return nil, fmt.Errorf("type tree for class %d has no nodes", info.TypeId)
+		return nil, 0, 0, fmt.Errorf("type tree for class %d has no nodes", info.TypeId)
 	}
 	data, err := af.GetAssetData(info)
 	if err != nil {
-		return nil, err
+		return nil, 0, 0, err
 	}
 
 	order := af.byteOrder()
 	r := binaryio.NewEndianReader(data, order)
 	root, next, err := readTypeTreeValue(tt, r, 0)
 	if err != nil {
-		return nil, err
+		return nil, 0, 0, err
 	}
 	if next != int64(len(tt.Nodes)) {
-		return nil, fmt.Errorf("type tree for class %d stopped at node %d/%d", info.TypeId, next, len(tt.Nodes))
+		return nil, 0, 0, fmt.Errorf("type tree for class %d stopped at node %d/%d", info.TypeId, next, len(tt.Nodes))
 	}
-	if r.Remaining() != 0 {
-		return nil, fmt.Errorf("type tree for class %d left %d unread object bytes", info.TypeId, r.Remaining())
-	}
-	return root, nil
+	return root, r.Pos(), int64(len(data)), nil
 }
 
 // typeTreeForAsset 按 SerializedFile 版本为对象选择对应的 TypeTree
@@ -107,9 +117,12 @@ func readTypeTreeValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int64) (*
 		return nil, idx, io.ErrUnexpectedEOF
 	}
 	node := &tt.Nodes[idx]
+	start := r.Pos()
 	v := &TypeTreeValue{
-		TypeName: tt.GetTypeTreeString(node, true),
-		Name:     tt.GetTypeTreeString(node, false),
+		TypeName:   tt.GetTypeTreeString(node, true),
+		Name:       tt.GetTypeTreeString(node, false),
+		NodeIndex:  idx,
+		ByteOffset: start,
 	}
 
 	if isSpecialPrimitiveType(v.TypeName) {
@@ -121,6 +134,7 @@ func readTypeTreeValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int64) (*
 				return nil, skipSubtree(tt, idx), fmt.Errorf("align %s %s: %w", v.TypeName, v.Name, err)
 			}
 		}
+		v.ByteSize = r.Pos() - start
 		return v, skipSubtree(tt, idx), nil
 	}
 
@@ -153,6 +167,7 @@ func readTypeTreeValue(tt *TypeTreeType, r *binaryio.EndianReader, idx int64) (*
 			return nil, next, fmt.Errorf("align %s %s: %w", v.TypeName, v.Name, err)
 		}
 	}
+	v.ByteSize = r.Pos() - start
 	return v, next, nil
 }
 
@@ -324,7 +339,7 @@ func readPrimitiveValue(r *binaryio.EndianReader, v *TypeTreeValue) error {
 		i, err := r.ReadInt64()
 		v.Value = i
 		return err
-	case "unsigned long long", "UInt64":
+	case "unsigned long long", "UInt64", "FileSize":
 		u, err := r.ReadUInt64()
 		v.Value = u
 		return err
@@ -379,7 +394,7 @@ func minimumTypeTreeValueBytes(tt *TypeTreeType, idx int64) int64 {
 		return 2
 	case "int", "SInt32", "unsigned int", "UInt32", "Type*", "float":
 		return 4
-	case "long long", "SInt64", "unsigned long long", "UInt64", "double":
+	case "long long", "SInt64", "unsigned long long", "UInt64", "FileSize", "double":
 		return 8
 	}
 

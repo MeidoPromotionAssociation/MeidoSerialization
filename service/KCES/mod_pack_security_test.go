@@ -74,7 +74,7 @@ func TestPackModManifestRejectsEscapingAssetPathsWithoutOutputs(t *testing.T) {
 
 func TestPackModManifestRejectsOversizedInMemorySourceBeforeReading(t *testing.T) {
 	baseDir := t.TempDir()
-	source := filepath.Join(baseDir, "huge.resS")
+	source := filepath.Join(baseDir, "huge.bin")
 	f, err := os.Create(source)
 	if err != nil {
 		t.Fatal(err)
@@ -90,7 +90,7 @@ func TestPackModManifestRejectsOversizedInMemorySourceBeforeReading(t *testing.T
 		Name:        "oversized_source",
 		CatalogType: "Parts",
 		PackageType: "Plugin",
-		Assets:      []ModAsset{{Name: "huge.resS", Path: "huge.resS", Kind: "abaraw"}},
+		Assets:      []ModAsset{{Name: "huge.menuassets", Path: "huge.bin", Kind: "textasset"}},
 	}
 	err = packModManifest(manifest, baseDir, baseDir)
 	if err == nil || !strings.Contains(err.Error(), "exceeds in-memory packing limit") {
@@ -99,7 +99,7 @@ func TestPackModManifestRejectsOversizedInMemorySourceBeforeReading(t *testing.T
 	assertPackPairAbsent(t, baseDir, manifest.Name)
 }
 
-func TestPackModManifestConfinesAssetAndSidecarReadsToRoot(t *testing.T) {
+func TestPackModManifestConfinesAssetReadsAndIgnoresLegacySidecars(t *testing.T) {
 	t.Run("asset symlink", func(t *testing.T) {
 		baseDir := t.TempDir()
 		outside := filepath.Join(t.TempDir(), "outside.bin")
@@ -118,7 +118,7 @@ func TestPackModManifestConfinesAssetAndSidecarReadsToRoot(t *testing.T) {
 		assertPackPairAbsent(t, baseDir, manifest.Name)
 	})
 
-	t.Run("metadata sidecar symlink", func(t *testing.T) {
+	t.Run("metadata sidecar symlink is ignored", func(t *testing.T) {
 		baseDir := t.TempDir()
 		if err := os.WriteFile(filepath.Join(baseDir, "asset.bin"), []byte("asset"), 0644); err != nil {
 			t.Fatal(err)
@@ -130,12 +130,14 @@ func TestPackModManifestConfinesAssetAndSidecarReadsToRoot(t *testing.T) {
 		makeTestSymlinkOrSkip(t, outsideMeta, filepath.Join(baseDir, "asset.bin.meta.json"))
 
 		manifest := testTextManifest("sidecar_link", "asset.bin")
-		err := packModManifest(manifest, baseDir, baseDir)
-		if err == nil || (!strings.Contains(strings.ToLower(err.Error()), "symlink") &&
-			!strings.Contains(strings.ToLower(err.Error()), "reparse")) {
-			t.Fatalf("packModManifest error = %v, want sidecar symlink/reparse rejection", err)
+		if err := packModManifest(manifest, baseDir, baseDir); err != nil {
+			t.Fatalf("packModManifest read an ignored sidecar: %v", err)
 		}
-		assertPackPairAbsent(t, baseDir, manifest.Name)
+		for _, extension := range []string{".ct", ".aba"} {
+			if _, err := os.Stat(filepath.Join(baseDir, manifest.Name+extension)); err != nil {
+				t.Fatalf("missing %s output: %v", extension, err)
+			}
+		}
 	})
 }
 
@@ -156,28 +158,6 @@ func TestPackServiceRejectsSymlinkOrReparseInput(t *testing.T) {
 		t.Fatalf("PackToAbaAndCt error = %v, want symlink/reparse rejection", err)
 	}
 	assertPackPairAbsent(t, filepath.Dir(inputDir), "linked_pack")
-}
-
-func TestRepackAbaRejectsSymlinkOrReparseInput(t *testing.T) {
-	inputDir := filepath.Join(t.TempDir(), "input")
-	if err := os.Mkdir(inputDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	outside := filepath.Join(t.TempDir(), "CAB-outside")
-	if err := os.WriteFile(outside, []byte("outside"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	makeTestSymlinkOrSkip(t, outside, filepath.Join(inputDir, "CAB-linked"))
-	outPath := filepath.Join(t.TempDir(), "linked.aba")
-
-	err := (&PackService{}).RepackAba(inputDir, outPath)
-	if err == nil || (!strings.Contains(strings.ToLower(err.Error()), "symlink") &&
-		!strings.Contains(strings.ToLower(err.Error()), "reparse")) {
-		t.Fatalf("RepackAba error = %v, want symlink/reparse rejection", err)
-	}
-	if _, err := os.Lstat(outPath); !os.IsNotExist(err) {
-		t.Fatalf("RepackAba left output %q (Lstat error %v)", outPath, err)
-	}
 }
 
 func TestWritePackOutputPairRollsBackSecondInstallFailure(t *testing.T) {

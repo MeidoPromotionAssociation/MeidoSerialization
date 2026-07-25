@@ -11,21 +11,26 @@ import (
 	"github.com/pierrec/lz4/v4"
 )
 
-// AbaWriteOptions 控制 .aba 文件的写入行为
-// AbaWriteOptions controls .aba file writing
+// AbaWriteOptions 控制 ABA 文件的写入行为 / AbaWriteOptions controls ABA file writing
 type AbaWriteOptions struct {
-	EngineVersion     string // Unity 引擎版本（如 "2021.3.3f1"），默认 "2021.3.3f1" / Unity engine version such as "2021.3.3f1", default "2021.3.3f1"
+	EngineVersion     string // Unity 引擎版本，默认固定为 2022.3.35f1 / Unity engine version, fixed to 2022.3.35f1 by default
 	GenerationVersion string // 生成版本（如 "5.x.x"），默认 "5.x.x" / Generation version such as "5.x.x", default "5.x.x"
-	Version           uint32 // 文件格式版本，默认 7 / File format version, default 7
+	Version           uint32 // 文件格式版本，默认 8 / File format version, default 8
 	Compress          bool   // 是否使用 LZ4 压缩数据块 / Whether to compress data blocks with LZ4
 }
 
-// AbaFileEntry 表示要写入 .aba 文件的一个目录条目
-// AbaFileEntry represents one directory entry to write into an .aba file
+// AbaEntryWriteFunc 将一个 ABA 目录条目的完整逻辑字节流写入目标
+// AbaEntryWriteFunc writes the complete logical byte stream of one ABA directory entry to a destination
+type AbaEntryWriteFunc func(io.Writer) error
+
+// AbaFileEntry 表示要写入 ABA 文件的一个目录条目 / AbaFileEntry represents one directory entry to write into an ABA file
 type AbaFileEntry struct {
-	Name         string // 文件名，如 "CAB-xxx" / File name such as "CAB-xxx"
-	Data         []byte // 文件数据 / File data
-	IsSerialized bool   // 是否为序列化 AssetsFile / Whether this entry is a serialized AssetsFile
+	Name         string            // 文件名，如 "CAB-xxx" / File name such as "CAB-xxx"
+	Data         []byte            // 文件数据 / File data
+	ReaderAt     io.ReaderAt       // 大型文件的范围读取源，与 Data 互斥 / Range-readable source for a large file, mutually exclusive with Data
+	WriteTo      AbaEntryWriteFunc // 可重复调用的流式生成器，与 Data 和 ReaderAt 互斥 / Repeatable streaming generator, mutually exclusive with Data and ReaderAt
+	Size         int64             // ReaderAt 或 WriteTo 提供的精确文件大小，使用 Data 时可为零 / Exact size supplied by ReaderAt or WriteTo, or zero when Data is used
+	IsSerialized bool              // 是否为序列化 AssetsFile / Whether this entry is a serialized AssetsFile
 }
 
 // WriteAba 将文件条目列表写入采用 Unity AssetBundle UnityFS 格式的 .aba 文件
@@ -45,13 +50,13 @@ func WriteAba(w io.Writer, entries []AbaFileEntry, opts *AbaWriteOptions) error 
 		options = *opts
 	}
 	if options.EngineVersion == "" {
-		options.EngineVersion = "2021.3.3f1"
+		options.EngineVersion = "2022.3.35f1"
 	}
 	if options.GenerationVersion == "" {
 		options.GenerationVersion = "5.x.x"
 	}
 	if options.Version == 0 {
-		options.Version = 7
+		options.Version = 8
 	}
 	if options.Version < minSupportedAbaVersion || options.Version > maxSupportedAbaVersion {
 		return fmt.Errorf("unsupported UnityFS version %d (supported: %d-%d)", options.Version, minSupportedAbaVersion, maxSupportedAbaVersion)
@@ -71,16 +76,20 @@ func WriteAba(w io.Writer, entries []AbaFileEntry, opts *AbaWriteOptions) error 
 		if strings.IndexByte(entry.Name, 0) >= 0 {
 			return fmt.Errorf("entry %d name contains a NUL byte", i)
 		}
+		entrySize, err := abaFileEntrySize(entry)
+		if err != nil {
+			return fmt.Errorf("entry %d %q: %w", i, entry.Name, err)
+		}
 		dirInfos[i] = DirectoryInfo{
 			Offset:           totalDataSize,
-			DecompressedSize: int64(len(entry.Data)),
+			DecompressedSize: entrySize,
 			Name:             entry.Name,
 		}
 		if entry.IsSerialized {
 			dirInfos[i].Flags = DirFlagSerializedFile
 		}
 		var ok bool
-		totalDataSize, ok = addNonNegativeInt64(totalDataSize, int64(len(entry.Data)))
+		totalDataSize, ok = addNonNegativeInt64(totalDataSize, entrySize)
 		if !ok {
 			return fmt.Errorf("entry data size sum overflows at entry %d", i)
 		}
@@ -267,6 +276,28 @@ func validateAbaHeaderString(field, value string) error {
 	return nil
 }
 
+// abaFileEntrySize 返回内存或 ReaderAt 条目的精确逻辑大小并验证数据源组合
+// abaFileEntrySize returns the exact logical size of an in-memory or ReaderAt entry and validates its source combination
+func abaFileEntrySize(entry AbaFileEntry) (int64, error) {
+	if entry.ReaderAt != nil || entry.WriteTo != nil {
+		if entry.Data != nil {
+			return 0, fmt.Errorf("Data cannot be combined with ReaderAt or WriteTo")
+		}
+		if entry.ReaderAt != nil && entry.WriteTo != nil {
+			return 0, fmt.Errorf("ReaderAt and WriteTo cannot both be set")
+		}
+		if entry.Size < 0 {
+			return 0, fmt.Errorf("streamed size %d is negative", entry.Size)
+		}
+		return entry.Size, nil
+	}
+	dataSize := int64(len(entry.Data))
+	if entry.Size != 0 && entry.Size != dataSize {
+		return 0, fmt.Errorf("declared size %d does not match %d Data bytes", entry.Size, dataSize)
+	}
+	return dataSize, nil
+}
+
 // forEachAbaDataBlock 将拼接后的条目流按有界 UnityFS 块传给回调
 // 暂存区会复用，每个 block 切片只在对应 fn 调用返回前有效
 // forEachAbaDataBlock passes the concatenated entry stream to a callback in bounded UnityFS blocks
@@ -276,39 +307,151 @@ func forEachAbaDataBlock(entries []AbaFileEntry, fn func(index int64, block []by
 		return fmt.Errorf("data block callback is nil")
 	}
 	const blockSize = 0x20000
-	scratch := make([]byte, blockSize)
-	var entryIndex int64
-	var entryOffset int64
-	blockIndex := int64(0)
-	producedData := false
+	blocks := &abaDataBlockWriter{callback: fn, scratch: make([]byte, blockSize)}
+	for entryIndex := range entries {
+		entry := entries[entryIndex]
+		size, err := abaFileEntrySize(entry)
+		if err != nil {
+			return fmt.Errorf("entry %d %q: %w", entryIndex, entry.Name, err)
+		}
+		exact := &abaExactWriter{writer: blocks, remaining: size}
+		switch {
+		case entry.WriteTo != nil:
+			if err := entry.WriteTo(exact); err != nil {
+				return fmt.Errorf("generate entry %d %q: %w", entryIndex, entry.Name, err)
+			}
+		case entry.ReaderAt != nil:
+			if err := writeAbaReaderAtEntry(exact, entry.ReaderAt, size); err != nil {
+				return fmt.Errorf("read entry %d %q: %w", entryIndex, entry.Name, err)
+			}
+		default:
+			if err := writeAbaBytes(exact, entry.Data); err != nil {
+				return fmt.Errorf("write entry %d %q Data: %w", entryIndex, entry.Name, err)
+			}
+		}
+		if exact.remaining != 0 {
+			return fmt.Errorf("entry %d %q wrote %d fewer bytes than declared", entryIndex, entry.Name, exact.remaining)
+		}
+	}
+	return blocks.finish()
+}
 
-	for {
-		var filled int64
-		for filled < int64(len(scratch)) && entryIndex < int64(len(entries)) {
-			entry := entries[entryIndex].Data
-			if entryOffset >= int64(len(entry)) {
-				entryIndex++
-				entryOffset = 0
-				continue
-			}
-			n := int64(copy(scratch[filled:], entry[entryOffset:]))
-			filled += n
-			entryOffset += n
+// writeAbaReaderAtEntry 顺序读取 ReaderAt 并将精确大小转发到 UnityFS 块写入器
+// writeAbaReaderAtEntry reads a ReaderAt sequentially and forwards its exact size to the UnityFS block writer
+func writeAbaReaderAtEntry(out io.Writer, source io.ReaderAt, size int64) error {
+	if out == nil || source == nil {
+		return fmt.Errorf("nil ReaderAt source or destination")
+	}
+	const chunkSize int64 = 0x20000
+	buffer := make([]byte, chunkSize)
+	for offset := int64(0); offset < size; {
+		readSize := size - offset
+		if readSize > int64(len(buffer)) {
+			readSize = int64(len(buffer))
 		}
-		if filled == 0 {
-			if !producedData {
-				if err := fn(0, scratch[:0]); err != nil {
-					return err
-				}
-			}
-			return nil
+		n, err := source.ReadAt(buffer[:readSize], offset)
+		if n < 0 || int64(n) > readSize {
+			return fmt.Errorf("ReaderAt returned invalid byte count %d for %d-byte range", n, readSize)
 		}
-		producedData = true
-		if err := fn(blockIndex, scratch[:filled]); err != nil {
+		if err != nil && !(err == io.EOF && int64(n) == readSize) {
 			return err
 		}
-		blockIndex++
+		if int64(n) != readSize {
+			return io.ErrUnexpectedEOF
+		}
+		if err := writeAbaBytes(out, buffer[:readSize]); err != nil {
+			return err
+		}
+		offset += readSize
 	}
+	return nil
+}
+
+// abaDataBlockWriter 将连续条目流切分为固定大小的 UnityFS 数据块 / abaDataBlockWriter splits a continuous entry stream into fixed-size UnityFS data blocks
+type abaDataBlockWriter struct {
+	callback   func(index int64, block []byte) error // 数据块回调 / Data-block callback
+	scratch    []byte                                // 当前数据块缓冲区 / Current data-block buffer
+	filled     int64                                 // 当前块已填充字节数 / Bytes filled in the current block
+	blockIndex int64                                 // 下一个数据块索引 / Next data-block index
+	produced   bool                                  // 是否已产生非空块 / Whether a non-empty block was produced
+}
+
+// Write 将条目字节追加到固定大小数据块并在块满时调用回调
+// Write appends entry bytes to fixed-size data blocks and invokes the callback whenever a block fills
+func (w *abaDataBlockWriter) Write(data []byte) (int, error) {
+	if w == nil || w.callback == nil || len(w.scratch) == 0 {
+		return 0, fmt.Errorf("invalid ABA data-block writer")
+	}
+	written := int64(0)
+	for written < int64(len(data)) {
+		space := int64(len(w.scratch)) - w.filled
+		copySize := int64(len(data)) - written
+		if copySize > space {
+			copySize = space
+		}
+		copy(w.scratch[w.filled:w.filled+copySize], data[written:written+copySize])
+		w.filled += copySize
+		written += copySize
+		if w.filled == int64(len(w.scratch)) {
+			if err := w.flush(); err != nil {
+				return int(written), err
+			}
+		}
+	}
+	return int(written), nil
+}
+
+// flush 提交当前非空数据块并重置缓冲区
+// flush submits the current non-empty block and resets the buffer
+func (w *abaDataBlockWriter) flush() error {
+	if w.filled == 0 {
+		return nil
+	}
+	if err := w.callback(w.blockIndex, w.scratch[:w.filled]); err != nil {
+		return err
+	}
+	w.produced = true
+	w.blockIndex++
+	w.filled = 0
+	return nil
+}
+
+// finish 提交最后一个数据块，并为完全空的条目流产生一个空块
+// finish submits the final data block and emits one empty block for a completely empty entry stream
+func (w *abaDataBlockWriter) finish() error {
+	if err := w.flush(); err != nil {
+		return err
+	}
+	if !w.produced {
+		return w.callback(0, w.scratch[:0])
+	}
+	return nil
+}
+
+// abaExactWriter 限制单个 ABA 条目生成器写入的剩余字节数 / abaExactWriter limits the remaining bytes written by one ABA entry generator
+type abaExactWriter struct {
+	writer    io.Writer // 下游块写入器 / Downstream block writer
+	remaining int64     // 条目尚须写入的字节数 / Entry bytes still required
+}
+
+// Write 转发条目字节并拒绝超过声明大小的写入
+// Write forwards entry bytes and rejects writes beyond the declared size
+func (w *abaExactWriter) Write(data []byte) (int, error) {
+	if w == nil || w.writer == nil {
+		return 0, fmt.Errorf("nil ABA exact-size writer")
+	}
+	if int64(len(data)) > w.remaining {
+		return 0, fmt.Errorf("entry attempted to write %d bytes with only %d remaining", len(data), w.remaining)
+	}
+	n, err := w.writer.Write(data)
+	if n < 0 || n > len(data) {
+		return 0, fmt.Errorf("writer returned invalid byte count %d for %d-byte buffer", n, len(data))
+	}
+	w.remaining -= int64(n)
+	if err == nil && n == 0 && len(data) != 0 {
+		return 0, io.ErrShortWrite
+	}
+	return n, err
 }
 
 // encodeAbaDataBlock 按选项尝试 LZ4 压缩一个数据块，并在无收益时保留原始字节
