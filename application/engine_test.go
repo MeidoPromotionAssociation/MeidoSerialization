@@ -74,6 +74,12 @@ func TestDefaultRegistryIncludesDanceAndPersetFormats(t *testing.T) {
 	}
 }
 
+func TestKCESOutputLimitMapsToResourceExhausted(t *testing.T) {
+	if code := pathConversionErrorCode(KCESService.ErrConversionOutputLimitExceeded); code != CodeResourceExhausted {
+		t.Fatalf("KCES output-limit code = %s", code)
+	}
+}
+
 func TestFormatNamesPreserveJSONBasenameAndCase(t *testing.T) {
 	format, ok := DefaultRegistry().Lookup("com3d2.menu")
 	if !ok {

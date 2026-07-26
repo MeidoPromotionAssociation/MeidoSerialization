@@ -19,8 +19,7 @@ const (
 	typeTreeBytePreviewMax = 64
 )
 
-// RawUnityTypeTreeEnvelope 是从 Unity TypeTree 元数据解码出的只读 JSON 视图 / RawUnityTypeTreeEnvelope is a read-only JSON view decoded from Unity TypeTree metadata
-// 它只在源 .aba 上下文仍可用时生成，重打包仍以相邻 raw .bytes 文件为准 / It is generated while the source .aba context is still available, and repacking remains based on the adjacent raw .bytes file
+// RawUnityTypeTreeEnvelope 是仅在源 .aba 上下文可用时生成且不替代相邻 raw .bytes 重打包来源的 Unity TypeTree JSON 视图 / RawUnityTypeTreeEnvelope is a Unity TypeTree JSON view generated only while the source .aba context is available and does not replace the adjacent raw .bytes source used for repacking
 type RawUnityTypeTreeEnvelope struct {
 	Format   string             `json:"format"`             // 封套格式标识，固定为 kces-unity-typetree / Envelope format marker, fixed to kces-unity-typetree
 	ClassID  int32              `json:"classId"`            // Unity ClassID / Unity ClassID
@@ -49,6 +48,8 @@ type TypeTreeJSONBytes struct {
 	Truncated     bool   `json:"truncated,omitempty"`     // 是否截断预览 / Whether the preview is truncated
 }
 
+// writeRawUnityTypeTreeSidecar 解码 Unity 对象并写入只读 TypeTree JSON sidecar
+// writeRawUnityTypeTreeSidecar decodes a Unity object and writes its read-only TypeTree JSON sidecar
 func writeRawUnityTypeTreeSidecar(assetPath string, af *aba.AssetsFile, info *aba.AssetInfo, entry aba.AssetEntry, loadName string) error {
 	data, err := marshalRawUnityTypeTreeSidecar(af, info, entry, loadName)
 	if err != nil {
@@ -57,6 +58,8 @@ func writeRawUnityTypeTreeSidecar(assetPath string, af *aba.AssetsFile, info *ab
 	return os.WriteFile(typeTreeSidecarPath(assetPath), data, 0644)
 }
 
+// marshalRawUnityTypeTreeSidecar 将 Unity 对象编码为只读 TypeTree JSON sidecar
+// marshalRawUnityTypeTreeSidecar encodes a Unity object as a read-only TypeTree JSON sidecar
 func marshalRawUnityTypeTreeSidecar(af *aba.AssetsFile, info *aba.AssetInfo, entry aba.AssetEntry, loadName string) ([]byte, error) {
 	root, err := af.ReadAssetValue(info)
 	if err != nil {
@@ -79,10 +82,14 @@ func marshalRawUnityTypeTreeSidecar(af *aba.AssetsFile, info *aba.AssetInfo, ent
 	return data, nil
 }
 
+// typeTreeSidecarPath 返回原始 Unity 对象对应的 TypeTree sidecar 路径
+// typeTreeSidecarPath returns the TypeTree sidecar path corresponding to a raw Unity object
 func typeTreeSidecarPath(assetPath string) string {
 	return assetPath + ".typetree.json"
 }
 
+// readRawUnityTypeTreeSidecar 读取并校验原始 Unity 对象的 TypeTree sidecar
+// readRawUnityTypeTreeSidecar reads and validates the TypeTree sidecar for a raw Unity object
 func readRawUnityTypeTreeSidecar(assetPath string) (*RawUnityTypeTreeEnvelope, error) {
 	data, err := os.ReadFile(typeTreeSidecarPath(assetPath))
 	if err != nil {
@@ -98,6 +105,8 @@ func readRawUnityTypeTreeSidecar(assetPath string) (*RawUnityTypeTreeEnvelope, e
 	return &envelope, nil
 }
 
+// writeRawUnityTypeTreeEnvelope 编码并写入可空的 TypeTree 封套
+// writeRawUnityTypeTreeEnvelope encodes and writes an optional TypeTree envelope
 func writeRawUnityTypeTreeEnvelope(assetPath string, envelope *RawUnityTypeTreeEnvelope) error {
 	data, err := marshalRawUnityTypeTreeEnvelope(envelope)
 	if err != nil {
@@ -109,6 +118,8 @@ func writeRawUnityTypeTreeEnvelope(assetPath string, envelope *RawUnityTypeTreeE
 	return os.WriteFile(typeTreeSidecarPath(assetPath), data, 0644)
 }
 
+// marshalRawUnityTypeTreeEnvelope 将可空的 TypeTree 封套编码为格式化 JSON
+// marshalRawUnityTypeTreeEnvelope encodes an optional TypeTree envelope as formatted JSON
 func marshalRawUnityTypeTreeEnvelope(envelope *RawUnityTypeTreeEnvelope) ([]byte, error) {
 	if envelope == nil {
 		return nil, nil
@@ -124,6 +135,8 @@ func marshalRawUnityTypeTreeEnvelope(envelope *RawUnityTypeTreeEnvelope) ([]byte
 	return data, nil
 }
 
+// typeTreeJSONValue 将 Unity TypeTree 值转换为只读 JSON 树
+// typeTreeJSONValue converts a Unity TypeTree value into a read-only JSON tree
 func typeTreeJSONValue(v *aba.TypeTreeValue) *TypeTreeJSONValue {
 	if v == nil {
 		return nil

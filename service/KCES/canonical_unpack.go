@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	"os"
 	"path"
 	"path/filepath"
 	"sort"
@@ -58,16 +59,16 @@ type canonicalByteRange struct {
 	End   int64 // 结束偏移 / End offset
 }
 
-// unpackAbaPureDirectory 将 ABA 转换为不含 sidecar 和外部流文件的规范资源目录
-// unpackAbaPureDirectory converts an ABA into a canonical directory without sidecars or external stream files
-func (s *AbaService) unpackAbaPureDirectory(abaPath string, outDir string) error {
-	abaf, file, err := s.ReadAba(abaPath)
+// unpackUnityFSBundlePureDirectory 通过扩展名专用 reader 将 UnityFS 资源包转换为不含 sidecar 和外部流文件的规范资源目录
+// unpackUnityFSBundlePureDirectory converts a UnityFS bundle into a canonical directory without sidecars or external stream files through an extension-specific reader
+func unpackUnityFSBundlePureDirectory(bundlePath string, outDir string, readBundle func(string) (*aba.Aba, *os.File, error)) error {
+	abaf, file, err := readBundle(bundlePath)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 	if outDir == "" {
-		outDir = abaPath + "_unpacked"
+		outDir = bundlePath + "_unpacked"
 	}
 	ctx, err := buildCanonicalUnpackContext(abaf)
 	if err != nil {

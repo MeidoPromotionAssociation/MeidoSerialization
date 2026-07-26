@@ -479,7 +479,7 @@ func (e *Engine) Validate(ctx context.Context, source Source, formatID string) (
 // pathConversionErrorCode 将转换器错误映射为稳定的应用错误代码
 // pathConversionErrorCode maps a converter error to a stable application error code
 func pathConversionErrorCode(err error) ErrorCode {
-	if errors.Is(err, conversionio.ErrOutputLimitExceeded) {
+	if errors.Is(err, conversionio.ErrOutputLimitExceeded) || errors.Is(err, KCESService.ErrConversionOutputLimitExceeded) {
 		return CodeResourceExhausted
 	}
 	code := CodeOf(err)

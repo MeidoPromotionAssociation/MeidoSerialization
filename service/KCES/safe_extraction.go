@@ -11,18 +11,14 @@ import (
 	"unicode/utf8"
 )
 
-// extractionRoot confines archive extraction to one directory. os.Root performs
-// the actual filesystem operations so a concurrently replaced symlink/reparse
-// point cannot redirect an operation outside the root.
+// extractionRoot 使用 os.Root 将归档提取限制在一个目录内并抵御并发替换的链接或重解析点 / extractionRoot uses os.Root to confine archive extraction to one directory and resist concurrently replaced links or reparse points
 type extractionRoot struct {
 	absPath string
 	root    *os.Root
 }
 
-// normalizeExtractionPath converts an archive-style path into a portable,
-// relative filesystem path. It deliberately recognizes both slash styles even
-// on non-Windows systems so a Windows path cannot become dangerous when an
-// archive is moved between platforms.
+// normalizeExtractionPath 将归档路径转换为可移植的相对文件系统路径，并在所有平台识别两种分隔符
+// normalizeExtractionPath converts an archive path into a portable relative filesystem path while recognizing both separators on every platform
 func normalizeExtractionPath(name string) (string, error) {
 	if name == "" {
 		return "", fmt.Errorf("empty extraction path")
@@ -64,6 +60,8 @@ func normalizeExtractionPath(name string) (string, error) {
 	return rel, nil
 }
 
+// isWindowsReservedName 判断文件名首段是否为 Windows 保留设备名
+// isWindowsReservedName reports whether the leading file-name segment is a Windows reserved device name
 func isWindowsReservedName(name string) bool {
 	base := name
 	if dot := strings.IndexByte(base, '.'); dot >= 0 {
@@ -81,6 +79,8 @@ func isWindowsReservedName(name string) bool {
 	return false
 }
 
+// openExtractionRoot 创建或打开真实输出目录并确认打开前后的文件身份一致
+// openExtractionRoot creates or opens a real output directory and verifies that its file identity remains unchanged while opening
 func openExtractionRoot(path string) (*extractionRoot, error) {
 	if path == "" {
 		return nil, fmt.Errorf("empty output directory")
@@ -131,6 +131,8 @@ func openExtractionRoot(path string) (*extractionRoot, error) {
 	return &extractionRoot{absPath: absPath, root: root}, nil
 }
 
+// Close 关闭安全提取根目录
+// Close closes the safe extraction root
 func (r *extractionRoot) Close() error {
 	if r == nil || r.root == nil {
 		return nil
@@ -138,6 +140,8 @@ func (r *extractionRoot) Close() error {
 	return r.root.Close()
 }
 
+// resolve 校验归档名称并解析根目录内的相对路径和绝对路径
+// resolve validates an archive name and resolves its relative and absolute paths inside the root
 func (r *extractionRoot) resolve(name string) (rel string, abs string, err error) {
 	if r == nil || r.root == nil {
 		return "", "", fmt.Errorf("nil or closed extraction root")
@@ -157,6 +161,8 @@ func (r *extractionRoot) resolve(name string) (rel string, abs string, err error
 	return rel, abs, nil
 }
 
+// ensureParent 逐级创建并校验目标文件的真实父目录
+// ensureParent creates and validates each real parent directory of a destination file
 func (r *extractionRoot) ensureParent(rel string) error {
 	parent := filepath.Dir(rel)
 	if parent == "." {
@@ -190,6 +196,8 @@ func (r *extractionRoot) ensureParent(rel string) error {
 	return nil
 }
 
+// rejectLinkedTarget 拒绝现有链接、重解析点或非普通文件目标
+// rejectLinkedTarget rejects an existing link, reparse point, or non-regular destination
 func (r *extractionRoot) rejectLinkedTarget(rel string) error {
 	info, err := r.root.Lstat(rel)
 	if os.IsNotExist(err) {
@@ -207,6 +215,8 @@ func (r *extractionRoot) rejectLinkedTarget(rel string) error {
 	return nil
 }
 
+// newTempFile 在目标父目录中创建不可预测且排他打开的临时文件
+// newTempFile creates an unpredictable exclusively opened temporary file in the destination parent directory
 func (r *extractionRoot) newTempFile(rel string, perm fs.FileMode) (*os.File, string, error) {
 	parent := filepath.Dir(rel)
 	for attempt := 0; attempt < 20; attempt++ {
@@ -231,6 +241,8 @@ func (r *extractionRoot) newTempFile(rel string, perm fs.FileMode) (*os.File, st
 	return nil, "", fmt.Errorf("could not allocate a temporary output for %q", rel)
 }
 
+// commitTempFile 校验临时文件和目标后以根目录内重命名原子提交输出
+// commitTempFile validates the temporary file and destination before atomically committing the output through a root-relative rename
 func (r *extractionRoot) commitTempFile(tempRel, rel string) error {
 	info, err := r.root.Lstat(tempRel)
 	if err != nil {
@@ -248,6 +260,8 @@ func (r *extractionRoot) commitTempFile(tempRel, rel string) error {
 	return nil
 }
 
+// WriteFile 在安全提取根目录内原子写入完整内存数据
+// WriteFile atomically writes complete in-memory data inside the safe extraction root
 func (r *extractionRoot) WriteFile(name string, data []byte, perm fs.FileMode) (err error) {
 	rel, _, err := r.resolve(name)
 	if err != nil {
@@ -289,10 +303,8 @@ func (r *extractionRoot) WriteFile(name string, data []byte, perm fs.FileMode) (
 	return nil
 }
 
-// WriteFileStream atomically installs a file whose contents are produced
-// incrementally. The callback receives a temporary file opened through
-// os.Root, so large UnityFS sidecars do not need to be materialized in memory
-// and writes remain confined even if an output path is concurrently replaced.
+// WriteFileStream 在安全提取根目录内原子提交由回调增量写入的文件，避免将大型 UnityFS 数据完整载入内存
+// WriteFileStream atomically commits a file written incrementally by a callback inside the safe extraction root without materializing large UnityFS data in memory
 func (r *extractionRoot) WriteFileStream(name string, perm fs.FileMode, write func(*os.File) error) (err error) {
 	if write == nil {
 		return fmt.Errorf("nil streaming output writer")

@@ -7,9 +7,8 @@ import (
 	"unicode/utf8"
 )
 
-// These are the first nine one-to-one mappings used by
-// VirtualDirectory.AdvancedController. ReplaceTexts contains an unused tenth
-// glyph in KCES 1.34.4; there is no corresponding InvalidFileNameChars entry.
+// 这些是 VirtualDirectory.AdvancedController 使用的前九个一一对应映射，KCES 1.34.4 的 ReplaceTexts 包含未使用的第十个字形，但 InvalidFileNameChars 中没有对应条目
+// These are the first nine one-to-one mappings used by VirtualDirectory.AdvancedController, while ReplaceTexts contains an unused tenth glyph in KCES 1.34.4 with no corresponding InvalidFileNameChars entry
 var virtualDirectoryWindowsNameEscaper = strings.NewReplacer(
 	`"`, "❶",
 	"<", "❷",
@@ -30,15 +29,13 @@ var virtualDirectoryWindowsNameUnescaper = strings.NewReplacer(
 	"❻", "*",
 	"❼", "?",
 	"❽", `\`,
-	// ❾ represents a slash inside a single VirtualDirectory key in the game.
-	// This library exposes a flattened slash-separated path map, so it becomes
-	// an equivalent path separator when the tree is rebuilt.
+	// 在游戏中 ❾ 表示单个 VirtualDirectory 键内的斜杠，本库公开以斜杠分隔的扁平路径映射，因此重建目录树时会将其转换为等效的路径分隔符
+	// In the game ❾ represents a slash inside a single VirtualDirectory key, while this library exposes a flattened slash-separated path map and therefore converts it to an equivalent path separator when rebuilding the tree
 	"❾", "/",
 )
 
-// virtualDirectoryNameToExtractionPath applies the game's Windows-safe name
-// mapping to each flattened VirtualDirectory path component, then subjects the
-// result to the normal traversal/ADS/reserved-name extraction checks.
+// virtualDirectoryNameToExtractionPath 对扁平化 VirtualDirectory 路径的每个组成部分应用游戏的 Windows 安全名称映射，然后执行常规的路径穿越、ADS 和保留名称提取检查
+// virtualDirectoryNameToExtractionPath applies the game's Windows-safe name mapping to each flattened VirtualDirectory path component and then performs the normal traversal, ADS, and reserved-name extraction checks
 func virtualDirectoryNameToExtractionPath(name string) (string, error) {
 	if name == "" || !utf8.ValidString(name) || strings.IndexByte(name, 0) >= 0 {
 		return "", fmt.Errorf("invalid VirtualDirectory path")
@@ -57,8 +54,8 @@ func virtualDirectoryNameToExtractionPath(name string) (string, error) {
 	return normalizeExtractionPath(strings.Join(parts, "/"))
 }
 
-// extractionPathToVirtualDirectoryName reverses the mapping used by the game
-// when it creates a VirtualDirectory from a Windows directory.
+// extractionPathToVirtualDirectoryName 反向转换游戏从 Windows 目录创建 VirtualDirectory 时使用的名称映射
+// extractionPathToVirtualDirectoryName reverses the name mapping used by the game when creating a VirtualDirectory from a Windows directory
 func extractionPathToVirtualDirectoryName(name string) (string, error) {
 	rel, err := normalizeExtractionPath(name)
 	if err != nil {

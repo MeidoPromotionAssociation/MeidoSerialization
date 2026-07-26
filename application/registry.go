@@ -259,26 +259,32 @@ func DefaultRegistry() *Registry {
 		format("KCES", "system", "system.dat", []string{"system.dat"}, pathConverter{(&KCESService.SystemDataService{}).ConvertSystemDataToJSON, (&KCESService.SystemDataService{}).ConvertJSONToSystemData}),
 		format("KCES", "paths", "paths.dat", []string{"paths.dat"}, pathConverter{(&KCESService.PathsService{}).ConvertPathsToJSON, (&KCESService.PathsService{}).ConvertJSONToPaths}),
 		format("KCES", "maid_collider", "maid_collider.bytes", []string{".bytes"}, pathConverter{(&KCESService.MaidColliderService{}).ConvertMaidColliderToJSON, (&KCESService.MaidColliderService{}).ConvertJSONToMaidCollider}),
-		format("KCES", "menuassets", "input.menuassets", []string{".menuassets"}, pathConverter{(&KCESService.PartsService{}).ConvertPartsToJson, (&KCESService.PartsService{}).ConvertJsonToParts}),
-		format("KCES", "materialassets", "input.materialassets", []string{".materialassets"}, pathConverter{(&KCESService.PartsService{}).ConvertPartsToJson, (&KCESService.PartsService{}).ConvertJsonToParts}),
-		format("KCES", "pmatassets", "input.pmatassets", []string{".pmatassets"}, pathConverter{(&KCESService.PartsService{}).ConvertPartsToJson, (&KCESService.PartsService{}).ConvertJsonToParts}),
-		format("KCES", "model", "input.model", []string{".model"}, pathConverter{(&KCESService.PartsService{}).ConvertPartsToJson, (&KCESService.PartsService{}).ConvertJsonToParts}),
-		format("KCES", "hitcheck", "input.hitcheck", []string{".hitcheck"}, pathConverter{(&KCESService.MiscService{}).ConvertMiscToJson, (&KCESService.MiscService{}).ConvertJsonToMisc}),
-		format("KCES", "undressdat", "input.undressdat", []string{".undressdat"}, pathConverter{(&KCESService.MiscService{}).ConvertMiscToJson, (&KCESService.MiscService{}).ConvertJsonToMisc}),
-		format("KCES", "undresspdat", "input.undresspdat", []string{".undresspdat"}, pathConverter{(&KCESService.MiscService{}).ConvertMiscToJson, (&KCESService.MiscService{}).ConvertJsonToMisc}),
-		format("KCES", "nson", "input.nson", []string{".nson"}, pathConverter{(&KCESService.MiscService{}).ConvertMiscToJson, (&KCESService.MiscService{}).ConvertJsonToMisc}),
+		format("KCES", "menuassets", "input.menuassets", []string{".menuassets"}, pathConverter{(&KCESService.MenuAssetsService{}).ConvertMenuAssetsToJson, (&KCESService.MenuAssetsService{}).ConvertJsonToMenuAssets}),
+		format("KCES", "materialassets", "input.materialassets", []string{".materialassets"}, pathConverter{(&KCESService.MaterialAssetsService{}).ConvertMaterialAssetsToJson, (&KCESService.MaterialAssetsService{}).ConvertJsonToMaterialAssets}),
+		format("KCES", "pmatassets", "input.pmatassets", []string{".pmatassets"}, pathConverter{(&KCESService.PriorityMaterialAssetsService{}).ConvertPriorityMaterialAssetsToJson, (&KCESService.PriorityMaterialAssetsService{}).ConvertJsonToPriorityMaterialAssets}),
+		format("KCES", "model", "input.model", []string{".model"}, pathConverter{(&KCESService.ModelService{}).ConvertModelToJson, (&KCESService.ModelService{}).ConvertJsonToModel}),
+		format("KCES", "hitcheck", "input.hitcheck", []string{".hitcheck"}, pathConverter{(&KCESService.HitCheckService{}).ConvertHitCheckToJson, (&KCESService.HitCheckService{}).ConvertJsonToHitCheck}),
+		format("KCES", "undressdat", "input.undressdat", []string{".undressdat"}, pathConverter{(&KCESService.UndressDataService{}).ConvertUndressDataToJson, (&KCESService.UndressDataService{}).ConvertJsonToUndressData}),
+		format("KCES", "undresspdat", "input.undresspdat", []string{".undresspdat"}, pathConverter{(&KCESService.UndressPartsDataService{}).ConvertUndressPartsDataToJson, (&KCESService.UndressPartsDataService{}).ConvertJsonToUndressPartsData}),
+		format("KCES", "nson", "input.nson", []string{".nson"}, pathConverter{(&KCESService.NSONService{}).ConvertNSONToJson, (&KCESService.NSONService{}).ConvertJsonToNSON}),
 		format("KCES", "bytes", "input.material.bytes", []string{".bytes"}, pathConverter{(&KCESService.RawUnityObjectService{}).ConvertRawUnityObjectToJson, (&KCESService.RawUnityObjectService{}).ConvertJsonToRawUnityObject}),
 		format("KCES", "preset", "input.preset", []string{".preset", ".perset"}, pathConverter{(&KCESService.PresetService{}).ConvertPresetToJson, (&KCESService.PresetService{}).ConvertJsonToPreset}),
 		archiveConvertibleFormat("KCES", "ct", "input.ct", []string{".ct"}, pathConverter{(&KCESService.CtService{}).ConvertCtToJson, (&KCESService.CtService{}).ConvertJsonToCt}),
 		archiveConvertibleFormat("KCES", "virtualdirectory", "input.vd", []string{".vd"}, pathConverter{(&KCESService.CtService{}).ConvertCtToJson, (&KCESService.CtService{}).ConvertJsonToCt}),
-		archiveFormat("KCES", "aba", "input.aba", []string{".aba", ".asset_bg", ".asset_scene"}),
+		archiveFormat("KCES", "aba", "input.aba", []string{".aba"}),
+		archiveFormat("KCES", "asset_bg", "input.asset_bg", []string{".asset_bg"}),
 		archiveFormat("KCES", "asset_scene", "input.asset_scene", []string{".asset_scene"}),
-	}
-
-	payloadExtensions := []string{"dbconf", "dbcol", "db2conf", "dsbconf", "dsb2conf", "dslconf", "dsl2conf", "dslcol", "ikcol", "ikcol.bytes", "limbcol"}
-	for _, ext := range payloadExtensions {
-		suffix := "." + ext
-		formats = append(formats, format("KCES", ext, "input"+suffix, []string{suffix}, pathConverter{(&KCESService.PayloadService{}).ConvertPayloadToJson, (&KCESService.PayloadService{}).ConvertJsonToPayload}))
+		format("KCES", "dbconf", "input.dbconf", []string{".dbconf"}, pathConverter{(&KCESService.DBConfService{}).ConvertDBConfToJson, (&KCESService.DBConfService{}).ConvertJsonToDBConf}),
+		format("KCES", "dbcol", "input.dbcol", []string{".dbcol"}, pathConverter{(&KCESService.DBColService{}).ConvertDBColToJson, (&KCESService.DBColService{}).ConvertJsonToDBCol}),
+		format("KCES", "db2conf", "input.db2conf", []string{".db2conf"}, pathConverter{(&KCESService.DB2ConfService{}).ConvertDB2ConfToJson, (&KCESService.DB2ConfService{}).ConvertJsonToDB2Conf}),
+		format("KCES", "dsbconf", "input.dsbconf", []string{".dsbconf"}, pathConverter{(&KCESService.DSBConfService{}).ConvertDSBConfToJson, (&KCESService.DSBConfService{}).ConvertJsonToDSBConf}),
+		format("KCES", "dsb2conf", "input.dsb2conf", []string{".dsb2conf"}, pathConverter{(&KCESService.DSB2ConfService{}).ConvertDSB2ConfToJson, (&KCESService.DSB2ConfService{}).ConvertJsonToDSB2Conf}),
+		format("KCES", "dslconf", "input.dslconf", []string{".dslconf"}, pathConverter{(&KCESService.DSLConfService{}).ConvertDSLConfToJson, (&KCESService.DSLConfService{}).ConvertJsonToDSLConf}),
+		format("KCES", "dsl2conf", "input.dsl2conf", []string{".dsl2conf"}, pathConverter{(&KCESService.DSL2ConfService{}).ConvertDSL2ConfToJson, (&KCESService.DSL2ConfService{}).ConvertJsonToDSL2Conf}),
+		format("KCES", "dslcol", "input.dslcol", []string{".dslcol"}, pathConverter{(&KCESService.DSLColService{}).ConvertDSLColToJson, (&KCESService.DSLColService{}).ConvertJsonToDSLCol}),
+		format("KCES", "ikcol", "input.ikcol", []string{".ikcol"}, pathConverter{(&KCESService.IKColService{}).ConvertIKColToJson, (&KCESService.IKColService{}).ConvertJsonToIKCol}),
+		format("KCES", "ikcol.bytes", "input.ikcol.bytes", []string{".ikcol.bytes"}, pathConverter{(&KCESService.IKColBytesService{}).ConvertIKColBytesToJson, (&KCESService.IKColBytesService{}).ConvertJsonToIKColBytes}),
+		format("KCES", "limbcol", "input.limbcol", []string{".limbcol"}, pathConverter{(&KCESService.LimbColService{}).ConvertLimbColToJson, (&KCESService.LimbColService{}).ConvertJsonToLimbCol}),
 	}
 
 	r, err := NewRegistry(formats)

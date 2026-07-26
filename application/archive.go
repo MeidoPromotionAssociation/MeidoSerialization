@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
 	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
 	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
 )
@@ -122,8 +123,8 @@ func (e *Engine) listArchivePath(ctx context.Context, formatID, path string) ([]
 			}
 			entries = append(entries, ArchiveEntry{Name: name, Size: int64(file.Size), Kind: "virtual_file"})
 		}
-	case "kces.aba", "kces.asset_scene":
-		bundle, closer, err := (&KCESService.AbaService{}).ReadAba(path)
+	case "kces.aba", "kces.asset_bg", "kces.asset_scene":
+		bundle, closer, err := readKCESUnityFSArchive(format.ID, path)
 		if err != nil {
 			return nil, opError("list ABA", CodeInvalidArgument, err)
 		}
@@ -249,8 +250,8 @@ func (e *Engine) ExtractArchiveEntry(ctx context.Context, source Source, formatI
 			return Artifact{}, opError("extract content-table entry", CodeInvalidArgument, readErr)
 		}
 		return e.copyBytesArtifact(ctx, data, outputName, formatID, output)
-	case "kces.aba", "kces.asset_scene":
-		bundle, closer, readErr := (&KCESService.AbaService{}).ReadAba(path)
+	case "kces.aba", "kces.asset_bg", "kces.asset_scene":
+		bundle, closer, readErr := readKCESUnityFSArchive(formatID, path)
 		if readErr != nil {
 			return Artifact{}, opError("extract ABA entry", CodeInvalidArgument, readErr)
 		}
@@ -298,6 +299,21 @@ func (e *Engine) ExtractArchiveEntry(ctx context.Context, source Source, formatI
 		return Artifact{Name: outputName, FormatID: formatID, Representation: RepresentationNative, Size: written, SHA256: hex.EncodeToString(hash.Sum(nil))}, nil
 	default:
 		return Artifact{}, opError("extract archive entry", CodeUnsupported, fmt.Errorf("format %q is not a supported archive", formatID))
+	}
+}
+
+// readKCESUnityFSArchive 按独立扩展名格式选择对应的 UnityFS service 并返回已解析资源包
+// readKCESUnityFSArchive selects the extension-specific UnityFS service and returns the parsed bundle
+func readKCESUnityFSArchive(formatID string, path string) (*aba.Aba, *os.File, error) {
+	switch formatID {
+	case "kces.aba":
+		return (&KCESService.AbaService{}).ReadAba(path)
+	case "kces.asset_bg":
+		return (&KCESService.AssetBGService{}).ReadAssetBG(path)
+	case "kces.asset_scene":
+		return (&KCESService.AssetSceneService{}).ReadAssetScene(path)
+	default:
+		return nil, nil, fmt.Errorf("unsupported KCES UnityFS format %q", formatID)
 	}
 }
 
