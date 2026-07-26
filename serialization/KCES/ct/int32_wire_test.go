@@ -4,25 +4,14 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 const (
 	testInt32Min int64 = -1 << 31
 	testInt32Max int64 = 1<<31 - 1
 )
-
-func TestCollectionHeadersRejectLengthsOutsideCSharpInt32(t *testing.T) {
-	array := []byte{0xdd, 0x80, 0x00, 0x00, 0x00}
-	position := int64(0)
-	if _, err := readArrayHeader(array, &position); err == nil || !strings.Contains(err.Error(), "C# Int32") {
-		t.Fatalf("readArrayHeader error = %v, want C# Int32 rejection", err)
-	}
-
-	mapValue := []byte{0xdf, 0x80, 0x00, 0x00, 0x00}
-	if _, err := messagePackMapLength(mapValue); err == nil || !strings.Contains(err.Error(), "C# Int32") {
-		t.Fatalf("messagePackMapLength error = %v, want C# Int32 rejection", err)
-	}
-}
 
 func TestToInt32UsesCSharpInt32Range(t *testing.T) {
 	tests := []struct {
@@ -55,7 +44,7 @@ func TestCatalogCSharpInt32WireBounds(t *testing.T) {
 		t.Fatalf("EncodeCatalog virtual: %v", err)
 	}
 	var virtualRaw []interface{}
-	if err := DecodeMsgpack(virtualData, &virtualRaw); err != nil {
+	if err := msgpack.DecodeMsgpack(virtualData, &virtualRaw); err != nil {
 		t.Fatalf("DecodeMsgpack virtual: %v", err)
 	}
 	for _, field := range []struct {
@@ -70,7 +59,7 @@ func TestCatalogCSharpInt32WireBounds(t *testing.T) {
 			t.Run("decode "+field.name, func(t *testing.T) {
 				raw := append([]interface{}(nil), virtualRaw...)
 				raw[field.slot] = value
-				data, err := EncodeMsgpack(raw)
+				data, err := msgpack.EncodeMsgpack(raw)
 				if err != nil {
 					t.Fatalf("EncodeMsgpack: %v", err)
 				}
@@ -107,7 +96,7 @@ func TestCatalogCSharpInt32WireBounds(t *testing.T) {
 		t.Fatalf("EncodeCatalog bundle: %v", err)
 	}
 	var bundleRaw []interface{}
-	if err := DecodeMsgpack(bundleData, &bundleRaw); err != nil {
+	if err := msgpack.DecodeMsgpack(bundleData, &bundleRaw); err != nil {
 		t.Fatalf("DecodeMsgpack bundle: %v", err)
 	}
 	for _, value := range []int64{testInt32Min - 1, testInt32Max + 1} {
@@ -119,7 +108,7 @@ func TestCatalogCSharpInt32WireBounds(t *testing.T) {
 			item[0] = value
 			items[0] = item
 			raw[11] = items
-			data, err := EncodeMsgpack(raw)
+			data, err := msgpack.EncodeMsgpack(raw)
 			if err != nil {
 				t.Fatalf("EncodeMsgpack: %v", err)
 			}
@@ -153,7 +142,7 @@ func TestVirtualDirectoryCSharpInt32WireBounds(t *testing.T) {
 	for _, value := range []int64{testInt32Min - 1, testInt32Max + 1} {
 		value := value
 		t.Run("decode version overflow", func(t *testing.T) {
-			data, err := EncodeMsgpack([]interface{}{value, map[string]interface{}{}, map[string]interface{}{}})
+			data, err := msgpack.EncodeMsgpack([]interface{}{value, map[string]interface{}{}, map[string]interface{}{}})
 			if err != nil {
 				t.Fatalf("EncodeMsgpack: %v", err)
 			}

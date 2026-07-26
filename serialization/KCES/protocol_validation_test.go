@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestPartDecoderReportsCorruptLz4InsteadOfTreatingItAsRawMsgpack(t *testing.T) {
@@ -196,22 +196,22 @@ func TestPreMulTexDatasRejectsWrongIndexedArrayWidth(t *testing.T) {
 		nil,         // preInfColData; Key(18) is intentionally absent
 	}
 	for _, width := range []int{11, 18} {
-		wire, err := ct.EncodeMsgpack(raw[:width])
+		wire, err := msgpack.EncodeMsgpack(raw[:width])
 		if err != nil {
 			t.Fatalf("EncodeMsgpack: %v", err)
 		}
 		var decoded PreMulTexDatas
-		if err := ct.DecodeMsgpack(wire, &decoded); err == nil {
+		if err := msgpack.DecodeMsgpack(wire, &decoded); err == nil {
 			t.Fatalf("DecodeMsgpack accepted %d-slot PreMulTexDatas", width)
 		}
 	}
 	raw = append(raw, "Alpha", int64(1))
-	wire, err := ct.EncodeMsgpack(raw)
+	wire, err := msgpack.EncodeMsgpack(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var decoded PreMulTexDatas
-	if err := ct.DecodeMsgpack(wire, &decoded); err == nil {
+	if err := msgpack.DecodeMsgpack(wire, &decoded); err == nil {
 		t.Fatal("DecodeMsgpack accepted high PreMulTexDatas key")
 	}
 }
@@ -444,12 +444,12 @@ func TestMaidPropDecodeDoesNotMigrateVersionOrMPNRepresentations(t *testing.T) {
 		StartRadiusMpnList: []int32{},
 		EndRadiusMpnList:   []int32{},
 	}
-	legacyWire, err := ct.EncodeIndexedMsgpack(legacy)
+	legacyWire, err := msgpack.EncodeIndexedMsgpack(legacy)
 	if err != nil {
 		t.Fatalf("encode legacy MaidProp: %v", err)
 	}
 	var legacyResult ColliderMaidProp
-	err = ct.DecodeMsgpack(legacyWire, &legacyResult)
+	err = msgpack.DecodeMsgpack(legacyWire, &legacyResult)
 	if err != nil {
 		t.Fatalf("decode legacy MaidProp: %v", err)
 	}
@@ -471,12 +471,12 @@ func TestMaidPropDecodeDoesNotMigrateVersionOrMPNRepresentations(t *testing.T) {
 		StartRadiusMpnNameList: []*string{protocolTestString("stale")},
 		EndRadiusMpnNameList:   []*string{protocolTestString("stale")},
 	}
-	currentWire, err := ct.EncodeIndexedMsgpack(current)
+	currentWire, err := msgpack.EncodeIndexedMsgpack(current)
 	if err != nil {
 		t.Fatalf("encode current MaidProp: %v", err)
 	}
 	var currentResult ColliderMaidProp
-	err = ct.DecodeMsgpack(currentWire, &currentResult)
+	err = msgpack.DecodeMsgpack(currentWire, &currentResult)
 	if err != nil {
 		t.Fatalf("decode current MaidProp: %v", err)
 	}
@@ -508,12 +508,12 @@ func TestMaidPropDecodeAcceptsNilListsAndOpaqueNames(t *testing.T) {
 	raw := colliderMaidPropIndexedTestValue(base.Version)
 	raw[16] = nil
 	raw[22] = []interface{}{"not_an_mpn"}
-	wire, err := ct.EncodeMsgpack(raw)
+	wire, err := msgpack.EncodeMsgpack(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var got ColliderMaidProp
-	err = ct.DecodeMsgpack(wire, &got)
+	err = msgpack.DecodeMsgpack(wire, &got)
 	if err != nil {
 		t.Fatalf("decode nil/opaque MaidProp fields: %v", err)
 	}
@@ -523,11 +523,11 @@ func TestMaidPropDecodeAcceptsNilListsAndOpaqueNames(t *testing.T) {
 
 	malformed := colliderMaidPropIndexedTestValue(base.Version)
 	malformed[22] = []interface{}{int64(7)}
-	malformedWire, err := ct.EncodeMsgpack(malformed)
+	malformedWire, err := msgpack.EncodeMsgpack(malformed)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := ct.DecodeMsgpack(malformedWire, &got); err == nil {
+	if err := msgpack.DecodeMsgpack(malformedWire, &got); err == nil {
 		t.Fatal("non-string List<string> element was accepted")
 	}
 }

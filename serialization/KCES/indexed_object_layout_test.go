@@ -3,7 +3,7 @@ package KCES
 import (
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 	"github.com/ugorji/go/codec"
 )
 
@@ -64,7 +64,7 @@ func TestGameIndexedObjectWidths(t *testing.T) {
 			if !ok {
 				t.Fatalf("%T does not implement codec.Selfer", test.value)
 			}
-			wire, err := ct.EncodeIndexedMsgpack(selfer)
+			wire, err := msgpack.EncodeIndexedMsgpack(selfer)
 			if err != nil {
 				t.Fatalf("EncodeIndexedMsgpack: %v", err)
 			}

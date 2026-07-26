@@ -1,4 +1,4 @@
-package ct
+package msgpack
 
 import (
 	"encoding/binary"
@@ -9,6 +9,8 @@ import (
 )
 
 const (
+	csharpInt32Max int64 = 1<<31 - 1
+
 	// MessagePack-CSharp 将扩展类型 98 保留给 Lz4BlockArray 头，将类型 99 保留给单个 Lz4Block
 	// 对应游戏 MessagePackSerializer.ToLZ4BinaryCore 与 TryDecompress 实现
 	// MessagePack-CSharp reserves extension type 98 for the Lz4BlockArray header and type 99 for a single Lz4Block
@@ -267,8 +269,8 @@ func decodeMsgpackInt(data []byte) (int64, int64, error) {
 	return 0, 0, fmt.Errorf("not an int: 0x%02x", b)
 }
 
-// uint64ToInt64 将 UInt64 转换为 Int64，并保留调用方提供的已消费字节数。
-// uint64ToInt64 converts a UInt64 to Int64 while preserving the caller-provided consumed-byte count.
+// uint64ToInt64 将 UInt64 转换为 Int64，并保留调用方提供的已消费字节数
+// uint64ToInt64 converts a UInt64 to Int64 while preserving the caller-provided consumed-byte count
 func uint64ToInt64(value uint64, consumed int64) (int64, int64, error) {
 	if value > uint64(^uint64(0)>>1) {
 		return 0, 0, fmt.Errorf("uint64 %d overflows int64", value)
@@ -407,6 +409,12 @@ func ReadArrayHeader(data []byte, pos *int64) int64 {
 	return n
 }
 
+// ReadArrayHeaderStrict 严格读取 MessagePack 数组头，格式错误或长度超出 C# Int32 范围时返回错误
+// ReadArrayHeaderStrict strictly reads a MessagePack array header and returns an error for malformed input or lengths outside the C# Int32 range
+func ReadArrayHeaderStrict(data []byte, pos *int64) (int64, error) {
+	return readArrayHeader(data, pos)
+}
+
 // readArrayHeader 严格读取 fixarray、array16 或 array32 头并推进位置
 // readArrayHeader strictly reads a fixarray, array16, or array32 header and advances the position
 func readArrayHeader(data []byte, pos *int64) (int64, error) {
@@ -439,6 +447,39 @@ func readArrayHeader(data []byte, pos *int64) (int64, error) {
 		return int64(n64), nil
 	}
 	return 0, fmt.Errorf("expected array, got 0x%02x", b)
+}
+
+// ReadMapHeader 严格读取 MessagePack 映射头并推进位置，格式错误或长度超出 C# Int32 范围时返回错误
+// ReadMapHeader strictly reads a MessagePack map header and advances the position, returning an error for malformed input or lengths outside the C# Int32 range
+func ReadMapHeader(data []byte, pos *int64) (int64, error) {
+	if pos == nil || *pos < 0 || *pos >= int64(len(data)) {
+		return 0, fmt.Errorf("read map header: unexpected EOF")
+	}
+	marker := data[*pos]
+	switch {
+	case marker >= 0x80 && marker <= 0x8f:
+		*pos += 1
+		return int64(marker & 0x0f), nil
+	case marker == 0xde:
+		if int64(len(data))-*pos < 3 {
+			return 0, fmt.Errorf("read map16 header: unexpected EOF")
+		}
+		count := int64(binary.BigEndian.Uint16(data[*pos+1:]))
+		*pos += 3
+		return count, nil
+	case marker == 0xdf:
+		if int64(len(data))-*pos < 5 {
+			return 0, fmt.Errorf("read map32 header: unexpected EOF")
+		}
+		count := uint64(binary.BigEndian.Uint32(data[*pos+1:]))
+		if count > uint64(csharpInt32Max) {
+			return 0, fmt.Errorf("map32 length %d exceeds the C# Int32 range", count)
+		}
+		*pos += 5
+		return int64(count), nil
+	default:
+		return 0, fmt.Errorf("expected map, got marker 0x%02x", marker)
+	}
 }
 
 // ReadExtHeader 读取指定 ext 类型并将载荷解码为整数
@@ -718,8 +759,8 @@ func decodeExtPayloadAsInt(payload []byte) (int64, error) {
 	return decodeFixedWidthInt(payload)
 }
 
-// decodeFixedWidthInt 将一、二、四或八字节大端无符号载荷转换为主机 int
-// decodeFixedWidthInt converts a one-byte, two-byte, four-byte, or eight-byte big-endian unsigned payload to host int
+// decodeFixedWidthInt 将一、二、四或八字节大端无符号载荷转换为 Int64
+// decodeFixedWidthInt converts a one-byte, two-byte, four-byte, or eight-byte big-endian unsigned payload to Int64
 func decodeFixedWidthInt(payload []byte) (int64, error) {
 	switch len(payload) {
 	case 1:

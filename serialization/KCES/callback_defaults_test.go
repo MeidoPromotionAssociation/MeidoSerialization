@@ -4,15 +4,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestDecodeDynamicBoneStatusRejectsUnknownShortArray(t *testing.T) {
-	msgpackData, err := ct.EncodeMsgpack([]interface{}{int64(999)})
+	msgpackData, err := msgpack.EncodeMsgpack([]interface{}{int64(999)})
 	if err != nil {
 		t.Fatalf("EncodeMsgpack: %v", err)
 	}
-	compressed, err := ct.CompressLz4BlockArray(msgpackData)
+	compressed, err := msgpack.CompressLz4BlockArray(msgpackData)
 	if err != nil {
 		t.Fatalf("CompressLz4BlockArray: %v", err)
 	}

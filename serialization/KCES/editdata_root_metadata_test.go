@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestEditDataDecodersRejectTrailingRootData(t *testing.T) {
@@ -33,7 +33,7 @@ func TestEditDataDecodersRejectTrailingRootData(t *testing.T) {
 				t.Fatal(err)
 			}
 			if test.raw {
-				wire, err = ct.DecompressLz4BlockArray(wire)
+				wire, err = msgpack.DecompressLz4BlockArray(wire)
 				if err != nil {
 					t.Fatal(err)
 				}

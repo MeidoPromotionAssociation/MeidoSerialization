@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 	"github.com/ugorji/go/codec"
 )
 
@@ -20,7 +20,7 @@ func TestIndexedObjectsRejectUnsupportedWidths(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var value Vector3
-			if err := ct.DecodeMsgpack(test.wire, &value); err == nil || !strings.Contains(err.Error(), test.want) {
+			if err := msgpack.DecodeMsgpack(test.wire, &value); err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("DecodeMsgpack() error = %v, want %q", err, test.want)
 			}
 		})
@@ -30,7 +30,7 @@ func TestIndexedObjectsRejectUnsupportedWidths(t *testing.T) {
 func TestIndexedObjectsRejectTrailingRootData(t *testing.T) {
 	wire := append([]byte{0x93, 0x01, 0x02, 0x03}, 0xc0)
 	var value Vector3
-	if err := ct.DecodeMsgpack(wire, &value); err == nil || !strings.Contains(err.Error(), "trailing data") {
+	if err := msgpack.DecodeMsgpack(wire, &value); err == nil || !strings.Contains(err.Error(), "trailing data") {
 		t.Fatalf("DecodeMsgpack() error = %v, want trailing data", err)
 	}
 }
@@ -87,7 +87,7 @@ func compressIndexedTestValue(t *testing.T, value interface{}) []byte {
 	if err := codec.NewEncoderBytes(&messagePack, h).Encode(value); err != nil {
 		t.Fatalf("encode indexed test MessagePack: %v", err)
 	}
-	compressed, err := ct.CompressLz4BlockArray(messagePack)
+	compressed, err := msgpack.CompressLz4BlockArray(messagePack)
 	if err != nil {
 		t.Fatalf("compress indexed test MessagePack: %v", err)
 	}
@@ -101,7 +101,7 @@ func lengthPrefixedIndexedTestValue(t *testing.T, value interface{}) []byte {
 
 func decodeCompressedIndexedTestArray(t *testing.T, data []byte) []codec.Raw {
 	t.Helper()
-	messagePack, err := ct.DecompressLz4BlockArray(data)
+	messagePack, err := msgpack.DecompressLz4BlockArray(data)
 	if err != nil {
 		t.Fatalf("decompress indexed test wire: %v", err)
 	}
@@ -123,7 +123,7 @@ func decodeIndexedTestArray(t *testing.T, data []byte) []codec.Raw {
 		data = []byte{0xc0}
 	}
 	var slots []codec.Raw
-	if err := ct.DecodeMsgpack(data, &slots); err != nil {
+	if err := msgpack.DecodeMsgpack(data, &slots); err != nil {
 		t.Fatalf("decode indexed test array: %v; wire=% x", err, data)
 	}
 	return slots

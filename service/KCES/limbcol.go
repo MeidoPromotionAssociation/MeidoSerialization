@@ -22,7 +22,7 @@ func (s *LimbColService) ReadLimbColFile(path string) (*serializationKCES.KCESPa
 	if err != nil {
 		return nil, fmt.Errorf("read .limbcol file %q: %w", path, err)
 	}
-	value, err := serializationKCES.DecodeKCESPayload(data, serializationKCES.KCESLimbColExtension)
+	value, err := serializationKCES.DecodeLimbCol(data)
 	if err != nil {
 		return nil, fmt.Errorf("decode .limbcol file %q: %w", path, err)
 	}
@@ -38,7 +38,7 @@ func (s *LimbColService) WriteLimbColFile(path string, value *serializationKCES.
 	if value == nil || serializationKCES.NormalizeKCESPayloadExtension(value.Extension) != serializationKCES.KCESLimbColExtension {
 		return fmt.Errorf(".limbcol output requires a .limbcol KCES payload envelope")
 	}
-	encoded, err := serializationKCES.EncodeKCESPayload(value)
+	encoded, err := serializationKCES.EncodeLimbCol(value)
 	if err != nil {
 		return fmt.Errorf("encode .limbcol file: %w", err)
 	}
@@ -92,7 +92,7 @@ func (s *LimbColService) ConvertJsonToLimbCol(ctx context.Context, inputPath str
 	} else if actual != serializationKCES.KCESLimbColExtension {
 		return fmt.Errorf("KCES payload envelope extension %q does not match file extension %q", actual, serializationKCES.KCESLimbColExtension)
 	}
-	encoded, err := serializationKCES.EncodeKCESPayload(&value)
+	encoded, err := serializationKCES.EncodeLimbCol(&value)
 	if err != nil {
 		return fmt.Errorf("encode .limbcol file: %w", err)
 	}

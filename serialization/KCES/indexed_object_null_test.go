@@ -4,12 +4,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestIndexedObjectsRejectNilForValueTypedFields(t *testing.T) {
 	var value Vector3
-	if err := ct.DecodeMsgpack([]byte{0x93, 0xc0, 0x01, 0x02}, &value); err == nil || !strings.Contains(err.Error(), "nil is not valid") {
+	if err := msgpack.DecodeMsgpack([]byte{0x93, 0xc0, 0x01, 0x02}, &value); err == nil || !strings.Contains(err.Error(), "nil is not valid") {
 		t.Fatalf("DecodeMsgpack() error = %v, want value-typed nil rejection", err)
 	}
 }

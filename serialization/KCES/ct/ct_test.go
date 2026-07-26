@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestReadContentTable(t *testing.T) {
@@ -161,7 +163,7 @@ func TestDecodeVirtualDirectoryNestedFiles(t *testing.T) {
 			"root.bin": []interface{}{int64(HeaderSize + 3), int64(5)},
 		},
 	}
-	data, err := EncodeMsgpack(dirArray)
+	data, err := msgpack.EncodeMsgpack(dirArray)
 	if err != nil {
 		t.Fatalf("EncodeMsgpack: %v", err)
 	}

@@ -22,7 +22,7 @@ func (s *DSLColService) ReadDSLColFile(path string) (*serializationKCES.KCESPayl
 	if err != nil {
 		return nil, fmt.Errorf("read .dslcol file %q: %w", path, err)
 	}
-	value, err := serializationKCES.DecodeKCESPayload(data, serializationKCES.KCESDSLColExtension)
+	value, err := serializationKCES.DecodeDSLCol(data)
 	if err != nil {
 		return nil, fmt.Errorf("decode .dslcol file %q: %w", path, err)
 	}
@@ -38,7 +38,7 @@ func (s *DSLColService) WriteDSLColFile(path string, value *serializationKCES.KC
 	if value == nil || serializationKCES.NormalizeKCESPayloadExtension(value.Extension) != serializationKCES.KCESDSLColExtension {
 		return fmt.Errorf(".dslcol output requires a .dslcol KCES payload envelope")
 	}
-	encoded, err := serializationKCES.EncodeKCESPayload(value)
+	encoded, err := serializationKCES.EncodeDSLCol(value)
 	if err != nil {
 		return fmt.Errorf("encode .dslcol file: %w", err)
 	}
@@ -92,7 +92,7 @@ func (s *DSLColService) ConvertJsonToDSLCol(ctx context.Context, inputPath strin
 	} else if actual != serializationKCES.KCESDSLColExtension {
 		return fmt.Errorf("KCES payload envelope extension %q does not match file extension %q", actual, serializationKCES.KCESDSLColExtension)
 	}
-	encoded, err := serializationKCES.EncodeKCESPayload(&value)
+	encoded, err := serializationKCES.EncodeDSLCol(&value)
 	if err != nil {
 		return fmt.Errorf("encode .dslcol file: %w", err)
 	}

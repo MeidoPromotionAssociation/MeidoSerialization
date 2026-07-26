@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestCompressedMessagePackDecodersRejectTrailingData(t *testing.T) {
@@ -27,12 +27,12 @@ func TestCompressedMessagePackDecodersRejectTrailingData(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			raw, err := ct.DecompressLz4BlockArray(wire)
+			raw, err := msgpack.DecompressLz4BlockArray(wire)
 			if err != nil {
 				t.Fatal(err)
 			}
 			raw = append(raw, 0xc0)
-			wire, err = ct.CompressLz4BlockArray(raw)
+			wire, err = msgpack.CompressLz4BlockArray(raw)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -44,7 +44,7 @@ func TestCompressedMessagePackDecodersRejectTrailingData(t *testing.T) {
 }
 
 func TestCompressedMessagePackDecodersRoundTripTypedNilRoots(t *testing.T) {
-	wire, err := ct.CompressLz4BlockArray([]byte{0xc0})
+	wire, err := msgpack.CompressLz4BlockArray([]byte{0xc0})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestCompressedMessagePackDecodersRoundTripTypedNilRoots(t *testing.T) {
 				t.Fatalf("round-trip typed nil root: isNil=%v error=%v", isNil, err)
 			}
 
-			trailingWire, err := ct.CompressLz4BlockArray([]byte{0xc0, 0xc0})
+			trailingWire, err := msgpack.CompressLz4BlockArray([]byte{0xc0, 0xc0})
 			if err != nil {
 				t.Fatal(err)
 			}

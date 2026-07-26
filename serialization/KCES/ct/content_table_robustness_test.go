@@ -6,6 +6,8 @@ import (
 	"math"
 	"strings"
 	"testing"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestContentTableGetFileDataRejectsInvalidRangesWithoutPanic(t *testing.T) {
@@ -40,7 +42,7 @@ func TestWriteContentTableRejectsInvalidFileRange(t *testing.T) {
 }
 
 func TestDecodeMsgpackFileReportsCorruptCompression(t *testing.T) {
-	compressed, err := CompressLz4BlockArray(bytes.Repeat([]byte{0x91, 0x01}, 100))
+	compressed, err := msgpack.CompressLz4BlockArray(bytes.Repeat([]byte{0x91, 0x01}, 100))
 	if err != nil {
 		t.Fatalf("CompressLz4BlockArray: %v", err)
 	}
@@ -60,11 +62,11 @@ func TestDecodeMsgpackFileReportsCorruptCompression(t *testing.T) {
 }
 
 func TestContentTableDecodeMsgpackFile_PropagatesRecognizedEnvelopeErrors(t *testing.T) {
-	raw, err := EncodeMsgpack([]interface{}{int64(1000), "payload long enough to produce a compressed envelope"})
+	raw, err := msgpack.EncodeMsgpack([]interface{}{int64(1000), "payload long enough to produce a compressed envelope"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	compressed, err := CompressLz4BlockArray(raw)
+	compressed, err := msgpack.CompressLz4BlockArray(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +104,7 @@ func TestDecodeVirtualDirectoryRejectsMalformedFilesInsteadOfDroppingThem(t *tes
 			} else {
 				files = map[string]interface{}{tc.file: tc.data}
 			}
-			encoded, err := EncodeMsgpack([]interface{}{int64(ctVersion), map[string]interface{}{}, files})
+			encoded, err := msgpack.EncodeMsgpack([]interface{}{int64(ctVersion), map[string]interface{}{}, files})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -128,7 +130,7 @@ func TestDecodeVirtualDirectoryRejectsHistoricalTwoSlotLayout(t *testing.T) {
 		},
 		map[string]interface{}{"root.bin": []interface{}{int64(HeaderSize + 1), int64(1)}},
 	}
-	encoded, err := EncodeMsgpack(value)
+	encoded, err := msgpack.EncodeMsgpack(value)
 	if err != nil {
 		t.Fatal(err)
 	}

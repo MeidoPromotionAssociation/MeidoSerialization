@@ -22,7 +22,7 @@ func (s *DSLConfService) ReadDSLConfFile(path string) (*serializationKCES.KCESPa
 	if err != nil {
 		return nil, fmt.Errorf("read .dslconf file %q: %w", path, err)
 	}
-	value, err := serializationKCES.DecodeKCESPayload(data, serializationKCES.KCESDSLConfExtension)
+	value, err := serializationKCES.DecodeDSLConf(data)
 	if err != nil {
 		return nil, fmt.Errorf("decode .dslconf file %q: %w", path, err)
 	}
@@ -38,7 +38,7 @@ func (s *DSLConfService) WriteDSLConfFile(path string, value *serializationKCES.
 	if value == nil || serializationKCES.NormalizeKCESPayloadExtension(value.Extension) != serializationKCES.KCESDSLConfExtension {
 		return fmt.Errorf(".dslconf output requires a .dslconf KCES payload envelope")
 	}
-	encoded, err := serializationKCES.EncodeKCESPayload(value)
+	encoded, err := serializationKCES.EncodeDSLConf(value)
 	if err != nil {
 		return fmt.Errorf("encode .dslconf file: %w", err)
 	}
@@ -92,7 +92,7 @@ func (s *DSLConfService) ConvertJsonToDSLConf(ctx context.Context, inputPath str
 	} else if actual != serializationKCES.KCESDSLConfExtension {
 		return fmt.Errorf("KCES payload envelope extension %q does not match file extension %q", actual, serializationKCES.KCESDSLConfExtension)
 	}
-	encoded, err := serializationKCES.EncodeKCESPayload(&value)
+	encoded, err := serializationKCES.EncodeDSLConf(&value)
 	if err != nil {
 		return fmt.Errorf("encode .dslconf file: %w", err)
 	}

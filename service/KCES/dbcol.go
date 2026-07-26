@@ -22,7 +22,7 @@ func (s *DBColService) ReadDBColFile(path string) (*serializationKCES.KCESPayloa
 	if err != nil {
 		return nil, fmt.Errorf("read .dbcol file %q: %w", path, err)
 	}
-	value, err := serializationKCES.DecodeKCESPayload(data, serializationKCES.KCESDBColExtension)
+	value, err := serializationKCES.DecodeDBCol(data)
 	if err != nil {
 		return nil, fmt.Errorf("decode .dbcol file %q: %w", path, err)
 	}
@@ -38,7 +38,7 @@ func (s *DBColService) WriteDBColFile(path string, value *serializationKCES.KCES
 	if value == nil || serializationKCES.NormalizeKCESPayloadExtension(value.Extension) != serializationKCES.KCESDBColExtension {
 		return fmt.Errorf(".dbcol output requires a .dbcol KCES payload envelope")
 	}
-	encoded, err := serializationKCES.EncodeKCESPayload(value)
+	encoded, err := serializationKCES.EncodeDBCol(value)
 	if err != nil {
 		return fmt.Errorf("encode .dbcol file: %w", err)
 	}
@@ -92,7 +92,7 @@ func (s *DBColService) ConvertJsonToDBCol(ctx context.Context, inputPath string,
 	} else if actual != serializationKCES.KCESDBColExtension {
 		return fmt.Errorf("KCES payload envelope extension %q does not match file extension %q", actual, serializationKCES.KCESDBColExtension)
 	}
-	encoded, err := serializationKCES.EncodeKCESPayload(&value)
+	encoded, err := serializationKCES.EncodeDBCol(&value)
 	if err != nil {
 		return fmt.Errorf("encode .dbcol file: %w", err)
 	}

@@ -6,7 +6,7 @@ import (
 	"math"
 	"unicode/utf8"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 // system.dat 内 color_preset 目录中自定义颜色预设虚拟文件的 MessagePack 和 LZ4 布局
@@ -217,7 +217,7 @@ func DecodeColorPresetSlotWithInstanceGUID(data []byte, constructorGUID string) 
 // decodeColorPreset 解压固定七槽的颜色预设根值并要求完整消费解压后的输入
 // decodeColorPreset decompresses a fixed seven-slot color-preset root and requires complete consumption of the decompressed input
 func decodeColorPreset(data []byte, constructorGUID string) (*ColorPreset, error) {
-	raw, err := ct.DecompressLz4BlockArray(data)
+	raw, err := msgpack.DecompressLz4BlockArray(data)
 	if err != nil {
 		return nil, fmt.Errorf("decompress ColorPreset PrivateLz4BlockArray: %w", err)
 	}
@@ -1081,7 +1081,7 @@ func colorPresetCompress(raw []byte) ([]byte, error) {
 	if len(raw) < colorPresetCompressionMinLength {
 		return raw, nil
 	}
-	wire, err := ct.CompressLz4BlockArray(raw)
+	wire, err := msgpack.CompressLz4BlockArray(raw)
 	if err != nil {
 		return nil, fmt.Errorf("compress ColorPreset PrivateLz4BlockArray: %w", err)
 	}

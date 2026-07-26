@@ -6,6 +6,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/strictjson"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 	"github.com/ugorji/go/codec"
 )
 
@@ -233,13 +234,13 @@ func (value *CatalogItem) UnmarshalJSON(data []byte) error {
 // CodecEncodeSelf 按固定三槽布局编码 CatalogItem
 // CodecEncodeSelf encodes CatalogItem using its fixed three-slot layout
 func (v CatalogItem) CodecEncodeSelf(e *codec.Encoder) {
-	EncodeIndexedObjectSelf(e, &v)
+	msgpack.EncodeIndexedObjectSelf(e, &v)
 }
 
 // CodecDecodeSelf 按固定三槽布局解码 CatalogItem
 // CodecDecodeSelf decodes CatalogItem using its fixed three-slot layout
 func (v *CatalogItem) CodecDecodeSelf(d *codec.Decoder) {
-	DecodeIndexedObjectSelf(d, v)
+	msgpack.DecodeIndexedObjectSelf(d, v)
 }
 
 // VirtualCatalogItem 表示 C# VirtualAssetCatalog.Item 的固定三槽本地资源条目
@@ -272,13 +273,13 @@ func (value *VirtualCatalogItem) UnmarshalJSON(data []byte) error {
 // CodecEncodeSelf 按固定三槽布局编码 VirtualCatalogItem
 // CodecEncodeSelf encodes VirtualCatalogItem using its fixed three-slot layout
 func (v VirtualCatalogItem) CodecEncodeSelf(e *codec.Encoder) {
-	EncodeIndexedObjectSelf(e, &v)
+	msgpack.EncodeIndexedObjectSelf(e, &v)
 }
 
 // CodecDecodeSelf 按固定三槽布局解码 VirtualCatalogItem
 // CodecDecodeSelf decodes VirtualCatalogItem using its fixed three-slot layout
 func (v *VirtualCatalogItem) CodecDecodeSelf(d *codec.Decoder) {
-	DecodeIndexedObjectSelf(d, v)
+	msgpack.DecodeIndexedObjectSelf(d, v)
 }
 
 // ExtensionNameList 表示 .ct 中按扩展名分组的资源名称列表
@@ -310,13 +311,13 @@ func (value *ExtensionNameList) UnmarshalJSON(data []byte) error {
 // CodecEncodeSelf 按固定两槽布局编码 ExtensionNameList
 // CodecEncodeSelf encodes ExtensionNameList using its fixed two-slot layout
 func (v ExtensionNameList) CodecEncodeSelf(e *codec.Encoder) {
-	EncodeIndexedObjectSelf(e, &v)
+	msgpack.EncodeIndexedObjectSelf(e, &v)
 }
 
 // CodecDecodeSelf 按固定两槽布局解码 ExtensionNameList
 // CodecDecodeSelf decodes ExtensionNameList using its fixed two-slot layout
 func (v *ExtensionNameList) CodecDecodeSelf(d *codec.Decoder) {
-	DecodeIndexedObjectSelf(d, v)
+	msgpack.DecodeIndexedObjectSelf(d, v)
 }
 
 // ExtensionNamePack 表示 ExtensionNameList 中固定两槽的名称和哈希条目
@@ -348,13 +349,13 @@ func (value *ExtensionNamePack) UnmarshalJSON(data []byte) error {
 // CodecEncodeSelf 按固定两槽布局编码 ExtensionNamePack
 // CodecEncodeSelf encodes ExtensionNamePack using its fixed two-slot layout
 func (v ExtensionNamePack) CodecEncodeSelf(e *codec.Encoder) {
-	EncodeIndexedObjectSelf(e, &v)
+	msgpack.EncodeIndexedObjectSelf(e, &v)
 }
 
 // CodecDecodeSelf 按固定两槽布局解码 ExtensionNamePack
 // CodecDecodeSelf decodes ExtensionNamePack using its fixed two-slot layout
 func (v *ExtensionNamePack) CodecDecodeSelf(d *codec.Decoder) {
-	DecodeIndexedObjectSelf(d, v)
+	msgpack.DecodeIndexedObjectSelf(d, v)
 }
 
 // CatalogType 是游戏资源分类标志位枚举
@@ -410,13 +411,13 @@ type assetBundleCatalogWire struct {
 // CodecEncodeSelf 按固定十二槽布局编码 AssetBundleCatalog 线格式
 // CodecEncodeSelf encodes the AssetBundleCatalog wire value using its fixed twelve-slot layout
 func (v assetBundleCatalogWire) CodecEncodeSelf(e *codec.Encoder) {
-	EncodeIndexedObjectSelf(e, &v)
+	msgpack.EncodeIndexedObjectSelf(e, &v)
 }
 
 // CodecDecodeSelf 按固定十二槽布局解码 AssetBundleCatalog 线格式
 // CodecDecodeSelf decodes the AssetBundleCatalog wire value using its fixed twelve-slot layout
 func (v *assetBundleCatalogWire) CodecDecodeSelf(d *codec.Decoder) {
-	DecodeIndexedObjectSelf(d, v)
+	msgpack.DecodeIndexedObjectSelf(d, v)
 }
 
 // virtualAssetCatalogWire 表示游戏 VirtualAssetCatalog 的固定十槽线格式 / virtualAssetCatalogWire represents the game's fixed ten-slot VirtualAssetCatalog wire layout
@@ -437,13 +438,13 @@ type virtualAssetCatalogWire struct {
 // CodecEncodeSelf 按固定十槽布局编码 VirtualAssetCatalog 线格式
 // CodecEncodeSelf encodes the VirtualAssetCatalog wire value using its fixed ten-slot layout
 func (v virtualAssetCatalogWire) CodecEncodeSelf(e *codec.Encoder) {
-	EncodeIndexedObjectSelf(e, &v)
+	msgpack.EncodeIndexedObjectSelf(e, &v)
 }
 
 // CodecDecodeSelf 按固定十槽布局解码 VirtualAssetCatalog 线格式
 // CodecDecodeSelf decodes the VirtualAssetCatalog wire value using its fixed ten-slot layout
 func (v *virtualAssetCatalogWire) CodecDecodeSelf(d *codec.Decoder) {
-	DecodeIndexedObjectSelf(d, v)
+	msgpack.DecodeIndexedObjectSelf(d, v)
 }
 
 // DecodeCatalog 解码唯一完整的 catalog 根值并按固定宽度识别具体类型
@@ -491,7 +492,7 @@ func decodeCatalog(data []byte, forcedKind CatalogKind) (*AssetBundleCatalog, er
 			return nil, fmt.Errorf("unsupported AssetBundleCatalog indexed-array width %d, expected 12", len(fields))
 		}
 		var wire assetBundleCatalogWire
-		if err := DecodeMsgpack(data, &wire); err != nil {
+		if err := msgpack.DecodeMsgpack(data, &wire); err != nil {
 			return nil, fmt.Errorf("decode AssetBundleCatalog: %w", err)
 		}
 		return &AssetBundleCatalog{
@@ -514,7 +515,7 @@ func decodeCatalog(data []byte, forcedKind CatalogKind) (*AssetBundleCatalog, er
 			return nil, fmt.Errorf("unsupported VirtualAssetCatalog indexed-array width %d, expected 10", len(fields))
 		}
 		var wire virtualAssetCatalogWire
-		if err := DecodeMsgpack(data, &wire); err != nil {
+		if err := msgpack.DecodeMsgpack(data, &wire); err != nil {
 			return nil, fmt.Errorf("decode VirtualAssetCatalog: %w", err)
 		}
 		return &AssetBundleCatalog{
@@ -566,7 +567,7 @@ func EncodeCatalog(cat *AssetBundleCatalog) ([]byte, error) {
 	}
 	switch cat.Kind {
 	case CatalogKindAssetBundle:
-		return EncodeIndexedMsgpack(&assetBundleCatalogWire{
+		return msgpack.EncodeIndexedMsgpack(&assetBundleCatalogWire{
 			Version:           cat.Version,
 			CatalogType:       cat.CatalogType,
 			PackageType:       cat.PackageType,
@@ -581,7 +582,7 @@ func EncodeCatalog(cat *AssetBundleCatalog) ([]byte, error) {
 			Items:             cat.Items,
 		})
 	case CatalogKindVirtualAsset:
-		return EncodeIndexedMsgpack(&virtualAssetCatalogWire{
+		return msgpack.EncodeIndexedMsgpack(&virtualAssetCatalogWire{
 			Version:       cat.Version,
 			CatalogType:   cat.CatalogType,
 			PackageType:   cat.PackageType,
@@ -608,7 +609,7 @@ func DecodeExtensionNameList(data []byte) (*ExtensionNameList, error) {
 		return nil, nil
 	}
 	var value ExtensionNameList
-	if err := DecodeMsgpack(data, &value); err != nil {
+	if err := msgpack.DecodeMsgpack(data, &value); err != nil {
 		return nil, fmt.Errorf("decode ExtensionNameList: %w", err)
 	}
 	return &value, nil
@@ -633,7 +634,7 @@ func EncodeExtensionNameList(value *ExtensionNameList) ([]byte, error) {
 	if err := ValidateExtensionNameList(value); err != nil {
 		return nil, err
 	}
-	return EncodeIndexedMsgpack(value)
+	return msgpack.EncodeIndexedMsgpack(value)
 }
 
 // decodeContentTableMessagePackFile 提取并解压 .ct 中一个 MessagePack 虚拟文件
@@ -646,7 +647,7 @@ func decodeContentTableMessagePackFile(table *ContentTable, name string) ([]byte
 	if err != nil {
 		return nil, err
 	}
-	data, err := DecompressLz4BlockArray(raw)
+	data, err := msgpack.DecompressLz4BlockArray(raw)
 	if err != nil {
 		return nil, fmt.Errorf("decompress content table file %q: %w", name, err)
 	}

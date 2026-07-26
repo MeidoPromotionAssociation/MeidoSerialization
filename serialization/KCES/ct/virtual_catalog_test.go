@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestDecodeCatalogSupportsTenSlotVirtualAssetCatalog(t *testing.T) {
@@ -21,7 +23,7 @@ func TestDecodeCatalogSupportsTenSlotVirtualAssetCatalog(t *testing.T) {
 			},
 		},
 	}
-	messagePack, err := EncodeMsgpack(raw)
+	messagePack, err := msgpack.EncodeMsgpack(raw)
 	if err != nil {
 		t.Fatalf("EncodeMsgpack: %v", err)
 	}
@@ -48,7 +50,7 @@ func TestVirtualAssetCatalogSyntheticContentTableRoundTrip(t *testing.T) {
 		t.Fatalf("EncodeCatalog: %v", err)
 	}
 	var catalogWire []interface{}
-	if err := DecodeMsgpack(catalogData, &catalogWire); err != nil {
+	if err := msgpack.DecodeMsgpack(catalogData, &catalogWire); err != nil {
 		t.Fatalf("DecodeMsgpack encoded catalog: %v", err)
 	}
 	if len(catalogWire) != 10 {
@@ -67,11 +69,11 @@ func TestVirtualAssetCatalogSyntheticContentTableRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EncodeExtensionNameList: %v", err)
 	}
-	compressedCatalog, err := CompressLz4BlockArray(catalogData)
+	compressedCatalog, err := msgpack.CompressLz4BlockArray(catalogData)
 	if err != nil {
 		t.Fatalf("Compress catalog: %v", err)
 	}
-	compressedExtension, err := CompressLz4BlockArray(extensionData)
+	compressedExtension, err := msgpack.CompressLz4BlockArray(extensionData)
 	if err != nil {
 		t.Fatalf("Compress extension list: %v", err)
 	}

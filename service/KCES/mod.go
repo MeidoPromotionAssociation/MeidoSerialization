@@ -21,6 +21,7 @@ import (
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 // ModManifest 定义 KCES MOD 的打包清单 / ModManifest defines the packing manifest for a KCES MOD
@@ -333,7 +334,7 @@ func packModManifestWithOptions(manifest ModManifest, baseDir string, outputDir 
 	if err != nil {
 		return fmt.Errorf("encode catalog: %w", err)
 	}
-	compressedCatalog, err := ct.CompressLz4BlockArray(catalogData)
+	compressedCatalog, err := msgpack.CompressLz4BlockArray(catalogData)
 	if err != nil {
 		return fmt.Errorf("compress catalog: %w", err)
 	}
@@ -358,7 +359,7 @@ func packModManifestWithOptions(manifest ModManifest, baseDir string, outputDir 
 		if err != nil {
 			return fmt.Errorf("encode ExtensionNameList %q: %w", ext, err)
 		}
-		compressedEnl, err := ct.CompressLz4BlockArray(enlData)
+		compressedEnl, err := msgpack.CompressLz4BlockArray(enlData)
 		if err != nil {
 			return fmt.Errorf("compress ExtensionNameList %q: %w", ext, err)
 		}

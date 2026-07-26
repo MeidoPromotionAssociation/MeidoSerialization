@@ -1,4 +1,4 @@
-package ct
+package msgpack
 
 import (
 	"bytes"
@@ -80,6 +80,20 @@ func TestCompressLz4BlockArray_MessagePackCSharpWireFormat(t *testing.T) {
 	}
 	if !bytes.Equal(decoded, data) {
 		t.Fatalf("round trip differs: got %d bytes, want %d", len(decoded), len(data))
+	}
+}
+
+func TestCollectionHeadersRejectLengthsOutsideCSharpInt32(t *testing.T) {
+	array := []byte{0xdd, 0x80, 0x00, 0x00, 0x00}
+	position := int64(0)
+	if _, err := ReadArrayHeaderStrict(array, &position); err == nil || !strings.Contains(err.Error(), "C# Int32") {
+		t.Fatalf("ReadArrayHeaderStrict error = %v, want C# Int32 rejection", err)
+	}
+
+	mapValue := []byte{0xdf, 0x80, 0x00, 0x00, 0x00}
+	position = 0
+	if _, err := ReadMapHeader(mapValue, &position); err == nil || !strings.Contains(err.Error(), "C# Int32") {
+		t.Fatalf("ReadMapHeader error = %v, want C# Int32 rejection", err)
 	}
 }
 

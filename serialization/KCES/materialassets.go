@@ -1,5 +1,10 @@
 package KCES
 
+import (
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
+	"github.com/ugorji/go/codec"
+)
+
 // .materialassets
 // KCES 材质资源容器，在 .aba 的 TextAsset 中保存 Parts.Material 数组及其材质属性
 // 载荷使用 LZ4 Block Array 压缩的 MessagePack indexed-array，当前 Material 固定版本为 1000
@@ -103,6 +108,54 @@ func EncodeMaterialAssets(assets *MaterialAssets) ([]byte, error) {
 	normalized.Assets = cloneSlicePreserveNil(assets.Assets)
 	return encodeCompressedMsgpack(&normalized, "MaterialAssets")
 }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 Material
+// CodecEncodeSelf encodes Material using the shared indexed-object rules
+func (v Material) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 Material
+// CodecDecodeSelf decodes Material using the shared indexed-object rules
+func (v *Material) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 TextureProp
+// CodecEncodeSelf encodes TextureProp using the shared indexed-object rules
+func (v TextureProp) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 TextureProp
+// CodecDecodeSelf decodes TextureProp using the shared indexed-object rules
+func (v *TextureProp) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 ColorProp
+// CodecEncodeSelf encodes ColorProp using the shared indexed-object rules
+func (v ColorProp) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 ColorProp
+// CodecDecodeSelf decodes ColorProp using the shared indexed-object rules
+func (v *ColorProp) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 VectorProp
+// CodecEncodeSelf encodes VectorProp using the shared indexed-object rules
+func (v VectorProp) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 VectorProp
+// CodecDecodeSelf decodes VectorProp using the shared indexed-object rules
+func (v *VectorProp) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 FloatProp
+// CodecEncodeSelf encodes FloatProp using the shared indexed-object rules
+func (v FloatProp) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 FloatProp
+// CodecDecodeSelf decodes FloatProp using the shared indexed-object rules
+func (v *FloatProp) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 MaterialAssets
+// CodecEncodeSelf encodes MaterialAssets using the shared indexed-object rules
+func (v MaterialAssets) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 MaterialAssets
+// CodecDecodeSelf decodes MaterialAssets using the shared indexed-object rules
+func (v *MaterialAssets) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
 
 // NewMaterial 创建使用当前固定版本的新材质
 // NewMaterial creates a new material with the current fixed version

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func validKCESPresetCoreForTest(t *testing.T) *KCESPresetCore {
@@ -104,7 +105,7 @@ func TestKCESPresetRejectsMissingOrCorruptOuterGameFiles(t *testing.T) {
 		t.Fatalf("corrupt maiddata error = %v", err)
 	}
 
-	nullCore, err := ct.CompressLz4BlockArray([]byte{0xc0})
+	nullCore, err := msgpack.CompressLz4BlockArray([]byte{0xc0})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,12 +160,12 @@ func TestKCESPresetRejectsMalformedKnownBlocksAndMessagePackTrailingData(t *test
 	}
 
 	core := validKCESPresetCoreForTest(t)
-	coreMessagePack, err := ct.EncodeIndexedMsgpack(core)
+	coreMessagePack, err := msgpack.EncodeIndexedMsgpack(core)
 	if err != nil {
 		t.Fatal(err)
 	}
 	coreMessagePack = append(coreMessagePack, 0xde, 0xad)
-	coreWithTrailing, err := ct.CompressLz4BlockArray(coreMessagePack)
+	coreWithTrailing, err := msgpack.CompressLz4BlockArray(coreMessagePack)
 	if err != nil {
 		t.Fatal(err)
 	}

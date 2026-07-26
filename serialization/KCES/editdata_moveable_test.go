@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestMoveablePanelSaveDataTypedRoundTrip(t *testing.T) {
@@ -83,7 +83,7 @@ func TestMoveablePanelSaveDataRejectsUnsupportedLayouts(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			wire, err := ct.EncodeMsgpack(test.root)
+			wire, err := msgpack.EncodeMsgpack(test.root)
 			if err != nil {
 				t.Fatal(err)
 			}

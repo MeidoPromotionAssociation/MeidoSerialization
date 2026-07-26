@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
 	"github.com/ugorji/go/codec"
 )
@@ -119,7 +120,7 @@ func ReadContentTable(r io.Reader) (*ContentTable, error) {
 	msgpackStart := int64(len(data)-footerSizeLen) - msgpackSize
 	msgpackData := data[msgpackStart : len(data)-footerSizeLen]
 
-	decompressed, err := DecompressLz4BlockArray(msgpackData)
+	decompressed, err := msgpack.DecompressLz4BlockArray(msgpackData)
 	if err != nil {
 		return nil, fmt.Errorf("decompress VirtualDirectory failed: %w", err)
 	}
@@ -201,14 +202,12 @@ func WriteContentTable(w io.Writer, ct *ContentTable) error {
 		return err
 	}
 
-	h := newMsgpackEncoderHandle(true)
-	var msgpackData []byte
-	enc := codec.NewEncoderBytes(&msgpackData, h)
-	if err := enc.Encode(dirArray); err != nil {
+	msgpackData, err := msgpack.EncodeMsgpack(dirArray)
+	if err != nil {
 		return fmt.Errorf("msgpack encode VirtualDirectory failed: %w", err)
 	}
 
-	compressed, err := CompressLz4BlockArray(msgpackData)
+	compressed, err := msgpack.CompressLz4BlockArray(msgpackData)
 	if err != nil {
 		return fmt.Errorf("compress VirtualDirectory failed: %w", err)
 	}
@@ -397,12 +396,12 @@ func (ct *ContentTable) DecodeMsgpackFile(name string, out interface{}) error {
 		return err
 	}
 
-	decoded, err := DecompressLz4BlockArray(raw)
+	decoded, err := msgpack.DecompressLz4BlockArray(raw)
 	if err != nil {
 		return fmt.Errorf("decompress content table file %q: %w", name, err)
 	}
 
-	return DecodeMsgpack(decoded, out)
+	return msgpack.DecodeMsgpack(decoded, out)
 }
 
 // decodeVirtualDirectory 解码一个固定三槽 MessagePack VirtualDirectory
@@ -506,7 +505,7 @@ func decodeRawMsgpackArray(data []byte, label string) ([]codec.Raw, error) {
 		return nil, fmt.Errorf("%s: empty MessagePack value", label)
 	}
 	pos := int64(0)
-	count, err := readArrayHeader(data, &pos)
+	count, err := msgpack.ReadArrayHeaderStrict(data, &pos)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", label, err)
 	}
@@ -533,14 +532,12 @@ func decodeVirtualDirectoryRawMap(data []byte, label string) (map[string]codec.R
 	if len(data) == 0 || (len(data) == 1 && data[0] == 0xc0) {
 		return nil, true, nil
 	}
-	count, err := messagePackMapLength(data)
+	position := int64(0)
+	count, err := msgpack.ReadMapHeader(data, &position)
 	if err != nil {
 		return nil, false, fmt.Errorf("%s: %w", label, err)
 	}
-	headerSize, err := messagePackMapHeaderSize(data)
-	if err != nil {
-		return nil, false, fmt.Errorf("%s: %w", label, err)
-	}
+	headerSize := position
 	if count > (int64(len(data))-headerSize)/2 {
 		return nil, false, fmt.Errorf("%s map length %d exceeds the capacity of %d remaining bytes", label, count, int64(len(data))-headerSize)
 	}
@@ -562,84 +559,14 @@ func decodeVirtualDirectoryRawMap(data []byte, label string) (map[string]codec.R
 	return values, false, nil
 }
 
-// messagePackMapLength 读取 MessagePack 映射头声明的元素数量
-// messagePackMapLength reads the element count declared by a MessagePack map header
-func messagePackMapLength(data []byte) (int64, error) {
-	if len(data) == 0 {
-		return 0, fmt.Errorf("empty MessagePack map value")
-	}
-	switch marker := data[0]; {
-	case marker >= 0x80 && marker <= 0x8f:
-		return int64(marker & 0x0f), nil
-	case marker == 0xde:
-		if len(data) < 3 {
-			return 0, fmt.Errorf("truncated map16 header")
-		}
-		return int64(binary.BigEndian.Uint16(data[1:3])), nil
-	case marker == 0xdf:
-		if len(data) < 5 {
-			return 0, fmt.Errorf("truncated map32 header")
-		}
-		count := uint64(binary.BigEndian.Uint32(data[1:5]))
-		if count > uint64(csharpInt32Max) {
-			return 0, fmt.Errorf("map32 length %d exceeds the C# Int32 range", count)
-		}
-		return int64(count), nil
-	default:
-		return 0, fmt.Errorf("expected map or nil, got marker 0x%02x", marker)
-	}
-}
-
-// messagePackMapHeaderSize 返回 MessagePack 映射头占用的字节数
-// messagePackMapHeaderSize returns the byte width of a MessagePack map header
-func messagePackMapHeaderSize(data []byte) (int64, error) {
-	if len(data) == 0 {
-		return 0, fmt.Errorf("empty MessagePack map value")
-	}
-	switch marker := data[0]; {
-	case marker >= 0x80 && marker <= 0x8f:
-		return 1, nil
-	case marker == 0xde:
-		if len(data) < 3 {
-			return 0, fmt.Errorf("truncated map16 header")
-		}
-		return 3, nil
-	case marker == 0xdf:
-		if len(data) < 5 {
-			return 0, fmt.Errorf("truncated map32 header")
-		}
-		return 5, nil
-	default:
-		return 0, fmt.Errorf("expected map, got marker 0x%02x", marker)
-	}
-}
-
 // decodeSingleRawMsgpackValue 解码恰好一个原始 MessagePack 值，并拒绝尾随字节
 // decodeSingleRawMsgpackValue decodes exactly one raw MessagePack value and rejects trailing bytes
 func decodeSingleRawMsgpackValue(data []byte, out interface{}, label string) error {
 	if len(data) == 0 {
 		data = []byte{0xc0}
 	}
-	h := newMsgpackHandle()
-	h.MaxDepth = 256
-	dec := codec.NewDecoderBytes(data, h)
-	if err := dec.Decode(out); err != nil {
+	if err := msgpack.DecodeMsgpack(data, out); err != nil {
 		return fmt.Errorf("%s MessagePack decode failed: %w", label, err)
-	}
-	if len(data) == 1 && data[0] == 0xc0 {
-		return nil
-	}
-	// ugorji 将字节解码器耗尽报告为包装后的 "unexpected EOF" 而非 io.EOF
-	// 因此使用新解码器将首个值解码为 Raw 并比较捕获区间，不再通过第二次 Decode 探测
-	// ugorji reports an exhausted byte decoder as a wrapped "unexpected EOF" rather than io.EOF
-	// The first value is therefore decoded as Raw with a fresh decoder and its captured span compared instead of probing with a second Decode call
-	var captured codec.Raw
-	spanDecoder := codec.NewDecoderBytes(data, h)
-	if err := spanDecoder.Decode(&captured); err != nil {
-		return fmt.Errorf("%s MessagePack span decode failed: %w", label, err)
-	}
-	if len(captured) != len(data) {
-		return fmt.Errorf("%s has %d trailing MessagePack bytes", label, len(data)-len(captured))
 	}
 	return nil
 }

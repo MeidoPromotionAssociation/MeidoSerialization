@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestPublicDecodersRejectCLRInt32Overflow(t *testing.T) {
@@ -64,20 +64,20 @@ func TestPayloadDecoderRejectsCLRInt32Overflow(t *testing.T) {
 
 func mutateCompressedInt32TestRoot(t *testing.T, wire []byte, mutate func([]interface{})) []byte {
 	t.Helper()
-	raw, err := ct.DecompressLz4BlockArray(wire)
+	raw, err := msgpack.DecompressLz4BlockArray(wire)
 	if err != nil {
 		t.Fatalf("decompress Int32 test fixture: %v", err)
 	}
 	var root []interface{}
-	if err := ct.DecodeMsgpack(raw, &root); err != nil {
+	if err := msgpack.DecodeMsgpack(raw, &root); err != nil {
 		t.Fatalf("decode Int32 test fixture: %v", err)
 	}
 	mutate(root)
-	encoded, err := ct.EncodeMsgpack(root)
+	encoded, err := msgpack.EncodeMsgpack(root)
 	if err != nil {
 		t.Fatalf("encode mutated Int32 test fixture: %v", err)
 	}
-	compressed, err := ct.CompressLz4BlockArray(encoded)
+	compressed, err := msgpack.CompressLz4BlockArray(encoded)
 	if err != nil {
 		t.Fatalf("compress mutated Int32 test fixture: %v", err)
 	}

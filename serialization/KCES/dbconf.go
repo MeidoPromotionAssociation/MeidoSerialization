@@ -1,7 +1,9 @@
 package KCES
 
 import (
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"fmt"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 	"github.com/ugorji/go/codec"
 )
 
@@ -25,10 +27,7 @@ var dbconfPayloadDescriptor = kcesPayloadDescriptor{
 	ExportCMStorageVariant: PayloadStorageExportCMUnityJSON,
 }
 
-// DynamicBoneStatus 对应游戏的 DynamicBoneStatus
-// 游戏按 MessagePack indexed-array 写入，版本位于 Key(0)，其余字段位于 Key(1) 至 Key(15)
-// DynamicBoneStatus corresponds to the game's DynamicBoneStatus
-// The game writes it as a MessagePack indexed array with the version at Key(0) and fields at Key(1) through Key(15)
+// DynamicBoneStatus 对应游戏按 Key(0) 至 Key(15) 写入的 DynamicBoneStatus indexed-array / DynamicBoneStatus corresponds to the game's DynamicBoneStatus indexed array stored at Key(0) through Key(15)
 type DynamicBoneStatus struct {
 	_struct             struct{}                     `codec:",toarray"`           // 强制按数组编码 / Forces array encoding
 	Version             int32                        `json:"version"`             // 版本号，通常为 1000 / Version value, usually 1000
@@ -49,8 +48,7 @@ type DynamicBoneStatus struct {
 	FreezeAxis          int32                        `json:"freezeAxis"`          // 冻结轴枚举 / Freeze-axis enum
 }
 
-// DynamicBoneAnimationFrame 表示 DynamicBoneStatus 的一个动画关键帧
-// DynamicBoneAnimationFrame represents one animation keyframe in DynamicBoneStatus
+// DynamicBoneAnimationFrame 表示 DynamicBoneStatus 的一个动画关键帧 / DynamicBoneAnimationFrame represents one animation keyframe in DynamicBoneStatus
 type DynamicBoneAnimationFrame struct {
 	_struct    struct{} `codec:",toarray"`  // 强制按数组编码 / Forces array encoding
 	Time       float32  `json:"time"`       // 关键帧时间 / Keyframe time
@@ -62,25 +60,25 @@ type DynamicBoneAnimationFrame struct {
 // CodecEncodeSelf 按游戏的 indexed-array 格式编码 DynamicBoneStatus
 // CodecEncodeSelf encodes DynamicBoneStatus using the game's indexed-array format
 func (v DynamicBoneStatus) CodecEncodeSelf(e *codec.Encoder) {
-	ct.EncodeIndexedObjectSelf(e, &v)
+	msgpack.EncodeIndexedObjectSelf(e, &v)
 }
 
 // CodecDecodeSelf 按游戏的 indexed-array 格式解码 DynamicBoneStatus
 // CodecDecodeSelf decodes DynamicBoneStatus using the game's indexed-array format
 func (v *DynamicBoneStatus) CodecDecodeSelf(d *codec.Decoder) {
-	ct.DecodeIndexedObjectSelf(d, v)
+	msgpack.DecodeIndexedObjectSelf(d, v)
 }
 
 // CodecEncodeSelf 按游戏的 indexed-array 格式编码 DynamicBoneAnimationFrame
 // CodecEncodeSelf encodes DynamicBoneAnimationFrame using the game's indexed-array format
 func (v DynamicBoneAnimationFrame) CodecEncodeSelf(e *codec.Encoder) {
-	ct.EncodeIndexedObjectSelf(e, &v)
+	msgpack.EncodeIndexedObjectSelf(e, &v)
 }
 
 // CodecDecodeSelf 按游戏的 indexed-array 格式解码 DynamicBoneAnimationFrame
 // CodecDecodeSelf decodes DynamicBoneAnimationFrame using the game's indexed-array format
 func (v *DynamicBoneAnimationFrame) CodecDecodeSelf(d *codec.Decoder) {
-	ct.DecodeIndexedObjectSelf(d, v)
+	msgpack.DecodeIndexedObjectSelf(d, v)
 }
 
 // NewDynamicBoneStatus 返回当前游戏构造新对象时使用的默认值
@@ -109,10 +107,58 @@ func (s *DynamicBoneStatus) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// DecodeDBConf 解码 .dbconf 的原生 DynamicBoneStatus 或 ExportCM Unity JSON 线格式并拒绝歧义输入
+// DecodeDBConf decodes the native DynamicBoneStatus or ExportCM Unity JSON wire format of a .dbconf file and rejects ambiguous input
+func DecodeDBConf(data []byte) (*KCESPayloadEnvelope, error) {
+	return decodeKCESPayloadVariants(data, dbconfPayloadDescriptor, decodeDBConfMessagePack)
+}
+
+// decodeDBConfMessagePack 解码 .dbconf 的长度前缀 LZ4 MessagePack DynamicBoneStatus 载荷
+// decodeDBConfMessagePack decodes the length-prefixed LZ4 MessagePack DynamicBoneStatus payload of a .dbconf file
+func decodeDBConfMessagePack(data []byte) (*KCESPayloadEnvelope, error) {
+	var status *DynamicBoneStatus
+	if err := decodeKCESMessagePackRoot(data, dbconfPayloadDescriptor, &status); err != nil {
+		return nil, fmt.Errorf("decode DynamicBoneStatus: %w", err)
+	}
+	if status != nil {
+		if err := validateDynamicBoneStatusForEncoding(status); err != nil {
+			return nil, fmt.Errorf("validate decoded DynamicBoneStatus: %w", err)
+		}
+	}
+	envelope := newKCESMessagePackEnvelope(dbconfPayloadDescriptor)
+	envelope.DynamicBone = status
+	return envelope, nil
+}
+
+// EncodeDBConf 按封套声明的原生 KCES 或 ExportCM 存储变体编码 .dbconf 载荷
+// EncodeDBConf encodes a .dbconf payload using the native KCES or ExportCM storage variant declared by the envelope
+func EncodeDBConf(env *KCESPayloadEnvelope) ([]byte, error) {
+	return encodeKCESPayloadVariant(env, dbconfPayloadDescriptor, encodeDBConfMessagePack)
+}
+
+// encodeDBConfMessagePack 编码 .dbconf 的长度前缀 LZ4 MessagePack DynamicBoneStatus 载荷
+// encodeDBConfMessagePack encodes the length-prefixed LZ4 MessagePack DynamicBoneStatus payload of a .dbconf file
+func encodeDBConfMessagePack(env *KCESPayloadEnvelope) ([]byte, error) {
+	var data []byte
+	var err error
+	if env.DynamicBone == nil {
+		data, err = msgpack.EncodeMsgpack(nil)
+	} else {
+		if err := validateDynamicBoneStatusForEncoding(env.DynamicBone); err != nil {
+			return nil, err
+		}
+		data, err = msgpack.EncodeIndexedMsgpack(normalizeDynamicBoneStatusForEncoding(env.DynamicBone))
+	}
+	if err != nil {
+		return nil, fmt.Errorf("encode DynamicBoneStatus: %w", err)
+	}
+	return encodeKCESMessagePackRoot(data, dbconfPayloadDescriptor)
+}
+
 // DecodeDynamicBoneStatusFile 解码 .dbconf 中的 DynamicBoneStatus 载荷
 // DecodeDynamicBoneStatusFile decodes the DynamicBoneStatus payload in a .dbconf file
 func DecodeDynamicBoneStatusFile(data []byte) (*DynamicBoneStatus, error) {
-	env, err := DecodeKCESPayload(data, KCESDBConfExtension)
+	env, err := decodeDBConfMessagePack(data)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +178,7 @@ func EncodeDynamicBoneStatusFile(status *DynamicBoneStatus) ([]byte, error) {
 		Kind:           PayloadKindDynamicBoneStatus,
 		DynamicBone:    status,
 	}
-	return EncodeKCESPayload(env)
+	return EncodeDBConf(env)
 }
 
 // validateDynamicBoneStatusForEncoding 验证由 MessagePack Int32 保存的字段范围

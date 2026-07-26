@@ -1,5 +1,10 @@
 package KCES
 
+import (
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
+	"github.com/ugorji/go/codec"
+)
+
 // .pmatassets
 // KCES 优先级材质资源容器，在 .aba 的 TextAsset 中保存 Parts.PriorityMaterial 数组
 // 载荷使用 LZ4 Block Array 压缩的 MessagePack indexed-array，当前 PriorityMaterial 固定版本为 1000
@@ -105,4 +110,28 @@ func EncodePriorityMaterialAssets(assets *PriorityMaterialAssets) ([]byte, error
 // NewPriorityMaterial creates a new priority material with the current fixed version
 func NewPriorityMaterial() *PriorityMaterial {
 	return &PriorityMaterial{Version: priorityMaterialFixVersion}
+}
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 PriorityMaterial
+// CodecEncodeSelf encodes PriorityMaterial using the shared indexed-object rules
+func (v PriorityMaterial) CodecEncodeSelf(e *codec.Encoder) {
+	msgpack.EncodeIndexedObjectSelf(e, &v)
+}
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 PriorityMaterial
+// CodecDecodeSelf decodes PriorityMaterial using the shared indexed-object rules
+func (v *PriorityMaterial) CodecDecodeSelf(d *codec.Decoder) {
+	msgpack.DecodeIndexedObjectSelf(d, v)
+}
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 PriorityMaterialAssets
+// CodecEncodeSelf encodes PriorityMaterialAssets using the shared indexed-object rules
+func (v PriorityMaterialAssets) CodecEncodeSelf(e *codec.Encoder) {
+	msgpack.EncodeIndexedObjectSelf(e, &v)
+}
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 PriorityMaterialAssets
+// CodecDecodeSelf decodes PriorityMaterialAssets using the shared indexed-object rules
+func (v *PriorityMaterialAssets) CodecDecodeSelf(d *codec.Decoder) {
+	msgpack.DecodeIndexedObjectSelf(d, v)
 }

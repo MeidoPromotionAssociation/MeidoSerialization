@@ -14,3 +14,27 @@ var dsbconfPayloadDescriptor = kcesPayloadDescriptor{
 	Kind:           PayloadKindClothParams,
 	LengthPrefixed: true,
 }
+
+// DecodeDSBConf 解码 .dsbconf 的长度前缀 LZ4 MessagePack ClothParams 载荷
+// DecodeDSBConf decodes the length-prefixed LZ4 MessagePack ClothParams payload of a .dsbconf file
+func DecodeDSBConf(data []byte) (*KCESPayloadEnvelope, error) {
+	return decodeKCESPayloadVariants(data, dsbconfPayloadDescriptor, decodeDSBConfMessagePack)
+}
+
+// decodeDSBConfMessagePack 解码 .dsbconf 的原生 ClothParams MessagePack 载荷
+// decodeDSBConfMessagePack decodes the native ClothParams MessagePack payload of a .dsbconf file
+func decodeDSBConfMessagePack(data []byte) (*KCESPayloadEnvelope, error) {
+	return decodeClothParamsMessagePack(data, dsbconfPayloadDescriptor)
+}
+
+// EncodeDSBConf 编码 .dsbconf 的长度前缀 LZ4 MessagePack ClothParams 载荷
+// EncodeDSBConf encodes the length-prefixed LZ4 MessagePack ClothParams payload of a .dsbconf file
+func EncodeDSBConf(env *KCESPayloadEnvelope) ([]byte, error) {
+	return encodeKCESPayloadVariant(env, dsbconfPayloadDescriptor, encodeDSBConfMessagePack)
+}
+
+// encodeDSBConfMessagePack 编码 .dsbconf 的原生 ClothParams MessagePack 载荷
+// encodeDSBConfMessagePack encodes the native ClothParams MessagePack payload of a .dsbconf file
+func encodeDSBConfMessagePack(env *KCESPayloadEnvelope) ([]byte, error) {
+	return encodeClothParamsMessagePack(env, dsbconfPayloadDescriptor)
+}

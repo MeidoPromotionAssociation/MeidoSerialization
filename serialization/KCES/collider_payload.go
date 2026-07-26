@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/strictjson"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 	"github.com/ugorji/go/codec"
 )
 
@@ -414,13 +414,13 @@ type colliderRefWire struct {
 // CodecEncodeSelf 按共享 indexed-object 规则编码碰撞体 union 封套
 // CodecEncodeSelf encodes a collider union wrapper using the shared indexed-object rules
 func (v colliderRefWire) CodecEncodeSelf(e *codec.Encoder) {
-	ct.EncodeIndexedObjectSelf(e, &v)
+	msgpack.EncodeIndexedObjectSelf(e, &v)
 }
 
 // CodecDecodeSelf 按共享 indexed-object 规则解码碰撞体 union 封套
 // CodecDecodeSelf decodes a collider union wrapper using the shared indexed-object rules
 func (v *colliderRefWire) CodecDecodeSelf(d *codec.Decoder) {
-	ct.DecodeIndexedObjectSelf(d, v)
+	msgpack.DecodeIndexedObjectSelf(d, v)
 }
 
 // limbColliderItemWire 表示 LimbColliderData 的固定三槽 MessagePack 布局
@@ -435,13 +435,13 @@ type limbColliderItemWire struct {
 // CodecEncodeSelf 按共享 indexed-object 规则编码 LimbColliderData 线格式
 // CodecEncodeSelf encodes the LimbColliderData wire form using the shared indexed-object rules
 func (v limbColliderItemWire) CodecEncodeSelf(e *codec.Encoder) {
-	ct.EncodeIndexedObjectSelf(e, &v)
+	msgpack.EncodeIndexedObjectSelf(e, &v)
 }
 
 // CodecDecodeSelf 按共享 indexed-object 规则解码 LimbColliderData 线格式
 // CodecDecodeSelf decodes the LimbColliderData wire form using the shared indexed-object rules
 func (v *limbColliderItemWire) CodecDecodeSelf(d *codec.Decoder) {
-	ct.DecodeIndexedObjectSelf(d, v)
+	msgpack.DecodeIndexedObjectSelf(d, v)
 }
 
 // CodecEncodeSelf 将 ColliderRef 的强类型载荷编码为 MessagePack-CSharp union
@@ -467,7 +467,7 @@ func (c ColliderRef) CodecEncodeSelf(e *codec.Encoder) {
 		Type:     c.Type,
 		Collider: raw,
 	}
-	ct.EncodeIndexedObjectSelf(e, &wire)
+	msgpack.EncodeIndexedObjectSelf(e, &wire)
 }
 
 // CodecDecodeSelf 解码 MessagePack-CSharp union 并拒绝未知类型标记
@@ -482,7 +482,7 @@ func (c *ColliderRef) CodecDecodeSelf(d *codec.Decoder) {
 		return
 	}
 	var wire colliderRefWire
-	if err := ct.DecodeMsgpack(root, &wire); err != nil {
+	if err := msgpack.DecodeMsgpack(root, &wire); err != nil {
 		panic(fmt.Errorf("decode ColliderRef union wrapper: %w", err))
 	}
 	status, known := newColliderStatusForType(wire.Type)
@@ -493,7 +493,7 @@ func (c *ColliderRef) CodecDecodeSelf(d *codec.Decoder) {
 		Type: wire.Type,
 	}
 	if len(wire.Collider) != 0 {
-		if err := ct.DecodeMsgpack(wire.Collider, status); err != nil {
+		if err := msgpack.DecodeMsgpack(wire.Collider, status); err != nil {
 			panic(fmt.Errorf("decode ColliderRef type %d payload: %w", wire.Type, err))
 		}
 		result.Collider = status
@@ -513,7 +513,7 @@ func (item LimbColliderItem) CodecEncodeSelf(e *codec.Encoder) {
 		Target:   item.Target,
 		Collider: raw,
 	}
-	ct.EncodeIndexedObjectSelf(e, &wire)
+	msgpack.EncodeIndexedObjectSelf(e, &wire)
 }
 
 // CodecDecodeSelf 将三槽 LimbColliderData 解码为固定 NativeMaidPropColliderStatus
@@ -528,7 +528,7 @@ func (item *LimbColliderItem) CodecDecodeSelf(d *codec.Decoder) {
 		return
 	}
 	var wire limbColliderItemWire
-	if err := ct.DecodeMsgpack(root, &wire); err != nil {
+	if err := msgpack.DecodeMsgpack(root, &wire); err != nil {
 		panic(fmt.Errorf("decode LimbColliderItem: %w", err))
 	}
 	result := LimbColliderItem{
@@ -537,7 +537,7 @@ func (item *LimbColliderItem) CodecDecodeSelf(d *codec.Decoder) {
 	}
 	if len(wire.Collider) != 0 {
 		status := &ColliderMaidProp{}
-		if err := ct.DecodeMsgpack(wire.Collider, status); err != nil {
+		if err := msgpack.DecodeMsgpack(wire.Collider, status); err != nil {
 			panic(fmt.Errorf("decode LimbColliderItem.collider as NativeMaidPropColliderStatus: %w", err))
 		}
 		result.Collider = status
@@ -557,7 +557,7 @@ func encodeColliderStatusSlot(status ColliderStatusUnion, name string) (codec.Ra
 	if !ok {
 		return nil, fmt.Errorf("%s type %T does not implement the indexed MessagePack codec", name, status)
 	}
-	encoded, err := ct.EncodeIndexedMsgpack(selfer)
+	encoded, err := msgpack.EncodeIndexedMsgpack(selfer)
 	if err != nil {
 		return nil, fmt.Errorf("encode %s: %w", name, err)
 	}
@@ -830,4 +830,220 @@ func decodeColliderObjectAsType(raw json.RawMessage, typ int32) (ColliderStatusU
 // decodeColliderJSONStrict strictly decodes one collider JSON value and validates null according to the typed model
 func decodeColliderJSONStrict(data []byte, out any) error {
 	return strictjson.Decode(data, out)
+}
+
+// decodeColliderPackageMessagePack 解码扩展名声明的原生 ColliderPackage MessagePack 载荷
+// decodeColliderPackageMessagePack decodes the native ColliderPackage MessagePack payload declared by an extension
+func decodeColliderPackageMessagePack(data []byte, descriptor kcesPayloadDescriptor) (*KCESPayloadEnvelope, error) {
+	var value *ColliderPackage
+	if err := decodeKCESMessagePackRoot(data, descriptor, &value); err != nil {
+		return nil, fmt.Errorf("decode ColliderPackage msgpack: %w", err)
+	}
+	if value != nil {
+		if err := validateColliderPackageForEncoding(value); err != nil {
+			return nil, fmt.Errorf("validate decoded ColliderPackage: %w", err)
+		}
+	}
+	envelope := newKCESMessagePackEnvelope(descriptor)
+	envelope.ColliderPackage = value
+	return envelope, nil
+}
+
+// encodeColliderPackageMessagePack 编码扩展名声明的原生 ColliderPackage MessagePack 载荷
+// encodeColliderPackageMessagePack encodes the native ColliderPackage MessagePack payload declared by an extension
+func encodeColliderPackageMessagePack(env *KCESPayloadEnvelope, descriptor kcesPayloadDescriptor) ([]byte, error) {
+	var data []byte
+	var err error
+	if env.ColliderPackage == nil {
+		data, err = msgpack.EncodeMsgpack(nil)
+	} else {
+		if err := validateColliderPackageForEncoding(env.ColliderPackage); err != nil {
+			return nil, err
+		}
+		data, err = msgpack.EncodeIndexedMsgpack(normalizeColliderPackageForEncoding(env.ColliderPackage))
+	}
+	if err != nil {
+		return nil, fmt.Errorf("encode ColliderPackage msgpack: %w", err)
+	}
+	return encodeKCESMessagePackRoot(data, descriptor)
+}
+
+// decodeLimbColliderMessagePack 解码扩展名声明的原生 LimbColliderPackage MessagePack 载荷
+// decodeLimbColliderMessagePack decodes the native LimbColliderPackage MessagePack payload declared by an extension
+func decodeLimbColliderMessagePack(data []byte, descriptor kcesPayloadDescriptor) (*KCESPayloadEnvelope, error) {
+	var value *LimbColliderPackage
+	if err := decodeKCESMessagePackRoot(data, descriptor, &value); err != nil {
+		return nil, fmt.Errorf("decode LimbColliderPackage msgpack: %w", err)
+	}
+	if value != nil {
+		if err := validateLimbColliderPackageForEncoding(value); err != nil {
+			return nil, fmt.Errorf("validate decoded LimbColliderPackage: %w", err)
+		}
+	}
+	envelope := newKCESMessagePackEnvelope(descriptor)
+	envelope.LimbCollider = value
+	return envelope, nil
+}
+
+// encodeLimbColliderMessagePack 编码扩展名声明的原生 LimbColliderPackage MessagePack 载荷
+// encodeLimbColliderMessagePack encodes the native LimbColliderPackage MessagePack payload declared by an extension
+func encodeLimbColliderMessagePack(env *KCESPayloadEnvelope, descriptor kcesPayloadDescriptor) ([]byte, error) {
+	var data []byte
+	var err error
+	if env.LimbCollider == nil {
+		data, err = msgpack.EncodeMsgpack(nil)
+	} else {
+		if err := validateLimbColliderPackageForEncoding(env.LimbCollider); err != nil {
+			return nil, err
+		}
+		data, err = msgpack.EncodeIndexedMsgpack(normalizeLimbColliderPackageForEncoding(env.LimbCollider))
+	}
+	if err != nil {
+		return nil, fmt.Errorf("encode LimbColliderPackage msgpack: %w", err)
+	}
+	return encodeKCESMessagePackRoot(data, descriptor)
+}
+
+// decodeIKColliderMessagePack 解码扩展名声明的原生 IKColliderPackage MessagePack 载荷
+// decodeIKColliderMessagePack decodes the native IKColliderPackage MessagePack payload declared by an extension
+func decodeIKColliderMessagePack(data []byte, descriptor kcesPayloadDescriptor) (*KCESPayloadEnvelope, error) {
+	var value *IKColliderPackage
+	if err := decodeKCESMessagePackRoot(data, descriptor, &value); err != nil {
+		return nil, fmt.Errorf("decode IKColliderPackage msgpack: %w", err)
+	}
+	if value != nil {
+		if err := validateIKColliderPackageForEncoding(value); err != nil {
+			return nil, fmt.Errorf("validate decoded IKColliderPackage: %w", err)
+		}
+	}
+	envelope := newKCESMessagePackEnvelope(descriptor)
+	envelope.IKCollider = value
+	return envelope, nil
+}
+
+// encodeIKColliderMessagePack 编码扩展名声明的原生 IKColliderPackage MessagePack 载荷
+// encodeIKColliderMessagePack encodes the native IKColliderPackage MessagePack payload declared by an extension
+func encodeIKColliderMessagePack(env *KCESPayloadEnvelope, descriptor kcesPayloadDescriptor) ([]byte, error) {
+	var data []byte
+	var err error
+	if env.IKCollider == nil {
+		data, err = msgpack.EncodeMsgpack(nil)
+	} else {
+		if err := validateIKColliderPackageForEncoding(env.IKCollider); err != nil {
+			return nil, err
+		}
+		data, err = msgpack.EncodeIndexedMsgpack(normalizeIKColliderPackageForEncoding(env.IKCollider))
+	}
+	if err != nil {
+		return nil, fmt.Errorf("encode IKColliderPackage msgpack: %w", err)
+	}
+	return encodeKCESMessagePackRoot(data, descriptor)
+}
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 ColliderPackage
+// CodecEncodeSelf encodes ColliderPackage using the shared indexed-object rules
+func (v ColliderPackage) CodecEncodeSelf(e *codec.Encoder) {
+	msgpack.EncodeIndexedObjectSelf(e, &v)
+}
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 ColliderPackage
+// CodecDecodeSelf decodes ColliderPackage using the shared indexed-object rules
+func (v *ColliderPackage) CodecDecodeSelf(d *codec.Decoder) {
+	msgpack.DecodeIndexedObjectSelf(d, v)
+}
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 ColliderPlane
+// CodecEncodeSelf encodes ColliderPlane using the shared indexed-object rules
+func (v ColliderPlane) CodecEncodeSelf(e *codec.Encoder) {
+	msgpack.EncodeIndexedObjectSelf(e, &v)
+}
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 ColliderPlane
+// CodecDecodeSelf decodes ColliderPlane using the shared indexed-object rules
+func (v *ColliderPlane) CodecDecodeSelf(d *codec.Decoder) {
+	msgpack.DecodeIndexedObjectSelf(d, v)
+}
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 ColliderCapsule
+// CodecEncodeSelf encodes ColliderCapsule using the shared indexed-object rules
+func (v ColliderCapsule) CodecEncodeSelf(e *codec.Encoder) {
+	msgpack.EncodeIndexedObjectSelf(e, &v)
+}
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 ColliderCapsule
+// CodecDecodeSelf decodes ColliderCapsule using the shared indexed-object rules
+func (v *ColliderCapsule) CodecDecodeSelf(d *codec.Decoder) {
+	msgpack.DecodeIndexedObjectSelf(d, v)
+}
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 ColliderSphere
+// CodecEncodeSelf encodes ColliderSphere using the shared indexed-object rules
+func (v ColliderSphere) CodecEncodeSelf(e *codec.Encoder) {
+	msgpack.EncodeIndexedObjectSelf(e, &v)
+}
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 ColliderSphere
+// CodecDecodeSelf decodes ColliderSphere using the shared indexed-object rules
+func (v *ColliderSphere) CodecDecodeSelf(d *codec.Decoder) {
+	msgpack.DecodeIndexedObjectSelf(d, v)
+}
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 ColliderMaidProp
+// CodecEncodeSelf encodes ColliderMaidProp using the shared indexed-object rules
+func (v ColliderMaidProp) CodecEncodeSelf(e *codec.Encoder) {
+	msgpack.EncodeIndexedObjectSelf(e, &v)
+}
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 ColliderMaidProp
+// CodecDecodeSelf decodes ColliderMaidProp using the shared indexed-object rules
+func (v *ColliderMaidProp) CodecDecodeSelf(d *codec.Decoder) {
+	msgpack.DecodeIndexedObjectSelf(d, v)
+}
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 ColliderState
+// CodecEncodeSelf encodes ColliderState using the shared indexed-object rules
+func (v ColliderState) CodecEncodeSelf(e *codec.Encoder) {
+	msgpack.EncodeIndexedObjectSelf(e, &v)
+}
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 ColliderState
+// CodecDecodeSelf decodes ColliderState using the shared indexed-object rules
+func (v *ColliderState) CodecDecodeSelf(d *codec.Decoder) {
+	msgpack.DecodeIndexedObjectSelf(d, v)
+}
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 LimbColliderPackage
+// CodecEncodeSelf encodes LimbColliderPackage using the shared indexed-object rules
+func (v LimbColliderPackage) CodecEncodeSelf(e *codec.Encoder) {
+	msgpack.EncodeIndexedObjectSelf(e, &v)
+}
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 LimbColliderPackage
+// CodecDecodeSelf decodes LimbColliderPackage using the shared indexed-object rules
+func (v *LimbColliderPackage) CodecDecodeSelf(d *codec.Decoder) {
+	msgpack.DecodeIndexedObjectSelf(d, v)
+}
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 IKColliderPackage
+// CodecEncodeSelf encodes IKColliderPackage using the shared indexed-object rules
+func (v IKColliderPackage) CodecEncodeSelf(e *codec.Encoder) {
+	msgpack.EncodeIndexedObjectSelf(e, &v)
+}
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 IKColliderPackage
+// CodecDecodeSelf decodes IKColliderPackage using the shared indexed-object rules
+func (v *IKColliderPackage) CodecDecodeSelf(d *codec.Decoder) {
+	msgpack.DecodeIndexedObjectSelf(d, v)
+}
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 IKColliderGroup
+// CodecEncodeSelf encodes IKColliderGroup using the shared indexed-object rules
+func (v IKColliderGroup) CodecEncodeSelf(e *codec.Encoder) {
+	msgpack.EncodeIndexedObjectSelf(e, &v)
+}
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 IKColliderGroup
+// CodecDecodeSelf decodes IKColliderGroup using the shared indexed-object rules
+func (v *IKColliderGroup) CodecDecodeSelf(d *codec.Decoder) {
+	msgpack.DecodeIndexedObjectSelf(d, v)
 }

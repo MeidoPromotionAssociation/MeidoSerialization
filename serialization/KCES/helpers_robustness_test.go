@@ -5,15 +5,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestDecodeCompressedMsgpack_PropagatesRecognizedEnvelopeErrors(t *testing.T) {
-	raw, err := ct.EncodeMsgpack([]interface{}{int64(1000), "payload long enough to produce a compressed envelope"})
+	raw, err := msgpack.EncodeMsgpack([]interface{}{int64(1000), "payload long enough to produce a compressed envelope"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	compressed, err := ct.CompressLz4BlockArray(raw)
+	compressed, err := msgpack.CompressLz4BlockArray(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestNumericHelpersPreserveCLRFloatConversionsAndRejectNegativeUnsignedValue
 }
 
 func TestDecodeCompressedMsgpack_AllowsOrdinaryMessagePack(t *testing.T) {
-	raw, err := ct.EncodeMsgpack([]interface{}{int64(1000), "plain"})
+	raw, err := msgpack.EncodeMsgpack([]interface{}{int64(1000), "plain"})
 	if err != nil {
 		t.Fatal(err)
 	}

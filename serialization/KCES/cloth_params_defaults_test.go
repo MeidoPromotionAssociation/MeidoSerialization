@@ -5,16 +5,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestDecodeClothParamsRejectsUnknownShortArray(t *testing.T) {
 	radius := []interface{}{float64(0.9), float64(0.8), true, float64(0.7), true}
-	msgpackData, err := ct.EncodeMsgpack([]interface{}{radius})
+	msgpackData, err := msgpack.EncodeMsgpack([]interface{}{radius})
 	if err != nil {
 		t.Fatalf("EncodeMsgpack: %v", err)
 	}
-	compressed, err := ct.CompressLz4BlockArray(msgpackData)
+	compressed, err := msgpack.CompressLz4BlockArray(msgpackData)
 	if err != nil {
 		t.Fatalf("CompressLz4BlockArray: %v", err)
 	}

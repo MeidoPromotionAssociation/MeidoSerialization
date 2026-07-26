@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 	"github.com/ugorji/go/codec"
 )
 
@@ -118,8 +119,8 @@ func TestVirtualDirectoryRejectsTrailingMessagePackData(t *testing.T) {
 	})
 	metadata = append(metadata, 0xc0)
 	_, err := ReadContentTable(bytes.NewReader(makeVirtualDirectoryTestContainer(t, metadata)))
-	if err == nil || !strings.Contains(err.Error(), "trailing MessagePack bytes") {
-		t.Fatalf("ReadContentTable() error = %v, want trailing MessagePack bytes", err)
+	if err == nil || !strings.Contains(err.Error(), "trailing data after MessagePack root") {
+		t.Fatalf("ReadContentTable() error = %v, want trailing MessagePack root data", err)
 	}
 }
 
@@ -136,7 +137,7 @@ func encodeVirtualDirectoryTestValue(t *testing.T, value interface{}) []byte {
 
 func makeVirtualDirectoryTestContainer(t *testing.T, metadata []byte) []byte {
 	t.Helper()
-	compressed, err := CompressLz4BlockArray(metadata)
+	compressed, err := msgpack.CompressLz4BlockArray(metadata)
 	if err != nil {
 		t.Fatalf("compress VirtualDirectory metadata: %v", err)
 	}

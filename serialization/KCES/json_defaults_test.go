@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestDynamicBoneStatusJSONKeepsOmittedFieldsZero(t *testing.T) {
@@ -318,9 +318,9 @@ func assertTransTexDefaults(t *testing.T, value *TransTexData) {
 }
 
 func decodeShortArray(out interface{}) error {
-	data, err := ct.EncodeMsgpack([]interface{}{})
+	data, err := msgpack.EncodeMsgpack([]interface{}{})
 	if err != nil {
 		return err
 	}
-	return ct.DecodeMsgpack(data, out)
+	return msgpack.DecodeMsgpack(data, out)
 }

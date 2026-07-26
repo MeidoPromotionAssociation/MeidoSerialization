@@ -22,7 +22,7 @@ func (s *IKColBytesService) ReadIKColBytesFile(path string) (*serializationKCES.
 	if err != nil {
 		return nil, fmt.Errorf("read .ikcol.bytes file %q: %w", path, err)
 	}
-	value, err := serializationKCES.DecodeKCESPayload(data, serializationKCES.KCESIKColBytesExtension)
+	value, err := serializationKCES.DecodeIKColBytes(data)
 	if err != nil {
 		return nil, fmt.Errorf("decode .ikcol.bytes file %q: %w", path, err)
 	}
@@ -38,7 +38,7 @@ func (s *IKColBytesService) WriteIKColBytesFile(path string, value *serializatio
 	if value == nil || serializationKCES.NormalizeKCESPayloadExtension(value.Extension) != serializationKCES.KCESIKColBytesExtension {
 		return fmt.Errorf(".ikcol.bytes output requires a .ikcol.bytes KCES payload envelope")
 	}
-	encoded, err := serializationKCES.EncodeKCESPayload(value)
+	encoded, err := serializationKCES.EncodeIKColBytes(value)
 	if err != nil {
 		return fmt.Errorf("encode .ikcol.bytes file: %w", err)
 	}
@@ -92,7 +92,7 @@ func (s *IKColBytesService) ConvertJsonToIKColBytes(ctx context.Context, inputPa
 	} else if actual != serializationKCES.KCESIKColBytesExtension {
 		return fmt.Errorf("KCES payload envelope extension %q does not match file extension %q", actual, serializationKCES.KCESIKColBytesExtension)
 	}
-	encoded, err := serializationKCES.EncodeKCESPayload(&value)
+	encoded, err := serializationKCES.EncodeIKColBytes(&value)
 	if err != nil {
 		return fmt.Errorf("encode .ikcol.bytes file: %w", err)
 	}

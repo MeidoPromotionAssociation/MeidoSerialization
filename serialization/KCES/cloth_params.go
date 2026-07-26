@@ -3,6 +3,9 @@ package KCES
 import (
 	"fmt"
 	"strings"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
+	"github.com/ugorji/go/codec"
 )
 
 // .dsbconf 与 .dslconf 共用的 MagicaCloth 参数模型
@@ -12,10 +15,16 @@ import (
 // DecodeClothParamsFile decodes a .dsbconf or .dslconf file that uses the ClothParams wire model
 func DecodeClothParamsFile(data []byte, extension string) (*ClothParams, error) {
 	ext := NormalizeKCESPayloadExtension(extension)
-	if ext != KCESDSBConfExtension && ext != KCESDSLConfExtension {
+	var descriptor kcesPayloadDescriptor
+	switch ext {
+	case KCESDSBConfExtension:
+		descriptor = dsbconfPayloadDescriptor
+	case KCESDSLConfExtension:
+		descriptor = dslconfPayloadDescriptor
+	default:
 		return nil, fmt.Errorf("unsupported ClothParams extension %q: expected %s or %s", extension, KCESDSBConfExtension, KCESDSLConfExtension)
 	}
-	env, err := DecodeKCESPayload(data, ext)
+	env, err := decodeClothParamsMessagePack(data, descriptor)
 	if err != nil {
 		return nil, err
 	}
@@ -41,8 +50,63 @@ func EncodeClothParamsFile(params *ClothParams, extension string) ([]byte, error
 		Kind:           PayloadKindClothParams,
 		ClothParams:    params,
 	}
-	return EncodeKCESPayload(env)
+	if ext == KCESDSLConfExtension {
+		return encodeClothParamsMessagePack(env, dslconfPayloadDescriptor)
+	}
+	return encodeClothParamsMessagePack(env, dsbconfPayloadDescriptor)
 }
+
+// decodeClothParamsMessagePack 解码扩展名声明的原生 ClothParams MessagePack 载荷
+// decodeClothParamsMessagePack decodes the native ClothParams MessagePack payload declared by an extension
+func decodeClothParamsMessagePack(data []byte, descriptor kcesPayloadDescriptor) (*KCESPayloadEnvelope, error) {
+	var value *ClothParams
+	if err := decodeKCESMessagePackRoot(data, descriptor, &value); err != nil {
+		return nil, fmt.Errorf("decode ClothParams: %w", err)
+	}
+	if value != nil {
+		if err := validateClothParamsForEncoding(value); err != nil {
+			return nil, fmt.Errorf("validate decoded ClothParams: %w", err)
+		}
+	}
+	envelope := newKCESMessagePackEnvelope(descriptor)
+	envelope.ClothParams = value
+	return envelope, nil
+}
+
+// encodeClothParamsMessagePack 编码扩展名声明的原生 ClothParams MessagePack 载荷
+// encodeClothParamsMessagePack encodes the native ClothParams MessagePack payload declared by an extension
+func encodeClothParamsMessagePack(env *KCESPayloadEnvelope, descriptor kcesPayloadDescriptor) ([]byte, error) {
+	var data []byte
+	var err error
+	if env.ClothParams == nil {
+		data, err = msgpack.EncodeMsgpack(nil)
+	} else {
+		if err := validateClothParamsForEncoding(env.ClothParams); err != nil {
+			return nil, err
+		}
+		data, err = msgpack.EncodeIndexedMsgpack(env.ClothParams)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("encode ClothParams: %w", err)
+	}
+	return encodeKCESMessagePackRoot(data, descriptor)
+}
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 BezierParam
+// CodecEncodeSelf encodes BezierParam using the shared indexed-object rules
+func (v BezierParam) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 BezierParam
+// CodecDecodeSelf decodes BezierParam using the shared indexed-object rules
+func (v *BezierParam) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 ClothParams
+// CodecEncodeSelf encodes ClothParams using the shared indexed-object rules
+func (v ClothParams) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 ClothParams
+// CodecDecodeSelf decodes ClothParams using the shared indexed-object rules
+func (v *ClothParams) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
 
 // BezierParam 对应 MagicaCloth.BezierParam
 // BezierParam corresponds to MagicaCloth.BezierParam

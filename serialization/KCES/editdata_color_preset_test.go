@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 const colorPresetTestGUID = "12345678-1234-4abc-8def-1234567890ab"
@@ -80,7 +80,7 @@ func TestColorPresetTypedRoundTrip(t *testing.T) {
 }
 
 func TestColorPresetUsesTypedNullability(t *testing.T) {
-	raw, err := ct.EncodeMsgpack([]interface{}{
+	raw, err := msgpack.EncodeMsgpack([]interface{}{
 		int64(ColorPresetVersion),
 		nil,
 		nil,
@@ -124,7 +124,7 @@ func TestColorPresetRejectsUnsupportedLayouts(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			raw, err := ct.EncodeMsgpack(test.root)
+			raw, err := msgpack.EncodeMsgpack(test.root)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -144,7 +144,7 @@ func TestColorPresetRejectsTrailingData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := ct.DecompressLz4BlockArray(wire)
+	raw, err := msgpack.DecompressLz4BlockArray(wire)
 	if err != nil {
 		t.Fatal(err)
 	}

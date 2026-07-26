@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestPartsColorGradaTypedRoundTrip(t *testing.T) {
@@ -107,12 +107,12 @@ func TestPartsColorMessagePackRebuildsGradientBytes(t *testing.T) {
 		MainHue: 1,
 		Grada:   []PartsColorGrada{{MainHue: 2, MainContrast: 3, ShadowContrast: 4}},
 	}
-	wire, err := ct.EncodeIndexedMsgpack(&value)
+	wire, err := msgpack.EncodeIndexedMsgpack(&value)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var decoded PartsColor
-	if err := ct.DecodeMsgpack(wire, &decoded); err != nil {
+	if err := msgpack.DecodeMsgpack(wire, &decoded); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(decoded, value) {
@@ -128,12 +128,12 @@ func TestPartsColorRejectsMalformedGradientBytes(t *testing.T) {
 	}
 	for _, gradient := range malformed {
 		root := []interface{}{int64(0), int64(0), int64(0), int64(0), int64(0), int64(0), int64(0), int64(0), int64(0), gradient}
-		wire, err := ct.EncodeMsgpack(root)
+		wire, err := msgpack.EncodeMsgpack(root)
 		if err != nil {
 			t.Fatal(err)
 		}
 		var decoded PartsColor
-		if err := ct.DecodeMsgpack(wire, &decoded); err == nil {
+		if err := msgpack.DecodeMsgpack(wire, &decoded); err == nil {
 			t.Fatalf("malformed gradient %x unexpectedly decoded", gradient)
 		}
 	}

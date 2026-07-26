@@ -8,21 +8,53 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 	"github.com/ugorji/go/codec"
 )
 
 // KCES 各格式共用的 MessagePack 根值、LZ4 Block Array 和基础值转换辅助函数
 // MessagePack-root, LZ4 Block Array, and primitive conversion helpers shared by KCES formats
 
+// CodecEncodeSelf 按共享 indexed-object 规则编码 Vector2
+// CodecEncodeSelf encodes Vector2 using the shared indexed-object rules
+func (v Vector2) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 Vector2
+// CodecDecodeSelf decodes Vector2 using the shared indexed-object rules
+func (v *Vector2) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 Vector2Int
+// CodecEncodeSelf encodes Vector2Int using the shared indexed-object rules
+func (v Vector2Int) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 Vector2Int
+// CodecDecodeSelf decodes Vector2Int using the shared indexed-object rules
+func (v *Vector2Int) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 Vector3
+// CodecEncodeSelf encodes Vector3 using the shared indexed-object rules
+func (v Vector3) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 Vector3
+// CodecDecodeSelf decodes Vector3 using the shared indexed-object rules
+func (v *Vector3) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 Vector4
+// CodecEncodeSelf encodes Vector4 using the shared indexed-object rules
+func (v Vector4) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 Vector4
+// CodecDecodeSelf decodes Vector4 using the shared indexed-object rules
+func (v *Vector4) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
 // decodeCompressedMsgpack 解压 LZ4 Block Array 并严格解码唯一的完整 MessagePack 根值
 // decodeCompressedMsgpack decompresses an LZ4 Block Array and strictly decodes its sole complete MessagePack root value
 func decodeCompressedMsgpack(data []byte, out interface{}, name string) error {
-	decompressed, err := ct.DecompressLz4BlockArray(data)
+	decompressed, err := msgpack.DecompressLz4BlockArray(data)
 	if err != nil {
 		return fmt.Errorf("decompress %s: %w", name, err)
 	}
-	if err := ct.DecodeMsgpack(decompressed, out); err != nil {
+	if err := msgpack.DecodeMsgpack(decompressed, out); err != nil {
 		return fmt.Errorf("decode %s msgpack: %w", name, err)
 	}
 	return nil
@@ -44,11 +76,11 @@ func cloneSlicePreserveNil[T any](src []T) []T {
 func encodeCompressedMsgpack(v interface{}, name string) ([]byte, error) {
 	rv := reflect.ValueOf(v)
 	if !rv.IsValid() || ((rv.Kind() == reflect.Ptr || rv.Kind() == reflect.Interface) && rv.IsNil()) {
-		encoded, err := ct.EncodeMsgpack(nil)
+		encoded, err := msgpack.EncodeMsgpack(nil)
 		if err != nil {
 			return nil, fmt.Errorf("encode %s null root: %w", name, err)
 		}
-		compressed, err := ct.CompressLz4BlockArray(encoded)
+		compressed, err := msgpack.CompressLz4BlockArray(encoded)
 		if err != nil {
 			return nil, fmt.Errorf("compress %s: %w", name, err)
 		}
@@ -58,12 +90,12 @@ func encodeCompressedMsgpack(v interface{}, name string) ([]byte, error) {
 	if !ok {
 		return nil, fmt.Errorf("encode %s: %T does not implement the indexed MessagePack codec", name, v)
 	}
-	encoded, err := ct.EncodeIndexedMsgpack(selfer)
+	encoded, err := msgpack.EncodeIndexedMsgpack(selfer)
 	if err != nil {
 		return nil, fmt.Errorf("encode %s: %w", name, err)
 	}
 
-	compressed, err := ct.CompressLz4BlockArray(encoded)
+	compressed, err := msgpack.CompressLz4BlockArray(encoded)
 	if err != nil {
 		return nil, fmt.Errorf("compress %s: %w", name, err)
 	}
@@ -89,11 +121,11 @@ func indexedMessagePackSelfer(value interface{}) (codec.Selfer, bool) {
 // decodeRawMsgpackArray 将通用数组重新编码后解码进强类型 indexed object
 // decodeRawMsgpackArray re-encodes a generic array and decodes it into a typed indexed object
 func decodeRawMsgpackArray(arr []interface{}, out interface{}, name string) error {
-	encoded, err := ct.EncodeMsgpack(arr)
+	encoded, err := msgpack.EncodeMsgpack(arr)
 	if err != nil {
 		return fmt.Errorf("encode raw %s array: %w", name, err)
 	}
-	if err := ct.DecodeMsgpack(encoded, out); err != nil {
+	if err := msgpack.DecodeMsgpack(encoded, out); err != nil {
 		return fmt.Errorf("decode raw %s array: %w", name, err)
 	}
 	return nil

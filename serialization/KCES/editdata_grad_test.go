@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestGradPointsDataTypedRoundTrip(t *testing.T) {
@@ -86,7 +86,7 @@ func TestGradPointsDataRejectsUnsupportedLayouts(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			wire, err := ct.EncodeMsgpack(test.root)
+			wire, err := msgpack.EncodeMsgpack(test.root)
 			if err != nil {
 				t.Fatal(err)
 			}

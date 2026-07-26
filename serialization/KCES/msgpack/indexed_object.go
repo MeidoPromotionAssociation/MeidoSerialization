@@ -1,4 +1,4 @@
-package ct
+package msgpack
 
 import (
 	"fmt"
@@ -11,18 +11,14 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
-// indexedObjectField 描述一个导出的 MessagePack 槽位
-// 编解码库负责实际值转换，此描述符只映射当前支持的固定槽位
-// indexedObjectField describes one exported MessagePack slot
-// The codec library handles actual value conversion while this descriptor only maps the currently supported fixed slots
+// indexedObjectField 描述一个导出的 MessagePack 槽位并只映射当前支持的固定布局 / indexedObjectField describes one exported MessagePack slot and only maps the currently supported fixed layout
 type indexedObjectField struct {
 	index  []int  // reflect.FieldByIndex 使用的嵌套字段路径 / Nested field path used by reflect.FieldByIndex
 	name   string // 用于错误信息的 JSON 或 Go 字段名称 / JSON or Go field name used in errors
 	sparse bool   // 当前 C# 类型未声明且必须为 nil 的稀疏 Key / Sparse key absent from the current C# type and required to be nil
 }
 
-// indexedObjectLayout 缓存一个 Go 结构体映射到 MessagePack-CSharp int-key 数组的反射布局
-// indexedObjectLayout caches the reflection layout mapping one Go struct to a MessagePack-CSharp int-key array
+// indexedObjectLayout 缓存 Go 结构体到 MessagePack-CSharp int-key 数组的反射布局 / indexedObjectLayout caches the reflection layout from a Go struct to a MessagePack-CSharp int-key array
 type indexedObjectLayout struct {
 	typ          reflect.Type         // 模型结构体类型 / Model struct type
 	fields       []indexedObjectField // 按线格式 Key 顺序展平的已知字段 / Known fields flattened in wire-key order
@@ -36,6 +32,27 @@ var (
 	// indexedObjectLayouts caches validated layouts by reflect.Type
 	indexedObjectLayouts sync.Map
 )
+
+const csharpInt32Min int64 = -1 << 31
+
+// toInt32 将 MessagePack 整数转换为 C# int 使用的 wire 宽度并执行 Int32 范围校验
+// toInt32 converts a MessagePack integer to the wire width used by C# int and enforces the Int32 range
+func toInt32(value interface{}) (int32, bool) {
+	switch number := value.(type) {
+	case int64:
+		if number < csharpInt32Min || number > csharpInt32Max {
+			return 0, false
+		}
+		return int32(number), true
+	case uint64:
+		if number > uint64(csharpInt32Max) {
+			return 0, false
+		}
+		return int32(number), true
+	default:
+		return 0, false
+	}
+}
 
 // EncodeIndexedObjectSelf 按当前支持的固定 int-key 布局编码 MessagePack 对象，稀疏 Key 始终写为 nil
 // EncodeIndexedObjectSelf encodes a MessagePack object using the currently supported fixed int-key layout and always writes sparse keys as nil
@@ -173,8 +190,8 @@ func decodeIndexedObjectKnownField(raw []byte, field reflect.Value) error {
 	return DecodeMsgpack(raw, field.Addr().Interface())
 }
 
-// decodeMessagePackInt32 按照 MessagePack-CSharp ReadInt32 的 checked 语义解码一个整数。
-// decodeMessagePackInt32 decodes one integer with the checked semantics of MessagePack-CSharp ReadInt32.
+// decodeMessagePackInt32 按照 MessagePack-CSharp ReadInt32 的 checked 语义解码一个整数
+// decodeMessagePackInt32 decodes one integer with the checked semantics of MessagePack-CSharp ReadInt32
 func decodeMessagePackInt32(raw []byte) (int32, error) {
 	if isRawMessagePackNil(raw) {
 		return 0, nil
@@ -491,7 +508,8 @@ func rejectIndexedObjectNestedNulls(slot int64, raw []byte, fieldType reflect.Ty
 		if typeCanRepresentNil(fieldType.Elem()) {
 			return nil
 		}
-		count, err := messagePackMapLength(raw)
+		position := int64(0)
+		count, err := ReadMapHeader(raw, &position)
 		if err != nil {
 			return fmt.Errorf("decode %s slot %d (%s) map header: %w", label, slot, fieldName, err)
 		}

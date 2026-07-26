@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestColorPresetOrderListHandWrittenGameWireRoundTrip(t *testing.T) {
@@ -85,10 +85,10 @@ func TestColorPresetOrderListMatchesGameCompressionThresholdAndHasNoLengthPrefix
 			// One block whose uncompressed size (64) takes one MessagePack byte:
 			// array(2), fixext1, extension type 98. This starts at byte zero,
 			// proving there is no BinaryWriter int32 length prefix.
-			if len(encoded) < 3 || encoded[0] != 0x92 || encoded[1] != 0xd4 || encoded[2] != byte(ct.Lz4ArrayType) {
+			if len(encoded) < 3 || encoded[0] != 0x92 || encoded[1] != 0xd4 || encoded[2] != byte(msgpack.Lz4ArrayType) {
 				t.Fatalf("64-byte output starts %x, want direct array(2)/fixext1/ext(98) Lz4BlockArray", encoded)
 			}
-			decodedRaw, err := ct.DecompressLz4BlockArray(encoded)
+			decodedRaw, err := msgpack.DecompressLz4BlockArray(encoded)
 			if err != nil {
 				t.Fatalf("DecompressLz4BlockArray() error = %v", err)
 			}
@@ -137,7 +137,7 @@ func TestColorPresetOrderListNullableStringsAndUTF8(t *testing.T) {
 		if err != nil {
 			t.Fatalf("EncodeColorPresetOrderList(nil list) error = %v", err)
 		}
-		raw, err := ct.DecompressLz4BlockArray(encoded)
+		raw, err := msgpack.DecompressLz4BlockArray(encoded)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -267,7 +267,7 @@ func colorPresetOrderListGameFrame(t *testing.T, raw []byte) []byte {
 
 func colorPresetOrderListCompress(t *testing.T, raw []byte) []byte {
 	t.Helper()
-	compressed, err := ct.CompressLz4BlockArray(raw)
+	compressed, err := msgpack.CompressLz4BlockArray(raw)
 	if err != nil {
 		t.Fatalf("CompressLz4BlockArray(%x) error = %v", raw, err)
 	}

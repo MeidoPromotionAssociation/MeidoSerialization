@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestCatalogRejectsUnsupportedWidths(t *testing.T) {
@@ -11,7 +13,7 @@ func TestCatalogRejectsUnsupportedWidths(t *testing.T) {
 		{int64(0), int64(0), int64(0), int64(0), nil, nil, uint64(0), int64(0)},
 		{int64(0), int64(0), int64(0), int64(0), nil, nil, uint64(0), int64(0), false, []interface{}{}, []interface{}{}, []interface{}{}, nil},
 	} {
-		wire, err := EncodeMsgpack(fields)
+		wire, err := msgpack.EncodeMsgpack(fields)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -22,7 +24,7 @@ func TestCatalogRejectsUnsupportedWidths(t *testing.T) {
 }
 
 func TestCatalogUsesTypedNullability(t *testing.T) {
-	wire, err := EncodeMsgpack([]interface{}{
+	wire, err := msgpack.EncodeMsgpack([]interface{}{
 		int64(1000), int64(CatalogTypeParts), int64(PackageTypePlugin), int64(0),
 		nil, nil, uint64(0), int64(0), false,
 		[]interface{}{"bundle.aba", nil},
@@ -64,7 +66,7 @@ func TestExtensionNameListRejectsUnsupportedWidths(t *testing.T) {
 		{nil},
 		{nil, []interface{}{}, nil},
 	} {
-		wire, err := EncodeMsgpack(fields)
+		wire, err := msgpack.EncodeMsgpack(fields)
 		if err != nil {
 			t.Fatal(err)
 		}

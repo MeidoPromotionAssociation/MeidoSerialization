@@ -1,5 +1,10 @@
 package KCES
 
+import (
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
+	"github.com/ugorji/go/codec"
+)
+
 // .menuassets
 // KCES 菜单资源容器，在 .aba 的 TextAsset 中保存 Parts.Menu 数组
 // 载荷使用 LZ4 Block Array 压缩的 MessagePack indexed-array，当前 Menu 固定版本为 1005
@@ -131,6 +136,30 @@ func EncodeMenuAssets(assets *MenuAssets) ([]byte, error) {
 	normalized.Assets = cloneSlicePreserveNil(assets.Assets)
 	return encodeCompressedMsgpack(&normalized, "MenuAssets")
 }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 Menu
+// CodecEncodeSelf encodes Menu using the shared indexed-object rules
+func (v Menu) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 Menu
+// CodecDecodeSelf decodes Menu using the shared indexed-object rules
+func (v *Menu) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 Command
+// CodecEncodeSelf encodes Command using the shared indexed-object rules
+func (v Command) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 Command
+// CodecDecodeSelf decodes Command using the shared indexed-object rules
+func (v *Command) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 MenuAssets
+// CodecEncodeSelf encodes MenuAssets using the shared indexed-object rules
+func (v MenuAssets) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 MenuAssets
+// CodecDecodeSelf decodes MenuAssets using the shared indexed-object rules
+func (v *MenuAssets) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
 
 // NewMenu 创建使用当前固定版本及游戏默认分类文本的新菜单
 // NewMenu creates a new menu with the current fixed version and the game's default category text

@@ -12,6 +12,7 @@ import (
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/strictjson"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 const CtEnvelopeFormat = "kces-content-table"
@@ -267,7 +268,7 @@ func buildContentTableFromCtEnvelope(envelope *CtEnvelope) (*ct.ContentTable, er
 	if err != nil {
 		return nil, fmt.Errorf("encode catalog: %w", err)
 	}
-	compressedCatalog, err := ct.CompressLz4BlockArray(catalogData)
+	compressedCatalog, err := msgpack.CompressLz4BlockArray(catalogData)
 	if err != nil {
 		return nil, fmt.Errorf("compress catalog: %w", err)
 	}
@@ -300,7 +301,7 @@ func buildContentTableFromCtEnvelope(envelope *CtEnvelope) (*ct.ContentTable, er
 		if err != nil {
 			return nil, fmt.Errorf("encode ExtensionNameList %q: %w", ext, err)
 		}
-		compressed, err := ct.CompressLz4BlockArray(data)
+		compressed, err := msgpack.CompressLz4BlockArray(data)
 		if err != nil {
 			return nil, fmt.Errorf("compress ExtensionNameList %q: %w", ext, err)
 		}

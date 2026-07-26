@@ -22,7 +22,7 @@ func (s *DB2ConfService) ReadDB2ConfFile(path string) (*serializationKCES.KCESPa
 	if err != nil {
 		return nil, fmt.Errorf("read .db2conf file %q: %w", path, err)
 	}
-	value, err := serializationKCES.DecodeKCESPayload(data, serializationKCES.KCESDB2ConfExtension)
+	value, err := serializationKCES.DecodeDB2Conf(data)
 	if err != nil {
 		return nil, fmt.Errorf("decode .db2conf file %q: %w", path, err)
 	}
@@ -38,7 +38,7 @@ func (s *DB2ConfService) WriteDB2ConfFile(path string, value *serializationKCES.
 	if value == nil || serializationKCES.NormalizeKCESPayloadExtension(value.Extension) != serializationKCES.KCESDB2ConfExtension {
 		return fmt.Errorf(".db2conf output requires a .db2conf KCES payload envelope")
 	}
-	encoded, err := serializationKCES.EncodeKCESPayload(value)
+	encoded, err := serializationKCES.EncodeDB2Conf(value)
 	if err != nil {
 		return fmt.Errorf("encode .db2conf file: %w", err)
 	}
@@ -92,7 +92,7 @@ func (s *DB2ConfService) ConvertJsonToDB2Conf(ctx context.Context, inputPath str
 	} else if actual != serializationKCES.KCESDB2ConfExtension {
 		return fmt.Errorf("KCES payload envelope extension %q does not match file extension %q", actual, serializationKCES.KCESDB2ConfExtension)
 	}
-	encoded, err := serializationKCES.EncodeKCESPayload(&value)
+	encoded, err := serializationKCES.EncodeDB2Conf(&value)
 	if err != nil {
 		return fmt.Errorf("encode .db2conf file: %w", err)
 	}

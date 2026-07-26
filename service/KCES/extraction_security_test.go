@@ -12,6 +12,7 @@ import (
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 	"github.com/ugorji/go/codec"
 )
 
@@ -276,7 +277,7 @@ func writeMaliciousCT(t *testing.T, path, name string, data []byte) {
 	if err := codec.NewEncoderBytes(&msgpackData, h).Encode(virtualDirectory); err != nil {
 		t.Fatalf("encode malicious CT directory: %v", err)
 	}
-	compressed, err := ct.CompressLz4BlockArray(msgpackData)
+	compressed, err := msgpack.CompressLz4BlockArray(msgpackData)
 	if err != nil {
 		t.Fatalf("compress malicious CT directory: %v", err)
 	}

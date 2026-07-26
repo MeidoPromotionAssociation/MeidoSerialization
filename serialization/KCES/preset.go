@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
+	"github.com/ugorji/go/codec"
 )
 
 // .preset
@@ -315,3 +317,19 @@ func cloneStringMap(src map[string]*string) map[string]*string {
 	}
 	return dst
 }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 KCESPresetCore
+// CodecEncodeSelf encodes KCESPresetCore using the shared indexed-object rules
+func (v KCESPresetCore) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 KCESPresetCore
+// CodecDecodeSelf decodes KCESPresetCore using the shared indexed-object rules
+func (v *KCESPresetCore) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 KCESPresetMeta
+// CodecEncodeSelf encodes KCESPresetMeta using the shared indexed-object rules
+func (v KCESPresetMeta) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 KCESPresetMeta
+// CodecDecodeSelf decodes KCESPresetMeta using the shared indexed-object rules
+func (v *KCESPresetMeta) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }

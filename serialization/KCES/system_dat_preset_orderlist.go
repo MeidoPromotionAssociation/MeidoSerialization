@@ -5,7 +5,7 @@ import (
 	"math"
 	"unicode/utf8"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 // system.dat 内 color_preset/.../preset_orderlist 虚拟文件的 MessagePack 布局
@@ -51,7 +51,7 @@ func NewColorPresetOrderList() *ColorPresetOrderList {
 // This payload has no BinaryWriter length prefix because SetFileData receives MessagePackSerializer.Serialize output directly and LoadPresetOrder passes complete VirtualFile bytes to the deserializer
 // The root must use the fixed two-slot layout and consume all decompressed input, while the empty Migrate implementation is not invoked and legacy versions are not rewritten after decoding
 func DecodeColorPresetOrderList(data []byte) (*ColorPresetOrderList, error) {
-	raw, err := ct.DecompressLz4BlockArray(data)
+	raw, err := msgpack.DecompressLz4BlockArray(data)
 	if err != nil {
 		return nil, fmt.Errorf("decompress ColorPresetOrderList Lz4BlockArray: %w", err)
 	}
@@ -133,7 +133,7 @@ func encodeColorPresetOrderListRaw(raw []byte) ([]byte, error) {
 	if len(raw) < colorPresetOrderListCompressionMinLength {
 		return raw, nil
 	}
-	encoded, err := ct.CompressLz4BlockArray(raw)
+	encoded, err := msgpack.CompressLz4BlockArray(raw)
 	if err != nil {
 		return nil, fmt.Errorf("compress ColorPresetOrderList Lz4BlockArray: %w", err)
 	}

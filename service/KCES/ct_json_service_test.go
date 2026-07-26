@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestCtEnvelopeVirtualAssetCatalogRoundTrip(t *testing.T) {
@@ -44,11 +45,11 @@ func TestCtEnvelopeVirtualAssetCatalogRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EncodeExtensionNameList: %v", err)
 	}
-	compressedCatalog, err := ct.CompressLz4BlockArray(catalogData)
+	compressedCatalog, err := msgpack.CompressLz4BlockArray(catalogData)
 	if err != nil {
 		t.Fatalf("Compress catalog: %v", err)
 	}
-	compressedExtension, err := ct.CompressLz4BlockArray(extensionData)
+	compressedExtension, err := msgpack.CompressLz4BlockArray(extensionData)
 	if err != nil {
 		t.Fatalf("Compress extension list: %v", err)
 	}

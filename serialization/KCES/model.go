@@ -2,6 +2,9 @@ package KCES
 
 import (
 	"fmt"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
+	"github.com/ugorji/go/codec"
 )
 
 // .model
@@ -185,3 +188,27 @@ func EncodeModelAssets(assets *ModelAssets) ([]byte, error) {
 func NewModel() *Model {
 	return &Model{Version: modelFixVersion}
 }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 Model
+// CodecEncodeSelf encodes Model using the shared indexed-object rules
+func (v Model) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 Model
+// CodecDecodeSelf decodes Model using the shared indexed-object rules
+func (v *Model) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 TransData
+// CodecEncodeSelf encodes TransData using the shared indexed-object rules
+func (v TransData) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 TransData
+// CodecDecodeSelf decodes TransData using the shared indexed-object rules
+func (v *TransData) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 ModelAssets
+// CodecEncodeSelf encodes ModelAssets using the shared indexed-object rules
+func (v ModelAssets) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 ModelAssets
+// CodecDecodeSelf decodes ModelAssets using the shared indexed-object rules
+func (v *ModelAssets) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }

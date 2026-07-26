@@ -1,4 +1,4 @@
-package ct
+package msgpack
 
 import (
 	"bytes"

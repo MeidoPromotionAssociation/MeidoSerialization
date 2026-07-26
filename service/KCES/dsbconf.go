@@ -22,7 +22,7 @@ func (s *DSBConfService) ReadDSBConfFile(path string) (*serializationKCES.KCESPa
 	if err != nil {
 		return nil, fmt.Errorf("read .dsbconf file %q: %w", path, err)
 	}
-	value, err := serializationKCES.DecodeKCESPayload(data, serializationKCES.KCESDSBConfExtension)
+	value, err := serializationKCES.DecodeDSBConf(data)
 	if err != nil {
 		return nil, fmt.Errorf("decode .dsbconf file %q: %w", path, err)
 	}
@@ -38,7 +38,7 @@ func (s *DSBConfService) WriteDSBConfFile(path string, value *serializationKCES.
 	if value == nil || serializationKCES.NormalizeKCESPayloadExtension(value.Extension) != serializationKCES.KCESDSBConfExtension {
 		return fmt.Errorf(".dsbconf output requires a .dsbconf KCES payload envelope")
 	}
-	encoded, err := serializationKCES.EncodeKCESPayload(value)
+	encoded, err := serializationKCES.EncodeDSBConf(value)
 	if err != nil {
 		return fmt.Errorf("encode .dsbconf file: %w", err)
 	}
@@ -92,7 +92,7 @@ func (s *DSBConfService) ConvertJsonToDSBConf(ctx context.Context, inputPath str
 	} else if actual != serializationKCES.KCESDSBConfExtension {
 		return fmt.Errorf("KCES payload envelope extension %q does not match file extension %q", actual, serializationKCES.KCESDSBConfExtension)
 	}
-	encoded, err := serializationKCES.EncodeKCESPayload(&value)
+	encoded, err := serializationKCES.EncodeDSBConf(&value)
 	if err != nil {
 		return fmt.Errorf("encode .dsbconf file: %w", err)
 	}

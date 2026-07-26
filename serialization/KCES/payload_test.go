@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestDecodeKCESPayloadRequiresGameLengthPrefix(t *testing.T) {
@@ -39,7 +39,7 @@ func TestDecodeKCESPayloadRequiresGameLengthPrefix(t *testing.T) {
 func TestRecognizedKCESPayloadRoundTripsTypedNilRoot(t *testing.T) {
 	for _, extension := range []string{".dbconf", ".db2conf", ".dbcol", ".limbcol", ".ikcol", ".dsbconf"} {
 		t.Run(extension, func(t *testing.T) {
-			compressed, err := ct.CompressLz4BlockArray([]byte{0xc0})
+			compressed, err := msgpack.CompressLz4BlockArray([]byte{0xc0})
 			if err != nil {
 				t.Fatalf("compress nil payload root: %v", err)
 			}
@@ -59,7 +59,7 @@ func TestRecognizedKCESPayloadRoundTripsTypedNilRoot(t *testing.T) {
 				t.Fatalf("typed nil root round trip: envelope=%+v error=%v", roundTrip, err)
 			}
 
-			compressed, err = ct.CompressLz4BlockArray([]byte{0xc0, 0xc0})
+			compressed, err = msgpack.CompressLz4BlockArray([]byte{0xc0, 0xc0})
 			if err != nil {
 				t.Fatalf("compress nil payload root with trailing value: %v", err)
 			}
@@ -148,11 +148,11 @@ func TestJSONStringPayloadRoundTrip(t *testing.T) {
 
 func TestJSONStringPayloadPreservesOnlyJSONSemantics(t *testing.T) {
 	original := "{\r\n  \"clothType\" : 1,\r\n  \"future\" : [ 1, 2 ]\r\n}\r\n"
-	msgpack, err := ct.EncodeMsgpack(original)
+	msgpackData, err := msgpack.EncodeMsgpack(original)
 	if err != nil {
 		t.Fatal(err)
 	}
-	compressed, err := ct.CompressLz4BlockArray(msgpack)
+	compressed, err := msgpack.CompressLz4BlockArray(msgpackData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,13 +215,13 @@ func TestJSONStringPayloadCanExplicitlyStoreJSONNull(t *testing.T) {
 }
 
 func TestRecognizedMessagePackPayloadRejectsTrailingBytes(t *testing.T) {
-	root, err := ct.EncodeMsgpack(`{"clothType":1}`)
+	root, err := msgpack.EncodeMsgpack(`{"clothType":1}`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	tail := []byte{0xde, 0xad, 0xbe, 0xef, 0xc1}
 	decompressed := append(append([]byte(nil), root...), tail...)
-	compressed, err := ct.CompressLz4BlockArray(decompressed)
+	compressed, err := msgpack.CompressLz4BlockArray(decompressed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,11 +242,11 @@ func TestJSONStringPayloadRejectsInvalidInnerJSON(t *testing.T) {
 		t.Fatalf("EncodeKCESPayload error = %v, want invalid inner JSON rejection", err)
 	}
 
-	msgpack, err := ct.EncodeMsgpack(`{not-json}`)
+	msgpackData, err := msgpack.EncodeMsgpack(`{not-json}`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	compressed, err := ct.CompressLz4BlockArray(msgpack)
+	compressed, err := msgpack.CompressLz4BlockArray(msgpackData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,11 +256,11 @@ func TestJSONStringPayloadRejectsInvalidInnerJSON(t *testing.T) {
 }
 
 func TestKCESPayloadRejectsUnknownExtension(t *testing.T) {
-	msgpackData, err := ct.EncodeMsgpack([]interface{}{int64(1000), []interface{}{"union-like", uint64(42)}})
+	msgpackData, err := msgpack.EncodeMsgpack([]interface{}{int64(1000), []interface{}{"union-like", uint64(42)}})
 	if err != nil {
 		t.Fatalf("EncodeMsgpack: %v", err)
 	}
-	compressed, err := ct.CompressLz4BlockArray(msgpackData)
+	compressed, err := msgpack.CompressLz4BlockArray(msgpackData)
 	if err != nil {
 		t.Fatalf("CompressLz4BlockArray: %v", err)
 	}
@@ -450,11 +450,11 @@ func TestColliderPayloadPreservesCLRNonFiniteSingleConversions(t *testing.T) {
 		[]interface{}{[]interface{}{int64(ColliderTypeCapsule), collider}},
 		nil,
 	}
-	msgpack, err := ct.EncodeMsgpack(raw)
+	msgpackData, err := msgpack.EncodeMsgpack(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
-	compressed, err := ct.CompressLz4BlockArray(msgpack)
+	compressed, err := msgpack.CompressLz4BlockArray(msgpackData)
 	if err != nil {
 		t.Fatal(err)
 	}

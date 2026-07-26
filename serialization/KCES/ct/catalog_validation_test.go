@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestEncodeCatalog_PreservesGameLookupValues(t *testing.T) {
@@ -104,7 +106,7 @@ func TestEncodeCatalog_PreservesVersionWithoutMutatingInput(t *testing.T) {
 }
 
 func TestCatalogDecodersRejectMalformedEntries(t *testing.T) {
-	malformedCatalog, err := EncodeMsgpack([]interface{}{
+	malformedCatalog, err := msgpack.EncodeMsgpack([]interface{}{
 		int64(1000), int64(CatalogTypeParts), int64(PackageTypePlugin), int64(0),
 		"bad", "", uint64(1), int64(0), false,
 		[]interface{}{"bad.aba"}, []interface{}{".menuassets"},
@@ -117,7 +119,7 @@ func TestCatalogDecodersRejectMalformedEntries(t *testing.T) {
 		t.Fatalf("malformed catalog item error got %v", err)
 	}
 
-	malformedList, err := EncodeMsgpack([]interface{}{".menuassets", []interface{}{[]interface{}{"bad.menuassets", int64(-1)}}})
+	malformedList, err := msgpack.EncodeMsgpack([]interface{}{".menuassets", []interface{}{[]interface{}{"bad.menuassets", int64(-1)}}})
 	if err != nil {
 		t.Fatal(err)
 	}

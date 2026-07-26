@@ -3,7 +3,7 @@ package KCES
 import (
 	"fmt"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 	"github.com/ugorji/go/codec"
 )
 
@@ -73,37 +73,37 @@ type kcesPresetEditUnitDataWire struct {
 // CodecEncodeSelf 按共享 indexed-object 规则编码颜色预设引用线格式
 // CodecEncodeSelf encodes the color-preset reference wire form using shared indexed-object rules
 func (v kcesPresetEditColorPresetWire) CodecEncodeSelf(e *codec.Encoder) {
-	ct.EncodeIndexedObjectSelf(e, &v)
+	msgpack.EncodeIndexedObjectSelf(e, &v)
 }
 
 // CodecDecodeSelf 按共享 indexed-object 规则解码颜色预设引用线格式
 // CodecDecodeSelf decodes the color-preset reference wire form using shared indexed-object rules
 func (v *kcesPresetEditColorPresetWire) CodecDecodeSelf(d *codec.Decoder) {
-	ct.DecodeIndexedObjectSelf(d, v)
+	msgpack.DecodeIndexedObjectSelf(d, v)
 }
 
 // CodecEncodeSelf 按共享 indexed-object 规则编码 BaseData 线格式
 // CodecEncodeSelf encodes the BaseData wire form using shared indexed-object rules
 func (v kcesPresetEditBaseDataWire) CodecEncodeSelf(e *codec.Encoder) {
-	ct.EncodeIndexedObjectSelf(e, &v)
+	msgpack.EncodeIndexedObjectSelf(e, &v)
 }
 
 // CodecDecodeSelf 按共享 indexed-object 规则解码 BaseData 线格式
 // CodecDecodeSelf decodes the BaseData wire form using shared indexed-object rules
 func (v *kcesPresetEditBaseDataWire) CodecDecodeSelf(d *codec.Decoder) {
-	ct.DecodeIndexedObjectSelf(d, v)
+	msgpack.DecodeIndexedObjectSelf(d, v)
 }
 
 // CodecEncodeSelf 按共享 indexed-object 规则编码 UnitData 线格式
 // CodecEncodeSelf encodes the UnitData wire form using shared indexed-object rules
 func (v kcesPresetEditUnitDataWire) CodecEncodeSelf(e *codec.Encoder) {
-	ct.EncodeIndexedObjectSelf(e, &v)
+	msgpack.EncodeIndexedObjectSelf(e, &v)
 }
 
 // CodecDecodeSelf 按共享 indexed-object 规则解码 UnitData 线格式
 // CodecDecodeSelf decodes the UnitData wire form using shared indexed-object rules
 func (v *kcesPresetEditUnitDataWire) CodecDecodeSelf(d *codec.Decoder) {
-	ct.DecodeIndexedObjectSelf(d, v)
+	msgpack.DecodeIndexedObjectSelf(d, v)
 }
 
 // DecodeKCESPresetEditBaseData 解码 PropBase.editBaseData 的 Standard MessagePack 根值
@@ -150,7 +150,7 @@ func EncodeKCESPresetEditBaseData(value *KCESPresetEditBaseData) ([]byte, error)
 			return nil, fmt.Errorf("encode EditCustomizeData.BaseData.colorPreset: %w", err)
 		}
 	}
-	root, err := ct.EncodeIndexedMsgpack(&wire)
+	root, err := msgpack.EncodeIndexedMsgpack(&wire)
 	if err != nil {
 		return nil, fmt.Errorf("encode EditCustomizeData.BaseData MessagePack: %w", err)
 	}
@@ -191,7 +191,7 @@ func EncodeKCESPresetEditUnitData(value *KCESPresetEditUnitData) ([]byte, error)
 		PositionY:    value.PositionY,
 		WarpointName: value.WarpointName,
 	}
-	root, err := ct.EncodeIndexedMsgpack(&wire)
+	root, err := msgpack.EncodeIndexedMsgpack(&wire)
 	if err != nil {
 		return nil, fmt.Errorf("encode EditCustomizeData.UnitData MessagePack: %w", err)
 	}
@@ -261,7 +261,7 @@ func splitKCESPresetEditRoot(data []byte, name string) (root []byte, rootNil boo
 // decodeKCESPresetEditWire 解码一个必须占满根值的 EditCustomizeData 线格式对象
 // decodeKCESPresetEditWire decodes an EditCustomizeData wire object that must consume the complete root value
 func decodeKCESPresetEditWire(root []byte, out interface{}, name string) error {
-	if err := ct.DecodeMsgpack(root, out); err != nil {
+	if err := msgpack.DecodeMsgpack(root, out); err != nil {
 		return fmt.Errorf("decode %s MessagePack: %w", name, err)
 	}
 	return nil

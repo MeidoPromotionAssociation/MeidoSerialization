@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 	"github.com/ugorji/go/codec"
 )
 
@@ -104,14 +104,14 @@ func (p PartsColor) CodecEncodeSelf(e *codec.Encoder) {
 		ShadowContrast:   p.ShadowContrast,
 		GradaBytes:       encoded,
 	}
-	ct.EncodeIndexedObjectSelf(e, &wire)
+	msgpack.EncodeIndexedObjectSelf(e, &wire)
 }
 
 // CodecDecodeSelf 解码固定十槽对象并立即将 Key 9 的 byte[] 完整还原为 typed m_grada
 // CodecDecodeSelf decodes the fixed ten-slot object and immediately restores the Key 9 byte array into typed m_grada
 func (p *PartsColor) CodecDecodeSelf(d *codec.Decoder) {
 	var wire partsColorWire
-	ct.DecodeIndexedObjectSelf(d, &wire)
+	msgpack.DecodeIndexedObjectSelf(d, &wire)
 	if wire.GradaBytes == nil {
 		*p = PartsColor{
 			MainHue:          wire.MainHue,
@@ -547,3 +547,135 @@ type TupleStringInt struct {
 	Item1   *string  `json:"item1"`     // 可空第一个元组字符串值 / Nullable first tuple string value
 	Item2   int32    `json:"item2"`     // 第二个元组值 / Second tuple value
 }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 PreMulTexDatas
+// CodecEncodeSelf encodes PreMulTexDatas using the shared indexed-object rules
+func (v PreMulTexDatas) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 PreMulTexDatas
+// CodecDecodeSelf decodes PreMulTexDatas using the shared indexed-object rules
+func (v *PreMulTexDatas) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 TransTexData
+// CodecEncodeSelf encodes TransTexData using the shared indexed-object rules
+func (v TransTexData) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 TransTexData
+// CodecDecodeSelf decodes TransTexData using the shared indexed-object rules
+func (v *TransTexData) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 InfColorParam
+// CodecEncodeSelf encodes InfColorParam using the shared indexed-object rules
+func (v InfColorParam) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 InfColorParam
+// CodecDecodeSelf decodes InfColorParam using the shared indexed-object rules
+func (v *InfColorParam) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 MaskData
+// CodecEncodeSelf encodes MaskData using the shared indexed-object rules
+func (v MaskData) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 MaskData
+// CodecDecodeSelf decodes MaskData using the shared indexed-object rules
+func (v *MaskData) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 MaskParam
+// CodecEncodeSelf encodes MaskParam using the shared indexed-object rules
+func (v MaskParam) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 MaskParam
+// CodecDecodeSelf decodes MaskParam using the shared indexed-object rules
+func (v *MaskParam) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 PartColDef
+// CodecEncodeSelf encodes PartColDef using the shared indexed-object rules
+func (v PartColDef) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 PartColDef
+// CodecDecodeSelf decodes PartColDef using the shared indexed-object rules
+func (v *PartColDef) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 GradaColDef
+// CodecEncodeSelf encodes GradaColDef using the shared indexed-object rules
+func (v GradaColDef) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 GradaColDef
+// CodecDecodeSelf decodes GradaColDef using the shared indexed-object rules
+func (v *GradaColDef) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 InfColData
+// CodecEncodeSelf encodes InfColData using the shared indexed-object rules
+func (v InfColData) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 InfColData
+// CodecDecodeSelf decodes InfColData using the shared indexed-object rules
+func (v *InfColData) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 Colvari
+// CodecEncodeSelf encodes Colvari using the shared indexed-object rules
+func (v Colvari) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 Colvari
+// CodecDecodeSelf decodes Colvari using the shared indexed-object rules
+func (v *Colvari) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 ColvariData
+// CodecEncodeSelf encodes ColvariData using the shared indexed-object rules
+func (v ColvariData) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 ColvariData
+// CodecDecodeSelf decodes ColvariData using the shared indexed-object rules
+func (v *ColvariData) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 BlendData
+// CodecEncodeSelf encodes BlendData using the shared indexed-object rules
+func (v BlendData) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 BlendData
+// CodecDecodeSelf decodes BlendData using the shared indexed-object rules
+func (v *BlendData) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 SkinThickness
+// CodecEncodeSelf encodes SkinThickness using the shared indexed-object rules
+func (v SkinThickness) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 SkinThickness
+// CodecDecodeSelf decodes SkinThickness using the shared indexed-object rules
+func (v *SkinThickness) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 ThicknessGroup
+// CodecEncodeSelf encodes ThicknessGroup using the shared indexed-object rules
+func (v ThicknessGroup) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 ThicknessGroup
+// CodecDecodeSelf decodes ThicknessGroup using the shared indexed-object rules
+func (v *ThicknessGroup) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 ThicknessPoint
+// CodecEncodeSelf encodes ThicknessPoint using the shared indexed-object rules
+func (v ThicknessPoint) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 ThicknessPoint
+// CodecDecodeSelf decodes ThicknessPoint using the shared indexed-object rules
+func (v *ThicknessPoint) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 ThicknessDefPerAngle
+// CodecEncodeSelf encodes ThicknessDefPerAngle using the shared indexed-object rules
+func (v ThicknessDefPerAngle) CodecEncodeSelf(e *codec.Encoder) {
+	msgpack.EncodeIndexedObjectSelf(e, &v)
+}
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 ThicknessDefPerAngle
+// CodecDecodeSelf decodes ThicknessDefPerAngle using the shared indexed-object rules
+func (v *ThicknessDefPerAngle) CodecDecodeSelf(d *codec.Decoder) {
+	msgpack.DecodeIndexedObjectSelf(d, v)
+}
+
+// CodecEncodeSelf 按共享 indexed-object 规则编码 TupleStringInt
+// CodecEncodeSelf encodes TupleStringInt using the shared indexed-object rules
+func (v TupleStringInt) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 TupleStringInt
+// CodecDecodeSelf decodes TupleStringInt using the shared indexed-object rules
+func (v *TupleStringInt) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
