@@ -615,6 +615,15 @@ func WriteDDS(tex *Texture2DData, outPath string) error {
 	return nil
 }
 
+// TextureDDSBytes 将 Texture2D 编码为可由常用图像工具读取的 DDS 字节
+// TextureDDSBytes encodes a Texture2D into DDS bytes readable by common image tools
+func TextureDDSBytes(tex *Texture2DData) ([]byte, error) {
+	if tex == nil {
+		return nil, fmt.Errorf("nil texture")
+	}
+	return makeDDS(tex), nil
+}
+
 // WriteRawMagickInput 将供 ImageMagick 使用的原始输入字节写入目标，便于测试和调试
 // WriteRawMagickInput writes the raw bytes prepared for ImageMagick to a destination for tests and debugging
 func WriteRawMagickInput(tex *Texture2DData, w io.Writer) error {

@@ -47,12 +47,13 @@ func Execute() error {
 	return RootCmd.Execute()
 }
 
+// init 注册全局参数和全部 CLI 子命令
+// init registers global flags and every CLI subcommand
 func init() {
 	// Add global flags
 	RootCmd.PersistentFlags().BoolVarP(&strictMode, "strict", "s", false, "Use strict mode for file type determination")
 	RootCmd.PersistentFlags().StringVarP(&fileType, "type", "t", "", "Filter by file type (menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image) or '<type>.json' (e.g., 'menu.json')")
 
-	// Add subcommands
 	RootCmd.AddCommand(convertCmd)
 	RootCmd.AddCommand(convert2jsonCmd)
 	RootCmd.AddCommand(convert2modCmd)
@@ -60,6 +61,8 @@ func init() {
 	RootCmd.AddCommand(versionCmd)
 	RootCmd.AddCommand(convert2texCmd)
 	RootCmd.AddCommand(convert2imageCmd)
+	RootCmd.AddCommand(convert2gltfCmd)
+	RootCmd.AddCommand(convert2audioCmd)
 	RootCmd.AddCommand(convert2neiCmd)
 	RootCmd.AddCommand(convert2csvCmd)
 	RootCmd.AddCommand(unpackArcCmd)

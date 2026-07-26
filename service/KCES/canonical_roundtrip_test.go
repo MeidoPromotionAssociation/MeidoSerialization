@@ -2,10 +2,11 @@ package KCES
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/binary"
+	"math"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -26,49 +27,29 @@ func TestCanonicalAbaPureDirectoryRoundTrip(t *testing.T) {
 	if err := (&AbaService{}).UnpackAba(sample, first); err != nil {
 		t.Fatalf("first unpack: %v", err)
 	}
-	firstFiles := hashDirectoryFiles(t, first)
+	firstFiles := validateCanonicalDirectoryFiles(t, first, nil)
 	if len(firstFiles) == 0 {
 		t.Fatal("pure directory is empty")
 	}
-	for name := range firstFiles {
-		lower := strings.ToLower(name)
-		if strings.HasSuffix(lower, ".meta.json") || strings.HasSuffix(lower, ".typetree.json") ||
-			strings.HasSuffix(lower, ".ress") || strings.HasSuffix(lower, ".resource") ||
-			strings.HasSuffix(lower, ".resources") || strings.HasSuffix(lower, ".png") {
-			t.Fatalf("pure directory contains derived or stream sidecar %q", name)
-		}
-	}
+	assertPureDirectoryFileSet(t, firstFiles)
 	if err := (&PackService{}).PackToAbaAndCt(first, "roundtrip"); err != nil {
 		t.Fatalf("pack: %v", err)
 	}
 	abPath := filepath.Join(work, "roundtrip.aba")
 	ctPath := filepath.Join(work, "roundtrip.ct")
 	verifyCanonicalAbaAndCatalog(t, abPath, ctPath)
+	verifyPackedAbaMatchesDirectory(t, first, firstFiles, abPath)
 
 	second := filepath.Join(work, "second")
 	if err := (&AbaService{}).UnpackAba(abPath, second); err != nil {
 		t.Fatalf("second unpack: %v", err)
 	}
-	secondFiles := hashDirectoryFiles(t, second)
-	if len(firstFiles) != len(secondFiles) {
-		t.Fatalf("file count changed from %d to %d", len(firstFiles), len(secondFiles))
-	}
-	for name, firstHash := range firstFiles {
-		secondHash, ok := secondFiles[name]
-		if !ok {
-			t.Fatalf("second directory is missing %q", name)
-		}
-		if !bytes.Equal(firstHash[:], secondHash[:]) {
-			t.Fatalf("file %q changed after round trip", name)
-		}
-	}
+	secondFiles := validateCanonicalDirectoryFiles(t, second, nil)
+	assertCanonicalDirectoryPathsEqual(t, firstFiles, secondFiles)
 }
 
 func TestCanonicalAbaAllReadableSamplesPureDirectoryRoundTrip(t *testing.T) {
-	const (
-		parallelSlots    = 10
-		largeAbaFileSize = int64(256 << 20)
-	)
+	const parallelSlots = 10
 	samples, err := filepath.Glob(filepath.Join("..", "..", "testdata", "aba", "*.aba"))
 	if err != nil {
 		t.Fatal(err)
@@ -78,6 +59,16 @@ func TestCanonicalAbaAllReadableSamplesPureDirectoryRoundTrip(t *testing.T) {
 	}
 	var readableCount atomic.Int64
 	var encryptedCount atomic.Int64
+	typeCounts := map[int32]*atomic.Int64{
+		aba.ClassIDMesh:          {},
+		aba.ClassIDTexture2D:     {},
+		aba.ClassIDSprite:        {},
+		aba.ClassIDSpriteAtlas:   {},
+		aba.ClassIDAnimationClip: {},
+		aba.ClassIDMaterial:      {},
+		aba.ClassIDAudioClip:     {},
+		aba.ClassIDMonoBehaviour: {},
+	}
 	slots := make(chan struct{}, parallelSlots)
 	var slotAcquireMu sync.Mutex
 	acquireSlots := func(count int) {
@@ -98,6 +89,11 @@ func TestCanonicalAbaAllReadableSamplesPureDirectoryRoundTrip(t *testing.T) {
 		if readable == 0 {
 			t.Fatal("no readable ABA samples were tested")
 		}
+		for classID, count := range typeCounts {
+			if count.Load() == 0 {
+				t.Errorf("full round trip did not cover required ClassID %d", classID)
+			}
+		}
 		t.Logf("full round trip completed for %d readable ABA files; %d encrypted files were rejected", readable, encrypted)
 	})
 	for _, sample := range samples {
@@ -107,10 +103,7 @@ func TestCanonicalAbaAllReadableSamplesPureDirectoryRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatalf("stat source ABA: %v", err)
 			}
-			slotCount := 1
-			if sampleInfo.Size() > largeAbaFileSize {
-				slotCount = parallelSlots
-			}
+			slotCount := canonicalRoundTripSlotCount(sampleInfo.Size())
 			t.Parallel()
 			acquireSlots(slotCount)
 			defer releaseSlots(slotCount)
@@ -137,18 +130,19 @@ func TestCanonicalAbaAllReadableSamplesPureDirectoryRoundTrip(t *testing.T) {
 			if err := (&AbaService{}).UnpackAba(sample, first); err != nil {
 				t.Fatalf("first unpack: %v", err)
 			}
-			firstFiles := hashDirectoryFiles(t, first)
+			firstFiles := validateCanonicalDirectoryHeaders(t, first, typeCounts)
 			if len(firstFiles) == 0 {
 				t.Fatal("pure directory is empty")
 			}
 			assertPureDirectoryFileSet(t, firstFiles)
 
-			if err := (&PackService{}).PackToAbaAndCt(first, "roundtrip"); err != nil {
+			if err := (&PackService{}).packToAbaAndCt(first, "roundtrip", false); err != nil {
 				t.Fatalf("pack: %v", err)
 			}
 			abaPath := filepath.Join(work, "roundtrip.aba")
 			ctPath := filepath.Join(work, "roundtrip.ct")
 			verifyCanonicalAbaAndCatalog(t, abaPath, ctPath)
+			verifyPackedAbaMatchesDirectory(t, first, firstFiles, abaPath)
 			if err := os.RemoveAll(first); err != nil {
 				t.Fatalf("remove first unpack directory: %v", err)
 			}
@@ -157,8 +151,20 @@ func TestCanonicalAbaAllReadableSamplesPureDirectoryRoundTrip(t *testing.T) {
 			if err := (&AbaService{}).UnpackAba(abaPath, second); err != nil {
 				t.Fatalf("second unpack: %v", err)
 			}
-			assertDirectoryHashesEqual(t, firstFiles, hashDirectoryFiles(t, second))
+			secondFiles := validateCanonicalDirectoryHeaders(t, second, nil)
+			assertCanonicalDirectoryPathsEqual(t, firstFiles, secondFiles)
 		})
+	}
+}
+
+func canonicalRoundTripSlotCount(fileSize int64) int {
+	switch {
+	case fileSize >= 384<<20:
+		return 5
+	case fileSize >= 96<<20:
+		return 2
+	default:
+		return 1
 	}
 }
 
@@ -190,7 +196,7 @@ func TestCanonicalAbaLegacyVersionFamiliesPureDirectoryRoundTrip(t *testing.T) {
 			if err := (&AbaService{}).UnpackAba(sample, first); err != nil {
 				t.Fatalf("first unpack: %v", err)
 			}
-			firstFiles := hashDirectoryFiles(t, first)
+			firstFiles := validateCanonicalDirectoryFiles(t, first, nil)
 			if len(firstFiles) == 0 {
 				t.Fatal("pure directory is empty")
 			}
@@ -200,12 +206,14 @@ func TestCanonicalAbaLegacyVersionFamiliesPureDirectoryRoundTrip(t *testing.T) {
 			abaPath := filepath.Join(work, "legacy_roundtrip.aba")
 			ctPath := filepath.Join(work, "legacy_roundtrip.ct")
 			verifyCanonicalAbaAndCatalog(t, abaPath, ctPath)
+			verifyPackedAbaMatchesDirectory(t, first, firstFiles, abaPath)
 
 			second := filepath.Join(work, "second")
 			if err := (&AbaService{}).UnpackAba(abaPath, second); err != nil {
 				t.Fatalf("second unpack: %v", err)
 			}
-			assertDirectoryHashesEqual(t, firstFiles, hashDirectoryFiles(t, second))
+			secondFiles := validateCanonicalDirectoryFiles(t, second, nil)
+			assertCanonicalDirectoryPathsEqual(t, firstFiles, secondFiles)
 		})
 	}
 }
@@ -289,32 +297,22 @@ func TestCanonicalAbaSystemRoundTripPreservesMonoBehaviourScriptTypes(t *testing
 	if err := (&AbaService{}).UnpackAba(sample, first); err != nil {
 		t.Fatalf("first unpack: %v", err)
 	}
-	firstFiles := hashDirectoryFiles(t, first)
+	firstFiles := validateCanonicalDirectoryFiles(t, first, nil)
 	if err := (&PackService{}).PackToAbaAndCt(first, "system_roundtrip"); err != nil {
 		t.Fatalf("pack: %v", err)
 	}
 	abaPath := filepath.Join(work, "system_roundtrip.aba")
 	ctPath := filepath.Join(work, "system_roundtrip.ct")
 	verifyCanonicalAbaAndCatalog(t, abaPath, ctPath)
+	verifyPackedAbaMatchesDirectory(t, first, firstFiles, abaPath)
 	verifyMonoBehaviourScriptTypes(t, abaPath)
 
 	second := filepath.Join(work, "second")
 	if err := (&AbaService{}).UnpackAba(abaPath, second); err != nil {
 		t.Fatalf("second unpack: %v", err)
 	}
-	secondFiles := hashDirectoryFiles(t, second)
-	if len(firstFiles) != len(secondFiles) {
-		t.Fatalf("file count changed from %d to %d", len(firstFiles), len(secondFiles))
-	}
-	for name, firstHash := range firstFiles {
-		secondHash, ok := secondFiles[name]
-		if !ok {
-			t.Fatalf("second directory is missing %q", name)
-		}
-		if !bytes.Equal(firstHash[:], secondHash[:]) {
-			t.Fatalf("file %q changed after round trip", name)
-		}
-	}
+	secondFiles := validateCanonicalDirectoryFiles(t, second, nil)
+	assertCanonicalDirectoryPathsEqual(t, firstFiles, secondFiles)
 }
 
 func verifyMonoBehaviourScriptTypes(t *testing.T, abaPath string) {
@@ -367,9 +365,9 @@ func verifyMonoBehaviourScriptTypes(t *testing.T, abaPath string) {
 	}
 }
 
-func hashDirectoryFiles(t *testing.T, root string) map[string][32]byte {
+func validateCanonicalDirectoryFiles(t *testing.T, root string, classCounts map[int32]*atomic.Int64) []string {
 	t.Helper()
-	result := make(map[string][32]byte)
+	var result []string
 	err := filepath.Walk(root, func(name string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -377,48 +375,264 @@ func hashDirectoryFiles(t *testing.T, root string) map[string][32]byte {
 		if info.IsDir() {
 			return nil
 		}
-		data, err := os.ReadFile(name)
-		if err != nil {
-			return err
-		}
 		rel, err := filepath.Rel(root, name)
 		if err != nil {
 			return err
 		}
-		result[filepath.ToSlash(rel)] = sha256.Sum256(data)
+		rel = filepath.ToSlash(rel)
+		result = append(result, rel)
+		kind, native := unityRawKindForPackPath(rel)
+		if !native {
+			return nil
+		}
+		classID, ok := unityRawClassIDForKind(kind)
+		if !ok || !isNativeUnityObjectPackPath(rel, kind) {
+			return &canonicalDirectoryValidationError{path: rel, message: "path does not use the native object naming contract"}
+		}
+		data, err := os.ReadFile(name)
+		if err != nil {
+			return err
+		}
+		object, err := aba.ReadNativeUnityObject(data)
+		if err != nil {
+			return &canonicalDirectoryValidationError{path: rel, message: "read native Unity object: " + err.Error()}
+		}
+		if object.ClassID != classID {
+			return &canonicalDirectoryValidationError{path: rel, message: "native object ClassID does not match its type directory"}
+		}
+		rootValue, trailing, err := object.DecodeValueAndTrailingData()
+		if err != nil {
+			return &canonicalDirectoryValidationError{path: rel, message: "decode native Unity object: " + err.Error()}
+		}
+		encodedPayload, err := object.EncodeValueWithTrailingData(rootValue, trailing)
+		if err != nil {
+			return &canonicalDirectoryValidationError{path: rel, message: "re-encode native Unity object value: " + err.Error()}
+		}
+		reencoded := *object
+		reencoded.Data = encodedPayload
+		reencodedFile, err := aba.EncodeNativeUnityObject(&reencoded)
+		if err != nil {
+			return &canonicalDirectoryValidationError{path: rel, message: "re-encode native Unity object file: " + err.Error()}
+		}
+		if _, err := aba.ReadNativeUnityObject(reencodedFile); err != nil {
+			return &canonicalDirectoryValidationError{path: rel, message: "read re-encoded native Unity object file: " + err.Error()}
+		}
+		if counter := classCounts[object.ClassID]; counter != nil {
+			counter.Add(1)
+		}
 		return nil
 	})
 	if err != nil {
 		t.Fatalf("walk %q: %v", root, err)
 	}
+	sort.Strings(result)
 	return result
 }
 
-func assertDirectoryHashesEqual(t *testing.T, want map[string][32]byte, got map[string][32]byte) {
+func validateCanonicalDirectoryHeaders(t *testing.T, root string, classCounts map[int32]*atomic.Int64) []string {
+	t.Helper()
+	var result []string
+	err := filepath.Walk(root, func(name string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(root, name)
+		if err != nil {
+			return err
+		}
+		rel = filepath.ToSlash(rel)
+		result = append(result, rel)
+		kind, native := unityRawKindForPackPath(rel)
+		if !native {
+			return nil
+		}
+		classID, ok := unityRawClassIDForKind(kind)
+		if !ok || !isNativeUnityObjectPackPath(rel, kind) {
+			return &canonicalDirectoryValidationError{path: rel, message: "path does not use the native object naming contract"}
+		}
+		file, err := os.Open(name)
+		if err != nil {
+			return err
+		}
+		header, readErr := aba.ReadNativeUnityObjectHeader(file, info.Size())
+		closeErr := file.Close()
+		if readErr != nil {
+			return &canonicalDirectoryValidationError{path: rel, message: "read native Unity object header: " + readErr.Error()}
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+		if header.ClassID != classID {
+			return &canonicalDirectoryValidationError{path: rel, message: "native object ClassID does not match its type directory"}
+		}
+		if counter := classCounts[header.ClassID]; counter != nil {
+			counter.Add(1)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk %q: %v", root, err)
+	}
+	sort.Strings(result)
+	return result
+}
+
+type canonicalDirectoryValidationError struct {
+	path    string
+	message string
+}
+
+func (err *canonicalDirectoryValidationError) Error() string {
+	return err.path + ": " + err.message
+}
+
+func assertCanonicalDirectoryPathsEqual(t *testing.T, want []string, got []string) {
 	t.Helper()
 	if len(got) != len(want) {
 		t.Fatalf("file count changed from %d to %d", len(want), len(got))
 	}
-	for name, wantHash := range want {
-		gotHash, ok := got[name]
-		if !ok {
-			t.Fatalf("second directory is missing %q", name)
-		}
-		if !bytes.Equal(wantHash[:], gotHash[:]) {
-			t.Fatalf("file %q changed after round trip", name)
+	for fileIndex := range want {
+		if got[fileIndex] != want[fileIndex] {
+			t.Fatalf("file[%d] changed from %q to %q", fileIndex, want[fileIndex], got[fileIndex])
 		}
 	}
 }
 
-func assertPureDirectoryFileSet(t *testing.T, files map[string][32]byte) {
+func assertPureDirectoryFileSet(t *testing.T, files []string) {
 	t.Helper()
-	for name := range files {
+	for _, name := range files {
 		lower := strings.ToLower(name)
 		if strings.HasSuffix(lower, ".meta.json") || strings.HasSuffix(lower, ".typetree.json") ||
 			strings.HasSuffix(lower, ".ress") || strings.HasSuffix(lower, ".resource") ||
 			strings.HasSuffix(lower, ".resources") || strings.HasSuffix(lower, ".png") {
 			t.Fatalf("pure directory contains derived or stream sidecar %q", name)
 		}
+	}
+}
+
+func verifyPackedAbaMatchesDirectory(t *testing.T, root string, relativePaths []string, abaPath string) {
+	t.Helper()
+	f, err := os.Open(abaPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := aba.ReadAba(f)
+	if err != nil {
+		f.Close()
+		t.Fatal(err)
+	}
+	defer f.Close()
+	af := readCanonicalTestAssetsFile(t, bundle, 0)
+	pathIDs, err := buildCanonicalPathIDs(relativePaths)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, relativePath := range relativePaths {
+		canonicalPath, err := canonicalAssetPathForID(relativePath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		pathID := pathIDs[canonicalPath]
+		info := af.GetAssetInfoByPathID(pathID)
+		if info == nil {
+			t.Fatalf("packed ABA has no object for %q at PathID %d", relativePath, pathID)
+		}
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(relativePath)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		kind, native := unityRawKindForPackPath(relativePath)
+		if !native {
+			if info.TypeId != aba.ClassIDTextAsset {
+				t.Fatalf("packed %q has ClassID %d instead of TextAsset", relativePath, info.TypeId)
+			}
+			name, script, err := af.GetTextAssetData(info)
+			if err != nil {
+				t.Fatalf("decode packed TextAsset %q: %v", relativePath, err)
+			}
+			if name != inferAssetNameForPack(relativePath) || !bytes.Equal(script, data) {
+				t.Fatalf("packed TextAsset %q changed its name or script payload", relativePath)
+			}
+			continue
+		}
+
+		classID, ok := unityRawClassIDForKind(kind)
+		if !ok || info.TypeId != classID {
+			t.Fatalf("packed %q has ClassID %d, want %d", relativePath, info.TypeId, classID)
+		}
+		directoryObject, err := aba.ReadNativeUnityObject(data)
+		if err != nil {
+			t.Fatalf("read directory native object %q: %v", relativePath, err)
+		}
+		tree, err := af.AssetTypeTree(info)
+		if err != nil {
+			t.Fatalf("read packed TypeTree for %q: %v", relativePath, err)
+		}
+		packedData, err := af.GetAssetData(info)
+		if err != nil {
+			t.Fatalf("read packed object %q: %v", relativePath, err)
+		}
+		packedObject := &aba.NativeUnityObject{
+			ClassID:   info.TypeId,
+			BigEndian: af.Header.Endianness,
+			TypeTree:  tree,
+			Data:      packedData,
+		}
+		directoryValue, _, err := directoryObject.DecodeValueAndTrailingData()
+		if err != nil {
+			t.Fatalf("decode directory object %q: %v", relativePath, err)
+		}
+		packedValue, _, err := packedObject.DecodeValueAndTrailingData()
+		if err != nil {
+			t.Fatalf("decode packed object %q: %v", relativePath, err)
+		}
+		assertTypeTreeValuesEquivalent(t, relativePath, directoryValue, packedValue)
+		if classID == aba.ClassIDAudioClip {
+			directoryAudio, err := directoryObject.AudioData()
+			if err != nil {
+				t.Fatalf("read directory AudioClip %q: %v", relativePath, err)
+			}
+			packedAudio, err := packedObject.AudioData()
+			if err != nil {
+				t.Fatalf("read packed AudioClip %q: %v", relativePath, err)
+			}
+			if !bytes.Equal(directoryAudio, packedAudio) {
+				t.Fatalf("packed AudioClip %q changed its encoded audio payload", relativePath)
+			}
+		}
+	}
+}
+
+func assertTypeTreeValuesEquivalent(t *testing.T, path string, want *aba.TypeTreeValue, got *aba.TypeTreeValue) {
+	t.Helper()
+	if want == nil || got == nil {
+		if want != got {
+			t.Fatalf("%s TypeTree nil mismatch", path)
+		}
+		return
+	}
+	if want.TypeName != got.TypeName || want.Name != got.Name || len(want.Children) != len(got.Children) || !typeTreeScalarEqual(want.Value, got.Value) {
+		t.Fatalf("%s TypeTree field %s/%s changed during packing", path, want.TypeName, want.Name)
+	}
+	for childIndex := range want.Children {
+		assertTypeTreeValuesEquivalent(t, path, want.Children[childIndex], got.Children[childIndex])
+	}
+}
+
+func typeTreeScalarEqual(want interface{}, got interface{}) bool {
+	switch value := want.(type) {
+	case float32:
+		other, ok := got.(float32)
+		return ok && math.Float32bits(value) == math.Float32bits(other)
+	case float64:
+		other, ok := got.(float64)
+		return ok && math.Float64bits(value) == math.Float64bits(other)
+	default:
+		return reflect.DeepEqual(want, got)
 	}
 }
 

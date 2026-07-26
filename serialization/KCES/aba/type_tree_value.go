@@ -95,6 +95,26 @@ func (af *AssetsFile) typeTreeForAsset(info *AssetInfo) (*TypeTreeType, error) {
 	return nil, fmt.Errorf("type tree for class %d not found", info.TypeId)
 }
 
+// AssetTypeTree 返回指定对象使用的 TypeTree 深拷贝，使调用方可以安全地保存或修改独立对象布局
+// AssetTypeTree returns a deep copy of the TypeTree used by an object so callers can safely retain or modify a standalone layout
+func (af *AssetsFile) AssetTypeTree(info *AssetInfo) (TypeTreeType, error) {
+	tree, err := af.typeTreeForAsset(info)
+	if err != nil {
+		return TypeTreeType{}, err
+	}
+	if len(tree.Nodes) == 0 {
+		return TypeTreeType{}, fmt.Errorf("type tree for class %d has no nodes", info.TypeId)
+	}
+	return cloneTypeTreeType(tree), nil
+}
+
+// AssetHasTypeTree 判断指定对象是否拥有可用于完整编解码的 TypeTree
+// AssetHasTypeTree reports whether an object has a TypeTree capable of complete decoding and encoding
+func (af *AssetsFile) AssetHasTypeTree(info *AssetInfo) bool {
+	tree, err := af.typeTreeForAsset(info)
+	return err == nil && len(tree.Nodes) != 0
+}
+
 // byteOrder 返回当前 AssetsFile 头部声明的对象字节序
 // byteOrder returns the object byte order declared by the AssetsFile header
 func (af *AssetsFile) byteOrder() binary.ByteOrder {

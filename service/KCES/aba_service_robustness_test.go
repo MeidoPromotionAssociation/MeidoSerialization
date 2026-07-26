@@ -194,7 +194,7 @@ func TestAbaServiceUnpackPreservesEmptyTextAsset(t *testing.T) {
 	}
 }
 
-func TestAbaServiceUnpackKeepsRawTextureWhenPreviewFails(t *testing.T) {
+func TestAbaServiceUnpackRejectsTextureWithoutTypeTree(t *testing.T) {
 	rawTexture := []byte{3, 0, 0, 0, 'b', 'a', 'd', 0}
 	serialized := buildAbaServiceSerializedFile(t, func(w *aba.SerializedFileWriter) {
 		w.AddRawObject(aba.ClassIDTexture2D, "bad", rawTexture)
@@ -204,19 +204,12 @@ func TestAbaServiceUnpackKeepsRawTextureWhenPreviewFails(t *testing.T) {
 	}})
 	outDir := filepath.Join(t.TempDir(), "out")
 
-	if err := (&AbaService{}).UnpackAba(path, outDir); err != nil {
-		t.Fatalf("optional Texture2D preview failure should not discard raw object: %v", err)
+	err := (&AbaService{}).UnpackAba(path, outDir)
+	if err == nil || !strings.Contains(err.Error(), "has no TypeTree") {
+		t.Fatalf("Texture2D without a TypeTree error = %v", err)
 	}
-	rawPath := filepath.Join(outDir, "Texture2D", "bad.texture2d.bytes")
-	data, err := os.ReadFile(rawPath)
-	if err != nil {
-		t.Fatalf("raw Texture2D was not retained: %v", err)
-	}
-	if !bytes.Equal(data, rawTexture) {
-		t.Fatalf("raw Texture2D changed: got %x want %x", data, rawTexture)
-	}
-	if _, err := os.Stat(rawPath + ".meta.json"); !os.IsNotExist(err) {
-		t.Fatalf("pure directory unexpectedly contains raw Texture2D metadata: %v", err)
+	if _, statErr := os.Stat(outDir); !os.IsNotExist(statErr) {
+		t.Fatalf("output directory was created for an object without a TypeTree: %v", statErr)
 	}
 }
 

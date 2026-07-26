@@ -10,28 +10,36 @@ const unity2022DefaultMeshCookingOptions int32 = 30
 // EncodeAssetValueForUnity2022 将已解码对象迁移到 Unity 2022.3 内置类型布局并按对象字节序重新编码
 // EncodeAssetValueForUnity2022 migrates a decoded object to the Unity 2022.3 built-in type layout and re-encodes it using the object's byte order
 func (af *AssetsFile) EncodeAssetValueForUnity2022(info *AssetInfo, root *TypeTreeValue) ([]byte, bool, error) {
+	data, _, changed, err := af.EncodeAssetValueAndTypeTreeForUnity2022(info, root)
+	return data, changed, err
+}
+
+// EncodeAssetValueAndTypeTreeForUnity2022 将对象迁移到 Unity 2022.3，并同时返回与编码正文严格匹配的 TypeTree
+// EncodeAssetValueAndTypeTreeForUnity2022 migrates an object to Unity 2022.3 and also returns the TypeTree that exactly matches the encoded payload
+func (af *AssetsFile) EncodeAssetValueAndTypeTreeForUnity2022(info *AssetInfo, root *TypeTreeValue) ([]byte, TypeTreeType, bool, error) {
 	if af == nil {
-		return nil, false, fmt.Errorf("nil assets file")
+		return nil, TypeTreeType{}, false, fmt.Errorf("nil assets file")
 	}
 	if info == nil {
-		return nil, false, fmt.Errorf("nil asset info")
+		return nil, TypeTreeType{}, false, fmt.Errorf("nil asset info")
 	}
 	if root == nil {
-		return nil, false, fmt.Errorf("nil asset value")
+		return nil, TypeTreeType{}, false, fmt.Errorf("nil asset value")
 	}
 	sourceTree, err := af.typeTreeForAsset(info)
 	if err != nil {
-		return nil, false, err
+		return nil, TypeTreeType{}, false, err
 	}
 	targetTree := cloneTypeTreeType(sourceTree)
 	changed, err := normalizeTypeTreeValueForUnity2022(info.TypeId, &targetTree, root)
 	if err != nil {
-		return nil, false, err
+		return nil, TypeTreeType{}, false, err
 	}
 	if !changed {
 		data, err := af.EncodeAssetValue(info, root)
-		return data, false, err
+		return data, targetTree, false, err
 	}
+	targetTree.TypeHash = [16]byte{}
 
 	targetFile := *af
 	targetFile.Metadata = af.Metadata
@@ -41,9 +49,9 @@ func (af *AssetsFile) EncodeAssetValueForUnity2022(info *AssetInfo, root *TypeTr
 	targetInfo.TypeIdOrIndex = 0
 	data, err := targetFile.EncodeAssetValue(&targetInfo, root)
 	if err != nil {
-		return nil, false, fmt.Errorf("encode class %d with normalized Unity 2022.3 TypeTree: %w", info.TypeId, err)
+		return nil, TypeTreeType{}, false, fmt.Errorf("encode class %d with normalized Unity 2022.3 TypeTree: %w", info.TypeId, err)
 	}
-	return data, true, nil
+	return data, targetTree, true, nil
 }
 
 // cloneTypeTreeType 深拷贝会被布局迁移修改的 TypeTree 切片字段

@@ -95,7 +95,12 @@ func (s *AbaService) unpackAbaPureDirectory(abaPath string, outDir string) error
 				return fmt.Errorf("read TextAsset %q PathID %d from %q: %w", plan.Name, plan.Entry.PathId, plan.SourceName, err)
 			}
 		} else {
-			data, err = ctx.canonicalAssetData(plan, streamResolver)
+			object, objectErr := ctx.canonicalNativeUnityObject(plan, streamResolver)
+			if objectErr != nil {
+				err = objectErr
+			} else {
+				data, err = aba.EncodeNativeUnityObject(object)
+			}
 			if err != nil {
 				return fmt.Errorf("prepare %s PathID %d from %q: %w", plan.Entry.TypeName, plan.Entry.PathId, plan.SourceName, err)
 			}
@@ -235,24 +240,10 @@ func buildCanonicalUnpackContext(abaf *aba.Aba) (*canonicalUnpackContext, error)
 	}
 	ctx.PathIDs = pathIDs
 	for _, plan := range ctx.Plans {
-		if plan.AssetsFile.Metadata.TypeTreeEnabled {
+		if plan.Entry.TypeId == aba.ClassIDTextAsset || plan.AssetsFile.AssetHasTypeTree(plan.Info) {
 			continue
 		}
-		major, minor, err := parseUnityMajorMinor(plan.AssetsFile.Metadata.UnityVersion)
-		if err != nil || major != 2022 || minor != 3 {
-			return nil, fmt.Errorf("SerializedFile %q has no TypeTree and uses Unity %q; legacy object layouts require TypeTree metadata for migration to Unity 2022.3", plan.SourceName, plan.AssetsFile.Metadata.UnityVersion)
-		}
-		if classIDCanBeReidentifiedWithoutTypeTree(plan.Entry.TypeId) {
-			continue
-		}
-		canonicalPath, err := canonicalAssetPathForID(plan.RelativePath)
-		if err != nil {
-			return nil, err
-		}
-		expected := ctx.PathIDs[canonicalPath]
-		if plan.AssetsFile.Metadata.UnityVersion != defaultKCESUnityVersion || plan.Entry.PathId != expected {
-			return nil, fmt.Errorf("SerializedFile %q has no TypeTree and object %q cannot be proven to use canonical PathID %d", plan.SourceName, plan.RelativePath, expected)
-		}
+		return nil, fmt.Errorf("SerializedFile %q object %q has no TypeTree and cannot be represented as a standalone native file", plan.SourceName, plan.RelativePath)
 	}
 	ctx.Resolver = aba.AbaAssetResolver(ctx.SerializedNames)
 	return ctx, nil
@@ -328,7 +319,7 @@ func addSerializedAlias(aliases map[string]*aba.AssetsFile, name string, af *aba
 // stableUnnamedAssetName 为没有 m_Name 和 loadName 的对象生成与 PPtr 目标无关的稳定名称
 // stableUnnamedAssetName creates a stable name independent of PPtr targets for objects without m_Name or loadName
 func stableUnnamedAssetName(af *aba.AssetsFile, info *aba.AssetInfo, fallbackIndex int64) string {
-	if af != nil && info != nil && af.Metadata.TypeTreeEnabled {
+	if af != nil && info != nil && af.AssetHasTypeTree(info) {
 		if root, err := af.ReadAssetValue(info); err == nil {
 			var fingerprint strings.Builder
 			appendStableValueFingerprint(&fingerprint, root)
@@ -392,13 +383,21 @@ func canonicalUnpackRelativePath(classID int32, typeName string, name string) (s
 	case aba.ClassIDTextAsset:
 		rel = filepath.Join("TextAsset", safe)
 	case aba.ClassIDTexture2D:
-		rel = filepath.Join("Texture2D", textureRawFileName(safe))
+		rel = filepath.Join("Texture2D", canonicalTexture2DFileName(safe))
 	case aba.ClassIDSprite:
-		rel = filepath.Join("Sprite", safe+".sprite.bytes")
+		rel = filepath.Join("Sprite", canonicalSuffixedFileName(safe, ".sprite"))
 	case aba.ClassIDSpriteAtlas:
-		rel = filepath.Join("SpriteAtlas", safe+".bytes")
+		rel = filepath.Join("SpriteAtlas", canonicalIntrinsicFileName(safe, ".partsatlas", ".partsassets"))
 	case aba.ClassIDMesh:
-		rel = filepath.Join("Mesh", safe+".bytes")
+		rel = filepath.Join("Mesh", canonicalIntrinsicFileName(safe, ".mmesh"))
+	case aba.ClassIDAnimationClip:
+		rel = filepath.Join("AnimationClip", canonicalIntrinsicFileName(safe, ".anm"))
+	case aba.ClassIDMaterial:
+		rel = filepath.Join("Material", canonicalSuffixedFileName(safe, ".material"))
+	case aba.ClassIDAudioClip:
+		rel = filepath.Join("AudioClip", canonicalSuffixedFileName(safe, ".audioclip"))
+	case aba.ClassIDMonoBehaviour:
+		rel = filepath.Join("MonoBehaviour", canonicalSuffixedFileName(safe, ".monobehaviour"))
 	default:
 		if typeName == "" {
 			typeName = fmt.Sprintf("Type_%d", classID)
@@ -406,6 +405,36 @@ func canonicalUnpackRelativePath(classID int32, typeName string, name string) (s
 		rel = filepath.Join(sanitizeName(typeName), safe+".bytes")
 	}
 	return normalizeExtractionPath(rel)
+}
+
+// canonicalTexture2DFileName 为 Texture2D 选择原有 .tex 名称或追加无歧义的 .texture2d 后缀
+// canonicalTexture2DFileName keeps an existing .tex name or appends an unambiguous .texture2d suffix for a Texture2D
+func canonicalTexture2DFileName(name string) string {
+	if strings.HasSuffix(strings.ToLower(name), ".tex") {
+		return name
+	}
+	return canonicalSuffixedFileName(name, ".texture2d")
+}
+
+// canonicalIntrinsicFileName 保留游戏资源本身已有的扩展名，否则追加首选扩展名
+// canonicalIntrinsicFileName preserves an extension already intrinsic to the game resource or appends the preferred extension
+func canonicalIntrinsicFileName(name string, extensions ...string) string {
+	lower := strings.ToLower(name)
+	for _, extension := range extensions {
+		if strings.HasSuffix(lower, strings.ToLower(extension)) {
+			return name
+		}
+	}
+	if len(extensions) == 0 {
+		return name
+	}
+	return name + extensions[0]
+}
+
+// canonicalSuffixedFileName 为工具原生对象追加一个用于打包时恢复资源名的类型后缀
+// canonicalSuffixedFileName appends a type suffix that packing removes to restore the resource name
+func canonicalSuffixedFileName(name string, suffix string) string {
+	return name + suffix
 }
 
 // isStreamDirectoryName 判断 ABA 条目是否为必须内联的流式资源
@@ -435,11 +464,14 @@ func (ctx *canonicalUnpackContext) streamRangeResolver() aba.AbaFileRangeResolve
 	}
 }
 
-// canonicalAssetData 内联外部流数据、重写对象引用并将旧内置对象迁移到 Unity 2022.3 布局
-// canonicalAssetData inlines external stream data, rewrites object references, and migrates legacy built-in objects to the Unity 2022.3 layout
-func (ctx *canonicalUnpackContext) canonicalAssetData(plan *canonicalUnpackAsset, streamResolver aba.AbaFileRangeResolver) ([]byte, error) {
+// canonicalNativeUnityObject 内联外部流数据、重写对象引用并生成自带 Unity 2022.3 TypeTree 的独立对象
+// canonicalNativeUnityObject inlines external stream data, rewrites object references, and creates a standalone object carrying its Unity 2022.3 TypeTree
+func (ctx *canonicalUnpackContext) canonicalNativeUnityObject(plan *canonicalUnpackAsset, streamResolver aba.AbaFileRangeResolver) (*aba.NativeUnityObject, error) {
 	if plan == nil || plan.AssetsFile == nil || plan.Info == nil {
 		return nil, fmt.Errorf("invalid canonical asset plan")
+	}
+	if !plan.AssetsFile.AssetHasTypeTree(plan.Info) {
+		return nil, fmt.Errorf("class %d object has no TypeTree and cannot become a standalone native file", plan.Entry.TypeId)
 	}
 	raw, err := plan.AssetsFile.GetAssetData(plan.Info)
 	if err != nil {
@@ -447,26 +479,25 @@ func (ctx *canonicalUnpackContext) canonicalAssetData(plan *canonicalUnpackAsset
 	}
 	data := append([]byte(nil), raw...)
 	streamChanged := false
-	if plan.AssetsFile.Metadata.TypeTreeEnabled {
-		switch plan.Entry.TypeId {
-		case aba.ClassIDTexture2D:
-			data, streamChanged, err = plan.AssetsFile.InlineTexture2DStreamData(plan.Info, streamResolver)
-		case aba.ClassIDCubemap:
-			data, streamChanged, err = plan.AssetsFile.InlineCubemapStreamData(plan.Info, streamResolver)
-		case aba.ClassIDMesh:
-			data, streamChanged, err = plan.AssetsFile.InlineMeshStreamData(plan.Info, streamResolver)
-		case aba.ClassIDAudioClip:
-			data, streamChanged, err = plan.AssetsFile.InlineAudioClipStreamData(plan.Info, streamResolver)
-		}
-		if err != nil {
-			return nil, err
-		}
+	switch plan.Entry.TypeId {
+	case aba.ClassIDTexture2D:
+		data, streamChanged, err = plan.AssetsFile.InlineTexture2DStreamData(plan.Info, streamResolver)
+	case aba.ClassIDCubemap:
+		data, streamChanged, err = plan.AssetsFile.InlineCubemapStreamData(plan.Info, streamResolver)
+	case aba.ClassIDMesh:
+		data, streamChanged, err = plan.AssetsFile.InlineMeshStreamData(plan.Info, streamResolver)
+	case aba.ClassIDAudioClip:
+		data, streamChanged, err = plan.AssetsFile.InlineAudioClipStreamData(plan.Info, streamResolver)
 	}
-	if !plan.AssetsFile.Metadata.TypeTreeEnabled {
-		return data, nil
+	if err != nil {
+		return nil, err
+	}
+	tree, err := plan.AssetsFile.AssetTypeTree(plan.Info)
+	if err != nil {
+		return nil, err
 	}
 	if plan.Entry.TypeId == aba.ClassIDAudioClip {
-		return data, nil
+		return &aba.NativeUnityObject{ClassID: plan.Entry.TypeId, BigEndian: plan.AssetsFile.Header.Endianness, TypeTree: tree, Data: data}, nil
 	}
 	clone := *plan.AssetsFile
 	clone.Data = data
@@ -492,14 +523,15 @@ func (ctx *canonicalUnpackContext) canonicalAssetData(plan *canonicalUnpackAsset
 			return nil, err
 		}
 	}
-	encoded, schemaChanged, err := clone.EncodeAssetValueForUnity2022(&info, root)
+	encoded, targetTree, schemaChanged, err := clone.EncodeAssetValueAndTypeTreeForUnity2022(&info, root)
 	if err != nil {
 		return nil, fmt.Errorf("migrate class %d object to Unity 2022.3: %w", plan.Entry.TypeId, err)
 	}
 	if pptrCount == 0 && !streamChanged && !schemaChanged {
-		return data, nil
+		encoded = data
+		targetTree = tree
 	}
-	return encoded, nil
+	return &aba.NativeUnityObject{ClassID: plan.Entry.TypeId, BigEndian: plan.AssetsFile.Header.Endianness, TypeTree: targetTree, Data: encoded}, nil
 }
 
 // remapPPtr 将源文件引用扁平化为当前输出 SerializedFile 的规范 PathID

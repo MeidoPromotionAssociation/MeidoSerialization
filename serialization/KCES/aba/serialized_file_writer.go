@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
@@ -43,15 +44,18 @@ type sfObject struct {
 	data         []byte                    // 已在内存中的序列化对象数据 / Serialized object data already held in memory
 	dataSize     uint32                    // 对象在线格式字节数 / Object byte size on the wire
 	writeData    SerializedObjectWriteFunc // 流式对象写入回调 / Streaming object writer callback
+	typeTree     *TypeTreeType             // 可选的完整对象 TypeTree / Optional complete object TypeTree
 }
 
 // sfSerializedType 表示写入 metadata 的一个 SerializedType / sfSerializedType represents one SerializedType emitted into metadata
 type sfSerializedType struct {
-	classId         int32    // Unity 类 ID / Unity class ID
-	scriptTypeIndex int16    // MonoBehaviour 对应的 ScriptTypes 索引，非脚本类型为 -1 / ScriptTypes index for a MonoBehaviour, or -1 for non-script types
-	scriptPathId    int64    // 用于区分同一 class ID 下不同脚本类型的 MonoScript PathID / MonoScript PathID distinguishing script types that share one class ID
-	scriptIdHash    [16]byte // 脚本 ID 哈希，新建无 TypeTree 文件允许使用零值 / Script ID hash, which may be zero for a newly built file without TypeTree data
-	typeHash        [16]byte // 类型树哈希，新建无 TypeTree 文件允许使用零值 / Type-tree hash, which may be zero for a newly built file without TypeTree data
+	classId         int32         // Unity 类 ID / Unity class ID
+	scriptTypeIndex int16         // MonoBehaviour 对应的 ScriptTypes 索引，非脚本类型为 -1 / ScriptTypes index for a MonoBehaviour, or -1 for non-script types
+	scriptPathId    int64         // 用于区分同一 class ID 下不同脚本类型的 MonoScript PathID / MonoScript PathID distinguishing script types that share one class ID
+	scriptIdHash    [16]byte      // 脚本 ID 哈希，新建无 TypeTree 文件允许使用零值 / Script ID hash, which may be zero for a newly built file without TypeTree data
+	typeHash        [16]byte      // 类型树哈希，新建无 TypeTree 文件允许使用零值 / Type-tree hash, which may be zero for a newly built file without TypeTree data
+	isStrippedType  bool          // 类型是否标记为已剥离 / Whether the type is marked as stripped
+	typeTree        *TypeTreeType // 可选的完整对象 TypeTree / Optional complete object TypeTree
 }
 
 const (
@@ -184,6 +188,7 @@ func (w *SerializedFileWriter) AddTexture2DWithLoadNameAndPathID(name string, lo
 		return 0
 	}
 	actualPathID := w.reserveOrAllocatePathID(pathID)
+	typeTree := unity2022Texture2DTypeTree()
 	w.objects = append(w.objects, sfObject{
 		pathId:   actualPathID,
 		classId:  ClassIDTexture2D,
@@ -191,6 +196,7 @@ func (w *SerializedFileWriter) AddTexture2DWithLoadNameAndPathID(name string, lo
 		loadName: nonEmptyLoadName(loadName, name),
 		data:     data,
 		dataSize: dataSize,
+		typeTree: &typeTree,
 	})
 	return actualPathID
 }
@@ -259,6 +265,78 @@ func (w *SerializedFileWriter) AddRawObjectSourcePreservingDataWithLoadNameAndPa
 		loadName:     nonEmptyLoadName(loadName, name),
 		dataSize:     source.Size,
 		writeData:    source.WriteTo,
+	})
+	return actualPathID
+}
+
+// AddNativeUnityObjectWithLoadNameAndPathID 添加携带完整 TypeTree 的独立 Unity 对象，并仅把其正文写入 SerializedFile
+// AddNativeUnityObjectWithLoadNameAndPathID adds a standalone Unity object with a complete TypeTree and writes only its payload into the SerializedFile
+func (w *SerializedFileWriter) AddNativeUnityObjectWithLoadNameAndPathID(object *NativeUnityObject, name string, loadName string, pathID int64) int64 {
+	if object == nil {
+		w.setError(fmt.Errorf("native Unity object %q is nil", name))
+		return 0
+	}
+	if err := validateNativeUnityObjectSchema(object.ClassID, &object.TypeTree); err != nil {
+		w.setError(fmt.Errorf("native Unity object %q: %w", name, err))
+		return 0
+	}
+	if object.BigEndian {
+		w.setError(fmt.Errorf("native Unity object %q uses big-endian data but the generated SerializedFile is little-endian", name))
+		return 0
+	}
+	dataSize, err := uint32WireLength(fmt.Sprintf("native Unity object %q byte size", name), uint64(len(object.Data)))
+	if err != nil {
+		w.setError(err)
+		return 0
+	}
+	return w.addNativeUnityObjectSource(object.ClassID, name, loadName, SerializedObjectDataSource{
+		Size:   dataSize,
+		Prefix: object.Data,
+		WriteTo: func(out io.Writer) error {
+			return writeAbaBytes(out, object.Data)
+		},
+	}, &object.TypeTree, pathID)
+}
+
+// AddNativeUnityObjectSourceWithLoadNameAndPathID 添加可流式读取正文且携带完整 TypeTree 的独立 Unity 对象
+// AddNativeUnityObjectSourceWithLoadNameAndPathID adds a standalone Unity object with streamed payload data and a complete TypeTree
+func (w *SerializedFileWriter) AddNativeUnityObjectSourceWithLoadNameAndPathID(classID int32, tree TypeTreeType, name string, loadName string, source SerializedObjectDataSource, pathID int64) int64 {
+	return w.addNativeUnityObjectSource(classID, name, loadName, source, &tree, pathID)
+}
+
+// addNativeUnityObjectSource 校验独立对象布局并将正文数据源加入写入队列
+// addNativeUnityObjectSource validates a standalone object layout and appends its payload source to the write queue
+func (w *SerializedFileWriter) addNativeUnityObjectSource(classID int32, name string, loadName string, source SerializedObjectDataSource, tree *TypeTreeType, pathID int64) int64 {
+	if source.WriteTo == nil {
+		w.setError(fmt.Errorf("native Unity object %q has a nil data-source writer", name))
+		return 0
+	}
+	if uint64(len(source.Prefix)) > uint64(source.Size) {
+		w.setError(fmt.Errorf("native Unity object %q prefix size %d exceeds object size %d", name, len(source.Prefix), source.Size))
+		return 0
+	}
+	if err := validateNativeUnityObjectSchema(classID, tree); err != nil {
+		w.setError(fmt.Errorf("native Unity object %q: %w", name, err))
+		return 0
+	}
+	clonedTree := cloneTypeTreeType(tree)
+	actualPathID := w.reserveOrAllocatePathID(pathID)
+	var scriptPathID int64
+	if classID == ClassIDMonoBehaviour {
+		fileID, candidatePathID, ok := readMonoBehaviourScriptPPtr(source.Prefix)
+		if ok && fileID == 0 {
+			scriptPathID = candidatePathID
+		}
+	}
+	w.objects = append(w.objects, sfObject{
+		pathId:       actualPathID,
+		classId:      classID,
+		scriptPathId: scriptPathID,
+		name:         name,
+		loadName:     nonEmptyLoadName(loadName, name),
+		dataSize:     source.Size,
+		writeData:    source.WriteTo,
+		typeTree:     &clonedTree,
 	})
 	return actualPathID
 }
@@ -671,9 +749,10 @@ func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, seri
 		return nil, fmt.Errorf("write target platform: %w", err)
 	}
 
-	// TypeTreeEnabled 写为 false，不嵌入类型树，由 Unity 通过 class ID 识别内置对象
-	// TypeTreeEnabled is false with no embedded tree, allowing Unity to identify built-in objects by class ID
-	if err := bw.WriteByte(0); err != nil {
+	// 只要任一独立对象携带 TypeTree，就为整个 SerializedFile 启用标准 TypeTree metadata
+	// Enable standard TypeTree metadata for the SerializedFile when any standalone object carries a TypeTree
+	typeTreeEnabled := serializedTypesContainTypeTree(serializedTypes)
+	if err := bw.WriteBool(typeTreeEnabled); err != nil {
 		return nil, fmt.Errorf("write type tree enabled: %w", err)
 	}
 
@@ -686,7 +765,7 @@ func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, seri
 		if err := bw.WriteInt32(serializedType.classId); err != nil { // TypeId
 			return nil, fmt.Errorf("write type id %d: %w", serializedType.classId, err)
 		}
-		if err := bw.WriteByte(0); err != nil { // IsStrippedType
+		if err := bw.WriteBool(serializedType.isStrippedType); err != nil { // IsStrippedType
 			return nil, fmt.Errorf("write stripped flag for type %d: %w", serializedType.classId, err)
 		}
 		if err := bw.WriteInt16(serializedType.scriptTypeIndex); err != nil { // ScriptTypeIndex
@@ -699,6 +778,46 @@ func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, seri
 		}
 		if err := bw.WriteBytes(serializedType.typeHash[:]); err != nil { // TypeHash
 			return nil, fmt.Errorf("write type hash for type %d: %w", serializedType.classId, err)
+		}
+		if typeTreeEnabled {
+			var tree TypeTreeType
+			if serializedType.typeTree != nil {
+				tree = *serializedType.typeTree
+			}
+			nodeCount, err := int32WireLength(fmt.Sprintf("class %d TypeTree node count", serializedType.classId), uint64(len(tree.Nodes)))
+			if err != nil {
+				return nil, err
+			}
+			stringSize, err := int32WireLength(fmt.Sprintf("class %d TypeTree string buffer size", serializedType.classId), uint64(len(tree.StringBuffer)))
+			if err != nil {
+				return nil, err
+			}
+			if err := bw.WriteInt32(nodeCount); err != nil {
+				return nil, fmt.Errorf("write TypeTree node count for type %d: %w", serializedType.classId, err)
+			}
+			if err := bw.WriteInt32(stringSize); err != nil {
+				return nil, fmt.Errorf("write TypeTree string buffer size for type %d: %w", serializedType.classId, err)
+			}
+			for nodeIndex := range tree.Nodes {
+				if err := writeNativeUnityObjectNode(bw, &tree.Nodes[nodeIndex]); err != nil {
+					return nil, fmt.Errorf("write TypeTree node[%d] for type %d: %w", nodeIndex, serializedType.classId, err)
+				}
+			}
+			if err := bw.WriteBytes(tree.StringBuffer); err != nil {
+				return nil, fmt.Errorf("write TypeTree string buffer for type %d: %w", serializedType.classId, err)
+			}
+			dependencyCount, err := int32WireLength(fmt.Sprintf("class %d TypeTree dependency count", serializedType.classId), uint64(len(tree.TypeDependencies)))
+			if err != nil {
+				return nil, err
+			}
+			if err := bw.WriteInt32(dependencyCount); err != nil {
+				return nil, fmt.Errorf("write TypeTree dependency count for type %d: %w", serializedType.classId, err)
+			}
+			for dependencyIndex, dependency := range tree.TypeDependencies {
+				if err := bw.WriteInt32(dependency); err != nil {
+					return nil, fmt.Errorf("write TypeTree dependency[%d] for type %d: %w", dependencyIndex, serializedType.classId, err)
+				}
+			}
 		}
 	}
 
@@ -1138,6 +1257,64 @@ func encodeTexture2DData(unityVersion string, name string, width, height int64, 
 	return buf.Bytes(), nil
 }
 
+// unity2022Texture2DTypeTree 构造与生成的内联 RGBA32 Texture2D 正文严格一致的 Unity 2022.3 TypeTree
+// unity2022Texture2DTypeTree constructs a Unity 2022.3 TypeTree that exactly matches generated inline RGBA32 Texture2D payloads
+func unity2022Texture2DTypeTree() TypeTreeType {
+	tree := TypeTreeType{TypeId: ClassIDTexture2D, ScriptTypeIndex: -1}
+	stringOffset := func(value string) uint32 {
+		offset := uint32(len(tree.StringBuffer))
+		tree.StringBuffer = append(tree.StringBuffer, value...)
+		tree.StringBuffer = append(tree.StringBuffer, 0)
+		return offset
+	}
+	appendNode := func(level byte, typeName string, name string, byteSize int32, metaFlags uint32) {
+		tree.Nodes = append(tree.Nodes, TypeTreeNode{
+			Version:    1,
+			Level:      level,
+			TypeStrOff: stringOffset(typeName),
+			NameStrOff: stringOffset(name),
+			ByteSize:   byteSize,
+			Index:      int32(len(tree.Nodes)),
+			MetaFlags:  metaFlags,
+		})
+	}
+	appendNode(0, "Texture2D", "Base", -1, 0)
+	appendNode(1, "string", "m_Name", -1, 0x4000)
+	appendNode(1, "int", "m_ForcedFallbackFormat", 4, 0)
+	appendNode(1, "bool", "m_DownscaleFallback", 1, 0)
+	appendNode(1, "bool", "m_IsAlphaChannelOptional", 1, 0x4000)
+	appendNode(1, "int", "m_Width", 4, 0)
+	appendNode(1, "int", "m_Height", 4, 0)
+	appendNode(1, "int", "m_CompleteImageSize", 4, 0)
+	appendNode(1, "int", "m_MipsStripped", 4, 0)
+	appendNode(1, "int", "m_TextureFormat", 4, 0)
+	appendNode(1, "int", "m_MipCount", 4, 0)
+	appendNode(1, "bool", "m_IsReadable", 1, 0)
+	appendNode(1, "bool", "m_IsPreProcessed", 1, 0)
+	appendNode(1, "bool", "m_IgnoreMipmapLimit", 1, 0x4000)
+	appendNode(1, "string", "m_MipmapLimitGroupName", -1, 0x4000)
+	appendNode(1, "bool", "m_StreamingMipmaps", 1, 0x4000)
+	appendNode(1, "int", "m_StreamingMipmapsPriority", 4, 0)
+	appendNode(1, "int", "m_ImageCount", 4, 0)
+	appendNode(1, "int", "m_TextureDimension", 4, 0)
+	appendNode(1, "GLTextureSettings", "m_TextureSettings", 24, 0)
+	appendNode(2, "int", "m_FilterMode", 4, 0)
+	appendNode(2, "int", "m_Aniso", 4, 0)
+	appendNode(2, "float", "m_MipBias", 4, 0)
+	appendNode(2, "int", "m_WrapU", 4, 0)
+	appendNode(2, "int", "m_WrapV", 4, 0)
+	appendNode(2, "int", "m_WrapW", 4, 0)
+	appendNode(1, "int", "m_LightmapFormat", 4, 0)
+	appendNode(1, "int", "m_ColorSpace", 4, 0)
+	appendNode(1, "TypelessData", "m_PlatformBlob", -1, 0x4000)
+	appendNode(1, "TypelessData", "image data", -1, 0x4000)
+	appendNode(1, "StreamingInfo", "m_StreamData", -1, 0)
+	appendNode(2, "unsigned long long", "offset", 8, 0)
+	appendNode(2, "unsigned int", "size", 4, 0)
+	appendNode(2, "string", "path", -1, 0x4000)
+	return tree
+}
+
 // validateSerializedFileUnityVersion 将生成的内置对象布局限制为纯目录契约使用的 Unity 2022.3 版本线
 // Unity 会按该版本字符串解释原始对象字节，接受旧版或未知布局会使重打包文件无法读取
 // validateSerializedFileUnityVersion limits generated built-in object layouts to the Unity 2022.3 line used by the pure-directory contract
@@ -1300,6 +1477,13 @@ func collectSerializedTypes(objects []sfObject) ([]sfSerializedType, []LocalSeri
 			scriptTypeIndex: -1,
 			scriptPathId:    obj.scriptPathId,
 		}
+		if obj.typeTree != nil {
+			clonedTree := cloneTypeTreeType(obj.typeTree)
+			serializedType.typeTree = &clonedTree
+			serializedType.isStrippedType = clonedTree.IsStrippedType
+			serializedType.scriptIdHash = clonedTree.ScriptIdHash
+			serializedType.typeHash = clonedTree.TypeHash
+		}
 		if obj.classId == ClassIDMonoBehaviour && obj.scriptPathId != 0 {
 			targetClassID, exists := objectClasses[obj.scriptPathId]
 			if !exists {
@@ -1334,9 +1518,38 @@ func serializedTypeIndex(serializedTypes []sfSerializedType, obj sfObject) int32
 		if serializedType.classId != obj.classId {
 			continue
 		}
-		if obj.classId != ClassIDMonoBehaviour || serializedType.scriptPathId == obj.scriptPathId {
+		if obj.classId == ClassIDMonoBehaviour && serializedType.scriptPathId != obj.scriptPathId {
+			continue
+		}
+		if typeTreesEquivalent(serializedType.typeTree, obj.typeTree) {
 			return int32(typeIndex)
 		}
 	}
 	return -1
+}
+
+// serializedTypesContainTypeTree 判断类型表中是否至少有一个完整 TypeTree
+// serializedTypesContainTypeTree reports whether the serialized type table contains at least one complete TypeTree
+func serializedTypesContainTypeTree(serializedTypes []sfSerializedType) bool {
+	for typeIndex := range serializedTypes {
+		if serializedTypes[typeIndex].typeTree != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// typeTreesEquivalent 判断两个对象是否可以安全共享同一个 SerializedType 项
+// typeTreesEquivalent reports whether two objects can safely share one SerializedType entry
+func typeTreesEquivalent(left *TypeTreeType, right *TypeTreeType) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return left.TypeId == right.TypeId &&
+		left.IsStrippedType == right.IsStrippedType &&
+		left.ScriptIdHash == right.ScriptIdHash &&
+		left.TypeHash == right.TypeHash &&
+		slices.Equal(left.Nodes, right.Nodes) &&
+		slices.Equal(left.StringBuffer, right.StringBuffer) &&
+		slices.Equal(left.TypeDependencies, right.TypeDependencies)
 }

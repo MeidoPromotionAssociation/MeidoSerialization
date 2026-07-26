@@ -355,6 +355,15 @@
         }
       ]
     },
+    "readOnly": {
+      "type": "boolean"
+    },
+    "resourceDataBase64": {
+      "type": "string"
+    },
+    "schemaBase64": {
+      "type": "string"
+    },
     "serializedFileVersion": {
       "description": "The version number of the serialized-file container.",
       "maximum": 4294967295,
@@ -470,8 +479,7 @@
   },
   "required": [
     "format",
-    "classId",
-    "dataBase64"
+    "classId"
   ],
   "title": "kces.bytes editing JSON",
   "type": "object",

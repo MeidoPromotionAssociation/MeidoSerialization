@@ -95,28 +95,37 @@ func WriteAba(w io.Writer, entries []AbaFileEntry, opts *AbaWriteOptions) error 
 		}
 	}
 
-	// 第一遍编码数据块时只记录块表和压缩后总大小，最终写出时重新编码，以免为整个 .aba 保留第二份大切片
-	// The first data-block encoding pass records only the block table and total compressed size; blocks are encoded again during final output to avoid retaining a second large slice for the entire .aba
 	var blockInfos []BlockInfo
 	var compressedDataSize int64
-	err := forEachAbaDataBlock(entries, func(index int64, block []byte) error {
-		if _, err := int32WireLength("data block count", uint64(index)+1); err != nil {
-			return fmt.Errorf("data block count exceeds Int32 wire range")
-		}
-		info, encoded, err := encodeAbaDataBlock(block, options.Compress)
+	var err error
+	if options.Compress {
+		// 第一遍编码压缩数据块时只记录块表和压缩后总大小，最终写出时重新编码，以免为整个 ABA 保留第二份大切片
+		// The first compressed data-block pass records only the block table and total compressed size, and final output re-encodes the blocks to avoid retaining a second full ABA-sized slice
+		err = forEachAbaDataBlock(entries, func(index int64, block []byte) error {
+			if _, err := int32WireLength("data block count", uint64(index)+1); err != nil {
+				return fmt.Errorf("data block count exceeds Int32 wire range")
+			}
+			info, encoded, err := encodeAbaDataBlock(block, true)
+			if err != nil {
+				return fmt.Errorf("encode data block %d: %w", index, err)
+			}
+			var ok bool
+			compressedDataSize, ok = addNonNegativeInt64(compressedDataSize, int64(len(encoded)))
+			if !ok {
+				return fmt.Errorf("compressed data size sum overflows at block %d", index)
+			}
+			blockInfos = append(blockInfos, info)
+			return nil
+		})
 		if err != nil {
-			return fmt.Errorf("encode data block %d: %w", index, err)
+			return err
 		}
-		var ok bool
-		compressedDataSize, ok = addNonNegativeInt64(compressedDataSize, int64(len(encoded)))
-		if !ok {
-			return fmt.Errorf("compressed data size sum overflows at block %d", index)
+	} else {
+		blockInfos, err = uncompressedAbaBlockInfos(totalDataSize)
+		if err != nil {
+			return err
 		}
-		blockInfos = append(blockInfos, info)
-		return nil
-	})
-	if err != nil {
-		return err
+		compressedDataSize = totalDataSize
 	}
 
 	// 将块表与目录表序列化为 BlockAndDirInfo
@@ -265,6 +274,41 @@ func WriteAba(w io.Writer, entries []AbaFileEntry, opts *AbaWriteOptions) error 
 		return fmt.Errorf("wrote %d data blocks, expected %d", blockIndex, len(blockInfos))
 	}
 	return nil
+}
+
+// uncompressedAbaBlockInfos 根据逻辑数据总大小构建无需预读正文的未压缩 UnityFS 块表
+// uncompressedAbaBlockInfos builds an uncompressed UnityFS block table from the total logical data size without pre-reading payloads
+func uncompressedAbaBlockInfos(totalDataSize int64) ([]BlockInfo, error) {
+	if totalDataSize < 0 {
+		return nil, fmt.Errorf("negative ABA data size %d", totalDataSize)
+	}
+	const blockSize int64 = 0x20000
+	blockCount := totalDataSize / blockSize
+	if totalDataSize%blockSize != 0 {
+		blockCount++
+	}
+	if blockCount == 0 {
+		blockCount = 1
+	}
+	if _, err := int32WireLength("data block count", uint64(blockCount)); err != nil {
+		return nil, fmt.Errorf("data block count exceeds Int32 wire range")
+	}
+
+	blocks := make([]BlockInfo, 0, blockCount)
+	remaining := totalDataSize
+	for blockIndex := int64(0); blockIndex < blockCount; blockIndex++ {
+		dataSize := remaining
+		if dataSize > blockSize {
+			dataSize = blockSize
+		}
+		blocks = append(blocks, BlockInfo{
+			DecompressedSize: uint32(dataSize),
+			CompressedSize:   uint32(dataSize),
+			Flags:            0x40 | uint16(CompressionNone),
+		})
+		remaining -= dataSize
+	}
+	return blocks, nil
 }
 
 // validateAbaHeaderString 拒绝无法由 NUL 结尾头部字符串表示的内嵌 NUL

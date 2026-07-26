@@ -149,6 +149,38 @@ func TestWriteAbaGeneratedEntryRoundTrip(t *testing.T) {
 	}
 }
 
+func TestWriteAbaUncompressedGeneratedEntryUsesSinglePass(t *testing.T) {
+	data := bytes.Repeat([]byte("single-pass ABA entry"), 20000)
+	var calls int64
+	var out bytes.Buffer
+	if err := WriteAba(&out, []AbaFileEntry{{
+		Name: "CAB-single-pass-stream",
+		WriteTo: func(destination io.Writer) error {
+			calls++
+			_, err := io.Copy(destination, bytes.NewReader(data))
+			return err
+		},
+		Size:         int64(len(data)),
+		IsSerialized: true,
+	}}, &AbaWriteOptions{Compress: false}); err != nil {
+		t.Fatalf("WriteAba: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("generator calls = %d, want 1", calls)
+	}
+	bundle, err := ReadAba(bytes.NewReader(out.Bytes()))
+	if err != nil {
+		t.Fatalf("ReadAba: %v", err)
+	}
+	got, err := bundle.GetFileData(0)
+	if err != nil {
+		t.Fatalf("GetFileData: %v", err)
+	}
+	if !bytes.Equal(got, data) {
+		t.Fatalf("generated entry differs: got %d bytes, want %d", len(got), len(data))
+	}
+}
+
 func TestWriteAbaRejectsIncorrectGeneratedEntrySize(t *testing.T) {
 	err := WriteAba(io.Discard, []AbaFileEntry{{
 		Name: "short",

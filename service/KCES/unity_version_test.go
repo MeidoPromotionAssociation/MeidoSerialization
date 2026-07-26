@@ -65,7 +65,7 @@ func TestUnpackAbaAcceptsUnityFS7KCESSample(t *testing.T) {
 	if err := (&AbaService{}).UnpackAba(sample, outDir); err != nil {
 		t.Fatalf("UnpackAba UnityFS 7 sample: %v", err)
 	}
-	if files := hashDirectoryFiles(t, outDir); len(files) == 0 {
+	if files := validateCanonicalDirectoryFiles(t, outDir, nil); len(files) == 0 {
 		t.Fatal("UnityFS 7 sample unpacked to an empty directory")
 	}
 }

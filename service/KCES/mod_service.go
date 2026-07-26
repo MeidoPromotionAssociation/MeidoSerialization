@@ -47,10 +47,11 @@ type ModManifest struct {
 //
 // ModAsset 定义 MOD 中的单个资源文件 / ModAsset defines one asset file in a MOD
 type ModAsset struct {
-	Name            string `json:"name"` // 资源短名称，同时作为 m_Name、m_Container 键和 CT 名称 / Short resource name used as m_Name, the m_Container key, and the CT name
-	Path            string `json:"path"` // 源文件路径，相对于 manifest 所在目录 / Source file path relative to the manifest directory
-	Kind            string `json:"kind"` // 资源类型，如 textasset、texture2d、mesh、sprite / Asset kind such as textasset, texture2d, mesh, or sprite
-	preserveRawData bool   // 纯目录打包时是否严格保留原始对象字节 / Whether pure-directory packing must preserve raw object bytes exactly
+	Name             string `json:"name"` // 资源短名称，同时作为 m_Name、m_Container 键和 CT 名称 / Short resource name used as m_Name, the m_Container key, and the CT name
+	Path             string `json:"path"` // 源文件路径，相对于 manifest 所在目录 / Source file path relative to the manifest directory
+	Kind             string `json:"kind"` // 资源类型，如 textasset、texture2d、mesh、sprite / Asset kind such as textasset, texture2d, mesh, or sprite
+	preserveRawData  bool   // 纯目录打包时是否严格保留原始对象字节 / Whether pure-directory packing must preserve raw object bytes exactly
+	nativeObjectFile bool   // 输入是否为内嵌 TypeTree 的独立 Unity 对象文件 / Whether the input is a standalone Unity object file with an embedded TypeTree
 }
 
 // ModPackService 提供 KCES MOD 打包服务 / ModPackService provides KCES MOD packing services
@@ -91,6 +92,19 @@ func (s *ModPackService) PackMod(manifestPath string, outputDir string) error {
 // packModManifest 根据清单中的纯资源文件构建固定 Unity 2022.3.35f1 的 ABA 和对应 CT
 // packModManifest builds a fixed Unity 2022.3.35f1 ABA and matching CT from the manifest's plain resource files
 func packModManifest(manifest ModManifest, baseDir string, outputDir string) error {
+	return packModManifestWithOptions(manifest, baseDir, outputDir, modPackOptions{
+		CompressAba: true,
+	})
+}
+
+// modPackOptions 控制不属于公开清单格式的内部打包行为 / modPackOptions controls internal packing behavior that is not part of the public manifest format
+type modPackOptions struct {
+	CompressAba bool // 是否压缩 ABA 数据块 / Whether ABA data blocks are compressed
+}
+
+// packModManifestWithOptions 根据清单和内部选项构建固定 Unity 2022.3.35f1 的 ABA 和对应 CT
+// packModManifestWithOptions builds a fixed Unity 2022.3.35f1 ABA and matching CT from a manifest and internal options
+func packModManifestWithOptions(manifest ModManifest, baseDir string, outputDir string, options modPackOptions) error {
 	if err := validateModOutputName(manifest.Name); err != nil {
 		return fmt.Errorf("manifest: invalid name %q: %w", manifest.Name, err)
 	}
@@ -204,7 +218,16 @@ func packModManifest(manifest ModManifest, baseDir string, outputDir string) err
 			assetNames[nameHash] = catalogName
 		}
 		if classID, ok := unityRawClassIDForKind(kind); ok {
-			if a.preserveRawData {
+			if a.nativeObjectFile {
+				header, source, err := newPackRootNativeUnityObjectSource(sourceRoot, relPath)
+				if err != nil {
+					return fmt.Errorf("open native Unity asset %q: %w", a.Path, err)
+				}
+				if header.ClassID != classID {
+					return fmt.Errorf("native Unity asset %q contains ClassID %d but its path requires ClassID %d", a.Path, header.ClassID, classID)
+				}
+				sfWriter.AddNativeUnityObjectSourceWithLoadNameAndPathID(classID, header.TypeTree, name, loadName, source, pathID)
+			} else if a.preserveRawData {
 				source, err := newPackRootSerializedObjectSource(sourceRoot, relPath)
 				if err != nil {
 					return fmt.Errorf("open raw asset %q: %w", a.Path, err)
@@ -259,7 +282,7 @@ func packModManifest(manifest ModManifest, baseDir string, outputDir string) err
 		EngineVersion:     versionSettings.EngineVersion,
 		GenerationVersion: versionSettings.GenerationVersion,
 		Version:           versionSettings.AbaVersion,
-		Compress:          true,
+		Compress:          options.CompressAba,
 	}
 
 	catalogName := manifest.Name
@@ -547,6 +570,125 @@ func newPackRootSerializedObjectSource(root *os.Root, relPath string) (aba.Seria
 			return writeVerifiedPackRootFile(root, relPath, before, out)
 		},
 	}, nil
+}
+
+// newPackRootNativeUnityObjectSource 校验独立 Unity 对象文件并建立只流式读取其正文的数据源
+// newPackRootNativeUnityObjectSource validates a standalone Unity object file and creates a source that streams only its payload
+func newPackRootNativeUnityObjectSource(root *os.Root, relPath string) (*aba.NativeUnityObjectHeader, aba.SerializedObjectDataSource, error) {
+	if root == nil {
+		return nil, aba.SerializedObjectDataSource{}, fmt.Errorf("nil manifest asset root")
+	}
+	before, err := root.Lstat(relPath)
+	if err != nil {
+		return nil, aba.SerializedObjectDataSource{}, err
+	}
+	if isLinkOrReparse(before) {
+		return nil, aba.SerializedObjectDataSource{}, fmt.Errorf("refusing symlink or reparse point %q", relPath)
+	}
+	if !before.Mode().IsRegular() {
+		return nil, aba.SerializedObjectDataSource{}, fmt.Errorf("source %q is not a regular file", relPath)
+	}
+	f, err := openVerifiedPackRootFile(root, relPath, before)
+	if err != nil {
+		return nil, aba.SerializedObjectDataSource{}, err
+	}
+	header, readErr := aba.ReadNativeUnityObjectHeader(f, before.Size())
+	closeErr := f.Close()
+	if readErr != nil {
+		return nil, aba.SerializedObjectDataSource{}, readErr
+	}
+	if closeErr != nil {
+		return nil, aba.SerializedObjectDataSource{}, fmt.Errorf("close source %q after native header read: %w", relPath, closeErr)
+	}
+	if err := verifyPackRootFileIdentity(root, relPath, before); err != nil {
+		return nil, aba.SerializedObjectDataSource{}, err
+	}
+	if header.BigEndian {
+		return nil, aba.SerializedObjectDataSource{}, fmt.Errorf("native Unity object %q uses unsupported big-endian payload data", relPath)
+	}
+	prefixSize := int64(header.DataSize)
+	const monoBehaviourPrefixSize int64 = 28
+	if prefixSize > monoBehaviourPrefixSize {
+		prefixSize = monoBehaviourPrefixSize
+	}
+	prefix, err := readVerifiedPackRootFileRange(root, relPath, before, header.DataOffset, prefixSize)
+	if err != nil {
+		return nil, aba.SerializedObjectDataSource{}, err
+	}
+	source := aba.SerializedObjectDataSource{
+		Size:   header.DataSize,
+		Prefix: prefix,
+		WriteTo: func(out io.Writer) error {
+			return writeVerifiedPackRootFileRange(root, relPath, before, header.DataOffset, int64(header.DataSize), out)
+		},
+	}
+	return header, source, nil
+}
+
+// readVerifiedPackRootFileRange 读取已检查普通文件中的确定范围并复查文件身份
+// readVerifiedPackRootFileRange reads an exact range from a checked regular file and verifies its identity afterward
+func readVerifiedPackRootFileRange(root *os.Root, relPath string, expected os.FileInfo, offset int64, size int64) ([]byte, error) {
+	if expected == nil || offset < 0 || size < 0 || offset > expected.Size() || size > expected.Size()-offset {
+		return nil, fmt.Errorf("invalid range [%d,%d) for source %q with size %d", offset, offset+size, relPath, fileInfoSize(expected))
+	}
+	f, err := openVerifiedPackRootFile(root, relPath, expected)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := f.Seek(offset, io.SeekStart); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("seek source %q to %d: %w", relPath, offset, err)
+	}
+	data := make([]byte, size)
+	_, readErr := io.ReadFull(f, data)
+	closeErr := f.Close()
+	if readErr != nil {
+		return nil, fmt.Errorf("read source %q range [%d,%d): %w", relPath, offset, offset+size, readErr)
+	}
+	if closeErr != nil {
+		return nil, fmt.Errorf("close source %q after range read: %w", relPath, closeErr)
+	}
+	if err := verifyPackRootFileIdentity(root, relPath, expected); err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+// writeVerifiedPackRootFileRange 将已检查普通文件中的确定范围复制到目标并复查文件身份
+// writeVerifiedPackRootFileRange copies an exact range from a checked regular file and verifies its identity afterward
+func writeVerifiedPackRootFileRange(root *os.Root, relPath string, expected os.FileInfo, offset int64, size int64, out io.Writer) error {
+	if expected == nil || out == nil || offset < 0 || size < 0 || offset > expected.Size() || size > expected.Size()-offset {
+		return fmt.Errorf("invalid range [%d,%d) for source %q with size %d", offset, offset+size, relPath, fileInfoSize(expected))
+	}
+	f, err := openVerifiedPackRootFile(root, relPath, expected)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Seek(offset, io.SeekStart); err != nil {
+		f.Close()
+		return fmt.Errorf("seek source %q to %d: %w", relPath, offset, err)
+	}
+	written, copyErr := io.CopyN(out, f, size)
+	closeErr := f.Close()
+	if copyErr != nil {
+		return fmt.Errorf("copy source %q range after %d bytes: %w", relPath, written, copyErr)
+	}
+	if written != size {
+		return fmt.Errorf("copy source %q range wrote %d bytes, want %d", relPath, written, size)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close source %q after range copy: %w", relPath, closeErr)
+	}
+	return verifyPackRootFileIdentity(root, relPath, expected)
+}
+
+// fileInfoSize 安全返回可选文件信息的大小，仅用于错误诊断
+// fileInfoSize safely returns the size of optional file information for diagnostics
+func fileInfoSize(info os.FileInfo) int64 {
+	if info == nil {
+		return -1
+	}
+	return info.Size()
 }
 
 // readVerifiedPackRootFilePrefix 读取已检查普通文件的有界前缀并再次确认文件身份

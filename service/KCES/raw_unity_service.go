@@ -13,7 +13,13 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
 )
 
+// RawUnityObjectFormat 是旧原始 Unity 对象 JSON 封套的格式标识
+// RawUnityObjectFormat is the format marker for the legacy raw Unity object JSON envelope
 const RawUnityObjectFormat = "kces-unity-raw-object"
+
+// NativeUnityObjectJSONFormat 是可编辑自描述 Unity 对象 JSON 的格式标识
+// NativeUnityObjectJSONFormat is the format marker for editable self-describing Unity object JSON
+const NativeUnityObjectJSONFormat = "kces-unity-native-object"
 
 // RawUnityObjectEnvelope 是从 ABA 提取的原始 Unity 序列化对象字节的 JSON 可编辑封套 / RawUnityObjectEnvelope is the JSON-editable wrapper for raw Unity serialized object bytes extracted from an ABA
 type RawUnityObjectEnvelope struct {
@@ -30,7 +36,10 @@ type RawUnityObjectEnvelope struct {
 	AbaVersion            uint32                    `json:"abaVersion,omitempty"`            // UnityFS 格式版本 / UnityFS format version
 	GenerationVersion     string                    `json:"generationVersion,omitempty"`     // UnityFS generation version / UnityFS generation version
 	SerializedFileVersion uint32                    `json:"serializedFileVersion,omitempty"` // SerializedFile 格式版本 / SerializedFile format version
-	DataBase64            string                    `json:"dataBase64"`                      // 原始序列化对象数据 base64 / Base64 of raw serialized object data
+	ReadOnly              bool                      `json:"readOnly,omitempty"`              // TypeTree 值是否仅供查看 / Whether the TypeTree value is read-only
+	SchemaBase64          string                    `json:"schemaBase64,omitempty"`          // 不含正文的独立对象头与完整 TypeTree / Standalone object header and complete TypeTree without payload data
+	ResourceDataBase64    string                    `json:"resourceDataBase64,omitempty"`    // AudioClip 内联音频载荷 / Inline AudioClip payload data
+	DataBase64            string                    `json:"dataBase64,omitempty"`            // 旧格式原始序列化对象数据 base64 / Base64 of legacy raw serialized object data
 	TypeTree              *RawUnityTypeTreeEnvelope `json:"typeTree,omitempty"`              // 可选 TypeTree 只读视图 / Optional read-only TypeTree view
 }
 
@@ -41,17 +50,24 @@ type RawUnityObjectService struct{}
 // IsKCESRawUnityBytesFile reports whether a path is a supported KCES raw Unity object byte file
 func IsKCESRawUnityBytesFile(path string) bool {
 	lower := strings.ToLower(path)
-	if strings.HasSuffix(lower, ".json") || !strings.HasSuffix(lower, ".bytes") {
+	if strings.HasSuffix(lower, ".json") {
 		return false
 	}
-	_, _, ok := inferRawUnityObjectKind(path)
-	return ok
+	if _, _, ok := inferRawUnityObjectKind(path); !ok {
+		return false
+	}
+	if data, err := os.ReadFile(path); err == nil {
+		if _, err := aba.ReadNativeUnityObject(data); err == nil {
+			return true
+		}
+	}
+	return strings.HasSuffix(lower, ".bytes")
 }
 
 // IsKCESRawUnityBytesJSONFile 判断路径是否为受支持的 KCES 原始 Unity 对象 JSON 文件
 // IsKCESRawUnityBytesJSONFile reports whether a path is a supported KCES raw Unity object JSON file
 func IsKCESRawUnityBytesJSONFile(path string) bool {
-	if !strings.HasSuffix(strings.ToLower(path), ".bytes.json") {
+	if !strings.HasSuffix(strings.ToLower(path), ".json") {
 		return false
 	}
 	data, err := os.ReadFile(path)
@@ -64,7 +80,7 @@ func IsKCESRawUnityBytesJSONFile(path string) bool {
 	if err := json.Unmarshal(trimJSONUTF8BOM(data), &header); err != nil {
 		return false
 	}
-	return header.Format == RawUnityObjectFormat
+	return header.Format == RawUnityObjectFormat || header.Format == NativeUnityObjectJSONFormat
 }
 
 // ConvertRawUnityObjectToJson 将 KCES 原始 Unity 对象字节转换为可编辑 JSON 封套
@@ -97,6 +113,29 @@ func (s *RawUnityObjectService) ConvertJsonToRawUnityObject(ctx context.Context,
 	data, err := readConversionFile(ctx, inputPath)
 	if err != nil {
 		return fmt.Errorf("read %q: %w", inputPath, err)
+	}
+	var formatHeader struct {
+		Format string `json:"format"`
+	}
+	if err := json.Unmarshal(trimJSONUTF8BOM(data), &formatHeader); err != nil {
+		return fmt.Errorf("parse KCES raw Unity object json header: %w", err)
+	}
+	if formatHeader.Format == NativeUnityObjectJSONFormat {
+		_, nativeData, err := decodeNativeUnityObjectEditingJSON(data)
+		if err != nil {
+			return fmt.Errorf("parse KCES native Unity object json: %w", err)
+		}
+		if err := checkConversionContext(ctx); err != nil {
+			return err
+		}
+		budget, err := newConversionBudget(ctx, maxOutputBytes)
+		if err != nil {
+			return err
+		}
+		if err := budget.WriteFile(outputPath, nativeData, 0644); err != nil {
+			return fmt.Errorf("write %q: %w", outputPath, err)
+		}
+		return nil
 	}
 	envelope, raw, err := decodeRawUnityObjectEditingJSON(data)
 	if err != nil {
@@ -166,6 +205,84 @@ func decodeRawUnityObjectEditingJSON(data []byte) (*RawUnityObjectEnvelope, []by
 	return &envelope, raw, nil
 }
 
+// decodeNativeUnityObjectEditingJSON 解码自描述 Unity 对象 JSON，并按内嵌 TypeTree 重编码修改后的值
+// decodeNativeUnityObjectEditingJSON decodes self-describing Unity object JSON and re-encodes its modified value using the embedded TypeTree
+func decodeNativeUnityObjectEditingJSON(data []byte) (*RawUnityObjectEnvelope, []byte, error) {
+	var envelope RawUnityObjectEnvelope
+	if err := decodeStrictJSON(data, &envelope, "KCES native Unity object JSON"); err != nil {
+		return nil, nil, err
+	}
+	if envelope.Format != NativeUnityObjectJSONFormat {
+		return nil, nil, fmt.Errorf("unsupported native Unity object JSON format %q", envelope.Format)
+	}
+	if envelope.ReadOnly || !isEditableNativeUnityClassID(envelope.ClassID) {
+		return nil, nil, fmt.Errorf("ClassID %d TypeTree JSON is read-only", envelope.ClassID)
+	}
+	if envelope.SchemaBase64 == "" {
+		return nil, nil, fmt.Errorf("native Unity object JSON has no schemaBase64")
+	}
+	schemaData, err := base64.StdEncoding.DecodeString(envelope.SchemaBase64)
+	if err != nil {
+		return nil, nil, fmt.Errorf("decode schemaBase64: %w", err)
+	}
+	object, err := aba.ReadNativeUnityObject(schemaData)
+	if err != nil {
+		return nil, nil, fmt.Errorf("decode embedded native Unity object schema: %w", err)
+	}
+	if object.ClassID != envelope.ClassID {
+		return nil, nil, fmt.Errorf("JSON ClassID %d does not match embedded schema ClassID %d", envelope.ClassID, object.ClassID)
+	}
+	if envelope.TypeTree == nil || envelope.TypeTree.Value == nil {
+		return nil, nil, fmt.Errorf("native Unity object JSON has no TypeTree value")
+	}
+	if envelope.TypeTree.Format != RawUnityTypeTreeFormat || envelope.TypeTree.ClassID != envelope.ClassID {
+		return nil, nil, fmt.Errorf("native Unity object TypeTree header does not match ClassID %d", envelope.ClassID)
+	}
+	root, err := editableTypeTreeValueFromJSON(envelope.TypeTree.Value)
+	if err != nil {
+		return nil, nil, fmt.Errorf("decode editable TypeTree value: %w", err)
+	}
+	var trailing []byte
+	if envelope.ClassID == aba.ClassIDAudioClip {
+		trailing, err = base64.StdEncoding.DecodeString(envelope.ResourceDataBase64)
+		if err != nil {
+			return nil, nil, fmt.Errorf("decode resourceDataBase64: %w", err)
+		}
+		if err := setEditableAudioResourceData(root, uint64(len(trailing))); err != nil {
+			return nil, nil, err
+		}
+	} else if envelope.ResourceDataBase64 != "" {
+		return nil, nil, fmt.Errorf("ClassID %d cannot contain resourceDataBase64", envelope.ClassID)
+	}
+	object.Data, err = object.EncodeValueWithTrailingData(root, trailing)
+	if err != nil {
+		return nil, nil, fmt.Errorf("encode edited ClassID %d object: %w", envelope.ClassID, err)
+	}
+	nativeData, err := aba.EncodeNativeUnityObject(object)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &envelope, nativeData, nil
+}
+
+// isEditableNativeUnityClassID 判断指定 ClassID 是否属于已承诺可修改并重编码的原生对象类型
+// isEditableNativeUnityClassID reports whether a ClassID belongs to the native object types promised for modification and re-encoding
+func isEditableNativeUnityClassID(classID int32) bool {
+	switch classID {
+	case aba.ClassIDMesh,
+		aba.ClassIDTexture2D,
+		aba.ClassIDSprite,
+		aba.ClassIDSpriteAtlas,
+		aba.ClassIDAnimationClip,
+		aba.ClassIDMaterial,
+		aba.ClassIDAudioClip,
+		aba.ClassIDMonoBehaviour:
+		return true
+	default:
+		return false
+	}
+}
+
 // ReadRawUnityObjectFile 读取原始 Unity 对象字节文件并构建 JSON 封套
 // ReadRawUnityObjectFile reads a raw Unity object byte file and builds its JSON envelope
 func (s *RawUnityObjectService) ReadRawUnityObjectFile(path string) (*RawUnityObjectEnvelope, error) {
@@ -179,6 +296,57 @@ func (s *RawUnityObjectService) ReadRawUnityObjectFile(path string) (*RawUnityOb
 	}
 	if len(data) == 0 {
 		return nil, fmt.Errorf("raw Unity object %q is empty", path)
+	}
+	if object, nativeErr := aba.ReadNativeUnityObject(data); nativeErr == nil {
+		if object.ClassID != classID {
+			return nil, fmt.Errorf("native Unity object %q contains ClassID %d but its path requires ClassID %d", path, object.ClassID, classID)
+		}
+		root, _, err := object.DecodeValueAndTrailingData()
+		if err != nil {
+			return nil, fmt.Errorf("decode native Unity object %q: %w", path, err)
+		}
+		name := inferRawUnityObjectName(path, object.Data, rawAssetMeta{})
+		if fieldName, ok := root.Field("m_Name").String(); ok && fieldName != "" {
+			name = fieldName
+		}
+		readOnly := !isEditableNativeUnityClassID(classID)
+		typeTreeValue := typeTreeJSONValue(root)
+		var schemaBase64 string
+		var resourceDataBase64 string
+		if !readOnly {
+			typeTreeValue = editableTypeTreeJSONValue(root)
+			schemaObject := *object
+			schemaObject.Data = nil
+			schema, err := aba.EncodeNativeUnityObject(&schemaObject)
+			if err != nil {
+				return nil, fmt.Errorf("encode native Unity object schema: %w", err)
+			}
+			schemaBase64 = base64.StdEncoding.EncodeToString(schema)
+			if classID == aba.ClassIDAudioClip {
+				resourceData, err := object.AudioData()
+				if err != nil {
+					return nil, fmt.Errorf("read native AudioClip payload: %w", err)
+				}
+				resourceDataBase64 = base64.StdEncoding.EncodeToString(resourceData)
+			}
+		}
+		return &RawUnityObjectEnvelope{
+			Format:             NativeUnityObjectJSONFormat,
+			ClassID:            classID,
+			TypeName:           unityClassName(classID),
+			Kind:               kind,
+			Name:               name,
+			ReadOnly:           readOnly,
+			SchemaBase64:       schemaBase64,
+			ResourceDataBase64: resourceDataBase64,
+			TypeTree: &RawUnityTypeTreeEnvelope{
+				Format:   RawUnityTypeTreeFormat,
+				ClassID:  classID,
+				TypeName: unityClassName(classID),
+				Name:     name,
+				Value:    typeTreeValue,
+			},
+		}, nil
 	}
 
 	meta, err := readAssetMetaStrict(path)
@@ -206,6 +374,41 @@ func (s *RawUnityObjectService) ReadRawUnityObjectFile(path string) (*RawUnityOb
 	}, nil
 }
 
+// setEditableAudioResourceData 将 AudioClip 资源描述改为确定长度的内联载荷
+// setEditableAudioResourceData changes an AudioClip resource descriptor to an inline payload with a known length
+func setEditableAudioResourceData(root *aba.TypeTreeValue, size uint64) error {
+	if root == nil {
+		return fmt.Errorf("nil AudioClip TypeTree value")
+	}
+	resource := root.Field("m_Resource")
+	if resource == nil {
+		return fmt.Errorf("AudioClip TypeTree value has no m_Resource field")
+	}
+	if source := firstEditableTypeTreeField(resource, "m_Source", "source", "path"); source != nil {
+		source.Value = ""
+	}
+	if offset := firstEditableTypeTreeField(resource, "m_Offset", "offset"); offset != nil {
+		offset.Value = uint64(0)
+	}
+	sizeField := firstEditableTypeTreeField(resource, "m_Size", "size")
+	if sizeField == nil {
+		return fmt.Errorf("AudioClip m_Resource has no size field")
+	}
+	sizeField.Value = size
+	return nil
+}
+
+// firstEditableTypeTreeField 返回首个存在的直接字段
+// firstEditableTypeTreeField returns the first existing direct field
+func firstEditableTypeTreeField(parent *aba.TypeTreeValue, names ...string) *aba.TypeTreeValue {
+	for _, name := range names {
+		if field := parent.Field(name); field != nil {
+			return field
+		}
+	}
+	return nil
+}
+
 // hasRawAssetMeta 判断原始资源元数据是否包含需要保存的值
 // hasRawAssetMeta reports whether raw asset metadata contains values that need to be stored
 func hasRawAssetMeta(meta rawAssetMeta) bool {
@@ -219,6 +422,10 @@ func inferRawUnityObjectKind(path string) (string, int32, bool) {
 	lowerName := strings.ToLower(filepath.Base(path))
 	if strings.HasSuffix(lowerName, ".json") {
 		lowerName = strings.TrimSuffix(lowerName, ".json")
+	}
+	if kind, ok := unityRawKindForPackPath(path); ok && isNativeUnityObjectPackPath(path, kind) {
+		classID, classOK := unityRawClassIDForKind(kind)
+		return kind, classID, classOK
 	}
 	if !strings.HasSuffix(lowerName, ".bytes") {
 		return "", 0, false
@@ -265,6 +472,9 @@ func inferRawUnityObjectName(path string, data []byte, meta rawAssetMeta) string
 	}
 	if meta.LoadName != "" {
 		return filepath.Base(filepath.ToSlash(meta.LoadName))
+	}
+	if kind, ok := unityRawKindForPackPath(path); ok && isNativeUnityObjectPackPath(path, kind) {
+		return inferAssetNameForPack(path)
 	}
 	name := filepath.Base(path)
 	lower := strings.ToLower(name)

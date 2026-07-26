@@ -15,6 +15,12 @@ type PackService struct{}
 // PackToAbaAndCt 扫描纯资源目录并在其父目录生成固定 Unity 2022.3.35f1 的 ABA 和 CT
 // PackToAbaAndCt scans a plain resource directory and emits fixed Unity 2022.3.35f1 ABA and CT files in its parent directory
 func (s *PackService) PackToAbaAndCt(dirPath string, outputBaseName string) error {
+	return s.packToAbaAndCt(dirPath, outputBaseName, true)
+}
+
+// packToAbaAndCt 扫描纯资源目录，并允许包内测试选择是否压缩 ABA 数据块
+// packToAbaAndCt scans a plain resource directory and lets in-package tests choose whether ABA data blocks are compressed
+func (s *PackService) packToAbaAndCt(dirPath string, outputBaseName string, compressAba bool) error {
 	if outputBaseName == "" {
 		outputBaseName = filepath.Base(dirPath)
 	}
@@ -46,11 +52,13 @@ func (s *PackService) PackToAbaAndCt(dirPath string, outputBaseName string) erro
 		}
 		relPath = filepath.ToSlash(relPath)
 		name := inferAssetNameForPack(relPath)
+		kind := inferKindForPack(name, relPath)
 		manifest.Assets = append(manifest.Assets, ModAsset{
-			Name:            name,
-			Path:            relPath,
-			Kind:            inferKindForPack(name, relPath),
-			preserveRawData: true,
+			Name:             name,
+			Path:             relPath,
+			Kind:             kind,
+			preserveRawData:  true,
+			nativeObjectFile: isNativeUnityObjectPackPath(relPath, kind),
 		})
 		return nil
 	})
@@ -60,7 +68,9 @@ func (s *PackService) PackToAbaAndCt(dirPath string, outputBaseName string) erro
 	if len(manifest.Assets) == 0 {
 		return fmt.Errorf("no resource files found in directory")
 	}
-	return packModManifest(manifest, dirPath, filepath.Dir(dirPath))
+	return packModManifestWithOptions(manifest, dirPath, filepath.Dir(dirPath), modPackOptions{
+		CompressAba: compressAba,
+	})
 }
 
 // isLinkOrReparse 判断文件信息是否表示符号链接或 Windows reparse point
@@ -99,6 +109,16 @@ func inferAssetNameForPack(packPath string) string {
 		return name[:len(name)-len(suffix)]
 	}
 	switch {
+	case strings.HasSuffix(lower, ".texture2d"):
+		return name[:len(name)-len(".texture2d")]
+	case strings.HasSuffix(lower, ".sprite"):
+		return name[:len(name)-len(".sprite")]
+	case strings.HasSuffix(lower, ".material"):
+		return name[:len(name)-len(".material")]
+	case strings.HasSuffix(lower, ".audioclip"):
+		return name[:len(name)-len(".audioclip")]
+	case strings.HasSuffix(lower, ".monobehaviour"):
+		return name[:len(name)-len(".monobehaviour")]
 	case strings.HasSuffix(lower, ".tex.png"):
 		return name[:len(name)-len(".png")]
 	case strings.HasSuffix(lower, ".tex.jpg"):
@@ -139,6 +159,9 @@ func inferKindForPack(name string, packPath string) string {
 	switch strings.ToLower(filepath.Ext(lowerPath)) {
 	case ".ress", ".resource", ".resources":
 		return "abaraw"
+	}
+	if kind, ok := unityRawKindForPackPath(packPath); ok && isNativeUnityObjectPackPath(packPath, kind) {
+		return kind
 	}
 	if _, kind, ok := rawUnityRootByteSuffixForPackName(strings.ToLower(filepath.Base(packPath))); ok {
 		return kind
@@ -199,6 +222,39 @@ func inferKindForPack(name string, packPath string) string {
 		return "animationclip"
 	default:
 		return "textasset"
+	}
+}
+
+// isNativeUnityObjectPackPath 判断纯目录路径是否使用带内嵌 TypeTree 的独立 Unity 对象扩展名
+// isNativeUnityObjectPackPath reports whether a pure-directory path uses a standalone Unity object extension with an embedded TypeTree
+func isNativeUnityObjectPackPath(packPath string, kind string) bool {
+	if _, ok := unityRawClassIDForKind(kind); !ok {
+		return false
+	}
+	directoryKind, ok := unityRawKindForPackPath(packPath)
+	if !ok || directoryKind != strings.ToLower(kind) {
+		return false
+	}
+	lower := strings.ToLower(filepath.Base(packPath))
+	switch directoryKind {
+	case "rawtexture2d":
+		return strings.HasSuffix(lower, ".tex") || strings.HasSuffix(lower, ".texture2d") || strings.HasSuffix(lower, ".bytes")
+	case "mesh":
+		return strings.HasSuffix(lower, ".mmesh") || strings.HasSuffix(lower, ".mesh") || strings.HasSuffix(lower, ".bytes")
+	case "sprite":
+		return strings.HasSuffix(lower, ".sprite") || strings.HasSuffix(lower, ".bytes")
+	case "spriteatlas":
+		return strings.HasSuffix(lower, ".partsatlas") || strings.HasSuffix(lower, ".partsassets") || strings.HasSuffix(lower, ".bytes")
+	case "animationclip":
+		return strings.HasSuffix(lower, ".anm") || strings.HasSuffix(lower, ".bytes")
+	case "material":
+		return strings.HasSuffix(lower, ".material") || strings.HasSuffix(lower, ".bytes")
+	case "audioclip":
+		return strings.HasSuffix(lower, ".audioclip") || strings.HasSuffix(lower, ".bytes")
+	case "monobehaviour":
+		return strings.HasSuffix(lower, ".monobehaviour") || strings.HasSuffix(lower, ".bytes")
+	default:
+		return strings.HasSuffix(lower, ".bytes")
 	}
 }
 
@@ -290,28 +346,37 @@ func derivedPackArtifactRawPaths(filePath string) []string {
 	lower := strings.ToLower(name)
 	parent := strings.ToLower(filepath.Base(directory))
 
+	if _, typedDirectory := unityRawKindForPackPath(filePath); typedDirectory && strings.HasSuffix(lower, ".json") {
+		return []string{filepath.Join(directory, name[:len(name)-len(".json")])}
+	}
 	switch {
-	case parent == "texture2d" && strings.HasSuffix(lower, ".tex.png"):
-		return []string{filepath.Join(directory, name[:len(name)-len(".png")]+".bytes")}
-	case parent == "texture2d" && strings.HasSuffix(lower, ".tex.jpg"):
-		return []string{filepath.Join(directory, name[:len(name)-len(".jpg")]+".bytes")}
-	case parent == "texture2d" && strings.HasSuffix(lower, ".tex.jpeg"):
-		return []string{filepath.Join(directory, name[:len(name)-len(".jpeg")]+".bytes")}
-	case parent == "texture2d" && strings.HasSuffix(lower, ".png"):
-		base := name[:len(name)-len(".png")]
+	case parent == "texture2d" && hasAnySuffix(lower, ".png", ".dds"):
+		base := strings.TrimSuffix(name, filepath.Ext(name))
 		return []string{
-			filepath.Join(directory, base+".bytes"),
-			filepath.Join(directory, base+".texture2d.bytes"),
+			filepath.Join(directory, base+".tex"),
+			filepath.Join(directory, base+".texture2d"),
 		}
 	case parent == "sprite" && strings.HasSuffix(lower, ".png"):
-		return []string{filepath.Join(directory, name[:len(name)-len(".png")]+".sprite.bytes")}
-	case strings.HasSuffix(lower, ".tex.png"):
-		return []string{filepath.Join(directory, name[:len(name)-len(".png")]+".bytes")}
-	case strings.HasSuffix(lower, ".tex.jpg"):
-		return []string{filepath.Join(directory, name[:len(name)-len(".jpg")]+".bytes")}
-	case strings.HasSuffix(lower, ".tex.jpeg"):
-		return []string{filepath.Join(directory, name[:len(name)-len(".jpeg")]+".bytes")}
+		return []string{filepath.Join(directory, strings.TrimSuffix(name, filepath.Ext(name))+".sprite")}
+	case parent == "mesh" && hasAnySuffix(lower, ".glb", ".gltf"):
+		base := strings.TrimSuffix(name, filepath.Ext(name))
+		return []string{filepath.Join(directory, base+".mmesh"), filepath.Join(directory, base+".mesh")}
+	case parent == "animationclip" && hasAnySuffix(lower, ".glb", ".gltf"):
+		return []string{filepath.Join(directory, strings.TrimSuffix(name, filepath.Ext(name))+".anm")}
+	case parent == "audioclip" && hasAnySuffix(lower, ".ogg", ".wav", ".fsb", ".audio"):
+		return []string{filepath.Join(directory, strings.TrimSuffix(name, filepath.Ext(name))+".audioclip")}
 	default:
 		return nil
 	}
+}
+
+// hasAnySuffix 判断字符串是否拥有任一忽略大小写后缀，调用方应先将值转成小写
+// hasAnySuffix reports whether a string has any case-insensitive suffix after the caller has lowercased the value
+func hasAnySuffix(lower string, suffixes ...string) bool {
+	for _, suffix := range suffixes {
+		if strings.HasSuffix(lower, strings.ToLower(suffix)) {
+			return true
+		}
+	}
+	return false
 }

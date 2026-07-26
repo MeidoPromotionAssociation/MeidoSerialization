@@ -645,19 +645,41 @@ func convertToMod(path string) error {
 	return nil
 }
 
-// convertToImage converts a TEX file to an image file
+// convertToImage 将 COM3D2 TEX 或 KCES Texture2D 和 Sprite 主文件转换为图像
+// convertToImage converts a COM3D2 TEX or KCES Texture2D and Sprite primary file to an image
 func convertToImage(path string, format string) error {
-	if !isTexFile(path) {
-		return fmt.Errorf("not a TEX file: %s", path)
+	isNativeTexture := KCESService.IsKCESNativeTexture2DFile(path)
+	isNativeSprite := KCESService.IsKCESNativeSpriteFile(path)
+	if !isTexFile(path) && !isNativeTexture && !isNativeSprite {
+		return fmt.Errorf("not a TEX, Texture2D, or Sprite file: %s", path)
 	}
 
 	if format == "" {
 		format = "png"
 	}
 
-	service := &COM3D2Service.TexService{}
+	outputPath := strings.TrimSuffix(path, filepath.Ext(path)) + "." + format
+	if isNativeSprite {
+		if !strings.EqualFold(format, "png") {
+			return fmt.Errorf("native Sprite output format %q is unsupported; use png", format)
+		}
+		err := (&KCESService.NativeUnityMediaService{}).ConvertSpriteToPNG(context.Background(), path, outputPath, application.DefaultMaxOutputBytes)
+		if err != nil {
+			return fmt.Errorf("failed to convert %s to image: %w", path, err)
+		}
+		fmt.Printf("Converted %s to %s\n", path, outputPath)
+		return nil
+	}
+	if isNativeTexture {
+		err := (&KCESService.NativeUnityMediaService{}).ConvertTexture2DToImage(context.Background(), path, outputPath, format, application.DefaultMaxOutputBytes)
+		if err != nil {
+			return fmt.Errorf("failed to convert %s to image: %w", path, err)
+		}
+		fmt.Printf("Converted %s to %s\n", path, outputPath)
+		return nil
+	}
 
-	outputPath := strings.TrimSuffix(path, ".tex") + "." + format
+	service := &COM3D2Service.TexService{}
 	err := service.ConvertAnyToAnyAndWrite(path, "", false, false, outputPath)
 	if err != nil {
 		return fmt.Errorf("failed to convert %s to image: %w", path, err)

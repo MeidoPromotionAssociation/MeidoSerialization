@@ -16,12 +16,12 @@ func TestAbaServiceUnpackAbaExportsOnlyIndependentResourceFiles(t *testing.T) {
 	if err := (&AbaService{}).UnpackAba(sample, outDir); err != nil {
 		t.Fatal(err)
 	}
-	files := hashDirectoryFiles(t, outDir)
+	files := validateCanonicalDirectoryFiles(t, outDir, nil)
 	if len(files) == 0 {
 		t.Fatal("unpacked directory is empty")
 	}
 	typeDirectories := make(map[string]bool)
-	for relativePath := range files {
+	for _, relativePath := range files {
 		lower := strings.ToLower(relativePath)
 		for _, suffix := range []string{".meta.json", ".typetree.json", ".ress", ".resource", ".resources", ".png"} {
 			if strings.HasSuffix(lower, suffix) {

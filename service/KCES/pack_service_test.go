@@ -113,14 +113,17 @@ func TestPackServiceInfersCanonicalRawObjectKinds(t *testing.T) {
 		name string
 		kind string
 	}{
-		{path: "Texture2D/sample.tex.bytes", name: "sample.tex", kind: "rawtexture2d"},
-		{path: "Mesh/sample.mmesh.bytes", name: "sample.mmesh", kind: "mesh"},
-		{path: "Sprite/sample.sprite.bytes", name: "sample", kind: "sprite"},
-		{path: "SpriteAtlas/sample.partsatlas.bytes", name: "sample.partsatlas", kind: "spriteatlas"},
-		{path: "AnimationClip/sample.anm.bytes", name: "sample.anm", kind: "animationclip"},
-		{path: "sample.monoscript.bytes", name: "sample", kind: "monoscript"},
-		{path: "sample.monobehaviour.bytes", name: "sample", kind: "monobehaviour"},
-		{path: "AudioClip/sample.bytes", name: "sample", kind: "audioclip"},
+		{path: "Texture2D/sample.tex", name: "sample.tex", kind: "rawtexture2d"},
+		{path: "Texture2D/sample.texture2d", name: "sample", kind: "rawtexture2d"},
+		{path: "Mesh/sample.mmesh", name: "sample.mmesh", kind: "mesh"},
+		{path: "Sprite/sample.sprite", name: "sample", kind: "sprite"},
+		{path: "SpriteAtlas/sample.partsatlas", name: "sample.partsatlas", kind: "spriteatlas"},
+		{path: "SpriteAtlas/sample.partsassets", name: "sample.partsassets", kind: "spriteatlas"},
+		{path: "AnimationClip/sample.anm", name: "sample.anm", kind: "animationclip"},
+		{path: "Material/sample.material", name: "sample", kind: "material"},
+		{path: "AudioClip/sample.audioclip", name: "sample", kind: "audioclip"},
+		{path: "MonoBehaviour/sample.monobehaviour", name: "sample", kind: "monobehaviour"},
+		{path: "Type_95/sample.bytes", name: "sample", kind: "type_95"},
 	}
 	for _, test := range tests {
 		if got := inferAssetNameForPack(test.path); got != test.name {
@@ -128,6 +131,45 @@ func TestPackServiceInfersCanonicalRawObjectKinds(t *testing.T) {
 		}
 		if got := inferKindForPack(test.name, test.path); got != test.kind {
 			t.Errorf("inferKindForPack(%q, %q) = %q, want %q", test.name, test.path, got, test.kind)
+		}
+		if !isNativeUnityObjectPackPath(test.path, test.kind) {
+			t.Errorf("isNativeUnityObjectPackPath(%q, %q) = false", test.path, test.kind)
+		}
+	}
+}
+
+func TestPackServiceSkipsDerivedNativeObjectArtifacts(t *testing.T) {
+	root := t.TempDir()
+	tests := []struct {
+		primary string
+		derived string
+	}{
+		{primary: "Texture2D/sample.tex", derived: "Texture2D/sample.png"},
+		{primary: "Texture2D/sample.tex", derived: "Texture2D/sample.dds"},
+		{primary: "Mesh/sample.mmesh", derived: "Mesh/sample.glb"},
+		{primary: "Sprite/sample.sprite", derived: "Sprite/sample.png"},
+		{primary: "AnimationClip/sample.anm", derived: "AnimationClip/sample.gltf"},
+		{primary: "AudioClip/sample.audioclip", derived: "AudioClip/sample.ogg"},
+		{primary: "Material/sample.material", derived: "Material/sample.material.json"},
+		{primary: "Type_95/sample.bytes", derived: "Type_95/sample.bytes.json"},
+	}
+	for _, test := range tests {
+		primary := filepath.Join(root, filepath.FromSlash(test.primary))
+		derived := filepath.Join(root, filepath.FromSlash(test.derived))
+		if err := os.MkdirAll(filepath.Dir(primary), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(primary, []byte("primary"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if !shouldSkipDerivedPackInput(derived) {
+			t.Errorf("derived artifact %q was not skipped for %q", test.derived, test.primary)
+		}
+		if err := os.Remove(primary); err != nil {
+			t.Fatal(err)
+		}
+		if shouldSkipDerivedPackInput(derived) {
+			t.Errorf("derived artifact %q was skipped without its primary file", test.derived)
 		}
 	}
 }

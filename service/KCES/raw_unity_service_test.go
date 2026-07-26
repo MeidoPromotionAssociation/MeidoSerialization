@@ -312,6 +312,333 @@ func TestRawUnityObjectService_TypeDirectoryKnownNativeKinds(t *testing.T) {
 	}
 }
 
+func TestRawUnityObjectService_NativeObjectJSONEditsTypeTreeValue(t *testing.T) {
+	tmpDir := t.TempDir()
+	directory := filepath.Join(tmpDir, "Material")
+	if err := os.Mkdir(directory, 0755); err != nil {
+		t.Fatal(err)
+	}
+	inputPath := filepath.Join(directory, "sample.material")
+	object := nativeUnityServiceTestObject(t, aba.ClassIDMaterial, "sample", 17)
+	encoded, err := aba.EncodeNativeUnityObject(object)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(inputPath, encoded, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if !IsKCESRawUnityBytesFile(inputPath) {
+		t.Fatalf("native .material file was not detected")
+	}
+
+	service := &RawUnityObjectService{}
+	jsonPath := inputPath + ".json"
+	if err := service.ConvertRawUnityObjectToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
+		t.Fatal(err)
+	}
+	if !IsKCESRawUnityBytesJSONFile(jsonPath) {
+		t.Fatalf("native object JSON was not detected")
+	}
+	var envelope RawUnityObjectEnvelope
+	if err := json.Unmarshal(mustReadServiceFile(t, jsonPath), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Format != NativeUnityObjectJSONFormat || envelope.ReadOnly || envelope.SchemaBase64 == "" || envelope.TypeTree == nil || envelope.TypeTree.Value == nil {
+		t.Fatalf("unexpected native object envelope: %+v", envelope)
+	}
+	custom := typeTreeJSONChild(envelope.TypeTree.Value, "m_Custom")
+	if custom == nil {
+		t.Fatalf("native object JSON has no m_Custom field")
+	}
+	custom.Value = float64(23)
+	modifiedJSON, err := json.MarshalIndent(&envelope, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(jsonPath, append(modifiedJSON, '\n'), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	outputPath := filepath.Join(directory, "edited.material")
+	if err := service.ConvertJsonToRawUnityObject(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(outputPath + ".meta.json"); !os.IsNotExist(err) {
+		t.Fatalf("native JSON conversion created metadata sidecar: %v", err)
+	}
+	if _, err := os.Stat(outputPath + ".typetree.json"); !os.IsNotExist(err) {
+		t.Fatalf("native JSON conversion created TypeTree sidecar: %v", err)
+	}
+	restored, err := aba.ReadNativeUnityObject(mustReadServiceFile(t, outputPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := restored.DecodeValue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := value.Field("m_Custom").Value; got != int64(23) {
+		t.Fatalf("edited m_Custom = %#v, want 23", got)
+	}
+}
+
+func TestRawUnityObjectService_AllPromisedNativeClassesRoundTripEditableJSON(t *testing.T) {
+	tests := []struct {
+		path    string
+		classID int32
+	}{
+		{path: "Mesh/sample.mmesh", classID: aba.ClassIDMesh},
+		{path: "Texture2D/sample.texture2d", classID: aba.ClassIDTexture2D},
+		{path: "Sprite/sample.sprite", classID: aba.ClassIDSprite},
+		{path: "SpriteAtlas/sample.partsatlas", classID: aba.ClassIDSpriteAtlas},
+		{path: "AnimationClip/sample.anm", classID: aba.ClassIDAnimationClip},
+		{path: "Material/sample.material", classID: aba.ClassIDMaterial},
+		{path: "MonoBehaviour/sample.monobehaviour", classID: aba.ClassIDMonoBehaviour},
+	}
+	service := &RawUnityObjectService{}
+	for _, test := range tests {
+		test := test
+		t.Run(filepath.ToSlash(test.path), func(t *testing.T) {
+			inputPath := filepath.Join(t.TempDir(), filepath.FromSlash(test.path))
+			if err := os.MkdirAll(filepath.Dir(inputPath), 0755); err != nil {
+				t.Fatal(err)
+			}
+			object := nativeUnityServiceTestObject(t, test.classID, "sample", 17)
+			encoded, err := aba.EncodeNativeUnityObject(object)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(inputPath, encoded, 0644); err != nil {
+				t.Fatal(err)
+			}
+			jsonPath := inputPath + ".json"
+			if err := service.ConvertRawUnityObjectToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
+				t.Fatal(err)
+			}
+			var envelope RawUnityObjectEnvelope
+			if err := json.Unmarshal(mustReadServiceFile(t, jsonPath), &envelope); err != nil {
+				t.Fatal(err)
+			}
+			if envelope.ReadOnly || envelope.ClassID != test.classID || envelope.SchemaBase64 == "" || envelope.TypeTree == nil {
+				t.Fatalf("unexpected editable envelope: %+v", envelope)
+			}
+			custom := typeTreeJSONChild(envelope.TypeTree.Value, "m_Custom")
+			if custom == nil {
+				t.Fatal("editable JSON has no m_Custom field")
+			}
+			custom.Value = float64(29)
+			modified, err := json.Marshal(&envelope)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(jsonPath, modified, 0644); err != nil {
+				t.Fatal(err)
+			}
+			outputPath := filepath.Join(filepath.Dir(inputPath), "edited"+filepath.Ext(inputPath))
+			if err := service.ConvertJsonToRawUnityObject(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
+				t.Fatal(err)
+			}
+			restored, err := aba.ReadNativeUnityObject(mustReadServiceFile(t, outputPath))
+			if err != nil {
+				t.Fatal(err)
+			}
+			value, err := restored.DecodeValue()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if restored.ClassID != test.classID || value.Field("m_Custom").Value != int64(29) {
+				t.Fatalf("restored ClassID=%d m_Custom=%#v", restored.ClassID, value.Field("m_Custom").Value)
+			}
+		})
+	}
+}
+
+func TestRawUnityObjectService_AudioClipJSONReplacesInlinePayload(t *testing.T) {
+	inputPath := filepath.Join(t.TempDir(), "AudioClip", "sample.audioclip")
+	if err := os.MkdirAll(filepath.Dir(inputPath), 0755); err != nil {
+		t.Fatal(err)
+	}
+	object := nativeUnityAudioServiceTestObject(t, []byte("OggSsource"))
+	encoded, err := aba.EncodeNativeUnityObject(object)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(inputPath, encoded, 0644); err != nil {
+		t.Fatal(err)
+	}
+	service := &RawUnityObjectService{}
+	jsonPath := inputPath + ".json"
+	if err := service.ConvertRawUnityObjectToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
+		t.Fatal(err)
+	}
+	var envelope RawUnityObjectEnvelope
+	if err := json.Unmarshal(mustReadServiceFile(t, jsonPath), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	replacement := []byte("RIFF\x04\x00\x00\x00WAVE")
+	envelope.ResourceDataBase64 = base64.StdEncoding.EncodeToString(replacement)
+	modified, err := json.Marshal(&envelope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(jsonPath, modified, 0644); err != nil {
+		t.Fatal(err)
+	}
+	outputPath := filepath.Join(filepath.Dir(inputPath), "edited.audioclip")
+	if err := service.ConvertJsonToRawUnityObject(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := aba.ReadAudioClip(mustReadServiceFile(t, outputPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	audioData, err := restored.AudioData()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(audioData, replacement) {
+		t.Fatalf("restored AudioClip payload = %q, want %q", audioData, replacement)
+	}
+}
+
+func TestRawUnityObjectService_UnknownClassTypeTreeViewIsReadOnly(t *testing.T) {
+	tmpDir := t.TempDir()
+	directory := filepath.Join(tmpDir, "Type_95")
+	if err := os.Mkdir(directory, 0755); err != nil {
+		t.Fatal(err)
+	}
+	inputPath := filepath.Join(directory, "sample.bytes")
+	object := nativeUnityServiceTestObject(t, 95, "unknown", 7)
+	encoded, err := aba.EncodeNativeUnityObject(object)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(inputPath, encoded, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	service := &RawUnityObjectService{}
+	envelope, err := service.ReadRawUnityObjectFile(inputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !envelope.ReadOnly || envelope.SchemaBase64 != "" || envelope.TypeTree == nil || envelope.TypeTree.Value == nil {
+		t.Fatalf("unexpected unknown-class envelope: %+v", envelope)
+	}
+	jsonData, err := json.Marshal(&envelope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := decodeNativeUnityObjectEditingJSON(jsonData); err == nil || !strings.Contains(err.Error(), "read-only") {
+		t.Fatalf("read-only conversion error = %v", err)
+	}
+}
+
+func TestEditableTypeTreeJSONDoesNotValidateDigestFields(t *testing.T) {
+	source := bytes.Repeat([]byte{0x5a}, 1024)
+	jsonValue := editableTypeTreeJSONValue(&aba.TypeTreeValue{TypeName: "TypelessData", Name: "m_Data", Value: source})
+	jsonValue.Bytes.Length = 1
+	jsonValue.Bytes.SHA256 = "deliberately-not-a-hash"
+	restored, err := editableTypeTreeValueFromJSON(jsonValue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if data, ok := restored.Value.([]byte); !ok || !bytes.Equal(data, source) {
+		t.Fatalf("restored bytes differ from editable data")
+	}
+}
+
+func nativeUnityServiceTestObject(t *testing.T, classID int32, name string, custom int64) *aba.NativeUnityObject {
+	t.Helper()
+	var stringBuffer []byte
+	stringOffset := func(value string) uint32 {
+		offset := uint32(len(stringBuffer))
+		stringBuffer = append(stringBuffer, value...)
+		stringBuffer = append(stringBuffer, 0)
+		return offset
+	}
+	tree := aba.TypeTreeType{
+		TypeId:          classID,
+		ScriptTypeIndex: -1,
+		Nodes: []aba.TypeTreeNode{
+			{Version: 1, Level: 0, TypeStrOff: stringOffset("Material"), NameStrOff: stringOffset("Base"), ByteSize: -1},
+			{Version: 1, Level: 1, TypeStrOff: stringOffset("string"), NameStrOff: stringOffset("m_Name"), ByteSize: -1, MetaFlags: 0x4000},
+			{Version: 1, Level: 1, TypeStrOff: stringOffset("int"), NameStrOff: stringOffset("m_Custom"), ByteSize: 4},
+		},
+		StringBuffer: stringBuffer,
+	}
+	object := &aba.NativeUnityObject{ClassID: classID, TypeTree: tree}
+	value := &aba.TypeTreeValue{
+		TypeName: "Material",
+		Name:     "Base",
+		Children: []*aba.TypeTreeValue{
+			{TypeName: "string", Name: "m_Name", Value: name},
+			{TypeName: "int", Name: "m_Custom", Value: custom},
+		},
+	}
+	var err error
+	object.Data, err = object.EncodeValue(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return object
+}
+
+func nativeUnityAudioServiceTestObject(t *testing.T, audioData []byte) *aba.NativeUnityObject {
+	t.Helper()
+	var stringBuffer []byte
+	stringOffset := func(value string) uint32 {
+		offset := uint32(len(stringBuffer))
+		stringBuffer = append(stringBuffer, value...)
+		stringBuffer = append(stringBuffer, 0)
+		return offset
+	}
+	tree := aba.TypeTreeType{
+		TypeId:          aba.ClassIDAudioClip,
+		ScriptTypeIndex: -1,
+		Nodes: []aba.TypeTreeNode{
+			{Level: 0, TypeStrOff: stringOffset("AudioClip"), NameStrOff: stringOffset("Base"), ByteSize: -1},
+			{Level: 1, TypeStrOff: stringOffset("string"), NameStrOff: stringOffset("m_Name"), ByteSize: -1, MetaFlags: 0x4000},
+			{Level: 1, TypeStrOff: stringOffset("StreamedResource"), NameStrOff: stringOffset("m_Resource"), ByteSize: -1},
+			{Level: 2, TypeStrOff: stringOffset("string"), NameStrOff: stringOffset("m_Source"), ByteSize: -1, MetaFlags: 0x4000},
+			{Level: 2, TypeStrOff: stringOffset("UInt64"), NameStrOff: stringOffset("m_Offset"), ByteSize: 8},
+			{Level: 2, TypeStrOff: stringOffset("UInt64"), NameStrOff: stringOffset("m_Size"), ByteSize: 8},
+		},
+		StringBuffer: stringBuffer,
+	}
+	root := &aba.TypeTreeValue{
+		TypeName: "AudioClip",
+		Name:     "Base",
+		Children: []*aba.TypeTreeValue{
+			{TypeName: "string", Name: "m_Name", Value: "sample"},
+			{TypeName: "StreamedResource", Name: "m_Resource", Children: []*aba.TypeTreeValue{
+				{TypeName: "string", Name: "m_Source", Value: ""},
+				{TypeName: "UInt64", Name: "m_Offset", Value: uint64(0)},
+				{TypeName: "UInt64", Name: "m_Size", Value: uint64(len(audioData))},
+			}},
+		},
+	}
+	object := &aba.NativeUnityObject{ClassID: aba.ClassIDAudioClip, TypeTree: tree}
+	var err error
+	object.Data, err = object.EncodeValueWithTrailingData(root, audioData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return object
+}
+
+func typeTreeJSONChild(value *TypeTreeJSONValue, name string) *TypeTreeJSONValue {
+	if value == nil {
+		return nil
+	}
+	for _, child := range value.Children {
+		if child != nil && child.Name == name {
+			return child
+		}
+	}
+	return nil
+}
+
 func mustReadServiceFile(t *testing.T, path string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(path)
