@@ -36,7 +36,7 @@ func TestRootSetConfinesReadsAndWrites(t *testing.T) {
 		t.Fatalf("read = %q, err=%v", data, err)
 	}
 
-	for _, unsafe := range []string{"../outside", `..\outside`, "/absolute", `C:\absolute`} {
+	for _, unsafe := range []string{"../outside", `..\outside`, "/absolute", `\absolute`, `C:\absolute`, `C:relative`, `\\server\share`} {
 		if _, err := roots.Resolve("mods", unsafe); err == nil || CodeOf(err) != CodeInvalidArgument {
 			t.Fatalf("Resolve(%q) error = %v", unsafe, err)
 		}

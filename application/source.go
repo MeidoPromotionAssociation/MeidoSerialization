@@ -710,12 +710,16 @@ func (s *rootSource) Open(ctx context.Context) (ReadSeekCloser, error) {
 	return s.root.Open(s.rel)
 }
 
+// normalizeRelativePath 将外部路径规范化为当前平台的受限相对路径并拒绝遍历与卷限定路径
+// normalizeRelativePath normalizes an external path to a confined relative path for the current platform and rejects traversal and volume-qualified paths
 func normalizeRelativePath(name string) (string, error) {
 	if name == "" || strings.IndexByte(name, 0) >= 0 {
 		return "", fmt.Errorf("relative path is empty or contains NUL")
 	}
 	portable := strings.ReplaceAll(name, `\`, "/")
-	if strings.HasPrefix(portable, "/") || filepath.IsAbs(name) || filepath.VolumeName(name) != "" {
+	hasWindowsDrive := len(portable) >= 2 && portable[1] == ':' &&
+		((portable[0] >= 'A' && portable[0] <= 'Z') || (portable[0] >= 'a' && portable[0] <= 'z'))
+	if strings.HasPrefix(portable, "/") || hasWindowsDrive || filepath.IsAbs(name) || filepath.VolumeName(name) != "" {
 		return "", fmt.Errorf("absolute path %q is not allowed", name)
 	}
 	parts := strings.Split(portable, "/")
