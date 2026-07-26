@@ -90,6 +90,8 @@ Examples:
 	},
 }
 
+// listCtFile 读取内容表中的文件路径并将其打印到标准输出
+// listCtFile reads file paths from a content table and prints them to standard output
 func listCtFile(path string) error {
 	service := &KCESService.CtService{}
 	files, err := service.ListCt(path)
@@ -103,6 +105,8 @@ func listCtFile(path string) error {
 	return nil
 }
 
+// init 注册 CT 解包目录和打包文件路径参数
+// init registers the CT unpack directory and pack file-path flags
 func init() {
 	unpackCtCmd.Flags().StringVarP(&outputPathFlag, "output", "o", "", "Output directory path")
 	packCtCmd.Flags().StringVarP(&outputPathFlag, "output", "o", "", "Output file path")

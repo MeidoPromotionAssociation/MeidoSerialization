@@ -48,6 +48,8 @@ Examples:
 	},
 }
 
+// init 注册 ARC 解包命令的输出目录参数
+// init registers the output-directory flag for the ARC unpacking command
 func init() {
 	unpackArcCmd.Flags().StringVarP(&outputPathFlag, "output", "o", "", "Output directory path")
 }

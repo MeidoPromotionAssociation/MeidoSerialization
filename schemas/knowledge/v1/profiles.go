@@ -5,11 +5,11 @@ import (
 	"strings"
 )
 
-// The profile catalog contains the source-reviewed portion of each effective
-// guide. Resolve merges these fields with the complete schema-derived field
-// inventory, so an unreviewed field remains explicitly schema_only.
+// reviewedProfiles 保存每个有效指南中经过源码审核的 profile 部分 / reviewedProfiles stores the source-reviewed profile portion of every effective guide
 var reviewedProfiles = buildReviewedProfiles()
 
+// buildReviewedProfiles 汇总 COM3D2、KCES 容器和载荷格式的源码审核 profile
+// buildReviewedProfiles assembles source-reviewed profiles for COM3D2, KCES containers, and payload formats
 func buildReviewedProfiles() map[string]Guide {
 	profiles := make(map[string]Guide)
 	registerProfiles(profiles, com3d2Profiles())
@@ -19,6 +19,8 @@ func buildReviewedProfiles() map[string]Guide {
 	return profiles
 }
 
+// registerProfiles 检测重复项并在加入总目录前完成每个 profile
+// registerProfiles detects duplicates and finalizes each profile before adding it to the combined catalog
 func registerProfiles(destination, source map[string]Guide) {
 	for formatID, guide := range source {
 		if _, exists := destination[formatID]; exists {
@@ -28,6 +30,8 @@ func registerProfiles(destination, source map[string]Guide) {
 	}
 }
 
+// finalizeProfile 填充稳定元数据并校验字段、证据、规则、值集合和命令引用
+// finalizeProfile fills stable metadata and validates fields, evidence, rules, value sets, and command references
 func finalizeProfile(formatID string, guide Guide) Guide {
 	guide.ID = IDPrefix + formatID
 	guide.FormatID = formatID
@@ -96,6 +100,8 @@ func finalizeProfile(formatID string, guide Guide) Guide {
 	return guide
 }
 
+// finalizeValueSets 校验值集合完整性、唯一标识符、证据和置信等级
+// finalizeValueSets validates value-set completeness, unique identifiers, evidence, and confidence levels
 func finalizeValueSets(formatID string, valueSets []ValueSet) {
 	ids := make(map[string]struct{}, len(valueSets))
 	for index := range valueSets {
@@ -123,6 +129,8 @@ func finalizeValueSets(formatID string, valueSets []ValueSet) {
 	}
 }
 
+// validateCommandValueSetRefs 校验命令语义完整性及其值集合引用
+// validateCommandValueSetRefs validates command-semantic completeness and value-set references
 func validateCommandValueSetRefs(formatID string, commands []Command, valueSets []ValueSet) {
 	knownIDs := make(map[string]struct{}, len(valueSets))
 	for _, valueSet := range valueSets {
@@ -151,6 +159,8 @@ func validateCommandValueSetRefs(formatID string, commands []Command, valueSets 
 	}
 }
 
+// confidenceForEvidence 根据游戏源码或实现源码证据推导默认置信等级
+// confidenceForEvidence derives the default confidence level from game-source or implementation-source evidence
 func confidenceForEvidence(evidence []Source) string {
 	hasImplementationSource := false
 	for _, item := range evidence {
@@ -167,6 +177,8 @@ func confidenceForEvidence(evidence []Source) string {
 	return ConfidenceSchemaOnly
 }
 
+// requireGameEvidence 确保标记为已验证的结论至少引用一处游戏源码
+// requireGameEvidence ensures that a conclusion marked verified cites at least one game-source location
 func requireGameEvidence(formatID, owner, confidence string, evidence []Source) {
 	if confidence != ConfidenceVerified && confidence != ConfidenceHumanVerified {
 		return
@@ -179,6 +191,8 @@ func requireGameEvidence(formatID, owner, confidence string, evidence []Source) 
 	panic("verified " + owner + " has no game source for " + formatID)
 }
 
+// validateSources 校验证据种类、精确行范围及其所属源码树
+// validateSources validates evidence kinds, exact line ranges, and source-tree ownership
 func validateSources(formatID, owner string, sources []Source) {
 	for _, item := range sources {
 		if item.Kind != SourceKindGame && item.Kind != SourceKindImplementation {
@@ -197,6 +211,8 @@ func validateSources(formatID, owner string, sources []Source) {
 	}
 }
 
+// isKnownCoverageLevel 判断字符串是否为目录支持的覆盖等级
+// isKnownCoverageLevel reports whether a string is a coverage level supported by the catalog
 func isKnownCoverageLevel(level string) bool {
 	switch level {
 	case CoverageRuntimeVerified, CoverageSerializationVerified, CoverageSchemaOnly,
@@ -207,6 +223,8 @@ func isKnownCoverageLevel(level string) bool {
 	}
 }
 
+// isKnownConfidence 判断字符串是否为目录支持的字段置信等级
+// isKnownConfidence reports whether a string is a field confidence level supported by the catalog
 func isKnownConfidence(confidence string) bool {
 	switch confidence {
 	case ConfidenceVerified, ConfidenceSerializationOnly, ConfidenceSchemaOnly,
@@ -217,11 +235,15 @@ func isKnownConfidence(confidence string) bool {
 	}
 }
 
+// profileGuide 按稳定格式标识符查找源码审核指南 profile
+// profileGuide looks up a source-reviewed guide profile by stable format identifier
 func profileGuide(formatID string) (Guide, bool) {
 	guide, found := reviewedProfiles[formatID]
 	return guide, found
 }
 
+// profileFormats 返回按字典序排列的全部源码审核 profile 格式标识符
+// profileFormats returns all source-reviewed profile format identifiers in lexical order
 func profileFormats() []string {
 	formats := make([]string, 0, len(reviewedProfiles))
 	for formatID := range reviewedProfiles {
@@ -231,6 +253,8 @@ func profileFormats() []string {
 	return formats
 }
 
+// source 构建引用游戏源码精确位置的证据
+// source builds evidence referencing an exact game-source location
 func source(gameVersion, path, symbol string, lineStart, lineEnd int, observation string) Source {
 	return Source{
 		Kind:        SourceKindGame,
@@ -243,6 +267,8 @@ func source(gameVersion, path, symbol string, lineStart, lineEnd int, observatio
 	}
 }
 
+// implementationSource 构建引用本库实现源码精确位置的证据
+// implementationSource builds evidence referencing an exact library-implementation source location
 func implementationSource(gameVersion, path, symbol string, lineStart, lineEnd int, observation string) Source {
 	return Source{
 		Kind:        SourceKindImplementation,
@@ -255,6 +281,8 @@ func implementationSource(gameVersion, path, symbol string, lineStart, lineEnd i
 	}
 }
 
+// field 构建根据所给证据自动推导置信等级的字段语义
+// field builds field semantics with a confidence level derived from the supplied evidence
 func field(path, title, description, gameUsage, editRole, editGuidance, risk string, evidence ...Source) Field {
 	return Field{
 		JSONPath:     path,
@@ -269,12 +297,16 @@ func field(path, title, description, gameUsage, editRole, editGuidance, risk str
 	}
 }
 
+// fieldFrom 将共享证据绑定到可重复使用的字段构造函数
+// fieldFrom binds shared evidence to a reusable field constructor
 func fieldFrom(evidence ...Source) func(string, string, string, string, string, string, string) Field {
 	return func(path, title, description, gameUsage, editRole, editGuidance, risk string) Field {
 		return field(path, title, description, gameUsage, editRole, editGuidance, risk, evidence...)
 	}
 }
 
+// guide 使用标题、摘要、覆盖信息、证据和字段构建基础 profile
+// guide builds a base profile from a title, summary, coverage information, evidence, and fields
 func guide(title, summary string, coverage string, notes string, sources []Source, fields []Field) Guide {
 	return Guide{
 		Title: title, Summary: summary,
@@ -283,6 +315,8 @@ func guide(title, summary string, coverage string, notes string, sources []Sourc
 	}
 }
 
+// serializationField 构建明确只由序列化实现证据支持的字段语义
+// serializationField builds field semantics explicitly supported only by serialization-implementation evidence
 func serializationField(path, title, description, gameUsage, editRole, editGuidance, risk string, evidence ...Source) Field {
 	return Field{
 		JSONPath:     path,
@@ -297,12 +331,16 @@ func serializationField(path, title, description, gameUsage, editRole, editGuida
 	}
 }
 
+// serializationFieldFrom 将共享实现证据绑定到可重复使用的序列化字段构造函数
+// serializationFieldFrom binds shared implementation evidence to a reusable serialization-field constructor
 func serializationFieldFrom(evidence ...Source) func(string, string, string, string, string, string, string) Field {
 	return func(path, title, description, gameUsage, editRole, editGuidance, risk string) Field {
 		return serializationField(path, title, description, gameUsage, editRole, editGuidance, risk, evidence...)
 	}
 }
 
+// pattern 构建根据所给证据自动推导置信等级的动态字段模式
+// pattern builds a dynamic field pattern with a confidence level derived from the supplied evidence
 func pattern(path, title, description, gameUsage, editRole, editGuidance string, evidence ...Source) FieldPattern {
 	return FieldPattern{
 		JSONPathPattern: path,
@@ -316,6 +354,8 @@ func pattern(path, title, description, gameUsage, editRole, editGuidance string,
 	}
 }
 
+// preserveUnknownRule 返回禁止丢失建模值或虚构未支持 wire 状态的标准规则
+// preserveUnknownRule returns the standard rule forbidding loss of modeled values or invention of unsupported wire state
 func preserveUnknownRule() Rule {
 	return Rule{
 		ID:       "respect-typed-and-binary-data",
@@ -325,6 +365,8 @@ func preserveUnknownRule() Rule {
 	}
 }
 
+// standardWorkflow 返回指定格式通用的无损编辑和验证步骤
+// standardWorkflow returns common lossless editing and validation steps for a format
 func standardWorkflow(formatID string) []string {
 	return []string{
 		"Read meido://schemas/" + formatID + " and this guide before editing.",
@@ -335,6 +377,8 @@ func standardWorkflow(formatID string) []string {
 	}
 }
 
+// standardWarnings 返回适用于全部格式指南的能力边界警告
+// standardWarnings returns capability-boundary warnings applicable to all format guides
 func standardWarnings() []string {
 	return []string{
 		"Schema validation proves structure and supported wire invariants, not that a referenced asset, bone, material, hash, ID, or enum exists in the target installation.",

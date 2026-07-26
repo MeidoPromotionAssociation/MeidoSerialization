@@ -1,8 +1,7 @@
 package knowledgev1
 
-// kcesPayloadProfiles documents the shared KCESPayloadEnvelope. The native
-// extensions use the same int32-length/LZ4 MessagePack framing but select
-// different game objects; a few extensions also have an ExportCM JSON sidecar.
+// kcesPayloadProfiles 构建共享 KCESPayloadEnvelope 及各原生后缀载荷语义的审核指南
+// kcesPayloadProfiles builds reviewed guides for the shared KCESPayloadEnvelope and native-suffix payload semantics
 func kcesPayloadProfiles() map[string]Guide {
 	payloadSource := implementationSource("KCES 1.34.4", "serialization/KCES/payload.go", "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload", 20, 560, "The dispatcher binds every supported extension to a known payload kind and storage variant, fully decodes that typed root, and rejects unknown kinds or trailing MessagePack data.")
 	dynamicMgrSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/DynamicBoneMgr.cs", "DynamicBoneMgr.LoadDynamicYureBoneSetting/LoadMagica2DynamicYureBoneSetting", 212, 485, "DynamicBoneMgr selects .dbconf/.dbcol, .db2conf, .dsbconf/.dsb2conf, .dslconf/.dsl2conf/.dslcol, and default fallback names for the corresponding physics components.")

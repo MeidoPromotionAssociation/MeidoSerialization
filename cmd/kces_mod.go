@@ -45,6 +45,8 @@ Examples:
 	},
 }
 
+// inspectKcesCatalog 解码并打印 CT 中的资源包目录及扩展名称列表
+// inspectKcesCatalog decodes and prints the AssetBundle catalog and extension-name lists stored in a CT file
 func inspectKcesCatalog(path string) error {
 	f, err := os.Open(path)
 	if err != nil {
@@ -121,6 +123,8 @@ func formatNullableStringForCLI(value *string) string {
 	return *value
 }
 
+// init 注册 KCES MOD 打包命令的输出目录参数
+// init registers the output-directory flag for the KCES MOD packing command
 func init() {
 	packKcesModCmd.Flags().StringVarP(&outputPathFlag, "output", "o", "", "Output directory")
 }

@@ -18,54 +18,67 @@ import (
 	"sync"
 )
 
-// ReadSeekCloser is the common input primitive used by the application layer.
+// ReadSeekCloser 定义应用层输入需要的读取、定位和关闭能力 / ReadSeekCloser defines the read, seek, and close capabilities required for application input
 type ReadSeekCloser interface {
 	io.Reader
 	io.Seeker
 	io.Closer
 }
 
-// Source represents a named, seekable artifact without prescribing its storage.
+// Source 表示不限定底层存储方式的具名可定位制品 / Source represents a named seekable artifact without prescribing its storage
 type Source interface {
+	// Name 返回适合物化输入时使用的文件名
+	// Name returns the filename to use when materializing the source
 	Name() string
+	// Size 返回源内容的精确字节数
+	// Size returns the exact source content size in bytes
 	Size() int64
+	// Open 打开受上下文约束的独立可定位读取器
+	// Open opens an independent seekable reader governed by a context
 	Open(context.Context) (ReadSeekCloser, error)
 }
 
-// SourceAttachment is a companion file whose name is derived by appending
-// Suffix to the primary source name. KCES raw Unity objects use these files to
-// carry AssetBundle metadata and a TypeTree view.
+// SourceAttachment 表示通过后缀关联到主要输入的伴随文件 / SourceAttachment represents a companion file associated with a primary source by suffix
 type SourceAttachment struct {
+	// Suffix 是追加到主要源文件名后的受管理后缀 / Suffix is the managed suffix appended to the primary source name
 	Suffix string
+	// Source 提供伴随文件的内容和元数据 / Source provides the companion file content and metadata
 	Source Source
 }
 
 var artifactAttachmentSuffixes = []string{".meta.json", ".typetree.json"}
 
-// ArtifactAttachmentSuffixes returns the sidecar suffixes managed as part of
-// one application artifact.
+// ArtifactAttachmentSuffixes 返回作为单个应用制品管理的伴随文件后缀副本
+// ArtifactAttachmentSuffixes returns a copy of companion suffixes managed as part of one application artifact
 func ArtifactAttachmentSuffixes() []string {
 	return append([]string(nil), artifactAttachmentSuffixes...)
 }
 
+// attachmentSource 定义能够公开伴随输入文件的源 / attachmentSource defines a source capable of exposing companion input files
 type attachmentSource interface {
+	// Attachments 返回与主要输入关联的伴随文件
+	// Attachments returns companion files associated with the primary input
 	Attachments() []SourceAttachment
 }
 
+// bundleSource 将主要输入源与一组受管理伴随文件组合 / bundleSource combines a primary input source with managed companion files
 type bundleSource struct {
+	// Source 是组合制品的主要输入 / Source is the primary input of the bundled artifact
 	Source
+	// attachments 保存已规范化且后缀唯一的伴随文件 / attachments stores companion files with normalized unique suffixes
 	attachments []SourceAttachment
 }
 
+// Attachments 返回组合源所含伴随文件的浅拷贝
+// Attachments returns a shallow copy of companion files contained by the bundled source
 func (s *bundleSource) Attachments() []SourceAttachment {
 	result := make([]SourceAttachment, len(s.attachments))
 	copy(result, s.attachments)
 	return result
 }
 
-// NewBundleSource associates supported companion files with a primary source.
-// Existing companions exposed by primary are retained, and duplicate suffixes
-// are rejected.
+// NewBundleSource 将受支持的伴随文件关联到主要源并拒绝重复后缀
+// NewBundleSource associates supported companion files with a primary source and rejects duplicate suffixes
 func NewBundleSource(primary Source, attachments []SourceAttachment) (Source, error) {
 	if primary == nil {
 		return nil, opError("create source bundle", CodeInvalidArgument, fmt.Errorf("primary source is required"))
@@ -93,6 +106,8 @@ func NewBundleSource(primary Source, attachments []SourceAttachment) (Source, er
 	return &bundleSource{Source: primary, attachments: all}, nil
 }
 
+// sourceAttachments 返回源通过可选伴随文件接口公开的文件列表
+// sourceAttachments returns files exposed by a source through the optional companion interface
 func sourceAttachments(source Source) []SourceAttachment {
 	provider, ok := source.(attachmentSource)
 	if !ok {
@@ -101,6 +116,8 @@ func sourceAttachments(source Source) []SourceAttachment {
 	return provider.Attachments()
 }
 
+// normalizeAttachmentSuffix 校验并规范化受管理的伴随文件后缀
+// normalizeAttachmentSuffix validates and normalizes a managed companion-file suffix
 func normalizeAttachmentSuffix(value string) (string, error) {
 	suffix := strings.ToLower(strings.TrimSpace(value))
 	for _, supported := range artifactAttachmentSuffixes {
@@ -111,18 +128,30 @@ func normalizeAttachmentSuffix(value string) (string, error) {
 	return "", fmt.Errorf("unsupported artifact attachment suffix %q", value)
 }
 
+// bytesSource 保存不可变的内存输入及其安全文件名 / bytesSource stores immutable in-memory input and its safe filename
 type bytesSource struct {
+	// name 是物化内存内容时使用的文件名 / name is the filename used when materializing the in-memory content
 	name string
+	// data 是创建源时复制的不可变字节内容 / data is immutable byte content copied when the source is created
 	data []byte
 }
 
-// NewBytesSource creates an immutable in-memory source.
+// NewBytesSource 创建复制输入内容的不可变内存源
+// NewBytesSource creates an immutable in-memory source by copying the input content
 func NewBytesSource(name string, data []byte) Source {
 	return &bytesSource{name: cleanSourceName(name), data: append([]byte(nil), data...)}
 }
 
+// Name 返回内存源的安全文件名
+// Name returns the safe filename of the in-memory source
 func (s *bytesSource) Name() string { return s.name }
-func (s *bytesSource) Size() int64  { return int64(len(s.data)) }
+
+// Size 返回内存源的精确字节数
+// Size returns the exact size in bytes of the in-memory source
+func (s *bytesSource) Size() int64 { return int64(len(s.data)) }
+
+// Open 返回读取内存源内容的新可定位读取器
+// Open returns a new seekable reader for the in-memory source content
 func (s *bytesSource) Open(ctx context.Context) (ReadSeekCloser, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -130,18 +159,28 @@ func (s *bytesSource) Open(ctx context.Context) (ReadSeekCloser, error) {
 	return &readSeekNopCloser{Reader: bytes.NewReader(s.data)}, nil
 }
 
-type readSeekNopCloser struct{ *bytes.Reader }
+// readSeekNopCloser 为内存读取器补充无需操作的关闭方法 / readSeekNopCloser adds a no-op close method to an in-memory reader
+type readSeekNopCloser struct {
+	// Reader 提供实际的内存读取和定位能力 / Reader provides the underlying in-memory read and seek capabilities
+	*bytes.Reader
+}
 
+// Close 完成无需释放资源的内存读取器关闭操作
+// Close completes closing an in-memory reader that owns no releasable resources
 func (r *readSeekNopCloser) Close() error { return nil }
 
+// fileSource 保存常规本地文件的稳定名称、绝对路径和已观察大小 / fileSource stores a regular local file's stable name, absolute path, and observed size
 type fileSource struct {
+	// name 是不包含目录的本地文件名 / name is the local filename without directory components
 	name string
+	// path 是本地文件的绝对路径 / path is the absolute path of the local file
 	path string
+	// size 是创建源时观察到的精确文件字节数 / size is the exact file size in bytes observed when the source was created
 	size int64
 }
 
-// NewFileSource creates a source for a regular local file. RPC callers should
-// normally use RootSet.Resolve instead, so they cannot choose arbitrary paths.
+// NewFileSource 为常规本地文件及其受管理伴随文件创建输入源
+// NewFileSource creates an input source for a regular local file and its managed companions
 func NewFileSource(path string) (Source, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -162,8 +201,16 @@ func NewFileSource(path string) (Source, error) {
 	return NewBundleSource(primary, attachments)
 }
 
+// Name 返回本地文件源的基本文件名
+// Name returns the base filename of the local file source
 func (s *fileSource) Name() string { return s.name }
-func (s *fileSource) Size() int64  { return s.size }
+
+// Size 返回创建本地文件源时记录的精确字节数
+// Size returns the exact byte size recorded when the local file source was created
+func (s *fileSource) Size() int64 { return s.size }
+
+// Open 打开本地文件源并在操作前检查上下文
+// Open opens the local file source after checking the context
 func (s *fileSource) Open(ctx context.Context) (ReadSeekCloser, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -171,6 +218,8 @@ func (s *fileSource) Open(ctx context.Context) (ReadSeekCloser, error) {
 	return os.Open(s.path)
 }
 
+// discoverFileAttachments 查找主要本地文件旁存在的受管理常规伴随文件
+// discoverFileAttachments finds managed regular companion files beside a primary local file
 func discoverFileAttachments(path string) ([]SourceAttachment, error) {
 	var result []SourceAttachment
 	for _, suffix := range artifactAttachmentSuffixes {
@@ -195,29 +244,42 @@ func discoverFileAttachments(path string) ([]SourceAttachment, error) {
 
 var rootIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 
-// RootSet maps public root IDs to server-configured directories. A caller only
-// supplies a portable relative path; absolute paths and traversal are rejected.
+// RootSet 将公开根标识符映射到服务端配置的受限目录 / RootSet maps public root identifiers to server-configured confined directories
 type RootSet struct {
-	mu      sync.RWMutex
+	// mu 保护根目录映射及关闭状态 / mu protects the root map and closed state
+	mu sync.RWMutex
+	// writeMu 串行化多文件提交以保持写入和回滚一致性 / writeMu serializes multi-file commits to preserve write and rollback consistency
 	writeMu sync.Mutex
-	roots   map[string]rootEntry
+	// roots 保存已打开根目录句柄及其写权限 / roots stores open root handles and their write permissions
+	roots map[string]rootEntry
 }
 
+// rootEntry 保存一个受限目录句柄及其写权限 / rootEntry stores one confined directory handle and its write permission
 type rootEntry struct {
-	root     *os.Root
+	// root 是限制文件访问范围的目录句柄 / root is the directory handle that confines file access
+	root *os.Root
+	// writable 表示是否允许在该根目录下安装输出 / writable reports whether outputs may be installed beneath the root
 	writable bool
 }
 
+// NewRootSet 创建空的开放根目录集合
+// NewRootSet creates an empty open root set
 func NewRootSet() *RootSet { return &RootSet{roots: make(map[string]rootEntry)} }
 
+// Add 注册只读受限根目录
+// Add registers a read-only confined root directory
 func (r *RootSet) Add(id, directory string) error {
 	return r.add(id, directory, false)
 }
 
+// AddWritable 注册可读取和写入的受限根目录
+// AddWritable registers a confined root directory that permits reads and writes
 func (r *RootSet) AddWritable(id, directory string) error {
 	return r.add(id, directory, true)
 }
 
+// add 校验并打开根目录后以指定写权限注册
+// add validates and opens a root directory before registering it with the requested write permission
 func (r *RootSet) add(id, directory string, writable bool) error {
 	if !rootIDPattern.MatchString(id) {
 		return opError("add root", CodeInvalidArgument, fmt.Errorf("invalid root ID %q", id))
@@ -253,6 +315,8 @@ func (r *RootSet) add(id, directory string, writable bool) error {
 	return nil
 }
 
+// IDs 返回按字典序排列的全部已注册根标识符
+// IDs returns all registered root identifiers in lexical order
 func (r *RootSet) IDs() []string {
 	r.mu.RLock()
 	ids := make([]string, 0, len(r.roots))
@@ -264,6 +328,8 @@ func (r *RootSet) IDs() []string {
 	return ids
 }
 
+// WritableIDs 返回按字典序排列的可写根标识符
+// WritableIDs returns writable root identifiers in lexical order
 func (r *RootSet) WritableIDs() []string {
 	r.mu.RLock()
 	ids := make([]string, 0, len(r.roots))
@@ -277,6 +343,8 @@ func (r *RootSet) WritableIDs() []string {
 	return ids
 }
 
+// Resolve 在指定受限根目录下解析常规文件及其受管理伴随文件
+// Resolve resolves a regular file and its managed companions beneath a confined root
 func (r *RootSet) Resolve(id, relativePath string) (Source, error) {
 	entry, ok := r.root(id)
 	if !ok {
@@ -315,8 +383,8 @@ func (r *RootSet) Resolve(id, relativePath string) (Source, error) {
 	return NewBundleSource(primary, attachments)
 }
 
-// ValidateWrite checks root permissions, path confinement, and any existing
-// destination without creating directories or files.
+// ValidateWrite 在不创建目录或文件的情况下检查根权限、路径限制和现有目标
+// ValidateWrite checks root permissions, path confinement, and an existing destination without creating directories or files
 func (r *RootSet) ValidateWrite(id, relativePath string) error {
 	entry, ok := r.root(id)
 	if !ok {
@@ -339,9 +407,8 @@ func (r *RootSet) ValidateWrite(id, relativePath string) error {
 	return nil
 }
 
-// WriteFile builds a regular file in a same-directory temporary path before
-// installing it beneath a configured root, so a partial file is never exposed.
-// The returned digest covers exactly the bytes installed at relativePath.
+// WriteFile 在同目录临时路径完整写入常规文件后将其原子安装到配置根目录
+// WriteFile fully writes a regular file to a same-directory temporary path before atomically installing it beneath a configured root
 func (r *RootSet) WriteFile(ctx context.Context, id, relativePath string, reader io.Reader, maxBytes int64) (int64, string, error) {
 	if reader == nil || maxBytes <= 0 {
 		return 0, "", opError("write rooted file", CodeInvalidArgument, fmt.Errorf("reader and a positive size limit are required"))
@@ -421,27 +488,30 @@ func (r *RootSet) WriteFile(ctx context.Context, id, relativePath string, reader
 	return written, hex.EncodeToString(hash.Sum(nil)), nil
 }
 
-// BundleFile is one file in a rooted artifact. The primary file uses an empty
-// suffix; companion files use one of ArtifactAttachmentSuffixes.
+// BundleFile 描述受限根目录制品中待安装的单个主要文件或伴随文件 / BundleFile describes one primary or companion file to install as part of a rooted artifact
 type BundleFile struct {
-	Suffix         string
-	Reader         io.Reader
-	ExpectedSize   *int64
+	// Suffix 为空时表示主要文件，否则必须是受管理伴随文件后缀 / Suffix identifies the primary file when empty or a managed companion suffix otherwise
+	Suffix string
+	// Reader 提供待安装文件的内容 / Reader supplies the content of the file to install
+	Reader io.Reader
+	// ExpectedSize 是提交前可选校验的精确字节数 / ExpectedSize is an optional exact byte size verified before commit
+	ExpectedSize *int64
+	// ExpectedSHA256 是提交前可选校验的十六进制 SHA-256 摘要 / ExpectedSHA256 is an optional hexadecimal SHA-256 digest verified before commit
 	ExpectedSHA256 string
 }
 
+// BundleFileMetadata 描述成功安装的主要文件或伴随文件 / BundleFileMetadata describes a successfully installed primary or companion file
 type BundleFileMetadata struct {
+	// Suffix 标识主要文件或受管理伴随文件 / Suffix identifies the primary file or managed companion file
 	Suffix string
-	Size   int64
+	// Size 是已安装文件的精确字节数 / Size is the exact installed file size in bytes
+	Size int64
+	// SHA256 是已安装文件内容的十六进制 SHA-256 摘要 / SHA256 is the hexadecimal SHA-256 digest of the installed file content
 	SHA256 string
 }
 
-// WriteBundle stages and verifies every file before installing any of them.
-// Managed sidecars omitted from files are removed, so an older sidecar cannot
-// be accidentally paired with a new primary file. Existing destinations are
-// backed up and restored if any pre-commit rename fails. Once every staged file
-// is installed, backup removal is best-effort and cannot turn the committed
-// installation into a reported failure.
+// WriteBundle 在安装任何文件前暂存并校验完整制品集合且在提交失败时恢复原文件
+// WriteBundle stages and verifies the complete artifact set before installation and restores original files if commit fails
 func (r *RootSet) WriteBundle(ctx context.Context, id, relativePath string, files []BundleFile, maxBytes int64) ([]BundleFileMetadata, error) {
 	if len(files) == 0 || maxBytes <= 0 {
 		return nil, opError("write rooted bundle", CodeInvalidArgument, fmt.Errorf("at least one file and a positive size limit are required"))
@@ -467,17 +537,28 @@ func (r *RootSet) WriteBundle(ctx context.Context, id, relativePath string, file
 		return nil, opError("write rooted bundle", CodeInvalidArgument, err)
 	}
 
+	// preparedFile 保存单个制品文件从请求校验到提交完成的暂存状态 / preparedFile stores staging state for one artifact file from request validation through commit
 	type preparedFile struct {
-		suffix          string
-		target          string
-		temp            string
-		reader          io.Reader
-		expectedSize    int64
+		// suffix 标识主要文件或受管理伴随文件 / suffix identifies the primary file or managed companion file
+		suffix string
+		// target 是受限根目录下的最终相对路径 / target is the final relative path beneath the confined root
+		target string
+		// temp 是受限根目录下的暂存相对路径 / temp is the staging relative path beneath the confined root
+		temp string
+		// reader 提供请求中的文件内容 / reader supplies file content from the request
+		reader io.Reader
+		// expectedSize 是请求声明的精确文件字节数 / expectedSize is the exact file size declared by the request
+		expectedSize int64
+		// hasExpectedSize 表示是否需要校验请求声明的文件大小 / hasExpectedSize reports whether the requested file size must be verified
 		hasExpectedSize bool
-		expectedDigest  string
-		size            int64
-		digest          string
-		staged          bool
+		// expectedDigest 是规范化后的请求 SHA-256 摘要 / expectedDigest is the normalized SHA-256 digest supplied by the request
+		expectedDigest string
+		// size 是暂存期间实际写入的精确字节数 / size is the exact number of bytes written during staging
+		size int64
+		// digest 是暂存内容计算得到的 SHA-256 摘要 / digest is the SHA-256 digest computed from staged content
+		digest string
+		// staged 表示临时文件仍需在延迟清理时删除 / staged reports whether deferred cleanup must still remove the temporary file
+		staged bool
 	}
 	prepared := make([]preparedFile, 0, len(files))
 	seen := make(map[string]struct{}, len(files))
@@ -661,6 +742,8 @@ func (r *RootSet) WriteBundle(ctx context.Context, id, relativePath string, file
 	return metadata, nil
 }
 
+// root 在并发读取保护下查找已注册根目录条目
+// root looks up a registered root entry under concurrent read protection
 func (r *RootSet) root(id string) (rootEntry, bool) {
 	r.mu.RLock()
 	root, ok := r.roots[id]
@@ -668,8 +751,8 @@ func (r *RootSet) root(id string) (rootEntry, bool) {
 	return root, ok
 }
 
-// Close releases the directory handles retained by the root set. Servers must
-// stop accepting requests before calling Close.
+// Close 释放根目录集合保留的目录句柄并阻止后续注册
+// Close releases directory handles retained by the root set and prevents further registration
 func (r *RootSet) Close() error {
 	r.mu.Lock()
 	roots := r.roots
@@ -682,6 +765,8 @@ func (r *RootSet) Close() error {
 	return result
 }
 
+// rootedTempName 为指定相对父目录生成随机隐藏临时文件名
+// rootedTempName generates a random hidden temporary filename beneath a relative parent directory
 func rootedTempName(parent string) (string, error) {
 	var random [12]byte
 	if _, err := rand.Read(random[:]); err != nil {
@@ -694,15 +779,28 @@ func rootedTempName(parent string) (string, error) {
 	return filepath.Join(parent, name), nil
 }
 
+// rootSource 表示通过受限根目录句柄访问的常规文件 / rootSource represents a regular file accessed through a confined root handle
 type rootSource struct {
+	// name 是不包含目录的源文件名 / name is the source filename without directory components
 	name string
+	// root 是限制文件访问范围的共享目录句柄 / root is the shared directory handle that confines file access
 	root *os.Root
-	rel  string
+	// rel 是相对于受限根目录的已规范化路径 / rel is the normalized path relative to the confined root
+	rel string
+	// size 是解析源时观察到的精确文件字节数 / size is the exact file size in bytes observed when resolving the source
 	size int64
 }
 
+// Name 返回受限根目录源的基本文件名
+// Name returns the base filename of the confined root source
 func (s *rootSource) Name() string { return s.name }
-func (s *rootSource) Size() int64  { return s.size }
+
+// Size 返回解析受限根目录源时记录的精确字节数
+// Size returns the exact byte size recorded when the confined root source was resolved
+func (s *rootSource) Size() int64 { return s.size }
+
+// Open 通过受限根目录句柄打开源并在操作前检查上下文
+// Open opens the source through its confined root handle after checking the context
 func (s *rootSource) Open(ctx context.Context) (ReadSeekCloser, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -735,6 +833,8 @@ func normalizeRelativePath(name string) (string, error) {
 	return rel, nil
 }
 
+// cleanSourceName 将不可信源名称限制为安全的基本文件名
+// cleanSourceName confines an untrusted source name to a safe base filename
 func cleanSourceName(name string) string {
 	if strings.IndexByte(name, 0) >= 0 {
 		return "input.bin"
@@ -747,6 +847,8 @@ func cleanSourceName(name string) string {
 	return name
 }
 
+// limitWithSentinel 返回比限制多一个字节的读取上限并避免精确整数溢出
+// limitWithSentinel returns a read bound one byte beyond the limit while avoiding exact integer overflow
 func limitWithSentinel(limit int64) int64 {
 	if limit == math.MaxInt64 {
 		return limit

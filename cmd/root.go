@@ -9,7 +9,7 @@ var (
 	fileType   string
 )
 
-// RootCmd represents the base command when called without any subcommands
+// RootCmd 是未指定子命令时使用的 CLI 根命令 / RootCmd is the CLI root command used when no subcommand is specified
 var RootCmd = &cobra.Command{
 	Use:   "MeidoSerialization",
 	Short: "MeidoSerialization CLI tool",
@@ -41,8 +41,8 @@ Github：https://github.com/MeidoPromotionAssociation/MeidoSerialization
 	},
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the RootCmd.
+// Execute 执行已经注册全部子命令和全局参数的 CLI 根命令
+// Execute runs the CLI root command after all subcommands and global flags have been registered
 func Execute() error {
 	return RootCmd.Execute()
 }

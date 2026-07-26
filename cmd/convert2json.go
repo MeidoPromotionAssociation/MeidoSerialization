@@ -39,6 +39,8 @@ Examples:
 	},
 }
 
+// init 保留转编辑 JSON 命令的初始化扩展点
+// init retains the initialization extension point for the editing-JSON conversion command
 func init() {
 	// Add any command-specific flags here
 }

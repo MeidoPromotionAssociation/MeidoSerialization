@@ -20,34 +20,55 @@ import (
 )
 
 const (
+	// DefaultMaxResultBytes 是检查工具默认允许内联返回的最大字节数 / DefaultMaxResultBytes is the default maximum number of bytes returned inline by the inspect tool
 	DefaultMaxResultBytes int64 = 2 << 20
-	DefaultMaxWriteBytes        = application.DefaultMaxOutputBytes
+	// DefaultMaxWriteBytes 是转换和提取工具默认允许写入的最大字节数 / DefaultMaxWriteBytes is the default maximum number of bytes written by conversion and extraction tools
+	DefaultMaxWriteBytes = application.DefaultMaxOutputBytes
 
 	restrictedEditingWritePolicy   = "Use `output_root_id` and `output_relative_path`. Write only beneath a configured writable root declared by `meido://capabilities`."
 	unrestrictedEditingWritePolicy = "Use `output_path` only for a path explicitly authorized by the user. This mode has no configured-root confinement and uses the server process account."
 )
 
+// Config 配置 MCP 序列化服务器的依赖、文件系统模式和资源限制 / Config configures dependencies, filesystem mode, and resource limits for an MCP serialization server
 type Config struct {
-	Engine         *application.Engine
-	Roots          *application.RootSet
+	// Engine 执行格式检测、转换、校验和归档操作 / Engine performs format detection, conversion, validation, and archive operations
+	Engine *application.Engine
+	// Roots 保存受限模式公开的可读写根目录 / Roots stores readable and writable roots exposed in restricted mode
+	Roots *application.RootSet
+	// FilesystemMode 选择受限根目录路径或直接文件系统路径 / FilesystemMode selects confined root paths or direct filesystem paths
 	FilesystemMode FilesystemMode
-	Logger         *slog.Logger
-	Version        string
+	// Logger 接收 MCP SDK 和服务器诊断信息 / Logger receives MCP SDK and server diagnostics
+	Logger *slog.Logger
+	// Version 是 MCP 实现公开的应用版本 / Version is the application version advertised by the MCP implementation
+	Version string
+	// MaxResultBytes 限制检查和归档列表工具的内联结果大小 / MaxResultBytes limits inline results from inspect and archive-list tools
 	MaxResultBytes int64
-	MaxWriteBytes  int64
+	// MaxWriteBytes 限制转换或提取制品的合计写入大小 / MaxWriteBytes limits aggregate bytes written for converted or extracted artifacts
+	MaxWriteBytes int64
 }
 
+// Server 将应用引擎公开为带资源、提示和文件工具的 MCP 服务器 / Server exposes the application engine as an MCP server with resources, prompts, and file tools
 type Server struct {
-	engine         *application.Engine
-	roots          *application.RootSet
+	// engine 执行与游戏文件格式有关的应用操作 / engine performs application operations related to game file formats
+	engine *application.Engine
+	// roots 解析受限输入和输出路径 / roots resolves confined input and output paths
+	roots *application.RootSet
+	// filesystemMode 控制工具使用受限根目录参数还是直接路径参数 / filesystemMode controls whether tools use confined root arguments or direct path arguments
 	filesystemMode FilesystemMode
-	server         *mcp.Server
+	// server 是处理 MCP 协议的 SDK 服务器 / server is the SDK server that handles the MCP protocol
+	server *mcp.Server
+	// maxResultBytes 限制结构化或文本工具结果的内联字节数 / maxResultBytes limits inline bytes in structured or textual tool results
 	maxResultBytes int64
-	maxWriteBytes  int64
-	archivePager   *application.ArchivePager
-	directWriteMu  sync.Mutex
+	// maxWriteBytes 限制安装主要制品及伴随文件的合计字节数 / maxWriteBytes limits aggregate bytes installed for a primary artifact and companions
+	maxWriteBytes int64
+	// archivePager 签名并验证服务器本地归档分页游标 / archivePager signs and verifies server-local archive page cursors
+	archivePager *application.ArchivePager
+	// directWriteMu 串行化非受限模式下的直接文件提交 / directWriteMu serializes direct filesystem commits in unrestricted mode
+	directWriteMu sync.Mutex
 }
 
+// New 校验配置并创建已注册工具、资源和提示的 MCP 服务器
+// New validates configuration and creates an MCP server with tools, resources, and prompts registered
 func New(config Config) (*Server, error) {
 	if config.Engine == nil {
 		return nil, fmt.Errorf("application engine is required")
@@ -102,152 +123,260 @@ func New(config Config) (*Server, error) {
 	return s, nil
 }
 
+// Run 通过标准输入输出传输运行 MCP 服务器直到上下文结束
+// Run serves MCP over standard input and output until the context ends
 func (s *Server) Run(ctx context.Context) error {
 	return s.server.Run(ctx, &mcp.StdioTransport{})
 }
 
+// MCPServer 返回底层 SDK 服务器以供嵌入和测试
+// MCPServer returns the underlying SDK server for embedding and tests
 func (s *Server) MCPServer() *mcp.Server { return s.server }
 
+// rootedFileInput 描述受限根目录中的单个输入文件 / rootedFileInput describes one input file beneath a confined root
 type rootedFileInput struct {
-	RootID       string `json:"root_id" jsonschema:"configured root ID"`
+	// RootID 是能力资源公开的配置根标识符 / RootID is a configured root identifier advertised by the capabilities resource
+	RootID string `json:"root_id" jsonschema:"configured root ID"`
+	// RelativePath 是相对于配置根目录的可移植文件路径 / RelativePath is a portable file path relative to the configured root
 	RelativePath string `json:"relative_path" jsonschema:"portable path relative to the configured root"`
 }
 
+// directFileInput 描述非受限模式下的直接输入路径 / directFileInput describes a direct input path in unrestricted mode
 type directFileInput struct {
+	// Path 是绝对路径或相对于服务器工作目录的路径 / Path is an absolute path or a path relative to the server working directory
 	Path string `json:"path" jsonschema:"absolute path or path relative to the MCP server working directory"`
 }
 
+// detectOutput 描述 MCP 工具返回的文件格式检测结果 / detectOutput describes a file format detection result returned by an MCP tool
 type detectOutput struct {
-	FormatID       string                     `json:"format_id"`
-	Game           string                     `json:"game"`
-	FileType       string                     `json:"file_type"`
+	// FormatID 是应用注册表中的稳定格式标识符 / FormatID is the stable format identifier in the application registry
+	FormatID string `json:"format_id"`
+	// Game 是检测到的游戏或工具名称 / Game is the detected game or tool name
+	Game string `json:"game"`
+	// FileType 是检测到的规范文件类型 / FileType is the detected canonical file type
+	FileType string `json:"file_type"`
+	// Representation 表示文件是原生格式还是编辑 JSON / Representation indicates whether the file is native data or editing JSON
 	Representation application.Representation `json:"representation"`
-	StorageFormat  string                     `json:"storage_format"`
-	Signature      string                     `json:"signature,omitempty"`
-	Version        int32                      `json:"version,omitempty"`
-	Name           string                     `json:"name"`
-	Size           int64                      `json:"size"`
+	// StorageFormat 描述文件使用的底层存储编码 / StorageFormat describes the underlying storage encoding used by the file
+	StorageFormat string `json:"storage_format"`
+	// Signature 是检测到的可选文件签名 / Signature is the optional detected file signature
+	Signature string `json:"signature,omitempty"`
+	// Version 是检测到的精确格式版本 / Version is the exact detected format version
+	Version int32 `json:"version,omitempty"`
+	// Name 是不包含目录的输入文件名 / Name is the input filename without directory components
+	Name string `json:"name"`
+	// Size 是输入文件的精确字节数 / Size is the exact input file size in bytes
+	Size int64 `json:"size"`
 }
 
+// inspectInput 描述受限模式下将原生文件检查为编辑 JSON 的请求 / inspectInput describes a request to inspect a native file as editing JSON in restricted mode
 type inspectInput struct {
-	RootID       string `json:"root_id" jsonschema:"configured root ID"`
+	// RootID 是输入文件所在的配置根标识符 / RootID is the configured root identifier containing the input file
+	RootID string `json:"root_id" jsonschema:"configured root ID"`
+	// RelativePath 是相对于配置根目录的可移植输入路径 / RelativePath is the portable input path relative to the configured root
 	RelativePath string `json:"relative_path" jsonschema:"portable path relative to the configured root"`
-	FormatID     string `json:"format_id,omitempty" jsonschema:"optional explicit format ID; empty enables detection"`
-}
-
-type directInspectInput struct {
-	Path     string `json:"path" jsonschema:"absolute path or path relative to the MCP server working directory"`
+	// FormatID 是可选显式格式标识符，空值启用检测 / FormatID is an optional explicit format identifier with an empty value enabling detection
 	FormatID string `json:"format_id,omitempty" jsonschema:"optional explicit format ID; empty enables detection"`
 }
 
+// directInspectInput 描述非受限模式下将直接路径检查为编辑 JSON 的请求 / directInspectInput describes a request to inspect a direct path as editing JSON in unrestricted mode
+type directInspectInput struct {
+	// Path 是绝对输入路径或相对于服务器工作目录的路径 / Path is an absolute input path or a path relative to the server working directory
+	Path string `json:"path" jsonschema:"absolute path or path relative to the MCP server working directory"`
+	// FormatID 是可选显式格式标识符，空值启用检测 / FormatID is an optional explicit format identifier with an empty value enabling detection
+	FormatID string `json:"format_id,omitempty" jsonschema:"optional explicit format ID; empty enables detection"`
+}
+
+// inspectOutput 描述检查工具生成的编辑 JSON 制品元数据 / inspectOutput describes editing JSON artifact metadata produced by the inspect tool
 type inspectOutput struct {
-	Name     string `json:"name"`
+	// Name 是编辑 JSON 的建议文件名 / Name is the suggested filename for the editing JSON
+	Name string `json:"name"`
+	// FormatID 是编辑 JSON 对应的稳定格式标识符 / FormatID is the stable format identifier associated with the editing JSON
 	FormatID string `json:"format_id"`
-	Size     int64  `json:"size"`
-	SHA256   string `json:"sha256"`
+	// Size 是编辑 JSON 的精确字节数 / Size is the exact editing JSON size in bytes
+	Size int64 `json:"size"`
+	// SHA256 是编辑 JSON 内容的十六进制 SHA-256 摘要 / SHA256 is the hexadecimal SHA-256 digest of the editing JSON content
+	SHA256 string `json:"sha256"`
 }
 
+// validateInput 描述受限模式下校验文件或直接编辑 JSON 的请求 / validateInput describes a request to validate a rooted file or directly supplied editing JSON in restricted mode
 type validateInput struct {
-	RootID       string `json:"root_id,omitempty" jsonschema:"configured root ID when validating a rooted file"`
+	// RootID 是校验受限文件时使用的配置根标识符 / RootID is the configured root identifier used when validating a confined file
+	RootID string `json:"root_id,omitempty" jsonschema:"configured root ID when validating a rooted file"`
+	// RelativePath 是校验受限文件时相对于根目录的路径 / RelativePath is the path relative to the root when validating a confined file
 	RelativePath string `json:"relative_path,omitempty" jsonschema:"relative path when validating a rooted file"`
-	Name         string `json:"name,omitempty" jsonschema:"editing JSON filename including the native double extension"`
-	EditingJSON  string `json:"editing_json,omitempty" jsonschema:"UTF-8 editing JSON supplied directly instead of a rooted file"`
-	FormatID     string `json:"format_id,omitempty" jsonschema:"optional explicit format ID; empty enables detection"`
+	// Name 是直接提供编辑 JSON 时包含原生双后缀的文件名 / Name is the filename including the native double suffix when editing JSON is supplied directly
+	Name string `json:"name,omitempty" jsonschema:"editing JSON filename including the native double extension"`
+	// EditingJSON 是代替受限文件直接提供的 UTF-8 编辑 JSON / EditingJSON is UTF-8 editing JSON supplied directly instead of a confined file
+	EditingJSON string `json:"editing_json,omitempty" jsonschema:"UTF-8 editing JSON supplied directly instead of a rooted file"`
+	// FormatID 是可选显式格式标识符，空值启用检测 / FormatID is an optional explicit format identifier with an empty value enabling detection
+	FormatID string `json:"format_id,omitempty" jsonschema:"optional explicit format ID; empty enables detection"`
 }
 
+// directValidateInput 描述非受限模式下校验路径或直接编辑 JSON 的请求 / directValidateInput describes a request to validate a path or directly supplied editing JSON in unrestricted mode
 type directValidateInput struct {
-	Path        string `json:"path,omitempty" jsonschema:"absolute path or path relative to the MCP server working directory"`
-	Name        string `json:"name,omitempty" jsonschema:"editing JSON filename including the native double extension"`
+	// Path 是待校验文件的直接路径 / Path is the direct path of the file to validate
+	Path string `json:"path,omitempty" jsonschema:"absolute path or path relative to the MCP server working directory"`
+	// Name 是直接提供编辑 JSON 时包含原生双后缀的文件名 / Name is the filename including the native double suffix when editing JSON is supplied directly
+	Name string `json:"name,omitempty" jsonschema:"editing JSON filename including the native double extension"`
+	// EditingJSON 是代替文件直接提供的 UTF-8 编辑 JSON / EditingJSON is UTF-8 editing JSON supplied directly instead of a file
 	EditingJSON string `json:"editing_json,omitempty" jsonschema:"UTF-8 editing JSON supplied directly instead of a file"`
-	FormatID    string `json:"format_id,omitempty" jsonschema:"optional explicit format ID; empty enables detection"`
+	// FormatID 是可选显式格式标识符，空值启用检测 / FormatID is an optional explicit format identifier with an empty value enabling detection
+	FormatID string `json:"format_id,omitempty" jsonschema:"optional explicit format ID; empty enables detection"`
 }
 
+// validateOutput 描述成功完成的格式校验及其检测元数据 / validateOutput describes a successfully completed format validation and its detection metadata
 type validateOutput struct {
-	Valid     bool         `json:"valid"`
+	// Valid 表示输入已通过完整格式校验 / Valid reports that the input passed full format validation
+	Valid bool `json:"valid"`
+	// Detection 是已校验输入的格式检测元数据 / Detection is format detection metadata for the validated input
 	Detection detectOutput `json:"detection"`
 }
 
+// convertInput 描述受限根目录之间的格式转换请求 / convertInput describes a format conversion request between confined roots
 type convertInput struct {
-	RootID             string `json:"root_id" jsonschema:"configured input root ID"`
-	RelativePath       string `json:"relative_path" jsonschema:"portable input path relative to root_id"`
-	FormatID           string `json:"format_id,omitempty" jsonschema:"optional explicit format ID; empty enables detection"`
-	Target             string `json:"target" jsonschema:"target representation: native or editing_json"`
-	OutputRootID       string `json:"output_root_id" jsonschema:"configured output root ID"`
+	// RootID 是输入文件所在的配置根标识符 / RootID is the configured root identifier containing the input file
+	RootID string `json:"root_id" jsonschema:"configured input root ID"`
+	// RelativePath 是相对于输入根目录的可移植路径 / RelativePath is the portable path relative to the input root
+	RelativePath string `json:"relative_path" jsonschema:"portable input path relative to root_id"`
+	// FormatID 是可选显式格式标识符，空值启用检测 / FormatID is an optional explicit format identifier with an empty value enabling detection
+	FormatID string `json:"format_id,omitempty" jsonschema:"optional explicit format ID; empty enables detection"`
+	// Target 是 native 或 editing_json 目标表示 / Target is the native or editing_json target representation
+	Target string `json:"target" jsonschema:"target representation: native or editing_json"`
+	// OutputRootID 是接收转换结果的可写根标识符 / OutputRootID is the writable root identifier that receives the conversion result
+	OutputRootID string `json:"output_root_id" jsonschema:"configured output root ID"`
+	// OutputRelativePath 是相对于输出根目录的可移植目标路径 / OutputRelativePath is the portable destination path relative to the output root
 	OutputRelativePath string `json:"output_relative_path" jsonschema:"portable destination path relative to output_root_id"`
 }
 
+// directConvertInput 描述非受限模式下直接路径之间的格式转换请求 / directConvertInput describes a format conversion request between direct paths in unrestricted mode
 type directConvertInput struct {
-	Path       string `json:"path" jsonschema:"absolute input path or path relative to the MCP server working directory"`
-	FormatID   string `json:"format_id,omitempty" jsonschema:"optional explicit format ID; empty enables detection"`
-	Target     string `json:"target" jsonschema:"target representation: native or editing_json"`
+	// Path 是绝对输入路径或相对于服务器工作目录的路径 / Path is an absolute input path or a path relative to the server working directory
+	Path string `json:"path" jsonschema:"absolute input path or path relative to the MCP server working directory"`
+	// FormatID 是可选显式格式标识符，空值启用检测 / FormatID is an optional explicit format identifier with an empty value enabling detection
+	FormatID string `json:"format_id,omitempty" jsonschema:"optional explicit format ID; empty enables detection"`
+	// Target 是 native 或 editing_json 目标表示 / Target is the native or editing_json target representation
+	Target string `json:"target" jsonschema:"target representation: native or editing_json"`
+	// OutputPath 是调用方授权的直接目标文件路径 / OutputPath is the direct destination file path authorized by the caller
 	OutputPath string `json:"output_path" jsonschema:"absolute destination path or path relative to the MCP server working directory"`
 }
 
+// artifactOutput 描述 MCP 转换或提取工具安装的主要制品 / artifactOutput describes a primary artifact installed by an MCP conversion or extraction tool
 type artifactOutput struct {
-	Name           string                     `json:"name"`
-	FormatID       string                     `json:"format_id"`
+	// Name 是制品的建议文件名 / Name is the suggested filename of the artifact
+	Name string `json:"name"`
+	// FormatID 是制品对应的稳定格式标识符 / FormatID is the stable format identifier associated with the artifact
+	FormatID string `json:"format_id"`
+	// Representation 表示制品是原生格式还是编辑 JSON / Representation indicates whether the artifact is native data or editing JSON
 	Representation application.Representation `json:"representation"`
-	Size           int64                      `json:"size"`
-	SHA256         string                     `json:"sha256"`
-	RootID         string                     `json:"root_id,omitempty"`
-	RelativePath   string                     `json:"relative_path,omitempty"`
-	Path           string                     `json:"path,omitempty"`
-	Attachments    []artifactAttachmentOutput `json:"attachments,omitempty"`
-}
-
-type artifactAttachmentOutput struct {
-	Suffix       string `json:"suffix"`
-	Name         string `json:"name"`
-	Size         int64  `json:"size"`
-	SHA256       string `json:"sha256"`
-	RootID       string `json:"root_id,omitempty"`
+	// Size 是主要制品的精确字节数 / Size is the exact primary artifact size in bytes
+	Size int64 `json:"size"`
+	// SHA256 是主要制品内容的十六进制 SHA-256 摘要 / SHA256 is the hexadecimal SHA-256 digest of the primary artifact content
+	SHA256 string `json:"sha256"`
+	// RootID 是受限模式下安装制品的根标识符 / RootID is the root identifier where the artifact was installed in restricted mode
+	RootID string `json:"root_id,omitempty"`
+	// RelativePath 是受限模式下已安装制品的相对路径 / RelativePath is the installed artifact path relative to its root in restricted mode
 	RelativePath string `json:"relative_path,omitempty"`
-	Path         string `json:"path,omitempty"`
+	// Path 是非受限模式下已安装制品的直接路径 / Path is the direct installed artifact path in unrestricted mode
+	Path string `json:"path,omitempty"`
+	// Attachments 描述随主要制品安装的受管理伴随文件 / Attachments describes managed companion files installed with the primary artifact
+	Attachments []artifactAttachmentOutput `json:"attachments,omitempty"`
 }
 
+// artifactAttachmentOutput 描述 MCP 工具安装的单个制品伴随文件 / artifactAttachmentOutput describes one artifact companion file installed by an MCP tool
+type artifactAttachmentOutput struct {
+	// Suffix 是追加到主要制品路径后的受管理后缀 / Suffix is the managed suffix appended to the primary artifact path
+	Suffix string `json:"suffix"`
+	// Name 是伴随文件的建议文件名 / Name is the suggested filename of the companion file
+	Name string `json:"name"`
+	// Size 是伴随文件的精确字节数 / Size is the exact companion file size in bytes
+	Size int64 `json:"size"`
+	// SHA256 是伴随文件内容的十六进制 SHA-256 摘要 / SHA256 is the hexadecimal SHA-256 digest of the companion file content
+	SHA256 string `json:"sha256"`
+	// RootID 是受限模式下安装伴随文件的根标识符 / RootID is the root identifier where the companion was installed in restricted mode
+	RootID string `json:"root_id,omitempty"`
+	// RelativePath 是受限模式下伴随文件相对于根目录的路径 / RelativePath is the companion path relative to its root in restricted mode
+	RelativePath string `json:"relative_path,omitempty"`
+	// Path 是非受限模式下伴随文件的直接路径 / Path is the direct companion path in unrestricted mode
+	Path string `json:"path,omitempty"`
+}
+
+// listArchiveInput 描述受限模式下的归档分页列表请求 / listArchiveInput describes a paginated archive-list request in restricted mode
 type listArchiveInput struct {
-	RootID       string `json:"root_id" jsonschema:"configured root ID"`
+	// RootID 是归档所在的配置根标识符 / RootID is the configured root identifier containing the archive
+	RootID string `json:"root_id" jsonschema:"configured root ID"`
+	// RelativePath 是相对于输入根目录的可移植归档路径 / RelativePath is the portable archive path relative to the input root
 	RelativePath string `json:"relative_path" jsonschema:"portable archive path relative to root_id"`
-	FormatID     string `json:"format_id,omitempty" jsonschema:"optional explicit archive format ID"`
-	PageSize     int    `json:"page_size,omitempty" jsonschema:"optional page size; defaults to 128"`
-	PageToken    string `json:"page_token,omitempty" jsonschema:"opaque server-signed page token returned by the previous call"`
-}
-
-type directListArchiveInput struct {
-	Path      string `json:"path" jsonschema:"absolute archive path or path relative to the MCP server working directory"`
-	FormatID  string `json:"format_id,omitempty" jsonschema:"optional explicit archive format ID"`
-	PageSize  int    `json:"page_size,omitempty" jsonschema:"optional page size; defaults to 128"`
+	// FormatID 是可选显式归档格式标识符 / FormatID is an optional explicit archive format identifier
+	FormatID string `json:"format_id,omitempty" jsonschema:"optional explicit archive format ID"`
+	// PageSize 是可选的页面条目数 / PageSize is the optional number of entries requested for the page
+	PageSize int `json:"page_size,omitempty" jsonschema:"optional page size; defaults to 128"`
+	// PageToken 是上一次调用返回的不透明服务器签名游标 / PageToken is the opaque server-signed cursor returned by the previous call
 	PageToken string `json:"page_token,omitempty" jsonschema:"opaque server-signed page token returned by the previous call"`
 }
 
+// directListArchiveInput 描述非受限模式下的直接路径归档分页列表请求 / directListArchiveInput describes a paginated direct-path archive-list request in unrestricted mode
+type directListArchiveInput struct {
+	// Path 是绝对归档路径或相对于服务器工作目录的路径 / Path is an absolute archive path or a path relative to the server working directory
+	Path string `json:"path" jsonschema:"absolute archive path or path relative to the MCP server working directory"`
+	// FormatID 是可选显式归档格式标识符 / FormatID is an optional explicit archive format identifier
+	FormatID string `json:"format_id,omitempty" jsonschema:"optional explicit archive format ID"`
+	// PageSize 是可选的页面条目数 / PageSize is the optional number of entries requested for the page
+	PageSize int `json:"page_size,omitempty" jsonschema:"optional page size; defaults to 128"`
+	// PageToken 是上一次调用返回的不透明服务器签名游标 / PageToken is the opaque server-signed cursor returned by the previous call
+	PageToken string `json:"page_token,omitempty" jsonschema:"opaque server-signed page token returned by the previous call"`
+}
+
+// archiveEntryOutput 描述归档列表中的单个条目 / archiveEntryOutput describes one entry in an archive listing
 type archiveEntryOutput struct {
+	// Name 是归档内部的精确条目名称 / Name is the exact entry name inside the archive
 	Name string `json:"name"`
-	Size int64  `json:"size"`
+	// Size 是条目解压后的精确字节数 / Size is the exact decompressed entry size in bytes
+	Size int64 `json:"size"`
+	// Kind 是普通文件、虚拟文件或序列化文件类别 / Kind classifies the entry as a regular, virtual, or serialized file
 	Kind string `json:"kind"`
 }
 
+// listArchiveOutput 描述一个带可选后续游标的归档列表页面 / listArchiveOutput describes one archive-list page with an optional continuation cursor
 type listArchiveOutput struct {
-	FormatID      string               `json:"format_id"`
-	Entries       []archiveEntryOutput `json:"entries"`
-	NextPageToken string               `json:"next_page_token,omitempty"`
+	// FormatID 是实际用于读取归档的稳定格式标识符 / FormatID is the stable format identifier actually used to read the archive
+	FormatID string `json:"format_id"`
+	// Entries 是当前页面包含的有序归档条目 / Entries contains ordered archive entries in the current page
+	Entries []archiveEntryOutput `json:"entries"`
+	// NextPageToken 是读取下一页时提交的不透明服务器签名游标 / NextPageToken is the opaque server-signed cursor submitted to read the next page
+	NextPageToken string `json:"next_page_token,omitempty"`
 }
 
+// extractArchiveInput 描述受限根目录之间的归档条目提取请求 / extractArchiveInput describes an archive-entry extraction request between confined roots
 type extractArchiveInput struct {
-	RootID             string `json:"root_id" jsonschema:"configured input root ID"`
-	RelativePath       string `json:"relative_path" jsonschema:"portable archive path relative to root_id"`
-	FormatID           string `json:"format_id,omitempty" jsonschema:"optional explicit archive format ID"`
-	EntryName          string `json:"entry_name" jsonschema:"exact entry name returned by meido.list_archive"`
-	OutputRootID       string `json:"output_root_id" jsonschema:"configured output root ID"`
+	// RootID 是输入归档所在的配置根标识符 / RootID is the configured root identifier containing the input archive
+	RootID string `json:"root_id" jsonschema:"configured input root ID"`
+	// RelativePath 是相对于输入根目录的可移植归档路径 / RelativePath is the portable archive path relative to the input root
+	RelativePath string `json:"relative_path" jsonschema:"portable archive path relative to root_id"`
+	// FormatID 是可选显式归档格式标识符 / FormatID is an optional explicit archive format identifier
+	FormatID string `json:"format_id,omitempty" jsonschema:"optional explicit archive format ID"`
+	// EntryName 是列表工具返回的精确归档条目名称 / EntryName is the exact archive entry name returned by the list tool
+	EntryName string `json:"entry_name" jsonschema:"exact entry name returned by meido.list_archive"`
+	// OutputRootID 是接收提取结果的可写根标识符 / OutputRootID is the writable root identifier that receives the extracted result
+	OutputRootID string `json:"output_root_id" jsonschema:"configured output root ID"`
+	// OutputRelativePath 是相对于输出根目录的可移植目标路径 / OutputRelativePath is the portable destination path relative to the output root
 	OutputRelativePath string `json:"output_relative_path" jsonschema:"portable destination path relative to output_root_id"`
 }
 
+// directExtractArchiveInput 描述非受限模式下的直接路径归档条目提取请求 / directExtractArchiveInput describes a direct-path archive-entry extraction request in unrestricted mode
 type directExtractArchiveInput struct {
-	Path       string `json:"path" jsonschema:"absolute archive path or path relative to the MCP server working directory"`
-	FormatID   string `json:"format_id,omitempty" jsonschema:"optional explicit archive format ID"`
-	EntryName  string `json:"entry_name" jsonschema:"exact entry name returned by meido.list_archive"`
+	// Path 是绝对归档路径或相对于服务器工作目录的路径 / Path is an absolute archive path or a path relative to the server working directory
+	Path string `json:"path" jsonschema:"absolute archive path or path relative to the MCP server working directory"`
+	// FormatID 是可选显式归档格式标识符 / FormatID is an optional explicit archive format identifier
+	FormatID string `json:"format_id,omitempty" jsonschema:"optional explicit archive format ID"`
+	// EntryName 是列表工具返回的精确归档条目名称 / EntryName is the exact archive entry name returned by the list tool
+	EntryName string `json:"entry_name" jsonschema:"exact entry name returned by meido.list_archive"`
+	// OutputPath 是调用方授权的直接目标文件路径 / OutputPath is the direct destination file path authorized by the caller
 	OutputPath string `json:"output_path" jsonschema:"absolute destination path or path relative to the MCP server working directory"`
 }
 
+// registerTools 根据文件系统模式注册受限或直接路径版本的文件工具
+// registerTools registers confined-root or direct-path file tools according to the filesystem mode
 func (s *Server) registerTools() {
 	if s.filesystemMode == FilesystemModeUnrestricted {
 		s.registerUnrestrictedTools()
@@ -279,6 +408,8 @@ func (s *Server) registerTools() {
 	}, s.extractArchiveEntry)
 }
 
+// registerUnrestrictedTools 注册使用直接文件系统路径的非受限工具处理器
+// registerUnrestrictedTools registers unrestricted tool handlers that accept direct filesystem paths
 func (s *Server) registerUnrestrictedTools() {
 	mcp.AddTool(s.server, &mcp.Tool{
 		Name:        "meido.detect_file",
@@ -306,6 +437,8 @@ func (s *Server) registerUnrestrictedTools() {
 	}, s.extractDirectArchiveEntry)
 }
 
+// registerResources 注册能力、格式模式、字段指南和编辑技能资源
+// registerResources registers capabilities, format schemas, field guides, and editing-skill resources
 func (s *Server) registerResources() {
 	s.server.AddResource(&mcp.Resource{
 		Name:        "meido-serialization-capabilities",
@@ -380,6 +513,8 @@ func (s *Server) registerResources() {
 	})
 }
 
+// resourceFormatID 从资源 URI 校验并提取规范化格式标识符
+// resourceFormatID validates and extracts a normalized format identifier from a resource URI
 func resourceFormatID(request *mcp.ReadResourceRequest, prefix string) (string, error) {
 	if request == nil || request.Params == nil || !strings.HasPrefix(request.Params.URI, prefix) {
 		return "", fmt.Errorf("invalid format resource URI")
@@ -391,6 +526,8 @@ func resourceFormatID(request *mcp.ReadResourceRequest, prefix string) (string, 
 	return formatID, nil
 }
 
+// registerPrompts 注册根据文件系统模式调整路径参数的格式编辑提示
+// registerPrompts registers the format-editing prompt with path arguments adapted to the filesystem mode
 func (s *Server) registerPrompts() {
 	arguments := []*mcp.PromptArgument{
 		{Name: "format_id", Description: "format ID advertised by meido://capabilities", Required: true},
@@ -417,6 +554,8 @@ func (s *Server) registerPrompts() {
 	}, s.editFormatPrompt)
 }
 
+// editFormatPrompt 组合编辑技能、模式、指南、目标和可选路径参数
+// editFormatPrompt combines an editing skill, schema, guide, objective, and optional path arguments
 func (s *Server) editFormatPrompt(_ context.Context, request *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	if request == nil || request.Params == nil {
 		return nil, fmt.Errorf("prompt request is required")
@@ -443,9 +582,12 @@ func (s *Server) editFormatPrompt(_ context.Context, request *mcp.GetPromptReque
 	task.WriteString("Editing objective:\n")
 	task.WriteString(objective)
 	task.WriteString("\n\nUse only the embedded Schema and guide as format authority. Preserve any schema_only field unless this objective requires a structural edit and the caller supplies its semantics.")
+	// promptPathArgument 将提示参数键映射为任务文本中显示的标签 / promptPathArgument maps a prompt argument key to the label displayed in task text
 	type promptPathArgument struct {
+		// label 是写入任务文本的路径参数标签 / label is the path-argument label written into task text
 		label string
-		key   string
+		// key 是从提示请求读取参数值的键 / key is the key used to read the argument value from the prompt request
+		key string
 	}
 	var pathArguments []promptPathArgument
 	if s.filesystemMode == FilesystemModeRestricted {
@@ -485,6 +627,8 @@ func (s *Server) editFormatPrompt(_ context.Context, request *mcp.GetPromptReque
 	}, nil
 }
 
+// editingSkill 按文件系统模式选择写入策略并呈现格式编辑技能
+// editingSkill selects a write policy for the filesystem mode and renders the format-editing skill
 func (s *Server) editingSkill(formatID, coverage string) string {
 	policy := unrestrictedEditingWritePolicy
 	if s.filesystemMode == FilesystemModeRestricted {
@@ -493,6 +637,8 @@ func (s *Server) editingSkill(formatID, coverage string) string {
 	return knowledgev1.EditingSkill(formatID, coverage, policy)
 }
 
+// writePolicyCapabilities 返回当前文件系统模式的结构化写入策略能力
+// writePolicyCapabilities returns structured write-policy capabilities for the current filesystem mode
 func (s *Server) writePolicyCapabilities() map[string]any {
 	if s.filesystemMode == FilesystemModeRestricted {
 		return map[string]any{
@@ -507,6 +653,8 @@ func (s *Server) writePolicyCapabilities() map[string]any {
 	}
 }
 
+// capabilities 汇总格式、根目录、资源限制、写入策略和资源模板信息
+// capabilities summarizes formats, roots, resource limits, write policy, and resource templates
 func (s *Server) capabilities() map[string]any {
 	maxArchiveListingBytes, maxArchiveEntries := s.engine.ArchiveListingLimits()
 	formats := s.engine.Formats()
@@ -539,6 +687,8 @@ func (s *Server) capabilities() map[string]any {
 	}
 }
 
+// detectFile 解析受限根目录文件并返回其格式检测结果
+// detectFile resolves a confined-root file and returns its format detection result
 func (s *Server) detectFile(ctx context.Context, _ *mcp.CallToolRequest, input rootedFileInput) (*mcp.CallToolResult, detectOutput, error) {
 	source, err := s.roots.Resolve(input.RootID, input.RelativePath)
 	if err != nil {
@@ -547,6 +697,8 @@ func (s *Server) detectFile(ctx context.Context, _ *mcp.CallToolRequest, input r
 	return s.detectSource(ctx, source)
 }
 
+// detectDirectFile 打开直接文件系统路径并返回其格式检测结果
+// detectDirectFile opens a direct filesystem path and returns its format detection result
 func (s *Server) detectDirectFile(ctx context.Context, _ *mcp.CallToolRequest, input directFileInput) (*mcp.CallToolResult, detectOutput, error) {
 	source, err := directSource(input.Path)
 	if err != nil {
@@ -555,6 +707,8 @@ func (s *Server) detectDirectFile(ctx context.Context, _ *mcp.CallToolRequest, i
 	return s.detectSource(ctx, source)
 }
 
+// detectSource 使用应用引擎检测抽象输入源并转换输出模型
+// detectSource detects an abstract input source with the application engine and converts the output model
 func (s *Server) detectSource(ctx context.Context, source application.Source) (*mcp.CallToolResult, detectOutput, error) {
 	detection, err := s.engine.Detect(ctx, source)
 	if err != nil {
@@ -563,6 +717,8 @@ func (s *Server) detectSource(ctx context.Context, source application.Source) (*
 	return nil, detectionOutput(detection), nil
 }
 
+// inspectFile 将受限根目录中的原生文件转换为可内联检查的编辑 JSON
+// inspectFile converts a native file beneath a confined root into editing JSON suitable for inline inspection
 func (s *Server) inspectFile(ctx context.Context, _ *mcp.CallToolRequest, input inspectInput) (*mcp.CallToolResult, inspectOutput, error) {
 	source, err := s.roots.Resolve(input.RootID, input.RelativePath)
 	if err != nil {
@@ -571,6 +727,8 @@ func (s *Server) inspectFile(ctx context.Context, _ *mcp.CallToolRequest, input 
 	return s.inspectSource(ctx, source, input.FormatID)
 }
 
+// inspectDirectFile 将直接路径中的原生文件转换为可内联检查的编辑 JSON
+// inspectDirectFile converts a native file at a direct path into editing JSON suitable for inline inspection
 func (s *Server) inspectDirectFile(ctx context.Context, _ *mcp.CallToolRequest, input directInspectInput) (*mcp.CallToolResult, inspectOutput, error) {
 	source, err := directSource(input.Path)
 	if err != nil {
@@ -579,6 +737,8 @@ func (s *Server) inspectDirectFile(ctx context.Context, _ *mcp.CallToolRequest, 
 	return s.inspectSource(ctx, source, input.FormatID)
 }
 
+// inspectSource 转换输入源并在结果限制内返回经过 JSON 语法检查的编辑内容
+// inspectSource converts a source and returns syntax-checked editing JSON within the result limit
 func (s *Server) inspectSource(ctx context.Context, source application.Source, formatID string) (*mcp.CallToolResult, inspectOutput, error) {
 	temp, err := os.CreateTemp("", "meido-mcp-inspect-")
 	if err != nil {
@@ -608,6 +768,8 @@ func (s *Server) inspectSource(ctx context.Context, source application.Source, f
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(output)}}}, result, nil
 }
 
+// validateEditingJSON 校验受限文件或直接提供的编辑 JSON
+// validateEditingJSON validates a confined file or directly supplied editing JSON
 func (s *Server) validateEditingJSON(ctx context.Context, _ *mcp.CallToolRequest, input validateInput) (*mcp.CallToolResult, validateOutput, error) {
 	var source application.Source
 	var err error
@@ -625,6 +787,8 @@ func (s *Server) validateEditingJSON(ctx context.Context, _ *mcp.CallToolRequest
 	return s.validateSource(ctx, source, input.FormatID)
 }
 
+// validateDirectEditingJSON 校验直接路径文件或直接提供的编辑 JSON
+// validateDirectEditingJSON validates a direct-path file or directly supplied editing JSON
 func (s *Server) validateDirectEditingJSON(ctx context.Context, _ *mcp.CallToolRequest, input directValidateInput) (*mcp.CallToolResult, validateOutput, error) {
 	var source application.Source
 	var err error
@@ -642,6 +806,8 @@ func (s *Server) validateDirectEditingJSON(ctx context.Context, _ *mcp.CallToolR
 	return s.validateSource(ctx, source, input.FormatID)
 }
 
+// validateSource 使用应用引擎完整校验输入源并转换检测结果
+// validateSource fully validates a source with the application engine and converts its detection result
 func (s *Server) validateSource(ctx context.Context, source application.Source, formatID string) (*mcp.CallToolResult, validateOutput, error) {
 	detection, err := s.engine.Validate(ctx, source, formatID)
 	if err != nil {
@@ -650,6 +816,8 @@ func (s *Server) validateSource(ctx context.Context, source application.Source, 
 	return nil, validateOutput{Valid: true, Detection: detectionOutput(detection)}, nil
 }
 
+// convertFile 转换受限根目录输入并将完整制品集合安装到可写根目录
+// convertFile converts confined-root input and installs the complete artifact bundle beneath a writable root
 func (s *Server) convertFile(ctx context.Context, _ *mcp.CallToolRequest, input convertInput) (*mcp.CallToolResult, artifactOutput, error) {
 	target, err := parseRepresentation(input.Target)
 	if err != nil {
@@ -671,6 +839,8 @@ func (s *Server) convertFile(ctx context.Context, _ *mcp.CallToolRequest, input 
 	return nil, artifactResult(artifact, input.OutputRootID, input.OutputRelativePath), nil
 }
 
+// convertDirectFile 转换直接路径输入并将完整制品集合安装到授权目标路径
+// convertDirectFile converts direct-path input and installs the complete artifact bundle at an authorized destination
 func (s *Server) convertDirectFile(ctx context.Context, _ *mcp.CallToolRequest, input directConvertInput) (*mcp.CallToolResult, artifactOutput, error) {
 	target, err := parseRepresentation(input.Target)
 	if err != nil {
@@ -693,6 +863,8 @@ func (s *Server) convertDirectFile(ctx context.Context, _ *mcp.CallToolRequest, 
 	return nil, directArtifactResult(artifact, outputPath), nil
 }
 
+// listArchive 解析受限根目录归档并返回请求的分页列表
+// listArchive resolves a confined-root archive and returns the requested listing page
 func (s *Server) listArchive(ctx context.Context, _ *mcp.CallToolRequest, input listArchiveInput) (*mcp.CallToolResult, listArchiveOutput, error) {
 	source, err := s.roots.Resolve(input.RootID, input.RelativePath)
 	if err != nil {
@@ -701,6 +873,8 @@ func (s *Server) listArchive(ctx context.Context, _ *mcp.CallToolRequest, input 
 	return s.listArchiveSource(ctx, source, input.FormatID, input.PageSize, input.PageToken)
 }
 
+// listDirectArchive 打开直接路径归档并返回请求的分页列表
+// listDirectArchive opens a direct-path archive and returns the requested listing page
 func (s *Server) listDirectArchive(ctx context.Context, _ *mcp.CallToolRequest, input directListArchiveInput) (*mcp.CallToolResult, listArchiveOutput, error) {
 	source, err := directSource(input.Path)
 	if err != nil {
@@ -709,6 +883,8 @@ func (s *Server) listDirectArchive(ctx context.Context, _ *mcp.CallToolRequest, 
 	return s.listArchiveSource(ctx, source, input.FormatID, input.PageSize, input.PageToken)
 }
 
+// listArchiveSource 返回同时受条目数和 MCP 结果字节数限制的归档页面
+// listArchiveSource returns an archive page bounded by both entry count and MCP result bytes
 func (s *Server) listArchiveSource(ctx context.Context, source application.Source, requestedFormatID string, requestedPageSize int, pageToken string) (*mcp.CallToolResult, listArchiveOutput, error) {
 	pageSize, err := mcpArchivePageSize(requestedPageSize)
 	if err != nil {
@@ -771,10 +947,14 @@ func (s *Server) listArchiveSource(ctx context.Context, source application.Sourc
 }
 
 const (
+	// defaultArchivePageSize 是 MCP 归档列表未指定页大小时返回的默认条目数 / defaultArchivePageSize is the default number of MCP archive entries returned when no page size is specified
 	defaultArchivePageSize = 128
-	maxArchivePageSize     = 1000
+	// maxArchivePageSize 是单个 MCP 归档页面允许的最大条目数 / maxArchivePageSize is the maximum number of entries permitted in one MCP archive page
+	maxArchivePageSize = 1000
 )
 
+// mcpArchivePageSize 规范化请求页大小并应用 MCP 归档页面上限
+// mcpArchivePageSize normalizes a requested page size and applies the MCP archive-page maximum
 func mcpArchivePageSize(value int) (int, error) {
 	if value < 0 {
 		return 0, fmt.Errorf("page_size must not be negative")
@@ -788,6 +968,8 @@ func mcpArchivePageSize(value int) (int, error) {
 	return value, nil
 }
 
+// extractArchiveEntry 从受限根目录归档提取条目并安装到可写根目录
+// extractArchiveEntry extracts an entry from a confined-root archive and installs it beneath a writable root
 func (s *Server) extractArchiveEntry(ctx context.Context, _ *mcp.CallToolRequest, input extractArchiveInput) (*mcp.CallToolResult, artifactOutput, error) {
 	if err := s.roots.ValidateWrite(input.OutputRootID, input.OutputRelativePath); err != nil {
 		return nil, artifactOutput{}, err
@@ -805,6 +987,8 @@ func (s *Server) extractArchiveEntry(ctx context.Context, _ *mcp.CallToolRequest
 	return nil, artifactResult(artifact, input.OutputRootID, input.OutputRelativePath), nil
 }
 
+// extractDirectArchiveEntry 从直接路径归档提取条目并安装到授权目标路径
+// extractDirectArchiveEntry extracts an entry from a direct-path archive and installs it at an authorized destination
 func (s *Server) extractDirectArchiveEntry(ctx context.Context, _ *mcp.CallToolRequest, input directExtractArchiveInput) (*mcp.CallToolResult, artifactOutput, error) {
 	outputPath, err := directOutputPath(input.OutputPath)
 	if err != nil {
@@ -823,12 +1007,16 @@ func (s *Server) extractDirectArchiveEntry(ctx context.Context, _ *mcp.CallToolR
 	return nil, directArtifactResult(artifact, outputPath), nil
 }
 
+// produceRootedFile 暂存生成的制品并将完整集合安装到配置根目录
+// produceRootedFile stages a produced artifact and installs the complete bundle beneath a configured root
 func (s *Server) produceRootedFile(ctx context.Context, rootID, relativePath string, produce func(io.Writer) (application.Artifact, error)) (application.Artifact, error) {
 	return s.produceFile(ctx, produce, func(path string, artifact application.Artifact) error {
 		return s.installBundle(ctx, s.roots, rootID, relativePath, path, artifact)
 	})
 }
 
+// produceDirectFile 暂存生成的制品并将完整集合安装到直接目标路径
+// produceDirectFile stages a produced artifact and installs the complete bundle at a direct destination path
 func (s *Server) produceDirectFile(ctx context.Context, outputPath string, produce func(io.Writer) (application.Artifact, error)) (application.Artifact, error) {
 	return s.produceFile(ctx, produce, func(path string, artifact application.Artifact) error {
 		s.directWriteMu.Lock()
@@ -848,6 +1036,8 @@ func (s *Server) produceDirectFile(ctx context.Context, outputPath string, produ
 	})
 }
 
+// produceFile 生成、校验并在写入限制内安装一个完整制品集合
+// produceFile produces, verifies, and installs a complete artifact bundle within the write limit
 func (s *Server) produceFile(ctx context.Context, produce func(io.Writer) (application.Artifact, error), install func(string, application.Artifact) error) (application.Artifact, error) {
 	temp, err := os.CreateTemp("", "meido-mcp-result-")
 	if err != nil {
@@ -875,6 +1065,8 @@ func (s *Server) produceFile(ctx context.Context, produce func(io.Writer) (appli
 	return artifact, nil
 }
 
+// installBundle 将已验证的主要文件和内存伴随文件原子写入目标根目录
+// installBundle atomically writes a verified primary file and in-memory companions beneath a target root
 func (s *Server) installBundle(ctx context.Context, roots *application.RootSet, rootID, relativePath, path string, artifact application.Artifact) error {
 	file, err := os.Open(path)
 	if err != nil {
@@ -894,6 +1086,8 @@ func (s *Server) installBundle(ctx context.Context, roots *application.RootSet, 
 	return err
 }
 
+// directSource 校验直接输入路径并创建包含受管理伴随文件的本地源
+// directSource validates a direct input path and creates a local source including managed companions
 func directSource(path string) (application.Source, error) {
 	if strings.TrimSpace(path) == "" || strings.IndexByte(path, 0) >= 0 {
 		return nil, fmt.Errorf("path is required and must not contain NUL")
@@ -901,6 +1095,8 @@ func directSource(path string) (application.Source, error) {
 	return application.NewFileSource(path)
 }
 
+// directOutputPath 校验直接输出文件路径并返回清理后的绝对路径
+// directOutputPath validates a direct output file path and returns its cleaned absolute path
 func directOutputPath(path string) (string, error) {
 	if strings.TrimSpace(path) == "" || strings.IndexByte(path, 0) >= 0 {
 		return "", fmt.Errorf("output_path is required and must not contain NUL")
@@ -923,6 +1119,8 @@ func directOutputPath(path string) (string, error) {
 	return absolute, nil
 }
 
+// verifyArtifactFile 重新计算暂存主要文件的大小和摘要以验证制品元数据
+// verifyArtifactFile recomputes the staged primary file size and digest to verify artifact metadata
 func verifyArtifactFile(path string, artifact application.Artifact) error {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -946,6 +1144,8 @@ func verifyArtifactFile(path string, artifact application.Artifact) error {
 	return nil
 }
 
+// parseRepresentation 将 MCP 文本参数解析为应用层目标表示
+// parseRepresentation parses an MCP text argument into an application target representation
 func parseRepresentation(value string) (application.Representation, error) {
 	switch application.Representation(strings.ToLower(strings.TrimSpace(value))) {
 	case application.RepresentationNative:
@@ -957,6 +1157,8 @@ func parseRepresentation(value string) (application.Representation, error) {
 	}
 }
 
+// detectionOutput 将应用检测结果转换为 MCP 结构化输出
+// detectionOutput converts an application detection result into MCP structured output
 func detectionOutput(value application.Detection) detectOutput {
 	return detectOutput{
 		FormatID: value.FormatID, Game: value.Game, FileType: value.FileType,
@@ -965,6 +1167,8 @@ func detectionOutput(value application.Detection) detectOutput {
 	}
 }
 
+// artifactResult 将受限根目录中的应用制品转换为 MCP 结构化输出
+// artifactResult converts an application artifact beneath a confined root into MCP structured output
 func artifactResult(value application.Artifact, rootID, relativePath string) artifactOutput {
 	result := artifactOutput{
 		Name: value.Name, FormatID: value.FormatID, Representation: value.Representation,
@@ -979,6 +1183,8 @@ func artifactResult(value application.Artifact, rootID, relativePath string) art
 	return result
 }
 
+// directArtifactResult 将直接路径中的应用制品转换为 MCP 结构化输出
+// directArtifactResult converts an application artifact at a direct path into MCP structured output
 func directArtifactResult(value application.Artifact, path string) artifactOutput {
 	result := artifactOutput{
 		Name: value.Name, FormatID: value.FormatID, Representation: value.Representation,

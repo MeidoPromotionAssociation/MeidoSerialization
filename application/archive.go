@@ -16,12 +16,18 @@ import (
 	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
 )
 
+// ArchiveEntry 描述归档中可列出和提取的单个条目 / ArchiveEntry describes one listable and extractable entry in an archive
 type ArchiveEntry struct {
+	// Name 是归档内部使用正斜杠表示的条目路径或名称 / Name is the entry path or name inside the archive using forward slashes where applicable
 	Name string
+	// Size 是条目解压后的字节数 / Size is the decompressed size of the entry in bytes
 	Size int64
+	// Kind 是区分普通文件、虚拟文件和序列化文件的条目类别 / Kind classifies the entry as a regular, virtual, or serialized file
 	Kind string
 }
 
+// ListArchive 返回归档中经过排序和资源限制检查的条目副本
+// ListArchive returns a copy of the sorted and resource-checked entries in an archive
 func (e *Engine) ListArchive(ctx context.Context, source Source, formatID string) ([]ArchiveEntry, error) {
 	listing, err := e.ListArchiveListing(ctx, source, formatID)
 	if err != nil {
@@ -30,6 +36,8 @@ func (e *Engine) ListArchive(ctx context.Context, source Source, formatID string
 	return append([]ArchiveEntry(nil), listing.Entries...), nil
 }
 
+// ListArchiveListing 返回带有源文件指纹的归档列表以供安全分页
+// ListArchiveListing returns an archive listing with a source fingerprint for safe pagination
 func (e *Engine) ListArchiveListing(ctx context.Context, source Source, formatID string) (ArchiveListing, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -65,6 +73,8 @@ func (e *Engine) ListArchiveListing(ctx context.Context, source Source, formatID
 	}, nil
 }
 
+// listArchivePath 使用已物化的本地文件列出指定格式的归档条目
+// listArchivePath lists archive entries for a format using an already materialized local file
 func (e *Engine) listArchivePath(ctx context.Context, formatID, path string) ([]ArchiveEntry, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, opError("list archive", CodeCanceled, err)
@@ -144,6 +154,8 @@ func (e *Engine) listArchivePath(ctx context.Context, formatID, path string) ([]
 	return entries, nil
 }
 
+// validateArchiveEntryCount 检查归档条目数量是否超过引擎限制
+// validateArchiveEntryCount checks whether an archive entry count exceeds the engine limit
 func (e *Engine) validateArchiveEntryCount(count int) error {
 	if count > e.maxArchiveEntries {
 		return opError("list archive", CodeResourceExhausted, fmt.Errorf("archive entry count %d exceeds limit %d", count, e.maxArchiveEntries))
@@ -151,6 +163,8 @@ func (e *Engine) validateArchiveEntryCount(count int) error {
 	return nil
 }
 
+// hashArchiveListingSource 以支持取消的方式计算归档源文件的 SHA-256 摘要
+// hashArchiveListingSource computes the SHA-256 digest of an archive source with cancellation support
 func hashArchiveListingSource(ctx context.Context, path string) ([sha256.Size]byte, error) {
 	var result [sha256.Size]byte
 	file, err := os.Open(path)
@@ -173,6 +187,8 @@ func hashArchiveListingSource(ctx context.Context, path string) ([sha256.Size]by
 	return result, nil
 }
 
+// ExtractArchiveEntry 从受支持的归档中提取指定条目并流式写入输出
+// ExtractArchiveEntry extracts a named entry from a supported archive and streams it to the output
 func (e *Engine) ExtractArchiveEntry(ctx context.Context, source Source, formatID, entryName string, output io.Writer) (Artifact, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -285,6 +301,8 @@ func (e *Engine) ExtractArchiveEntry(ctx context.Context, source Source, formatI
 	}
 }
 
+// copyBytesArtifact 将内存中的归档条目写入临时文件并复用统一制品流式输出逻辑
+// copyBytesArtifact writes an in-memory archive entry to a temporary file and reuses the common artifact streaming logic
 func (e *Engine) copyBytesArtifact(ctx context.Context, data []byte, name, formatID string, output io.Writer) (Artifact, error) {
 	if int64(len(data)) > e.maxOutputBytes {
 		return Artifact{}, opError("extract archive entry", CodeResourceExhausted, fmt.Errorf("entry size %d exceeds limit %d", len(data), e.maxOutputBytes))

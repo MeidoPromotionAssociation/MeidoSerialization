@@ -45,6 +45,8 @@ Examples:
 	},
 }
 
+// init 注册 TEX 压缩和 PNG 载荷参数
+// init registers the TEX compression and PNG payload flags
 func init() {
 	// Add command-specific flags here
 	convert2texCmd.Flags().BoolVarP(&compressTex, "compress", "c", false, "Enable DXT compression for .tex files")

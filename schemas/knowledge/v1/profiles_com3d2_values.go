@@ -13,6 +13,8 @@ const (
 	com3d2ChinkoStateValueSetID    = "com3d2.chinko_state.3_48"
 )
 
+// com3d2MenuValueSets 构建两个已审核游戏版本的菜单枚举和值名称目录
+// com3d2MenuValueSets builds menu enum and value-name catalogs for both reviewed game versions
 func com3d2MenuValueSets() []ValueSet {
 	mpn248Source := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/MPN.cs", "MPN", 3, 138, "Defines the numeric MPN ordering used by the reviewed COM3D2 2.48 menu compiler and runtime.")
 	mpn348Source := source("COM3D2_5 3.48.0", "game/COM3D2_5 3.48.0/Assembly-CSharp/MPN.cs", "MPN", 3, 239, "Defines the expanded and reordered numeric MPN set used by the reviewed COM3D2_5 3.48 runtime.")
@@ -135,6 +137,8 @@ func com3d2MenuValueSets() []ValueSet {
 	}
 }
 
+// sequentialValueSetValues 按名称切片顺序生成从零开始的精确数值映射
+// sequentialValueSetValues generates exact zero-based numeric mappings in name-slice order
 func sequentialValueSetValues(names []string) []ValueSetValue {
 	values := make([]ValueSetValue, len(names))
 	for index, name := range names {
@@ -143,6 +147,8 @@ func sequentialValueSetValues(names []string) []ValueSetValue {
 	return values
 }
 
+// appendValueSetSources 将值集合证据去重后追加到指南顶层来源
+// appendValueSetSources appends deduplicated value-set evidence to guide-level sources
 func appendValueSetSources(sources []Source, valueSets []ValueSet) []Source {
 	seen := make(map[string]struct{}, len(sources))
 	for _, evidence := range sources {
@@ -161,6 +167,8 @@ func appendValueSetSources(sources []Source, valueSets []ValueSet) []Source {
 	return sources
 }
 
+// valueSetSourceKey 为源码证据生成用于去重的稳定复合键
+// valueSetSourceKey creates a stable composite key used to deduplicate source evidence
 func valueSetSourceKey(evidence Source) string {
 	return evidence.Kind + "\x00" + evidence.GameVersion + "\x00" + evidence.Path + "\x00" + evidence.Symbol
 }

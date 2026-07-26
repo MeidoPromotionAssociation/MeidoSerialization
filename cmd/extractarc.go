@@ -80,6 +80,8 @@ Examples:
 	},
 }
 
+// init 注册 ARC 按后缀或路径提取所需的命令参数
+// init registers command flags used to extract ARC entries by suffix or path
 func init() {
 	extractArcCmd.Flags().StringVarP(&extractExt, "ext", "e", "", "Extract all files with this extension (e.g., .menu, tex)")
 	extractArcCmd.Flags().StringVarP(&extractFile, "file", "f", "", "Extract a single file by its full path or filename within the archive")

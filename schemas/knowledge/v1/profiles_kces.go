@@ -1,9 +1,7 @@
 package knowledgev1
 
-// kcesProfiles contains the KCES formats whose primary representation is a
-// binary record, a VirtualDirectory, a MessagePack asset container, or a
-// plain-text resource. Payload families with a shared union envelope live in
-// profiles_payload.go.
+// kcesProfiles 构建 KCES 二进制记录、VirtualDirectory、MessagePack 资源容器和文本资源的源码审核指南
+// kcesProfiles builds source-reviewed guides for KCES binary records, VirtualDirectory data, MessagePack asset containers, and text resources
 func kcesProfiles() map[string]Guide {
 	bridgeSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/ExportCM.cs", "ExportCM.ExportMaidToCOM3D2", 597, 617, "The KCES export path writes GP03_BRIDGE, version 2001, the maid GUID, and two length-delimited preset blobs before emitting the .brd file.")
 	bridgeReverseSource := source("COM3D2_5 3.48.0", "game/COM3D2_5 3.48.0/Assembly-CSharp/Maid.cs", "Maid.ExportBridgeGP03", 1687, 1711, "The reverse bridge writes GP03_BRIDGE version 2000, the maid GUID, and an optional CRC preset blob before saving 0.brd.")

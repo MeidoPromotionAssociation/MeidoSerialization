@@ -13,45 +13,73 @@ import (
 	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
 )
 
+// Representation 表示应用层文件内容的形态 / Representation identifies the application-level form of file content
 type Representation string
 
 const (
-	RepresentationNative      Representation = "native"
+	// RepresentationNative 表示游戏使用的原生文件格式 / RepresentationNative identifies the native file format consumed by the game
+	RepresentationNative Representation = "native"
+	// RepresentationEditingJSON 表示用于编辑和交换的 JSON 形式 / RepresentationEditingJSON identifies the JSON form used for editing and interchange
 	RepresentationEditingJSON Representation = "editing_json"
 )
 
+// Capability 描述一个格式在应用层支持的操作 / Capability describes the application operations supported by a format
 type Capability struct {
-	Detect   bool
-	Convert  bool
+	// Detect 表示是否支持格式检测 / Detect reports whether format detection is supported
+	Detect bool
+	// Convert 表示是否支持原生格式与编辑 JSON 互转 / Convert reports whether native and editing JSON conversion is supported
+	Convert bool
+	// Validate 表示是否支持完整格式校验 / Validate reports whether full format validation is supported
 	Validate bool
-	Archive  bool
+	// Archive 表示是否支持归档列表和条目提取 / Archive reports whether archive listing and entry extraction are supported
+	Archive bool
 }
 
-// Format describes one stable application-level format ID.
+// Format 描述一个具有稳定应用层标识符的游戏文件格式 / Format describes a game file format with a stable application-level identifier
 type Format struct {
-	ID             string
-	Game           string
-	FileType       string
+	// ID 是由游戏名和文件类型组成的稳定格式标识符 / ID is the stable format identifier composed from the game and file type
+	ID string
+	// Game 是拥有该格式的游戏或工具名称 / Game is the name of the game or tool that owns the format
+	Game string
+	// FileType 是服务层使用的规范文件类型名称 / FileType is the canonical file type name used by the service layer
+	FileType string
+	// NativeSuffixes 是该格式接受的原生文件后缀 / NativeSuffixes contains the native file suffixes accepted for the format
 	NativeSuffixes []string
-	DefaultName    string
-	Capability     Capability
-	SchemaVersion  string
-	SchemaID       string
-	SchemaSHA256   string
-	GuideVersion   string
-	GuideID        string
-	GuideSHA256    string
-	GuideCoverage  string
-	convert        pathConverter
+	// DefaultName 是缺少可用输入名称时采用的原生文件名 / DefaultName is the native filename used when no suitable input name is available
+	DefaultName string
+	// Capability 描述该格式支持的应用操作 / Capability describes the application operations supported by the format
+	Capability Capability
+	// SchemaVersion 是已发布编辑模式的版本 / SchemaVersion is the version of the published editing schema
+	SchemaVersion string
+	// SchemaID 是已发布编辑模式的规范标识符 / SchemaID is the canonical identifier of the published editing schema
+	SchemaID string
+	// SchemaSHA256 是已发布编辑模式的 SHA-256 摘要 / SchemaSHA256 is the SHA-256 digest of the published editing schema
+	SchemaSHA256 string
+	// GuideVersion 是已发布格式指南的版本 / GuideVersion is the version of the published format guide
+	GuideVersion string
+	// GuideID 是已发布格式指南的规范标识符 / GuideID is the canonical identifier of the published format guide
+	GuideID string
+	// GuideSHA256 是已发布格式指南的 SHA-256 摘要 / GuideSHA256 is the SHA-256 digest of the published format guide
+	GuideSHA256 string
+	// GuideCoverage 描述已发布指南覆盖的格式范围 / GuideCoverage describes the format coverage of the published guide
+	GuideCoverage string
+	// convert 保存不向注册表调用方公开的路径转换器 / convert stores the path converter hidden from registry callers
+	convert pathConverter
 }
 
+// pathConverter 保存原生格式与编辑 JSON 之间的双向路径转换函数 / pathConverter stores bidirectional path conversions between native data and editing JSON
 type pathConverter struct {
+	// toEditing 将原生文件转换为编辑 JSON / toEditing converts a native file to editing JSON
 	toEditing pathConversion
-	toNative  pathConversion
+	// toNative 将编辑 JSON 转换为原生文件 / toNative converts editing JSON to a native file
+	toNative pathConversion
 }
 
+// pathConversion 定义受上下文和输出大小限制约束的路径转换函数 / pathConversion defines a path conversion constrained by a context and output-size limit
 type pathConversion func(context.Context, string, string, int64) error
 
+// run 选择目标表示的转换函数并检查上下文与输出资源限制
+// run selects the conversion for a target representation and enforces context and output resource limits
 func (c pathConverter) run(ctx context.Context, to Representation, inputPath, outputPath string, maxOutputBytes int64) error {
 	if ctx == nil {
 		ctx = context.Background()
@@ -87,8 +115,14 @@ func (c pathConverter) run(ctx context.Context, to Representation, inputPath, ou
 	return err
 }
 
-type Registry struct{ formats map[string]Format }
+// Registry 保存以稳定标识符索引的受支持格式 / Registry stores supported formats indexed by stable identifiers
+type Registry struct {
+	// formats 将规范化格式标识符映射到不可变的格式元数据副本 / formats maps normalized format identifiers to immutable copies of format metadata
+	formats map[string]Format
+}
 
+// NewRegistry 校验格式定义并构建带有已发布模式和指南元数据的注册表
+// NewRegistry validates format definitions and builds a registry enriched with published schema and guide metadata
 func NewRegistry(formats []Format) (*Registry, error) {
 	r := &Registry{formats: make(map[string]Format, len(formats))}
 	for _, format := range formats {
@@ -134,6 +168,8 @@ func NewRegistry(formats []Format) (*Registry, error) {
 	return r, nil
 }
 
+// Lookup 按不区分大小写的格式标识符返回格式元数据副本
+// Lookup returns a copy of format metadata by a case-insensitive format identifier
 func (r *Registry) Lookup(id string) (Format, bool) {
 	if r == nil {
 		return Format{}, false
@@ -143,6 +179,8 @@ func (r *Registry) Lookup(id string) (Format, bool) {
 	return f, ok
 }
 
+// Formats 返回按格式标识符排序且隐藏内部转换函数的格式元数据副本
+// Formats returns format metadata copies sorted by identifier with internal converters hidden
 func (r *Registry) Formats() []Format {
 	if r == nil {
 		return nil
@@ -157,6 +195,8 @@ func (r *Registry) Formats() []Format {
 	return result
 }
 
+// format 从游戏、文件类型、后缀和转换器构建基础格式定义
+// format builds a base format definition from a game, file type, suffixes, and converter
 func format(game, fileType, defaultName string, suffixes []string, converter pathConverter) Format {
 	canConvert := converter.toEditing != nil && converter.toNative != nil
 	return Format{
@@ -170,26 +210,32 @@ func format(game, fileType, defaultName string, suffixes []string, converter pat
 	}
 }
 
+// archiveFormat 构建仅支持原生归档操作的格式定义
+// archiveFormat builds a format definition supporting native archive operations only
 func archiveFormat(game, fileType, defaultName string, suffixes []string) Format {
 	f := format(game, fileType, defaultName, suffixes, pathConverter{})
 	f.Capability.Archive = true
 	return f
 }
 
+// archiveConvertibleFormat 构建同时支持归档操作和编辑 JSON 转换的格式定义
+// archiveConvertibleFormat builds a format definition supporting both archive operations and editing JSON conversion
 func archiveConvertibleFormat(game, fileType, defaultName string, suffixes []string, converter pathConverter) Format {
 	f := format(game, fileType, defaultName, suffixes, converter)
 	f.Capability.Archive = true
 	return f
 }
 
+// detectOnlyFormat 构建只能检测而不能执行完整校验的格式定义
+// detectOnlyFormat builds a format definition that can be detected but not fully validated
 func detectOnlyFormat(game, fileType, defaultName string, suffixes []string) Format {
 	f := format(game, fileType, defaultName, suffixes, pathConverter{})
 	f.Capability.Validate = false
 	return f
 }
 
-// DefaultRegistry exposes all path-based JSON conversions currently provided
-// by service/COM3D2 and service/KCES, plus the supported archive containers.
+// DefaultRegistry 返回包含 COM3D2 与 KCES 转换器及受支持归档容器的默认注册表
+// DefaultRegistry returns the default registry containing COM3D2 and KCES converters and supported archive containers
 func DefaultRegistry() *Registry {
 	formats := []Format{
 		format("COM3D2", "menu", "input.menu", []string{".menu"}, pathConverter{(&COM3D2Service.MenuService{}).ConvertMenuToJson, (&COM3D2Service.MenuService{}).ConvertJsonToMenu}),

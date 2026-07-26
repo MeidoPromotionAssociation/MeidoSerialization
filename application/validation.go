@@ -13,10 +13,8 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
-// validateEditingJSONPath performs the published structural contract check,
-// including exact JSON number bounds, before a converter sees editing JSON.
-// The converter remains responsible for wire-specific invariants and typed
-// native decoding.
+// validateEditingJSONPath 在转换器读取编辑 JSON 前按照已发布模式检查结构和精确数值边界
+// validateEditingJSONPath checks structure and exact numeric bounds against the published schema before a converter reads editing JSON
 func (e *Engine) validateEditingJSONPath(ctx context.Context, path, formatID string) error {
 	if err := ctx.Err(); err != nil {
 		return opError("validate editing JSON", CodeCanceled, err)
@@ -84,6 +82,8 @@ func (e *Engine) validateEditingJSONPath(ctx context.Context, path, formatID str
 	return nil
 }
 
+// stripEditingJSONBOM 就地移除编辑 JSON 开头的 UTF-8 BOM 并保留其余内容
+// stripEditingJSONBOM removes a leading UTF-8 BOM from editing JSON in place while preserving the remaining content
 func stripEditingJSONBOM(ctx context.Context, path string) error {
 	file, err := os.OpenFile(path, os.O_RDWR, 0)
 	if err != nil {

@@ -13,6 +13,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// newMCPCmd 构建并配置通过标准输入输出运行的 MCP 服务器命令
+// newMCPCmd builds and configures the MCP server command that runs over standard input and output
 func newMCPCmd() *cobra.Command {
 	var (
 		rootSpecs      []string
@@ -72,6 +74,8 @@ func newMCPCmd() *cobra.Command {
 	return command
 }
 
+// mcpFilesystemMode 根据显式限制和根目录参数选择 MCP 文件系统访问模式
+// mcpFilesystemMode selects the MCP filesystem access mode from explicit restrictions and root flags
 func mcpFilesystemMode(restrictPaths bool, rootSpecs, writeRootSpecs []string) mcpserver.FilesystemMode {
 	if restrictPaths || len(rootSpecs) != 0 || len(writeRootSpecs) != 0 {
 		return mcpserver.FilesystemModeRestricted

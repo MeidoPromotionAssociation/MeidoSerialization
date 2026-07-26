@@ -47,4 +47,6 @@ var versionCmd = &cobra.Command{
 	},
 }
 
+// init 保留版本命令的初始化扩展点
+// init retains the initialization extension point for the version command
 func init() {}

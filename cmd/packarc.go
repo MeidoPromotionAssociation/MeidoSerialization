@@ -44,6 +44,8 @@ Examples:
 	},
 }
 
+// init 注册 ARC 打包命令的输出文件参数
+// init registers the output-file flag for the ARC packing command
 func init() {
 	packArcCmd.Flags().StringVarP(&packOutputFlag, "output", "o", "", "Output ARC file path")
 }

@@ -27,6 +27,8 @@ var serveCmd = &cobra.Command{
 	Short: "Run MeidoSerialization transport servers",
 }
 
+// newGRPCCmd 构建并配置用于运行版本化 gRPC API 的子命令
+// newGRPCCmd builds and configures the subcommand that runs the versioned gRPC API
 func newGRPCCmd() *cobra.Command {
 	var (
 		listenAddress string
@@ -135,6 +137,8 @@ func newGRPCCmd() *cobra.Command {
 	return command
 }
 
+// validateGRPCListenAddress 校验监听地址并默认拒绝未授权的非回环端点
+// validateGRPCListenAddress validates a listen address and rejects unauthorized non-loopback endpoints by default
 func validateGRPCListenAddress(address string, allowRemote bool) error {
 	host, _, err := net.SplitHostPort(address)
 	if err != nil {
@@ -150,6 +154,8 @@ func validateGRPCListenAddress(address string, allowRemote bool) error {
 	return nil
 }
 
+// init 将 gRPC 服务器命令注册到传输服务命令组
+// init registers the gRPC server command with the transport-service command group
 func init() {
 	serveCmd.AddCommand(newGRPCCmd())
 }

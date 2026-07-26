@@ -37,6 +37,8 @@ Examples:
 	},
 }
 
+// init 保留 CSV 转 NEI 命令的初始化扩展点
+// init retains the initialization extension point for the CSV-to-NEI command
 func init() {
 	// No specific flags for this command
 }

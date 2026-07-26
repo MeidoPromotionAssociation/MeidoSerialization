@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+// Resolve 将编辑模式字段清单与可选源码审核 profile 合并为有效指南文档
+// Resolve merges an editing-schema field inventory with an optional source-reviewed profile into an effective guide document
 func Resolve(formatID, schemaID string, schemaJSON []byte) (Document, error) {
 	id := strings.ToLower(strings.TrimSpace(formatID))
 	if id == "" || !json.Valid(schemaJSON) {
@@ -52,6 +54,8 @@ func Resolve(formatID, schemaID string, schemaJSON []byte) (Document, error) {
 	}, nil
 }
 
+// genericGuide 从编辑模式生成只有结构覆盖的基础格式指南
+// genericGuide generates a base format guide with schema-only structural coverage from an editing schema
 func genericGuide(formatID, schemaID string, schema map[string]any) Guide {
 	fields := collectSchemaFields(schema)
 	return Guide{
@@ -87,6 +91,8 @@ func genericGuide(formatID, schemaID string, schema map[string]any) Guide {
 	}
 }
 
+// mergeGuide 使用源码审核字段覆盖基础字段并保持完整有序清单
+// mergeGuide overlays source-reviewed fields on base fields while retaining a complete ordered inventory
 func mergeGuide(base, profile Guide) Guide {
 	fields := make(map[string]Field, len(base.Fields)+len(profile.Fields))
 	for _, field := range base.Fields {
@@ -103,6 +109,8 @@ func mergeGuide(base, profile Guide) Guide {
 	return profile
 }
 
+// validateProfileFields 校验 profile 字段元数据及其路径和模式指针可达性
+// validateProfileFields validates profile field metadata and reachability of paths and schema pointers
 func validateProfileFields(guide Guide, schema map[string]any) error {
 	generated := collectSchemaFields(schema)
 	paths := make(map[string]bool, len(generated))
@@ -123,6 +131,8 @@ func validateProfileFields(guide Guide, schema map[string]any) error {
 	return nil
 }
 
+// collectSchemaFields 遍历编辑模式并返回按 JSON 路径排序的字段清单
+// collectSchemaFields walks an editing schema and returns a field inventory sorted by JSON path
 func collectSchemaFields(schema map[string]any) []Field {
 	fields := make(map[string]Field)
 	walkSchema(schema, schema, "", "#", make(map[string]bool), fields)
@@ -134,6 +144,8 @@ func collectSchemaFields(schema map[string]any) []Field {
 	return result
 }
 
+// walkSchema 递归跟随本地引用、组合分支、属性、数组和动态属性收集字段
+// walkSchema recursively follows local references, composition branches, properties, arrays, and dynamic properties to collect fields
 func walkSchema(root, node map[string]any, jsonPath, schemaPointer string, refStack map[string]bool, fields map[string]Field) {
 	if ref, _ := node["$ref"].(string); strings.HasPrefix(ref, "#/") {
 		if refStack[ref] {
@@ -184,6 +196,8 @@ func walkSchema(root, node map[string]any, jsonPath, schemaPointer string, refSt
 	}
 }
 
+// genericField 从模式元数据构建保守的结构级字段说明
+// genericField builds conservative schema-level field guidance from schema metadata
 func genericField(path, pointer, name string, schema map[string]any) Field {
 	title, _ := schema["title"].(string)
 	if title == "" {
@@ -209,6 +223,8 @@ func genericField(path, pointer, name string, schema map[string]any) Field {
 	}
 }
 
+// schemaAtPointer 解析 JSON Schema 文档中的本地 JSON Pointer
+// schemaAtPointer resolves a local JSON Pointer within a JSON Schema document
 func schemaAtPointer(root map[string]any, pointer string) any {
 	if pointer == "#" || pointer == "" {
 		return root
@@ -238,10 +254,14 @@ func schemaAtPointer(root map[string]any, pointer string) any {
 	return current
 }
 
+// escapeJSONPointer 转义 JSON Pointer 路径段中的保留字符
+// escapeJSONPointer escapes reserved characters in a JSON Pointer path segment
 func escapeJSONPointer(value string) string {
 	return strings.NewReplacer("~", "~0", "/", "~1").Replace(value)
 }
 
+// unescapeJSONPointer 还原 JSON Pointer 路径段中的保留字符
+// unescapeJSONPointer restores reserved characters in a JSON Pointer path segment
 func unescapeJSONPointer(value string) string {
 	return strings.NewReplacer("~1", "/", "~0", "~").Replace(value)
 }

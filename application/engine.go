@@ -21,28 +21,46 @@ import (
 )
 
 const (
-	DefaultMaxInputBytes          int64 = 10 << 30 // 10 Gib
-	DefaultMaxOutputBytes         int64 = 10 << 30 // 10 Gib
+	// DefaultMaxInputBytes 是单次操作允许读取的默认最大输入字节数 / DefaultMaxInputBytes is the default maximum number of input bytes read by one operation
+	DefaultMaxInputBytes int64 = 10 << 30 // 10 Gib
+	// DefaultMaxOutputBytes 是单次操作允许生成的默认最大输出字节数 / DefaultMaxOutputBytes is the default maximum number of output bytes produced by one operation
+	DefaultMaxOutputBytes int64 = 10 << 30 // 10 Gib
+	// DefaultMaxArchiveListingBytes 是列出归档前允许物化的默认最大输入字节数 / DefaultMaxArchiveListingBytes is the default maximum number of input bytes materialized before listing an archive
 	DefaultMaxArchiveListingBytes int64 = 10 << 30 // 10 Gib
-	DefaultMaxArchiveEntries            = 100_000
+	// DefaultMaxArchiveEntries 是单个归档列表允许返回的默认最大条目数 / DefaultMaxArchiveEntries is the default maximum number of entries returned by one archive listing
+	DefaultMaxArchiveEntries = 100_000
 )
 
+// EngineOptions 配置应用引擎使用的注册表和资源限制 / EngineOptions configures the registry and resource limits used by an application engine
 type EngineOptions struct {
-	Registry               *Registry
-	MaxInputBytes          int64
-	MaxOutputBytes         int64
+	// Registry 是引擎用于查找格式的注册表，空值使用默认注册表 / Registry is the format registry used by the engine with nil selecting the default registry
+	Registry *Registry
+	// MaxInputBytes 是单次操作允许读取的最大输入字节数 / MaxInputBytes is the maximum number of input bytes read by one operation
+	MaxInputBytes int64
+	// MaxOutputBytes 是单次操作允许生成的最大输出字节数 / MaxOutputBytes is the maximum number of output bytes produced by one operation
+	MaxOutputBytes int64
+	// MaxArchiveListingBytes 是列出归档前允许物化的最大输入字节数 / MaxArchiveListingBytes is the maximum number of input bytes materialized before listing an archive
 	MaxArchiveListingBytes int64
-	MaxArchiveEntries      int
+	// MaxArchiveEntries 是单个归档列表允许返回的最大条目数 / MaxArchiveEntries is the maximum number of entries returned by one archive listing
+	MaxArchiveEntries int
 }
 
+// Engine 协调格式检测、转换、校验和归档操作 / Engine coordinates format detection, conversion, validation, and archive operations
 type Engine struct {
-	registry               *Registry
-	maxInputBytes          int64
-	maxOutputBytes         int64
+	// registry 保存引擎可用的格式定义 / registry stores the format definitions available to the engine
+	registry *Registry
+	// maxInputBytes 限制单次操作读取的输入字节数 / maxInputBytes limits input bytes read by one operation
+	maxInputBytes int64
+	// maxOutputBytes 限制单次操作生成的输出字节数 / maxOutputBytes limits output bytes produced by one operation
+	maxOutputBytes int64
+	// maxArchiveListingBytes 独立限制归档列表操作物化的输入字节数 / maxArchiveListingBytes independently limits input bytes materialized for archive listings
 	maxArchiveListingBytes int64
-	maxArchiveEntries      int
+	// maxArchiveEntries 限制单个归档列表返回的条目数 / maxArchiveEntries limits entries returned by one archive listing
+	maxArchiveEntries int
 }
 
+// NewEngine 使用提供的选项创建应用引擎并为无效限制填充默认值
+// NewEngine creates an application engine and fills invalid limits with defaults
 func NewEngine(options EngineOptions) *Engine {
 	if options.Registry == nil {
 		options.Registry = DefaultRegistry()
@@ -65,51 +83,76 @@ func NewEngine(options EngineOptions) *Engine {
 	}
 }
 
+// Formats 返回引擎注册表中的公开格式元数据
+// Formats returns public format metadata from the engine registry
 func (e *Engine) Formats() []Format { return e.registry.Formats() }
 
-// ArchiveListingLimits returns the independent input-byte and entry-count
-// budgets applied before an archive listing is returned.
+// ArchiveListingLimits 返回归档列表独立使用的输入字节数和条目数限制
+// ArchiveListingLimits returns the independent input-byte and entry-count limits used for archive listings
 func (e *Engine) ArchiveListingLimits() (int64, int) {
 	return e.maxArchiveListingBytes, e.maxArchiveEntries
 }
 
+// Detection 描述文件格式检测得到的规范元数据 / Detection describes canonical metadata produced by file format detection
 type Detection struct {
-	FormatID       string
-	Game           string
-	FileType       string
+	// FormatID 是注册表使用的稳定格式标识符 / FormatID is the stable format identifier used by the registry
+	FormatID string
+	// Game 是检测到的游戏或工具名称 / Game is the detected game or tool name
+	Game string
+	// FileType 是检测到的规范文件类型 / FileType is the detected canonical file type
+	FileType string
+	// Representation 表示文件是原生格式还是编辑 JSON / Representation indicates whether the file is native data or editing JSON
 	Representation Representation
-	StorageFormat  string
-	Signature      string
-	Version        int32
-	Name           string
-	Size           int64
+	// StorageFormat 描述底层存储编码方式 / StorageFormat describes the underlying storage encoding
+	StorageFormat string
+	// Signature 是格式携带的文件签名 / Signature is the file signature carried by the format
+	Signature string
+	// Version 是检测到的精确格式版本 / Version is the exact detected format version
+	Version int32
+	// Name 是不包含目录的源文件名 / Name is the source filename without directory components
+	Name string
+	// Size 是源文件的字节数 / Size is the source file size in bytes
+	Size int64
 }
 
+// Artifact 描述转换或提取操作产生的主要制品 / Artifact describes the primary artifact produced by conversion or extraction
 type Artifact struct {
-	Name           string
-	FormatID       string
+	// Name 是建议用于保存主要制品的文件名 / Name is the suggested filename for the primary artifact
+	Name string
+	// FormatID 是制品对应的稳定格式标识符 / FormatID is the stable format identifier associated with the artifact
+	FormatID string
+	// Representation 表示制品是原生格式还是编辑 JSON / Representation indicates whether the artifact is native data or editing JSON
 	Representation Representation
-	Size           int64
-	SHA256         string
-	Attachments    *ArtifactAttachmentSet
-}
-
-// ArtifactAttachment is a sidecar emitted together with the primary artifact.
-// Data is retained because path-based converters create sidecars inside the
-// engine's short-lived workspace.
-type ArtifactAttachment struct {
-	Suffix string
-	Name   string
-	Size   int64
+	// Size 是主要制品的字节数 / Size is the primary artifact size in bytes
+	Size int64
+	// SHA256 是主要制品内容的 SHA-256 摘要 / SHA256 is the SHA-256 digest of the primary artifact content
 	SHA256 string
-	Data   []byte
+	// Attachments 保存与主要制品共同生成的可选伴随文件 / Attachments contains optional companion files emitted with the primary artifact
+	Attachments *ArtifactAttachmentSet
 }
 
+// ArtifactAttachment 描述与主要制品共同生成的单个伴随文件 / ArtifactAttachment describes one companion file emitted with the primary artifact
+type ArtifactAttachment struct {
+	// Suffix 是追加到主要制品名称后的受管理后缀 / Suffix is the managed suffix appended to the primary artifact name
+	Suffix string
+	// Name 是伴随文件的完整建议文件名 / Name is the complete suggested filename for the companion file
+	Name string
+	// Size 是伴随文件的字节数 / Size is the companion file size in bytes
+	Size int64
+	// SHA256 是伴随文件内容的 SHA-256 摘要 / SHA256 is the SHA-256 digest of the companion file content
+	SHA256 string
+	// Data 保存在短生命周期工作区中生成的伴随文件内容 / Data retains companion content produced inside the short-lived workspace
+	Data []byte
+}
+
+// ArtifactAttachmentSet 保存主要制品的全部伴随文件 / ArtifactAttachmentSet contains all companion files for a primary artifact
 type ArtifactAttachmentSet struct {
+	// Files 是按受管理后缀顺序排列的伴随文件 / Files contains companion files in managed-suffix order
 	Files []ArtifactAttachment
 }
 
-// AttachmentFiles returns a deep copy of the artifact's sidecar files.
+// AttachmentFiles 返回制品伴随文件的深拷贝
+// AttachmentFiles returns a deep copy of the artifact companion files
 func (a Artifact) AttachmentFiles() []ArtifactAttachment {
 	if a.Attachments == nil {
 		return nil
@@ -122,7 +165,8 @@ func (a Artifact) AttachmentFiles() []ArtifactAttachment {
 	return result
 }
 
-// TotalSize returns the combined size of the primary file and all sidecars.
+// TotalSize 返回主要文件与全部伴随文件的合计字节数
+// TotalSize returns the combined size in bytes of the primary file and all companion files
 func (a Artifact) TotalSize() int64 {
 	total := a.Size
 	for _, attachment := range a.AttachmentFiles() {
@@ -133,12 +177,18 @@ func (a Artifact) TotalSize() int64 {
 	return total
 }
 
+// ConvertRequest 描述一次原生格式与编辑 JSON 之间的转换请求 / ConvertRequest describes one conversion request between native data and editing JSON
 type ConvertRequest struct {
-	Source   Source
+	// Source 是需要转换的输入制品 / Source is the input artifact to convert
+	Source Source
+	// FormatID 是可选的显式格式标识符，空值触发自动检测 / FormatID is an optional explicit format identifier with an empty value requesting detection
 	FormatID string
-	To       Representation
+	// To 是转换目标表示形式 / To is the target representation of the conversion
+	To Representation
 }
 
+// Detect 物化抽象输入源并识别其游戏文件格式
+// Detect materializes an abstract source and identifies its game file format
 func (e *Engine) Detect(ctx context.Context, source Source) (Detection, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -154,6 +204,8 @@ func (e *Engine) Detect(ctx context.Context, source Source) (Detection, error) {
 	return e.detectPath(ctx, path)
 }
 
+// detectPath 按 COM3D2、KCES、舞蹈数据和 ARC 的优先顺序识别本地文件
+// detectPath identifies a local file in COM3D2, KCES, dance-data, and ARC priority order
 func (e *Engine) detectPath(ctx context.Context, path string) (Detection, error) {
 	if err := ctx.Err(); err != nil {
 		return Detection{}, opError("detect", CodeCanceled, err)
@@ -188,6 +240,8 @@ func (e *Engine) detectPath(ctx context.Context, path string) (Detection, error)
 	return Detection{}, opError("detect", CodeUnsupported, fmt.Errorf("file format is not recognized"))
 }
 
+// detectDanceFile 通过内容探测识别 COM3D2 舞蹈二进制文件或编辑 JSON
+// detectDanceFile identifies a COM3D2 dance binary or editing JSON file through content probing
 func detectDanceFile(path string) (Detection, bool) {
 	name := filepath.Base(path)
 	lowerName := strings.ToLower(name)
@@ -250,6 +304,8 @@ func detectDanceFile(path string) (Detection, bool) {
 	}, true
 }
 
+// detectionFromFileInfo 将服务层文件信息转换为应用层检测结果
+// detectionFromFileInfo converts service-layer file information into an application detection result
 func detectionFromFileInfo(info COM3D2Service.FileInfo) Detection {
 	representation := RepresentationNative
 	if strings.HasSuffix(strings.ToLower(info.Path), ".json") {
@@ -268,6 +324,8 @@ func detectionFromFileInfo(info COM3D2Service.FileInfo) Detection {
 	}
 }
 
+// Convert 将输入源转换为目标表示并将主要制品流式写入输出
+// Convert transforms a source into the target representation and streams the primary artifact to the output
 func (e *Engine) Convert(ctx context.Context, request ConvertRequest, output io.Writer) (Artifact, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -327,6 +385,8 @@ func (e *Engine) Convert(ctx context.Context, request ConvertRequest, output io.
 	return e.copyFileArtifact(ctx, outputPath, outputName, formatID, request.To, output)
 }
 
+// ConvertBytes 执行转换并将主要制品内容收集到内存中
+// ConvertBytes performs a conversion and collects the primary artifact content in memory
 func (e *Engine) ConvertBytes(ctx context.Context, request ConvertRequest) (Artifact, []byte, error) {
 	var output bytes.Buffer
 	artifact, err := e.Convert(ctx, request, &output)
@@ -336,6 +396,8 @@ func (e *Engine) ConvertBytes(ctx context.Context, request ConvertRequest) (Arti
 	return artifact, output.Bytes(), nil
 }
 
+// Validate 检测并完整解析输入以确认其符合指定或自动识别的格式
+// Validate detects and fully parses input to confirm that it conforms to the specified or automatically identified format
 func (e *Engine) Validate(ctx context.Context, source Source, formatID string) (Detection, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -414,6 +476,8 @@ func (e *Engine) Validate(ctx context.Context, source Source, formatID string) (
 	return detection, nil
 }
 
+// pathConversionErrorCode 将转换器错误映射为稳定的应用错误代码
+// pathConversionErrorCode maps a converter error to a stable application error code
 func pathConversionErrorCode(err error) ErrorCode {
 	if errors.Is(err, conversionio.ErrOutputLimitExceeded) {
 		return CodeResourceExhausted
@@ -425,10 +489,14 @@ func pathConversionErrorCode(err error) ErrorCode {
 	return code
 }
 
+// materialize 使用引擎的常规输入限制将抽象输入源写入临时工作区
+// materialize writes an abstract source into a temporary workspace using the engine's normal input limit
 func (e *Engine) materialize(ctx context.Context, source Source, name string) (string, string, error) {
 	return e.materializeWithLimit(ctx, source, name, e.maxInputBytes)
 }
 
+// materializeWithLimit 将主要输入和伴随文件写入受总字节数限制的临时工作区
+// materializeWithLimit writes a primary source and companion files into a temporary workspace under an aggregate byte limit
 func (e *Engine) materializeWithLimit(ctx context.Context, source Source, name string, limit int64) (string, string, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -475,6 +543,8 @@ func (e *Engine) materializeWithLimit(ctx context.Context, source Source, name s
 	return dir, path, nil
 }
 
+// materializeSourceFile 将单个输入源复制到独占本地文件并校验声明大小
+// materializeSourceFile copies one source into an exclusive local file and verifies its declared size
 func materializeSourceFile(ctx context.Context, source Source, path string, limit int64) (int64, error) {
 	input, err := source.Open(ctx)
 	if err != nil {
@@ -502,6 +572,8 @@ func materializeSourceFile(ctx context.Context, source Source, path string, limi
 	return written, nil
 }
 
+// renameMaterializedArtifact 同步重命名已物化的主要文件及其伴随文件
+// renameMaterializedArtifact renames a materialized primary file and its companion files together
 func renameMaterializedArtifact(oldPath, newPath string, source Source) error {
 	if err := os.Rename(oldPath, newPath); err != nil {
 		return err
@@ -514,6 +586,8 @@ func renameMaterializedArtifact(oldPath, newPath string, source Source) error {
 	return nil
 }
 
+// copyFileArtifact 校验转换输出及伴随文件并将主要文件流式写入调用方
+// copyFileArtifact validates conversion output and companion files and streams the primary file to the caller
 func (e *Engine) copyFileArtifact(ctx context.Context, path, name, formatID string, representation Representation, output io.Writer) (Artifact, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -553,6 +627,8 @@ func (e *Engine) copyFileArtifact(ctx context.Context, path, name, formatID stri
 	return artifact, nil
 }
 
+// readArtifactAttachments 读取受管理的转换伴随文件并检查其合计大小
+// readArtifactAttachments reads managed conversion companion files and checks their aggregate size
 func readArtifactAttachments(ctx context.Context, path, name string, remaining int64) ([]ArtifactAttachment, error) {
 	var result []ArtifactAttachment
 	for _, suffix := range artifactAttachmentSuffixes {
@@ -599,6 +675,8 @@ func readArtifactAttachments(ctx context.Context, path, name string, remaining i
 	return result, nil
 }
 
+// inspectArtifactFiles 检查主要输出和受管理伴随文件均为常规文件且未超过合计限制
+// inspectArtifactFiles checks that the primary output and managed companions are regular files within an aggregate limit
 func inspectArtifactFiles(ctx context.Context, path string, limit int64) (int64, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -633,11 +711,16 @@ func inspectArtifactFiles(ctx context.Context, path string, limit int64) (int64,
 	return total, nil
 }
 
+// contextReader 在每次读取前检查上下文取消状态 / contextReader checks context cancellation before every read
 type contextReader struct {
-	ctx    context.Context
+	// ctx 是读取操作遵循的上下文 / ctx is the context observed by read operations
+	ctx context.Context
+	// reader 是实际提供数据的底层读取器 / reader is the underlying reader that supplies data
 	reader io.Reader
 }
 
+// Read 在上下文仍有效时从底层读取器读取数据
+// Read reads from the underlying reader while the context remains active
 func (r *contextReader) Read(p []byte) (int, error) {
 	if err := r.ctx.Err(); err != nil {
 		return 0, err
@@ -645,6 +728,8 @@ func (r *contextReader) Read(p []byte) (int, error) {
 	return r.reader.Read(p)
 }
 
+// formatInputName 为路径转换器选择保留有效后缀的安全输入文件名
+// formatInputName selects a safe converter input filename while preserving a valid suffix
 func formatInputName(format Format, original string, target Representation) string {
 	original = cleanSourceName(original)
 	if target == RepresentationNative {
@@ -662,6 +747,8 @@ func formatInputName(format Format, original string, target Representation) stri
 	return format.DefaultName
 }
 
+// formatOutputName 根据目标表示从转换器输入名称派生输出文件名
+// formatOutputName derives an output filename from the converter input name and target representation
 func formatOutputName(format Format, inputName string, target Representation) string {
 	if target == RepresentationEditingJSON {
 		return trimJSONSuffix(inputName) + ".json"
@@ -669,8 +756,12 @@ func formatOutputName(format Format, inputName string, target Representation) st
 	return trimJSONSuffix(inputName)
 }
 
+// samePath 判断两个路径清理后是否不区分大小写地指向相同名称
+// samePath reports whether two cleaned paths name the same location case-insensitively
 func samePath(a, b string) bool { return strings.EqualFold(filepath.Clean(a), filepath.Clean(b)) }
 
+// trimJSONSuffix 不区分大小写地移除文件名末尾的单个 JSON 后缀
+// trimJSONSuffix removes one trailing JSON suffix from a filename case-insensitively
 func trimJSONSuffix(name string) string {
 	if strings.HasSuffix(strings.ToLower(name), ".json") {
 		return name[:len(name)-len(".json")]

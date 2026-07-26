@@ -39,6 +39,8 @@ Examples:
 	},
 }
 
+// init 保留转原生 MOD 命令的初始化扩展点
+// init retains the initialization extension point for the native-MOD conversion command
 func init() {
 	// Add any command-specific flags here
 }

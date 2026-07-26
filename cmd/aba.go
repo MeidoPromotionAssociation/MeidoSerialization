@@ -90,6 +90,8 @@ Examples:
 	},
 }
 
+// listAbaFile 读取 ABA 资源条目并将其摘要打印到标准输出
+// listAbaFile reads ABA asset entries and prints their summary to standard output
 func listAbaFile(path string) error {
 	service := &KCESService.AbaService{}
 	entries, err := service.ListAba(path)
@@ -104,6 +106,8 @@ func listAbaFile(path string) error {
 	return nil
 }
 
+// init 注册 ABA 解包目录和打包基础名称参数
+// init registers the ABA unpack directory and pack base-name flags
 func init() {
 	unpackAbaCmd.Flags().StringVarP(&outputPathFlag, "output", "o", "", "Output directory path")
 	packAbaCmd.Flags().StringVarP(&outputPathFlag, "output", "o", "", "Output base name")

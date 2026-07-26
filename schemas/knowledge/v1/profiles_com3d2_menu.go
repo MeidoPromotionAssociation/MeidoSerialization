@@ -2,6 +2,8 @@ package knowledgev1
 
 import "strings"
 
+// com3d2MenuCommands 构建两个已审核游戏版本支持的完整菜单命令语义目录
+// com3d2MenuCommands builds the complete menu-command semantics catalog supported by both reviewed game versions
 func com3d2MenuCommands(compileSource, menuSource, sceneSource, compile3Source, menu3Source, scene3Source, materialMgr3Source Source) []Command {
 	reviewedBoth := []string{"COM3D2 2.48.0", "COM3D2_5 3.48.0"}
 	reviewed348 := []string{"COM3D2_5 3.48.0"}
@@ -899,6 +901,8 @@ func com3d2MenuCommands(compileSource, menuSource, sceneSource, compile3Source, 
 	return linkCom3d2MenuArgumentValueSets(commands)
 }
 
+// menuCommand 构建具有语法形式、运行时效果、编辑建议和源码证据的菜单命令
+// menuCommand builds a menu command with syntax forms, runtime effects, editing guidance, and source evidence
 func menuCommand(name string, aliases, contexts []string, forms []CommandForm, gameEffect, editGuidance, risk string, evidence ...Source) Command {
 	return Command{
 		Name:         name,
@@ -912,30 +916,44 @@ func menuCommand(name string, aliases, contexts []string, forms []CommandForm, g
 	}
 }
 
+// menuForm 构建没有附加说明的已审核菜单命令形式
+// menuForm builds a reviewed menu-command form without additional notes
 func menuForm(syntax string, reviewedIn []string, arguments ...CommandArgument) CommandForm {
 	return CommandForm{Syntax: syntax, ReviewedIn: reviewedIn, Arguments: arguments}
 }
 
+// menuFormWithNotes 构建带有形式特定说明的已审核菜单命令形式
+// menuFormWithNotes builds a reviewed menu-command form with form-specific notes
 func menuFormWithNotes(syntax string, reviewedIn []string, notes string, arguments ...CommandArgument) CommandForm {
 	return CommandForm{Syntax: syntax, ReviewedIn: reviewedIn, Arguments: arguments, Notes: notes}
 }
 
+// menuRequiredArgument 构建具有可选允许值集合的必需位置参数
+// menuRequiredArgument builds a required positional argument with optional allowed values
 func menuRequiredArgument(position int, name, valueType, description string, allowedValues ...string) CommandArgument {
 	return CommandArgument{Position: position, Name: name, Type: valueType, Required: true, AllowedValues: allowedValues, Description: description}
 }
 
+// menuOptionalArgument 构建具有默认值和可选允许值集合的位置参数
+// menuOptionalArgument builds an optional positional argument with a default and optional allowed values
 func menuOptionalArgument(position int, name, valueType, defaultValue, description string, allowedValues ...string) CommandArgument {
 	return CommandArgument{Position: position, Name: name, Type: valueType, Default: defaultValue, AllowedValues: allowedValues, Description: description}
 }
 
+// menuRequiredRepeatableArgument 构建延伸到命令末尾的必需可重复参数
+// menuRequiredRepeatableArgument builds a required repeatable argument extending through the command tail
 func menuRequiredRepeatableArgument(position int, name, valueType, description string) CommandArgument {
 	return CommandArgument{Position: position, Name: name, Type: valueType, Required: true, Repeatable: true, Description: description}
 }
 
+// menuOptionalRepeatableArgument 构建延伸到命令末尾的可选可重复参数
+// menuOptionalRepeatableArgument builds an optional repeatable argument extending through the command tail
 func menuOptionalRepeatableArgument(position int, name, valueType, description string) CommandArgument {
 	return CommandArgument{Position: position, Name: name, Type: valueType, Repeatable: true, Description: description}
 }
 
+// linkCom3d2MenuArgumentValueSets 根据参数类型和审核版本关联精确值集合
+// linkCom3d2MenuArgumentValueSets links exact value sets according to argument type and reviewed game builds
 func linkCom3d2MenuArgumentValueSets(commands []Command) []Command {
 	for commandIndex := range commands {
 		for formIndex := range commands[commandIndex].Forms {
@@ -968,6 +986,8 @@ func linkCom3d2MenuArgumentValueSets(commands []Command) []Command {
 	return commands
 }
 
+// menuBuildValueSetRefs 根据审核游戏版本选择旧版或当前值集合引用
+// menuBuildValueSetRefs selects legacy or current value-set references from reviewed game builds
 func menuBuildValueSetRefs(reviewedIn []string, legacyID, currentID string) []string {
 	refs := make([]string, 0, 2)
 	for _, build := range reviewedIn {

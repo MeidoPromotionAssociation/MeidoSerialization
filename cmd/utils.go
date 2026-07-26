@@ -16,7 +16,8 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
 )
 
-// isDirectory checks if the given path is a directory
+// isDirectory 判断给定路径当前是否指向目录
+// isDirectory reports whether the given path currently names a directory
 func isDirectory(path string) bool {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -25,13 +26,14 @@ func isDirectory(path string) bool {
 	return info.IsDir()
 }
 
-// processFile processes a single file based on the provided function
+// processFile 使用提供的处理函数处理单个路径
+// processFile processes one path with the supplied processor
 func processFile(path string, processor func(string) error) error {
 	return processor(path)
 }
 
-// processDirectory processes all files in a directory (recursively) based on the provided function
-// if filter returns true, the file will be processed
+// processDirectory 递归处理目录中通过筛选的文件并打印单文件错误后继续
+// processDirectory recursively processes filtered files and continues after printing individual file errors
 func processDirectory(dirPath string, processor func(string) error, filter func(string) bool) error {
 	return filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -48,9 +50,8 @@ func processDirectory(dirPath string, processor func(string) error, filter func(
 	})
 }
 
-// processDirectoryConcurrent processes all files in a directory (recursively) based on the provided function
-// if filter returns true, the file will be processed
-// Now uses concurrent workers to speed up processing while preserving error handling semantics.
+// processDirectoryConcurrent 使用固定工作协程池并发处理目录中通过筛选的文件
+// processDirectoryConcurrent processes filtered directory files concurrently with a fixed worker pool
 func processDirectoryConcurrent(dirPath string, processor func(string) error, filter func(string) bool) error {
 	fmt.Printf("Concurrent processing folder %s\n", dirPath)
 
@@ -106,8 +107,8 @@ func processDirectoryConcurrent(dirPath string, processor func(string) error, fi
 	return nil
 }
 
-// isModFile checks if the file has a supported MOD file extension
-// In addition to .tex and .nei
+// isModFile 判断路径是否匹配受支持的 COM3D2 或 KCES 原生 MOD 数据文件
+// isModFile reports whether a path matches a supported native COM3D2 or KCES MOD data file
 func isModFile(path string) bool {
 	if KCESService.IsKCESBridgeSessionFile(path) {
 		return true
@@ -151,15 +152,14 @@ func isModFile(path string) bool {
 	}
 }
 
-// isJsonFile checks if the file has a .json extension
+// isJsonFile 不区分大小写地判断路径是否以 JSON 后缀结尾
+// isJsonFile reports case-insensitively whether a path ends with a JSON suffix
 func isJsonFile(path string) bool {
 	return strings.HasSuffix(strings.ToLower(path), ".json")
 }
 
-// trimLastExtension removes the actual final extension spelling returned by
-// filepath.Ext. Unlike strings.TrimSuffix(path, ".json"), it is safe for the
-// case-insensitive .JSON paths accepted by isJsonFile and cannot accidentally
-// leave outputPath equal to the input JSON path.
+// trimLastExtension 按实际大小写移除路径最后一个后缀以安全处理大写 JSON 名称
+// trimLastExtension removes the final suffix using its actual casing to safely handle uppercase JSON names
 func trimLastExtension(path string) string {
 	ext := filepath.Ext(path)
 	if ext == "" {
@@ -168,9 +168,8 @@ func trimLastExtension(path string) string {
 	return path[:len(path)-len(ext)]
 }
 
-// KCES ExportCM writes ordinary CM3D2_MATERIAL data with a .mat extension.
-// Keep the physical extension for output paths, but expose the established
-// logical type name "mate" to filtering and content detection.
+// canonicalLegacyFileType 将物理 mat 后缀映射为既有的逻辑 mate 类型名称
+// canonicalLegacyFileType maps the physical mat suffix to the established logical mate type name
 func canonicalLegacyFileType(fileType string) string {
 	fileType = strings.ToLower(fileType)
 	if fileType == "mat" {
@@ -179,6 +178,8 @@ func canonicalLegacyFileType(fileType string) string {
 	return fileType
 }
 
+// convertCOM3D2ToJSONByType 按规范 COM3D2 文件类型路由到对应编辑 JSON 转换器
+// convertCOM3D2ToJSONByType routes a canonical COM3D2 file type to its editing JSON converter
 func convertCOM3D2ToJSONByType(fileType string, inputPath string, outputPath string) (bool, error) {
 	ctx := context.Background()
 	switch canonicalLegacyFileType(strings.TrimPrefix(strings.ToLower(fileType), ".")) {
@@ -205,6 +206,8 @@ func convertCOM3D2ToJSONByType(fileType string, inputPath string, outputPath str
 	}
 }
 
+// convertCOM3D2JSONToModByType 按规范 COM3D2 文件类型路由到对应原生格式转换器
+// convertCOM3D2JSONToModByType routes a canonical COM3D2 file type to its native-format converter
 func convertCOM3D2JSONToModByType(fileType string, inputPath string, outputPath string) (bool, error) {
 	ctx := context.Background()
 	switch canonicalLegacyFileType(strings.TrimPrefix(strings.ToLower(fileType), ".")) {
@@ -231,8 +234,8 @@ func convertCOM3D2JSONToModByType(fileType string, inputPath string, outputPath 
 	}
 }
 
-// isModJsonFile checks if the file is a JSON file that corresponds to a MOD file
-// In addition to .tex
+// isModJsonFile 判断路径是否匹配受支持原生 MOD 数据的编辑 JSON 文件名
+// isModJsonFile reports whether a path matches an editing JSON filename for supported native MOD data
 func isModJsonFile(path string) bool {
 	if !isJsonFile(path) {
 		return false
@@ -288,32 +291,38 @@ func isModJsonFile(path string) bool {
 	}
 }
 
-// isTexFile checks if the file has a .tex extension
+// isTexFile 不区分大小写地判断路径是否以 TEX 后缀结尾
+// isTexFile reports case-insensitively whether a path ends with a TEX suffix
 func isTexFile(path string) bool {
 	return strings.HasSuffix(strings.ToLower(path), ".tex")
 }
 
-// isImageFile checks if the file has a supported image extension
+// isImageFile 判断路径是否使用工具层支持的图像类型
+// isImageFile reports whether a path uses an image type supported by the tools layer
 func isImageFile(path string) bool {
 	return tools.IsSupportedImageType(path) == nil
 }
 
-// isArcFile checks if the file has an .arc extension
+// isArcFile 不区分大小写地判断路径是否以 ARC 后缀结尾
+// isArcFile reports case-insensitively whether a path ends with an ARC suffix
 func isArcFile(path string) bool {
 	return strings.HasSuffix(strings.ToLower(path), ".arc")
 }
 
-// isAbaFile checks if the file has a .aba extension.
+// isAbaFile 不区分大小写地判断路径是否以 ABA 后缀结尾
+// isAbaFile reports case-insensitively whether a path ends with an ABA suffix
 func isAbaFile(path string) bool {
 	return strings.HasSuffix(strings.ToLower(path), ".aba")
 }
 
-// isCtFile checks if the file has a .ct extension.
+// isCtFile 不区分大小写地判断路径是否以 CT 后缀结尾
+// isCtFile reports case-insensitively whether a path ends with a CT suffix
 func isCtFile(path string) bool {
 	return strings.HasSuffix(strings.ToLower(path), ".ct")
 }
 
-// convertToJson converts a MOD file to JSON
+// convertToJson 检测原生 COM3D2 或 KCES 文件并将其转换为相邻编辑 JSON
+// convertToJson detects a native COM3D2 or KCES file and converts it to adjacent editing JSON
 func convertToJson(path string) error {
 	ctx := context.Background()
 	ext := strings.ToLower(filepath.Ext(path))
@@ -475,7 +484,8 @@ func convertToJson(path string) error {
 	return nil
 }
 
-// convertToMod converts a JSON file to a MOD file
+// convertToMod 检测 COM3D2 或 KCES 编辑 JSON 并将其转换回相邻原生文件
+// convertToMod detects COM3D2 or KCES editing JSON and converts it back to an adjacent native file
 func convertToMod(path string) error {
 	ctx := context.Background()
 	if !strings.HasSuffix(strings.ToLower(path), ".json") {
@@ -689,7 +699,8 @@ func convertToImage(path string, format string) error {
 	return nil
 }
 
-// convertToTex converts an image file to TEX
+// convertToTex 将受支持图像转换为 COM3D2 TEX 并应用所选载荷压缩策略
+// convertToTex converts a supported image to COM3D2 TEX using the selected payload compression policy
 func convertToTex(path string, compress bool, forcePng bool) error {
 	if !isImageFile(path) {
 		return fmt.Errorf("not a supported image file: %s", path)
@@ -711,9 +722,8 @@ func convertToTex(path string, compress bool, forcePng bool) error {
 	return nil
 }
 
-// determineGameFileType puts the common COM3D2 path first using its exact,
-// bounded signature probe. Files without a COM3D2 signature then go through
-// the richer KCES probe before the legacy extension/image/NEI/CSV heuristics.
+// determineGameFileType 依次使用精确 COM3D2 探测、KCES 探测和旧式启发规则识别文件
+// determineGameFileType identifies a file using exact COM3D2 probing, KCES probing, and legacy heuristics in order
 func determineGameFileType(path string, strict bool) (COM3D2Service.FileInfo, error) {
 	commonService := &COM3D2Service.CommonService{}
 	fileInfo, matched, err := commonService.TryFileTypeDetermine(path)
@@ -742,7 +752,8 @@ func determineGameFileType(path string, strict bool) (COM3D2Service.FileInfo, er
 	return commonService.FileTypeDetermine(path, strict)
 }
 
-// determineFileType determines the type of a COM3D2 or KCES file.
+// determineFileType 检测 COM3D2 或 KCES 文件并以单次输出打印完整结果
+// determineFileType detects a COM3D2 or KCES file and prints the complete result in one output operation
 func determineFileType(path string) error {
 	fileInfo, err := determineGameFileType(path, strictMode)
 	if err != nil {
@@ -758,28 +769,33 @@ func determineFileType(path string) error {
 	return nil
 }
 
-// isNeiFile checks if the file has a .nei extension
+// isNeiFile 不区分大小写地判断路径是否以 NEI 后缀结尾
+// isNeiFile reports case-insensitively whether a path ends with an NEI suffix
 func isNeiFile(path string) bool {
 	return strings.HasSuffix(strings.ToLower(path), ".nei")
 }
 
-// isBytesFile checks if the file has a .bytes extension
+// isBytesFile 不区分大小写地判断路径是否以 bytes 后缀结尾
+// isBytesFile reports case-insensitively whether a path ends with a bytes suffix
 func isBytesFile(path string) bool {
 	return strings.HasSuffix(strings.ToLower(path), ".bytes")
 }
 
-// isBytesJsonFile checks if the file is a .bytes.json file
+// isBytesJsonFile 不区分大小写地判断路径是否以 bytes JSON 双后缀结尾
+// isBytesJsonFile reports case-insensitively whether a path ends with the bytes JSON compound suffix
 func isBytesJsonFile(path string) bool {
 	lower := strings.ToLower(path)
 	return strings.HasSuffix(lower, ".bytes.json")
 }
 
-// isCsvFile checks if the file has a .csv extension
+// isCsvFile 不区分大小写地判断路径是否以 CSV 后缀结尾
+// isCsvFile reports case-insensitively whether a path ends with a CSV suffix
 func isCsvFile(path string) bool {
 	return strings.HasSuffix(strings.ToLower(path), ".csv")
 }
 
-// convertToCsv converts a NEI file to CSV
+// convertToCsv 将加密 Shift-JIS NEI 表格转换为相邻 UTF-8 CSV 文件
+// convertToCsv converts an encrypted Shift-JIS NEI table to an adjacent UTF-8 CSV file
 func convertToCsv(path string) error {
 	if !isNeiFile(path) {
 		return fmt.Errorf("not a NEI file: %s", path)
@@ -795,7 +811,8 @@ func convertToCsv(path string) error {
 	return nil
 }
 
-// convertToNei converts a CSV file to NEI
+// convertToNei 将 UTF-8 CSV 表格转换为相邻的加密 Shift-JIS NEI 文件
+// convertToNei converts a UTF-8 CSV table to an adjacent encrypted Shift-JIS NEI file
 func convertToNei(path string) error {
 	if !isCsvFile(path) {
 		return fmt.Errorf("not a CSV file: %s", path)
@@ -811,11 +828,14 @@ func convertToNei(path string) error {
 	return nil
 }
 
-// unpackArc unpacks an ARC file to a directory
+// unpackArc 将 ARC 解包到根据输入路径派生的默认目录
+// unpackArc unpacks an ARC file into the default directory derived from its input path
 func unpackArc(path string) error {
 	return unpackArcTo(path, "")
 }
 
+// unpackArcTo 将 ARC 解包到显式目录或输入路径派生的默认目录
+// unpackArcTo unpacks an ARC file into an explicit directory or the default derived directory
 func unpackArcTo(path string, outDir string) error {
 	service := &COM3D2Service.ArcService{}
 	outputPath := outDir
@@ -830,7 +850,8 @@ func unpackArcTo(path string, outDir string) error {
 	return nil
 }
 
-// listArcFiles reads an ARC file and prints all file paths it contains
+// listArcFiles 读取 ARC 并打印其中保存的全部文件路径
+// listArcFiles reads an ARC file and prints every file path stored in it
 func listArcFiles(path string) error {
 	service := &COM3D2Service.ArcService{}
 	arcFs, err := service.ReadArc(path)
@@ -846,8 +867,8 @@ func listArcFiles(path string) error {
 	return nil
 }
 
-// extractArcByExt reads an ARC file and extracts all files matching the given extension.
-// The file handle is kept open during extraction so that lazy ArcPointers can read data.
+// extractArcByExt 保持 ARC 延迟读取句柄打开并提取匹配指定后缀的全部文件
+// extractArcByExt keeps the lazy ARC handle open and extracts every file matching a specified suffix
 func extractArcByExt(path string, ext string, outDir string) error {
 	// Normalize extension: ensure leading dot, lowercase
 	ext = strings.ToLower(strings.TrimSpace(ext))
@@ -886,9 +907,8 @@ func extractArcByExt(path string, ext string, outDir string) error {
 	return nil
 }
 
-// extractArcFile reads an ARC file and extracts a single file by its path or name within the archive.
-// If filePath is not an exact match, it searches for entries whose filename matches.
-// The file handle is kept open during extraction so that lazy ArcPointers can read data.
+// extractArcFile 按完整路径或唯一基本名称解析并提取单个 ARC 条目
+// extractArcFile resolves and extracts one ARC entry by full path or unique base name
 func extractArcFile(path string, filePath string, outDir string) error {
 	service := &COM3D2Service.ArcService{}
 	arcFs, closer, err := service.ReadArcLazy(path)
@@ -912,8 +932,8 @@ func extractArcFile(path string, filePath string, outDir string) error {
 	return nil
 }
 
-// resolveArcFilePath resolves a file path or name to the actual path in the archive.
-// It first tries an exact match, then falls back to matching by filename.
+// resolveArcFilePath 优先按完整路径再按不区分大小写的唯一基本名称解析 ARC 条目
+// resolveArcFilePath resolves an ARC entry first by full path and then by unique case-insensitive base name
 func resolveArcFilePath(arcFs *arc.Arc, filePath string) (string, error) {
 	allFiles := arcFs.GetFileList()
 
@@ -944,7 +964,8 @@ func resolveArcFilePath(arcFs *arc.Arc, filePath string) (string, error) {
 	}
 }
 
-// packArc packs a directory to an ARC file
+// packArc 将目录树打包为 ARC 文件并打印生成路径
+// packArc packs a directory tree into an ARC file and prints the generated path
 func packArc(dirPath string, arcPath string) error {
 	service := &COM3D2Service.ArcService{}
 	if err := service.PackArc(dirPath, arcPath); err != nil {
@@ -955,7 +976,8 @@ func packArc(dirPath string, arcPath string) error {
 	return nil
 }
 
-// convertBytesToJson converts a .bytes file to JSON using content sniffing
+// convertBytesToJson 通过内容探测选择舞蹈时间轴或对象数据转换器
+// convertBytesToJson selects a dance timeline or object-data converter through content probing
 func convertBytesToJson(path string, outputPath string) error {
 	service := &COM3D2Service.DanceService{}
 	bytesType, err := service.SniffDanceBytesType(path)
@@ -973,8 +995,8 @@ func convertBytesToJson(path string, outputPath string) error {
 	}
 }
 
-// convertJsonToBytes converts a .bytes.json file back to .bytes
-// It determines the type by checking if the JSON contains a "TotalFrame" field (timeline) or "Entries" field (object data)
+// convertJsonToBytes 根据时间轴标记字段将舞蹈编辑 JSON 转换回对应 bytes 文件
+// convertJsonToBytes converts dance editing JSON back to the corresponding bytes file using timeline marker fields
 func convertJsonToBytes(path string, outputPath string) error {
 	f, err := os.Open(path)
 	if err != nil {
@@ -995,7 +1017,8 @@ func convertJsonToBytes(path string, outputPath string) error {
 	return service.ConvertJsonToDanceObjectData(context.Background(), path, outputPath, application.DefaultMaxOutputBytes)
 }
 
-// convertFile automatically determines the direction of conversion
+// convertFile 根据文件类型自动选择原生与通用格式之间的转换方向
+// convertFile automatically selects the conversion direction between native and common formats from the file type
 func convertFile(path string) error {
 	if !fileTypeFilter(path) {
 		fmt.Printf("Skip file %s Because, filetype not match", path)
@@ -1045,8 +1068,8 @@ func convertFile(path string) error {
 	return fmt.Errorf("unsupported file type for conversion: %s", path)
 }
 
-// fileTypeFilter filters files based on the fileType flag
-// return true mean file should be processed
+// fileTypeFilter 根据全局类型参数和严格模式判断路径是否应被处理
+// fileTypeFilter reports whether a path should be processed according to the global type flag and strict mode
 func fileTypeFilter(path string) bool {
 	// Empty means no filtering
 	ft := strings.ToLower(strings.TrimSpace(fileType))

@@ -16,12 +16,14 @@ const (
 	archivePageTokenMACSize = sha256.Size
 )
 
-// ArchivePager signs opaque cursors with a process-local random key. A pager
-// belongs to one transport server; cursors from another server are rejected.
+// ArchivePager 使用进程本地随机密钥签名不透明归档分页游标 / ArchivePager signs opaque archive page cursors with a process-local random key
 type ArchivePager struct {
+	// key 是当前分页器用于签名和验证游标的密钥 / key is the key used by this pager to sign and verify cursors
 	key [sha256.Size]byte
 }
 
+// NewArchivePager 创建具有随机签名密钥的归档分页器
+// NewArchivePager creates an archive pager with a random signing key
 func NewArchivePager() (*ArchivePager, error) {
 	pager := &ArchivePager{}
 	if _, err := rand.Read(pager.key[:]); err != nil {
@@ -30,14 +32,18 @@ func NewArchivePager() (*ArchivePager, error) {
 	return pager, nil
 }
 
-// ArchiveListing is one sorted, budget-checked archive view. fingerprint also
-// binds cursors to the exact source bytes, not merely a matching entry count.
+// ArchiveListing 表示经过排序和资源限制检查的单个归档视图 / ArchiveListing represents one sorted archive view that has passed resource-limit checks
 type ArchiveListing struct {
-	FormatID    string
-	Entries     []ArchiveEntry
+	// FormatID 是生成列表的归档格式标识符 / FormatID is the archive format identifier used to produce the listing
+	FormatID string
+	// Entries 是按名称排序的归档条目 / Entries contains archive entries sorted by name
+	Entries []ArchiveEntry
+	// fingerprint 将分页游标绑定到格式、源文件内容和条目元数据 / fingerprint binds page cursors to the format, source bytes, and entry metadata
 	fingerprint [sha256.Size]byte
 }
 
+// Decode 验证分页游标并返回其在当前归档列表中的偏移量
+// Decode validates a page cursor and returns its offset within the current archive listing
 func (p *ArchivePager) Decode(listing ArchiveListing, token string) (int, error) {
 	if token == "" {
 		return 0, nil
@@ -85,6 +91,8 @@ func (p *ArchivePager) Decode(listing ArchiveListing, token string) (int, error)
 	return int(offset64), nil
 }
 
+// Encode 为当前归档列表中的后续偏移量生成签名分页游标
+// Encode creates a signed page cursor for a subsequent offset in the current archive listing
 func (p *ArchivePager) Encode(listing ArchiveListing, offset int) (string, error) {
 	if p == nil {
 		return "", archivePageTokenError("pager is unavailable")
@@ -108,6 +116,8 @@ func (p *ArchivePager) Encode(listing ArchiveListing, offset int) (string, error
 	return base64.RawURLEncoding.EncodeToString(raw), nil
 }
 
+// archiveListingFingerprint 计算绑定归档格式、源摘要和有序条目元数据的摘要
+// archiveListingFingerprint computes a digest binding the archive format, source digest, and ordered entry metadata
 func archiveListingFingerprint(formatID string, sourceDigest [sha256.Size]byte, entries []ArchiveEntry) [sha256.Size]byte {
 	hash := sha256.New()
 	_, _ = hash.Write([]byte("meido-archive-listing-v1\x00"))
@@ -128,10 +138,15 @@ func archiveListingFingerprint(formatID string, sourceDigest [sha256.Size]byte, 
 	return result
 }
 
+// archiveFingerprintWriter 定义归档列表指纹编码所需的写入操作 / archiveFingerprintWriter defines the write operation required to encode an archive-listing fingerprint
 type archiveFingerprintWriter interface {
+	// Write 将字节加入正在计算的指纹
+	// Write adds bytes to the fingerprint being computed
 	Write([]byte) (int, error)
 }
 
+// writeArchiveFingerprintString 以长度前缀编码字符串并写入归档指纹
+// writeArchiveFingerprintString writes a length-prefixed string into an archive fingerprint
 func writeArchiveFingerprintString(writer archiveFingerprintWriter, value string) {
 	var length [8]byte
 	binary.BigEndian.PutUint64(length[:], uint64(len(value)))
@@ -139,10 +154,14 @@ func writeArchiveFingerprintString(writer archiveFingerprintWriter, value string
 	_, _ = writer.Write([]byte(value))
 }
 
+// normalizeArchiveFormatID 规范化用于归档路由和分页游标绑定的格式标识符
+// normalizeArchiveFormatID normalizes a format identifier for archive routing and cursor binding
 func normalizeArchiveFormatID(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
 }
 
+// archivePageTokenError 创建公开代码为参数无效的归档分页游标错误
+// archivePageTokenError creates an archive page-cursor error with the public invalid-argument code
 func archivePageTokenError(reason string) error {
 	return opError("archive page token", CodeInvalidArgument, fmt.Errorf("invalid archive page_token: %s", reason))
 }

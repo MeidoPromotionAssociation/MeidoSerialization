@@ -1,8 +1,7 @@
 package knowledgev1
 
-// kcesContainerProfiles contains the VirtualDirectory-backed KCES formats and
-// the system-data container. These profiles deliberately distinguish game
-// meaningful typed virtual files from independent files whose native payload is bytes.
+// kcesContainerProfiles 构建 KCES VirtualDirectory 格式和系统数据容器的源码审核指南
+// kcesContainerProfiles builds source-reviewed guides for KCES VirtualDirectory formats and the system-data container
 func kcesContainerProfiles() map[string]Guide {
 	vdSource := source("KCES 1.34.4", "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs", "VirtualDirectory.Serialize/Deserialize", 409, 575, "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.")
 	presetSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/MaidPreset.cs", "MaidPreset.LoadPreset/Serialize", 31, 180, "MaidPreset stores thumbnail, maiddata, and optional meta files in a VirtualDirectory; maiddata contains compressed MaidPresetCore property, color, and body byte blocks.")

@@ -1,5 +1,7 @@
 package knowledgev1
 
+// com3d2Profiles 构建依据 COM3D2 与 COM3D2_5 游戏源码审核的格式指南 profile
+// com3d2Profiles builds format-guide profiles reviewed against COM3D2 and COM3D2_5 game source
 func com3d2Profiles() map[string]Guide {
 	menuSource := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/Menu.cs", "Menu.ProcScriptBin", 156, 958, "The runtime reads the header and executes the command records in order; command state changes how later records are interpreted.")
 	compileSource := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs", "ModCompile.CompileMenu", 45, 234, "The official compiler extracts name, category, and setumei metadata and writes the ordered command stream and header.")

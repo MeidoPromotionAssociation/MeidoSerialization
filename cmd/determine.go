@@ -33,6 +33,8 @@ Examples:
 	},
 }
 
+// init 保留文件类型检测命令的初始化扩展点
+// init retains the initialization extension point for the file-type detection command
 func init() {
 	// Add any command-specific flags here
 }
