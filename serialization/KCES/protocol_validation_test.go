@@ -195,7 +195,7 @@ func TestPreMulTexDatasRejectsWrongIndexedArrayWidth(t *testing.T) {
 		nil,         // preTransTexData
 		nil,         // preInfColData; Key(18) is intentionally absent
 	}
-	for _, width := range []int{11, 18} {
+	for _, width := range []int{11, 17} {
 		wire, err := msgpack.EncodeMsgpack(raw[:width])
 		if err != nil {
 			t.Fatalf("EncodeMsgpack: %v", err)
@@ -213,6 +213,100 @@ func TestPreMulTexDatasRejectsWrongIndexedArrayWidth(t *testing.T) {
 	var decoded PreMulTexDatas
 	if err := msgpack.DecodeMsgpack(wire, &decoded); err == nil {
 		t.Fatal("DecodeMsgpack accepted high PreMulTexDatas key")
+	}
+}
+
+func TestPreMulTexDatasAcceptsHistoricalWidth18WithConstructorDefault(t *testing.T) {
+	// Width 18 predates preTexCompoTypeStr at Key 18 and remains in base-game parts.menuassets
+	// MessagePack-CSharp constructs the object before assigning available keys, so the missing field keeps "Alpha"
+	raw := []interface{}{
+		int64(1000), // version
+		"body",      // slotId
+		"",          // saveTag
+		int64(0),    // f_nMatNo
+		"_MainTex",  // f_strPropName
+		int64(0),    // f_nLayerNo
+		"source",    // f_strFileName
+		"",          // f_eBlendMode
+		nil,         // maskParam
+		nil,         // infColParam
+		false,       // f_bTexGroup
+		int64(4),    // f_nLayNoInGroup explicitly present
+		float64(0),  // f_fAlpha explicitly present
+		int64(0),    // f_nTargetBodyTexSize
+		"",          // posDefHokuroTatooSlotId
+		nil,         // preMaskData
+		nil,         // preTransTexData
+		nil,         // preInfColData; Key(18) is intentionally absent
+	}
+	wire, err := msgpack.EncodeMsgpack(raw)
+	if err != nil {
+		t.Fatalf("EncodeMsgpack: %v", err)
+	}
+	var decoded PreMulTexDatas
+	if err := msgpack.DecodeMsgpack(wire, &decoded); err != nil {
+		t.Fatalf("DecodeMsgpack rejected historical 18-slot PreMulTexDatas: %v", err)
+	}
+	if decoded.PreTexCompoTypeStr == nil || *decoded.PreTexCompoTypeStr != "Alpha" {
+		t.Fatalf("preTexCompoTypeStr = %v, want constructor default %q", decoded.PreTexCompoTypeStr, "Alpha")
+	}
+	if decoded.LayNoInGroup != 4 {
+		t.Fatalf("f_nLayNoInGroup = %d, want wire value 4 overriding constructor default -1", decoded.LayNoInGroup)
+	}
+	if decoded.Alpha != 0 {
+		t.Fatalf("f_fAlpha = %v, want wire value 0 overriding constructor default 1", decoded.Alpha)
+	}
+	if decoded.Version != 1000 {
+		t.Fatalf("version = %d, want wire value 1000 overriding constructor default 1001", decoded.Version)
+	}
+
+	currentWire, err := msgpack.EncodeMsgpack(append(append([]interface{}(nil), raw...), nil))
+	if err != nil {
+		t.Fatalf("encode current layout with explicit nil: %v", err)
+	}
+	var current PreMulTexDatas
+	if err := msgpack.DecodeMsgpack(currentWire, &current); err != nil {
+		t.Fatalf("decode current layout with explicit nil: %v", err)
+	}
+	if current.PreTexCompoTypeStr != nil {
+		t.Fatalf("explicit nil preTexCompoTypeStr became constructor default %v", current.PreTexCompoTypeStr)
+	}
+}
+
+func TestMaskParamAcceptsHistoricalWidthFive(t *testing.T) {
+	raw := []interface{}{
+		nil,
+		"mask.png",
+		[]interface{}{},
+		"linked-mask",
+		int64(3),
+	}
+	wire, err := msgpack.EncodeMsgpack(raw)
+	if err != nil {
+		t.Fatalf("EncodeMsgpack: %v", err)
+	}
+	var decoded MaskParam
+	if err := msgpack.DecodeMsgpack(wire, &decoded); err != nil {
+		t.Fatalf("DecodeMsgpack rejected historical five-slot MaskParam: %v", err)
+	}
+	if decoded.MaskTexName == nil || *decoded.MaskTexName != "mask.png" ||
+		decoded.LinkMaskName == nil || *decoded.LinkMaskName != "linked-mask" || decoded.LinkMaskNo != 3 {
+		t.Fatalf("decoded historical MaskParam = %#v", decoded)
+	}
+	if decoded.ShareRtTargetPart != nil {
+		t.Fatalf("shareRtTargetPart = %v, want nil for the historical layout", decoded.ShareRtTargetPart)
+	}
+
+	reencoded, err := msgpack.EncodeIndexedMsgpack(&decoded)
+	if err != nil {
+		t.Fatalf("EncodeIndexedMsgpack: %v", err)
+	}
+	var slots []interface{}
+	if err := msgpack.DecodeMsgpack(reencoded, &slots); err != nil {
+		t.Fatalf("decode re-encoded MaskParam slots: %v", err)
+	}
+	if len(slots) != 6 || slots[5] != nil {
+		t.Fatalf("re-encoded MaskParam slots = %#v, want six slots ending in nil", slots)
 	}
 }
 

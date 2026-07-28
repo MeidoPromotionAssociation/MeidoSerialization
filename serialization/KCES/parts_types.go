@@ -257,26 +257,26 @@ func (p *PartsColor) UnmarshalJSON(data []byte) error {
 // PreMulTexDatas 对应 Parts.Menu.PreMulTexDatas 的贴图预合成记录
 // PreMulTexDatas maps Parts.Menu.PreMulTexDatas texture pre-composition records
 type PreMulTexDatas struct {
-	_struct               struct{}        `codec:",toarray"`               // 强制按数组编码 / Forces array encoding
-	Version               int32           `json:"version"`                 // 版本号，游戏 FixVersion 为 1001 / Version value; the game's FixVersion is 1001
-	SlotID                *string         `json:"slotId"`                  // 可空目标槽位 ID / Nullable target slot ID
-	SaveTag               *string         `json:"saveTag"`                 // 可空保存用图层标签 / Nullable saved texture layer tag
-	MatNo                 int32           `json:"f_nMatNo"`                // 目标材质编号 / Target material index
-	PropName              *string         `json:"f_strPropName"`           // 可空目标材质属性名 / Nullable target material property name
-	LayerNo               int32           `json:"f_nLayerNo"`              // 贴图层编号 / Texture layer number
-	FileName              *string         `json:"f_strFileName"`           // 可空合成源贴图文件名 / Nullable source texture file name for composition
-	BlendMode             *string         `json:"f_eBlendMode"`            // 可空合成模式字符串 / Nullable blend-mode string
-	MaskParam             *MaskParam      `json:"maskParam"`               // 蒙版参数 / Mask parameters
-	InfColParam           *InfColorParam  `json:"infColParam"`             // 无限色参数 / Infinity-color parameters
-	TexGroup              bool            `json:"f_bTexGroup"`             // 是否属于贴图组 / Whether this layer belongs to a texture group
-	LayNoInGroup          int32           `json:"f_nLayNoInGroup"`         // 组内层编号 / Layer index inside the group
-	Alpha                 float32         `json:"f_fAlpha"`                // 合成透明度 / Composition alpha
-	TargetBodyTexSize     int32           `json:"f_nTargetBodyTexSize"`    // 目标身体贴图尺寸 / Target body texture size
-	PosDefHokuroTatooSlot *string         `json:"posDefHokuroTatooSlotId"` // 可空默认痣/纹身位置槽位 / Nullable default mole/tattoo position slot
-	PreMaskData           []*MaskData     `json:"preMaskData"`             // 可空预计算蒙版对象数组 / Array of nullable precomputed mask objects
-	PreTransTexData       []*TransTexData `json:"preTransTexData"`         // 可空预计算贴图变换对象列表 / List of nullable precomputed texture-transform objects
-	PreInfColData         *InfColData     `json:"preInfColData"`           // 预计算无限色数据 / Precomputed infinity-color data
-	PreTexCompoTypeStr    *string         `json:"preTexCompoTypeStr"`      // 可空预合成系统材质模式字符串 / Nullable pre-composition system material mode string
+	_struct               struct{}        `codec:",toarray" kces:"widths=18,19"` // 强制按数组编码并接受缺少 preTexCompoTypeStr 的旧宽度 / Forces array encoding and accepts the older width without preTexCompoTypeStr
+	Version               int32           `json:"version"`                       // 版本号，游戏 FixVersion 为 1001 / Version value; the game's FixVersion is 1001
+	SlotID                *string         `json:"slotId"`                        // 可空目标槽位 ID / Nullable target slot ID
+	SaveTag               *string         `json:"saveTag"`                       // 可空保存用图层标签 / Nullable saved texture layer tag
+	MatNo                 int32           `json:"f_nMatNo"`                      // 目标材质编号 / Target material index
+	PropName              *string         `json:"f_strPropName"`                 // 可空目标材质属性名 / Nullable target material property name
+	LayerNo               int32           `json:"f_nLayerNo"`                    // 贴图层编号 / Texture layer number
+	FileName              *string         `json:"f_strFileName"`                 // 可空合成源贴图文件名 / Nullable source texture file name for composition
+	BlendMode             *string         `json:"f_eBlendMode"`                  // 可空合成模式字符串 / Nullable blend-mode string
+	MaskParam             *MaskParam      `json:"maskParam"`                     // 蒙版参数 / Mask parameters
+	InfColParam           *InfColorParam  `json:"infColParam"`                   // 无限色参数 / Infinity-color parameters
+	TexGroup              bool            `json:"f_bTexGroup"`                   // 是否属于贴图组 / Whether this layer belongs to a texture group
+	LayNoInGroup          int32           `json:"f_nLayNoInGroup"`               // 组内层编号 / Layer index inside the group
+	Alpha                 float32         `json:"f_fAlpha"`                      // 合成透明度 / Composition alpha
+	TargetBodyTexSize     int32           `json:"f_nTargetBodyTexSize"`          // 目标身体贴图尺寸 / Target body texture size
+	PosDefHokuroTatooSlot *string         `json:"posDefHokuroTatooSlotId"`       // 可空默认痣/纹身位置槽位 / Nullable default mole/tattoo position slot
+	PreMaskData           []*MaskData     `json:"preMaskData"`                   // 可空预计算蒙版对象数组 / Array of nullable precomputed mask objects
+	PreTransTexData       []*TransTexData `json:"preTransTexData"`               // 可空预计算贴图变换对象列表 / List of nullable precomputed texture-transform objects
+	PreInfColData         *InfColData     `json:"preInfColData"`                 // 预计算无限色数据 / Precomputed infinity-color data
+	PreTexCompoTypeStr    *string         `json:"preTexCompoTypeStr"`            // 可空预合成系统材质模式字符串 / Nullable pre-composition system material mode string
 }
 
 // NewPreMulTexDatas 返回 C# 基类构造函数和字段初始化器在 MessagePack 或 JSON 成员赋值前设置的默认值
@@ -289,6 +289,12 @@ func NewPreMulTexDatas() *PreMulTexDatas {
 		Alpha:              1,
 		PreTexCompoTypeStr: &alpha,
 	}
+}
+
+// ApplyMessagePackConstructorDefaults 在 MessagePack 成员赋值前安装 C# 构造默认值，使旧宽度 18 缺失的 preTexCompoTypeStr 保留 "Alpha"
+// ApplyMessagePackConstructorDefaults installs the C# constructor defaults before MessagePack member assignment so preTexCompoTypeStr missing from the older width 18 keeps "Alpha"
+func (p *PreMulTexDatas) ApplyMessagePackConstructorDefaults() {
+	*p = *NewPreMulTexDatas()
 }
 
 // UnmarshalJSON 解码 PreMulTexDatas 的 JSON 表示而不注入构造默认值
@@ -382,13 +388,13 @@ type MaskData struct {
 // MaskParam 对应 TexLay.MaskParam，描述蒙版贴图和区域
 // MaskParam maps TexLay.MaskParam and describes mask texture and ranges
 type MaskParam struct {
-	_struct           struct{}    `codec:",toarray"`         // 强制按数组编码 / Forces array encoding
-	MaskData          []*MaskData `json:"maskData"`          // 可空蒙版对象列表 / List of nullable mask objects
-	MaskTexName       *string     `json:"maskTexName"`       // 可空蒙版贴图文件名 / Nullable mask texture file name
-	MaskRanges        []Vector4   `json:"maskRanges"`        // 蒙版 UV/范围数组 / Mask UV/range array
-	LinkMaskName      *string     `json:"linkMaskName"`      // 可空关联蒙版名称 / Nullable linked mask name
-	LinkMaskNo        int32       `json:"linkMaskNo"`        // 关联蒙版编号 / Linked mask index
-	ShareRtTargetPart *string     `json:"shareRtTargetPart"` // 可空共享 RenderTexture 目标部件名 / Nullable target part name for shared RenderTexture
+	_struct           struct{}    `codec:",toarray" kces:"widths=5,6"` // 强制按数组编码并接受缺少 shareRtTargetPart 的旧宽度 / Forces array encoding and accepts the older width without shareRtTargetPart
+	MaskData          []*MaskData `json:"maskData"`                    // 可空蒙版对象列表 / List of nullable mask objects
+	MaskTexName       *string     `json:"maskTexName"`                 // 可空蒙版贴图文件名 / Nullable mask texture file name
+	MaskRanges        []Vector4   `json:"maskRanges"`                  // 蒙版 UV/范围数组 / Mask UV/range array
+	LinkMaskName      *string     `json:"linkMaskName"`                // 可空关联蒙版名称 / Nullable linked mask name
+	LinkMaskNo        int32       `json:"linkMaskNo"`                  // 关联蒙版编号 / Linked mask index
+	ShareRtTargetPart *string     `json:"shareRtTargetPart"`           // 可空共享 RenderTexture 目标部件名 / Nullable target part name for shared RenderTexture
 }
 
 // PartColDef 对应 InfinityColorTexMgr2.PartColDef，描述 ID 贴图的一个部位颜色

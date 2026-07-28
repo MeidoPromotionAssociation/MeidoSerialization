@@ -137,6 +137,9 @@ func TestDecompressLz4BlockArray_GameMessagePackCSharpSample(t *testing.T) {
 	path := filepath.Join("..", "..", "..", "testdata", "kces_parts", "cm3d2_megane002.materialassets")
 	data, err := os.ReadFile(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			t.Skipf("game sample not present: %v", err)
+		}
 		t.Fatalf("read game sample: %v", err)
 	}
 	if len(data) < 4 || data[0] != 0x92 || data[3] != 98 {

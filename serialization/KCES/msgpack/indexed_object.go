@@ -54,6 +54,12 @@ func toInt32(value interface{}) (int32, bool) {
 	}
 }
 
+// ConstructorDefaults 模拟 C# 无参构造函数与字段初始化器在 MessagePack 成员赋值前安装的默认值，使旧宽度缺失的尾部 Key 保留构造默认值而不是零值
+// ConstructorDefaults mirrors the defaults installed by the C# parameterless constructor and field initializers before MessagePack member assignment so trailing keys missing from older widths keep constructor defaults instead of zero values
+type ConstructorDefaults interface {
+	ApplyMessagePackConstructorDefaults()
+}
+
 // EncodeIndexedObjectSelf 按当前支持的固定 int-key 布局编码 MessagePack 对象，稀疏 Key 始终写为 nil
 // EncodeIndexedObjectSelf encodes a MessagePack object using the currently supported fixed int-key layout and always writes sparse keys as nil
 func EncodeIndexedObjectSelf(e *codec.Encoder, value interface{}) {
@@ -94,6 +100,9 @@ func DecodeIndexedObjectSelf(d *codec.Decoder, value interface{}) {
 		}
 		fv := rv.FieldByIndex(field.index)
 		fv.Set(reflect.Zero(fv.Type()))
+	}
+	if defaults, ok := value.(ConstructorDefaults); ok {
+		defaults.ApplyMessagePackConstructorDefaults()
 	}
 	for slot := int64(0); slot < int64(len(slots)); slot++ {
 		raw := []byte(slots[slot])
