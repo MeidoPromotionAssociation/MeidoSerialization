@@ -85,6 +85,35 @@ func TestKCESPresetGameLayoutRoundTrip(t *testing.T) {
 	}
 }
 
+func TestKCESPresetExtendedContainerFramingRoundTrip(t *testing.T) {
+	value, err := NewKCESPreset()
+	if err != nil {
+		t.Fatal(err)
+	}
+	value.ContainerFraming = ct.VirtualDirectoryFramingExtended
+	encoded, err := EncodeKCESPreset(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(encoded) < ct.HeaderSize || encoded[7] != ct.SerializeTypeMsgPackExtended {
+		t.Fatalf("encoded serialize type = %#x, want %#x", encoded[7], ct.SerializeTypeMsgPackExtended)
+	}
+	decoded, err := DecodeExpandedKCESPreset(encoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decoded.ContainerFraming != ct.VirtualDirectoryFramingExtended {
+		t.Fatalf("decoded container framing = %d, want extended", decoded.ContainerFraming)
+	}
+	reencoded, err := EncodeExpandedKCESPreset(decoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reencoded) < ct.HeaderSize || reencoded[7] != ct.SerializeTypeMsgPackExtended {
+		t.Fatalf("re-encoded serialize type = %#x, want %#x", reencoded[7], ct.SerializeTypeMsgPackExtended)
+	}
+}
+
 func TestKCESPresetRejectsMissingOrCorruptOuterGameFiles(t *testing.T) {
 	if _, err := EncodeKCESPreset(&KCESPreset{}); err == nil || !strings.Contains(err.Error(), "maidData") {
 		t.Fatalf("missing maidData error = %v", err)

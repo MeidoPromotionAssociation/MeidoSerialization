@@ -45,18 +45,21 @@ const (
 // 两个派生类没有增加 MessagePack Key，因此线格式字节完全相同
 // ID、BaseMenuFile 与 InstanceGUID 使用指针，因为 C# 字符串格式化器允许 nil
 // 普通解码不会重现游戏 Guid.NewGuid 回调，非空线格式值保持不透明，因为游戏不会对它调用 Guid.Parse
+// LegacyInstanceGUIDOmitted 仅保留 instanceGuid 加入前的数组宽度，不对应游戏类成员
 // ColorPreset represents the serialized base shared by MaidEdit.ColorPreset and MaidEdit.ColorPresetSlot
 // Neither derived class adds MessagePack keys, so their wire bytes are identical
 // ID, BaseMenuFile, and InstanceGUID use pointers because the C# string formatter permits nil
 // Ordinary decoding does not reproduce the game Guid.NewGuid callback, and a non-empty wire value remains opaque because the game never passes it through Guid.Parse
+// LegacyInstanceGUIDOmitted only preserves the array width from before instanceGuid was added and does not correspond to a game-class member
 type ColorPreset struct {
-	Version        int32                   `json:"version"`        // Key 0 的预设版本，当前 FixVersion 为 1004 / Preset version at Key 0, with a current FixVersion of 1004
-	ID             *string                 `json:"id"`             // Key 1 的预设标识，用户预设保存时也作为虚拟文件名 / Preset identifier at Key 1, also used as the virtual filename for user presets
-	BaseMenuFile   *string                 `json:"baseMenuFile"`   // Key 2 的基础颜色预设菜单文件名 / Base color-preset menu filename at Key 2
-	UserCreated    bool                    `json:"userCreated"`    // Key 3 的用户创建标志，游戏据此决定是否保存预设二进制 / User-created flag at Key 3, used by the game to decide whether to save preset bytes
-	IsAdvancedMode bool                    `json:"isAdvancedMode"` // Key 4 的高级模式状态 / Advanced-mode state at Key 4
-	ColorPackList  []*ColorPresetColorPack `json:"colorPackList"`  // Key 5 的颜色层包列表 / Color-layer pack list at Key 5
-	InstanceGUID   *string                 `json:"instanceGuid"`   // Key 6 的可空实例标识，非空值由游戏作为不透明字符串使用 / Nullable instance identifier at Key 6, with non-empty values treated as opaque strings by the game
+	Version                   int32                   `json:"version"`                             // Key 0 的预设版本，当前 FixVersion 为 1004 / Preset version at Key 0, with a current FixVersion of 1004
+	ID                        *string                 `json:"id"`                                  // Key 1 的预设标识，用户预设保存时也作为虚拟文件名 / Preset identifier at Key 1, also used as the virtual filename for user presets
+	BaseMenuFile              *string                 `json:"baseMenuFile"`                        // Key 2 的基础颜色预设菜单文件名 / Base color-preset menu filename at Key 2
+	UserCreated               bool                    `json:"userCreated"`                         // Key 3 的用户创建标志，游戏据此决定是否保存预设二进制 / User-created flag at Key 3, used by the game to decide whether to save preset bytes
+	IsAdvancedMode            bool                    `json:"isAdvancedMode"`                      // Key 4 的高级模式状态 / Advanced-mode state at Key 4
+	ColorPackList             []*ColorPresetColorPack `json:"colorPackList"`                       // Key 5 的颜色层包列表 / Color-layer pack list at Key 5
+	InstanceGUID              *string                 `json:"instanceGuid"`                        // Key 6 的可空实例标识，非空值由游戏作为不透明字符串使用 / Nullable instance identifier at Key 6, with non-empty values treated as opaque strings by the game
+	LegacyInstanceGUIDOmitted bool                    `json:"legacyInstanceGuidOmitted,omitempty"` // 旧版六槽对象未保存 Key 6 的线格式标记，并非游戏成员 / Wire marker for a legacy six-slot object that did not store Key 6, not a game member
 }
 
 // ColorPresetSlot 是 ColorPreset 的线格式别名，游戏派生类型没有新增 Key
@@ -65,19 +68,22 @@ type ColorPresetSlot = ColorPreset
 
 // ColorPresetColorPack 保留 CustomColorPresetColorPack 的全部序列化字段，包括私有 mpnNames 与 allowedMpnOverRide
 // 游戏 CopyTo 方法意外漏掉 allowedMpnOverRide，但本编解码器面向线格式本身，因此不会丢弃它
+// LegacyMPNNamesOmitted 仅保留 mpnNames 加入前的数组宽度，不对应游戏类成员
 // ColorPresetColorPack preserves every serialized CustomColorPresetColorPack field including private mpnNames and allowedMpnOverRide
 // The game CopyTo method accidentally omits allowedMpnOverRide, but this codec models the wire itself and therefore does not discard it
+// LegacyMPNNamesOmitted only preserves the array width from before mpnNames was added and does not correspond to a game-class member
 type ColorPresetColorPack struct {
-	Version            int32                        `json:"version"`            // Key 0 的色包版本，当前 FixVersion 为 1001 / Color-pack version at Key 0, with a current FixVersion of 1001
-	MPNs               []int32                      `json:"mpns"`               // Key 1 的 MPN 数值数组，当前版本反序列化回调会用 MPNNames 解析结果覆盖它 / Numeric MPN array at Key 1, overwritten by parsed MPNNames in the current-version deserialization callback
-	LayerName          *string                      `json:"layerName"`          // Key 2 的 SavedTexData 层名称 / SavedTexData layer name at Key 2
-	ViewName           *string                      `json:"viewName"`           // Key 3 的界面显示名称 / UI display name at Key 3
-	Type               ColorPresetPackType          `json:"type"`               // Key 4 的颜色与透明度应用模式 / Color and alpha application mode at Key 4
-	ColorList          []*ColorPresetLayerFreeColor `json:"colorList"`          // Key 5 的普通层颜色列表 / Normal layer-color list at Key 5
-	GradationColorList []*ColorPresetGradationColor `json:"gradationColorList"` // Key 6 的渐变颜色点列表 / Gradation-color point list at Key 6
-	Alpha              float32                      `json:"alpha"`              // Key 7 的乘算透明度 / Multiplied alpha at Key 7
-	AllowedMPNOverride bool                         `json:"allowedMpnOverRide"` // Key 8 的 MPN 覆盖许可标志 / MPN override permission flag at Key 8
-	MPNNames           []*string                    `json:"mpnNames"`           // Key 9 的项目可空 MPN 名称数组，当前反序列化回调用它重建 MPNs / MPN-name array with nullable entries at Key 9, used by the current deserialization callback to rebuild MPNs
+	Version               int32                        `json:"version"`                         // Key 0 的色包版本，当前 FixVersion 为 1001 / Color-pack version at Key 0, with a current FixVersion of 1001
+	MPNs                  []int32                      `json:"mpns"`                            // Key 1 的 MPN 数值数组，当前版本反序列化回调会用 MPNNames 解析结果覆盖它 / Numeric MPN array at Key 1, overwritten by parsed MPNNames in the current-version deserialization callback
+	LayerName             *string                      `json:"layerName"`                       // Key 2 的 SavedTexData 层名称 / SavedTexData layer name at Key 2
+	ViewName              *string                      `json:"viewName"`                        // Key 3 的界面显示名称 / UI display name at Key 3
+	Type                  ColorPresetPackType          `json:"type"`                            // Key 4 的颜色与透明度应用模式 / Color and alpha application mode at Key 4
+	ColorList             []*ColorPresetLayerFreeColor `json:"colorList"`                       // Key 5 的普通层颜色列表 / Normal layer-color list at Key 5
+	GradationColorList    []*ColorPresetGradationColor `json:"gradationColorList"`              // Key 6 的渐变颜色点列表 / Gradation-color point list at Key 6
+	Alpha                 float32                      `json:"alpha"`                           // Key 7 的乘算透明度 / Multiplied alpha at Key 7
+	AllowedMPNOverride    bool                         `json:"allowedMpnOverRide"`              // Key 8 的 MPN 覆盖许可标志 / MPN override permission flag at Key 8
+	MPNNames              []*string                    `json:"mpnNames"`                        // Key 9 的项目可空 MPN 名称数组，当前反序列化回调用它重建 MPNs / MPN-name array with nullable entries at Key 9, used by the current deserialization callback to rebuild MPNs
+	LegacyMPNNamesOmitted bool                         `json:"legacyMpnNamesOmitted,omitempty"` // 旧版九槽对象未保存 Key 9 的线格式标记，并非游戏成员 / Wire marker for a legacy nine-slot object that did not store Key 9, not a game member
 }
 
 // ColorPresetFreeColor 公开 FreeColor 的四个私有原始字段
@@ -214,8 +220,8 @@ func DecodeColorPresetSlotWithInstanceGUID(data []byte, constructorGUID string) 
 	return DecodeColorPresetWithInstanceGUID(data, constructorGUID)
 }
 
-// decodeColorPreset 解压固定七槽的颜色预设根值并要求完整消费解压后的输入
-// decodeColorPreset decompresses a fixed seven-slot color-preset root and requires complete consumption of the decompressed input
+// decodeColorPreset 解压颜色预设根值，兼容 instanceGuid 加入前的六槽布局与当前七槽布局，并要求完整消费输入
+// decodeColorPreset decompresses a color-preset root, accepts both the six-slot layout predating instanceGuid and the current seven-slot layout, and requires complete input consumption
 func decodeColorPreset(data []byte, constructorGUID string) (*ColorPreset, error) {
 	raw, err := msgpack.DecompressLz4BlockArray(data)
 	if err != nil {
@@ -233,10 +239,10 @@ func decodeColorPreset(data []byte, constructorGUID string) (*ColorPreset, error
 	if err != nil {
 		return nil, err
 	}
-	if fieldCount != 7 {
-		return nil, fmt.Errorf("unsupported ColorPreset indexed-array width %d, expected 7", fieldCount)
+	if fieldCount != 6 && fieldCount != 7 {
+		return nil, fmt.Errorf("unsupported ColorPreset indexed-array width %d, expected 6 or 7", fieldCount)
 	}
-	value := &ColorPreset{}
+	value := &ColorPreset{LegacyInstanceGUIDOmitted: fieldCount == 6}
 	value.Version, err = r.readInt32("ColorPreset.version")
 	if err != nil {
 		return nil, err
@@ -261,12 +267,15 @@ func decodeColorPreset(data []byte, constructorGUID string) (*ColorPreset, error
 	if err != nil {
 		return nil, err
 	}
-	value.InstanceGUID, err = colorPresetReadNullableString(&r, "ColorPreset.instanceGuid")
-	if err != nil {
-		return nil, err
+	if fieldCount == 7 {
+		value.InstanceGUID, err = colorPresetReadNullableString(&r, "ColorPreset.instanceGuid")
+		if err != nil {
+			return nil, err
+		}
 	}
 	if constructorGUID != "" && (value.InstanceGUID == nil || *value.InstanceGUID == "") {
 		value.InstanceGUID = &constructorGUID
+		value.LegacyInstanceGUIDOmitted = false
 	}
 	if err := r.requireEOF("ColorPreset"); err != nil {
 		return nil, err
@@ -277,9 +286,9 @@ func decodeColorPreset(data []byte, constructorGUID string) (*ColorPreset, error
 	return value, nil
 }
 
-// EncodeColorPreset 按固定七槽 indexed object 写出预设而不调用游戏迁移或序列化回调
+// EncodeColorPreset 按解码时记录的六槽旧布局或当前七槽布局写出预设，不调用游戏迁移或序列化回调
 // 所有显式版本以及数值和名称两组 MPN 数组都按调用者提供内容保留
-// EncodeColorPreset emits the fixed seven-slot indexed object without invoking game migration or serialization callbacks
+// EncodeColorPreset emits either the recorded legacy six-slot layout or the current seven-slot layout without invoking game migrations or serialization callbacks
 // Every explicit version and both numeric and named MPN arrays are preserved as supplied by the caller
 func EncodeColorPreset(value *ColorPreset) ([]byte, error) {
 	if value == nil {
@@ -289,7 +298,11 @@ func EncodeColorPreset(value *ColorPreset) ([]byte, error) {
 		return nil, err
 	}
 
-	raw := simpleEditDataAppendArrayHeader(nil, 7)
+	fieldCount := int64(7)
+	if value.LegacyInstanceGUIDOmitted {
+		fieldCount = 6
+	}
+	raw := simpleEditDataAppendArrayHeader(nil, fieldCount)
 	raw = simpleEditDataAppendInt32(raw, value.Version)
 	raw = colorPresetAppendNullableString(raw, value.ID)
 	raw = colorPresetAppendNullableString(raw, value.BaseMenuFile)
@@ -307,7 +320,9 @@ func EncodeColorPreset(value *ColorPreset) ([]byte, error) {
 			}
 		}
 	}
-	raw = colorPresetAppendNullableString(raw, value.InstanceGUID)
+	if !value.LegacyInstanceGUIDOmitted {
+		raw = colorPresetAppendNullableString(raw, value.InstanceGUID)
+	}
 	return colorPresetCompress(raw)
 }
 
@@ -341,6 +356,9 @@ func validateColorPresetForEncoding(value *ColorPreset) error {
 	}
 	if err := colorPresetValidateNullableString(value.InstanceGUID, "ColorPreset.instanceGuid"); err != nil {
 		return err
+	}
+	if value.LegacyInstanceGUIDOmitted && value.InstanceGUID != nil {
+		return fmt.Errorf("ColorPreset.instanceGuid must be nil when legacyInstanceGuidOmitted is true")
 	}
 	for index, pack := range value.ColorPackList {
 		if err := validateColorPresetPack(pack, fmt.Sprintf("ColorPreset.colorPackList[%d]", index), false); err != nil {
@@ -394,8 +412,8 @@ func colorPresetReadPackList(r *simpleEditDataReader, path string) ([]*ColorPres
 	return result, nil
 }
 
-// colorPresetReadPack 按 CustomColorPresetColorPack 的固定十槽布局读取一个可空色包
-// colorPresetReadPack reads one nullable color pack using the fixed ten-slot CustomColorPresetColorPack layout
+// colorPresetReadPack 读取一个可空色包，兼容 mpnNames 加入前的九槽布局与当前十槽布局
+// colorPresetReadPack reads one nullable color pack and accepts both the nine-slot layout predating mpnNames and the current ten-slot layout
 func colorPresetReadPack(r *simpleEditDataReader, path string) (*ColorPresetColorPack, error) {
 	if r.tryReadNil() {
 		return nil, nil
@@ -404,10 +422,10 @@ func colorPresetReadPack(r *simpleEditDataReader, path string) (*ColorPresetColo
 	if err != nil {
 		return nil, err
 	}
-	if fieldCount != 10 {
-		return nil, fmt.Errorf("unsupported %s indexed-array width %d, expected 10", path, fieldCount)
+	if fieldCount != 9 && fieldCount != 10 {
+		return nil, fmt.Errorf("unsupported %s indexed-array width %d, expected 9 or 10", path, fieldCount)
 	}
-	value := &ColorPresetColorPack{}
+	value := &ColorPresetColorPack{LegacyMPNNamesOmitted: fieldCount == 9}
 	value.Version, err = r.readInt32(path + ".version")
 	if err != nil {
 		return nil, err
@@ -445,9 +463,11 @@ func colorPresetReadPack(r *simpleEditDataReader, path string) (*ColorPresetColo
 	if err != nil {
 		return nil, err
 	}
-	value.MPNNames, err = colorPresetReadStringArray(r, path+".mpnNames")
-	if err != nil {
-		return nil, err
+	if fieldCount == 10 {
+		value.MPNNames, err = colorPresetReadStringArray(r, path+".mpnNames")
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := validateColorPresetPack(value, path, true); err != nil {
 		return nil, err
@@ -473,6 +493,9 @@ func validateColorPresetPack(value *ColorPresetColorPack, path string, decoded b
 			return err
 		}
 	}
+	if value.LegacyMPNNamesOmitted && value.MPNNames != nil {
+		return fmt.Errorf("%s.mpnNames must be nil when legacyMpnNamesOmitted is true", path)
+	}
 	if err := colorPresetValidateNullableString(value.LayerName, path+".layerName"); err != nil {
 		return err
 	}
@@ -496,8 +519,8 @@ func validateColorPresetPack(value *ColorPresetColorPack, path string, decoded b
 	return nil
 }
 
-// colorPresetAppendPack 按固定十槽布局写入一个可空 CustomColorPresetColorPack
-// colorPresetAppendPack writes one nullable CustomColorPresetColorPack using the fixed ten-slot layout
+// colorPresetAppendPack 按解码时记录的九槽旧布局或当前十槽布局写入一个可空 CustomColorPresetColorPack
+// colorPresetAppendPack writes one nullable CustomColorPresetColorPack using either the recorded legacy nine-slot layout or the current ten-slot layout
 func colorPresetAppendPack(dst []byte, value *ColorPresetColorPack, path string) ([]byte, error) {
 	if value == nil {
 		return append(dst, 0xc0), nil
@@ -505,7 +528,11 @@ func colorPresetAppendPack(dst []byte, value *ColorPresetColorPack, path string)
 	if err := validateColorPresetPack(value, path, false); err != nil {
 		return nil, err
 	}
-	dst = simpleEditDataAppendArrayHeader(dst, 10)
+	fieldCount := int64(10)
+	if value.LegacyMPNNamesOmitted {
+		fieldCount = 9
+	}
+	dst = simpleEditDataAppendArrayHeader(dst, fieldCount)
 	dst = simpleEditDataAppendInt32(dst, value.Version)
 	if value.MPNs == nil {
 		dst = append(dst, 0xc0)
@@ -544,15 +571,17 @@ func colorPresetAppendPack(dst []byte, value *ColorPresetColorPack, path string)
 	}
 	dst = colorPresetAppendFloat32(dst, value.Alpha)
 	dst = colorPresetAppendBool(dst, value.AllowedMPNOverride)
-	if value.MPNNames == nil {
-		dst = append(dst, 0xc0)
-	} else {
-		dst = simpleEditDataAppendArrayHeader(dst, int64(len(value.MPNNames)))
-		for _, name := range value.MPNNames {
-			if name == nil {
-				dst = append(dst, 0xc0)
-			} else {
-				dst = simpleEditDataAppendString(dst, *name)
+	if !value.LegacyMPNNamesOmitted {
+		if value.MPNNames == nil {
+			dst = append(dst, 0xc0)
+		} else {
+			dst = simpleEditDataAppendArrayHeader(dst, int64(len(value.MPNNames)))
+			for _, name := range value.MPNNames {
+				if name == nil {
+					dst = append(dst, 0xc0)
+				} else {
+					dst = simpleEditDataAppendString(dst, *name)
+				}
 			}
 		}
 	}

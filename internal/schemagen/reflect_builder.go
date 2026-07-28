@@ -193,6 +193,12 @@ func (builder *reflectSchemaBuilder) schema(typ reflect.Type, root bool) *jsonsc
 	default:
 		result = &jsonschema.Schema{}
 	}
+	if typ == typeOf[serializationKCESCT.VirtualDirectoryFraming]() {
+		result.Enum = []any{
+			serializationKCESCT.VirtualDirectoryFramingLegacy,
+			serializationKCESCT.VirtualDirectoryFramingExtended,
+		}
+	}
 	return nullableSchema(result, nullable)
 }
 

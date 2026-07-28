@@ -1,6 +1,7 @@
 package ct
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -17,22 +18,25 @@ import (
 
 // .ct
 // KCES 的 Content Table 资源目录文件，外层使用 VirtualDirectory 序列化格式
-// 文件头之后连续保存各 VirtualFile 的原始数据，尾部保存 LZ4 Block Array 压缩的 MessagePack 目录结构及其长度
+// 文件头之后连续保存各 VirtualFile 的原始数据，尾部保存可选 LZ4 Block Array 压缩的 MessagePack 目录结构
+// 旧封装使用 0x8e 标记与 UInt32 长度，新封装使用 0xff 标记、UInt64 长度与固定尾部签名
 //
 //	[7 bytes]  FileSignature: bb c3 aa 9a a6 4d ad
-//	[1 byte]   SerializeType: 8e = MessagePack, 00 = MemoryPack
-//	[N bytes]  原始文件数据（各 VirtualFile 连续存放）
-//	[M bytes]  MessagePack + LZ4 Block Array 压缩的 VirtualDirectory 结构
-//	[4 bytes]  M 的值（Little-Endian Int32）
+//	[1 byte]   SerializeType: 8e = 旧 MessagePack 封装，ff = 扩展 MessagePack 封装
+//	[N bytes]  原始文件数据
+//	[M bytes]  MessagePack VirtualDirectory，可按 LZ4 Block Array 规则压缩
+//	旧封装: [4 bytes] M 的值（Little-Endian UInt32）
+//	新封装: [8 bytes] M 的值（Little-Endian UInt64）+ ed fb aa 55
 // .ct
 // KCES Content Table resource catalog using the serialized VirtualDirectory format
-// Raw VirtualFile data is stored contiguously after the header; the tail stores the LZ4 Block Array-compressed
-// MessagePack directory structure followed by its length
+// Raw VirtualFile data is stored contiguously after the header and followed by an optionally LZ4 Block Array-compressed MessagePack directory
+// The legacy frame uses marker 0x8e and a UInt32 length while the extended frame uses marker 0xff, a UInt64 length, and a fixed footer signature
 //	[7 bytes]  FileSignature: bb c3 aa 9a a6 4d ad
-//	[1 byte]   SerializeType: 8e = MessagePack, 00 = MemoryPack
-//	[N bytes]  Raw file data with VirtualFiles stored contiguously
-//	[M bytes]  MessagePack + LZ4 Block Array-compressed VirtualDirectory structure
-//	[4 bytes]  M encoded as a Little-Endian Int32
+//	[1 byte]   SerializeType: 8e = legacy MessagePack frame, ff = extended MessagePack frame
+//	[N bytes]  Raw file data
+//	[M bytes]  MessagePack VirtualDirectory, optionally compressed by the LZ4 Block Array rule
+//	Legacy: [4 bytes] M encoded as a Little-Endian UInt32
+//	Extended: [8 bytes] M encoded as a Little-Endian UInt64 + ed fb aa 55
 
 // FileSignature 是 .ct 文件的魔数签名（7 字节），用于验证文件格式
 // 对应 C# VirtualDirectory.FileSignature = {0xbb, 0xc3, 0xaa, 0x9a, 0xa6, 0x4d, 0xad}
@@ -44,17 +48,37 @@ const (
 	// HeaderSize 是文件头大小，由 7 字节签名和 1 字节序列化类型组成
 	// HeaderSize is the header width made up of a 7-byte signature and a 1-byte serialization type
 	HeaderSize = 8
-	// SerializeTypeMsgPack 表示使用 MessagePack 序列化（0x8e）
-	// 另一种可能值 0x00 表示 MemoryPack，本库不支持
-	// SerializeTypeMsgPack selects MessagePack serialization (0x8e)
-	// The other defined value 0x00 selects MemoryPack, which this package does not support
-	SerializeTypeMsgPack = 0x8e
-	// footerSizeLen 是文件末尾存储 MessagePack 数据长度的字节数（Little-Endian UInt32）
-	// footerSizeLen is the number of bytes used for the trailing MessagePack length (Little-Endian UInt32)
-	footerSizeLen = 4
+	// SerializeTypeMsgPack 表示带 UInt32 长度尾部的旧 MessagePack 封装
+	// SerializeTypeMsgPack selects the legacy MessagePack frame with a trailing UInt32 length
+	SerializeTypeMsgPack byte = 0x8e
+	// SerializeTypeMsgPackExtended 表示带 UInt64 长度与固定签名尾部的扩展 MessagePack 封装
+	// SerializeTypeMsgPackExtended selects the extended MessagePack frame with a trailing UInt64 length and fixed signature
+	SerializeTypeMsgPackExtended byte = 0xff
+	// legacyFooterSize 是旧封装末尾 MessagePack UInt32 长度的字节数
+	// legacyFooterSize is the width of the trailing MessagePack UInt32 length in the legacy frame
+	legacyFooterSize = 4
+	// extendedFooterSize 是扩展封装 UInt64 长度和四字节签名的总宽度
+	// extendedFooterSize is the combined width of the UInt64 length and four-byte signature in the extended frame
+	extendedFooterSize = 12
 	// ctVersion 是 VirtualDirectory 的固定版本号，对应 C# VirtualDirectory.FixVersion = 1000
 	// ctVersion is the fixed VirtualDirectory version matching C# VirtualDirectory.FixVersion = 1000
 	ctVersion = 1000
+)
+
+// extendedFooterMagic 是扩展 VirtualDirectory 封装固定使用的尾部签名
+// extendedFooterMagic is the fixed trailing signature used by the extended VirtualDirectory frame
+var extendedFooterMagic = [...]byte{0xed, 0xfb, 0xaa, 0x55}
+
+// VirtualDirectoryFraming 标识 MessagePack VirtualDirectory 元数据采用的外层尾部封装 / VirtualDirectoryFraming identifies the outer footer frame used around MessagePack VirtualDirectory metadata
+type VirtualDirectoryFraming uint8
+
+const (
+	// VirtualDirectoryFramingLegacy 使用 0x8e 标记和四字节长度尾部
+	// VirtualDirectoryFramingLegacy uses marker 0x8e and a four-byte length footer
+	VirtualDirectoryFramingLegacy VirtualDirectoryFraming = iota
+	// VirtualDirectoryFramingExtended 使用 0xff 标记、八字节长度及固定签名尾部
+	// VirtualDirectoryFramingExtended uses marker 0xff, an eight-byte length, and a fixed footer signature
+	VirtualDirectoryFramingExtended
 )
 
 // ContentTable 表示解析后的 .ct 文件 VirtualDirectory 序列化结构
@@ -65,6 +89,7 @@ const (
 // The game reads the "catalog" virtual file through CatalogUtility.FromCatalog<T> to obtain resource indexes
 type ContentTable struct {
 	Version     int32                               `json:"Version"`               // 保存的根 VirtualDirectory 版本 / Stored root VirtualDirectory version
+	Framing     VirtualDirectoryFraming             `json:"Framing,omitempty"`     // MessagePack 目录的外层尾部封装 / Outer footer frame around the MessagePack directory
 	Directories map[string]VirtualDirectoryMetadata `json:"Directories,omitempty"` // 子目录路径及其真实版本字段，包含空目录 / Child-directory paths and their real version fields, including empty directories
 	Files       map[string]VirtualFile              `json:"Files"`                 // 虚拟文件表，键为文件名，值为位置和大小 / Virtual file table keyed by file name with position and size values
 	Raw         []byte                              `json:"-"`                     // 完整文件原始字节，用于按偏移提取虚拟文件内容 / Raw bytes of the full file used to slice virtual file contents by offset
@@ -98,7 +123,7 @@ func ReadContentTable(r io.Reader) (*ContentTable, error) {
 		return nil, fmt.Errorf("read .ct file failed: %w", err)
 	}
 
-	if len(data) < HeaderSize+footerSizeLen+4 {
+	if len(data) < HeaderSize {
 		return nil, fmt.Errorf("file too small: %d bytes", len(data))
 	}
 
@@ -108,24 +133,18 @@ func ReadContentTable(r io.Reader) (*ContentTable, error) {
 		}
 	}
 
-	if data[7] != SerializeTypeMsgPack {
-		return nil, fmt.Errorf("unsupported serialize type: 0x%02x (only MessagePack 0x%02x supported)", data[7], SerializeTypeMsgPack)
+	framing, msgpackStart, msgpackEnd, err := readVirtualDirectoryMetadataRange(data)
+	if err != nil {
+		return nil, err
 	}
-
-	msgpackSize := int64(binary.LittleEndian.Uint32(data[len(data)-footerSizeLen:]))
-	if msgpackSize <= 0 || msgpackSize > int64(len(data)-HeaderSize-footerSizeLen) {
-		return nil, fmt.Errorf("invalid msgpack size: %d (file size: %d)", msgpackSize, len(data))
-	}
-
-	msgpackStart := int64(len(data)-footerSizeLen) - msgpackSize
-	msgpackData := data[msgpackStart : len(data)-footerSizeLen]
+	msgpackData := data[msgpackStart:msgpackEnd]
 
 	decompressed, err := msgpack.DecompressLz4BlockArray(msgpackData)
 	if err != nil {
 		return nil, fmt.Errorf("decompress VirtualDirectory failed: %w", err)
 	}
 
-	ct := &ContentTable{Raw: data, dataEnd: msgpackStart}
+	ct := &ContentTable{Framing: framing, Raw: data, dataEnd: msgpackStart}
 	if err := ct.decodeVirtualDirectory(decompressed); err != nil {
 		return nil, fmt.Errorf("decode VirtualDirectory failed: %w", err)
 	}
@@ -142,6 +161,41 @@ func ReadContentTable(r io.Reader) (*ContentTable, error) {
 	return ct, nil
 }
 
+// readVirtualDirectoryMetadataRange 验证序列化类型及对应尾部，并返回 MessagePack 元数据的半开区间
+// readVirtualDirectoryMetadataRange validates the serialize type and matching footer and returns the half-open MessagePack metadata range
+func readVirtualDirectoryMetadataRange(data []byte) (VirtualDirectoryFraming, int64, int64, error) {
+	dataLength := int64(len(data))
+	switch data[7] {
+	case SerializeTypeMsgPack:
+		if len(data) < HeaderSize+legacyFooterSize+1 {
+			return 0, 0, 0, fmt.Errorf("legacy MessagePack VirtualDirectory file too small: %d bytes", len(data))
+		}
+		metadataEnd := dataLength - legacyFooterSize
+		metadataSize := int64(binary.LittleEndian.Uint32(data[metadataEnd:]))
+		if metadataSize <= 0 || metadataSize > metadataEnd-HeaderSize {
+			return 0, 0, 0, fmt.Errorf("invalid legacy msgpack size: %d (file size: %d)", metadataSize, len(data))
+		}
+		return VirtualDirectoryFramingLegacy, metadataEnd - metadataSize, metadataEnd, nil
+	case SerializeTypeMsgPackExtended:
+		if len(data) < HeaderSize+extendedFooterSize+1 {
+			return 0, 0, 0, fmt.Errorf("extended MessagePack VirtualDirectory file too small: %d bytes", len(data))
+		}
+		magicStart := len(data) - len(extendedFooterMagic)
+		if !bytes.Equal(data[magicStart:], extendedFooterMagic[:]) {
+			return 0, 0, 0, fmt.Errorf("invalid extended VirtualDirectory footer signature: got % x, want % x", data[magicStart:], extendedFooterMagic)
+		}
+		metadataEnd := dataLength - extendedFooterSize
+		metadataSize := binary.LittleEndian.Uint64(data[metadataEnd : dataLength-int64(len(extendedFooterMagic))])
+		maximumSize := uint64(metadataEnd - HeaderSize)
+		if metadataSize == 0 || metadataSize > maximumSize {
+			return 0, 0, 0, fmt.Errorf("invalid extended msgpack size: %d (file size: %d)", metadataSize, len(data))
+		}
+		return VirtualDirectoryFramingExtended, metadataEnd - int64(metadataSize), metadataEnd, nil
+	default:
+		return 0, 0, 0, fmt.Errorf("unsupported serialize type: 0x%02x (supported MessagePack markers are 0x%02x and 0x%02x)", data[7], SerializeTypeMsgPack, SerializeTypeMsgPackExtended)
+	}
+}
+
 // WriteContentTable 将 ContentTable 序列化为 .ct 格式并写入 writer
 // 写入顺序为签名、序列化类型、各文件原始数据、LZ4 压缩的 VirtualDirectory 和长度尾部
 // WriteContentTable serializes ContentTable in .ct format and writes it to writer
@@ -152,6 +206,14 @@ func WriteContentTable(w io.Writer, ct *ContentTable) error {
 	}
 	if ct == nil {
 		return fmt.Errorf("nil content table")
+	}
+	serializeType := SerializeTypeMsgPack
+	switch ct.Framing {
+	case VirtualDirectoryFramingLegacy:
+	case VirtualDirectoryFramingExtended:
+		serializeType = SerializeTypeMsgPackExtended
+	default:
+		return fmt.Errorf("unsupported VirtualDirectory framing %d", ct.Framing)
 	}
 	type fileEntry struct {
 		name string      // 虚拟文件名 / Virtual file name
@@ -211,8 +273,9 @@ func WriteContentTable(w io.Writer, ct *ContentTable) error {
 	if err != nil {
 		return fmt.Errorf("compress VirtualDirectory failed: %w", err)
 	}
-	if uint64(len(compressed)) > uint64(^uint32(0)) {
-		return fmt.Errorf("compressed VirtualDirectory is too large: %d bytes", len(compressed))
+	footer, err := encodeVirtualDirectoryMetadataFooter(ct.Framing, uint64(len(compressed)))
+	if err != nil {
+		return err
 	}
 
 	// 所有模型和封装校验都在首次写入前完成，被拒绝的元数据形状不会留下部分写入的输出流
@@ -220,7 +283,7 @@ func WriteContentTable(w io.Writer, ct *ContentTable) error {
 	if err := binaryio.WriteBytes(w, FileSignature); err != nil {
 		return fmt.Errorf("write file signature failed: %w", err)
 	}
-	if err := binaryio.WriteByte(w, SerializeTypeMsgPack); err != nil {
+	if err := binaryio.WriteByte(w, serializeType); err != nil {
 		return fmt.Errorf("write serialize type failed: %w", err)
 	}
 	for _, entry := range entries {
@@ -233,13 +296,35 @@ func WriteContentTable(w io.Writer, ct *ContentTable) error {
 		return fmt.Errorf("write msgpack data failed: %w", err)
 	}
 
-	sizeBuf := make([]byte, 4)
-	binary.LittleEndian.PutUint32(sizeBuf, uint32(len(compressed)))
-	if err := binaryio.WriteBytes(w, sizeBuf); err != nil {
+	if err := binaryio.WriteBytes(w, footer); err != nil {
 		return fmt.Errorf("write msgpack size failed: %w", err)
 	}
 
 	return nil
+}
+
+// encodeVirtualDirectoryMetadataFooter 为所选封装创建经过范围检查的元数据长度尾部
+// encodeVirtualDirectoryMetadataFooter creates a range-checked metadata-length footer for the selected frame
+func encodeVirtualDirectoryMetadataFooter(framing VirtualDirectoryFraming, metadataSize uint64) ([]byte, error) {
+	if metadataSize == 0 {
+		return nil, fmt.Errorf("compressed VirtualDirectory must not be empty")
+	}
+	switch framing {
+	case VirtualDirectoryFramingLegacy:
+		if metadataSize > math.MaxUint32 {
+			return nil, fmt.Errorf("compressed VirtualDirectory is too large for legacy framing: %d bytes", metadataSize)
+		}
+		footer := make([]byte, legacyFooterSize)
+		binary.LittleEndian.PutUint32(footer, uint32(metadataSize))
+		return footer, nil
+	case VirtualDirectoryFramingExtended:
+		footer := make([]byte, extendedFooterSize)
+		binary.LittleEndian.PutUint64(footer, metadataSize)
+		copy(footer[extendedFooterSize-len(extendedFooterMagic):], extendedFooterMagic[:])
+		return footer, nil
+	default:
+		return nil, fmt.Errorf("unsupported VirtualDirectory framing %d", framing)
+	}
 }
 
 // NewContentTableFromDir 从磁盘目录创建 ContentTable，将目录中所有文件作为虚拟文件
@@ -249,6 +334,7 @@ func WriteContentTable(w io.Writer, ct *ContentTable) error {
 func NewContentTableFromDir(dirPath string) (*ContentTable, error) {
 	ct := &ContentTable{
 		Version: ctVersion,
+		Framing: VirtualDirectoryFramingLegacy,
 		Files:   make(map[string]VirtualFile),
 	}
 

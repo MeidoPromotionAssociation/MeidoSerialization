@@ -362,6 +362,24 @@ func TestGeneratedKCESPartsSchemasAcceptRootNull(t *testing.T) {
 	}
 }
 
+func TestGeneratedVirtualDirectoryFramingSchemaRejectsUnknownValues(t *testing.T) {
+	schema := compileGeneratedSchema(t, "kces.system")
+	instance := jsonObject(t, serializationKCES.NewKCESSystemData())
+	for _, test := range []struct {
+		value float64
+		valid bool
+	}{
+		{value: float64(serializationKCESCT.VirtualDirectoryFramingLegacy), valid: true},
+		{value: float64(serializationKCESCT.VirtualDirectoryFramingExtended), valid: true},
+		{value: 2, valid: false},
+		{value: 255, valid: false},
+		{value: -1, valid: false},
+	} {
+		instance["containerFraming"] = test.value
+		assertSchemaValidation(t, schema, instance, test.valid)
+	}
+}
+
 func TestGeneratedRequiredKCESObjectsRejectNull(t *testing.T) {
 	opaquePreset, err := serializationKCES.NewKCESPreset()
 	if err != nil {

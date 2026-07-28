@@ -822,6 +822,9 @@
         "isAdvancedMode": {
           "type": "boolean"
         },
+        "legacyInstanceGuidOmitted": {
+          "type": "boolean"
+        },
         "userCreated": {
           "type": "boolean"
         },
@@ -892,6 +895,9 @@
             "null",
             "string"
           ]
+        },
+        "legacyMpnNamesOmitted": {
+          "type": "boolean"
         },
         "mpnNames": {
           "items": {
@@ -1151,6 +1157,17 @@
             "null",
             "object"
           ]
+        },
+        "containerFraming": {
+          "enum": [
+            0,
+            1
+          ],
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer",
+          "x-meido-integer-bits": 8,
+          "x-meido-integer-signed": false
         },
         "containerVersion": {
           "maximum": 2147483647,

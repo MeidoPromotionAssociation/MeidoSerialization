@@ -40,6 +40,7 @@ const (
 type KCESPreset struct {
 	Format               string                                 `json:"format"`                         // JSON 表示格式标识 / JSON representation format identifier
 	ContainerVersion     int32                                  `json:"containerVersion"`               // VirtualDirectory 容器版本 / VirtualDirectory container version
+	ContainerFraming     ct.VirtualDirectoryFraming             `json:"containerFraming,omitempty"`     // VirtualDirectory MessagePack 目录的外层尾部封装 / Outer footer frame around the VirtualDirectory MessagePack directory
 	ContainerDirectories map[string]ct.VirtualDirectoryMetadata `json:"containerDirectories,omitempty"` // 虚拟目录的真实版本字段 / Real version fields of virtual directories
 	Thumbnail            []byte                                 `json:"thumbnail"`                      // thumbnail 虚拟文件字节 / Bytes of the thumbnail virtual file
 	MaidData             *KCESPresetCore                        `json:"maidData"`                       // maiddata 虚拟文件中的内部线记录 / Inner wire record from the maiddata virtual file
@@ -136,6 +137,7 @@ func DecodeKCESPreset(data []byte) (*KCESPreset, error) {
 	preset := &KCESPreset{
 		Format:               KCESPresetFormat,
 		ContainerVersion:     table.Version,
+		ContainerFraming:     table.Framing,
 		ContainerDirectories: table.GetVirtualDirectoryMetadata(),
 		Thumbnail:            append([]byte(nil), thumbnail...),
 		MaidData:             core,
@@ -197,6 +199,7 @@ func EncodeKCESPreset(preset *KCESPreset) ([]byte, error) {
 
 	table := &ct.ContentTable{
 		Version:     preset.ContainerVersion,
+		Framing:     preset.ContainerFraming,
 		Directories: preset.ContainerDirectories,
 		Raw:         make([]byte, ct.HeaderSize),
 		Files:       make(map[string]ct.VirtualFile),

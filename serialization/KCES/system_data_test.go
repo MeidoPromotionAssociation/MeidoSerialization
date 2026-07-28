@@ -28,8 +28,9 @@ func TestKCESSystemDataRoundTripAllKnownEditDataAndOpaqueFiles(t *testing.T) {
 		gradColors[key] = key
 	}
 	value := &KCESSystemData{
-		Format:  KCESSystemDataFormat,
-		Version: 1000,
+		Format:           KCESSystemDataFormat,
+		Version:          1000,
+		ContainerFraming: ct.VirtualDirectoryFramingExtended,
 		Directories: map[string]ct.VirtualDirectoryMetadata{
 			"EditData":                    {Version: 1000},
 			"EditData/color_preset":       {Version: 1000},
@@ -102,6 +103,9 @@ func TestKCESSystemDataRoundTripAllKnownEditDataAndOpaqueFiles(t *testing.T) {
 	table, err := ct.ReadContentTable(bytes.NewReader(encoded))
 	if err != nil {
 		t.Fatalf("ReadContentTable: %v", err)
+	}
+	if table.Framing != ct.VirtualDirectoryFramingExtended {
+		t.Fatalf("container framing = %d, want extended", table.Framing)
 	}
 	if got, want := table.GetFileNames(), []string{
 		"EditData/GradSv2",

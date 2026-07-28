@@ -48,11 +48,12 @@ const (
 // KCESSystemData is the semantic view of the system.dat VirtualDirectory
 // Known EditData payloads are typed while only independent virtual files matching no known path are retained byte-for-byte in ExtraFiles, and a parse failure at a known path must return an error
 type KCESSystemData struct {
-	Format      string                                 `json:"format"`                // 库的可编辑表示标识，不写入游戏文件 / Library editing-representation identifier, not written to the game file
-	Version     int32                                  `json:"version"`               // VirtualDirectory 对象版本 / VirtualDirectory object version
-	Directories map[string]ct.VirtualDirectoryMetadata `json:"directories,omitempty"` // 各虚拟目录的真实版本字段 / Real version fields of each virtual directory
-	EditData    []KCESEditDataFile                     `json:"editData,omitempty"`    // 按虚拟路径识别并解码的 EditData 文件 / EditData files recognized and decoded by virtual path
-	ExtraFiles  map[string][]byte                      `json:"extraFiles,omitempty"`  // 未识别虚拟文件的真实 byte[] 载荷 / Real byte-array payloads of unrecognized virtual files
+	Format           string                                 `json:"format"`                     // 库的可编辑表示标识，不写入游戏文件 / Library editing-representation identifier, not written to the game file
+	Version          int32                                  `json:"version"`                    // VirtualDirectory 对象版本 / VirtualDirectory object version
+	ContainerFraming ct.VirtualDirectoryFraming             `json:"containerFraming,omitempty"` // VirtualDirectory MessagePack 目录的外层尾部封装 / Outer footer frame around the VirtualDirectory MessagePack directory
+	Directories      map[string]ct.VirtualDirectoryMetadata `json:"directories,omitempty"`      // 各虚拟目录的真实版本字段 / Real version fields of each virtual directory
+	EditData         []KCESEditDataFile                     `json:"editData,omitempty"`         // 按虚拟路径识别并解码的 EditData 文件 / EditData files recognized and decoded by virtual path
+	ExtraFiles       map[string][]byte                      `json:"extraFiles,omitempty"`       // 未识别虚拟文件的真实 byte[] 载荷 / Real byte-array payloads of unrecognized virtual files
 }
 
 // UnmarshalJSON 严格解码 system.dat 编辑封套并要求 format 与 version 显式出现
@@ -300,9 +301,10 @@ func DecodeKCESSystemData(data []byte) (*KCESSystemData, error) {
 		return nil, fmt.Errorf("decode KCES system.dat VirtualDirectory: %w", err)
 	}
 	result := &KCESSystemData{
-		Format:      KCESSystemDataFormat,
-		Version:     table.Version,
-		Directories: table.GetVirtualDirectoryMetadata(),
+		Format:           KCESSystemDataFormat,
+		Version:          table.Version,
+		ContainerFraming: table.Framing,
+		Directories:      table.GetVirtualDirectoryMetadata(),
 	}
 	for _, path := range table.GetFileNames() {
 		payload, err := table.GetFileData(path)
@@ -352,6 +354,7 @@ func EncodeKCESSystemData(value *KCESSystemData) ([]byte, error) {
 	}
 	table := &ct.ContentTable{
 		Version:     value.Version,
+		Framing:     value.ContainerFraming,
 		Directories: value.Directories,
 		Raw:         make([]byte, ct.HeaderSize),
 		Files:       make(map[string]ct.VirtualFile),

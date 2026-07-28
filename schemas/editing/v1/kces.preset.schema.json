@@ -40,6 +40,9 @@
         "isAdvancedMode": {
           "type": "boolean"
         },
+        "legacyInstanceGuidOmitted": {
+          "type": "boolean"
+        },
         "userCreated": {
           "type": "boolean"
         },
@@ -110,6 +113,9 @@
             "null",
             "string"
           ]
+        },
+        "legacyMpnNamesOmitted": {
+          "type": "boolean"
         },
         "mpnNames": {
           "items": {
@@ -1983,6 +1989,17 @@
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
       ]
+    },
+    "containerFraming": {
+      "enum": [
+        0,
+        1
+      ],
+      "maximum": 255,
+      "minimum": 0,
+      "type": "integer",
+      "x-meido-integer-bits": 8,
+      "x-meido-integer-signed": false
     },
     "containerVersion": {
       "description": "The outer VirtualDirectory version, normally 1000.",

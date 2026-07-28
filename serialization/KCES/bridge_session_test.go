@@ -14,6 +14,7 @@ func TestKCESBridgeSessionTypedRoundTrip(t *testing.T) {
 	value := &KCESBridgeSession{
 		Format:           KCESBridgeSessionFormat,
 		ContainerVersion: -7,
+		ContainerFraming: ct.VirtualDirectoryFramingExtended,
 		ContainerDirectories: map[string]ct.VirtualDirectoryMetadata{
 			"empty":  {Version: 1001},
 			"future": {Version: -7},
@@ -43,6 +44,9 @@ func TestKCESBridgeSessionTypedRoundTrip(t *testing.T) {
 	table, err := ct.ReadContentTable(bytes.NewReader(encoded))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if table.Framing != ct.VirtualDirectoryFramingExtended {
+		t.Fatalf("container framing = %d, want extended", table.Framing)
 	}
 	rawSessionID, err := table.GetFileData(kcesBridgeSessionIDFile)
 	if err != nil {

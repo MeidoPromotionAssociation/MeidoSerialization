@@ -15,6 +15,7 @@ import (
 type ExpandedKCESPreset struct {
 	Format               string                                 `json:"format"`                         // JSON 表示格式标识 / JSON representation format identifier
 	ContainerVersion     int32                                  `json:"containerVersion"`               // VirtualDirectory 容器版本 / VirtualDirectory container version
+	ContainerFraming     ct.VirtualDirectoryFraming             `json:"containerFraming,omitempty"`     // VirtualDirectory MessagePack 目录的外层尾部封装 / Outer footer frame around the VirtualDirectory MessagePack directory
 	ContainerDirectories map[string]ct.VirtualDirectoryMetadata `json:"containerDirectories,omitempty"` // 虚拟目录的真实版本字段 / Real version fields of virtual directories
 	Thumbnail            []byte                                 `json:"thumbnail"`                      // thumbnail 虚拟文件字节 / Bytes of the thumbnail virtual file
 	MaidData             ExpandedKCESPresetCore                 `json:"maidData"`                       // 展开三个内部块的必需 maiddata 核心 / Required maiddata core with all three inner blocks expanded
@@ -94,6 +95,7 @@ func ExpandKCESPreset(preset *KCESPreset) (*ExpandedKCESPreset, error) {
 	expanded := &ExpandedKCESPreset{
 		Format:               preset.Format,
 		ContainerVersion:     preset.ContainerVersion,
+		ContainerFraming:     preset.ContainerFraming,
 		ContainerDirectories: preset.ContainerDirectories,
 		Thumbnail:            preset.Thumbnail,
 		Meta:                 preset.Meta,
@@ -169,6 +171,7 @@ func CollapseExpandedKCESPreset(value *ExpandedKCESPreset) (*KCESPreset, error) 
 	return &KCESPreset{
 		Format:               value.Format,
 		ContainerVersion:     value.ContainerVersion,
+		ContainerFraming:     value.ContainerFraming,
 		ContainerDirectories: value.ContainerDirectories,
 		Thumbnail:            value.Thumbnail,
 		MaidData:             core,

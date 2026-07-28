@@ -36,6 +36,7 @@ const (
 type KCESBridgeSession struct {
 	Format               string                                 `json:"format"`                         // 库的可编辑表示标识，不写入游戏文件 / Library editing-representation identifier, not written to the game file
 	ContainerVersion     int32                                  `json:"containerVersion"`               // 外层 VirtualDirectory 对象版本 / Outer VirtualDirectory object version
+	ContainerFraming     ct.VirtualDirectoryFraming             `json:"containerFraming,omitempty"`     // VirtualDirectory MessagePack 目录的外层尾部封装 / Outer footer frame around the VirtualDirectory MessagePack directory
 	ContainerDirectories map[string]ct.VirtualDirectoryMetadata `json:"containerDirectories,omitempty"` // 各虚拟目录的真实版本字段 / Real version fields of each virtual directory
 	SessionData          KCESBridgeSessionData                  `json:"sessionData"`                    // session_data 文件中的必需 EditBridgeSessionData 根值 / Required EditBridgeSessionData root value in the session_data file
 	ExtraFiles           map[string][]byte                      `json:"extraFiles,omitempty"`           // 两个保留名称之外虚拟文件的真实 byte[] 载荷 / Real byte-array payloads of virtual files other than the two reserved names
@@ -103,6 +104,7 @@ func DecodeKCESBridgeSession(data []byte) (*KCESBridgeSession, error) {
 	result := &KCESBridgeSession{
 		Format:               KCESBridgeSessionFormat,
 		ContainerVersion:     table.Version,
+		ContainerFraming:     table.Framing,
 		ContainerDirectories: table.GetVirtualDirectoryMetadata(),
 		SessionData:          *sessionData,
 	}
@@ -138,6 +140,7 @@ func EncodeKCESBridgeSession(value *KCESBridgeSession) ([]byte, error) {
 
 	table := &ct.ContentTable{
 		Version:     value.ContainerVersion,
+		Framing:     value.ContainerFraming,
 		Directories: value.ContainerDirectories,
 		Raw:         make([]byte, ct.HeaderSize),
 		Files:       make(map[string]ct.VirtualFile),
