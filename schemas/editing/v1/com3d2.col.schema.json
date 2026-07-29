@@ -223,7 +223,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve order and use only supported type names; verify every parent bone exists.",
       "x-meido-edit-role": "runtime_collection",
       "x-meido-game-usage": "Each record selects a concrete component and is attached to the named parent transform.",
@@ -235,16 +234,25 @@
           "line_end": 282,
           "line_start": 232,
           "observation": "The loader validates CM3D21_COL and constructs dbc, dpc, dbm, or missing collider objects, restoring their parent, transform, direction, center, and bound values.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
           "symbol": "DynamicBone.SerializeReadCollider"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "Signature": {
       "description": "The CM3D21_COL header string.",
       "title": "Collider signature",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep CM3D21_COL.",
       "x-meido-edit-role": "format_marker",
       "x-meido-game-usage": "DynamicBone rejects another signature before reading collider records.",
@@ -256,10 +264,20 @@
           "line_end": 282,
           "line_start": 232,
           "observation": "The loader validates CM3D21_COL and constructs dbc, dpc, dbm, or missing collider objects, restoring their parent, transform, direction, center, and bound values.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
           "symbol": "DynamicBone.SerializeReadCollider"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "Version": {
       "description": "The integer version passed to each collider's serializer.",
@@ -267,7 +285,6 @@
       "minimum": -2147483648,
       "title": "Collider version",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve the original value and use the target build's value for newly authored files.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "The game changes the value between builds while retaining the reviewed record layout.",
@@ -281,10 +298,20 @@
           "line_end": 282,
           "line_start": 232,
           "observation": "The loader validates CM3D21_COL and constructs dbc, dpc, dbm, or missing collider objects, restoring their parent, transform, direction, center, and bound values.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs",
           "symbol": "DynamicBone.SerializeReadCollider"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -295,6 +322,11 @@
   "title": "com3d2.col editing JSON",
   "type": "object",
   "x-meido-format-id": "com3d2.col",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "DynamicBone.SerializeWriteCollider/SerializeReadCollider and all supported collider subclasses were reviewed in COM3D2 2.48.0."
+  },
   "x-meido-native-suffixes": [
     ".col"
   ],

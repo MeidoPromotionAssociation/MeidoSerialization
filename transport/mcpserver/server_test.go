@@ -184,15 +184,15 @@ func TestMCPToolsAndCapabilitiesResource(t *testing.T) {
 			RequiresExplicitUserPathAuthorization bool     `json:"requires_explicit_user_path_authorization"`
 		} `json:"write_policy"`
 		Formats []struct {
-			ID                  string `json:"id"`
-			HasEditingSchema    bool   `json:"has_editing_schema"`
-			EditingSchemaID     string `json:"editing_schema_id"`
-			EditingSchemaSHA256 string `json:"editing_schema_sha256"`
-			HasFormatGuide      bool   `json:"has_format_guide"`
-			FormatGuideVersion  string `json:"format_guide_version"`
-			FormatGuideID       string `json:"format_guide_id"`
-			FormatGuideSHA256   string `json:"format_guide_sha256"`
-			FormatGuideCoverage string `json:"format_guide_coverage"`
+			ID                      string `json:"id"`
+			HasEditingSchema        bool   `json:"has_editing_schema"`
+			EditingSchemaID         string `json:"editing_schema_id"`
+			EditingSchemaSHA256     string `json:"editing_schema_sha256"`
+			HasFormatGuide          bool   `json:"has_format_guide"`
+			FormatGuideVersion      string `json:"format_guide_version"`
+			FormatGuideID           string `json:"format_guide_id"`
+			FormatGuideSHA256       string `json:"format_guide_sha256"`
+			FormatGuideVerification string `json:"format_guide_verification"`
 		} `json:"formats"`
 	}
 	if err := json.Unmarshal([]byte(resource.Contents[0].Text), &capabilities); err != nil {
@@ -222,18 +222,18 @@ func TestMCPToolsAndCapabilitiesResource(t *testing.T) {
 		t.Fatalf("editing prompt = %q", capabilities.EditingPrompt)
 	}
 	var menuCapability, mateCapability *struct {
-		ID                  string `json:"id"`
-		HasEditingSchema    bool   `json:"has_editing_schema"`
-		EditingSchemaID     string `json:"editing_schema_id"`
-		EditingSchemaSHA256 string `json:"editing_schema_sha256"`
-		HasFormatGuide      bool   `json:"has_format_guide"`
-		FormatGuideVersion  string `json:"format_guide_version"`
-		FormatGuideID       string `json:"format_guide_id"`
-		FormatGuideSHA256   string `json:"format_guide_sha256"`
-		FormatGuideCoverage string `json:"format_guide_coverage"`
+		ID                      string `json:"id"`
+		HasEditingSchema        bool   `json:"has_editing_schema"`
+		EditingSchemaID         string `json:"editing_schema_id"`
+		EditingSchemaSHA256     string `json:"editing_schema_sha256"`
+		HasFormatGuide          bool   `json:"has_format_guide"`
+		FormatGuideVersion      string `json:"format_guide_version"`
+		FormatGuideID           string `json:"format_guide_id"`
+		FormatGuideSHA256       string `json:"format_guide_sha256"`
+		FormatGuideVerification string `json:"format_guide_verification"`
 	}
 	for _, format := range capabilities.Formats {
-		if format.HasEditingSchema && (!format.HasFormatGuide || format.FormatGuideCoverage == "" || format.FormatGuideCoverage == "schema_only") {
+		if format.HasEditingSchema && (!format.HasFormatGuide || format.FormatGuideVerification != "serialization_verified") {
 			t.Fatalf("editing format has no reviewed guide: %+v", format)
 		}
 		switch format.ID {
@@ -248,11 +248,11 @@ func TestMCPToolsAndCapabilitiesResource(t *testing.T) {
 	if menuCapability == nil || !menuCapability.HasEditingSchema || menuCapability.EditingSchemaID == "" || menuCapability.EditingSchemaSHA256 == "" {
 		t.Fatalf("menu schema is not advertised: %+v", menuCapability)
 	}
-	if !menuCapability.HasFormatGuide || menuCapability.FormatGuideVersion == "" || menuCapability.FormatGuideID == "" || menuCapability.FormatGuideSHA256 == "" || menuCapability.FormatGuideCoverage != "runtime_verified" {
+	if !menuCapability.HasFormatGuide || menuCapability.FormatGuideVersion == "" || menuCapability.FormatGuideID == "" || menuCapability.FormatGuideSHA256 == "" || menuCapability.FormatGuideVerification != "serialization_verified" {
 		t.Fatalf("menu guide is not advertised: %+v", menuCapability)
 	}
-	if mateCapability == nil || !mateCapability.HasFormatGuide || mateCapability.FormatGuideCoverage != "runtime_verified" {
-		t.Fatalf("mate guide coverage = %+v", mateCapability)
+	if mateCapability == nil || !mateCapability.HasFormatGuide || mateCapability.FormatGuideVerification != "serialization_verified" {
+		t.Fatalf("mate guide verification = %+v", mateCapability)
 	}
 
 	resourceTemplates, err := clientSession.ListResourceTemplates(ctx, nil)
@@ -286,31 +286,31 @@ func TestMCPToolsAndCapabilitiesResource(t *testing.T) {
 	}
 
 	for _, test := range []struct {
-		formatID string
-		coverage string
+		formatID     string
+		verification string
 	}{
-		{formatID: "com3d2.menu", coverage: "runtime_verified"},
-		{formatID: "kces.dbconf", coverage: "runtime_verified"},
-		{formatID: "kces.dbcol", coverage: "runtime_verified"},
-		{formatID: "com3d2.mate", coverage: "runtime_verified"},
-		{formatID: "kces.nson", coverage: "serialization_verified"},
+		{formatID: "com3d2.menu", verification: "serialization_verified"},
+		{formatID: "kces.dbconf", verification: "serialization_verified"},
+		{formatID: "kces.dbcol", verification: "serialization_verified"},
+		{formatID: "com3d2.mate", verification: "serialization_verified"},
+		{formatID: "kces.nson", verification: "serialization_verified"},
 	} {
 		guideResource, readErr := clientSession.ReadResource(ctx, &mcp.ReadResourceParams{URI: "meido://guides/" + test.formatID})
 		if readErr != nil || len(guideResource.Contents) != 1 || guideResource.Contents[0].MIMEType != "application/vnd.meido.format-guide+json" || !json.Valid([]byte(guideResource.Contents[0].Text)) {
 			t.Fatalf("guide resource %s = %+v, err=%v", test.formatID, guideResource, readErr)
 		}
 		var guideHeader struct {
-			FormatID string `json:"format_id"`
-			SchemaID string `json:"schema_id"`
-			Coverage struct {
+			FormatID           string `json:"format_id"`
+			SchemaID           string `json:"schema_id"`
+			FormatVerification struct {
 				Level string `json:"level"`
-			} `json:"coverage"`
+			} `json:"format_verification"`
 			Fields []json.RawMessage `json:"fields"`
 		}
 		if err := json.Unmarshal([]byte(guideResource.Contents[0].Text), &guideHeader); err != nil {
 			t.Fatal(err)
 		}
-		if guideHeader.FormatID != test.formatID || guideHeader.SchemaID == "" || guideHeader.Coverage.Level != test.coverage || len(guideHeader.Fields) == 0 {
+		if guideHeader.FormatID != test.formatID || guideHeader.SchemaID == "" || guideHeader.FormatVerification.Level != test.verification || len(guideHeader.Fields) == 0 {
 			t.Fatalf("guide header %s = %+v", test.formatID, guideHeader)
 		}
 		for _, advertised := range capabilities.Formats {
@@ -325,7 +325,7 @@ func TestMCPToolsAndCapabilitiesResource(t *testing.T) {
 		t.Fatalf("skill resource = %+v, err=%v", skillResource, err)
 	}
 	skillText := skillResource.Contents[0].Text
-	if !strings.Contains(skillText, "Format: `com3d2.menu`") || !strings.Contains(skillText, "Semantic coverage: `runtime_verified`") || !strings.Contains(skillText, "meido.validate_editing_json") ||
+	if !strings.Contains(skillText, "Format: `com3d2.menu`") || !strings.Contains(skillText, "Whole-file verification: `serialization_verified`") || !strings.Contains(skillText, "meido.validate_editing_json") ||
 		!strings.Contains(skillText, "follow the write policy declared by the current") ||
 		!strings.Contains(skillText, "Use `output_root_id` and `output_relative_path`") ||
 		!strings.Contains(skillText, "configured writable root declared by `meido://capabilities`") ||

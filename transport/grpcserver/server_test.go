@@ -55,7 +55,7 @@ func TestGRPCInlineConversionAndBlobStreaming(t *testing.T) {
 		t.Fatalf("GetCapabilities: %v", err)
 	}
 	menuCapability := grpcFormatCapability(capabilities, "com3d2.menu")
-	if menuCapability == nil || !menuCapability.GetHasFormatGuide() || menuCapability.GetFormatGuideCoverage() != "runtime_verified" {
+	if menuCapability == nil || !menuCapability.GetHasFormatGuide() || menuCapability.GetFormatGuideVerification() != "serialization_verified" {
 		t.Fatalf("menu guide capability = %+v", menuCapability)
 	}
 	schema, err := client.GetFormatSchema(ctx, &serializationv1.GetFormatSchemaRequest{FormatId: "com3d2.menu"})
@@ -331,7 +331,7 @@ func TestGRPCFormatContractsAreDiscoverableBeforeConversion(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, capability := range capabilities.GetFormats() {
-		if capability.GetHasEditingSchema() && (!capability.GetHasFormatGuide() || capability.GetFormatGuideCoverage() == "" || capability.GetFormatGuideCoverage() == "schema_only") {
+		if capability.GetHasEditingSchema() && (!capability.GetHasFormatGuide() || capability.GetFormatGuideVerification() != "serialization_verified") {
 			t.Fatalf("editing format has no reviewed guide: %+v", capability)
 		}
 	}
@@ -350,17 +350,17 @@ func TestGRPCFormatContractsAreDiscoverableBeforeConversion(t *testing.T) {
 		t.Fatalf("schema payload/digest = %q valid=%v", response.GetSha256(), json.Valid(response.GetSchemaJson()))
 	}
 	for _, test := range []struct {
-		formatID string
-		coverage string
+		formatID     string
+		verification string
 	}{
-		{formatID: "com3d2.menu", coverage: "runtime_verified"},
-		{formatID: "kces.dbconf", coverage: "runtime_verified"},
-		{formatID: "kces.dbcol", coverage: "runtime_verified"},
-		{formatID: "com3d2.mate", coverage: "runtime_verified"},
-		{formatID: "kces.nson", coverage: "serialization_verified"},
+		{formatID: "com3d2.menu", verification: "serialization_verified"},
+		{formatID: "kces.dbconf", verification: "serialization_verified"},
+		{formatID: "kces.dbcol", verification: "serialization_verified"},
+		{formatID: "com3d2.mate", verification: "serialization_verified"},
+		{formatID: "kces.nson", verification: "serialization_verified"},
 	} {
 		capability := grpcFormatCapability(capabilities, test.formatID)
-		if capability == nil || !capability.GetHasEditingSchema() || !capability.GetHasFormatGuide() || capability.GetFormatGuideVersion() == "" || capability.GetFormatGuideId() == "" || capability.GetFormatGuideSha256() == "" || capability.GetFormatGuideCoverage() != test.coverage {
+		if capability == nil || !capability.GetHasEditingSchema() || !capability.GetHasFormatGuide() || capability.GetFormatGuideVersion() == "" || capability.GetFormatGuideId() == "" || capability.GetFormatGuideSha256() == "" || capability.GetFormatGuideVerification() != test.verification {
 			t.Fatalf("format capability %s = %+v", test.formatID, capability)
 		}
 		schemaResponse, schemaErr := api.GetFormatSchema(context.Background(), &serializationv1.GetFormatSchemaRequest{FormatId: test.formatID})
@@ -371,7 +371,7 @@ func TestGRPCFormatContractsAreDiscoverableBeforeConversion(t *testing.T) {
 		if guideErr != nil {
 			t.Fatalf("guide %s: %v", test.formatID, guideErr)
 		}
-		if guideResponse.GetFormatId() != test.formatID || guideResponse.GetMediaType() != "application/vnd.meido.format-guide+json" || guideResponse.GetCoverage() != test.coverage || guideResponse.GetSchemaId() != schemaResponse.GetSchemaId() {
+		if guideResponse.GetFormatId() != test.formatID || guideResponse.GetMediaType() != "application/vnd.meido.format-guide+json" || guideResponse.GetFormatVerification() != test.verification || guideResponse.GetSchemaId() != schemaResponse.GetSchemaId() {
 			t.Fatalf("guide metadata %s = %+v schema=%+v", test.formatID, guideResponse, schemaResponse)
 		}
 		if guideResponse.GetGuideVersion() != capability.GetFormatGuideVersion() || guideResponse.GetGuideId() != capability.GetFormatGuideId() || guideResponse.GetSha256() != capability.GetFormatGuideSha256() || guideResponse.GetSha256() != grpcSHA256(guideResponse.GetGuideJson()) || !json.Valid(guideResponse.GetGuideJson()) {
@@ -381,12 +381,12 @@ func TestGRPCFormatContractsAreDiscoverableBeforeConversion(t *testing.T) {
 			t.Fatalf("schema payload/digest %s = %+v capability=%+v", test.formatID, schemaResponse, capability)
 		}
 		var guideHeader struct {
-			SchemaID string `json:"schema_id"`
-			Coverage struct {
+			SchemaID           string `json:"schema_id"`
+			FormatVerification struct {
 				Level string `json:"level"`
-			} `json:"coverage"`
+			} `json:"format_verification"`
 		}
-		if err := json.Unmarshal(guideResponse.GetGuideJson(), &guideHeader); err != nil || guideHeader.SchemaID != schemaResponse.GetSchemaId() || guideHeader.Coverage.Level != test.coverage {
+		if err := json.Unmarshal(guideResponse.GetGuideJson(), &guideHeader); err != nil || guideHeader.SchemaID != schemaResponse.GetSchemaId() || guideHeader.FormatVerification.Level != test.verification {
 			t.Fatalf("guide JSON header %s = %+v err=%v", test.formatID, guideHeader, err)
 		}
 	}

@@ -40,11 +40,15 @@ func newGRPCCmd() *cobra.Command {
 		blobTTL       time.Duration
 		inlineMiB     int64
 		allowRemote   bool
+		restrictPaths bool
 	)
 	command := &cobra.Command{
 		Use:   "grpc",
 		Short: "Run the versioned protobuf/gRPC API",
-		Args:  cobra.NoArgs,
+		Long: "Run the versioned protobuf/gRPC API. With no --root or --restrict-paths flag, ArtifactInput.path " +
+			"accepts direct server-local paths. Configure a root or use --restrict-paths to " +
+			"enable confined root-ID mode.",
+		Args: cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
 			if err := validateGRPCListenAddress(listenAddress, allowRemote); err != nil {
 				return err
@@ -54,6 +58,7 @@ func newGRPCCmd() *cobra.Command {
 				return err
 			}
 			defer roots.Close()
+			filesystemMode := grpcFilesystemMode(restrictPaths, rootSpecs)
 			maxBlobBytes, err := mebibytes(maxBlobMiB)
 			if err != nil {
 				return err
@@ -78,7 +83,9 @@ func newGRPCCmd() *cobra.Command {
 			}
 			defer blobs.Close()
 			engine := application.NewEngine(application.EngineOptions{MaxInputBytes: maxBlobBytes, MaxOutputBytes: maxBlobBytes})
-			api, err := grpcserver.New(grpcserver.Config{Engine: engine, Roots: roots, Blobs: blobs, MaxInlineBytes: maxInlineBytes})
+			api, err := grpcserver.New(grpcserver.Config{
+				Engine: engine, Roots: roots, FilesystemMode: filesystemMode, Blobs: blobs, MaxInlineBytes: maxInlineBytes,
+			})
 			if err != nil {
 				return err
 			}
@@ -99,7 +106,10 @@ func newGRPCCmd() *cobra.Command {
 			reflection.Register(server)
 
 			logger := slog.New(slog.NewTextHandler(command.ErrOrStderr(), nil))
-			logger.Info("gRPC server listening", "address", listener.Addr().String(), "roots", roots.IDs())
+			if filesystemMode == grpcserver.FilesystemModeUnrestricted {
+				logger.Warn("gRPC filesystem restrictions are disabled; path inputs can read any regular file allowed by the process account")
+			}
+			logger.Info("gRPC server listening", "address", listener.Addr().String(), "filesystem_mode", filesystemMode, "roots", roots.IDs())
 			ctx, stopSignals := signal.NotifyContext(command.Context(), os.Interrupt, syscall.SIGTERM)
 			defer stopSignals()
 			serveContext, cancelServe := context.WithCancel(ctx)
@@ -126,7 +136,8 @@ func newGRPCCmd() *cobra.Command {
 		},
 	}
 	command.Flags().StringVar(&listenAddress, "listen", "127.0.0.1:50051", "TCP address to listen on")
-	command.Flags().StringArrayVar(&rootSpecs, "root", nil, "allow file access beneath id=directory (repeatable)")
+	command.Flags().StringArrayVar(&rootSpecs, "root", nil, "restrict file access to id=directory (repeatable; enables restricted mode)")
+	command.Flags().BoolVar(&restrictPaths, "restrict-paths", false, "restrict file access to --root entries (root flags enable this automatically)")
 	command.Flags().StringVar(&blobDirectory, "blob-dir", "", "exclusive blob directory (empty uses a process-owned temporary directory)")
 	command.Flags().Int64Var(&maxBlobMiB, "max-blob-mib", 4096, "maximum size of one streamed blob")
 	command.Flags().Int64Var(&maxTotalMiB, "max-total-blob-mib", 16384, "maximum total temporary blob storage")
@@ -135,6 +146,15 @@ func newGRPCCmd() *cobra.Command {
 	command.Flags().Int64Var(&inlineMiB, "inline-mib", 3, "maximum unary inline payload size (at most 3 MiB)")
 	command.Flags().BoolVar(&allowRemote, "allow-remote", false, "allow an unencrypted listener on a non-loopback address")
 	return command
+}
+
+// grpcFilesystemMode 根据显式限制和根目录参数选择 gRPC 文件系统访问模式
+// grpcFilesystemMode selects the gRPC filesystem access mode from explicit restrictions and root flags
+func grpcFilesystemMode(restrictPaths bool, rootSpecs []string) grpcserver.FilesystemMode {
+	if restrictPaths || len(rootSpecs) != 0 {
+		return grpcserver.FilesystemModeRestricted
+	}
+	return grpcserver.FilesystemModeUnrestricted
 }
 
 // validateGRPCListenAddress 校验监听地址并默认拒绝未授权的非回环端点

@@ -2068,7 +2068,6 @@
       ],
       "description": "A typed union alternative not selected by the .limbcol descriptor.",
       "title": "Inactive union field clothParams",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Omit this field completely unless a supported kind explicitly selects it.",
       "x-meido-edit-role": "union_alternative",
       "x-meido-game-usage": "The payload dispatcher rejects an extension/kind combination that does not match the descriptor.",
@@ -2083,7 +2082,13 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "colliderPackage": {
       "anyOf": [
@@ -2096,7 +2101,6 @@
       ],
       "description": "A typed union alternative not selected by the .limbcol descriptor.",
       "title": "Inactive union field colliderPackage",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Omit this field completely unless a supported kind explicitly selects it.",
       "x-meido-edit-role": "union_alternative",
       "x-meido-game-usage": "The payload dispatcher rejects an extension/kind combination that does not match the descriptor.",
@@ -2111,7 +2115,13 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "dynamicBoneStatus": {
       "anyOf": [
@@ -2124,7 +2134,6 @@
       ],
       "description": "A typed union alternative not selected by the .limbcol descriptor.",
       "title": "Inactive union field dynamicBoneStatus",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Omit this field completely unless a supported kind explicitly selects it.",
       "x-meido-edit-role": "union_alternative",
       "x-meido-game-usage": "The payload dispatcher rejects an extension/kind combination that does not match the descriptor.",
@@ -2139,14 +2148,19 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "extension": {
       "const": ".limbcol",
       "description": "The extension descriptor used to select the expected payload kind and wire rules.",
       "title": "Payload extension",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep the exact extension .limbcol.",
       "x-meido-edit-role": "format_marker",
       "x-meido-game-usage": "KCESPayloadEnvelope dispatches decoding and encoding from the complete extension, including the compound .ikcol.bytes suffix.",
@@ -2158,7 +2172,7 @@
           "line_end": 140,
           "line_start": 108,
           "observation": "LimbColliderMgr reads a length-prefixed Lz4BlockArray LimbColliderPackage and applies each target limb collider status to the generated limb collider.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/LimbColliderMgr.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/LimbColliderMgr.cs",
           "symbol": "LimbColliderMgr.Save/Load"
         },
         {
@@ -2170,13 +2184,22 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "format": {
       "description": "The envelope family marker for native KCES MessagePack or an ExportCM sidecar.",
       "title": "Payload envelope format",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Use the format matching storageVariant; do not label a native payload as an ExportCM sidecar.",
       "x-meido-edit-role": "wire_variant",
       "x-meido-game-usage": "The dispatcher uses kces-msgpack-lz4 for native resources and kces-exportcm-sidecar for JSON sidecars.",
@@ -2188,7 +2211,7 @@
           "line_end": 140,
           "line_start": 108,
           "observation": "LimbColliderMgr reads a length-prefixed Lz4BlockArray LimbColliderPackage and applies each target limb collider status to the generated limb collider.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/LimbColliderMgr.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/LimbColliderMgr.cs",
           "symbol": "LimbColliderMgr.Save/Load"
         },
         {
@@ -2200,7 +2223,17 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "ikColliderPackage": {
       "anyOf": [
@@ -2213,7 +2246,6 @@
       ],
       "description": "A typed union alternative not selected by the .limbcol descriptor.",
       "title": "Inactive union field ikColliderPackage",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Omit this field completely unless a supported kind explicitly selects it.",
       "x-meido-edit-role": "union_alternative",
       "x-meido-game-usage": "The payload dispatcher rejects an extension/kind combination that does not match the descriptor.",
@@ -2228,12 +2260,17 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "json": {
       "description": "The normalized semantic JSON value selected only by a JSON payload kind.",
       "title": "Semantic JSON payload",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Leave this field absent for non-JSON kinds and edit only members documented by the selected Unity JSON consumer.",
       "x-meido-edit-role": "opaque_domain_data",
       "x-meido-game-usage": "The encoder regenerates the MessagePack string or ExportCM sidecar directly from this value.",
@@ -2248,13 +2285,18 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "kind": {
       "description": "The union discriminator for the typed root object.",
       "title": "Payload kind discriminator",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Use limb-collider-package for the native .limbcol contract; do not populate a different typed root.",
       "x-meido-edit-role": "union_discriminator",
       "x-meido-game-usage": "The decoder selects the corresponding MessagePack or JSON model from this value and rejects extension/kind mismatches.",
@@ -2266,7 +2308,7 @@
           "line_end": 140,
           "line_start": 108,
           "observation": "LimbColliderMgr reads a length-prefixed Lz4BlockArray LimbColliderPackage and applies each target limb collider status to the generated limb collider.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/LimbColliderMgr.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/LimbColliderMgr.cs",
           "symbol": "LimbColliderMgr.Save/Load"
         },
         {
@@ -2278,7 +2320,17 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "limbColliderPackage": {
       "anyOf": [
@@ -2291,7 +2343,6 @@
       ],
       "description": "The typed package of limb targets and collider statuses.",
       "title": "Limb collider package",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep target enum values, collider union tags, and geometry coherent with the target body.",
       "x-meido-edit-role": "runtime_limb_collision",
       "x-meido-game-usage": "LimbColliderMgr looks up each limb enum and calls SetStatus on its generated collider.",
@@ -2303,7 +2354,7 @@
           "line_end": 140,
           "line_start": 108,
           "observation": "LimbColliderMgr reads a length-prefixed Lz4BlockArray LimbColliderPackage and applies each target limb collider status to the generated limb collider.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/LimbColliderMgr.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/LimbColliderMgr.cs",
           "symbol": "LimbColliderMgr.Save/Load"
         },
         {
@@ -2315,13 +2366,22 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "storageVariant": {
       "description": "The exact wire representation selected for this extension.",
       "title": "Storage variant",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Use int32-length-lz4-messagepack for the primary native profile and select an explicitly supported sidecar variant only when the source file came from ExportCM.",
       "x-meido-edit-role": "wire_variant",
       "x-meido-game-usage": "The dispatcher distinguishes int32-length-lz4-messagepack from ExportCM Unity JSON and ExportCM .NET-string JSON variants.",
@@ -2333,7 +2393,7 @@
           "line_end": 140,
           "line_start": 108,
           "observation": "LimbColliderMgr reads a length-prefixed Lz4BlockArray LimbColliderPackage and applies each target limb collider status to the generated limb collider.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/LimbColliderMgr.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/LimbColliderMgr.cs",
           "symbol": "LimbColliderMgr.Save/Load"
         },
         {
@@ -2345,7 +2405,17 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -2357,6 +2427,11 @@
   "title": "kces.limbcol editing JSON",
   "type": "object",
   "x-meido-format-id": "kces.limbcol",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "LimbColliderMgr loads limbconf.limbcol as a length-prefixed LZ4 MessagePack package and applies each target status to the corresponding limb collider."
+  },
   "x-meido-native-suffixes": [
     ".limbcol"
   ],

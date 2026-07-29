@@ -1964,7 +1964,6 @@
         "null",
         "object"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep directory names and declared versions coherent with the preset file paths.",
       "x-meido-edit-role": "runtime_container",
       "x-meido-game-usage": "VirtualDirectory recreates named directories before writing the preset's known and extra files.",
@@ -1976,7 +1975,7 @@
           "line_end": 180,
           "line_start": 31,
           "observation": "MaidPreset stores thumbnail, maiddata, and optional meta files in a VirtualDirectory; maiddata contains compressed MaidPresetCore property, color, and body byte blocks.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/MaidPreset.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/MaidPreset.cs",
           "symbol": "MaidPreset.LoadPreset/Serialize"
         },
         {
@@ -1985,10 +1984,20 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "containerFraming": {
       "enum": [
@@ -2007,7 +2016,6 @@
       "minimum": -2147483648,
       "title": "Preset container version",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve the source value; use 1000 for a new current KCES preset.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "VirtualDirectory serializes the preset using this version and its corresponding indexed metadata layout.",
@@ -2021,7 +2029,7 @@
           "line_end": 180,
           "line_start": 31,
           "observation": "MaidPreset stores thumbnail, maiddata, and optional meta files in a VirtualDirectory; maiddata contains compressed MaidPresetCore property, color, and body byte blocks.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/MaidPreset.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/MaidPreset.cs",
           "symbol": "MaidPreset.LoadPreset/Serialize"
         },
         {
@@ -2030,10 +2038,20 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "extraFiles": {
       "additionalProperties": {
@@ -2050,17 +2068,21 @@
         "null",
         "object"
       ],
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Retain names and bytes only for files outside all three known names; known preset files must use typed fields and may never fall back here.",
       "x-meido-edit-role": "binary_virtual_file",
       "x-meido-game-usage": "MaidPreset ignores these independently named files while VirtualDirectory stores their real byte-array payloads.",
-      "x-meido-risk": "high"
+      "x-meido-risk": "high",
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "format": {
       "description": "The marker for the KCES VirtualDirectory preset envelope.",
       "title": "Editing format marker",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep kces-virtual-directory-preset.",
       "x-meido-edit-role": "editing_metadata",
       "x-meido-game-usage": "It identifies the current KCES preset representation and distinguishes it from legacy COM3D2_PRESET.",
@@ -2072,7 +2094,7 @@
           "line_end": 180,
           "line_start": 31,
           "observation": "MaidPreset stores thumbnail, maiddata, and optional meta files in a VirtualDirectory; maiddata contains compressed MaidPresetCore property, color, and body byte blocks.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/MaidPreset.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/MaidPreset.cs",
           "symbol": "MaidPreset.LoadPreset/Serialize"
         },
         {
@@ -2081,16 +2103,25 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "maidData": {
       "$ref": "#/$defs/KCES_ExpandedKCESPresetCore",
       "description": "The typed maiddata object containing versioned property, color, and body structures.",
       "title": "Maid preset core",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep the core version and all three typed structures from the same source preset generation.",
       "x-meido-edit-role": "runtime_configuration",
       "x-meido-game-usage": "MaidPreset hands the corresponding encoded blocks to Maid's property, multi-color, and body deserializers when applying a preset.",
@@ -2102,7 +2133,7 @@
           "line_end": 180,
           "line_start": 31,
           "observation": "MaidPreset stores thumbnail, maiddata, and optional meta files in a VirtualDirectory; maiddata contains compressed MaidPresetCore property, color, and body byte blocks.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/MaidPreset.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/MaidPreset.cs",
           "symbol": "MaidPreset.LoadPreset/Serialize"
         },
         {
@@ -2111,10 +2142,20 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "meta": {
       "anyOf": [
@@ -2127,7 +2168,6 @@
       ],
       "description": "Optional compressed MessagePack metadata, normally including the preset display name.",
       "title": "Preset metadata",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve keys understood by the target browser and retain unknown metadata entries.",
       "x-meido-edit-role": "runtime_metadata",
       "x-meido-game-usage": "MaidPreset loads meta for preset-browser information and saves it as a separate virtual file.",
@@ -2139,7 +2179,7 @@
           "line_end": 180,
           "line_start": 31,
           "observation": "MaidPreset stores thumbnail, maiddata, and optional meta files in a VirtualDirectory; maiddata contains compressed MaidPresetCore property, color, and body byte blocks.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/MaidPreset.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/MaidPreset.cs",
           "symbol": "MaidPreset.LoadPreset/Serialize"
         },
         {
@@ -2148,10 +2188,20 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "thumbnail": {
       "contentEncoding": "base64",
@@ -2162,7 +2212,6 @@
         "null",
         "string"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep valid PNG data or preserve the original thumbnail when editing character blocks.",
       "x-meido-edit-role": "binary_asset",
       "x-meido-game-usage": "MaidPreset decodes these bytes for the preset browser preview; they do not directly change character state.",
@@ -2174,7 +2223,7 @@
           "line_end": 180,
           "line_start": 31,
           "observation": "MaidPreset stores thumbnail, maiddata, and optional meta files in a VirtualDirectory; maiddata contains compressed MaidPresetCore property, color, and body byte blocks.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/MaidPreset.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/MaidPreset.cs",
           "symbol": "MaidPreset.LoadPreset/Serialize"
         },
         {
@@ -2183,10 +2232,20 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -2198,6 +2257,11 @@
   "title": "kces.preset editing JSON",
   "type": "object",
   "x-meido-format-id": "kces.preset",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "MaidPreset and VirtualDirectory were reviewed in KCES 1.34.4. The outer file contract is verified and propData, colorData, and bodyData use their dedicated typed inner codecs."
+  },
   "x-meido-native-suffixes": [
     ".preset",
     ".perset"

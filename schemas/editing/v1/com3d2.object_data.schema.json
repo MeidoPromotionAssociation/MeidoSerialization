@@ -62,7 +62,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep names and paths valid for the target scene and preserve track-ID relationships.",
       "x-meido-edit-role": "runtime_reference_table",
       "x-meido-game-usage": "DanceObjectDataBinary resolves each entry to a GameObject and attaches the listed timeline tracks.",
@@ -74,10 +73,20 @@
           "line_end": 130,
           "line_start": 6,
           "observation": "The dance loader maps object names and resource paths to referenced track IDs and resolves them in the scene, creating or locating objects as necessary.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DanceObjectDataBinary.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/DanceObjectDataBinary.cs",
           "symbol": "DanceObjectDataBinary.Load/Save"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -86,6 +95,11 @@
   "title": "com3d2.object_data editing JSON",
   "type": "object",
   "x-meido-format-id": "com3d2.object_data",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "DanceObjectDataBinary.Load/Save and its object lookup path were reviewed in COM3D2 2.48.0."
+  },
   "x-meido-native-suffixes": [
     ".bytes"
   ],

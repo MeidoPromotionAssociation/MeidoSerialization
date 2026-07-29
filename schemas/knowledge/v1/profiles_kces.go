@@ -3,15 +3,15 @@ package knowledgev1
 // kcesProfiles 构建 KCES 二进制记录、VirtualDirectory、MessagePack 资源容器和文本资源的源码审核指南
 // kcesProfiles builds source-reviewed guides for KCES binary records, VirtualDirectory data, MessagePack asset containers, and text resources
 func kcesProfiles() map[string]Guide {
-	bridgeSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/ExportCM.cs", "ExportCM.ExportMaidToCOM3D2", 597, 617, "The KCES export path writes GP03_BRIDGE, version 2001, the maid GUID, and two length-delimited preset blobs before emitting the .brd file.")
-	bridgeReverseSource := source("COM3D2_5 3.48.0", "game/COM3D2_5 3.48.0/Assembly-CSharp/Maid.cs", "Maid.ExportBridgeGP03", 1687, 1711, "The reverse bridge writes GP03_BRIDGE version 2000, the maid GUID, and an optional CRC preset blob before saving 0.brd.")
-	bridgeImportSource := source("COM3D2_5 3.48.0", "game/COM3D2_5 3.48.0/Assembly-CSharp/ImportCM.cs", "ImportCM.ImportPresetGP03", 1225, 1282, "The bridge reader checks GP03_BRIDGE, consumes the version and GUID, reads the two declared byte lengths, and sends the embedded legacy preset to the preset loader.")
+	bridgeSource := source("KCES 1.34.4", "KCES 1.34.4/Assembly-CSharp/ExportCM.cs", "ExportCM.ExportMaidToCOM3D2", 597, 617, "The KCES export path writes GP03_BRIDGE, version 2001, the maid GUID, and two length-delimited preset blobs before emitting the .brd file.")
+	bridgeReverseSource := source("COM3D2_5 3.48.0", "COM3D2_5 3.48.0/Assembly-CSharp/Maid.cs", "Maid.ExportBridgeGP03", 1687, 1711, "The reverse bridge writes GP03_BRIDGE version 2000, the maid GUID, and an optional CRC preset blob before saving 0.brd.")
+	bridgeImportSource := source("COM3D2_5 3.48.0", "COM3D2_5 3.48.0/Assembly-CSharp/ImportCM.cs", "ImportCM.ImportPresetGP03", 1225, 1282, "The bridge reader checks GP03_BRIDGE, consumes the version and GUID, reads the two declared byte lengths, and sends the embedded legacy preset to the preset loader.")
 	field := fieldFrom(bridgeSource, bridgeReverseSource, bridgeImportSource)
 
 	brd := guide(
 		"KCES .brd GP03 bridge guide",
 		"A GP03_BRIDGE transfer record carrying a GUID and two length-delimited typed preset payloads between KCES and COM3D2_5.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"The shared outer layout was compared with the KCES 1.34.4 exporter and the COM3D2_5 reverse exporter. The service fully decodes the two embedded blocks with their COM3D2 and KCES preset codecs.",
 		[]Source{bridgeSource, bridgeReverseSource, bridgeImportSource},
 		[]Field{
@@ -26,13 +26,13 @@ func kcesProfiles() map[string]Guide {
 	brd.Rules = []Rule{{ID: "bridge-payload-boundaries", AppliesTo: []string{"/legacyPreset", "/currentPreset"}, Severity: "error", Summary: "The two preset blobs are length-delimited and independent.", Details: "Changing either payload requires its own preset codec. Do not concatenate, decompress, or reinterpret one blob using the other blob's format.", Evidence: []Source{bridgeSource, bridgeImportSource}}}
 	brd.Invariants = []string{"signature is GP03_BRIDGE.", "version is normally 2001 for KCES output or 2000 for COM3D2_5 reverse output.", "Both preset lengths must describe exactly the following byte strings."}
 
-	sessionSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/CRCEdit/EditBridgeSessionData.cs", "EditBridgeSessionData.Deserialize/Serialize", 23, 109, "The bridge session is a VirtualDirectory containing session_data and session_id; session_data stores an indexed version, session ID, and hidden menu-file hash set.")
-	vdSource := source("KCES 1.34.4", "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs", "VirtualDirectory.Serialize/Deserialize", 409, 575, "VirtualDirectory writes virtual-file byte payloads followed by compressed MessagePack directory metadata using the fixed current indexed layouts.")
+	sessionSource := source("KCES 1.34.4", "KCES 1.34.4/Assembly-CSharp/CRCEdit/EditBridgeSessionData.cs", "EditBridgeSessionData.Deserialize/Serialize", 23, 109, "The bridge session is a VirtualDirectory containing session_data and session_id; session_data stores an indexed version, session ID, and hidden menu-file hash set.")
+	vdSource := source("KCES 1.34.4", "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs", "VirtualDirectory.Serialize/Deserialize", 409, 575, "VirtualDirectory writes virtual-file byte payloads followed by compressed MessagePack directory metadata using the fixed current indexed layouts.")
 	field = fieldFrom(sessionSource, vdSource)
 	bridgeSession := guide(
 		"KCES bridge_session.vd guide",
 		"A VirtualDirectory session container used by the character-edit bridge. The reserved files session_data and session_id carry the editable session identity and hidden-menu state.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"EditBridgeSessionData and VirtualDirectory were reviewed in KCES 1.34.4. The reserved session files use fixed typed layouts, while only independently named virtual files outside those reserved paths remain byte payloads.",
 		[]Source{sessionSource, vdSource},
 		[]Field{
@@ -47,12 +47,12 @@ func kcesProfiles() map[string]Guide {
 	}
 	bridgeSession.Rules = []Rule{{ID: "session-id-consistency", AppliesTo: []string{"/sessionData/sessionId"}, Severity: "error", Summary: "session_id is derived from sessionData.sessionId.", Details: "The editing representation exposes one typed session identifier. The writer encodes it as UTF-8 session_id bytes and rejects a missing session ID when serializing the bridge container.", Evidence: []Source{sessionSource}}}
 
-	enmSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/ExportCMUtility/ExportFileNameMap.cs", "ExportFileNameMap.LoadExportNameMap/Add/GetFileName/GetInternalName", 20, 132, "The exporter loads export_map.enm, stores a lower-case internal-name to file-name dictionary, and serializes the dictionary as a nested JSON string in serializeData.")
+	enmSource := source("KCES 1.34.4", "KCES 1.34.4/Assembly-CSharp/ExportCMUtility/ExportFileNameMap.cs", "ExportFileNameMap.LoadExportNameMap/Add/GetFileName/GetInternalName", 20, 132, "The exporter loads export_map.enm, stores a lower-case internal-name to file-name dictionary, and serializes the dictionary as a nested JSON string in serializeData.")
 	field = fieldFrom(enmSource)
 	enm := guide(
 		"KCES export_map.enm guide",
 		"A Unity JsonUtility filename map used during KCES to COM3D2 export. Each entry maps an internal resource name to the short file name emitted beside the export.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"ExportFileNameMap was reviewed in KCES 1.34.4, including FixVersion 1000, lower-case normalization, and the nested dictionary JSON representation.",
 		[]Source{enmSource},
 		[]Field{
@@ -65,14 +65,14 @@ func kcesProfiles() map[string]Guide {
 	enm.Rules = []Rule{{ID: "name-map-normalization", AppliesTo: []string{"/entries"}, Severity: "error", Summary: "Map keys and values follow the game's lower-case convention.", Details: "ExportFileNameMap.Add lowercases both internalName and fileName. A mixed-case duplicate can therefore collapse into one runtime entry.", Evidence: []Source{enmSource}}}
 	enm.Invariants = []string{"version is 1000 for KCES 1.34.4.", "Each entry has a non-empty internal name and file name.", "The native wrapper's nested keys and values have equal lengths."}
 
-	sadExportSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/ExportCM.cs", "ExportCM.ExportAttachData", 1101, 1151, "ExportCM writes SAVED_ATTACH_DATA version 2000, filters records by slot, serializes each SavedAttachData record, and writes the .sad payload.")
-	sadSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/SavedAttachData.cs", "SavedAttachData.Serialize/Deserialize", 41, 126, "SavedAttachData records source and target RID/slot identities, optional vertex attachment data, two position-rotation-scale values, and an attached-bone hierarchy; version 2001 adds TargetSlotNo after the explicit marker.")
-	sadImportSource := source("COM3D2_5 3.48.0", "game/COM3D2_5 3.48.0/Assembly-CSharp/ImportCM.cs", "ImportCM.ImportSavedAttachDataGP03", 1313, 1344, "The GP03 importer checks SAVED_ATTACH_DATA, reads the item count, deserializes each record, and appends it to the target body skin's saved-attachment list.")
+	sadExportSource := source("KCES 1.34.4", "KCES 1.34.4/Assembly-CSharp/ExportCM.cs", "ExportCM.ExportAttachData", 1101, 1151, "ExportCM writes SAVED_ATTACH_DATA version 2000, filters records by slot, serializes each SavedAttachData record, and writes the .sad payload.")
+	sadSource := source("KCES 1.34.4", "KCES 1.34.4/Assembly-CSharp/SavedAttachData.cs", "SavedAttachData.Serialize/Deserialize", 41, 126, "SavedAttachData records source and target RID/slot identities, optional vertex attachment data, two position-rotation-scale values, and an attached-bone hierarchy; version 2001 adds TargetSlotNo after the explicit marker.")
+	sadImportSource := source("COM3D2_5 3.48.0", "COM3D2_5 3.48.0/Assembly-CSharp/ImportCM.cs", "ImportCM.ImportSavedAttachDataGP03", 1313, 1344, "The GP03 importer checks SAVED_ATTACH_DATA, reads the item count, deserializes each record, and appends it to the target body skin's saved-attachment list.")
 	field = fieldFrom(sadExportSource, sadSource, sadImportSource)
 	sad := guide(
 		"KCES .sad saved-attachment guide",
 		"The SAVED_ATTACH_DATA file emitted by KCES/GP03 export to preserve mesh-part attachment relationships and their transforms.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"SavedAttachData serialization and the current record version 2001 were reviewed in KCES 1.34.4. Legacy implicit version-2000 records remain readable and normalize to an explicit typed version when written.",
 		[]Source{sadExportSource, sadSource, sadImportSource},
 		[]Field{
@@ -89,12 +89,12 @@ func kcesProfiles() map[string]Guide {
 	}
 	sad.Rules = []Rule{{ID: "attachment-version-layout", AppliesTo: []string{"/version", "/items"}, Severity: "error", Summary: "Only the verified outer and record layouts are supported.", Details: "The outer version must be 2000. Record versions 2000 and 2001 are supported; 2001 includes TargetSlotNo, while 2000 does not. Legacy implicit-2000 input is normalized to the explicit typed-version layout when written.", Evidence: []Source{sadSource}}}
 
-	pathsSource := source("KCES 1.34.4", "game/KCES 1.34.4/WfSystem.FileSystem/ResourceManagement/NativeFileManager.cs", "NativeFileManager.ReadAutoPathFile", 656, 685, "NativeFileManager reads paths.dat to obtain additional resource search paths before creating compatible catalogs.")
+	pathsSource := source("KCES 1.34.4", "KCES 1.34.4/WfSystem.FileSystem/ResourceManagement/NativeFileManager.cs", "NativeFileManager.ReadAutoPathFile", 656, 685, "NativeFileManager reads paths.dat to obtain additional resource search paths before creating compatible catalogs.")
 	field = fieldFrom(pathsSource)
 	paths := guide(
 		"KCES paths.dat guide",
 		"The CM3D2_PATHS search-path list used by KCES resource initialization.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"The BinaryWriter layout and NativeFileManager.ReadAutoPathFile consumer were reviewed in KCES 1.34.4.",
 		[]Source{pathsSource},
 		[]Field{
@@ -107,12 +107,12 @@ func kcesProfiles() map[string]Guide {
 	paths.FieldPatterns = []FieldPattern{pattern("/paths/*", "Resource search path", "One BinaryWriter string in the ordered path list.", "ReadAutoPathFile adds each path to the native catalog search set.", "runtime_resource_reference", "Do not use absolute paths from another installation when the file is intended to be portable; verify every path exists in the target layout.", pathsSource)}
 	paths.Invariants = []string{"signature is CM3D2_PATHS.", "The declared path count equals paths.length.", "Path order is preserved because catalog precedence can depend on insertion order."}
 
-	maidColliderSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/MaidColliderCollect.cs", "MaidColliderCollect.Read/ReadCapsuleCollider", 144, 223, "The system resources maid_collider.bytes and maid_collider_touch.bytes contain a count, bone path, center, direction, height, and radius for each capsule collider.")
+	maidColliderSource := source("KCES 1.34.4", "KCES 1.34.4/Assembly-CSharp/MaidColliderCollect.cs", "MaidColliderCollect.Read/ReadCapsuleCollider", 144, 223, "The system resources maid_collider.bytes and maid_collider_touch.bytes contain a count, bone path, center, direction, height, and radius for each capsule collider.")
 	field = fieldFrom(maidColliderSource)
 	maidCollider := guide(
 		"KCES maid collider bytes guide",
 		"The signatureless capsule-collider list used by MaidColliderCollect for maid body and touch collision resources.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"MaidColliderCollect.Read and its BinaryReader field order were reviewed in KCES 1.34.4. The same layout is used for maid_collider.bytes and maid_collider_touch.bytes.",
 		[]Source{maidColliderSource},
 		[]Field{
@@ -125,16 +125,16 @@ func kcesProfiles() map[string]Guide {
 		pattern("/colliders/*/{center,direction,height,radius}", "Capsule geometry", "Center, axis direction, height, and radius written as fixed-width values.", "Unity CapsuleCollider receives these values directly.", "runtime_geometry", "Use direction values accepted by Unity and keep height >= 2*radius for the intended shape.", maidColliderSource),
 	}
 
-	assetSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/Parts/SerializPartsAssets.cs", "SerializPartsAssets<T>", 9, 47, "MenuAssets, MaterialAssets, and PriorityMaterialAssets share the indexed fields Key(0) fileName and Key(1) assetArray; name lookup removes the extension, lower-cases the name, and hashes it.")
-	menuAssetSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/PartsMenuManager.cs", "PartsMenuManager.Reload", 64, 210, "The menu manager merges asset arrays, derives IDs from lower-case file names, and resolves menu commands and category metadata at runtime.")
-	materialAssetSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/PartsMaterialManager.cs", "PartsMaterialManager.CreateMaterial/GetMaterial", 36, 126, "The material manager resolves shader, texture, color, vector, and float properties from Material assets and their referenced resources.")
-	priorityAssetSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/PartsPriorityMaterialManager.cs", "PartsPriorityMaterialManager.SetPriorityMaterial/Reload", 33, 66, "The priority-material manager indexes overrides by target ID, verifies the material name, and applies the manual render-queue property and renderQueue value.")
+	assetSource := source("KCES 1.34.4", "KCES 1.34.4/Assembly-CSharp/Parts/SerializPartsAssets.cs", "SerializPartsAssets<T>", 9, 47, "MenuAssets, MaterialAssets, and PriorityMaterialAssets share the indexed fields Key(0) fileName and Key(1) assetArray; name lookup removes the extension, lower-cases the name, and hashes it.")
+	menuAssetSource := source("KCES 1.34.4", "KCES 1.34.4/Assembly-CSharp/PartsMenuManager.cs", "PartsMenuManager.Reload", 64, 210, "The menu manager merges asset arrays, derives IDs from lower-case file names, and resolves menu commands and category metadata at runtime.")
+	materialAssetSource := source("KCES 1.34.4", "KCES 1.34.4/Assembly-CSharp/PartsMaterialManager.cs", "PartsMaterialManager.CreateMaterial/GetMaterial", 36, 126, "The material manager resolves shader, texture, color, vector, and float properties from Material assets and their referenced resources.")
+	priorityAssetSource := source("KCES 1.34.4", "KCES 1.34.4/Assembly-CSharp/PartsPriorityMaterialManager.cs", "PartsPriorityMaterialManager.SetPriorityMaterial/Reload", 33, 66, "The priority-material manager indexes overrides by target ID, verifies the material name, and applies the manual render-queue property and renderQueue value.")
 
 	field = fieldFrom(assetSource, menuAssetSource)
 	menuAssets := guide(
 		"KCES .menuassets guide",
 		"An LZ4 Block Array-compressed MessagePack container of Parts.Menu records stored in an .aba TextAsset.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"SerializPartsAssets and PartsMenuManager were reviewed in KCES 1.34.4. The container and nested objects use fixed current indexed layouts; unknown keys or wider arrays are rejected.",
 		[]Source{assetSource, menuAssetSource},
 		[]Field{
@@ -152,7 +152,7 @@ func kcesProfiles() map[string]Guide {
 	materialAssets := guide(
 		"KCES .materialassets guide",
 		"An LZ4 Block Array-compressed MessagePack container of Parts.Material records stored in an .aba TextAsset.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"SerializPartsAssets and PartsMaterialManager were reviewed in KCES 1.34.4. Material properties use their typed current layouts; unknown keys, wider arrays, and unsupported property variants are rejected.",
 		[]Source{assetSource, materialAssetSource},
 		[]Field{
@@ -169,7 +169,7 @@ func kcesProfiles() map[string]Guide {
 	pmatAssets := guide(
 		"KCES .pmatassets guide",
 		"An LZ4 Block Array-compressed MessagePack container of Parts.PriorityMaterial records stored in an .aba TextAsset.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"SerializPartsAssets and PartsPriorityMaterialManager were reviewed in KCES 1.34.4. Priority-material records are indexed by ID and apply render-queue overrides to matching materials.",
 		[]Source{assetSource, priorityAssetSource},
 		[]Field{
@@ -182,13 +182,13 @@ func kcesProfiles() map[string]Guide {
 	}
 	pmatAssets.Rules = []Rule{{ID: "priority-material-target", AppliesTo: []string{"/assetArray/*/{id,targetId,fileName,renderQueue}"}, Severity: "error", Summary: "An override must resolve to the intended material.", Details: "The manager indexes records by ID and then applies the render queue to a matching material. A stale or duplicated hash can silently affect another material or do nothing.", Evidence: []Source{priorityAssetSource}}}
 
-	modelSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs", "Parts.Model", 10, 175, "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.")
-	modelManagerSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs", "PartsModelManager.CreateModel", 24, 243, "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.")
+	modelSource := source("KCES 1.34.4", "KCES 1.34.4/Assembly-CSharp/Parts/Model.cs", "Parts.Model", 10, 175, "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.")
+	modelManagerSource := source("KCES 1.34.4", "KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs", "PartsModelManager.CreateModel", 24, 243, "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.")
 	field = fieldFrom(modelSource, modelManagerSource)
 	model := guide(
 		"KCES .model guide",
 		"A compressed Parts.Model description. It references a separate mesh resource and carries the skeleton, material slots, morphs, skin-thickness data, and shadow mode used by PartsModelManager.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"Parts.Model and PartsModelManager were reviewed in KCES 1.34.4. The model description does not embed mesh bytes; meshfileName resolves a separate resource.",
 		[]Source{modelSource, modelManagerSource},
 		[]Field{
@@ -213,12 +213,12 @@ func kcesProfiles() map[string]Guide {
 	model.Rules = []Rule{{ID: "model-render-root-selector", AppliesTo: []string{"/modelName", "/transData/*/name"}, Severity: "error", Summary: "modelName selects the transform that receives the renderer.", Details: "modelName must match exactly one transData[].name. A missing match leaves PartsModelManager's VirtualHierarchy null before AddComponent<SkinnedMeshRenderer>; changing modelName alone is not a display-name edit.", Evidence: []Source{modelManagerSource}}}
 	model.Invariants = []string{"modelName matches exactly one transData[].name and selects the hierarchy that receives the SkinnedMeshRenderer.", "The outer model GameObject name is derived from fileName, not modelName."}
 
-	hitSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/TBodyHit.cs", "TBodyHit.Load", 84, 160, "TBodyHit reads HitCheck, derives radiusSqr from radius, resolves parent bone names, and uses SKRT/RL flags to classify skirt and bust collision spheres.")
+	hitSource := source("KCES 1.34.4", "KCES 1.34.4/Assembly-CSharp/TBodyHit.cs", "TBodyHit.Load", 84, 160, "TBodyHit reads HitCheck, derives radiusSqr from radius, resolves parent bone names, and uses SKRT/RL flags to classify skirt and bust collision spheres.")
 	field = fieldFrom(hitSource)
 	hit := guide(
 		"KCES .hitcheck guide",
 		"A BinaryWriter list of spherical hit-check entries used by body and hair collision logic.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"TBodyHit.Load and the corresponding HitCheck binary writer were reviewed in KCES 1.34.4. The file has no version field.",
 		[]Source{hitSource},
 		[]Field{
@@ -232,12 +232,12 @@ func kcesProfiles() map[string]Guide {
 	}
 	hit.Rules = []Rule{{ID: "hit-radius-cache", AppliesTo: []string{"/entries/*/radius", "/entries/*/radiusSqr"}, Severity: "error", Summary: "radiusSqr is a derived cache.", Details: "The game recomputes the squared radius while loading. Writers should recalculate it whenever radius changes instead of leaving a stale value.", Evidence: []Source{hitSource}}}
 
-	jsonSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/CsvManager.cs", "CsvManager.GetCsvText/CreateCsvIdManager", 43, 115, "CsvManager loads .nson resources as TextAsset.text and parses the enabled-list JSON with JsonUtility; this profile does not claim a domain schema for arbitrary resource fields.")
+	jsonSource := source("KCES 1.34.4", "KCES 1.34.4/Assembly-CSharp/CsvManager.cs", "CsvManager.GetCsvText/CreateCsvIdManager", 43, 115, "CsvManager loads .nson resources as TextAsset.text and parses the enabled-list JSON with JsonUtility; this profile does not claim a domain schema for arbitrary resource fields.")
 	field = fieldFrom(jsonSource)
 	nson := guide(
 		"KCES .nson guide",
 		"A plain JSON resource used by CsvManager as a replacement for selected legacy .nei or CSV data.",
-		"serialization_verified",
+		FormatVerificationSerializationVerified,
 		"The KCES loader entry point and semantic JSON boundary were reviewed. The editing form retains the parsed JSON value but deliberately normalizes BOM, whitespace, and formatting; domain fields vary by resource.",
 		[]Source{jsonSource},
 		[]Field{
@@ -247,13 +247,13 @@ func kcesProfiles() map[string]Guide {
 	)
 	nson.FieldPatterns = []FieldPattern{pattern("/json/*", "Resource-specific JSON member", "A member of the arbitrary JSON document consumed by a particular KCES subsystem.", "The consuming subsystem, not CsvManager, defines the meaning of this member.", "schema_dependent", "Require a source or sample for the exact resource before changing it.", jsonSource)}
 
-	undressSource := source("KCES 1.34.4", "game/KCES 1.34.4/WfSystem.FileSystem/GameResource.cs", "GameResource.LoadBinary", 143, 156, "The game resource layer obtains the resource bytes from the selected file source. No resource-specific undress JSON consumer is established here, so this repository validates one complete JSON value and exposes its semantic content.")
+	undressSource := source("KCES 1.34.4", "KCES 1.34.4/WfSystem.FileSystem/GameResource.cs", "GameResource.LoadBinary", 143, 156, "The game resource layer obtains the resource bytes from the selected file source. No resource-specific undress JSON consumer is established here, so this repository validates one complete JSON value and exposes its semantic content.")
 	field = fieldFrom(undressSource)
 	undressdat := guide(
 		"KCES .undressdat guide",
 		"A plain JSON TextAsset describing undress behavior for the KCES resource system.",
-		"serialization_verified",
-		"Only the extension dispatch and semantic JSON boundary are source-reviewed; resource-specific members remain schema_only and source formatting is intentionally normalized.",
+		FormatVerificationSerializationVerified,
+		"The whole-file serialization boundary, extension dispatch, and semantic JSON envelope were checked. Resource-specific members without source_semantics claims remain semantically unknown, and source formatting is intentionally normalized.",
 		[]Source{undressSource},
 		[]Field{
 			field("/extension", "Resource extension", "The fixed extension marker .undressdat.", "The dispatcher uses it to route the TextAsset to the undress-data resource family.", "format_marker", "Keep the exact value .undressdat.", "critical"),
@@ -263,8 +263,8 @@ func kcesProfiles() map[string]Guide {
 	undresspdat := guide(
 		"KCES .undresspdat guide",
 		"A plain JSON TextAsset describing undress-part behavior for the KCES resource system.",
-		"serialization_verified",
-		"Only the extension dispatch and semantic JSON boundary are source-reviewed; resource-specific members remain schema_only and source formatting is intentionally normalized.",
+		FormatVerificationSerializationVerified,
+		"The whole-file serialization boundary, extension dispatch, and semantic JSON envelope were checked. Resource-specific members without source_semantics claims remain semantically unknown, and source formatting is intentionally normalized.",
 		[]Source{undressSource},
 		[]Field{
 			field("/extension", "Resource extension", "The fixed extension marker .undresspdat.", "The dispatcher uses it to route the TextAsset to the undress-part resource family.", "format_marker", "Keep the exact value .undresspdat.", "critical"),
@@ -277,7 +277,7 @@ func kcesProfiles() map[string]Guide {
 	bytesGuide := guide(
 		"KCES raw Unity .bytes guide",
 		"A lossless envelope for an arbitrary Unity serialized object extracted from an .aba or .bytes resource.",
-		"serialization_verified",
+		FormatVerificationSerializationVerified,
 		"The service preserves object bytes and context metadata. ClassID and TypeTree can identify a known Unity object, but this profile does not claim a general editable schema for every class.",
 		[]Source{bytesSource},
 		[]Field{

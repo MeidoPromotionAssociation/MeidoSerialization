@@ -326,7 +326,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Do not reorder or rename entries without rewriting all dependent weights and paths.",
       "x-meido-edit-role": "runtime_skeleton",
       "x-meido-game-usage": "Skinning and attachment code resolves weighted bones through this table.",
@@ -338,7 +337,7 @@
           "line_end": 175,
           "line_start": 10,
           "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
           "symbol": "Parts.Model"
         },
         {
@@ -347,10 +346,20 @@
           "line_end": 243,
           "line_start": 24,
           "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
           "symbol": "PartsModelManager.CreateModel"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "fileName": {
       "description": "The logical .model file name stored in the record.",
@@ -359,7 +368,6 @@
         "null",
         "string"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Use the deployed .model name with its expected extension and case convention.",
       "x-meido-edit-role": "resource_identity",
       "x-meido-game-usage": "The parts manager uses it as the model resource name.",
@@ -371,7 +379,7 @@
           "line_end": 175,
           "line_start": 10,
           "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
           "symbol": "Parts.Model"
         },
         {
@@ -380,10 +388,20 @@
           "line_end": 243,
           "line_start": 24,
           "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
           "symbol": "PartsModelManager.CreateModel"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "id": {
       "description": "The unsigned identifier used by parts resource lookup.",
@@ -391,7 +409,6 @@
       "minimum": 0,
       "title": "Model resource ID",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep it consistent with the target file-name/hash convention.",
       "x-meido-edit-role": "resource_identity",
       "x-meido-game-usage": "PartsModelManager registers and resolves model records by their resource identity.",
@@ -405,7 +422,7 @@
           "line_end": 175,
           "line_start": 10,
           "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
           "symbol": "Parts.Model"
         },
         {
@@ -414,10 +431,20 @@
           "line_end": 243,
           "line_start": 24,
           "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
           "symbol": "PartsModelManager.CreateModel"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "materialFileName": {
       "description": "The ordered material file-name slots used by the model renderer.",
@@ -432,7 +459,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep the number and order aligned with mesh submaterials and deploy the referenced .mate files.",
       "x-meido-edit-role": "runtime_resource_reference",
       "x-meido-game-usage": "PartsModelManager resolves these names through the material manager.",
@@ -444,7 +470,7 @@
           "line_end": 175,
           "line_start": 10,
           "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
           "symbol": "Parts.Model"
         },
         {
@@ -453,10 +479,20 @@
           "line_end": 243,
           "line_start": 24,
           "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
           "symbol": "PartsModelManager.CreateModel"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "meshfileName": {
       "description": "The separate mesh resource referenced by the model description, normally a .mmesh asset.",
@@ -465,7 +501,6 @@
         "null",
         "string"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Ensure the referenced mesh exists in the same target catalog and keep the spelling exact.",
       "x-meido-edit-role": "resource_reference",
       "x-meido-game-usage": "The loader resolves this resource to obtain vertex, index, and skin data.",
@@ -477,7 +512,7 @@
           "line_end": 175,
           "line_start": 10,
           "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
           "symbol": "Parts.Model"
         },
         {
@@ -486,10 +521,20 @@
           "line_end": 243,
           "line_start": 24,
           "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
           "symbol": "PartsModelManager.CreateModel"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "modelName": {
       "description": "The exact transData[].name selected as the VirtualHierarchy that receives the SkinnedMeshRenderer.",
@@ -498,7 +543,6 @@
         "null",
         "string"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep it equal to exactly one transData[].name. It is not a display name; when renaming the selected transform, update modelName and every dependent bone/reference together.",
       "x-meido-edit-role": "runtime_selector",
       "x-meido-game-usage": "PartsModelManager names the outer object from fileName, then compares every created transform name with modelName and dereferences the selected hierarchy without a null check.",
@@ -510,7 +554,7 @@
           "line_end": 175,
           "line_start": 10,
           "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
           "symbol": "Parts.Model"
         },
         {
@@ -519,10 +563,20 @@
           "line_end": 243,
           "line_start": 24,
           "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
           "symbol": "PartsModelManager.CreateModel"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "morphs": {
       "description": "Blend-shape records containing named vertex deltas and ranges.",
@@ -541,7 +595,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve vertex indices and delta-array lengths; edit only with the companion mesh in view.",
       "x-meido-edit-role": "runtime_morph",
       "x-meido-game-usage": "The model loader applies these records to facial or body deformation targets.",
@@ -553,7 +606,7 @@
           "line_end": 175,
           "line_start": 10,
           "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
           "symbol": "Parts.Model"
         },
         {
@@ -562,10 +615,20 @@
           "line_end": 243,
           "line_start": 24,
           "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
           "symbol": "PartsModelManager.CreateModel"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "shadowModeFlags": {
       "description": "The shadow enum value: 0 Default, 1 CastShadow, or 2 NoCastShadow.",
@@ -573,7 +636,6 @@
       "minimum": -2147483648,
       "title": "Shadow mode",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Use only values supported by the target build and verify the resulting renderer mode.",
       "x-meido-edit-role": "runtime_enum",
       "x-meido-game-usage": "The renderer applies this value when configuring model shadow behavior.",
@@ -587,7 +649,7 @@
           "line_end": 175,
           "line_start": 10,
           "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
           "symbol": "Parts.Model"
         },
         {
@@ -596,10 +658,20 @@
           "line_end": 243,
           "line_start": 24,
           "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
           "symbol": "PartsModelManager.CreateModel"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "skinThick": {
       "anyOf": [
@@ -612,7 +684,6 @@
       ],
       "description": "Optional groups and angle-dependent distance values used by skin-thickness processing.",
       "title": "Skin-thickness data",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep group names, point indices, and angle ranges coherent with the mesh.",
       "x-meido-edit-role": "runtime_geometry",
       "x-meido-game-usage": "The model system uses this data to adjust surface thickness around selected bones or vertices.",
@@ -624,7 +695,7 @@
           "line_end": 175,
           "line_start": 10,
           "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
           "symbol": "Parts.Model"
         },
         {
@@ -633,10 +704,20 @@
           "line_end": 243,
           "line_start": 24,
           "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
           "symbol": "PartsModelManager.CreateModel"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "transData": {
       "description": "Indexed local transform and parent-index records for the model skeleton.",
@@ -655,7 +736,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve order, valid parent indices, and finite position/rotation/scale values.",
       "x-meido-edit-role": "runtime_skeleton",
       "x-meido-game-usage": "The loader builds the bone hierarchy from these records before skinning.",
@@ -667,7 +747,7 @@
           "line_end": 175,
           "line_start": 10,
           "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
           "symbol": "Parts.Model"
         },
         {
@@ -676,10 +756,20 @@
           "line_end": 243,
           "line_start": 24,
           "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
           "symbol": "PartsModelManager.CreateModel"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "version": {
       "description": "The indexed MessagePack version, fixed at 1001 by the current Parts.Model constructor.",
@@ -687,7 +777,6 @@
       "minimum": -2147483648,
       "title": "Model version",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve the source value and do not mix fields from a different model generation.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "PartsUtility.Deserialize\u003cModel\u003e uses the versioned object while loading model metadata.",
@@ -701,7 +790,7 @@
           "line_end": 175,
           "line_start": 10,
           "observation": "Parts.Model is a MessagePack indexed object with fixed version 1001, model and mesh file names, bone transforms, material names, morphs, skin-thickness data, and shadow flags.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/Parts/Model.cs",
           "symbol": "Parts.Model"
         },
         {
@@ -710,10 +799,20 @@
           "line_end": 243,
           "line_start": 24,
           "observation": "PartsModelManager loads and deserializes the model, constructs the transform hierarchy, applies local transforms, loads the separate mesh, binds bones and materials, and forwards morph and skin-thickness data.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/PartsModelManager.cs",
           "symbol": "PartsModelManager.CreateModel"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -735,6 +834,11 @@
     "object"
   ],
   "x-meido-format-id": "kces.model",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "Parts.Model and PartsModelManager were reviewed in KCES 1.34.4. The model description does not embed mesh bytes; meshfileName resolves a separate resource."
+  },
   "x-meido-native-suffixes": [
     ".model"
   ],

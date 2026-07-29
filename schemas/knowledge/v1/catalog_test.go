@@ -32,7 +32,7 @@ func TestResolveGuidesForEveryEditingSchema(t *testing.T) {
 		if err != nil {
 			t.Fatalf("guide %s: %v", formatID, err)
 		}
-		if guide.FormatID != formatID || guide.SchemaID != schema.ID || guide.SHA256 == "" || guide.Coverage == knowledgev1.CoverageSchemaOnly || !json.Valid(guide.JSON) {
+		if guide.FormatID != formatID || guide.SchemaID != schema.ID || guide.SHA256 == "" || guide.FormatVerification != knowledgev1.FormatVerificationSerializationVerified || !json.Valid(guide.JSON) {
 			t.Fatalf("guide %s metadata is inconsistent: %+v", formatID, guide)
 		}
 		var decoded knowledgev1.Guide
@@ -72,7 +72,7 @@ func TestProfileCatalogReferencesPublishedSchemas(t *testing.T) {
 		if err := json.Unmarshal(document.JSON, &profile); err != nil {
 			t.Fatal(err)
 		}
-		if profile.SchemaID != schema.ID || profile.SchemaURI != "meido://schemas/"+formatID || profile.Coverage.Level == "" || profile.Coverage.ReviewedFields <= 0 || len(profile.Sources) == 0 || len(profile.Fields) == 0 {
+		if profile.SchemaID != schema.ID || profile.SchemaURI != "meido://schemas/"+formatID || profile.FormatVerification.Level != knowledgev1.FormatVerificationSerializationVerified || profile.FormatVerification.Authority != knowledgev1.ReviewAuthorityAI || profile.FieldCoverage.Total == 0 || len(profile.Sources) == 0 || len(profile.Fields) == 0 {
 			t.Fatalf("format-guide profile %s contract = %+v", formatID, profile)
 		}
 		for _, evidence := range profile.Sources {
@@ -86,7 +86,7 @@ func TestProfileCatalogReferencesPublishedSchemas(t *testing.T) {
 	}
 }
 
-func TestProfileEvidenceKindsAndConfidence(t *testing.T) {
+func TestProfileEvidenceKindsAndVerification(t *testing.T) {
 	formats, err := knowledgev1.Formats()
 	if err != nil {
 		t.Fatal(err)
@@ -107,46 +107,52 @@ func TestProfileEvidenceKindsAndConfidence(t *testing.T) {
 				path := strings.ReplaceAll(evidence.Path, `\`, "/")
 				switch evidence.Kind {
 				case knowledgev1.SourceKindGame:
-					if !strings.HasPrefix(path, "game/") {
-						t.Fatalf("profile %s %s game source is outside game/: %+v", formatID, owner, evidence)
+					if strings.HasPrefix(path, "game/") {
+						t.Fatalf("profile %s %s game source path includes the game/ prefix: %+v", formatID, owner, evidence)
 					}
 				case knowledgev1.SourceKindImplementation:
 					if strings.HasPrefix(path, "game/") {
-						t.Fatalf("profile %s %s implementation source masquerades as game source: %+v", formatID, owner, evidence)
+						t.Fatalf("profile %s %s implementation source path includes the game/ prefix: %+v", formatID, owner, evidence)
 					}
+				case knowledgev1.SourceKindRuntimeObservation:
 				default:
 					t.Fatalf("profile %s %s has invalid source kind %q: %+v", formatID, owner, evidence.Kind, evidence)
 				}
 			}
 		}
-		requireGameEvidence := func(owner, confidence string, sources []knowledgev1.Source) {
+		requireEvidence := func(owner string, verification knowledgev1.FieldVerification, sources []knowledgev1.Source) {
 			t.Helper()
-			if confidence != knowledgev1.ConfidenceVerified && confidence != knowledgev1.ConfidenceHumanVerified {
-				return
-			}
-			for _, evidence := range sources {
-				if evidence.Kind == knowledgev1.SourceKindGame {
-					return
+			hasKind := func(kind string) bool {
+				for _, evidence := range sources {
+					if evidence.Kind == kind {
+						return true
+					}
 				}
+				return false
 			}
-			t.Fatalf("profile %s verified %s has no game source", formatID, owner)
+			if verification.SourceSemantics != nil && (verification.Serialization == nil || !hasKind(knowledgev1.SourceKindGame)) {
+				t.Fatalf("profile %s source-verified %s lacks serialization or game-source evidence", formatID, owner)
+			}
+			if verification.GameBehavior != nil && !hasKind(knowledgev1.SourceKindRuntimeObservation) {
+				t.Fatalf("profile %s game-behavior-verified %s has no runtime observation", formatID, owner)
+			}
 		}
 
 		auditSources("guide", profile.Sources)
 		for _, field := range profile.Fields {
 			owner := "field " + field.JSONPath
 			auditSources(owner, field.Evidence)
-			requireGameEvidence(owner, field.Confidence, field.Evidence)
+			requireEvidence(owner, field.Verification, field.Evidence)
 		}
 		for _, pattern := range profile.FieldPatterns {
 			owner := "field pattern " + pattern.JSONPathPattern
 			auditSources(owner, pattern.Evidence)
-			requireGameEvidence(owner, pattern.Confidence, pattern.Evidence)
+			requireEvidence(owner, pattern.Verification, pattern.Evidence)
 		}
 		for _, valueSet := range profile.ValueSets {
 			owner := "value set " + valueSet.ID
 			auditSources(owner, valueSet.Evidence)
-			requireGameEvidence(owner, valueSet.Confidence, valueSet.Evidence)
+			requireEvidence(owner, valueSet.Verification, valueSet.Evidence)
 		}
 		for _, rule := range profile.Rules {
 			auditSources("rule "+rule.ID, rule.Evidence)
@@ -157,12 +163,9 @@ func TestProfileEvidenceKindsAndConfidence(t *testing.T) {
 	}
 }
 
-func TestAIReviewedProfilesDoNotClaimReservedHumanPrefix(t *testing.T) {
-	if knowledgev1.IsHumanReviewed(knowledgev1.CoverageRuntimeVerified) ||
-		!knowledgev1.IsHumanReviewed(knowledgev1.CoverageHumanRuntimeVerified) ||
-		!knowledgev1.IsHumanReviewed(knowledgev1.CoverageHumanSerializationVerified) ||
-		!knowledgev1.IsHumanReviewed(knowledgev1.ConfidenceHumanVerified) {
-		t.Fatal("human review prefix constants do not preserve review authority")
+func TestAIReviewedProfilesRecordExplicitAuthority(t *testing.T) {
+	if knowledgev1.IsHumanReviewAuthority(knowledgev1.ReviewAuthorityAI) || !knowledgev1.IsHumanReviewAuthority(knowledgev1.ReviewAuthorityHuman) {
+		t.Fatal("review authority constants are inconsistent")
 	}
 	formats, err := knowledgev1.Formats()
 	if err != nil {
@@ -177,38 +180,39 @@ func TestAIReviewedProfilesDoNotClaimReservedHumanPrefix(t *testing.T) {
 		if err := json.Unmarshal(document.JSON, &profile); err != nil {
 			t.Fatal(err)
 		}
-		if knowledgev1.IsHumanReviewed(profile.Coverage.Level) {
-			t.Fatalf("AI-reviewed profile %s claims human coverage %q", formatID, profile.Coverage.Level)
+		if profile.FormatVerification.Authority != knowledgev1.ReviewAuthorityAI {
+			t.Fatalf("AI-reviewed profile %s has authority %q", formatID, profile.FormatVerification.Authority)
+		}
+		requireAI := func(owner string, verification knowledgev1.FieldVerification) {
+			t.Helper()
+			for _, claim := range []*knowledgev1.VerificationClaim{verification.Serialization, verification.SourceSemantics, verification.GameBehavior} {
+				if claim != nil && claim.Authority != knowledgev1.ReviewAuthorityAI {
+					t.Fatalf("AI-reviewed profile %s %s has authority %q", formatID, owner, claim.Authority)
+				}
+			}
 		}
 		for _, field := range profile.Fields {
-			if knowledgev1.IsHumanReviewed(field.Confidence) {
-				t.Fatalf("AI-reviewed profile %s field %s claims human confidence %q", formatID, field.JSONPath, field.Confidence)
-			}
+			requireAI("field "+field.JSONPath, field.Verification)
 		}
 		for _, fieldPattern := range profile.FieldPatterns {
-			if knowledgev1.IsHumanReviewed(fieldPattern.Confidence) {
-				t.Fatalf("AI-reviewed profile %s pattern %s claims human confidence %q", formatID, fieldPattern.JSONPathPattern, fieldPattern.Confidence)
-			}
+			requireAI("pattern "+fieldPattern.JSONPathPattern, fieldPattern.Verification)
 		}
 		for _, valueSet := range profile.ValueSets {
-			if knowledgev1.IsHumanReviewed(valueSet.Confidence) {
-				t.Fatalf("AI-reviewed profile %s value set %s claims human confidence %q", formatID, valueSet.ID, valueSet.Confidence)
-			}
+			requireAI("value set "+valueSet.ID, valueSet.Verification)
 		}
 	}
 }
 
 func TestRepresentativeReviewedFields(t *testing.T) {
 	tests := []struct {
-		formatID   string
-		path       string
-		confidence string
-		coverage   string
+		formatID     string
+		path         string
+		verification string
 	}{
-		{formatID: "com3d2.menu", path: "/Commands", confidence: knowledgev1.ConfidenceVerified, coverage: knowledgev1.CoverageRuntimeVerified},
-		{formatID: "kces.dbconf", path: "/dynamicBoneStatus", confidence: knowledgev1.ConfidenceVerified, coverage: knowledgev1.CoverageRuntimeVerified},
-		{formatID: "kces.dbcol", path: "/colliderPackage", confidence: knowledgev1.ConfidenceVerified, coverage: knowledgev1.CoverageRuntimeVerified},
-		{formatID: "kces.bytes", path: "/dataBase64", confidence: knowledgev1.ConfidenceSerializationOnly, coverage: knowledgev1.CoverageSerializationVerified},
+		{formatID: "com3d2.menu", path: "/Commands", verification: "source_semantics"},
+		{formatID: "kces.dbconf", path: "/dynamicBoneStatus", verification: "source_semantics"},
+		{formatID: "kces.dbcol", path: "/colliderPackage", verification: "source_semantics"},
+		{formatID: "kces.bytes", path: "/dataBase64", verification: "serialization"},
 	}
 	for _, test := range tests {
 		schema, found, err := editingv1.Lookup(test.formatID)
@@ -219,8 +223,8 @@ func TestRepresentativeReviewedFields(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if document.Coverage != test.coverage {
-			t.Fatalf("guide %s coverage = %q", test.formatID, document.Coverage)
+		if document.FormatVerification != knowledgev1.FormatVerificationSerializationVerified {
+			t.Fatalf("guide %s format verification = %q", test.formatID, document.FormatVerification)
 		}
 		var guide knowledgev1.Guide
 		if err := json.Unmarshal(document.JSON, &guide); err != nil {
@@ -229,26 +233,26 @@ func TestRepresentativeReviewedFields(t *testing.T) {
 		foundField := false
 		for _, field := range guide.Fields {
 			if field.JSONPath == test.path {
-				foundField = field.Confidence == test.confidence && field.GameUsage != "" && len(field.Evidence) != 0
+				foundField = hasVerification(field.Verification, test.verification) && field.GameUsage != "" && len(field.Evidence) != 0
 				break
 			}
 		}
 		if !foundField {
-			t.Fatalf("guide %s has no %s field %s", test.formatID, test.confidence, test.path)
+			t.Fatalf("guide %s has no %s-verified field %s", test.formatID, test.verification, test.path)
 		}
 	}
 }
 
 func TestRepresentativeReviewedFieldPatterns(t *testing.T) {
 	tests := []struct {
-		formatID   string
-		path       string
-		confidence string
+		formatID     string
+		path         string
+		verification string
 	}{
-		{formatID: "com3d2.menu", path: "/Commands/*/Command", confidence: knowledgev1.ConfidenceVerified},
-		{formatID: "kces.dbconf", path: "/dynamicBoneStatus/{version,damping,elasticity,stiffness,inert,radius}", confidence: knowledgev1.ConfidenceVerified},
-		{formatID: "kces.dbcol", path: "/colliderPackage/colliders/*/{type,collider}", confidence: knowledgev1.ConfidenceSerializationOnly},
-		{formatID: "kces.dsbconf", path: "/clothParams/{radius,mass,gravity,drag,maxVelocity,worldMoveInfluence,worldRotationInfluence,clampPositionLength,clampRotationAngle,structDistanceStiffness,bendDistanceStiffness,nearDistanceLength,nearDistanceStiffness,restoreRotation,triangleBend,volumeStretchStiffness,volumeShearStiffness,penetrationConnectDistance,penetrationDistance,penetrationRadius,springDirectionAtten,springDistanceAtten}", confidence: knowledgev1.ConfidenceSerializationOnly},
+		{formatID: "com3d2.menu", path: "/Commands/*/Command", verification: "source_semantics"},
+		{formatID: "kces.dbconf", path: "/dynamicBoneStatus/{version,damping,elasticity,stiffness,inert,radius}", verification: "source_semantics"},
+		{formatID: "kces.dbcol", path: "/colliderPackage/colliders/*/{type,collider}", verification: "serialization"},
+		{formatID: "kces.dsbconf", path: "/clothParams/{radius,mass,gravity,drag,maxVelocity,worldMoveInfluence,worldRotationInfluence,clampPositionLength,clampRotationAngle,structDistanceStiffness,bendDistanceStiffness,nearDistanceLength,nearDistanceStiffness,restoreRotation,triangleBend,volumeStretchStiffness,volumeShearStiffness,penetrationConnectDistance,penetrationDistance,penetrationRadius,springDirectionAtten,springDistanceAtten}", verification: "serialization"},
 	}
 	for _, test := range tests {
 		document, found, err := knowledgev1.Lookup(test.formatID)
@@ -262,17 +266,17 @@ func TestRepresentativeReviewedFieldPatterns(t *testing.T) {
 		foundPattern := false
 		for _, fieldPattern := range guide.FieldPatterns {
 			if fieldPattern.JSONPathPattern == test.path {
-				foundPattern = fieldPattern.Confidence == test.confidence && fieldPattern.GameUsage != "" && len(fieldPattern.Evidence) != 0
+				foundPattern = hasVerification(fieldPattern.Verification, test.verification) && fieldPattern.GameUsage != "" && len(fieldPattern.Evidence) != 0
 				break
 			}
 		}
 		if !foundPattern {
-			t.Fatalf("guide %s has no %s field pattern %s", test.formatID, test.confidence, test.path)
+			t.Fatalf("guide %s has no %s-verified field pattern %s", test.formatID, test.verification, test.path)
 		}
 	}
 }
 
-func TestEffectiveGuideKeepsUnreviewedFieldsSchemaOnly(t *testing.T) {
+func TestEffectiveGuideAppliesWholeFileSerializationVerification(t *testing.T) {
 	schema, found, err := editingv1.Lookup("com3d2.mate")
 	if err != nil || !found {
 		t.Fatalf("schema: found=%v err=%v", found, err)
@@ -281,19 +285,21 @@ func TestEffectiveGuideKeepsUnreviewedFieldsSchemaOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if document.Coverage != knowledgev1.CoverageRuntimeVerified {
-		t.Fatalf("coverage = %q", document.Coverage)
+	if document.FormatVerification != knowledgev1.FormatVerificationSerializationVerified {
+		t.Fatalf("format verification = %q", document.FormatVerification)
 	}
 	var guide knowledgev1.Guide
 	if err := json.Unmarshal(document.JSON, &guide); err != nil {
 		t.Fatal(err)
 	}
 	for _, field := range guide.Fields {
-		if field.Confidence == knowledgev1.ConfidenceSchemaOnly {
-			return
+		if field.Verification.Serialization == nil {
+			t.Fatalf("field %s lacks whole-file serialization verification", field.JSONPath)
 		}
 	}
-	t.Fatal("runtime-reviewed guide has no schema_only fields to preserve")
+	if guide.FieldCoverage.SerializationVerified != guide.FieldCoverage.Total || guide.FieldCoverage.SchemaDerived != 0 {
+		t.Fatalf("field coverage = %+v", guide.FieldCoverage)
+	}
 }
 
 func TestCOM3D2MenuCommandReferenceIsCompleteAndStructured(t *testing.T) {
@@ -364,7 +370,7 @@ func TestCOM3D2MenuValueSetsResolveEnumArguments(t *testing.T) {
 		if _, duplicate := valueSets[valueSet.ID]; duplicate {
 			t.Fatalf("duplicate value set %q", valueSet.ID)
 		}
-		if valueSet.CSharpType == "" || valueSet.Description == "" || valueSet.EditGuidance == "" || valueSet.Confidence != knowledgev1.ConfidenceVerified || len(valueSet.ReviewedIn) == 0 || len(valueSet.Values) == 0 || len(valueSet.Evidence) == 0 {
+		if valueSet.CSharpType == "" || valueSet.Description == "" || valueSet.EditGuidance == "" || valueSet.Verification.SourceSemantics == nil || valueSet.Verification.Serialization == nil || len(valueSet.ReviewedIn) == 0 || len(valueSet.Values) == 0 || len(valueSet.Evidence) == 0 {
 			t.Fatalf("incomplete value set: %+v", valueSet)
 		}
 		valueNames := make(map[string]struct{}, len(valueSet.Values))
@@ -410,13 +416,26 @@ func TestCOM3D2MenuValueSetsResolveEnumArguments(t *testing.T) {
 	}
 }
 
+func hasVerification(verification knowledgev1.FieldVerification, kind string) bool {
+	switch kind {
+	case "serialization":
+		return verification.Serialization != nil
+	case "source_semantics":
+		return verification.SourceSemantics != nil
+	case "game_behavior":
+		return verification.GameBehavior != nil
+	default:
+		return false
+	}
+}
+
 func firstHanAnnotation(guide knowledgev1.Guide) (string, bool) {
-	annotations := []string{guide.Title, guide.Summary, guide.Coverage.Level, guide.Coverage.Notes}
+	annotations := []string{guide.Title, guide.Summary, guide.FormatVerification.Level, guide.FormatVerification.Authority, guide.FormatVerification.Notes}
 	for _, source := range guide.Sources {
 		annotations = append(annotations, source.Observation)
 	}
 	for _, field := range guide.Fields {
-		annotations = append(annotations, field.Title, field.Description, field.GameUsage, field.EditRole, field.EditGuidance, field.Risk, field.Confidence)
+		annotations = append(annotations, field.Title, field.Description, field.GameUsage, field.EditRole, field.EditGuidance, field.Risk)
 		annotations = append(annotations, field.Constraints...)
 		for _, enumValue := range field.EnumValues {
 			annotations = append(annotations, enumValue.Meaning)
@@ -426,7 +445,7 @@ func firstHanAnnotation(guide knowledgev1.Guide) (string, bool) {
 		}
 	}
 	for _, pattern := range guide.FieldPatterns {
-		annotations = append(annotations, pattern.Title, pattern.Description, pattern.GameUsage, pattern.EditRole, pattern.EditGuidance, pattern.Confidence)
+		annotations = append(annotations, pattern.Title, pattern.Description, pattern.GameUsage, pattern.EditRole, pattern.EditGuidance)
 		annotations = append(annotations, pattern.Constraints...)
 		for _, source := range pattern.Evidence {
 			annotations = append(annotations, source.Observation)
@@ -453,7 +472,7 @@ func firstHanAnnotation(guide knowledgev1.Guide) (string, bool) {
 		}
 	}
 	for _, valueSet := range guide.ValueSets {
-		annotations = append(annotations, valueSet.ID, valueSet.CSharpType, valueSet.Description, valueSet.EditGuidance, valueSet.Confidence)
+		annotations = append(annotations, valueSet.ID, valueSet.CSharpType, valueSet.Description, valueSet.EditGuidance)
 		annotations = append(annotations, valueSet.ReviewedIn...)
 		for _, source := range valueSet.Evidence {
 			annotations = append(annotations, source.Observation)

@@ -2824,7 +2824,6 @@
       ],
       "description": "The nested CM3D2_MAID_BODY block used for body-scope presets.",
       "title": "Body data",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Do not add body data to a wear-only preset unless the target loader expects it.",
       "x-meido-edit-role": "runtime_configuration",
       "x-meido-game-usage": "Maid restores body-specific state when PresetType includes body data.",
@@ -2836,10 +2835,20 @@
           "line_end": 1210,
           "line_start": 998,
           "observation": "The preset writer emits CM3D2_PRESET, a type marker, thumbnail, property list, color data, and optional body data; the loader restores those blocks and applies them to a maid.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/CharacterMgr.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/CharacterMgr.cs",
           "symbol": "CharacterMgr.PresetSave/PresetLoad/PresetSet"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "MultiColor": {
       "anyOf": [
@@ -2852,7 +2861,6 @@
       ],
       "description": "The nested CM3D2_MULTI_COL color records.",
       "title": "Part color data",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep part ordering and use ranges accepted by the target editor.",
       "x-meido-edit-role": "runtime_configuration",
       "x-meido-game-usage": "Maid applies them to part color and gradation state when the preset scope includes colors.",
@@ -2864,10 +2872,20 @@
           "line_end": 1210,
           "line_start": 998,
           "observation": "The preset writer emits CM3D2_PRESET, a type marker, thumbnail, property list, color data, and optional body data; the loader restores those blocks and applies them to a maid.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/CharacterMgr.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/CharacterMgr.cs",
           "symbol": "CharacterMgr.PresetSave/PresetLoad/PresetSet"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "PresetPropertyList": {
       "anyOf": [
@@ -2880,7 +2898,6 @@
       ],
       "description": "The nested CM3D2_MPROP_LIST block containing part and attachment properties.",
       "title": "Maid property list",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Edit only known properties and preserve map/order metadata and unknown nested records.",
       "x-meido-edit-role": "runtime_configuration",
       "x-meido-game-usage": "CharacterMgr and Maid deserialize these values and apply menu parts, attachments, material properties, and bone lengths.",
@@ -2892,10 +2909,20 @@
           "line_end": 1210,
           "line_start": 998,
           "observation": "The preset writer emits CM3D2_PRESET, a type marker, thumbnail, property list, color data, and optional body data; the loader restores those blocks and applies them to a maid.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/CharacterMgr.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/CharacterMgr.cs",
           "symbol": "CharacterMgr.PresetSave/PresetLoad/PresetSet"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "PresetType": {
       "description": "The enum selecting wear, body, or all character data.",
@@ -2903,7 +2930,6 @@
       "minimum": -2147483648,
       "title": "Preset scope",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Use the target game's values 0=wear, 1=body, 2=all and keep matching blocks populated.",
       "x-meido-edit-role": "runtime_enum",
       "x-meido-game-usage": "PresetSet applies the corresponding property, color, and body blocks to the selected maid.",
@@ -2917,16 +2943,25 @@
           "line_end": 1210,
           "line_start": 998,
           "observation": "The preset writer emits CM3D2_PRESET, a type marker, thumbnail, property list, color data, and optional body data; the loader restores those blocks and applies them to a maid.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/CharacterMgr.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/CharacterMgr.cs",
           "symbol": "CharacterMgr.PresetSave/PresetLoad/PresetSet"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "Signature": {
       "description": "The CM3D2_PRESET header string.",
       "title": "Preset signature",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep CM3D2_PRESET.",
       "x-meido-edit-role": "format_marker",
       "x-meido-game-usage": "CharacterMgr.PresetLoad rejects another signature.",
@@ -2938,10 +2973,20 @@
           "line_end": 1210,
           "line_start": 998,
           "observation": "The preset writer emits CM3D2_PRESET, a type marker, thumbnail, property list, color data, and optional body data; the loader restores those blocks and applies them to a maid.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/CharacterMgr.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/CharacterMgr.cs",
           "symbol": "CharacterMgr.PresetSave/PresetLoad/PresetSet"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "ThumbData": {
       "contentEncoding": "base64",
@@ -2952,7 +2997,6 @@
         "null",
         "string"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep valid PNG bytes or preserve the original thumbnail when editing other fields.",
       "x-meido-edit-role": "binary_asset",
       "x-meido-game-usage": "The preset browser decodes them for its preview; they do not change character state.",
@@ -2964,10 +3008,20 @@
           "line_end": 1210,
           "line_start": 998,
           "observation": "The preset writer emits CM3D2_PRESET, a type marker, thumbnail, property list, color data, and optional body data; the loader restores those blocks and applies them to a maid.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/CharacterMgr.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/CharacterMgr.cs",
           "symbol": "CharacterMgr.PresetSave/PresetLoad/PresetSet"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "ThumbLength": {
       "maximum": 2147483647,
@@ -2982,7 +3036,6 @@
       "minimum": -2147483648,
       "title": "Preset version",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve it and do not mix blocks from another preset generation.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "CharacterMgr passes it to the nested deserializers and uses it when deciding which blocks are present.",
@@ -2996,10 +3049,20 @@
           "line_end": 1210,
           "line_start": 998,
           "observation": "The preset writer emits CM3D2_PRESET, a type marker, thumbnail, property list, color data, and optional body data; the loader restores those blocks and applies them to a maid.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/CharacterMgr.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/CharacterMgr.cs",
           "symbol": "CharacterMgr.PresetSave/PresetLoad/PresetSet"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -3015,6 +3078,11 @@
   "title": "com3d2.preset editing JSON",
   "type": "object",
   "x-meido-format-id": "com3d2.preset",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "CharacterMgr's save/load/set paths and Maid's property/color/body serializers were reviewed in COM3D2 2.48.0."
+  },
   "x-meido-native-suffixes": [
     ".preset"
   ],

@@ -356,7 +356,6 @@
       ],
       "description": "The shader identity and typed property records applied to the Unity material.",
       "title": "Material payload",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Edit only known property variants; preserve property order and unknown records.",
       "x-meido-edit-role": "runtime_configuration",
       "x-meido-game-usage": "ReadMaterial selects or clones a base material, changes the shader when needed, and applies each property in stream order.",
@@ -368,16 +367,25 @@
           "line_end": 505,
           "line_start": 317,
           "observation": "The loader validates CM3D2_MATERIAL, reads the material name and shader, then applies typed texture, color, vector, float, range, offset, scale, and keyword properties to a Unity Material.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.LoadMaterial/ReadMaterial"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "Name": {
       "description": "The material instance name used by the loader and priority-material lookup.",
       "title": "Material name",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep it synchronized with the material file and any matching priority-material entry.",
       "x-meido-edit-role": "resource_identity",
       "x-meido-game-usage": "ImportCM assigns it to UnityEngine.Material.name and uses it when looking up a .pmat override.",
@@ -389,16 +397,25 @@
           "line_end": 505,
           "line_start": 317,
           "observation": "The loader validates CM3D2_MATERIAL, reads the material name and shader, then applies typed texture, color, vector, float, range, offset, scale, and keyword properties to a Unity Material.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.LoadMaterial/ReadMaterial"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "Signature": {
       "description": "The fixed CM3D2_MATERIAL header string.",
       "title": "Material signature",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep CM3D2_MATERIAL.",
       "x-meido-edit-role": "format_marker",
       "x-meido-game-usage": "ImportCM.LoadMaterial checks it before reading the material payload.",
@@ -410,10 +427,20 @@
           "line_end": 505,
           "line_start": 317,
           "observation": "The loader validates CM3D2_MATERIAL, reads the material name and shader, then applies typed texture, color, vector, float, range, offset, scale, and keyword properties to a Unity Material.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.LoadMaterial/ReadMaterial"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "Version": {
       "description": "The integer version stored after the material signature.",
@@ -421,7 +448,6 @@
       "minimum": -2147483648,
       "title": "Material version",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve the source value unless targeting a known compiler version.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "The loader reads it to keep the stream aligned; property compatibility is selected by the property records and game build.",
@@ -435,10 +461,20 @@
           "line_end": 505,
           "line_start": 317,
           "observation": "The loader validates CM3D2_MATERIAL, reads the material name and shader, then applies typed texture, color, vector, float, range, offset, scale, and keyword properties to a Unity Material.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.LoadMaterial/ReadMaterial"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -450,6 +486,11 @@
   "title": "com3d2.mate editing JSON",
   "type": "object",
   "x-meido-format-id": "com3d2.mate",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "ImportCM.LoadMaterial and ReadMaterial were reviewed in COM3D2 2.48.0; COM3D2_5 adds properties but retains the same container entry point."
+  },
   "x-meido-native-suffixes": [
     ".mate",
     ".mat"

@@ -70,10 +70,65 @@ func (Representation) EnumDescriptor() ([]byte, []int) {
 	return file_meido_serialization_v1_serialization_proto_rawDescGZIP(), []int{0}
 }
 
+type FilesystemMode int32
+
+const (
+	FilesystemMode_FILESYSTEM_MODE_UNSPECIFIED FilesystemMode = 0
+	// Direct server-local paths are accepted. They use the filesystem
+	// permissions of the server process account.
+	FilesystemMode_FILESYSTEM_MODE_UNRESTRICTED FilesystemMode = 1
+	// Server-local paths are rejected. File inputs must use configured roots.
+	FilesystemMode_FILESYSTEM_MODE_RESTRICTED FilesystemMode = 2
+)
+
+// Enum value maps for FilesystemMode.
+var (
+	FilesystemMode_name = map[int32]string{
+		0: "FILESYSTEM_MODE_UNSPECIFIED",
+		1: "FILESYSTEM_MODE_UNRESTRICTED",
+		2: "FILESYSTEM_MODE_RESTRICTED",
+	}
+	FilesystemMode_value = map[string]int32{
+		"FILESYSTEM_MODE_UNSPECIFIED":  0,
+		"FILESYSTEM_MODE_UNRESTRICTED": 1,
+		"FILESYSTEM_MODE_RESTRICTED":   2,
+	}
+)
+
+func (x FilesystemMode) Enum() *FilesystemMode {
+	p := new(FilesystemMode)
+	*p = x
+	return p
+}
+
+func (x FilesystemMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (FilesystemMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_meido_serialization_v1_serialization_proto_enumTypes[1].Descriptor()
+}
+
+func (FilesystemMode) Type() protoreflect.EnumType {
+	return &file_meido_serialization_v1_serialization_proto_enumTypes[1]
+}
+
+func (x FilesystemMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use FilesystemMode.Descriptor instead.
+func (FilesystemMode) EnumDescriptor() ([]byte, []int) {
+	return file_meido_serialization_v1_serialization_proto_rawDescGZIP(), []int{1}
+}
+
 type FileRef struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	RootId        string                 `protobuf:"bytes,1,opt,name=root_id,json=rootId,proto3" json:"root_id,omitempty"`
-	RelativePath  string                 `protobuf:"bytes,2,opt,name=relative_path,json=relativePath,proto3" json:"relative_path,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Root identifier advertised by GetCapabilities.
+	RootId string `protobuf:"bytes,1,opt,name=root_id,json=rootId,proto3" json:"root_id,omitempty"`
+	// Path beneath the selected root. Absolute paths and parent traversal are
+	// rejected.
+	RelativePath  string `protobuf:"bytes,2,opt,name=relative_path,json=relativePath,proto3" json:"relative_path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -176,6 +231,7 @@ type ArtifactAttachmentInput struct {
 	//	*ArtifactAttachmentInput_InlineData
 	//	*ArtifactAttachmentInput_Blob
 	//	*ArtifactAttachmentInput_File
+	//	*ArtifactAttachmentInput_Path
 	Location      isArtifactAttachmentInput_Location `protobuf_oneof:"location"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -252,6 +308,15 @@ func (x *ArtifactAttachmentInput) GetFile() *FileRef {
 	return nil
 }
 
+func (x *ArtifactAttachmentInput) GetPath() string {
+	if x != nil {
+		if x, ok := x.Location.(*ArtifactAttachmentInput_Path); ok {
+			return x.Path
+		}
+	}
+	return ""
+}
+
 type isArtifactAttachmentInput_Location interface {
 	isArtifactAttachmentInput_Location()
 }
@@ -268,11 +333,18 @@ type ArtifactAttachmentInput_File struct {
 	File *FileRef `protobuf:"bytes,4,opt,name=file,proto3,oneof"`
 }
 
+type ArtifactAttachmentInput_Path struct {
+	// Direct server-local path, accepted only in unrestricted filesystem mode.
+	Path string `protobuf:"bytes,5,opt,name=path,proto3,oneof"`
+}
+
 func (*ArtifactAttachmentInput_InlineData) isArtifactAttachmentInput_Location() {}
 
 func (*ArtifactAttachmentInput_Blob) isArtifactAttachmentInput_Location() {}
 
 func (*ArtifactAttachmentInput_File) isArtifactAttachmentInput_Location() {}
+
+func (*ArtifactAttachmentInput_Path) isArtifactAttachmentInput_Location() {}
 
 type ArtifactInput struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -284,6 +356,7 @@ type ArtifactInput struct {
 	//	*ArtifactInput_InlineData
 	//	*ArtifactInput_Blob
 	//	*ArtifactInput_File
+	//	*ArtifactInput_Path
 	Location      isArtifactInput_Location   `protobuf_oneof:"location"`
 	Attachments   []*ArtifactAttachmentInput `protobuf:"bytes,5,rep,name=attachments,proto3" json:"attachments,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -361,6 +434,15 @@ func (x *ArtifactInput) GetFile() *FileRef {
 	return nil
 }
 
+func (x *ArtifactInput) GetPath() string {
+	if x != nil {
+		if x, ok := x.Location.(*ArtifactInput_Path); ok {
+			return x.Path
+		}
+	}
+	return ""
+}
+
 func (x *ArtifactInput) GetAttachments() []*ArtifactAttachmentInput {
 	if x != nil {
 		return x.Attachments
@@ -384,11 +466,19 @@ type ArtifactInput_File struct {
 	File *FileRef `protobuf:"bytes,4,opt,name=file,proto3,oneof"`
 }
 
+type ArtifactInput_Path struct {
+	// Direct server-local path, accepted only in unrestricted filesystem mode.
+	// Relative paths are resolved from the server process working directory.
+	Path string `protobuf:"bytes,6,opt,name=path,proto3,oneof"`
+}
+
 func (*ArtifactInput_InlineData) isArtifactInput_Location() {}
 
 func (*ArtifactInput_Blob) isArtifactInput_Location() {}
 
 func (*ArtifactInput_File) isArtifactInput_Location() {}
+
+func (*ArtifactInput_Path) isArtifactInput_Location() {}
 
 type ArtifactMetadata struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
@@ -697,12 +787,12 @@ type FormatCapability struct {
 	FormatGuideVersion   string `protobuf:"bytes,14,opt,name=format_guide_version,json=formatGuideVersion,proto3" json:"format_guide_version,omitempty"`
 	FormatGuideId        string `protobuf:"bytes,15,opt,name=format_guide_id,json=formatGuideId,proto3" json:"format_guide_id,omitempty"`
 	FormatGuideSha256    string `protobuf:"bytes,16,opt,name=format_guide_sha256,json=formatGuideSha256,proto3" json:"format_guide_sha256,omitempty"`
-	// Unprefixed runtime_verified and serialization_verified record AI source
-	// review, not human approval. The human_ prefix is reserved for explicit
-	// human review. schema_only confirms only the editing JSON shape.
-	FormatGuideCoverage string `protobuf:"bytes,17,opt,name=format_guide_coverage,json=formatGuideCoverage,proto3" json:"format_guide_coverage,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// Whole-file verification is serialization_verified or schema_only.
+	// Every verified claim in the guide JSON records an explicit AI or human
+	// authority; schema_only is generator-derived and is not a certification.
+	FormatGuideVerification string `protobuf:"bytes,17,opt,name=format_guide_verification,json=formatGuideVerification,proto3" json:"format_guide_verification,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *FormatCapability) Reset() {
@@ -847,9 +937,9 @@ func (x *FormatCapability) GetFormatGuideSha256() string {
 	return ""
 }
 
-func (x *FormatCapability) GetFormatGuideCoverage() string {
+func (x *FormatCapability) GetFormatGuideVerification() string {
 	if x != nil {
-		return x.FormatGuideCoverage
+		return x.FormatGuideVerification
 	}
 	return ""
 }
@@ -909,8 +999,11 @@ type GetCapabilitiesResponse struct {
 	MaxArchiveListingBytes int64 `protobuf:"varint,10,opt,name=max_archive_listing_bytes,json=maxArchiveListingBytes,proto3" json:"max_archive_listing_bytes,omitempty"`
 	// Maximum number of entries accepted while building one archive listing.
 	MaxArchiveEntries int64 `protobuf:"varint,11,opt,name=max_archive_entries,json=maxArchiveEntries,proto3" json:"max_archive_entries,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Determines whether ArtifactInput.path is accepted or only configured
+	// root references may access server-local files.
+	FilesystemMode FilesystemMode `protobuf:"varint,12,opt,name=filesystem_mode,json=filesystemMode,proto3,enum=meido.serialization.v1.FilesystemMode" json:"filesystem_mode,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *GetCapabilitiesResponse) Reset() {
@@ -1018,6 +1111,13 @@ func (x *GetCapabilitiesResponse) GetMaxArchiveEntries() int64 {
 		return x.MaxArchiveEntries
 	}
 	return 0
+}
+
+func (x *GetCapabilitiesResponse) GetFilesystemMode() FilesystemMode {
+	if x != nil {
+		return x.FilesystemMode
+	}
+	return FilesystemMode_FILESYSTEM_MODE_UNSPECIFIED
 }
 
 type GetFormatSchemaRequest struct {
@@ -1220,14 +1320,14 @@ func (x *GetFormatGuideRequest) GetFormatId() string {
 }
 
 type GetFormatGuideResponse struct {
-	state        protoimpl.MessageState `protogen:"open.v1"`
-	FormatId     string                 `protobuf:"bytes,1,opt,name=format_id,json=formatId,proto3" json:"format_id,omitempty"`
-	GuideVersion string                 `protobuf:"bytes,2,opt,name=guide_version,json=guideVersion,proto3" json:"guide_version,omitempty"`
-	GuideId      string                 `protobuf:"bytes,3,opt,name=guide_id,json=guideId,proto3" json:"guide_id,omitempty"`
-	MediaType    string                 `protobuf:"bytes,4,opt,name=media_type,json=mediaType,proto3" json:"media_type,omitempty"`
-	Sha256       string                 `protobuf:"bytes,5,opt,name=sha256,proto3" json:"sha256,omitempty"`
-	SchemaId     string                 `protobuf:"bytes,6,opt,name=schema_id,json=schemaId,proto3" json:"schema_id,omitempty"`
-	Coverage     string                 `protobuf:"bytes,7,opt,name=coverage,proto3" json:"coverage,omitempty"`
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	FormatId           string                 `protobuf:"bytes,1,opt,name=format_id,json=formatId,proto3" json:"format_id,omitempty"`
+	GuideVersion       string                 `protobuf:"bytes,2,opt,name=guide_version,json=guideVersion,proto3" json:"guide_version,omitempty"`
+	GuideId            string                 `protobuf:"bytes,3,opt,name=guide_id,json=guideId,proto3" json:"guide_id,omitempty"`
+	MediaType          string                 `protobuf:"bytes,4,opt,name=media_type,json=mediaType,proto3" json:"media_type,omitempty"`
+	Sha256             string                 `protobuf:"bytes,5,opt,name=sha256,proto3" json:"sha256,omitempty"`
+	SchemaId           string                 `protobuf:"bytes,6,opt,name=schema_id,json=schemaId,proto3" json:"schema_id,omitempty"`
+	FormatVerification string                 `protobuf:"bytes,7,opt,name=format_verification,json=formatVerification,proto3" json:"format_verification,omitempty"`
 	// UTF-8 application/vnd.meido.format-guide+json bytes. The guide includes
 	// field JSON paths, schema pointers, game usage, edit roles, risks, source
 	// evidence, invariants, workflow, warnings, structured command forms, and
@@ -1309,9 +1409,9 @@ func (x *GetFormatGuideResponse) GetSchemaId() string {
 	return ""
 }
 
-func (x *GetFormatGuideResponse) GetCoverage() string {
+func (x *GetFormatGuideResponse) GetFormatVerification() string {
 	if x != nil {
-		return x.Coverage
+		return x.FormatVerification
 	}
 	return ""
 }
@@ -2477,21 +2577,23 @@ const file_meido_serialization_v1_serialization_proto_rawDesc = "" +
 	"\aroot_id\x18\x01 \x01(\tR\x06rootId\x12#\n" +
 	"\rrelative_path\x18\x02 \x01(\tR\frelativePath\"\x19\n" +
 	"\aBlobRef\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\xce\x01\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\xe4\x01\n" +
 	"\x17ArtifactAttachmentInput\x12\x16\n" +
 	"\x06suffix\x18\x01 \x01(\tR\x06suffix\x12!\n" +
 	"\vinline_data\x18\x02 \x01(\fH\x00R\n" +
 	"inlineData\x125\n" +
 	"\x04blob\x18\x03 \x01(\v2\x1f.meido.serialization.v1.BlobRefH\x00R\x04blob\x125\n" +
-	"\x04file\x18\x04 \x01(\v2\x1f.meido.serialization.v1.FileRefH\x00R\x04fileB\n" +
+	"\x04file\x18\x04 \x01(\v2\x1f.meido.serialization.v1.FileRefH\x00R\x04file\x12\x14\n" +
+	"\x04path\x18\x05 \x01(\tH\x00R\x04pathB\n" +
 	"\n" +
-	"\blocation\"\x93\x02\n" +
+	"\blocation\"\xa9\x02\n" +
 	"\rArtifactInput\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
 	"\vinline_data\x18\x02 \x01(\fH\x00R\n" +
 	"inlineData\x125\n" +
 	"\x04blob\x18\x03 \x01(\v2\x1f.meido.serialization.v1.BlobRefH\x00R\x04blob\x125\n" +
-	"\x04file\x18\x04 \x01(\v2\x1f.meido.serialization.v1.FileRefH\x00R\x04file\x12Q\n" +
+	"\x04file\x18\x04 \x01(\v2\x1f.meido.serialization.v1.FileRefH\x00R\x04file\x12\x14\n" +
+	"\x04path\x18\x06 \x01(\tH\x00R\x04path\x12Q\n" +
 	"\vattachments\x18\x05 \x03(\v2/.meido.serialization.v1.ArtifactAttachmentInputR\vattachmentsB\n" +
 	"\n" +
 	"\blocation\"\xbf\x01\n" +
@@ -2518,7 +2620,7 @@ const file_meido_serialization_v1_serialization_proto_rawDesc = "" +
 	"inlineData\x125\n" +
 	"\x04blob\x18\x06 \x01(\v2\x1f.meido.serialization.v1.BlobRefH\x00R\x04blobB\n" +
 	"\n" +
-	"\blocation\"\xaa\x05\n" +
+	"\blocation\"\xb2\x05\n" +
 	"\x10FormatCapability\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04game\x18\x02 \x01(\tR\x04game\x12\x1b\n" +
@@ -2539,9 +2641,9 @@ const file_meido_serialization_v1_serialization_proto_rawDesc = "" +
 	"\x10has_format_guide\x18\r \x01(\bR\x0ehasFormatGuide\x120\n" +
 	"\x14format_guide_version\x18\x0e \x01(\tR\x12formatGuideVersion\x12&\n" +
 	"\x0fformat_guide_id\x18\x0f \x01(\tR\rformatGuideId\x12.\n" +
-	"\x13format_guide_sha256\x18\x10 \x01(\tR\x11formatGuideSha256\x122\n" +
-	"\x15format_guide_coverage\x18\x11 \x01(\tR\x13formatGuideCoverage\"\x18\n" +
-	"\x16GetCapabilitiesRequest\"\x86\x04\n" +
+	"\x13format_guide_sha256\x18\x10 \x01(\tR\x11formatGuideSha256\x12:\n" +
+	"\x19format_guide_verification\x18\x11 \x01(\tR\x17formatGuideVerification\"\x18\n" +
+	"\x16GetCapabilitiesRequest\"\xd7\x04\n" +
 	"\x17GetCapabilitiesResponse\x12\x1f\n" +
 	"\vapi_version\x18\x01 \x01(\tR\n" +
 	"apiVersion\x12B\n" +
@@ -2555,7 +2657,8 @@ const file_meido_serialization_v1_serialization_proto_rawDesc = "" +
 	"\x11writable_root_ids\x18\t \x03(\tR\x0fwritableRootIds\x129\n" +
 	"\x19max_archive_listing_bytes\x18\n" +
 	" \x01(\x03R\x16maxArchiveListingBytes\x12.\n" +
-	"\x13max_archive_entries\x18\v \x01(\x03R\x11maxArchiveEntries\"5\n" +
+	"\x13max_archive_entries\x18\v \x01(\x03R\x11maxArchiveEntries\x12O\n" +
+	"\x0ffilesystem_mode\x18\f \x01(\x0e2&.meido.serialization.v1.FilesystemModeR\x0efilesystemMode\"5\n" +
 	"\x16GetFormatSchemaRequest\x12\x1b\n" +
 	"\tformat_id\x18\x01 \x01(\tR\bformatId\"\xe5\x02\n" +
 	"\x17GetFormatSchemaResponse\x12\x1b\n" +
@@ -2571,7 +2674,7 @@ const file_meido_serialization_v1_serialization_proto_rawDesc = "" +
 	"schemaJson\x12'\n" +
 	"\x0fnative_suffixes\x18\t \x03(\tR\x0enativeSuffixes\"4\n" +
 	"\x15GetFormatGuideRequest\x12\x1b\n" +
-	"\tformat_id\x18\x01 \x01(\tR\bformatId\"\x84\x02\n" +
+	"\tformat_id\x18\x01 \x01(\tR\bformatId\"\x99\x02\n" +
 	"\x16GetFormatGuideResponse\x12\x1b\n" +
 	"\tformat_id\x18\x01 \x01(\tR\bformatId\x12#\n" +
 	"\rguide_version\x18\x02 \x01(\tR\fguideVersion\x12\x19\n" +
@@ -2579,8 +2682,8 @@ const file_meido_serialization_v1_serialization_proto_rawDesc = "" +
 	"\n" +
 	"media_type\x18\x04 \x01(\tR\tmediaType\x12\x16\n" +
 	"\x06sha256\x18\x05 \x01(\tR\x06sha256\x12\x1b\n" +
-	"\tschema_id\x18\x06 \x01(\tR\bschemaId\x12\x1a\n" +
-	"\bcoverage\x18\a \x01(\tR\bcoverage\x12\x1d\n" +
+	"\tschema_id\x18\x06 \x01(\tR\bschemaId\x12/\n" +
+	"\x13format_verification\x18\a \x01(\tR\x12formatVerification\x12\x1d\n" +
 	"\n" +
 	"guide_json\x18\b \x01(\fR\tguideJson\"L\n" +
 	"\rDetectRequest\x12;\n" +
@@ -2660,7 +2763,11 @@ const file_meido_serialization_v1_serialization_proto_rawDesc = "" +
 	"\x0eRepresentation\x12\x1e\n" +
 	"\x1aREPRESENTATION_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15REPRESENTATION_NATIVE\x10\x01\x12\x1f\n" +
-	"\x1bREPRESENTATION_EDITING_JSON\x10\x022\x8c\t\n" +
+	"\x1bREPRESENTATION_EDITING_JSON\x10\x02*s\n" +
+	"\x0eFilesystemMode\x12\x1f\n" +
+	"\x1bFILESYSTEM_MODE_UNSPECIFIED\x10\x00\x12 \n" +
+	"\x1cFILESYSTEM_MODE_UNRESTRICTED\x10\x01\x12\x1e\n" +
+	"\x1aFILESYSTEM_MODE_RESTRICTED\x10\x022\x8c\t\n" +
 	"\x14SerializationService\x12r\n" +
 	"\x0fGetCapabilities\x12..meido.serialization.v1.GetCapabilitiesRequest\x1a/.meido.serialization.v1.GetCapabilitiesResponse\x12r\n" +
 	"\x0fGetFormatSchema\x12..meido.serialization.v1.GetFormatSchemaRequest\x1a/.meido.serialization.v1.GetFormatSchemaResponse\x12o\n" +
@@ -2687,98 +2794,100 @@ func file_meido_serialization_v1_serialization_proto_rawDescGZIP() []byte {
 	return file_meido_serialization_v1_serialization_proto_rawDescData
 }
 
-var file_meido_serialization_v1_serialization_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_meido_serialization_v1_serialization_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_meido_serialization_v1_serialization_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
 var file_meido_serialization_v1_serialization_proto_goTypes = []any{
 	(Representation)(0),                 // 0: meido.serialization.v1.Representation
-	(*FileRef)(nil),                     // 1: meido.serialization.v1.FileRef
-	(*BlobRef)(nil),                     // 2: meido.serialization.v1.BlobRef
-	(*ArtifactAttachmentInput)(nil),     // 3: meido.serialization.v1.ArtifactAttachmentInput
-	(*ArtifactInput)(nil),               // 4: meido.serialization.v1.ArtifactInput
-	(*ArtifactMetadata)(nil),            // 5: meido.serialization.v1.ArtifactMetadata
-	(*ArtifactResult)(nil),              // 6: meido.serialization.v1.ArtifactResult
-	(*ArtifactAttachmentResult)(nil),    // 7: meido.serialization.v1.ArtifactAttachmentResult
-	(*FormatCapability)(nil),            // 8: meido.serialization.v1.FormatCapability
-	(*GetCapabilitiesRequest)(nil),      // 9: meido.serialization.v1.GetCapabilitiesRequest
-	(*GetCapabilitiesResponse)(nil),     // 10: meido.serialization.v1.GetCapabilitiesResponse
-	(*GetFormatSchemaRequest)(nil),      // 11: meido.serialization.v1.GetFormatSchemaRequest
-	(*GetFormatSchemaResponse)(nil),     // 12: meido.serialization.v1.GetFormatSchemaResponse
-	(*GetFormatGuideRequest)(nil),       // 13: meido.serialization.v1.GetFormatGuideRequest
-	(*GetFormatGuideResponse)(nil),      // 14: meido.serialization.v1.GetFormatGuideResponse
-	(*DetectRequest)(nil),               // 15: meido.serialization.v1.DetectRequest
-	(*DetectResponse)(nil),              // 16: meido.serialization.v1.DetectResponse
-	(*ConvertRequest)(nil),              // 17: meido.serialization.v1.ConvertRequest
-	(*ConvertResponse)(nil),             // 18: meido.serialization.v1.ConvertResponse
-	(*ValidateRequest)(nil),             // 19: meido.serialization.v1.ValidateRequest
-	(*ValidateResponse)(nil),            // 20: meido.serialization.v1.ValidateResponse
-	(*UploadMetadata)(nil),              // 21: meido.serialization.v1.UploadMetadata
-	(*UploadRequest)(nil),               // 22: meido.serialization.v1.UploadRequest
-	(*BlobMetadata)(nil),                // 23: meido.serialization.v1.BlobMetadata
-	(*UploadResponse)(nil),              // 24: meido.serialization.v1.UploadResponse
-	(*DownloadRequest)(nil),             // 25: meido.serialization.v1.DownloadRequest
-	(*DownloadResponse)(nil),            // 26: meido.serialization.v1.DownloadResponse
-	(*DeleteBlobRequest)(nil),           // 27: meido.serialization.v1.DeleteBlobRequest
-	(*DeleteBlobResponse)(nil),          // 28: meido.serialization.v1.DeleteBlobResponse
-	(*ArchiveEntry)(nil),                // 29: meido.serialization.v1.ArchiveEntry
-	(*ListArchiveRequest)(nil),          // 30: meido.serialization.v1.ListArchiveRequest
-	(*ListArchiveResponse)(nil),         // 31: meido.serialization.v1.ListArchiveResponse
-	(*ExtractArchiveEntryRequest)(nil),  // 32: meido.serialization.v1.ExtractArchiveEntryRequest
-	(*ExtractArchiveEntryResponse)(nil), // 33: meido.serialization.v1.ExtractArchiveEntryResponse
+	(FilesystemMode)(0),                 // 1: meido.serialization.v1.FilesystemMode
+	(*FileRef)(nil),                     // 2: meido.serialization.v1.FileRef
+	(*BlobRef)(nil),                     // 3: meido.serialization.v1.BlobRef
+	(*ArtifactAttachmentInput)(nil),     // 4: meido.serialization.v1.ArtifactAttachmentInput
+	(*ArtifactInput)(nil),               // 5: meido.serialization.v1.ArtifactInput
+	(*ArtifactMetadata)(nil),            // 6: meido.serialization.v1.ArtifactMetadata
+	(*ArtifactResult)(nil),              // 7: meido.serialization.v1.ArtifactResult
+	(*ArtifactAttachmentResult)(nil),    // 8: meido.serialization.v1.ArtifactAttachmentResult
+	(*FormatCapability)(nil),            // 9: meido.serialization.v1.FormatCapability
+	(*GetCapabilitiesRequest)(nil),      // 10: meido.serialization.v1.GetCapabilitiesRequest
+	(*GetCapabilitiesResponse)(nil),     // 11: meido.serialization.v1.GetCapabilitiesResponse
+	(*GetFormatSchemaRequest)(nil),      // 12: meido.serialization.v1.GetFormatSchemaRequest
+	(*GetFormatSchemaResponse)(nil),     // 13: meido.serialization.v1.GetFormatSchemaResponse
+	(*GetFormatGuideRequest)(nil),       // 14: meido.serialization.v1.GetFormatGuideRequest
+	(*GetFormatGuideResponse)(nil),      // 15: meido.serialization.v1.GetFormatGuideResponse
+	(*DetectRequest)(nil),               // 16: meido.serialization.v1.DetectRequest
+	(*DetectResponse)(nil),              // 17: meido.serialization.v1.DetectResponse
+	(*ConvertRequest)(nil),              // 18: meido.serialization.v1.ConvertRequest
+	(*ConvertResponse)(nil),             // 19: meido.serialization.v1.ConvertResponse
+	(*ValidateRequest)(nil),             // 20: meido.serialization.v1.ValidateRequest
+	(*ValidateResponse)(nil),            // 21: meido.serialization.v1.ValidateResponse
+	(*UploadMetadata)(nil),              // 22: meido.serialization.v1.UploadMetadata
+	(*UploadRequest)(nil),               // 23: meido.serialization.v1.UploadRequest
+	(*BlobMetadata)(nil),                // 24: meido.serialization.v1.BlobMetadata
+	(*UploadResponse)(nil),              // 25: meido.serialization.v1.UploadResponse
+	(*DownloadRequest)(nil),             // 26: meido.serialization.v1.DownloadRequest
+	(*DownloadResponse)(nil),            // 27: meido.serialization.v1.DownloadResponse
+	(*DeleteBlobRequest)(nil),           // 28: meido.serialization.v1.DeleteBlobRequest
+	(*DeleteBlobResponse)(nil),          // 29: meido.serialization.v1.DeleteBlobResponse
+	(*ArchiveEntry)(nil),                // 30: meido.serialization.v1.ArchiveEntry
+	(*ListArchiveRequest)(nil),          // 31: meido.serialization.v1.ListArchiveRequest
+	(*ListArchiveResponse)(nil),         // 32: meido.serialization.v1.ListArchiveResponse
+	(*ExtractArchiveEntryRequest)(nil),  // 33: meido.serialization.v1.ExtractArchiveEntryRequest
+	(*ExtractArchiveEntryResponse)(nil), // 34: meido.serialization.v1.ExtractArchiveEntryResponse
 }
 var file_meido_serialization_v1_serialization_proto_depIdxs = []int32{
-	2,  // 0: meido.serialization.v1.ArtifactAttachmentInput.blob:type_name -> meido.serialization.v1.BlobRef
-	1,  // 1: meido.serialization.v1.ArtifactAttachmentInput.file:type_name -> meido.serialization.v1.FileRef
-	2,  // 2: meido.serialization.v1.ArtifactInput.blob:type_name -> meido.serialization.v1.BlobRef
-	1,  // 3: meido.serialization.v1.ArtifactInput.file:type_name -> meido.serialization.v1.FileRef
-	3,  // 4: meido.serialization.v1.ArtifactInput.attachments:type_name -> meido.serialization.v1.ArtifactAttachmentInput
+	3,  // 0: meido.serialization.v1.ArtifactAttachmentInput.blob:type_name -> meido.serialization.v1.BlobRef
+	2,  // 1: meido.serialization.v1.ArtifactAttachmentInput.file:type_name -> meido.serialization.v1.FileRef
+	3,  // 2: meido.serialization.v1.ArtifactInput.blob:type_name -> meido.serialization.v1.BlobRef
+	2,  // 3: meido.serialization.v1.ArtifactInput.file:type_name -> meido.serialization.v1.FileRef
+	4,  // 4: meido.serialization.v1.ArtifactInput.attachments:type_name -> meido.serialization.v1.ArtifactAttachmentInput
 	0,  // 5: meido.serialization.v1.ArtifactMetadata.representation:type_name -> meido.serialization.v1.Representation
-	5,  // 6: meido.serialization.v1.ArtifactResult.metadata:type_name -> meido.serialization.v1.ArtifactMetadata
-	2,  // 7: meido.serialization.v1.ArtifactResult.blob:type_name -> meido.serialization.v1.BlobRef
-	7,  // 8: meido.serialization.v1.ArtifactResult.attachments:type_name -> meido.serialization.v1.ArtifactAttachmentResult
-	2,  // 9: meido.serialization.v1.ArtifactAttachmentResult.blob:type_name -> meido.serialization.v1.BlobRef
-	8,  // 10: meido.serialization.v1.GetCapabilitiesResponse.formats:type_name -> meido.serialization.v1.FormatCapability
-	0,  // 11: meido.serialization.v1.GetFormatSchemaResponse.representation:type_name -> meido.serialization.v1.Representation
-	4,  // 12: meido.serialization.v1.DetectRequest.input:type_name -> meido.serialization.v1.ArtifactInput
-	0,  // 13: meido.serialization.v1.DetectResponse.representation:type_name -> meido.serialization.v1.Representation
-	4,  // 14: meido.serialization.v1.ConvertRequest.input:type_name -> meido.serialization.v1.ArtifactInput
-	0,  // 15: meido.serialization.v1.ConvertRequest.target:type_name -> meido.serialization.v1.Representation
-	6,  // 16: meido.serialization.v1.ConvertResponse.result:type_name -> meido.serialization.v1.ArtifactResult
-	4,  // 17: meido.serialization.v1.ValidateRequest.input:type_name -> meido.serialization.v1.ArtifactInput
-	16, // 18: meido.serialization.v1.ValidateResponse.detection:type_name -> meido.serialization.v1.DetectResponse
-	21, // 19: meido.serialization.v1.UploadRequest.metadata:type_name -> meido.serialization.v1.UploadMetadata
-	23, // 20: meido.serialization.v1.UploadResponse.blob:type_name -> meido.serialization.v1.BlobMetadata
-	23, // 21: meido.serialization.v1.DownloadResponse.metadata:type_name -> meido.serialization.v1.BlobMetadata
-	4,  // 22: meido.serialization.v1.ListArchiveRequest.input:type_name -> meido.serialization.v1.ArtifactInput
-	29, // 23: meido.serialization.v1.ListArchiveResponse.entries:type_name -> meido.serialization.v1.ArchiveEntry
-	4,  // 24: meido.serialization.v1.ExtractArchiveEntryRequest.input:type_name -> meido.serialization.v1.ArtifactInput
-	6,  // 25: meido.serialization.v1.ExtractArchiveEntryResponse.result:type_name -> meido.serialization.v1.ArtifactResult
-	9,  // 26: meido.serialization.v1.SerializationService.GetCapabilities:input_type -> meido.serialization.v1.GetCapabilitiesRequest
-	11, // 27: meido.serialization.v1.SerializationService.GetFormatSchema:input_type -> meido.serialization.v1.GetFormatSchemaRequest
-	13, // 28: meido.serialization.v1.SerializationService.GetFormatGuide:input_type -> meido.serialization.v1.GetFormatGuideRequest
-	15, // 29: meido.serialization.v1.SerializationService.Detect:input_type -> meido.serialization.v1.DetectRequest
-	17, // 30: meido.serialization.v1.SerializationService.Convert:input_type -> meido.serialization.v1.ConvertRequest
-	19, // 31: meido.serialization.v1.SerializationService.Validate:input_type -> meido.serialization.v1.ValidateRequest
-	22, // 32: meido.serialization.v1.SerializationService.Upload:input_type -> meido.serialization.v1.UploadRequest
-	25, // 33: meido.serialization.v1.SerializationService.Download:input_type -> meido.serialization.v1.DownloadRequest
-	27, // 34: meido.serialization.v1.SerializationService.DeleteBlob:input_type -> meido.serialization.v1.DeleteBlobRequest
-	30, // 35: meido.serialization.v1.SerializationService.ListArchive:input_type -> meido.serialization.v1.ListArchiveRequest
-	32, // 36: meido.serialization.v1.SerializationService.ExtractArchiveEntry:input_type -> meido.serialization.v1.ExtractArchiveEntryRequest
-	10, // 37: meido.serialization.v1.SerializationService.GetCapabilities:output_type -> meido.serialization.v1.GetCapabilitiesResponse
-	12, // 38: meido.serialization.v1.SerializationService.GetFormatSchema:output_type -> meido.serialization.v1.GetFormatSchemaResponse
-	14, // 39: meido.serialization.v1.SerializationService.GetFormatGuide:output_type -> meido.serialization.v1.GetFormatGuideResponse
-	16, // 40: meido.serialization.v1.SerializationService.Detect:output_type -> meido.serialization.v1.DetectResponse
-	18, // 41: meido.serialization.v1.SerializationService.Convert:output_type -> meido.serialization.v1.ConvertResponse
-	20, // 42: meido.serialization.v1.SerializationService.Validate:output_type -> meido.serialization.v1.ValidateResponse
-	24, // 43: meido.serialization.v1.SerializationService.Upload:output_type -> meido.serialization.v1.UploadResponse
-	26, // 44: meido.serialization.v1.SerializationService.Download:output_type -> meido.serialization.v1.DownloadResponse
-	28, // 45: meido.serialization.v1.SerializationService.DeleteBlob:output_type -> meido.serialization.v1.DeleteBlobResponse
-	31, // 46: meido.serialization.v1.SerializationService.ListArchive:output_type -> meido.serialization.v1.ListArchiveResponse
-	33, // 47: meido.serialization.v1.SerializationService.ExtractArchiveEntry:output_type -> meido.serialization.v1.ExtractArchiveEntryResponse
-	37, // [37:48] is the sub-list for method output_type
-	26, // [26:37] is the sub-list for method input_type
-	26, // [26:26] is the sub-list for extension type_name
-	26, // [26:26] is the sub-list for extension extendee
-	0,  // [0:26] is the sub-list for field type_name
+	6,  // 6: meido.serialization.v1.ArtifactResult.metadata:type_name -> meido.serialization.v1.ArtifactMetadata
+	3,  // 7: meido.serialization.v1.ArtifactResult.blob:type_name -> meido.serialization.v1.BlobRef
+	8,  // 8: meido.serialization.v1.ArtifactResult.attachments:type_name -> meido.serialization.v1.ArtifactAttachmentResult
+	3,  // 9: meido.serialization.v1.ArtifactAttachmentResult.blob:type_name -> meido.serialization.v1.BlobRef
+	9,  // 10: meido.serialization.v1.GetCapabilitiesResponse.formats:type_name -> meido.serialization.v1.FormatCapability
+	1,  // 11: meido.serialization.v1.GetCapabilitiesResponse.filesystem_mode:type_name -> meido.serialization.v1.FilesystemMode
+	0,  // 12: meido.serialization.v1.GetFormatSchemaResponse.representation:type_name -> meido.serialization.v1.Representation
+	5,  // 13: meido.serialization.v1.DetectRequest.input:type_name -> meido.serialization.v1.ArtifactInput
+	0,  // 14: meido.serialization.v1.DetectResponse.representation:type_name -> meido.serialization.v1.Representation
+	5,  // 15: meido.serialization.v1.ConvertRequest.input:type_name -> meido.serialization.v1.ArtifactInput
+	0,  // 16: meido.serialization.v1.ConvertRequest.target:type_name -> meido.serialization.v1.Representation
+	7,  // 17: meido.serialization.v1.ConvertResponse.result:type_name -> meido.serialization.v1.ArtifactResult
+	5,  // 18: meido.serialization.v1.ValidateRequest.input:type_name -> meido.serialization.v1.ArtifactInput
+	17, // 19: meido.serialization.v1.ValidateResponse.detection:type_name -> meido.serialization.v1.DetectResponse
+	22, // 20: meido.serialization.v1.UploadRequest.metadata:type_name -> meido.serialization.v1.UploadMetadata
+	24, // 21: meido.serialization.v1.UploadResponse.blob:type_name -> meido.serialization.v1.BlobMetadata
+	24, // 22: meido.serialization.v1.DownloadResponse.metadata:type_name -> meido.serialization.v1.BlobMetadata
+	5,  // 23: meido.serialization.v1.ListArchiveRequest.input:type_name -> meido.serialization.v1.ArtifactInput
+	30, // 24: meido.serialization.v1.ListArchiveResponse.entries:type_name -> meido.serialization.v1.ArchiveEntry
+	5,  // 25: meido.serialization.v1.ExtractArchiveEntryRequest.input:type_name -> meido.serialization.v1.ArtifactInput
+	7,  // 26: meido.serialization.v1.ExtractArchiveEntryResponse.result:type_name -> meido.serialization.v1.ArtifactResult
+	10, // 27: meido.serialization.v1.SerializationService.GetCapabilities:input_type -> meido.serialization.v1.GetCapabilitiesRequest
+	12, // 28: meido.serialization.v1.SerializationService.GetFormatSchema:input_type -> meido.serialization.v1.GetFormatSchemaRequest
+	14, // 29: meido.serialization.v1.SerializationService.GetFormatGuide:input_type -> meido.serialization.v1.GetFormatGuideRequest
+	16, // 30: meido.serialization.v1.SerializationService.Detect:input_type -> meido.serialization.v1.DetectRequest
+	18, // 31: meido.serialization.v1.SerializationService.Convert:input_type -> meido.serialization.v1.ConvertRequest
+	20, // 32: meido.serialization.v1.SerializationService.Validate:input_type -> meido.serialization.v1.ValidateRequest
+	23, // 33: meido.serialization.v1.SerializationService.Upload:input_type -> meido.serialization.v1.UploadRequest
+	26, // 34: meido.serialization.v1.SerializationService.Download:input_type -> meido.serialization.v1.DownloadRequest
+	28, // 35: meido.serialization.v1.SerializationService.DeleteBlob:input_type -> meido.serialization.v1.DeleteBlobRequest
+	31, // 36: meido.serialization.v1.SerializationService.ListArchive:input_type -> meido.serialization.v1.ListArchiveRequest
+	33, // 37: meido.serialization.v1.SerializationService.ExtractArchiveEntry:input_type -> meido.serialization.v1.ExtractArchiveEntryRequest
+	11, // 38: meido.serialization.v1.SerializationService.GetCapabilities:output_type -> meido.serialization.v1.GetCapabilitiesResponse
+	13, // 39: meido.serialization.v1.SerializationService.GetFormatSchema:output_type -> meido.serialization.v1.GetFormatSchemaResponse
+	15, // 40: meido.serialization.v1.SerializationService.GetFormatGuide:output_type -> meido.serialization.v1.GetFormatGuideResponse
+	17, // 41: meido.serialization.v1.SerializationService.Detect:output_type -> meido.serialization.v1.DetectResponse
+	19, // 42: meido.serialization.v1.SerializationService.Convert:output_type -> meido.serialization.v1.ConvertResponse
+	21, // 43: meido.serialization.v1.SerializationService.Validate:output_type -> meido.serialization.v1.ValidateResponse
+	25, // 44: meido.serialization.v1.SerializationService.Upload:output_type -> meido.serialization.v1.UploadResponse
+	27, // 45: meido.serialization.v1.SerializationService.Download:output_type -> meido.serialization.v1.DownloadResponse
+	29, // 46: meido.serialization.v1.SerializationService.DeleteBlob:output_type -> meido.serialization.v1.DeleteBlobResponse
+	32, // 47: meido.serialization.v1.SerializationService.ListArchive:output_type -> meido.serialization.v1.ListArchiveResponse
+	34, // 48: meido.serialization.v1.SerializationService.ExtractArchiveEntry:output_type -> meido.serialization.v1.ExtractArchiveEntryResponse
+	38, // [38:49] is the sub-list for method output_type
+	27, // [27:38] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_meido_serialization_v1_serialization_proto_init() }
@@ -2790,11 +2899,13 @@ func file_meido_serialization_v1_serialization_proto_init() {
 		(*ArtifactAttachmentInput_InlineData)(nil),
 		(*ArtifactAttachmentInput_Blob)(nil),
 		(*ArtifactAttachmentInput_File)(nil),
+		(*ArtifactAttachmentInput_Path)(nil),
 	}
 	file_meido_serialization_v1_serialization_proto_msgTypes[3].OneofWrappers = []any{
 		(*ArtifactInput_InlineData)(nil),
 		(*ArtifactInput_Blob)(nil),
 		(*ArtifactInput_File)(nil),
+		(*ArtifactInput_Path)(nil),
 	}
 	file_meido_serialization_v1_serialization_proto_msgTypes[5].OneofWrappers = []any{
 		(*ArtifactResult_InlineData)(nil),
@@ -2817,7 +2928,7 @@ func file_meido_serialization_v1_serialization_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_meido_serialization_v1_serialization_proto_rawDesc), len(file_meido_serialization_v1_serialization_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   33,
 			NumExtensions: 0,
 			NumServices:   1,

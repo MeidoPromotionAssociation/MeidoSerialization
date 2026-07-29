@@ -34,7 +34,6 @@
       "minimum": -2147483648,
       "title": "Command-stream byte length",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Do not hand-edit it; let the writer recalculate it after Commands changes.",
       "x-meido-edit-role": "derived",
       "x-meido-game-usage": "The compiler calculates it from the encoded Commands. The interpreter consumes it as header data but terminates command parsing by argument counts and the zero terminator.",
@@ -48,7 +47,7 @@
           "line_end": 234,
           "line_start": 45,
           "observation": "The official compiler extracts name, category, and setumei metadata and writes the ordered command stream and header.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs",
           "symbol": "ModCompile.CompileMenu"
         },
         {
@@ -57,7 +56,7 @@
           "line_end": 958,
           "line_start": 156,
           "observation": "The runtime reads the header and executes the command records in order; command state changes how later records are interpreted.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/Menu.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/Menu.cs",
           "symbol": "Menu.ProcScriptBin"
         },
         {
@@ -66,7 +65,7 @@
           "line_end": 1513,
           "line_start": 1297,
           "observation": "The editor scans menu commands to build the visible name, description, category, icon, and item state.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/SceneEdit.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/SceneEdit.cs",
           "symbol": "SceneEdit.InitMenuItemScript"
         },
         {
@@ -75,7 +74,7 @@
           "line_end": 228,
           "line_start": 15,
           "observation": "The COM3D2_5 text compiler validates additem, category, texture, and item-parameter forms before writing the same CM3D2_MENU stream.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/ModCompile.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/ModCompile.cs",
           "symbol": "ModCompile.CompileMenuScript"
         },
         {
@@ -84,7 +83,7 @@
           "line_end": 1234,
           "line_start": 154,
           "observation": "The COM3D2_5 runtime retains the menu interpreter and adds CRC-body, split-item, mesh-morph, and body-state command branches.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/Menu.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/Menu.cs",
           "symbol": "Menu.ProcScriptBin"
         },
         {
@@ -93,7 +92,7 @@
           "line_end": 1562,
           "line_start": 1343,
           "observation": "The COM3D2_5 editor scan retains the metadata commands and priority/deletion/collaboration flags used by SceneEdit.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/SceneEdit.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/SceneEdit.cs",
           "symbol": "SceneEdit.InitMenuItemScript"
         },
         {
@@ -102,16 +101,25 @@
           "line_end": 285,
           "line_start": 275,
           "observation": "SetMatAlpha returns without effect for male skins or unloaded slot objects, then indexes the material array directly and applies the requested alpha.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/MaterialMgr.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/MaterialMgr.cs",
           "symbol": "MaterialMgr.SetMatAlpha"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "Category": {
       "description": "A copy of the category command's MPN category.",
       "title": "Header category snapshot",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Use an MPN present in the target build and update the category command as well.",
       "x-meido-edit-role": "duplicated_metadata",
       "x-meido-game-usage": "The compiler validates the category and SceneEdit parses the command into an MPN; changing only this snapshot does not change the command result.",
@@ -123,7 +131,7 @@
           "line_end": 234,
           "line_start": 45,
           "observation": "The official compiler extracts name, category, and setumei metadata and writes the ordered command stream and header.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs",
           "symbol": "ModCompile.CompileMenu"
         },
         {
@@ -132,7 +140,7 @@
           "line_end": 958,
           "line_start": 156,
           "observation": "The runtime reads the header and executes the command records in order; command state changes how later records are interpreted.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/Menu.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/Menu.cs",
           "symbol": "Menu.ProcScriptBin"
         },
         {
@@ -141,7 +149,7 @@
           "line_end": 1513,
           "line_start": 1297,
           "observation": "The editor scans menu commands to build the visible name, description, category, icon, and item state.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/SceneEdit.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/SceneEdit.cs",
           "symbol": "SceneEdit.InitMenuItemScript"
         },
         {
@@ -150,7 +158,7 @@
           "line_end": 228,
           "line_start": 15,
           "observation": "The COM3D2_5 text compiler validates additem, category, texture, and item-parameter forms before writing the same CM3D2_MENU stream.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/ModCompile.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/ModCompile.cs",
           "symbol": "ModCompile.CompileMenuScript"
         },
         {
@@ -159,7 +167,7 @@
           "line_end": 1234,
           "line_start": 154,
           "observation": "The COM3D2_5 runtime retains the menu interpreter and adds CRC-body, split-item, mesh-morph, and body-state command branches.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/Menu.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/Menu.cs",
           "symbol": "Menu.ProcScriptBin"
         },
         {
@@ -168,7 +176,7 @@
           "line_end": 1562,
           "line_start": 1343,
           "observation": "The COM3D2_5 editor scan retains the metadata commands and priority/deletion/collaboration flags used by SceneEdit.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/SceneEdit.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/SceneEdit.cs",
           "symbol": "SceneEdit.InitMenuItemScript"
         },
         {
@@ -177,10 +185,20 @@
           "line_end": 285,
           "line_start": 275,
           "observation": "SetMatAlpha returns without effect for male skins or unloaded slot objects, then indexes the material array directly and applies the requested alpha.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/MaterialMgr.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/MaterialMgr.cs",
           "symbol": "MaterialMgr.SetMatAlpha"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "Commands": {
       "description": "The ordered list of command name and string-argument records.",
@@ -192,7 +210,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Make local edits only. Preserve order, duplicates, and the context established by preceding records.",
       "x-meido-edit-role": "runtime_program",
       "x-meido-game-usage": "ProcScriptBin executes records from first to last, carrying category, slot, version, conditional, and temporary state into later records.",
@@ -204,7 +221,7 @@
           "line_end": 234,
           "line_start": 45,
           "observation": "The official compiler extracts name, category, and setumei metadata and writes the ordered command stream and header.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs",
           "symbol": "ModCompile.CompileMenu"
         },
         {
@@ -213,7 +230,7 @@
           "line_end": 958,
           "line_start": 156,
           "observation": "The runtime reads the header and executes the command records in order; command state changes how later records are interpreted.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/Menu.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/Menu.cs",
           "symbol": "Menu.ProcScriptBin"
         },
         {
@@ -222,7 +239,7 @@
           "line_end": 1513,
           "line_start": 1297,
           "observation": "The editor scans menu commands to build the visible name, description, category, icon, and item state.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/SceneEdit.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/SceneEdit.cs",
           "symbol": "SceneEdit.InitMenuItemScript"
         },
         {
@@ -231,7 +248,7 @@
           "line_end": 228,
           "line_start": 15,
           "observation": "The COM3D2_5 text compiler validates additem, category, texture, and item-parameter forms before writing the same CM3D2_MENU stream.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/ModCompile.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/ModCompile.cs",
           "symbol": "ModCompile.CompileMenuScript"
         },
         {
@@ -240,7 +257,7 @@
           "line_end": 1234,
           "line_start": 154,
           "observation": "The COM3D2_5 runtime retains the menu interpreter and adds CRC-body, split-item, mesh-morph, and body-state command branches.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/Menu.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/Menu.cs",
           "symbol": "Menu.ProcScriptBin"
         },
         {
@@ -249,7 +266,7 @@
           "line_end": 1562,
           "line_start": 1343,
           "observation": "The COM3D2_5 editor scan retains the metadata commands and priority/deletion/collaboration flags used by SceneEdit.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/SceneEdit.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/SceneEdit.cs",
           "symbol": "SceneEdit.InitMenuItemScript"
         },
         {
@@ -258,16 +275,25 @@
           "line_end": 285,
           "line_start": 275,
           "observation": "SetMatAlpha returns without effect for male skins or unloaded slot objects, then indexes the material array directly and applies the requested alpha.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/MaterialMgr.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/MaterialMgr.cs",
           "symbol": "MaterialMgr.SetMatAlpha"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "InfoText": {
       "description": "A copy of the setumei command's description text.",
       "title": "Header description snapshot",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Update it together with setumei and preserve the game's line-break marker when needed.",
       "x-meido-edit-role": "duplicated_metadata",
       "x-meido-game-usage": "SceneEdit displays the command value and converts the game's line-break marker; the header is mainly metadata for readers.",
@@ -279,7 +305,7 @@
           "line_end": 234,
           "line_start": 45,
           "observation": "The official compiler extracts name, category, and setumei metadata and writes the ordered command stream and header.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs",
           "symbol": "ModCompile.CompileMenu"
         },
         {
@@ -288,7 +314,7 @@
           "line_end": 958,
           "line_start": 156,
           "observation": "The runtime reads the header and executes the command records in order; command state changes how later records are interpreted.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/Menu.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/Menu.cs",
           "symbol": "Menu.ProcScriptBin"
         },
         {
@@ -297,7 +323,7 @@
           "line_end": 1513,
           "line_start": 1297,
           "observation": "The editor scans menu commands to build the visible name, description, category, icon, and item state.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/SceneEdit.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/SceneEdit.cs",
           "symbol": "SceneEdit.InitMenuItemScript"
         },
         {
@@ -306,7 +332,7 @@
           "line_end": 228,
           "line_start": 15,
           "observation": "The COM3D2_5 text compiler validates additem, category, texture, and item-parameter forms before writing the same CM3D2_MENU stream.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/ModCompile.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/ModCompile.cs",
           "symbol": "ModCompile.CompileMenuScript"
         },
         {
@@ -315,7 +341,7 @@
           "line_end": 1234,
           "line_start": 154,
           "observation": "The COM3D2_5 runtime retains the menu interpreter and adds CRC-body, split-item, mesh-morph, and body-state command branches.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/Menu.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/Menu.cs",
           "symbol": "Menu.ProcScriptBin"
         },
         {
@@ -324,7 +350,7 @@
           "line_end": 1562,
           "line_start": 1343,
           "observation": "The COM3D2_5 editor scan retains the metadata commands and priority/deletion/collaboration flags used by SceneEdit.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/SceneEdit.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/SceneEdit.cs",
           "symbol": "SceneEdit.InitMenuItemScript"
         },
         {
@@ -333,16 +359,25 @@
           "line_end": 285,
           "line_start": 275,
           "observation": "SetMatAlpha returns without effect for male skins or unloaded slot objects, then indexes the material array directly and applies the requested alpha.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/MaterialMgr.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/MaterialMgr.cs",
           "symbol": "MaterialMgr.SetMatAlpha"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "ItemName": {
       "description": "A copy of the name command's display-name argument.",
       "title": "Header item-name snapshot",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Update it together with the corresponding name command.",
       "x-meido-edit-role": "duplicated_metadata",
       "x-meido-game-usage": "The editor normally obtains the visible name from the command stream, so this header value can diverge from the effective UI name.",
@@ -354,7 +389,7 @@
           "line_end": 234,
           "line_start": 45,
           "observation": "The official compiler extracts name, category, and setumei metadata and writes the ordered command stream and header.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs",
           "symbol": "ModCompile.CompileMenu"
         },
         {
@@ -363,7 +398,7 @@
           "line_end": 958,
           "line_start": 156,
           "observation": "The runtime reads the header and executes the command records in order; command state changes how later records are interpreted.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/Menu.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/Menu.cs",
           "symbol": "Menu.ProcScriptBin"
         },
         {
@@ -372,7 +407,7 @@
           "line_end": 1513,
           "line_start": 1297,
           "observation": "The editor scans menu commands to build the visible name, description, category, icon, and item state.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/SceneEdit.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/SceneEdit.cs",
           "symbol": "SceneEdit.InitMenuItemScript"
         },
         {
@@ -381,7 +416,7 @@
           "line_end": 228,
           "line_start": 15,
           "observation": "The COM3D2_5 text compiler validates additem, category, texture, and item-parameter forms before writing the same CM3D2_MENU stream.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/ModCompile.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/ModCompile.cs",
           "symbol": "ModCompile.CompileMenuScript"
         },
         {
@@ -390,7 +425,7 @@
           "line_end": 1234,
           "line_start": 154,
           "observation": "The COM3D2_5 runtime retains the menu interpreter and adds CRC-body, split-item, mesh-morph, and body-state command branches.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/Menu.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/Menu.cs",
           "symbol": "Menu.ProcScriptBin"
         },
         {
@@ -399,7 +434,7 @@
           "line_end": 1562,
           "line_start": 1343,
           "observation": "The COM3D2_5 editor scan retains the metadata commands and priority/deletion/collaboration flags used by SceneEdit.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/SceneEdit.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/SceneEdit.cs",
           "symbol": "SceneEdit.InitMenuItemScript"
         },
         {
@@ -408,16 +443,25 @@
           "line_end": 285,
           "line_start": 275,
           "observation": "SetMatAlpha returns without effect for male skins or unloaded slot objects, then indexes the material array directly and applies the requested alpha.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/MaterialMgr.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/MaterialMgr.cs",
           "symbol": "MaterialMgr.SetMatAlpha"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "Signature": {
       "description": "The fixed BinaryWriter signature used to identify a compiled menu script.",
       "title": "Menu file signature",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep the exact value CM3D2_MENU.",
       "x-meido-edit-role": "format_marker",
       "x-meido-game-usage": "MenuHeader.Deserialize and the command loaders reject a header that is not CM3D2_MENU.",
@@ -429,7 +473,7 @@
           "line_end": 234,
           "line_start": 45,
           "observation": "The official compiler extracts name, category, and setumei metadata and writes the ordered command stream and header.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs",
           "symbol": "ModCompile.CompileMenu"
         },
         {
@@ -438,7 +482,7 @@
           "line_end": 958,
           "line_start": 156,
           "observation": "The runtime reads the header and executes the command records in order; command state changes how later records are interpreted.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/Menu.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/Menu.cs",
           "symbol": "Menu.ProcScriptBin"
         },
         {
@@ -447,7 +491,7 @@
           "line_end": 1513,
           "line_start": 1297,
           "observation": "The editor scans menu commands to build the visible name, description, category, icon, and item state.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/SceneEdit.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/SceneEdit.cs",
           "symbol": "SceneEdit.InitMenuItemScript"
         },
         {
@@ -456,7 +500,7 @@
           "line_end": 228,
           "line_start": 15,
           "observation": "The COM3D2_5 text compiler validates additem, category, texture, and item-parameter forms before writing the same CM3D2_MENU stream.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/ModCompile.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/ModCompile.cs",
           "symbol": "ModCompile.CompileMenuScript"
         },
         {
@@ -465,7 +509,7 @@
           "line_end": 1234,
           "line_start": 154,
           "observation": "The COM3D2_5 runtime retains the menu interpreter and adds CRC-body, split-item, mesh-morph, and body-state command branches.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/Menu.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/Menu.cs",
           "symbol": "Menu.ProcScriptBin"
         },
         {
@@ -474,7 +518,7 @@
           "line_end": 1562,
           "line_start": 1343,
           "observation": "The COM3D2_5 editor scan retains the metadata commands and priority/deletion/collaboration flags used by SceneEdit.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/SceneEdit.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/SceneEdit.cs",
           "symbol": "SceneEdit.InitMenuItemScript"
         },
         {
@@ -483,16 +527,25 @@
           "line_end": 285,
           "line_start": 275,
           "observation": "SetMatAlpha returns without effect for male skins or unloaded slot objects, then indexes the material array directly and applies the requested alpha.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/MaterialMgr.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/MaterialMgr.cs",
           "symbol": "MaterialMgr.SetMatAlpha"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "SrcFileName": {
       "description": "The lower-case source path or file name copied into the header.",
       "title": "Compiler source name",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep an accurate source label, but do not treat it as a resource path.",
       "x-meido-edit-role": "diagnostic_metadata",
       "x-meido-game-usage": "The editor uses it for diagnostics; resource loading is driven by command arguments instead.",
@@ -504,7 +557,7 @@
           "line_end": 234,
           "line_start": 45,
           "observation": "The official compiler extracts name, category, and setumei metadata and writes the ordered command stream and header.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs",
           "symbol": "ModCompile.CompileMenu"
         },
         {
@@ -513,7 +566,7 @@
           "line_end": 958,
           "line_start": 156,
           "observation": "The runtime reads the header and executes the command records in order; command state changes how later records are interpreted.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/Menu.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/Menu.cs",
           "symbol": "Menu.ProcScriptBin"
         },
         {
@@ -522,7 +575,7 @@
           "line_end": 1513,
           "line_start": 1297,
           "observation": "The editor scans menu commands to build the visible name, description, category, icon, and item state.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/SceneEdit.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/SceneEdit.cs",
           "symbol": "SceneEdit.InitMenuItemScript"
         },
         {
@@ -531,7 +584,7 @@
           "line_end": 228,
           "line_start": 15,
           "observation": "The COM3D2_5 text compiler validates additem, category, texture, and item-parameter forms before writing the same CM3D2_MENU stream.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/ModCompile.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/ModCompile.cs",
           "symbol": "ModCompile.CompileMenuScript"
         },
         {
@@ -540,7 +593,7 @@
           "line_end": 1234,
           "line_start": 154,
           "observation": "The COM3D2_5 runtime retains the menu interpreter and adds CRC-body, split-item, mesh-morph, and body-state command branches.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/Menu.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/Menu.cs",
           "symbol": "Menu.ProcScriptBin"
         },
         {
@@ -549,7 +602,7 @@
           "line_end": 1562,
           "line_start": 1343,
           "observation": "The COM3D2_5 editor scan retains the metadata commands and priority/deletion/collaboration flags used by SceneEdit.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/SceneEdit.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/SceneEdit.cs",
           "symbol": "SceneEdit.InitMenuItemScript"
         },
         {
@@ -558,10 +611,20 @@
           "line_end": 285,
           "line_start": 275,
           "observation": "SetMatAlpha returns without effect for male skins or unloaded slot objects, then indexes the material array directly and applies the requested alpha.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/MaterialMgr.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/MaterialMgr.cs",
           "symbol": "MaterialMgr.SetMatAlpha"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "Version": {
       "description": "The compiler version marker stored after the signature.",
@@ -569,7 +632,6 @@
       "minimum": -2147483648,
       "title": "Menu format version",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve an existing value; use 1000 when creating a COM3D2 2.48.0 menu.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "The reviewed compiler writes 1000. The current interpreter reads it for alignment but does not select a different command grammar from it.",
@@ -583,7 +645,7 @@
           "line_end": 234,
           "line_start": 45,
           "observation": "The official compiler extracts name, category, and setumei metadata and writes the ordered command stream and header.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs",
           "symbol": "ModCompile.CompileMenu"
         },
         {
@@ -592,7 +654,7 @@
           "line_end": 958,
           "line_start": 156,
           "observation": "The runtime reads the header and executes the command records in order; command state changes how later records are interpreted.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/Menu.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/Menu.cs",
           "symbol": "Menu.ProcScriptBin"
         },
         {
@@ -601,7 +663,7 @@
           "line_end": 1513,
           "line_start": 1297,
           "observation": "The editor scans menu commands to build the visible name, description, category, icon, and item state.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/SceneEdit.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/SceneEdit.cs",
           "symbol": "SceneEdit.InitMenuItemScript"
         },
         {
@@ -610,7 +672,7 @@
           "line_end": 228,
           "line_start": 15,
           "observation": "The COM3D2_5 text compiler validates additem, category, texture, and item-parameter forms before writing the same CM3D2_MENU stream.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/ModCompile.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/ModCompile.cs",
           "symbol": "ModCompile.CompileMenuScript"
         },
         {
@@ -619,7 +681,7 @@
           "line_end": 1234,
           "line_start": 154,
           "observation": "The COM3D2_5 runtime retains the menu interpreter and adds CRC-body, split-item, mesh-morph, and body-state command branches.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/Menu.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/Menu.cs",
           "symbol": "Menu.ProcScriptBin"
         },
         {
@@ -628,7 +690,7 @@
           "line_end": 1562,
           "line_start": 1343,
           "observation": "The COM3D2_5 editor scan retains the metadata commands and priority/deletion/collaboration flags used by SceneEdit.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/SceneEdit.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/SceneEdit.cs",
           "symbol": "SceneEdit.InitMenuItemScript"
         },
         {
@@ -637,10 +699,20 @@
           "line_end": 285,
           "line_start": 275,
           "observation": "SetMatAlpha returns without effect for male skins or unloaded slot objects, then indexes the material array directly and applies the requested alpha.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/MaterialMgr.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/MaterialMgr.cs",
           "symbol": "MaterialMgr.SetMatAlpha"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -656,6 +728,11 @@
   "title": "com3d2.menu editing JSON",
   "type": "object",
   "x-meido-format-id": "com3d2.menu",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "The whole-file serialization contract was checked against the header, compiler, editor scan, and command interpreters in COM3D2 2.48.0 and COM3D2_5 3.48.0. Command forms identify the build in which each syntax appears. Only fields carrying source_semantics claims have source-reviewed game meaning."
+  },
   "x-meido-native-suffixes": [
     ".menu"
   ],

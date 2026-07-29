@@ -10,7 +10,6 @@
       "minimum": -2147483648,
       "title": "Material lookup hash",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep it consistent with the game's hash function and MaterialName; let a format-aware writer recalculate it when supported.",
       "x-meido-edit-role": "derived_identity",
       "x-meido-game-usage": "ImportCM indexes the entry by this value and then checks that the resolved material name matches.",
@@ -24,16 +23,25 @@
           "line_end": 390,
           "line_start": 349,
           "observation": "The loader reads CM3D2_PMATERIAL, stores the hash-keyed material name and render queue, and applies the queue when the material name matches.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.TryGetPriorityMaterial"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "MaterialName": {
       "description": "The material name whose render queue is overridden.",
       "title": "Target material name",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Use the exact material name, including case conventions used by the game.",
       "x-meido-edit-role": "resource_identity",
       "x-meido-game-usage": "ImportCM compares it to the loaded Unity Material.name before applying the override.",
@@ -45,10 +53,20 @@
           "line_end": 390,
           "line_start": 349,
           "observation": "The loader reads CM3D2_PMATERIAL, stores the hash-keyed material name and render queue, and applies the queue when the material name matches.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.TryGetPriorityMaterial"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "RenderQueue": {
       "description": "The Unity render queue value applied to the matching material.",
@@ -56,7 +74,6 @@
       "minimum": -3.4028234663852886e+38,
       "title": "Render queue",
       "type": "number",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Change in small, intentional steps and verify sorting and transparency in-game.",
       "x-meido-edit-role": "runtime_numeric",
       "x-meido-game-usage": "ImportCM sets _SetManualRenderQueue and Material.renderQueue from this value.",
@@ -68,16 +85,25 @@
           "line_end": 390,
           "line_start": 349,
           "observation": "The loader reads CM3D2_PMATERIAL, stores the hash-keyed material name and render queue, and applies the queue when the material name matches.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.TryGetPriorityMaterial"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "Shader": {
       "description": "The shader string stored in the priority-material record.",
       "title": "Shader label",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve it unless the target loader explicitly consumes it.",
       "x-meido-edit-role": "resource_metadata",
       "x-meido-game-usage": "It is part of the record and hash input in MeidoSerialization; the reviewed priority lookup primarily applies MaterialName and RenderQueue.",
@@ -89,16 +115,25 @@
           "line_end": 390,
           "line_start": 349,
           "observation": "The loader reads CM3D2_PMATERIAL, stores the hash-keyed material name and render queue, and applies the queue when the material name matches.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.TryGetPriorityMaterial"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "Signature": {
       "description": "The CM3D2_PMATERIAL header string.",
       "title": "Priority-material signature",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep CM3D2_PMATERIAL.",
       "x-meido-edit-role": "format_marker",
       "x-meido-game-usage": "ImportCM validates this string before adding the entry to the priority-material cache.",
@@ -110,10 +145,20 @@
           "line_end": 390,
           "line_start": 349,
           "observation": "The loader reads CM3D2_PMATERIAL, stores the hash-keyed material name and render queue, and applies the queue when the material name matches.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.TryGetPriorityMaterial"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "Version": {
       "description": "The format version stored after the signature.",
@@ -121,7 +166,6 @@
       "minimum": -2147483648,
       "title": "Priority-material version",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve the source value; use the target game's known version for new files.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "The reviewed reader consumes it for layout compatibility; it does not use it as the render queue.",
@@ -135,10 +179,20 @@
           "line_end": 390,
           "line_start": 349,
           "observation": "The loader reads CM3D2_PMATERIAL, stores the hash-keyed material name and render queue, and applies the queue when the material name matches.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.TryGetPriorityMaterial"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -152,6 +206,11 @@
   "title": "com3d2.pmat editing JSON",
   "type": "object",
   "x-meido-format-id": "com3d2.pmat",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "The binary layout and the hash-keyed priority lookup were compared with ImportCM.TryGetPriorityMaterial in COM3D2 2.48.0."
+  },
   "x-meido-native-suffixes": [
     ".pmat"
   ],

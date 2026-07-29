@@ -17,6 +17,10 @@ func applyKnowledgeAnnotations(formatID string, root *jsonschema.Schema) error {
 	if !found {
 		return nil
 	}
+	if root.Extra == nil {
+		root.Extra = make(map[string]any)
+	}
+	root.Extra["x-meido-format-verification"] = guide.FormatVerification
 	for _, field := range guide.Fields {
 		target, err := schemaPointer(root, field.SchemaPointer)
 		if err != nil {
@@ -30,7 +34,7 @@ func applyKnowledgeAnnotations(formatID string, root *jsonschema.Schema) error {
 		target.Extra["x-meido-game-usage"] = field.GameUsage
 		target.Extra["x-meido-edit-role"] = field.EditRole
 		target.Extra["x-meido-edit-guidance"] = field.EditGuidance
-		target.Extra["x-meido-confidence"] = field.Confidence
+		target.Extra["x-meido-verification"] = field.Verification
 		if field.Risk != "" {
 			target.Extra["x-meido-risk"] = field.Risk
 		}

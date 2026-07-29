@@ -12,8 +12,8 @@ service SerializationService {
   // Returns the complete editing-JSON contract for one format. Callers can
   // use this before Detect/Convert to generate a strongly typed editor.
   rpc GetFormatSchema(GetFormatSchemaRequest) returns (GetFormatSchemaResponse);
-  // Returns source-reviewed field purpose, game-runtime behavior, editing
-  // rules, and evidence. Schema-only coverage is explicit for unreviewed fields.
+  // Returns field purpose, editing rules, evidence, whole-file verification,
+  // and independent field-level claims. Unreviewed fields remain schema-derived.
   rpc GetFormatGuide(GetFormatGuideRequest) returns (GetFormatGuideResponse);
   rpc Detect(DetectRequest) returns (DetectResponse);
   rpc Convert(ConvertRequest) returns (ConvertResponse);
@@ -33,8 +33,20 @@ enum Representation {
   REPRESENTATION_EDITING_JSON = 2;
 }
 
+enum FilesystemMode {
+  FILESYSTEM_MODE_UNSPECIFIED = 0;
+  // Direct server-local paths are accepted. They use the filesystem
+  // permissions of the server process account.
+  FILESYSTEM_MODE_UNRESTRICTED = 1;
+  // Server-local paths are rejected. File inputs must use configured roots.
+  FILESYSTEM_MODE_RESTRICTED = 2;
+}
+
 message FileRef {
+  // Root identifier advertised by GetCapabilities.
   string root_id = 1;
+  // Path beneath the selected root. Absolute paths and parent traversal are
+  // rejected.
   string relative_path = 2;
 }
 
@@ -50,6 +62,8 @@ message ArtifactAttachmentInput {
     bytes inline_data = 2;
     BlobRef blob = 3;
     FileRef file = 4;
+    // Direct server-local path, accepted only in unrestricted filesystem mode.
+    string path = 5;
   }
 }
 
@@ -61,6 +75,9 @@ message ArtifactInput {
     bytes inline_data = 2;
     BlobRef blob = 3;
     FileRef file = 4;
+    // Direct server-local path, accepted only in unrestricted filesystem mode.
+    // Relative paths are resolved from the server process working directory.
+    string path = 6;
   }
   repeated ArtifactAttachmentInput attachments = 5;
 }
@@ -111,10 +128,10 @@ message FormatCapability {
   string format_guide_version = 14;
   string format_guide_id = 15;
   string format_guide_sha256 = 16;
-  // Unprefixed runtime_verified and serialization_verified record AI source
-  // review, not human approval. The human_ prefix is reserved for explicit
-  // human review. schema_only confirms only the editing JSON shape.
-  string format_guide_coverage = 17;
+  // Whole-file verification is serialization_verified or schema_only.
+  // Every verified claim in the guide JSON records an explicit AI or human
+  // authority; schema_only is generator-derived and is not a certification.
+  string format_guide_verification = 17;
 }
 
 message GetCapabilitiesRequest {}
@@ -137,6 +154,9 @@ message GetCapabilitiesResponse {
   int64 max_archive_listing_bytes = 10;
   // Maximum number of entries accepted while building one archive listing.
   int64 max_archive_entries = 11;
+  // Determines whether ArtifactInput.path is accepted or only configured
+  // root references may access server-local files.
+  FilesystemMode filesystem_mode = 12;
 }
 
 message GetFormatSchemaRequest {
@@ -169,7 +189,7 @@ message GetFormatGuideResponse {
   string media_type = 4;
   string sha256 = 5;
   string schema_id = 6;
-  string coverage = 7;
+  string format_verification = 7;
   // UTF-8 application/vnd.meido.format-guide+json bytes. The guide includes
   // field JSON paths, schema pointers, game usage, edit roles, risks, source
   // evidence, invariants, workflow, warnings, structured command forms, and

@@ -278,7 +278,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep material IDs, file names, shader names, and property references coherent.",
       "x-meido-edit-role": "runtime_collection",
       "x-meido-game-usage": "PartsMaterialManager resolves each material by file name and applies its shader and property arrays to Unity materials.",
@@ -290,7 +289,7 @@
           "line_end": 47,
           "line_start": 9,
           "observation": "MenuAssets, MaterialAssets, and PriorityMaterialAssets share the indexed fields Key(0) fileName and Key(1) assetArray; name lookup removes the extension, lower-cases the name, and hashes it.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/SerializPartsAssets.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/Parts/SerializPartsAssets.cs",
           "symbol": "SerializPartsAssets\u003cT\u003e"
         },
         {
@@ -299,10 +298,20 @@
           "line_end": 126,
           "line_start": 36,
           "observation": "The material manager resolves shader, texture, color, vector, and float properties from Material assets and their referenced resources.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsMaterialManager.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/PartsMaterialManager.cs",
           "symbol": "PartsMaterialManager.CreateMaterial/GetMaterial"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "fileName": {
       "description": "The container name at MessagePack Key(0).",
@@ -311,7 +320,6 @@
         "null",
         "string"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep the expected .materialassets name.",
       "x-meido-edit-role": "resource_identity",
       "x-meido-game-usage": "The material manager uses it while merging material assets into its lookup table.",
@@ -323,7 +331,7 @@
           "line_end": 47,
           "line_start": 9,
           "observation": "MenuAssets, MaterialAssets, and PriorityMaterialAssets share the indexed fields Key(0) fileName and Key(1) assetArray; name lookup removes the extension, lower-cases the name, and hashes it.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/Parts/SerializPartsAssets.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/Parts/SerializPartsAssets.cs",
           "symbol": "SerializPartsAssets\u003cT\u003e"
         },
         {
@@ -332,10 +340,20 @@
           "line_end": 126,
           "line_start": 36,
           "observation": "The material manager resolves shader, texture, color, vector, and float properties from Material assets and their referenced resources.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/PartsMaterialManager.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/PartsMaterialManager.cs",
           "symbol": "PartsMaterialManager.CreateMaterial/GetMaterial"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -348,6 +366,11 @@
     "object"
   ],
   "x-meido-format-id": "kces.materialassets",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "SerializPartsAssets and PartsMaterialManager were reviewed in KCES 1.34.4. Material properties use their typed current layouts; unknown keys, wider arrays, and unsupported property variants are rejected."
+  },
   "x-meido-native-suffixes": [
     ".materialassets"
   ],

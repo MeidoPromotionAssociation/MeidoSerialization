@@ -358,7 +358,6 @@
       "$ref": "#/$defs/ct_AssetBundleCatalog",
       "description": "The typed catalog virtual file decoded from the container.",
       "title": "Asset catalog",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep catalog names, hashes, resource indices, and extension lists mutually consistent.",
       "x-meido-edit-role": "runtime_catalog",
       "x-meido-game-usage": "CatalogUtility and AssetBundleCatalog use catalog metadata, hashes, and resource indices to resolve game assets.",
@@ -370,7 +369,7 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         },
         {
@@ -379,10 +378,20 @@
           "line_end": 306,
           "line_start": 128,
           "observation": "CatalogUtility stores catalog and extension lists as MessagePack virtual files inside a VirtualDirectory and resolves resource locations from their hashes and indices.",
-          "path": "game/KCES 1.34.4/WfSystem.FileSystem/Catalog/CatalogUtility.cs",
+          "path": "KCES 1.34.4/WfSystem.FileSystem/Catalog/CatalogUtility.cs",
           "symbol": "CatalogUtility.FromCatalog/ToCatalog"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "directories": {
       "additionalProperties": {
@@ -394,7 +403,6 @@
         "null",
         "object"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve directory names and versions required by the contained files.",
       "x-meido-edit-role": "runtime_container",
       "x-meido-game-usage": "VirtualDirectory recreates each named child directory from this map.",
@@ -406,7 +414,7 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         },
         {
@@ -415,10 +423,20 @@
           "line_end": 306,
           "line_start": 128,
           "observation": "CatalogUtility stores catalog and extension lists as MessagePack virtual files inside a VirtualDirectory and resolves resource locations from their hashes and indices.",
-          "path": "game/KCES 1.34.4/WfSystem.FileSystem/Catalog/CatalogUtility.cs",
+          "path": "KCES 1.34.4/WfSystem.FileSystem/Catalog/CatalogUtility.cs",
           "symbol": "CatalogUtility.FromCatalog/ToCatalog"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "extensionNameLists": {
       "additionalProperties": {
@@ -441,7 +459,6 @@
         "null",
         "object"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve each extension key and keep names/hashes aligned with catalog items.",
       "x-meido-edit-role": "runtime_catalog",
       "x-meido-game-usage": "AssetBundleCatalog.GetFileNameListFromExtension uses these lists to enumerate resources by extension.",
@@ -453,7 +470,7 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         },
         {
@@ -462,10 +479,20 @@
           "line_end": 306,
           "line_start": 128,
           "observation": "CatalogUtility stores catalog and extension lists as MessagePack virtual files inside a VirtualDirectory and resolves resource locations from their hashes and indices.",
-          "path": "game/KCES 1.34.4/WfSystem.FileSystem/Catalog/CatalogUtility.cs",
+          "path": "KCES 1.34.4/WfSystem.FileSystem/Catalog/CatalogUtility.cs",
           "symbol": "CatalogUtility.FromCatalog/ToCatalog"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "files": {
       "description": "Independent named virtual files not declared as catalog or extension-name-list records.",
@@ -477,7 +504,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Retain names and bytes only for files not declared by the catalog; a catalog or declared ExtensionNameList file must use its typed field and may never fall back here.",
       "x-meido-edit-role": "binary_virtual_file",
       "x-meido-game-usage": "The catalog loader ignores these side files while the container stores their real byte-array payloads.",
@@ -489,7 +515,7 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         },
         {
@@ -498,16 +524,25 @@
           "line_end": 306,
           "line_start": 128,
           "observation": "CatalogUtility stores catalog and extension lists as MessagePack virtual files inside a VirtualDirectory and resolves resource locations from their hashes and indices.",
-          "path": "game/KCES 1.34.4/WfSystem.FileSystem/Catalog/CatalogUtility.cs",
+          "path": "KCES 1.34.4/WfSystem.FileSystem/Catalog/CatalogUtility.cs",
           "symbol": "CatalogUtility.FromCatalog/ToCatalog"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "format": {
       "description": "The marker for the normalized VirtualDirectory/content-table envelope.",
       "title": "Editing format marker",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep kces-virtual-directory.",
       "x-meido-edit-role": "editing_metadata",
       "x-meido-game-usage": "It identifies the JSON representation and is not a native VirtualDirectory field.",
@@ -519,7 +554,7 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         },
         {
@@ -528,10 +563,20 @@
           "line_end": 306,
           "line_start": 128,
           "observation": "CatalogUtility stores catalog and extension lists as MessagePack virtual files inside a VirtualDirectory and resolves resource locations from their hashes and indices.",
-          "path": "game/KCES 1.34.4/WfSystem.FileSystem/Catalog/CatalogUtility.cs",
+          "path": "KCES 1.34.4/WfSystem.FileSystem/Catalog/CatalogUtility.cs",
           "symbol": "CatalogUtility.FromCatalog/ToCatalog"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "version": {
       "description": "The VirtualDirectory version stored in the root indexed object.",
@@ -539,7 +584,6 @@
       "minimum": -2147483648,
       "title": "Container version",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve the decoded value; current KCES containers normally use 1000.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "VirtualDirectory uses it to select the root layout and serialization callbacks.",
@@ -553,7 +597,7 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         },
         {
@@ -562,10 +606,20 @@
           "line_end": 306,
           "line_start": 128,
           "observation": "CatalogUtility stores catalog and extension lists as MessagePack virtual files inside a VirtualDirectory and resolves resource locations from their hashes and indices.",
-          "path": "game/KCES 1.34.4/WfSystem.FileSystem/Catalog/CatalogUtility.cs",
+          "path": "KCES 1.34.4/WfSystem.FileSystem/Catalog/CatalogUtility.cs",
           "symbol": "CatalogUtility.FromCatalog/ToCatalog"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -576,6 +630,11 @@
   "title": "kces.virtualdirectory editing JSON",
   "type": "object",
   "x-meido-format-id": "kces.virtualdirectory",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "The VirtualDirectory signature, serialize-type dispatch, raw-file staging, and compressed metadata layout were reviewed in KCES 1.34.4. Catalog fields are optional and are only meaningful when this container actually stores a catalog."
+  },
   "x-meido-native-suffixes": [
     ".vd"
   ],

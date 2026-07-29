@@ -220,7 +220,6 @@
       "description": "The marker for the normalized saved-attachment envelope.",
       "title": "Editing format marker",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep kces-saved-attach.",
       "x-meido-edit-role": "editing_metadata",
       "x-meido-game-usage": "It identifies the editing JSON and is not written to the native BinaryWriter stream.",
@@ -232,7 +231,7 @@
           "line_end": 1151,
           "line_start": 1101,
           "observation": "ExportCM writes SAVED_ATTACH_DATA version 2000, filters records by slot, serializes each SavedAttachData record, and writes the .sad payload.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/ExportCM.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/ExportCM.cs",
           "symbol": "ExportCM.ExportAttachData"
         },
         {
@@ -241,7 +240,7 @@
           "line_end": 126,
           "line_start": 41,
           "observation": "SavedAttachData records source and target RID/slot identities, optional vertex attachment data, two position-rotation-scale values, and an attached-bone hierarchy; version 2001 adds TargetSlotNo after the explicit marker.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/SavedAttachData.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/SavedAttachData.cs",
           "symbol": "SavedAttachData.Serialize/Deserialize"
         },
         {
@@ -250,10 +249,20 @@
           "line_end": 1344,
           "line_start": 1313,
           "observation": "The GP03 importer checks SAVED_ATTACH_DATA, reads the item count, deserializes each record, and appends it to the target body skin's saved-attachment list.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.ImportSavedAttachDataGP03"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "items": {
       "description": "Ordered records describing a source part, target slot, optional vertex attachment, transforms, and attached-bone hierarchy.",
@@ -265,7 +274,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve order and keep every RID, slot ID, vertex index, and transform reference valid for the target export.",
       "x-meido-edit-role": "runtime_collection",
       "x-meido-game-usage": "The importer applies each record to the target maid and mesh attachment point.",
@@ -277,7 +285,7 @@
           "line_end": 1151,
           "line_start": 1101,
           "observation": "ExportCM writes SAVED_ATTACH_DATA version 2000, filters records by slot, serializes each SavedAttachData record, and writes the .sad payload.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/ExportCM.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/ExportCM.cs",
           "symbol": "ExportCM.ExportAttachData"
         },
         {
@@ -286,7 +294,7 @@
           "line_end": 126,
           "line_start": 41,
           "observation": "SavedAttachData records source and target RID/slot identities, optional vertex attachment data, two position-rotation-scale values, and an attached-bone hierarchy; version 2001 adds TargetSlotNo after the explicit marker.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/SavedAttachData.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/SavedAttachData.cs",
           "symbol": "SavedAttachData.Serialize/Deserialize"
         },
         {
@@ -295,16 +303,25 @@
           "line_end": 1344,
           "line_start": 1313,
           "observation": "The GP03 importer checks SAVED_ATTACH_DATA, reads the item count, deserializes each record, and appends it to the target body skin's saved-attachment list.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.ImportSavedAttachDataGP03"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "signature": {
       "description": "The BinaryWriter string identifying saved attachment data.",
       "title": "Attachment signature",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep the exact value SAVED_ATTACH_DATA.",
       "x-meido-edit-role": "format_marker",
       "x-meido-game-usage": "The game requires SAVED_ATTACH_DATA before reading the file version and item count.",
@@ -316,7 +333,7 @@
           "line_end": 1151,
           "line_start": 1101,
           "observation": "ExportCM writes SAVED_ATTACH_DATA version 2000, filters records by slot, serializes each SavedAttachData record, and writes the .sad payload.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/ExportCM.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/ExportCM.cs",
           "symbol": "ExportCM.ExportAttachData"
         },
         {
@@ -325,7 +342,7 @@
           "line_end": 126,
           "line_start": 41,
           "observation": "SavedAttachData records source and target RID/slot identities, optional vertex attachment data, two position-rotation-scale values, and an attached-bone hierarchy; version 2001 adds TargetSlotNo after the explicit marker.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/SavedAttachData.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/SavedAttachData.cs",
           "symbol": "SavedAttachData.Serialize/Deserialize"
         },
         {
@@ -334,10 +351,20 @@
           "line_end": 1344,
           "line_start": 1313,
           "observation": "The GP03 importer checks SAVED_ATTACH_DATA, reads the item count, deserializes each record, and appends it to the target body skin's saved-attachment list.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.ImportSavedAttachDataGP03"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "version": {
       "description": "The supported outer saved-attachment version is 2000.",
@@ -345,7 +372,6 @@
       "minimum": -2147483648,
       "title": "File version",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep 2000; other outer layouts are unsupported.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "ExportCM writes 2000 before the record count.",
@@ -359,7 +385,7 @@
           "line_end": 1151,
           "line_start": 1101,
           "observation": "ExportCM writes SAVED_ATTACH_DATA version 2000, filters records by slot, serializes each SavedAttachData record, and writes the .sad payload.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/ExportCM.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/ExportCM.cs",
           "symbol": "ExportCM.ExportAttachData"
         },
         {
@@ -368,7 +394,7 @@
           "line_end": 126,
           "line_start": 41,
           "observation": "SavedAttachData records source and target RID/slot identities, optional vertex attachment data, two position-rotation-scale values, and an attached-bone hierarchy; version 2001 adds TargetSlotNo after the explicit marker.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/SavedAttachData.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/SavedAttachData.cs",
           "symbol": "SavedAttachData.Serialize/Deserialize"
         },
         {
@@ -377,10 +403,20 @@
           "line_end": 1344,
           "line_start": 1313,
           "observation": "The GP03 importer checks SAVED_ATTACH_DATA, reads the item count, deserializes each record, and appends it to the target body skin's saved-attachment list.",
-          "path": "game/COM3D2_5 3.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2_5 3.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.ImportSavedAttachDataGP03"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -392,6 +428,11 @@
   "title": "kces.sad editing JSON",
   "type": "object",
   "x-meido-format-id": "kces.sad",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "SavedAttachData serialization and the current record version 2001 were reviewed in KCES 1.34.4. Legacy implicit version-2000 records remain readable and normalize to an explicit typed version when written."
+  },
   "x-meido-native-suffixes": [
     ".sad"
   ],

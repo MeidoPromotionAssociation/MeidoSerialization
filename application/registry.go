@@ -61,8 +61,8 @@ type Format struct {
 	GuideID string
 	// GuideSHA256 是已发布格式指南的 SHA-256 摘要 / GuideSHA256 is the SHA-256 digest of the published format guide
 	GuideSHA256 string
-	// GuideCoverage 描述已发布指南覆盖的格式范围 / GuideCoverage describes the format coverage of the published guide
-	GuideCoverage string
+	// GuideVerification 描述已发布指南对整个文件格式的认证等级 / GuideVerification describes the whole-file verification level of the published guide
+	GuideVerification string
 	// convert 保存不向注册表调用方公开的路径转换器 / convert stores the path converter hidden from registry callers
 	convert pathConverter
 }
@@ -140,7 +140,7 @@ func NewRegistry(formats []Format) (*Registry, error) {
 		format.GuideVersion = ""
 		format.GuideID = ""
 		format.GuideSHA256 = ""
-		format.GuideCoverage = ""
+		format.GuideVerification = ""
 		if format.Capability.Convert {
 			document, found, err := editingv1.Lookup(format.ID)
 			if err != nil {
@@ -160,7 +160,7 @@ func NewRegistry(formats []Format) (*Registry, error) {
 				format.GuideVersion = guide.Version
 				format.GuideID = guide.ID
 				format.GuideSHA256 = guide.SHA256
-				format.GuideCoverage = guide.Coverage
+				format.GuideVerification = guide.FormatVerification
 			}
 		}
 		r.formats[format.ID] = format

@@ -135,7 +135,6 @@
       "minimum": 0,
       "title": "ABA/UnityFS version",
       "type": "integer",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Preserve it when round-tripping extracted data.",
       "x-meido-edit-role": "version_context",
       "x-meido-game-usage": "It identifies the source bundle context rather than changing the object payload itself.",
@@ -152,7 +151,13 @@
           "path": "service/KCES/raw_unity_service.go",
           "symbol": "RawUnityObjectService"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "classId": {
       "description": "The signed Unity ClassID associated with the serialized object.",
@@ -160,7 +165,6 @@
       "minimum": -2147483648,
       "title": "Unity class ID",
       "type": "integer",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Preserve the source value; changing it without rewriting dataBase64 makes the object undecodable.",
       "x-meido-edit-role": "runtime_type_identity",
       "x-meido-game-usage": "Unity uses ClassID to choose the object reader and TypeTree interpretation.",
@@ -177,7 +181,13 @@
           "path": "service/KCES/raw_unity_service.go",
           "symbol": "RawUnityObjectService"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "dataBase64": {
       "contentEncoding": "base64",
@@ -187,7 +197,6 @@
       "type": [
         "string"
       ],
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Treat as opaque unless a class-specific editor has validated the complete object layout.",
       "x-meido-edit-role": "opaque_payload",
       "x-meido-game-usage": "The service writes these bytes back unchanged when converting the envelope to a native resource.",
@@ -202,13 +211,18 @@
           "path": "service/KCES/raw_unity_service.go",
           "symbol": "RawUnityObjectService"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "engineVersion": {
       "description": "The engine version recorded by the containing UnityFS file.",
       "title": "UnityFS engine version",
       "type": "string",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Preserve the source value.",
       "x-meido-edit-role": "version_context",
       "x-meido-game-usage": "It supplies context for deserialization and diagnostics.",
@@ -223,13 +237,18 @@
           "path": "service/KCES/raw_unity_service.go",
           "symbol": "RawUnityObjectService"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "format": {
       "description": "The editing marker kces-unity-raw-object.",
       "title": "Raw-object format marker",
       "type": "string",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Keep the exact value kces-unity-raw-object.",
       "x-meido-edit-role": "format_marker",
       "x-meido-game-usage": "The raw Unity service requires this marker when converting JSON back to bytes.",
@@ -244,13 +263,18 @@
           "path": "service/KCES/raw_unity_service.go",
           "symbol": "RawUnityObjectService"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "generationVersion": {
       "description": "The UnityFS generation string recorded by the source bundle.",
       "title": "Generation version",
       "type": "string",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Preserve the source value.",
       "x-meido-edit-role": "version_context",
       "x-meido-game-usage": "It helps select compatible serialized-file parsing behavior.",
@@ -265,13 +289,18 @@
           "path": "service/KCES/raw_unity_service.go",
           "symbol": "RawUnityObjectService"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "kind": {
       "description": "The resource kind used by the ABA extractor.",
       "title": "Asset kind",
       "type": "string",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Preserve the original kind.",
       "x-meido-edit-role": "diagnostic_metadata",
       "x-meido-game-usage": "The service uses it to retain extraction context; Unity's object reader uses the serialized object metadata instead.",
@@ -286,13 +315,18 @@
           "path": "service/KCES/raw_unity_service.go",
           "symbol": "RawUnityObjectService"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "loadName": {
       "description": "The catalog or AssetBundle load name associated with the object.",
       "title": "Asset load name",
       "type": "string",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Keep it aligned with the catalog entry and source bundle.",
       "x-meido-edit-role": "resource_reference",
       "x-meido-game-usage": "Resource management uses this name when resolving an extracted object.",
@@ -307,13 +341,18 @@
           "path": "service/KCES/raw_unity_service.go",
           "symbol": "RawUnityObjectService"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "name": {
       "description": "Optional internal Unity object name.",
       "title": "Object name",
       "type": "string",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Change only with a class-specific editor; preserve when editing raw bytes.",
       "x-meido-edit-role": "runtime_metadata",
       "x-meido-game-usage": "Some Unity object classes use it for lookup or display.",
@@ -328,7 +367,13 @@
           "path": "service/KCES/raw_unity_service.go",
           "symbol": "RawUnityObjectService"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "pathId": {
       "description": "The serialized-file object identifier.",
@@ -336,7 +381,6 @@
       "minimum": -9223372036854775808,
       "title": "Unity PathID",
       "type": "integer",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Never change it without rewriting every serialized reference to the object.",
       "x-meido-edit-role": "resource_identity",
       "x-meido-game-usage": "AssetBundle lookup and references use PathID to identify the object within a serialized file.",
@@ -353,7 +397,13 @@
           "path": "service/KCES/raw_unity_service.go",
           "symbol": "RawUnityObjectService"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "readOnly": {
       "type": "boolean"
@@ -370,7 +420,6 @@
       "minimum": 0,
       "title": "Serialized-file version",
       "type": "integer",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Preserve it unless rebuilding the full container.",
       "x-meido-edit-role": "version_context",
       "x-meido-game-usage": "Unity's serialized-file reader uses it with the type and platform metadata.",
@@ -387,7 +436,13 @@
           "path": "service/KCES/raw_unity_service.go",
           "symbol": "RawUnityObjectService"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "targetPlatform": {
       "description": "The optional platform identifier from the containing serialized file.",
@@ -398,7 +453,6 @@
         "null",
         "integer"
       ],
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Preserve the original value unless rebuilding the complete serialized file.",
       "x-meido-edit-role": "runtime_metadata",
       "x-meido-game-usage": "Unity may use platform metadata while loading the object.",
@@ -415,13 +469,18 @@
           "path": "service/KCES/raw_unity_service.go",
           "symbol": "RawUnityObjectService"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "typeName": {
       "description": "Optional human-readable type name from the serialized asset context.",
       "title": "Unity type name",
       "type": "string",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Keep synchronized with ClassID and TypeTree when known.",
       "x-meido-edit-role": "diagnostic_metadata",
       "x-meido-game-usage": "It helps choose a TypeTree and diagnose object identity but does not replace ClassID.",
@@ -436,7 +495,13 @@
           "path": "service/KCES/raw_unity_service.go",
           "symbol": "RawUnityObjectService"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "typeTree": {
       "anyOf": [
@@ -449,17 +514,21 @@
       ],
       "description": "A parsed or partial TypeTree inspection of the raw object.",
       "title": "Optional TypeTree view",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Do not edit the preview without a class-specific encoder; preserve raw bytes as the authority.",
       "x-meido-edit-role": "diagnostic_metadata",
       "x-meido-game-usage": "It is a diagnostic/editing aid; the game consumes dataBase64 and the original serialized-file metadata.",
-      "x-meido-risk": "critical"
+      "x-meido-risk": "critical",
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "unityVersion": {
       "description": "The Unity version string associated with the serialized object.",
       "title": "Serialized-file Unity version",
       "type": "string",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Preserve the source version when editing raw bytes.",
       "x-meido-edit-role": "version_context",
       "x-meido-game-usage": "TypeTree and serialized field interpretation can depend on this version.",
@@ -474,7 +543,13 @@
           "path": "service/KCES/raw_unity_service.go",
           "symbol": "RawUnityObjectService"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -484,6 +559,11 @@
   "title": "kces.bytes editing JSON",
   "type": "object",
   "x-meido-format-id": "kces.bytes",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "The service preserves object bytes and context metadata. ClassID and TypeTree can identify a known Unity object, but this profile does not claim a general editable schema for every class."
+  },
   "x-meido-native-suffixes": [
     ".bytes"
   ],

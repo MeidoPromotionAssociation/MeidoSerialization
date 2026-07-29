@@ -29,7 +29,6 @@
       },
       "title": "Filename map entries",
       "type": "array",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep entries unique, lower-case both names as the game does, and preserve order when round-tripping an existing file.",
       "x-meido-edit-role": "runtime_mapping",
       "x-meido-game-usage": "The exporter resolves internal names and file names through this map when writing bridge resources.",
@@ -41,16 +40,25 @@
           "line_end": 132,
           "line_start": 20,
           "observation": "The exporter loads export_map.enm, stores a lower-case internal-name to file-name dictionary, and serializes the dictionary as a nested JSON string in serializeData.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/ExportCMUtility/ExportFileNameMap.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/ExportCMUtility/ExportFileNameMap.cs",
           "symbol": "ExportFileNameMap.LoadExportNameMap/Add/GetFileName/GetInternalName"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "format": {
       "description": "The marker for the normalized filename-map representation.",
       "title": "Editing format marker",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep kces-export-name-map.",
       "x-meido-edit-role": "editing_metadata",
       "x-meido-game-usage": "This is an editing-layer value; native JsonUtility stores version and serializeData instead.",
@@ -62,10 +70,20 @@
           "line_end": 132,
           "line_start": 20,
           "observation": "The exporter loads export_map.enm, stores a lower-case internal-name to file-name dictionary, and serializes the dictionary as a nested JSON string in serializeData.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/ExportCMUtility/ExportFileNameMap.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/ExportCMUtility/ExportFileNameMap.cs",
           "symbol": "ExportFileNameMap.LoadExportNameMap/Add/GetFileName/GetInternalName"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "version": {
       "description": "The JsonUtility FixVersion value, normally 1000.",
@@ -73,7 +91,6 @@
       "minimum": -2147483648,
       "title": "Name-map version",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve the source value and use 1000 for KCES 1.34.4 output.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "ExportFileNameMap uses the version-control base class while loading and saving export_map.enm.",
@@ -87,10 +104,20 @@
           "line_end": 132,
           "line_start": 20,
           "observation": "The exporter loads export_map.enm, stores a lower-case internal-name to file-name dictionary, and serializes the dictionary as a nested JSON string in serializeData.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/ExportCMUtility/ExportFileNameMap.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/ExportCMUtility/ExportFileNameMap.cs",
           "symbol": "ExportFileNameMap.LoadExportNameMap/Add/GetFileName/GetInternalName"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -101,6 +128,11 @@
   "title": "kces.enm editing JSON",
   "type": "object",
   "x-meido-format-id": "kces.enm",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "ExportFileNameMap was reviewed in KCES 1.34.4, including FixVersion 1000, lower-case normalization, and the nested dictionary JSON representation."
+  },
   "x-meido-native-suffixes": [
     ".enm"
   ],

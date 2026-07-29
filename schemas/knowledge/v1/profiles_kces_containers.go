@@ -3,18 +3,18 @@ package knowledgev1
 // kcesContainerProfiles 构建 KCES VirtualDirectory 格式和系统数据容器的源码审核指南
 // kcesContainerProfiles builds source-reviewed guides for KCES VirtualDirectory formats and the system-data container
 func kcesContainerProfiles() map[string]Guide {
-	vdSource := source("KCES 1.34.4", "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs", "VirtualDirectory.Serialize/Deserialize", 409, 575, "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.")
-	presetSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/MaidPreset.cs", "MaidPreset.LoadPreset/Serialize", 31, 180, "MaidPreset stores thumbnail, maiddata, and optional meta files in a VirtualDirectory; maiddata contains compressed MaidPresetCore property, color, and body byte blocks.")
-	systemSource := source("KCES 1.34.4", "game/KCES 1.34.4/Assembly-CSharp/ApplicationSystemDataManager.cs", "ApplicationSystemDataManager.Load/Save", 12, 58, "ApplicationSystemDataManager opens system.dat as a VirtualDirectory and accesses typed EditData files below the EditData directory.")
+	vdSource := source("KCES 1.34.4", "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs", "VirtualDirectory.Serialize/Deserialize", 409, 575, "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.")
+	presetSource := source("KCES 1.34.4", "KCES 1.34.4/Assembly-CSharp/MaidPreset.cs", "MaidPreset.LoadPreset/Serialize", 31, 180, "MaidPreset stores thumbnail, maiddata, and optional meta files in a VirtualDirectory; maiddata contains compressed MaidPresetCore property, color, and body byte blocks.")
+	systemSource := source("KCES 1.34.4", "KCES 1.34.4/Assembly-CSharp/ApplicationSystemDataManager.cs", "ApplicationSystemDataManager.Load/Save", 12, 58, "ApplicationSystemDataManager opens system.dat as a VirtualDirectory and accesses typed EditData files below the EditData directory.")
 	editDataSource := implementationSource("KCES 1.34.4", "serialization/KCES/system_dat.go", "KCESEditDataKindForPath/DecodeKCESSystemData", 76, 207, "The serializer mirrors the game path dispatch for preset-panel names, palette colors, gradation points, movable panels, color-preset order lists, and color presets; only files outside every recognized path remain independent byte payloads.")
-	ctSource := source("KCES 1.34.4", "game/KCES 1.34.4/WfSystem.FileSystem/Catalog/AssetBundleCatalog.cs", "AssetBundleCatalog", 15, 337, "The .ct catalog stores versioned catalog metadata, resource-file names, extension lists, hash-indexed items, and extension-name list side files used for resource lookup.")
-	ctUtilitySource := source("KCES 1.34.4", "game/KCES 1.34.4/WfSystem.FileSystem/Catalog/CatalogUtility.cs", "CatalogUtility.FromCatalog/ToCatalog", 128, 306, "CatalogUtility stores catalog and extension lists as MessagePack virtual files inside a VirtualDirectory and resolves resource locations from their hashes and indices.")
+	ctSource := source("KCES 1.34.4", "KCES 1.34.4/WfSystem.FileSystem/Catalog/AssetBundleCatalog.cs", "AssetBundleCatalog", 15, 337, "The .ct catalog stores versioned catalog metadata, resource-file names, extension lists, hash-indexed items, and extension-name list side files used for resource lookup.")
+	ctUtilitySource := source("KCES 1.34.4", "KCES 1.34.4/WfSystem.FileSystem/Catalog/CatalogUtility.cs", "CatalogUtility.FromCatalog/ToCatalog", 128, 306, "CatalogUtility stores catalog and extension lists as MessagePack virtual files inside a VirtualDirectory and resolves resource locations from their hashes and indices.")
 	field := fieldFrom(presetSource, vdSource)
 
 	preset := guide(
 		"KCES .preset VirtualDirectory guide",
 		"The current KCES character preset container. A version-1000 VirtualDirectory holds thumbnail, maiddata, and optional meta virtual files; this wire format is not the legacy COM3D2_PRESET format.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"MaidPreset and VirtualDirectory were reviewed in KCES 1.34.4. The outer file contract is verified and propData, colorData, and bodyData use their dedicated typed inner codecs.",
 		[]Source{presetSource, vdSource},
 		[]Field{
@@ -55,7 +55,7 @@ func kcesContainerProfiles() map[string]Guide {
 	ct := guide(
 		"KCES .ct catalog guide",
 		"A VirtualDirectory content-table container whose catalog and extension-name lists drive AssetBundle resource lookup.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"AssetBundleCatalog, CatalogUtility, and the content-table reader were reviewed in KCES 1.34.4. Catalog hashes and index relationships are runtime-sensitive; only independently named side files outside the catalog declarations remain byte payloads.",
 		[]Source{ctSource, ctUtilitySource, vdSource},
 		makeContainerFields("kces-content-table", true),
@@ -73,7 +73,7 @@ func kcesContainerProfiles() map[string]Guide {
 	virtualDirectory := guide(
 		"KCES VirtualDirectory guide",
 		"The generic VirtualDirectory editing envelope used by KCES .vd containers that are not specialized as a bridge session, preset, system.dat, or .ct catalog.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"The VirtualDirectory signature, serialize-type dispatch, raw-file staging, and compressed metadata layout were reviewed in KCES 1.34.4. Catalog fields are optional and are only meaningful when this container actually stores a catalog.",
 		[]Source{vdSource},
 		makeContainerFields("kces-virtual-directory", true),
@@ -89,7 +89,7 @@ func kcesContainerProfiles() map[string]Guide {
 	system := guide(
 		"KCES system.dat guide",
 		"The KCES user-system VirtualDirectory. Typed EditData files store editor palettes, gradation points, movable-panel state, color-preset order, and color presets; only independent files outside every recognized path remain byte payloads.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"ApplicationSystemDataManager, the VirtualDirectory implementation, and the KCES EditData path dispatch were reviewed in KCES 1.34.4.",
 		[]Source{systemSource, editDataSource, vdSource},
 		[]Field{

@@ -115,7 +115,6 @@
       "$ref": "#/$defs/COM3D2_Vector3",
       "description": "The gravity vector used by the skirt solver.",
       "title": "Skirt gravity vector",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Edit the vector and curve together; keep finite values.",
       "x-meido-edit-role": "runtime_vector",
       "x-meido-game-usage": "It is read as three floats and combined with GravityDistrib during parameter updates.",
@@ -127,10 +126,20 @@
           "line_end": 140,
           "line_start": 18,
           "observation": "The skirt serializer writes CM3D21_PSK, radius and force curves, per-bone radius groups, stress and scale controls, velocity and gravity curves, and four hard values.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs",
           "symbol": "DynamicSkirtBone.SerializeWrite/SerializeRead"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "GravityDistrib": {
       "$ref": "#/$defs/COM3D2_AnimationCurve"
@@ -146,7 +155,6 @@
       "minItems": 4,
       "title": "Hardness values",
       "type": "array",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve array length and change one coefficient at a time.",
       "x-meido-edit-role": "runtime_numeric",
       "x-meido-game-usage": "DynamicSkirtBone uses them to shape the response of its native cloth plugin.",
@@ -158,10 +166,20 @@
           "line_end": 140,
           "line_start": 18,
           "observation": "The skirt serializer writes CM3D21_PSK, radius and force curves, per-bone radius groups, stress and scale controls, velocity and gravity curves, and four hard values.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs",
           "symbol": "DynamicSkirtBone.SerializeWrite/SerializeRead"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "PanierForce": {
       "description": "The force driving skirt/panier motion.",
@@ -169,7 +187,6 @@
       "minimum": -3.4028234663852886e+38,
       "title": "Panier force",
       "type": "number",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Use small changes and test both idle and animated poses.",
       "x-meido-edit-role": "runtime_numeric",
       "x-meido-game-usage": "The solver applies it with its distribution and stress controls each update.",
@@ -181,10 +198,20 @@
           "line_end": 140,
           "line_start": 18,
           "observation": "The skirt serializer writes CM3D21_PSK, radius and force curves, per-bone radius groups, stress and scale controls, velocity and gravity curves, and four hard values.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs",
           "symbol": "DynamicSkirtBone.SerializeWrite/SerializeRead"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "PanierForceDistanceThreshold": {
       "maximum": 3.4028234663852886e+38,
@@ -200,7 +227,6 @@
       "minimum": -3.4028234663852886e+38,
       "title": "Base panier radius",
       "type": "number",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Change with the corresponding radius curves and verify skirt collisions.",
       "x-meido-edit-role": "runtime_numeric",
       "x-meido-game-usage": "DynamicSkirtBone combines it with its distribution curve and optional per-bone group values.",
@@ -212,10 +238,20 @@
           "line_end": 140,
           "line_start": 18,
           "observation": "The skirt serializer writes CM3D21_PSK, radius and force curves, per-bone radius groups, stress and scale controls, velocity and gravity curves, and four hard values.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs",
           "symbol": "DynamicSkirtBone.SerializeWrite/SerializeRead"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "PanierRadiusDistrib": {
       "$ref": "#/$defs/COM3D2_AnimationCurve"
@@ -243,7 +279,6 @@
       "description": "The CM3D21_PSK header string.",
       "title": "Skirt-physics signature",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep CM3D21_PSK.",
       "x-meido-edit-role": "format_marker",
       "x-meido-game-usage": "DynamicSkirtBone rejects another signature before reading settings.",
@@ -255,10 +290,20 @@
           "line_end": 140,
           "line_start": 18,
           "observation": "The skirt serializer writes CM3D21_PSK, radius and force curves, per-bone radius groups, stress and scale controls, velocity and gravity curves, and four hard values.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs",
           "symbol": "DynamicSkirtBone.SerializeWrite/SerializeRead"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "StressDegreeMax": {
       "maximum": 3.4028234663852886e+38,
@@ -289,7 +334,6 @@
       "minimum": -2147483648,
       "title": "Skirt-physics version",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve the source value and do not remove groups without checking the target build.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "Versions at or above the reviewed threshold contain the group records; older versions omit them.",
@@ -303,10 +347,20 @@
           "line_end": 140,
           "line_start": 18,
           "observation": "The skirt serializer writes CM3D21_PSK, radius and force curves, per-bone radius groups, stress and scale controls, velocity and gravity curves, and four hard values.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs",
           "symbol": "DynamicSkirtBone.SerializeWrite/SerializeRead"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -333,6 +387,11 @@
   "title": "com3d2.psk editing JSON",
   "type": "object",
   "x-meido-format-id": "com3d2.psk",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "DynamicSkirtBone.SerializeWrite/SerializeRead and its parameter update path were reviewed in COM3D2 2.48.0."
+  },
   "x-meido-native-suffixes": [
     ".psk"
   ],

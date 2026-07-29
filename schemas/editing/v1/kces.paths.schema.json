@@ -8,7 +8,6 @@
       "description": "The marker for the paths.dat editing envelope.",
       "title": "Editing format marker",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep kces-auto-paths.",
       "x-meido-edit-role": "editing_metadata",
       "x-meido-game-usage": "It identifies the JSON representation and is not a native field.",
@@ -20,10 +19,20 @@
           "line_end": 685,
           "line_start": 656,
           "observation": "NativeFileManager reads paths.dat to obtain additional resource search paths before creating compatible catalogs.",
-          "path": "game/KCES 1.34.4/WfSystem.FileSystem/ResourceManagement/NativeFileManager.cs",
+          "path": "KCES 1.34.4/WfSystem.FileSystem/ResourceManagement/NativeFileManager.cs",
           "symbol": "NativeFileManager.ReadAutoPathFile"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "paths": {
       "description": "Ordered resource directories or archive-related paths added to catalog discovery.",
@@ -35,7 +44,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Use existing relative or installation-specific paths from the target build; preserve order and casing conventions.",
       "x-meido-edit-role": "runtime_resource_search",
       "x-meido-game-usage": "NativeFileManager inserts these paths into the resource search configuration.",
@@ -47,16 +55,25 @@
           "line_end": 685,
           "line_start": 656,
           "observation": "NativeFileManager reads paths.dat to obtain additional resource search paths before creating compatible catalogs.",
-          "path": "game/KCES 1.34.4/WfSystem.FileSystem/ResourceManagement/NativeFileManager.cs",
+          "path": "KCES 1.34.4/WfSystem.FileSystem/ResourceManagement/NativeFileManager.cs",
           "symbol": "NativeFileManager.ReadAutoPathFile"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "signature": {
       "description": "The BinaryWriter string identifying a paths.dat file.",
       "title": "Paths signature",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep the exact value CM3D2_PATHS.",
       "x-meido-edit-role": "format_marker",
       "x-meido-game-usage": "NativeFileManager expects CM3D2_PATHS before reading version, count, and path strings.",
@@ -68,10 +85,20 @@
           "line_end": 685,
           "line_start": 656,
           "observation": "NativeFileManager reads paths.dat to obtain additional resource search paths before creating compatible catalogs.",
-          "path": "game/KCES 1.34.4/WfSystem.FileSystem/ResourceManagement/NativeFileManager.cs",
+          "path": "KCES 1.34.4/WfSystem.FileSystem/ResourceManagement/NativeFileManager.cs",
           "symbol": "NativeFileManager.ReadAutoPathFile"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "version": {
       "description": "The path-list version, normally 1000.",
@@ -79,7 +106,6 @@
       "minimum": -2147483648,
       "title": "Paths version",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve the source value; use 1000 for a new KCES file.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "NativeFileManager reads the value as part of the file header before using the list.",
@@ -93,10 +119,20 @@
           "line_end": 685,
           "line_start": 656,
           "observation": "NativeFileManager reads paths.dat to obtain additional resource search paths before creating compatible catalogs.",
-          "path": "game/KCES 1.34.4/WfSystem.FileSystem/ResourceManagement/NativeFileManager.cs",
+          "path": "KCES 1.34.4/WfSystem.FileSystem/ResourceManagement/NativeFileManager.cs",
           "symbol": "NativeFileManager.ReadAutoPathFile"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -108,6 +144,11 @@
   "title": "kces.paths editing JSON",
   "type": "object",
   "x-meido-format-id": "kces.paths",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "The BinaryWriter layout and NativeFileManager.ReadAutoPathFile consumer were reviewed in KCES 1.34.4."
+  },
   "x-meido-native-suffixes": [
     "paths.dat"
   ],

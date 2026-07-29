@@ -2068,7 +2068,6 @@
       ],
       "description": "The typed ClothParams indexed object used by the legacy sleeve cloth solver.",
       "title": "Sleeve ClothParams",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Edit switches and Bezier parameters as coherent groups; sparse keys 4, 5, and 56 must remain nil and unsupported widths are rejected.",
       "x-meido-edit-role": "runtime_cloth_configuration",
       "x-meido-game-usage": "DynamicSleeveBone applies these forces, constraints, and collision settings to sleeve cloth.",
@@ -2080,7 +2079,7 @@
           "line_end": 485,
           "line_start": 212,
           "observation": "DynamicBoneMgr selects .dbconf/.dbcol, .db2conf, .dsbconf/.dsb2conf, .dslconf/.dsl2conf/.dslcol, and default fallback names for the corresponding physics components.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/DynamicBoneMgr.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/DynamicBoneMgr.cs",
           "symbol": "DynamicBoneMgr.LoadDynamicYureBoneSetting/LoadMagica2DynamicYureBoneSetting"
         },
         {
@@ -2092,7 +2091,17 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "colliderPackage": {
       "anyOf": [
@@ -2105,7 +2114,6 @@
       ],
       "description": "A typed union alternative not selected by the .dslconf descriptor.",
       "title": "Inactive union field colliderPackage",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Omit this field completely unless a supported kind explicitly selects it.",
       "x-meido-edit-role": "union_alternative",
       "x-meido-game-usage": "The payload dispatcher rejects an extension/kind combination that does not match the descriptor.",
@@ -2120,7 +2128,13 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "dynamicBoneStatus": {
       "anyOf": [
@@ -2133,7 +2147,6 @@
       ],
       "description": "A typed union alternative not selected by the .dslconf descriptor.",
       "title": "Inactive union field dynamicBoneStatus",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Omit this field completely unless a supported kind explicitly selects it.",
       "x-meido-edit-role": "union_alternative",
       "x-meido-game-usage": "The payload dispatcher rejects an extension/kind combination that does not match the descriptor.",
@@ -2148,14 +2161,19 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "extension": {
       "const": ".dslconf",
       "description": "The extension descriptor used to select the expected payload kind and wire rules.",
       "title": "Payload extension",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep the exact extension .dslconf.",
       "x-meido-edit-role": "format_marker",
       "x-meido-game-usage": "KCESPayloadEnvelope dispatches decoding and encoding from the complete extension, including the compound .ikcol.bytes suffix.",
@@ -2167,7 +2185,7 @@
           "line_end": 485,
           "line_start": 212,
           "observation": "DynamicBoneMgr selects .dbconf/.dbcol, .db2conf, .dsbconf/.dsb2conf, .dslconf/.dsl2conf/.dslcol, and default fallback names for the corresponding physics components.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/DynamicBoneMgr.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/DynamicBoneMgr.cs",
           "symbol": "DynamicBoneMgr.LoadDynamicYureBoneSetting/LoadMagica2DynamicYureBoneSetting"
         },
         {
@@ -2179,13 +2197,22 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "format": {
       "description": "The envelope family marker for native KCES MessagePack or an ExportCM sidecar.",
       "title": "Payload envelope format",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Use the format matching storageVariant; do not label a native payload as an ExportCM sidecar.",
       "x-meido-edit-role": "wire_variant",
       "x-meido-game-usage": "The dispatcher uses kces-msgpack-lz4 for native resources and kces-exportcm-sidecar for JSON sidecars.",
@@ -2197,7 +2224,7 @@
           "line_end": 485,
           "line_start": 212,
           "observation": "DynamicBoneMgr selects .dbconf/.dbcol, .db2conf, .dsbconf/.dsb2conf, .dslconf/.dsl2conf/.dslcol, and default fallback names for the corresponding physics components.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/DynamicBoneMgr.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/DynamicBoneMgr.cs",
           "symbol": "DynamicBoneMgr.LoadDynamicYureBoneSetting/LoadMagica2DynamicYureBoneSetting"
         },
         {
@@ -2209,7 +2236,17 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "ikColliderPackage": {
       "anyOf": [
@@ -2222,7 +2259,6 @@
       ],
       "description": "A typed union alternative not selected by the .dslconf descriptor.",
       "title": "Inactive union field ikColliderPackage",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Omit this field completely unless a supported kind explicitly selects it.",
       "x-meido-edit-role": "union_alternative",
       "x-meido-game-usage": "The payload dispatcher rejects an extension/kind combination that does not match the descriptor.",
@@ -2237,12 +2273,17 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "json": {
       "description": "The normalized semantic JSON value selected only by a JSON payload kind.",
       "title": "Semantic JSON payload",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Leave this field absent for non-JSON kinds and edit only members documented by the selected Unity JSON consumer.",
       "x-meido-edit-role": "opaque_domain_data",
       "x-meido-game-usage": "The encoder regenerates the MessagePack string or ExportCM sidecar directly from this value.",
@@ -2257,13 +2298,18 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "kind": {
       "description": "The union discriminator for the typed root object.",
       "title": "Payload kind discriminator",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Use cloth-params for the native .dslconf contract; do not populate a different typed root.",
       "x-meido-edit-role": "union_discriminator",
       "x-meido-game-usage": "The decoder selects the corresponding MessagePack or JSON model from this value and rejects extension/kind mismatches.",
@@ -2275,7 +2321,7 @@
           "line_end": 485,
           "line_start": 212,
           "observation": "DynamicBoneMgr selects .dbconf/.dbcol, .db2conf, .dsbconf/.dsb2conf, .dslconf/.dsl2conf/.dslcol, and default fallback names for the corresponding physics components.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/DynamicBoneMgr.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/DynamicBoneMgr.cs",
           "symbol": "DynamicBoneMgr.LoadDynamicYureBoneSetting/LoadMagica2DynamicYureBoneSetting"
         },
         {
@@ -2287,7 +2333,17 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "limbColliderPackage": {
       "anyOf": [
@@ -2300,7 +2356,6 @@
       ],
       "description": "A typed union alternative not selected by the .dslconf descriptor.",
       "title": "Inactive union field limbColliderPackage",
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Omit this field completely unless a supported kind explicitly selects it.",
       "x-meido-edit-role": "union_alternative",
       "x-meido-game-usage": "The payload dispatcher rejects an extension/kind combination that does not match the descriptor.",
@@ -2315,13 +2370,18 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "storageVariant": {
       "description": "The exact wire representation selected for this extension.",
       "title": "Storage variant",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Use int32-length-lz4-messagepack for the primary native profile and select an explicitly supported sidecar variant only when the source file came from ExportCM.",
       "x-meido-edit-role": "wire_variant",
       "x-meido-game-usage": "The dispatcher distinguishes int32-length-lz4-messagepack from ExportCM Unity JSON and ExportCM .NET-string JSON variants.",
@@ -2333,7 +2393,7 @@
           "line_end": 485,
           "line_start": 212,
           "observation": "DynamicBoneMgr selects .dbconf/.dbcol, .db2conf, .dsbconf/.dsb2conf, .dslconf/.dsl2conf/.dslcol, and default fallback names for the corresponding physics components.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/DynamicBoneMgr.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/DynamicBoneMgr.cs",
           "symbol": "DynamicBoneMgr.LoadDynamicYureBoneSetting/LoadMagica2DynamicYureBoneSetting"
         },
         {
@@ -2345,7 +2405,17 @@
           "path": "serialization/KCES/payload.go",
           "symbol": "KCESPayloadEnvelope and DecodeKCESPayload/EncodeKCESPayload"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -2357,6 +2427,11 @@
   "title": "kces.dslconf editing JSON",
   "type": "object",
   "x-meido-format-id": "kces.dslconf",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "DynamicBoneMgr selects .dslconf for sleeve physics and DynamicSleeveBone applies the typed ClothParams object."
+  },
   "x-meido-native-suffixes": [
     ".dslconf"
   ],

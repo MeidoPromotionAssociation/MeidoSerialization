@@ -16,16 +16,16 @@ const (
 // com3d2MenuValueSets 构建两个已审核游戏版本的菜单枚举和值名称目录
 // com3d2MenuValueSets builds menu enum and value-name catalogs for both reviewed game versions
 func com3d2MenuValueSets() []ValueSet {
-	mpn248Source := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/MPN.cs", "MPN", 3, 138, "Defines the numeric MPN ordering used by the reviewed COM3D2 2.48 menu compiler and runtime.")
-	mpn348Source := source("COM3D2_5 3.48.0", "game/COM3D2_5 3.48.0/Assembly-CSharp/MPN.cs", "MPN", 3, 239, "Defines the expanded and reordered numeric MPN set used by the reviewed COM3D2_5 3.48 runtime.")
-	slot248Source := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/TBody.cs", "TBody.SlotID", 3677, 3738, "Defines model and attachment slot names for the reviewed COM3D2 2.48 runtime.")
-	slot348Source := source("COM3D2_5 3.48.0", "game/COM3D2_5 3.48.0/Assembly-CSharp/TBody.cs", "TBody.SlotID", 5644, 5720, "Defines the expanded model and attachment slot names for the reviewed COM3D2_5 3.48 runtime.")
-	partsColor248Source := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/MaidParts.cs", "MaidParts.PARTS_COLOR", 231, 248, "Defines infinite-color channel names and numeric values used by tex commands.")
-	partsColor348Source := source("COM3D2_5 3.48.0", "game/COM3D2_5 3.48.0/Assembly-CSharp/MaidParts.cs", "MaidParts.PARTS_COLOR", 232, 249, "Retains the reviewed infinite-color channel ordering in COM3D2_5 3.48.")
-	systemMaterial248Source := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/GameUty.cs", "GameUty.SystemMaterial", 1295, 1302, "Defines system blend materials accepted by texture-composition commands.")
-	systemMaterial348Source := source("COM3D2_5 3.48.0", "game/COM3D2_5 3.48.0/Assembly-CSharp/GameUty.cs", "GameUty.SystemMaterial", 1564, 1571, "Retains the reviewed system blend-material ordering in COM3D2_5 3.48.")
-	bodyStateSource := source("COM3D2_5 3.48.0", "game/COM3D2_5 3.48.0/Assembly-CSharp/TBodySkin.cs", "TBodySkin body-state enums", 2164, 2193, "Defines nipple, penis, and target-body enum values used by COM3D2_5-only menu commands.")
-	meshMorphSource := source("COM3D2_5 3.48.0", "game/COM3D2_5 3.48.0/Assembly-CSharp/TMorphSkin.cs", "TMorphSkin.BaseBlendValue.Tag", 1833, 1838, "Defines the mesh-morph base-blend tags used by the COM3D2_5 meshmorph command.")
+	mpn248Source := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/MPN.cs", "MPN", 3, 138, "Defines the numeric MPN ordering used by the reviewed COM3D2 2.48 menu compiler and runtime.")
+	mpn348Source := source("COM3D2_5 3.48.0", "COM3D2_5 3.48.0/Assembly-CSharp/MPN.cs", "MPN", 3, 239, "Defines the expanded and reordered numeric MPN set used by the reviewed COM3D2_5 3.48 runtime.")
+	slot248Source := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/TBody.cs", "TBody.SlotID", 3677, 3738, "Defines model and attachment slot names for the reviewed COM3D2 2.48 runtime.")
+	slot348Source := source("COM3D2_5 3.48.0", "COM3D2_5 3.48.0/Assembly-CSharp/TBody.cs", "TBody.SlotID", 5644, 5720, "Defines the expanded model and attachment slot names for the reviewed COM3D2_5 3.48 runtime.")
+	partsColor248Source := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/MaidParts.cs", "MaidParts.PARTS_COLOR", 231, 248, "Defines infinite-color channel names and numeric values used by tex commands.")
+	partsColor348Source := source("COM3D2_5 3.48.0", "COM3D2_5 3.48.0/Assembly-CSharp/MaidParts.cs", "MaidParts.PARTS_COLOR", 232, 249, "Retains the reviewed infinite-color channel ordering in COM3D2_5 3.48.")
+	systemMaterial248Source := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/GameUty.cs", "GameUty.SystemMaterial", 1295, 1302, "Defines system blend materials accepted by texture-composition commands.")
+	systemMaterial348Source := source("COM3D2_5 3.48.0", "COM3D2_5 3.48.0/Assembly-CSharp/GameUty.cs", "GameUty.SystemMaterial", 1564, 1571, "Retains the reviewed system blend-material ordering in COM3D2_5 3.48.")
+	bodyStateSource := source("COM3D2_5 3.48.0", "COM3D2_5 3.48.0/Assembly-CSharp/TBodySkin.cs", "TBodySkin body-state enums", 2164, 2193, "Defines nipple, penis, and target-body enum values used by COM3D2_5-only menu commands.")
+	meshMorphSource := source("COM3D2_5 3.48.0", "COM3D2_5 3.48.0/Assembly-CSharp/TMorphSkin.cs", "TMorphSkin.BaseBlendValue.Tag", 1833, 1838, "Defines the mesh-morph base-blend tags used by the COM3D2_5 meshmorph command.")
 
 	return []ValueSet{
 		{

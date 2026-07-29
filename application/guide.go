@@ -21,8 +21,8 @@ type GuideDocument struct {
 	SHA256 string
 	// SchemaID 是指南引用的编辑模式标识符 / SchemaID is the editing schema identifier referenced by the guide
 	SchemaID string
-	// Coverage 描述指南覆盖的格式范围 / Coverage describes the format coverage provided by the guide
-	Coverage string
+	// FormatVerification 描述整个文件格式的认证等级 / FormatVerification describes the verification level of the whole file format
+	FormatVerification string
 	// JSON 保存可直接交给调用方的指南 JSON / JSON contains the guide JSON ready for callers to consume
 	JSON []byte
 }
@@ -52,7 +52,7 @@ func (r *Registry) FormatGuide(formatID string) (GuideDocument, error) {
 	return GuideDocument{
 		FormatID: document.FormatID, Version: document.Version, ID: document.ID,
 		MediaType: document.MediaType, SHA256: document.SHA256, SchemaID: document.SchemaID,
-		Coverage: document.Coverage, JSON: append([]byte(nil), document.JSON...),
+		FormatVerification: document.FormatVerification, JSON: append([]byte(nil), document.JSON...),
 	}, nil
 }
 

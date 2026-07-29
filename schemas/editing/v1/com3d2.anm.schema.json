@@ -96,7 +96,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Use valid bone paths and property indices; preserve keyframe order and channel identity.",
       "x-meido-edit-role": "runtime_animation",
       "x-meido-game-usage": "The loader maps each property index to a Unity local position or rotation channel.",
@@ -108,16 +107,25 @@
           "line_end": 850,
           "line_start": 770,
           "observation": "The animation loader validates CM3D2_ANIM, maps property bytes to Unity AnimationCurve channels, and applies the curves to bone paths.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.LoadAniClip"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "BustKeyLeft": {
       "description": "Whether left-bust channels are enabled when supported by the file version.",
       "title": "Left bust animation switch",
       "type": "boolean",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Change only when the corresponding channels are present.",
       "x-meido-edit-role": "runtime_toggle",
       "x-meido-game-usage": "PhotoMotionData and the animation loader use this flag to include or suppress left-bust motion.",
@@ -129,16 +137,25 @@
           "line_end": 850,
           "line_start": 770,
           "observation": "The animation loader validates CM3D2_ANIM, maps property bytes to Unity AnimationCurve channels, and applies the curves to bone paths.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.LoadAniClip"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "BustKeyRight": {
       "description": "Whether right-bust channels are enabled when supported by the file version.",
       "title": "Right bust animation switch",
       "type": "boolean",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Change only when the corresponding channels are present.",
       "x-meido-edit-role": "runtime_toggle",
       "x-meido-game-usage": "The loader applies the same gating to right-bust channels.",
@@ -150,16 +167,25 @@
           "line_end": 850,
           "line_start": 770,
           "observation": "The animation loader validates CM3D2_ANIM, maps property bytes to Unity AnimationCurve channels, and applies the curves to bone paths.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.LoadAniClip"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "Signature": {
       "description": "The CM3D2_ANIM header string.",
       "title": "Animation signature",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep CM3D2_ANIM.",
       "x-meido-edit-role": "format_marker",
       "x-meido-game-usage": "ImportCM validates it before constructing a Unity AnimationClip.",
@@ -171,10 +197,20 @@
           "line_end": 850,
           "line_start": 770,
           "observation": "The animation loader validates CM3D2_ANIM, maps property bytes to Unity AnimationCurve channels, and applies the curves to bone paths.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.LoadAniClip"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "Version": {
       "description": "The version controlling optional bust-key flags.",
@@ -182,7 +218,6 @@
       "minimum": -2147483648,
       "title": "Animation version",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve the original value; use 1001 when creating a modern file with bust flags.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "The reviewed reader accepts the channel stream and uses version-aware handling for BustKeyLeft and BustKeyRight.",
@@ -196,10 +231,20 @@
           "line_end": 850,
           "line_start": 770,
           "observation": "The animation loader validates CM3D2_ANIM, maps property bytes to Unity AnimationCurve channels, and applies the curves to bone paths.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.LoadAniClip"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -210,6 +255,11 @@
   "title": "com3d2.anm editing JSON",
   "type": "object",
   "x-meido-format-id": "com3d2.anm",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "ImportCM.LoadAniClip and PhotoMotionData's version handling were reviewed in COM3D2 2.48.0; COM3D2_5 keeps the same property-channel model."
+  },
   "x-meido-native-suffixes": [
     ".anm"
   ],

@@ -1,9 +1,9 @@
 [English](#english) | [简体中文](#简体中文) | [日本語](#日本語)
 
-[Disclaimer/How to Dev/Credit/KISS Rule](#how-to-dev)
+[AI Agent Guide](docs/ai-agent.md) | [Development](#how-to-dev) | [KISS Rule](#kiss-rule) | [Disclaimer](#disclaimer) | [Credits](#credit)
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/MeidoPromotionAssociation/MeidoSerialization)](https://goreportcard.com/report/github.com/MeidoPromotionAssociation/MeidoSerialization)
-[![Github All Releases](https://img.shields.io/github/downloads/MeidoPromotionAssociation/MeidoSerialization/total.svg)]()
+[![GitHub All Releases](https://img.shields.io/github/downloads/MeidoPromotionAssociation/MeidoSerialization/total.svg)](https://github.com/MeidoPromotionAssociation/MeidoSerialization/releases)
 [![Go Reference](https://pkg.go.dev/badge/github.com/MeidoPromotionAssociation/MeidoSerialization.svg)](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
 
@@ -13,181 +13,327 @@
 
 ## Introduction
 
-MeidoSerialization is a serialization library written in Golang, designed to handle file formats used
-in [KISS](https://www.kisskiss.tv/) games. It currently supports [CM3D2](https://www.kisskiss.tv/cm3d2/),
-[COM3D2](https://com3d2.jp/), and the newer KCES character-editing file formats.
+MeidoSerialization is a Go serialization and format-conversion toolkit for proprietary file formats used by
+[KISS](https://www.kisskiss.tv) games. It supports legacy [CM3D2](https://www.kisskiss.tv/cm3d2/) and
+[COM3D2](https://com3d2.jp/) formats, as well as the later [KCES](https://kces.jp/) character-editing formats used by
+COM3D2.5 and CRC3D3. The same implementation is available through Go packages, a command-line tool, a versioned gRPC
+API, and an MCP stdio server.
 
 <br>
 
-If you like it, please light up the Star~
+If this project is useful to you, please consider giving it a star.
 
-Any Bug or request, plsease use Issues or Discussions
+Please report bugs and feature requests through GitHub Issues or Discussions.
 
-Or you can find me in Discord [Custom Maid Server](https://discord.gg/custommaid)
+You can also find me in the Discord [Custom Maid Server](https://discord.gg/custommaid).
+
+Please ask questions or provide feedback in the group instead of sending direct messages.
 
 ## Features
 
-- Read and write various file formats used in CM3D2, COM3D2, and KCES
-- Convert binary game files to JSON format for easy editing
-- Convert JSON files back to binary game formats
-- Expose the same conversion engine through versioned protobuf/gRPC and MCP stdio
-  transports ([transport API documentation](docs/transport-api.md))
-- Support for multiple file types including: .menu, .mate, .pmat, .col, .phy, .psk, .tex, .anm, .model, .nei,
-  .preset/.perset,
-  .arc, .bytes (dance data)
+- Read, validate, and write COM3D2/CM3D2 and KCES data
+- Convert supported native formats to strict editing JSON and back
+- Detect formats by content and batch-convert individual files or directories
+- List, extract, unpack, and pack COM3D2 ARC and KCES CT/ABA containers
+- Export KCES Texture2D, Sprite, AudioClip, Mesh, and AnimationClip data
+- Convert COM3D2 TEX files
+- Expose the same conversion capabilities through versioned protobuf/gRPC
+- Support MCP stdio so that AI agents can perform edits
+- Publish Draft 2020-12 Schemas and source-reviewed field Guides for strongly typed tools and AI-assisted editing
 
-gRPC `--root` entries are read-only. MCP defaults to an unrestricted
-direct-path convenience mode; supplying `--root`, `--write-root`, or
-`--restrict-paths` switches it to confined root-ID mode. gRPC inline payloads
-are capped at 3 MiB, larger data uses bounded temporary blobs, and archive
-listings are paged. KCES raw Unity `.bytes` inputs and outputs preserve
-adjacent metadata and TypeTree sidecars as one artifact bundle. Dance
-transport IDs are `com3d2.timeline` and `com3d2.object_data`.
+KCES, gRPC, and MCP support is available in MeidoSerialization v2.0.0 and later.
 
-### Schema-first editing
+## Supported Formats
 
-Callers that need a strongly typed editor do not have to convert a sample file
-first. Call gRPC `GetCapabilities`, select a format with
-`has_editing_schema: true`, then call `GetFormatSchema` with its `format_id`.
-The response contains the complete Draft 2020-12 document as
-`application/schema+json` bytes. Verify `sha256`, cache by `schema_id` and
-`schema_version`, and pass the document to a JSON Schema code generator (for
-example quicktype, `json-schema-to-typescript`, NJsonSchema, or `typify`).
-The generated types describe the editing JSON accepted by `Validate` and
-`Convert`, including polymorphic `oneOf` branches, recursive `$defs`, base64
-byte fields, and standard exact integer ranges. MCP clients fetch the same
-bytes from
-`meido://schemas/{format_id}`. Native-only formats such as `.arc` have no
-editing schema and are intentionally not exposed as typed editing documents.
-JSON Schema covers the structural contract; call `Validate` after editing to
-enforce cross-field and native-wire invariants before conversion.
+Compatibility is currently checked against COM3D2 v2.48.0, COM3D2.5 v3.48.0, and KCES 1.34.4.
 
-For semantic editing help, fetch `GetFormatGuide` after the Schema. The Guide
-is an embedded source-review profile that maps JSON paths and Schema
-pointers to the field's actual game usage, edit role, risk, invariants, enum
-meanings, and source evidence. Script-like formats can additionally publish
-structured command forms, positional arguments, target-build coverage, and
-shared game-constant `value_sets`; an argument's `value_set_refs` identifies
-the exact enum or slot table to use. Unprefixed states describe AI source review:
-`runtime_verified` means the documented game code path was checked against the
-cited source, while `serialization_verified` means the codec or wire-preservation
-boundary was checked and resource-specific payload members may remain opaque.
-They do not claim human approval. The `human_` prefix is reserved for explicit
-human review, for example `human_runtime_verified` and
-`human_serialization_verified`. `schema_only` confirms only JSON shape and must
-be preserved unless the caller has independent evidence. Every published editing
-format now has a checked-in reviewed profile. The effective Guide merges that
-profile with the complete Schema-derived field inventory, so coverage remains
-field-specific and unreviewed fields remain explicitly `schema_only`. The normal workflow is
-Capabilities -> Schema -> Guide -> skill/`meido.edit_format` -> inspect ->
-minimal edit -> Validate -> Convert. Guide and Schema generation do not read
-the local `game` source tree.
+Unless stated otherwise, “JSON” below means the strict editing JSON representation shared by the CLI, services, gRPC,
+and MCP.
 
-## Supported File Types
+### CM3D2 / COM3D2
 
-Current Game Version COM3D2 v2.47.0 & COM3D2.5 v3.47.0
+| File or extension                                        | Description        | Supported operations        | Notes                                                                        |
+|----------------------------------------------------------|--------------------|-----------------------------|------------------------------------------------------------------------------|
+| `.menu`                                                  | Menu script        | Native ↔ JSON               | All currently known versions                                                 |
+| `.mate`, `.mat`                                          | Material file      | Native ↔ JSON               | Includes COM3D2.5-only material fields; `.mat` is accepted as an alias       |
+| `.pmat`                                                  | Render order       | Native ↔ JSON               | All currently known versions                                                 |
+| `.col`                                                   | Collider           | Native ↔ JSON               | All currently known versions                                                 |
+| `.phy`                                                   | Physics parameters | Native ↔ JSON               | All currently known versions                                                 |
+| `.psk`                                                   | Skirt physics      | Native ↔ JSON               | Shared with KCES; no structural changes after version 217                    |
+| `.anm`                                                   | Animation          | Native ↔ JSON               | All currently known versions                                                 |
+| `.model`                                                 | Model              | Native ↔ JSON               | Versions 1000–2200                                                           |
+| `.preset`                                                | Character preset   | Native ↔ JSON               | All currently known versions; embedded KCES data is preserved                |
+| `timeline_data.bytes`                                    | Dance timeline     | Native ↔ JSON               | Transport format ID: `com3d2.timeline`                                       |
+| `maid_data.bytes`, `item_data.bytes`, `event_data.bytes` | Dance object data  | Native ↔ JSON               | Format ID: `com3d2.object_data`; subtype is detected from content            |
+| `.tex`                                                   | Texture            | TEX ↔ image                 | Version 1000 is read-only; writes use 1010 or 1011 and support DXT1/DXT5     |
+| `.nei`                                                   | Encrypted CSV      | NEI ↔ CSV                   | Shared with KCES; native text uses Shift-JIS and CSV I/O uses UTF-8 with BOM |
+| `.arc`                                                   | Archive            | List, extract, pack, unpack | Encrypted ARC files are not supported                                        |
+| `.save`                                                  | Save data          | Detect only                 | Conversion is not provided                                                   |
 
-| Extension | Description           | Version Support           | Conversion       | Note                                                                                                                                                                                     |
-|-----------|-----------------------|---------------------------|:-----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| .menu     | Menu files            | All versions[¹](#note1en) | .menu ↔ .json    |                                                                                                                                                                                          |
-| .mate     | Material files        | All versions[²](#note2en) | .mate ↔ .json    |                                                                                                                                                                                          |
-| .pmat     | Rendering order files | All versions[¹](#note1en) | .pmat ↔ .json    |                                                                                                                                                                                          |
-| .col      | Collider files        | All versions[¹](#note1en) | .col ↔ .json     |                                                                                                                                                                                          |
-| .phy      | Physics files         | All versions[¹](#note1en) | .phy ↔ .json     |                                                                                                                                                                                          |
-| .psk      | Panier skirt files    | All versions[³](#note3en) | .psk ↔ .json     |                                                                                                                                                                                          |
-| .tex      | Texture files         | All versions[¹](#note1en) | .tex ↔ image     | not support write version 1000, because version 1000 is poorly designed (CM3D2 also supports version 1010,so there is no reason to use), supports compression to DXT1/DXT5               |
-| .anm      | Animation files       | All versions              | .anm ↔ .json     |                                                                                                                                                                                          |
-| .model    | Model files           | Versions 1000-2200        | .model ↔ .json   |                                                                                                                                                                                          |
-| .nei      | Encrypted CSV files   | All Versions[¹](#note1en) | .nei ↔ .csv      | .nei files use Shift-JIS encoding internally, but we use UTF-8-BOM encoding when reading and writing CSV files. Using characters not supported by Shift-JIS may result in errors.        |
-| .preset   | Preset files          | All versions              | .preset ↔ .json  |                                                                                                                                                                                          |
-| .arc      | archive files         | All versions[¹](#note1en) | .arc ↔ directory | Encrypted .arc files are not supported. If you own the corresponding original DLC(dlc.arc and dlc_2.arc), _2.arc will be decrypted upon game launch. Therefore, decryption is pointless. |
-| .bytes    | Dance binary data     | All versions[¹](#note1en) | .bytes ↔ .json   | Supports timeline_data.bytes, maid_data.bytes, item_data.bytes, event_data.bytes. File type is determined by content sniffing.                                                           |
+### KCES / COM3D2.5
 
-<div id="note1en">¹ No structural changes so far, so version numbers are irrelevant</div>
-<div id="note2en">² No structural changes so far, but there are some COM3D2.5-only features</div>
-<div id="note3en">³ No structural change since version 217</div>
+| File or extension                                   | Description                                      | Supported operations                   | Notes                                                                                          |
+|-----------------------------------------------------|--------------------------------------------------|----------------------------------------|------------------------------------------------------------------------------------------------|
+| `.ct`                                               | VirtualDirectory/content table                   | JSON conversion and archive operations | Supports CT catalog inspection and directory packing/unpacking                                 |
+| `.aba`                                              | UnityFS AssetBundle                              | List, pack, unpack                     | `packAba` produces a paired `.aba` + `.ct`; encrypted `abap` bundles cannot be decrypted       |
+| `.asset_bg`, `.asset_scene`                         | UnityFS AssetBundle                              | List, extract, unpack                  | Uses the same format as ABA                                                                    |
+| `.menuassets`                                       | Menu-file container                              | Native ↔ JSON                          |                                                                                                |
+| `.materialassets`                                   | Material-file container                          | Native ↔ JSON                          |                                                                                                |
+| `.pmatassets`                                       | Render-order-file container                      | Native ↔ JSON                          |                                                                                                |
+| `.model`                                            | Model data without mesh geometry                 | Native ↔ JSON                          |                                                                                                |
+| `.dbconf`                                           | Physics and collider payload                     | Native ↔ JSON                          |                                                                                                |
+| `.dbcol`                                            | Physics and collider payload                     | Native ↔ JSON                          |                                                                                                |
+| `.db2conf`                                          | Physics and collider payload                     | Native ↔ JSON                          |                                                                                                |
+| `.dsbconf`                                          | Physics and collider payload                     | Native ↔ JSON                          |                                                                                                |
+| `.dsb2conf`                                         | Physics and collider payload                     | Native ↔ JSON                          |                                                                                                |
+| `.dslconf`                                          | Physics and collider payload                     | Native ↔ JSON                          |                                                                                                |
+| `.dsl2conf`                                         | Physics and collider payload                     | Native ↔ JSON                          |                                                                                                |
+| `.dslcol`                                           | Physics and collider payload                     | Native ↔ JSON                          |                                                                                                |
+| `.ikcol`                                            | Physics and collider payload                     | Native ↔ JSON                          |                                                                                                |
+| `.ikcol.bytes`                                      | Physics and collider payload                     | Native ↔ JSON                          |                                                                                                |
+| `.limbcol`                                          | Physics and collider payload                     | Native ↔ JSON                          |                                                                                                |
+| `.hitcheck`                                         | Hit-check data                                   | Native ↔ editing JSON                  |                                                                                                |
+| `.undressdat`                                       | Hit-check data                                   | Native ↔ editing JSON                  | The native format is JSON                                                                      |
+| `.undresspdat`                                      | Hit-check data                                   | Native ↔ editing JSON                  | The native format is JSON                                                                      |
+| `.nson`                                             | Binary JSON variant                              | Native ↔ editing JSON                  | The native format is JSON                                                                      |
+| `.preset`                                           | Character preset                                 | Native ↔ JSON                          |                                                                                                |
+| `system.dat`                                        | System state                                     | Native ↔ editing JSON                  |                                                                                                |
+| `paths.dat`                                         | Resource search paths                            | Native ↔ editing JSON                  |                                                                                                |
+| `bridge_session.vd`                                 | Inter-game bridge-transfer file                  | Native ↔ JSON                          |                                                                                                |
+| `.brd`                                              | Bridge, name-map, attachment, and collider state | Native ↔ JSON                          |                                                                                                |
+| `.enm`                                              | Bridge, name-map, attachment, and collider state | Native ↔ JSON                          |                                                                                                |
+| `.sad`                                              | Bridge, name-map, attachment, and collider state | Native ↔ JSON                          |                                                                                                |
+| `maid_collider.bytes`                               | Bridge, name-map, attachment, and collider state | Native ↔ JSON                          |                                                                                                |
+| Raw Unity `.bytes` object plus adjacent sidecars    | Unity serialized object                          | Raw object ↔ JSON                      | `.meta.json` and optional `.typetree.json` travel with the primary file as one artifact bundle |
+| Native Texture2D and Sprite object files            | Image                                            | Texture2D → PNG/DDS; Sprite → PNG      | One-way conversion                                                                             |
+| Native Mesh `.mmesh` and AnimationClip object files | 3D and animation data                            | → glTF 2.0/GLB                         | One-way conversion; some data remains in `.model`, so output is intended for preview           |
+| Native AudioClip object files                       | Encoded audio                                    | Lossless inline-payload extraction     | One-way conversion; recognizes OGG, WAV, and FSB5 signatures without transcoding               |
 
-Each file corresponds to a .go
-file：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2)
+The serializer implementations are under [`serialization/COM3D2`](serialization/COM3D2) and
+[`serialization/KCES`](serialization/KCES).
+
+For the authoritative application-level capability list, call gRPC `GetCapabilities` or read the MCP
+`meido://capabilities` resource.
 
 ## References
 
-- This library was originally developed for the [COM3D2_MOD_EDITOR](https://github.com/90135/COM3D2_MOD_EDITOR) project
-  and was later made independent for easier use. You can also refer to that project for usage examples.
--
+- This library was originally developed for [COM3D2_MOD_EDITOR](https://github.com/90135/COM3D2_MOD_EDITOR) and was
+  later separated for easier reuse; that project also provides useful usage examples.
+- API reference: [pkg.go.dev](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
+- Automatically generated project
+  overview: [DeepWiki](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
+  (may contain AI hallucinations)
+- AI agent installation and basics: [docs/ai-agent.md](docs/ai-agent.md)
 
-pkg.go.dev: [https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
+## Requirements
 
-- DeepWiki (Note: May contain AI
-  hallucinations): [https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
-
-## External Dependencies
-
-- For texture file (.tex) conversion, ImageMagick version 7 or higher is required
+- A prebuilt CLI does not require a Go toolchain
+- Building from source requires Go 1.26.5 or later, matching `go.mod`
+- COM3D2 `.tex` image conversion requires ImageMagick 7 or later with `magick` available on `PATH`
 
 ## Usage
 
-### Using as a Go Package
+### Use as a CLI
 
-1. This repository is published as
-   a [Go package](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
-2. Install using the go get command:
-   ```bash
-   go get github.com/MeidoPromotionAssociation/MeidoSerialization
-   ```
-3. For texture (.tex) file processing, ensure ImageMagick 7.0 or higher is installed and added to your system PATH
+Download a prebuilt executable from
+[GitHub Releases](https://github.com/MeidoPromotionAssociation/MeidoSerialization/releases).
 
-#### Use as a command line interface
+Read the [complete CLI documentation](cmd/README.md).
 
-The MeidoSerialization CLI is a command-line interface for the MeidoSerialization library.
+**CLI quick start**
 
-It allows you to convert between COM3D2 MOD files and JSON format using the command line. It also allows you to perform
-single or batch conversions between .tex and images, or between .nei and .csv.
+```powershell
+# Detect and convert a file, or recursively process supported files in a directory
+MeidoSerialization.exe convert .\example.menu
+MeidoSerialization.exe convert .\mods
 
-JSON files converted by this tool can also be read
-by  [COM3D2 MOD EDITOR V2](https://github.com/MeidoPromotionAssociation/COM3D2_MOD_EDITOR).
+# Explicit native/editing JSON conversion
+MeidoSerialization.exe convert2json .\example.menu
+MeidoSerialization.exe convert2mod .\example.menu.json
 
-For details, please see the separate
-instructions: [cmd instructions](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
+# Inspect and unpack KCES containers
+MeidoSerialization.exe listCt .\example.ct
+MeidoSerialization.exe listAba .\example.aba
+MeidoSerialization.exe unpackAba .\example.aba -o .\unpacked
 
-### Usage examples
+# Export standalone native Unity objects
+MeidoSerialization.exe convert2image .\texture.texture2d.bytes
+MeidoSerialization.exe convert2gltf .\mesh.mesh.bytes --format glb
+MeidoSerialization.exe convert2audio .\voice.audioclip.bytes
+```
 
-#### Use as a command line interface
+Command groups:
 
-See separate instructions for
-details: [cmd instructions](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
+- Conversion and detection: `convert`, `convert2json`, `convert2mod`, `determine`
+- Images, models, animations, and audio: `convert2tex`, `convert2image`, `convert2gltf`, `convert2audio`
+- NEI/CSV: `convert2csv`, `convert2nei`
+- COM3D2 ARC: `listArc`, `extractArc`, `packArc`, `unpackArc`
+- KCES CT/ABA: `listCt`, `packCt`, `unpackCt`, `listAba`, `packAba`, `unpackAba`
+- KCES MOD workflow: `inspectKcesCatalog`, `packKcesMod`
+- APIs: `serve grpc`, `mcp`
+- Utilities: `version`, `completion`
 
-The CLI provides the following main commands:
+Use `MeidoSerialization.exe --help` or `<command> --help` for current flags and examples. The complete command reference
+is in [cmd/README.md](cmd/README.md). `--strict` (`-s`) enables content-based type determination; `--type` (`-t`)
+filters directory operations by a native type or `<type>.json`.
 
-- `convert`: Automatically detects and converts files between MOD and JSON formats, TEX and image formats, and NEI and
-  CSV formats.
-- `convert2json`: Converts MOD files to JSON format.
-- `convert2mod`: Converts JSON files back to MOD format.
-- `convert2tex`: Converts regular image files to texture files (.tex).
-- `convert2image`: Converts .tex files to regular image formats.
-- `convert2csv`: Converts .nei files to .csv format.
-- `convert2nei`: Converts .csv files to .nei format.
-- `packArc`: Packs a folder into a .arc file.
-- `unparkArc`: Unpacks .arc files into a folder.
-- `listArc`: Lists all files inside a .arc archive.
-- `extractArc`: Extracts files from a .arc archive by extension or file path/name.
-- `determine`: Determines the type of files in a directory or a single file.
-- `version`: Gets the version information of MeidoSerialization.
+### Use the MCP service
 
-#### Global flags
+The transport mode is always `stdio`: the MCP Host launches `MeidoSerialization.exe mcp` as a child process, exchanges
+MCP protocol messages through stdin/stdout, and receives diagnostics through stderr. This server does not expose SSE,
+HTTP, or Streamable HTTP endpoints. The `restricted` and `unrestricted` choices below are filesystem access modes, not
+transport modes. If the Host presents a transport selector, choose `stdio`.
 
-- `--strict` or `-s`: Use strict mode for file type determination (based on content rather than file extension)
-- `--type` or `-t`: Filter by file type. Supported values:
-    - `menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image, arc`
-    - or `'<type>.json'` for MOD JSON files (e.g., `menu.json`)
-    - Note: `<type>` (without `.json`) matches binary only; `<type>.json` matches JSON only.
+Start the server:
 
-### In Go Projects
+```powershell
+# MCP convenience mode; direct paths have the filesystem permissions of the process account
+MeidoSerialization.exe mcp
 
-The library provides two main packages:
+# MCP restricted mode; path tools use root IDs
+MeidoSerialization.exe mcp --root mods=D:\Games\COM3D2\Mod --write-root work=D:\MeidoWork
+```
 
-- `service` package: Provides methods for reading and writing files directly
-- `serialization` package: Provides methods for serializing and deserializing structures
+Send this message to your agent to install and configure the tool:
+
+```text
+Install and configure MeidoSerialization MCP by following this document:
+https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/docs/ai-agent.md
+
+After connecting, read meido://capabilities, then follow the document to obtain the matching Schema, Guide, and editing skill.
+```
+
+For manual configuration, start with this convenience-mode example, which does not restrict readable or writable
+directories.
+
+Configuration file locations and outer wrappers vary by Host. The transport is stdio; `command` plus `args` launches
+the stdio child process. A typical configuration is:
+
+```json
+{
+  "mcpServers": {
+    "meido-serialization": {
+      "command": "D:\\Tools\\MeidoSerialization.exe",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}
+```
+
+To restrict readable and writable directories:
+
+```json
+{
+  "mcpServers": {
+    "meido-serialization": {
+      "command": "D:\\Tools\\MeidoSerialization.exe",
+      "args": [
+        "mcp",
+        "--root",
+        "mods=D:\\Games\\COM3D2\\Mod",
+        "--write-root",
+        "work=D:\\MeidoWork"
+      ]
+    }
+  }
+}
+```
+
+Replace the executable and directory paths with actual local paths.
+
+- `--root mods=...` creates a read-only directory named `mods`.
+- `--write-root work=...` creates a readable and writable directory named `work`.
+
+### Use the gRPC service (other programming languages, including strongly typed clients)
+
+```powershell
+# Convenience mode; input.path may read any regular file allowed by the server process account
+MeidoSerialization.exe serve grpc
+
+# Restricted mode; local files must use file { root_id, relative_path }
+MeidoSerialization.exe serve grpc --root mods=D:\Games\COM3D2\Mod
+```
+
+With no `--root` or `--restrict-paths`, gRPC uses unrestricted convenience mode and accepts absolute or relative
+server-local paths in `ArtifactInput.path`. Supplying either option switches it to restricted mode, where direct paths
+are rejected and configured roots are read-only. `GetCapabilities.filesystem_mode` reports the active mode. Conversion
+results still return inline or as blobs; gRPC does not install output files on the server.
+
+The transport layer is documented in [docs/transport-api.md](docs/transport-api.md). Inline artifact bundles are capped
+at 3 MiB; larger data uses quota-bounded temporary blobs, and archive listings are paged. KCES raw Unity `.bytes`
+inputs and outputs preserve adjacent metadata and TypeTree sidecars as one artifact bundle. Dance transport IDs are
+`com3d2.timeline` and `com3d2.object_data`.
+
+#### Schema-first editing
+
+Callers that need strongly typed definitions do not have to convert a sample file first.
+
+First call gRPC `GetCapabilities`, select a format with `has_editing_schema: true`, and then call `GetFormatSchema` with
+its `format_id`.
+
+The response contains the complete Draft 2020-12 document as `application/schema+json` bytes.
+
+Alternatively, obtain the checked-in Schema JSON files directly from the repository:
+[location](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/schemas/editing/v1).
+
+Pass the Schema to a JSON Schema code generator such as
+[quicktype](https://github.com/glideapps/quicktype), `json-schema-to-typescript`, NJsonSchema, or `typify`.
+
+This generates usable code and exposes the structure. Callers should also verify `sha256` and cache by `schema_id` and
+`schema_version`.
+
+<details>
+
+<summary>Detailed explanation</summary>
+
+The generated types describe the editing JSON accepted by `Validate` and `Convert`, including polymorphic `oneOf`
+branches, recursive `$defs`, base64 byte fields, and standard exact integer ranges. MCP clients fetch the same bytes
+from `meido://schemas/{format_id}`. Native-only formats such as `.arc` have no editing Schema and are intentionally not
+exposed as typed editing documents. JSON Schema covers the structural contract; call `Validate` after editing to enforce
+cross-field and native-wire invariants before conversion.
+
+For semantic editing help, fetch `GetFormatGuide` after the Schema. The Guide maps JSON paths and Schema pointers to
+game usage, edit roles, risks, invariants, enum meanings, and evidence. The same verification model is also embedded in
+the JSON Schema: `x-meido-format-verification` appears at the root, and reviewed properties carry
+`x-meido-verification` beside their title, description, game usage, and editing guidance. Script-like formats can also
+publish structured command forms, positional arguments, target-build notes, and shared game-constant `value_sets`; an
+argument's `value_set_refs` identifies the exact enum or slot table to use.
+
+Whole-file `format_verification.level` has only two values: `serialization_verified` confirms the file's serialization
+contract, while `schema_only` means that only the generated structure is known. It never claims that every field's game
+meaning is known. A completed format verification records `authority: ai` or `authority: human`; the non-certified
+`schema_only` baseline uses `authority: generated`.
+
+Field verification is independent and structured. `serialization` confirms format, position, or read/write behavior
+without claiming game meaning. `source_semantics` confirms the documented purpose or consumption path against game
+source and includes serialization verification. `game_behavior` requires an actual game-runtime observation; source
+review alone never creates that claim. Every present claim has `status: verified` and an explicit `authority` of `ai`
+or `human`. An empty `verification` object means schema-derived only: preserve the field and never infer behavior from
+its name. `field_coverage` is only a count summary and never upgrades an individual field. Every published editing
+format has a checked-in profile. The normal workflow is Capabilities -> Schema -> Guide -> skill/`meido.edit_format`
+-> inspect -> minimal edit -> Validate -> Convert.
+
+MCP exposes the portable workflow at `meido://skills/editing/{format_id}` as a dynamic `text/markdown` resource; it is
+not automatically installed as a WorkBuddy skill or MCP-host plugin. Reading it does not replace the Schema and Guide.
+The `meido.edit_format` Prompt is the convenient entry point because it returns the skill plus the complete Schema and
+Guide together, but it only prepares context and does not edit files by itself. Use whole-file `format_verification` to
+decide whether the serialization contract is known, then inspect the exact field's `verification` claims before
+assigning game meaning.
+
+</details>
+
+### Use in Go projects
+
+```powershell
+go get github.com/MeidoPromotionAssociation/MeidoSerialization@latest
+```
+
+The public implementation is split into two package families for each game:
+
+- `service/COM3D2` and `service/KCES` provide path-based reading, writing, and conversion services
+- `serialization/COM3D2` and `serialization/KCES` provide typed wire encoders and decoders
 
 <details>
 
@@ -198,34 +344,36 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 
 	serialcom "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
-	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
+	com3d2service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
 )
 
 func main() {
-	// Example 1: Using the service package to handle files directly
-	// Create a service for handling material files
-	mateService := &COM3D2Service.MateService{}
+	// Example 1: Use the service package to handle files directly
+	// Create a service for material files
+	mateService := &com3d2service.MateService{}
+	ctx := context.Background()
+	const maxOutputBytes int64 = 64 << 20
 
 	// Convert a binary material file to JSON
-	err := mateService.ConvertMateToJson("example.mate", "example.mate.json")
+	err := mateService.ConvertMateToJson(ctx, "example.mate", "example.mate.json", maxOutputBytes)
 	if err != nil {
 		fmt.Printf("Error converting material file: %v\n", err)
 		return
 	}
 
-	// Convert a JSON file back to binary material format
-	err = mateService.ConvertJsonToMate("example.mate.json", "new_example.mate")
+	// Convert JSON back to the binary material format
+	err = mateService.ConvertJsonToMate(ctx, "example.mate.json", "new_example.mate", maxOutputBytes)
 	if err != nil {
 		fmt.Printf("Error converting JSON to material file: %v\n", err)
 	}
 
-	// Example 2: Using the serialization package to work with structures directly
-	// Read a .phy file
-	// Be sure to refer to the sample code in the service package to ensure that file reading is handled correctly
+	// Example 2: Use the serialization package to work with a structure directly
+	// Read a .phy file; refer to service package examples for complete file handling
 	f, err := os.Open("example.phy")
 	if err != nil {
 		fmt.Printf("Cannot open file: %v\n", err)
@@ -233,20 +381,15 @@ func main() {
 	}
 	defer f.Close()
 
-	// Use a buffered reader
 	br := bufio.NewReader(f)
-
-	// Use the serialization package function to read file content into a structure
 	phyData, err := serialcom.ReadPhy(br)
 	if err != nil {
 		fmt.Printf("Failed to parse .phy file: %v\n", err)
 		return
 	}
 
-	// Modify data in the structure
 	phyData.Damping = 0.8
 
-	// Create a new file and write the modified data
 	newFile, err := os.Create("modified.phy")
 	if err != nil {
 		fmt.Printf("Failed to create new file: %v\n", err)
@@ -254,19 +397,12 @@ func main() {
 	}
 	defer newFile.Close()
 
-	// Use a buffered writer
 	bw := bufio.NewWriter(newFile)
-
-	// Use the Dump method to write the structure to the file
-	err = phyData.Dump(bw)
-	if err != nil {
+	if err := phyData.Dump(bw); err != nil {
 		fmt.Printf("Failed to write .phy file: %v\n", err)
 		return
 	}
-
-	// Flush the buffer
-	err = bw.Flush()
-	if err != nil {
+	if err := bw.Flush(); err != nil {
 		fmt.Printf("Error flushing buffer: %v\n", err)
 		return
 	}
@@ -316,8 +452,7 @@ If you encounter errors when working with texture (.tex) files:
 ### Unable to save when using certain characters in `.nei` file
 
 If you encounter the following error, it's because you're using characters that aren't supported by the Shift-JIS
-encoding.
-.nei files use Shift-JIS encoding internally, and we can't do anything about it. Please remove the unsupported
+encoding. .nei files use Shift-JIS encoding internally, and we can't do anything about it. Please remove the unsupported
 characters.
 
 - `failed to write to .neiData file: failed to encode string: encoding: rune not supported by encoding.`
@@ -358,161 +493,309 @@ This project is licensed under the BSD-3-Clause License - see the LICENSE file f
 
 ## 简介
 
-MeidoSerialization 是一个用 Golang 编写的序列化库，专为处理 [KISS](https://www.kisskiss.tv)
-游戏中使用的文件格式而设计。目前支持 [CM3D2](https://www.kisskiss.tv/cm3d2/)、[COM3D2](https://com3d2.jp/) 以及后续 KCES
-角色编辑系统的文件格式。
+MeidoSerialization 是一个使用 Go 编写的序列化与格式转换工具集，专门处理 [KISS](https://www.kisskiss.tv)
+游戏使用的专有文件格式。目前同时支持传统 [CM3D2](https://www.kisskiss.tv/cm3d2/)、
+[COM3D2](https://com3d2.jp/) 格式，以及 COM3D2.5 和 CRC3D3 使用的后续 [KCES](https://kces.jp/) 角色编辑系统格式。同一套实现可以通过
+Go 包、命令行工具、版本化 gRPC API 和 MCP stdio 服务器调用。
 
 <br>
 
-如果您喜欢，请点亮 Star~
+如果本项目对您有帮助，欢迎点亮 Star~
 
-任何 Bug 或请求，请使用 Issues 或 Discussions
+如需报告 Bug 或提出功能建议，请使用 GitHub Issues 或 Discussions。
 
-你也可以在 Discord [Custom Maid Server](https://discord.gg/custommaid) 找到我
+您也可以在 Discord [Custom Maid Server](https://discord.gg/custommaid) 找到我。
 
 有问题请在群内提问/反馈，请勿私聊
 
 ## 功能特点
 
-- 读取和写入 CM3D2、COM3D2 和 KCES 使用的各种文件格式
-- 将二进制游戏文件转换为 JSON 格式以便于编辑
-- 将 JSON 文件转换回二进制游戏格式
-- 通过版本化 protobuf/gRPC 和 MCP stdio 接口提供统一的转换能力（详见[传输 API 文档](docs/transport-api.md)）
-- 支持多种文件类型，包括：.menu、.mate、.pmat、.col、.phy、.psk、.tex、.anm、.model、.nei、.preset/.perset、.arc、.bytes（舞蹈数据）
+- 读取、校验并写出 COM3D2/CM3D2 与 KCES 数据
+- 在受支持的原生格式与严格 editing JSON 之间双向转换
+- 按内容识别文件格式，并对单个文件或目录执行批量转换
+- 列出、提取、解包和打包 COM3D2 ARC 及 KCES CT/ABA 容器
+- 导出 KCES Texture2D、Sprite、AudioClip、Mesh 和 AnimationClip 数据
+- 转换 COM3D2 TEX
+- 通过版本化 protobuf/gRPC 接口提供统一的转换能力
+- 支持 MCP stdio 协议，让您可以使用 AI 进行编辑
+- 为强类型工具和 AI 辅助编辑提供 Draft 2020-12 Schema 与经过源码审阅的字段 Guide
 
-gRPC 的 `--root` 只读。MCP 默认使用可直接传入 `path`/`output_path` 的便捷模式；
-添加 `--root`、`--write-root` 或 `--restrict-paths` 后切换为受根目录白名单约束的
-安全模式。gRPC 一个 artifact bundle 的内联字节共享 3 MiB 预算，更大的文件使用
-受配额约束的临时 blob，归档列表使用分页；舞蹈格式 ID 为 `com3d2.timeline` 和
-`com3d2.object_data`。KCES raw Unity `.bytes` 的相邻 metadata/TypeTree sidecar 会作为
-同一个 artifact bundle 一起保留。
+KCES、gRPC、MCP 支持在 MeidoSerialization v2.0.0 版本后可用。
 
-### 先获取 Schema，再构建强类型编辑器
+## 支持的格式
 
-调用方无需先转换一个样本文件即可构建编辑器。先调用 gRPC
-`GetCapabilities`，选择 `has_editing_schema: true` 的 `format_id`，再调用
-`GetFormatSchema`。响应中的 `schema_json` 是完整的 Draft 2020-12
-`application/schema+json` 文档；使用 `sha256` 校验内容，并以
-`schema_id` 和 `schema_version` 作为缓存键，然后交给 TypeScript、C#、Rust
-等 JSON Schema 代码生成器。生成的类型就是 `Validate`/`Convert` 接受的
-editing JSON 结构，包含 `oneOf` 多态分支、递归 `$defs`、base64 字节字段和
-标准精确整数范围。MCP 使用同一份文档，资源 URI 为
-`meido://schemas/{format_id}`。仅原生格式（例如 `.arc`）没有 editing
-Schema，不会伪造一个强类型编辑结构。JSON Schema 负责结构约束；编辑后仍应先
-调用 `Validate`，由原生序列化器检查跨字段关系和 wire 语义，再执行转换。
+当前兼容性以 COM3D2 v2.48.0 和 COM3D2.5 v3.48.0 以及 KCES 1.34.4 为基准进行检查。
 
-需要字段语义时，在 Schema 之后调用 `GetFormatGuide`。Guide 是对照源码生成并嵌入程序
-的审阅 profile，逐个说明 JSON 路径、Schema 指针、游戏实际用途、编辑角色、风险、
-枚举含义、跨字段不变量和源码证据。无前缀状态表示 AI 源码审阅：
-`runtime_verified` 表示已对照引用源码核对运行路径；`serialization_verified` 表示已核对
-编解码或 wire 保真边界，但资源特有的载荷成员仍可能是不透明的。二者都不表示真人
-批准。`human_` 前缀专门保留给明确的真人复核，例如 `human_runtime_verified` 和
-`human_serialization_verified`。`schema_only` 只确认 JSON 结构，未审阅字段必须原样
-保留，不得根据名字猜测用途。现在每个已发布的 editing format 都有审阅后的
-profile；有效 Guide 会将 profile 与 Schema 派生的完整字段目录合并，因此覆盖范围仍然
-精确到字段，未审阅字段仍明确标为 `schema_only`。推荐调用顺序是：Capabilities -> Schema
--> Guide -> skill/`meido.edit_format` -> inspect -> 最小修改 -> Validate -> Convert。
-Guide 和 Schema 的生成器都不读取本地 `game` 源码目录。
+除非另有说明，下表中的“JSON”均指 CLI、service、gRPC 和 MCP 共用的严格 editing JSON 表示。
 
-## 支持的文件类型
+### CM3D2 / COM3D2
 
-当前游戏版本 COM3D2 v2.47.0 和 COM3D2.5 v3.47.0
+| 文件或扩展名                                             | 内容/描述    | 支持的操作             | 备注                                                                  |
+|----------------------------------------------------------|--------------|------------------------|-----------------------------------------------------------------------|
+| `.menu`                                                  | 菜单脚本     | 原生格式 ↔ JSON        | 支持目前已知的全部版本                                                |
+| `.mate`、`.mat`                                          | 材质文件     | 原生格式 ↔ JSON        | 包含仅 COM3D2.5 使用的材质字段；`.mat` 可作为别名                     |
+| `.pmat`                                                  | 渲染顺序     | 原生格式 ↔ JSON        | 支持目前已知的全部版本                                                |
+| `.col`                                                   | 碰撞体       | 原生格式 ↔ JSON        | 支持目前已知的全部版本                                                |
+| `.phy`                                                   | 物理参数     | 原生格式 ↔ JSON        | 支持目前已知的全部版本                                                |
+| `.psk`                                                   | 裙子专用物理 | 原生格式 ↔ JSON        | 与 KCES 共用；版本 217 以后没有结构变化                               |
+| `.anm`                                                   | 动画文件     | 原生格式 ↔ JSON        | 支持目前已知的全部版本                                                |
+| `.model`                                                 | 模型         | 原生格式 ↔ JSON        | 支持版本 1000–2200                                                    |
+| `.preset`                                                | 角色预设     | 原生格式 ↔ JSON        | 支持目前已知的全部版本，并保留内嵌 KCES 数据                          |
+| `timeline_data.bytes`                                    | 舞蹈时间线   | 原生格式 ↔ JSON        | 传输 API 中的格式 ID 为 `com3d2.timeline`                             |
+| `maid_data.bytes`、`item_data.bytes`、`event_data.bytes` | 舞蹈对象数据 | 原生格式 ↔ JSON        | 传输 API 中的格式 ID 为 `com3d2.object_data`，按内容识别子类型        |
+| `.tex`                                                   | 纹理         | TEX ↔ 图片             | 版本 1000 只读；写出使用 1010 或 1011，并支持 DXT1/DXT5               |
+| `.nei`                                                   | 加密 CSV     | NEI ↔ CSV              | 与 KCES 共用；原生文本使用 Shift-JIS，CSV 输入输出使用带 BOM 的 UTF-8 |
+| `.arc`                                                   | 归档文件     | 列出、提取、打包、解包 | 不支持加密 ARC                                                        |
+| `.save`                                                  | 存档         | 仅识别                 | 不提供转换功能                                                        |
 
-| 扩展名     | 描述        | 版本支持              | 转换             | 备注                                                                                   |
-|---------|-----------|-------------------|----------------|--------------------------------------------------------------------------------------|
-| .menu   | 菜单文件      | 所有版本[¹](#note1zh) | .menu ↔ .json  |                                                                                      |
-| .mate   | 材质文件      | 所有版本[²](#note2zh) | .mate ↔ .json  |                                                                                      |
-| .pmat   | 渲染顺序文件    | 所有版本[¹](#note1zh) | .pmat ↔ .json  |                                                                                      |
-| .col    | 碰撞体文件     | 所有版本[¹](#note1zh) | .col ↔ .json   |                                                                                      |
-| .phy    | 物理文件      | 所有版本[¹](#note1zh) | .phy ↔ .json   |                                                                                      |
-| .psk    | 裙撑文件      | 所有版本[³](#note3zh) | .psk ↔ .json   |                                                                                      |
-| .tex    | 纹理文件      | 所有版本[¹](#note1zh) | .tex ↔ 图片      | 不支持写出版本 1000，因为版本 1000 设计不佳（CM3D2 也支持版本 1010，因此没有理由使用），支持压缩为 DXT1/DXT5               |
-| .anm    | 动画文件      | 所有版本              | .anm ↔ .json   |                                                                                      |
-| .model  | 模型文件      | 1000-2200 版本      | .model ↔ .json |                                                                                      |
-| .nei    | 加密 CSV 文件 | 所有版本[¹](#note1zh) | .nei ↔ .csv    | .nei 内部使用 Shift-JIS 编码，但我们在读写时 CSV 时会使用 UTF-8-BOM 编码，如果使用了 Shift-JIS 不支持字符则可能会出错     |
-| .preset | 角色预设文件    | 所有版本[¹](#note1zh) | .menu ↔ .json  |                                                                                      |
-| .arc    | 归档文件      | 所有版本[¹](#note1zh) | .arc ↔ 文件夹     | 不支持加密的 .arc 文件。如果您拥有相应的原版 DLC（dlc.arc 和 dlc_2.arc），则 _2.arc 将在游戏启动时自动解密。因此，解密是没有意义的。 |
-| .bytes  | 舞蹈二进制数据   | 所有版本[¹](#note1zh) | .bytes ↔ .json | 支持 timeline_data.bytes、maid_data.bytes、item_data.bytes、event_data.bytes，通过内容嗅探区分子类型。 |
+### KCES / COM3D2.5
 
-<div id="note1zh">¹ 目前为止未发生过结构更改，因此版本号无关紧要</div>
-<div id="note2zh">² 目前为止未发生过结构更改，但有一些属性只在 COM3D2.5 有效</div>
-<div id="note3zh">³ 自版本 217 以后没有发生结构变化</div>
+| 文件或扩展名                               | 内容/描述                        | 支持的操作                        | 备注                                                                         |
+|--------------------------------------------|----------------------------------|-----------------------------------|------------------------------------------------------------------------------|
+| `.ct`                                      | VirtualDirectory/内容表          | JSON 转换和归档操作               | 支持 CT catalog 检查及目录打包/解包                                          |
+| `.aba`                                     | UnityFS AssetBundle              | 列出、打包、解包                  | `packAba` 会生成配套的 `.aba` + `.ct`；不支持解密 `abap` 加密包              |
+| `.asset_bg`、`.asset_scene`                | UnityFS AssetBundle              | 列出、提取、解包                  | 与 aba 完全相同                                                              |
+| `.menuassets`                              | 菜单文件容器                     | 原生格式 ↔ JSON                   |                                                                              |
+| `.materialassets`                          | 材质文件容器                     | 原生格式 ↔ JSON                   |                                                                              |
+| `.pmatassets`                              | 渲染顺序文件容器                 | 原生格式 ↔ JSON                   |                                                                              |
+| `.model`                                   | 模型数据（不含网格）             | 原生格式 ↔ JSON                   |                                                                              |
+| `.dbconf`                                  | 物理与碰撞载荷                   | 原生格式 ↔ JSON                   |                                                                              |
+| `.dbcol`                                   | 物理与碰撞载荷                   | 原生格式 ↔ JSON                   |                                                                              |
+| `.db2conf`                                 | 物理与碰撞载荷                   | 原生格式 ↔ JSON                   |                                                                              |
+| `.dsbconf`                                 | 物理与碰撞载荷                   | 原生格式 ↔ JSON                   |                                                                              |
+| `.dsb2conf`                                | 物理与碰撞载荷                   | 原生格式 ↔ JSON                   |                                                                              |
+| `.dslconf`                                 | 物理与碰撞载荷                   | 原生格式 ↔ JSON                   |                                                                              |
+| `.dsl2conf`                                | 物理与碰撞载荷                   | 原生格式 ↔ JSON                   |                                                                              |
+| `.dslcol`                                  | 物理与碰撞载荷                   | 原生格式 ↔ JSON                   |                                                                              |
+| `.ikcol`                                   | 物理与碰撞载荷                   | 原生格式 ↔ JSON                   |                                                                              |
+| `.ikcol.bytes`                             | 物理与碰撞载荷                   | 原生格式 ↔ JSON                   |                                                                              |
+| `.limbcol`                                 | 物理与碰撞载荷                   | 原生格式 ↔ JSON                   |                                                                              |
+| `.hitcheck`                                | 碰撞检测数据                     | 原生格式 ↔ editing JSON           |                                                                              |
+| `.undressdat`                              | 碰撞检测数据                     | 原生格式 ↔ editing JSON           | 原生格式本身就是 JSON                                                        |
+| `.undresspdat`                             | 碰撞检测数据                     | 原生格式 ↔ editing JSON           | 原生格式本身就是 JSON                                                        |
+| `.nson`                                    | 二进制 JSON 变体                 | 原生格式 ↔ editing JSON           | 原生格式本身就是 JSON                                                        |
+| `.preset`                                  | 角色预设                         | 原生格式 ↔ JSON                   |                                                                              |
+| `system.dat`                               | 系统状态                         | 原生格式 ↔ editing JSON           |                                                                              |
+| `paths.dat`                                | 资源搜索路径                     | 原生格式 ↔ editing JSON           |                                                                              |
+| `bridge_session.vd`                        | 游戏间的桥接传输文件             | 原生格式 ↔ JSON                   |                                                                              |
+| `.brd`                                     | 桥接、名称映射、附件与碰撞体状态 | 原生格式 ↔ JSON                   |                                                                              |
+| `.enm`                                     | 桥接、名称映射、附件与碰撞体状态 | 原生格式 ↔ JSON                   |                                                                              |
+| `.sad`                                     | 桥接、名称映射、附件与碰撞体状态 | 原生格式 ↔ JSON                   |                                                                              |
+| `maid_collider.bytes`                      | 桥接、名称映射、附件与碰撞体状态 | 原生格式 ↔ JSON                   |                                                                              |
+| raw Unity 对象 `.bytes` 及相邻 sidecar     | Unity 序列化对象                 | raw 对象 ↔ JSON                   | `.meta.json` 和可选 `.typetree.json` 与主文件作为同一个 artifact bundle 传输 |
+| 原生 Texture2D、Sprite 对象文件            | 图片                             | Texture2D → PNG/DDS；Sprite → PNG | 单向转换                                                                     |
+| 原生 Mesh `.mmesh`、AnimationClip 对象文件 | 3D 与动画数据                    | → glTF 2.0/GLB                    | 单向转换，部分数据位于 .model 非完整转换，仅建议用于预览                     |
+| 原生 AudioClip 对象文件                    | 编码音频                         | 无损提取内联载荷                  | 单向转换，识别 OGG、WAV 和 FSB5 签名，不执行转码                             |
 
-每种文件都对应一个 .go
-文件：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2)
+序列化实现位于 [`serialization/COM3D2`](serialization/COM3D2) 和 [`serialization/KCES`](serialization/KCES)。
+
+如需应用层能力的权威列表，请调用 gRPC `GetCapabilities`，或读取 MCP 的 `meido://capabilities` 资源。
 
 ## 参考
 
 - 本库最初是为了 [COM3D2_MOD_EDITOR](https://github.com/90135/COM3D2_MOD_EDITOR) 项目开发的，后来独立出来以方便各位使用，您也可以参考该项目的使用方法。
--
+- API 参考：[pkg.go.dev](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
+- 自动生成的项目概览：[DeepWiki](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)（可能包含 AI 幻觉）
+- AI agent 安装与基础使用：[docs/ai-agent.md](docs/ai-agent.md)
 
-pkg.go.dev：[https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
+## 环境要求
 
-- DeepWiki（请注意 AI
-  幻觉，有很多内容是它瞎编的）：[https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
-
-## 外部依赖
-
-- 对于纹理文件（.tex）转换，需要 ImageMagick 7.0 或更高版本，且已添加到系统 PATH 中，可以使用 `magick` 命令。
+- 下载预编译 CLI 无需安装 Go 工具链
+- 从源码构建需要 Go 1.26.5 或更高版本，与 `go.mod` 保持一致
+- 转换 COM3D2 `.tex` 图片需要安装 ImageMagick 7 或更高版本，并确保 `magick` 位于 `PATH`
 
 ## 使用
 
-### 作为 Go 包使用
+### 作为 CLI 命令行程序使用
 
-1. 本仓库已作为 [Go 包](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)发布
-2. 使用 go get 命令安装：
-   ```bash
-   go get github.com/MeidoPromotionAssociation/MeidoSerialization
-   ```
-3. 对于纹理（.tex）文件处理，确保已安装 ImageMagick 7.0 或更高版本，并将其添加到系统 PATH 中
+从 [GitHub Releases](https://github.com/MeidoPromotionAssociation/MeidoSerialization/releases) 下载预编译程序
 
-### 作为命令行界面使用
+查看 CLI 使用说明：[说明](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
 
-MeidoSerialization CLI 是 MeidoSerialization 库的命令行界面
+**CLI 快速上手**
 
-它允许您使用命令行在 COM3D2 MOD 文件和 JSON 格式之间进行转换，也允许您在 .tex 和图片，或是在 .nei 和 .csv 之间进行单个或批量转换。
+```powershell
+# 自动识别并转换单个文件，或递归转换目录中的受支持文件
+MeidoSerialization.exe convert .\example.menu
+MeidoSerialization.exe convert .\mods
 
-由此工具转换的 JSON 文件也可以被 [COM3D2 MOD EDITOR V2](https://github.com/MeidoPromotionAssociation/COM3D2_MOD_EDITOR)
-读取。
+# 明确执行原生格式/editing JSON 转换
+MeidoSerialization.exe convert2json .\example.menu
+MeidoSerialization.exe convert2mod .\example.menu.json
 
-详情请见单独的说明： [cmd 说明](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
+# 检查并解包 KCES 容器
+MeidoSerialization.exe listCt .\example.ct
+MeidoSerialization.exe listAba .\example.aba
+MeidoSerialization.exe unpackAba .\example.aba -o .\unpacked
 
-### 使用参考
+# 导出独立的原生 Unity 对象
+MeidoSerialization.exe convert2image .\texture.texture2d.bytes
+MeidoSerialization.exe convert2gltf .\mesh.mesh.bytes --format glb
+MeidoSerialization.exe convert2audio .\voice.audioclip.bytes
+```
 
-#### 作为命令行界面使用
+命令分组如下：
 
-详情请见单独的说明： [cmd 说明](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
+- 转换与识别：`convert`、`convert2json`、`convert2mod`、`determine`
+- 图片、模型、动画与音频：`convert2tex`、`convert2image`、`convert2gltf`、`convert2audio`
+- NEI/CSV：`convert2csv`、`convert2nei`
+- COM3D2 ARC：`listArc`、`extractArc`、`packArc`、`unpackArc`
+- KCES CT/ABA：`listCt`、`packCt`、`unpackCt`、`listAba`、`packAba`、`unpackAba`
+- KCES MOD 工作流：`inspectKcesCatalog`、`packKcesMod`
+- API：`serve grpc`、`mcp`
+- 辅助命令：`version`、`completion`
 
-CLI 提供以下主要命令：
+使用 `MeidoSerialization.exe --help` 或 `<command> --help` 查看当前参数与示例。完整命令说明位于
+[cmd/README.md](cmd/README.md)。`--strict`（`-s`）启用基于内容的类型判断；`--type`（`-t`）按原生 类型或 `<type>.json` 过滤目录操作。
 
-- `convert`：自动检测并在 MOD 和 JSON 格式、TEX 和图片格式，NEI 和 CSV 格式之间转换文件。
-- `convert2json`：将 MOD 文件转换为 JSON 格式。
-- `convert2mod`：将 JSON 文件转换回 MOD 格式。
-- `convert2tex`：将普通图片文件转换为纹理文件（.tex）。
-- `convert2image`：将 .tex 文件转换为普通图片格式。
-- `convert2csv`：将 .nei 文件转换为 .csv 格式。
-- `convert2nei`：将 .csv 文件转换为 .nei 格式。
-- `packArc`: 将文件夹打包为 .arc 格式。
-- `unparkArc`: 将 .arc 文件解包到文件夹。
-- `listArc`：列出 .arc 存档中的所有文件。
-- `extractArc`：按扩展名或文件路径/名称从 .arc 存档中提取文件。
-- `determine`：确定目录中的文件或单个文件的类型。
-- `version`：获取 MeidoSerialization 的版本信息。
+### 使用 MCP 服务
 
-#### 全局标志
+传输模式始终为 `stdio`：MCP Host 会把 `MeidoSerialization.exe mcp` 作为子进程启动，通过 stdin/stdout 交换 MCP 协议消息，并从
+stderr 接收诊断日志。本服务不提供 SSE、HTTP 或 Streamable HTTP 端点。下面的
+`restricted` 与 `unrestricted` 是文件系统访问模式，不是传输模式。如果 Host 界面要求选择传输模式，请选择 `stdio`。
 
-- `--strict` 或 `-s`：使用严格模式进行文件类型判断（基于文件内容而非扩展名）
-- `--type` 或 `-t`：按类型过滤。支持：
-    - `menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image, arc`
-    - 或使用 `'<type>.json'` 过滤 MOD 的 JSON 文件（如 `menu.json`）
-    - 注意：不带 `.json` 的 `<type>` 仅匹配二进制；带 `.json` 的 `<type>.json` 仅匹配 JSON。
+启动服务：
 
-### 在 Go 项目中使用
+```powershell
+# MCP 便捷模式；直接路径拥有运行进程账号可访问的文件系统权限
+MeidoSerialization.exe mcp
 
-本库提供了两个主要包：
+# MCP 受限模式；路径工具改用 root ID
+MeidoSerialization.exe mcp --root mods=D:\Games\COM3D2\Mod --write-root work=D:\MeidoWork
+```
 
-- `service` 包：提供直接读取和写入文件的方法
-- `serialization` 包：提供序列化和反序列化结构体的方法
+把以下信息发送给你的 agent 即可安装和配置：
+
+```text
+请按照以下文档安装并配置 MeidoSerialization MCP：
+https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/docs/ai-agent.md
+
+连接后先读取 meido://capabilities，再按文档获取对应的 Schema、Guide 和 editing skill。
+```
+
+手动配置时，可参考下面的便捷模式示例（不限定可读写目录）。
+
+不同 Host 的配置文件位置和外层结构可能不同；
+
+传输模式为 stdio 其中 `command` 与 `args` 用于启动 stdio 子进程，典型配置如下：
+
+```json
+{
+  "mcpServers": {
+    "meido-serialization": {
+      "command": "D:\\Tools\\MeidoSerialization.exe",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}
+```
+
+若要限制可读写目录
+
+```json
+{
+  "mcpServers": {
+    "meido-serialization": {
+      "command": "D:\\Tools\\MeidoSerialization.exe",
+      "args": [
+        "mcp",
+        "--root",
+        "mods=D:\\Games\\COM3D2\\Mod",
+        "--write-root",
+        "work=D:\\MeidoWork"
+      ]
+    }
+  }
+}
+```
+
+请把可执行文件和目录替换为本机实际路径。
+
+- `--root mods=...` 创建名为 `mods` 的只读目录；
+- `--write-root work=...` 创建名为 `work` 的可读写目录。
+
+### 使用 gRPC 服务（其他编程语言使用，含强类型）
+
+```powershell
+# 便捷模式；input.path 可读取服务进程账号有权限访问的任意普通文件
+MeidoSerialization.exe serve grpc
+
+# 受限模式；本地文件必须使用 file { root_id, relative_path }
+MeidoSerialization.exe serve grpc --root mods=D:\Games\COM3D2\Mod
+```
+
+不提供 `--root` 或 `--restrict-paths` 时，gRPC 使用 unrestricted 便捷模式，`ArtifactInput.path`
+可使用服务端本地绝对路径，或相对于服务进程当前目录的路径。提供其中任意参数后会切换到 restricted 模式，拒绝直接路径，已配置
+root 始终只读。当前模式由 `GetCapabilities.filesystem_mode` 返回。 转换结果仍以内联数据或 blob 返回；gRPC 不会在服务端安装输出文件。
+
+传输层的完整说明位于 [docs/transport-api.md](docs/transport-api.md)。inline artifact bundle 上限为 3 MiB；更大的数据使用受配额限制的临时
+blob，归档列表使用分页。KCES raw Unity `.bytes` 输入输出会将 相邻 metadata 与 TypeTree sidecar 作为同一个 artifact bundle
+保留。舞蹈数据的传输格式 ID 为
+`com3d2.timeline` 和 `com3d2.object_data`。
+
+#### Schema-first 编辑
+
+需要强类型的调用方无需先转换样本文件。
+
+先调用 gRPC `GetCapabilities`，选择`has_editing_schema: true` 的格式，再使用其 `format_id` 调用 `GetFormatSchema`。
+
+响应以`application/schema+json` 字节返回完整 Draft 2020-12 文档。
+
+或者直接从仓库中获取
+schema.json：[位置](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/schemas/editing/v1)
+
+调用方可用直接使用 JSON Schema 代码生成器，例如 [quicktype](https://github.com/glideapps/quicktype)、
+`json-schema-to-typescript`、NJsonSchema 或 `typify`。
+
+来生产可用的代码并得到结构，调用方还应校验 `sha256`，按`schema_id` 与 `schema_version` 缓存
+
+<details>
+
+<summary>详细说明</summary>
+
+生成出的类型描述 `Validate` 与 `Convert` 接受的 editing JSON，包括多态 `oneOf` 分支、递归
+`$defs`、base64 字节字段和标准精确整数范围。MCP 客户端可从
+`meido://schemas/{format_id}` 获取相同内容。`.arc` 等 native-only 格式没有 editing Schema， 不会被伪装成强类型 editing
+文档。JSON Schema 负责结构契约；编辑完成后仍应调用 `Validate`， 在转换前执行跨字段和 native-wire 不变量检查。
+
+需要语义编辑帮助时，应在获取 Schema 后调用 `GetFormatGuide`。Guide 会把 JSON path 和 Schema pointer 映射到游戏用途、编辑
+role、risk、不变量、enum 含义与 evidence。同一套认证模型也会写入 JSON Schema：根节点包含 `x-meido-format-verification`，经过审阅的
+property 会在 title、 description、game usage 与 editing guidance 旁包含 `x-meido-verification`。脚本类格式还可以发布 结构化
+command form、位置参数、目标 build 注记和共享游戏常量 `value_sets`；参数通过
+`value_set_refs` 精确引用应使用的 enum 或 slot 表。
+
+文件级 `format_verification.level` 只有 `serialization_verified` 和 `schema_only` 两个值。
+`serialization_verified` 表示已经核对整个文件的序列化契约；`schema_only` 表示目前只知道生成出的
+结构，不代表每个字段的游戏含义都已确认。完成的文件认证记录 `authority: ai` 或
+`authority: human`；不属于认证的 `schema_only` 基线使用 `authority: generated`。
+
+字段认证是相互独立的结构化 claim。`serialization` 只确认格式、位置或读写方式，不声明游戏含义；
+`source_semantics` 表示已对照游戏源码确认用途或消费路径，并且包含序列化认证；`game_behavior`
+必须有实际游戏运行观察，单纯核对源码不会产生该 claim。每个存在的 claim 都有
+`status: verified` 和明确的 `authority: ai|human`。空 `verification` 对象表示字段仅由 Schema 派生，调用方必须保留它，也不得根据字段名推断行为。
+`field_coverage` 只统计数量，不会提升任何字段。 每个已发布的 editing format 都有签入仓库的 profile。标准流程为
+Capabilities -> Schema -> Guide ->
+skill/`meido.edit_format` -> inspect -> 最小修改 -> Validate -> Convert。
+
+MCP 会把 portable 工作流作为 `meido://skills/editing/{format_id}` 的动态 `text/markdown` 资源公开； 它不会自动安装为
+WorkBuddy skill 或 MCP Host 插件，单独读取也不能替代 Schema 与 Guide。
+`meido.edit_format` Prompt 会一次返回 skill、完整 Schema 与完整 Guide，是更方便的入口，但它只准备 上下文，不会自行编辑文件。应先通过文件级
+`format_verification` 判断序列化契约是否已知，再查看目标 字段自己的 `verification` claim，之后才能解释其游戏含义。
+
+</details>
+
+### 在 Golang 项目中使用
+
+```powershell
+go get github.com/MeidoPromotionAssociation/MeidoSerialization@latest
+```
+
+公开实现按游戏拆分为两组 package：
+
+- `service/COM3D2` 与 `service/KCES` 提供基于路径的读取、写入和转换服务
+- `serialization/COM3D2` 与 `serialization/KCES` 提供强类型 wire 编解码器
 
 <details>
 
@@ -523,27 +806,30 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 
 	serialcom "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
-	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
+	com3d2service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
 )
 
 func main() {
 	// 示例1：使用 service 包直接处理文件
 	// 创建一个用于处理材质文件的服务
-	mateService := &COM3D2Service.MateService{}
+	mateService := &com3d2service.MateService{}
+	ctx := context.Background()
+	const maxOutputBytes int64 = 64 << 20
 
 	// 将二进制材质文件转换为 JSON
-	err := mateService.ConvertMateToJson("example.mate", "example.mate.json")
+	err := mateService.ConvertMateToJson(ctx, "example.mate", "example.mate.json", maxOutputBytes)
 	if err != nil {
 		fmt.Printf("转换材质文件时出错：%v\n", err)
 		return
 	}
 
 	// 将 JSON 文件转换回二进制材质格式
-	err = mateService.ConvertJsonToMate("example.mate.json", "new_example.mate")
+	err = mateService.ConvertJsonToMate(ctx, "example.mate.json", "new_example.mate", maxOutputBytes)
 	if err != nil {
 		fmt.Printf("将 JSON 转换为材质文件时出错：%v\n", err)
 	}
@@ -602,7 +888,7 @@ func main() {
 
 </details>
 
-## 问与答
+## FAQ
 
 ### ImageMagick 问题
 
@@ -624,7 +910,8 @@ func main() {
 - .uv.csv 格式：
     - 编码必须为：UTF-8-BOM。
     - 分隔符：英文逗号`,`。
-    - 列数：每行 4 列，依次为 `x, y, w, h` (x, y, width, heigh)；取值通常位于区间 `[0,1]`（归一化 UV），建议保留最多 6 位小数，精度为
+    - 列数：每行 4 列，依次为 `x, y, w, h`（x, y, width, height）；取值通常位于区间 `[0, 1]`（归一化 UV），建议保留最多 6
+      位小数，精度为
       `float32`。
     - 示例：
   ```csv
@@ -636,8 +923,7 @@ func main() {
 
 ### 在 `.nei` 文件中使用某些字符时无法保存
 
-如果您遇到下面的错误，这是因为您使用了 Shift-JIS 编码不支持的字符。
-.nei 文件内部使用 Shift-JIS 编码，我们对此无能为力。请删除不支持的字符。
+如果您遇到下面的错误，这是因为您使用了 Shift-JIS 编码不支持的字符。 .nei 文件内部使用 Shift-JIS 编码，我们对此无能为力。请删除不支持的字符。
 
 - `failed to write to .neiData file: failed to encode string: encoding: rune not supported by encoding.`
 - `failed to write to .nei file: failed to encode string: encoding: rune not supported by encoding.`
@@ -683,163 +969,321 @@ func main() {
 
 ## はじめに
 
-AI Translated
-
-MeidoSerialization は、[KISS](https://www.kisskiss.tv) ゲームで使用されるファイル形式を処理するために設計された、Golang
-で書かれたシリアライゼーションライブラリです。現在、[CM3D2](https://www.kisskiss.tv/cm3d2/)
-、[COM3D2](https://com3d2.jp/)、および後継 KCES キャラクター編集システムのファイル形式に対応しています。
+MeidoSerialization は Go で書かれた、[KISS](https://www.kisskiss.tv) ゲームの独自ファイル形式を扱う
+シリアライズ・形式変換ツールセットです。従来の [CM3D2](https://www.kisskiss.tv/cm3d2/) と
+[COM3D2](https://com3d2.jp/) に加え、COM3D2.5 と CRC3D3 で使用される後継の
+[KCES](https://kces.jp/) キャラクター編集システム形式にも対応します。同じ実装を Go package、CLI、versioned gRPC API、MCP
+stdio server から利用できます。
 
 <br>
 
-気に入ったら、Starをお願いします〜
+このプロジェクトが役に立った場合は、Star を付けていただけると幸いです。
 
-バグや要望は、Issues または Discussions をご利用ください
+Bug 報告や機能要望は GitHub Issues または Discussions を利用してください。
 
-Discord [Custom Maid Server](https://discord.gg/custommaid) でも私を見つけることができます
+Discord の [Custom Maid Server](https://discord.gg/custommaid) でも連絡できます。
+
+質問やフィードバックはグループ内で行い、direct message は送らないでください。
 
 ## 機能
 
-- CM3D2、COM3D2、および KCES で使用される様々なファイル形式の読み書き
-- バイナリゲームファイルを編集しやすい JSON 形式に変換
-- JSON ファイルをバイナリゲーム形式に変換
-- バージョン付き protobuf/gRPC および MCP stdio から同じ変換エンジンを利用（[Transport API](docs/transport-api.md)）
-- 対応ファイル形式：.menu、.mate、.pmat、.col、.phy、.psk、.tex、.anm、.model、.nei、.preset/.perset、.arc、.bytes（ダンスデータ）
+- COM3D2/CM3D2 と KCES data の読み取り、検証、書き出し
+- 対応 native 形式と厳密な editing JSON の双方向変換
+- 内容による形式判定と、単一ファイルまたはディレクトリの一括変換
+- COM3D2 ARC と KCES CT/ABA container の一覧、抽出、unpack、pack
+- KCES Texture2D、Sprite、AudioClip、Mesh、AnimationClip data の出力
+- COM3D2 TEX の変換
+- versioned protobuf/gRPC interface による共通変換機能
+- AI による編集のための MCP stdio 対応
+- strongly typed tool と AI-assisted editing のための Draft 2020-12 Schema と source-reviewed field Guide
 
-gRPC の 1 つの artifact bundle 内のインラインバイトは 3 MiB の共有予算で、
-大きなファイルはクォータ付き一時 blob を使用します。MCP はデフォルトで直接
-`path`/`output_path` を受け付ける unrestricted モードです。`--root`、
-`--write-root`、または `--restrict-paths` を指定すると、root ID に限定された
-restricted モードへ切り替わります。アーカイブ一覧はページングされ、KCES raw
-Unity `.bytes` の metadata/TypeTree sidecar は同じ artifact bundle として保持
-されます。ダンス形式 ID は `com3d2.timeline` と `com3d2.object_data` です。
+KCES、gRPC、MCP のサポートは MeidoSerialization v2.0.0 以降で利用できます。
 
-### Schema から強い型のエディタを作る
+## 対応形式
 
-サンプルファイルを先に変換する必要はありません。gRPC の
-`GetCapabilities` で `has_editing_schema: true` の `format_id` を選び、
-`GetFormatSchema` を呼び出します。レスポンスの `schema_json` は完全な
-Draft 2020-12 `application/schema+json` 文書です。`sha256` を検証し、
-`schema_id` と `schema_version` でキャッシュしてから、JSON Schema の
-コードジェネレータに渡してください。生成される型は `Validate` と
-`Convert` が受け付ける editing JSON と一致し、`oneOf` の多相分岐、再帰的な
-`$defs`、base64 バイト列、標準の正確な整数範囲も含みます。MCP では同じ
-文書を `meido://schemas/{format_id}` から取得できます。`.arc` のような
-ネイティブ専用形式には editing Schema がありません。JSON Schema は構造を
-検証し、フィールド間および native wire の制約は変換前の `Validate` で検証します。
+互換性は現在 COM3D2 v2.48.0、COM3D2.5 v3.48.0、KCES 1.34.4 を基準に確認しています。
 
-フィールドのゲーム内用途を確認する場合は Schema の後に `GetFormatGuide` を取得
-してください。Guide はソースと照合した埋め込み review profile です。JSON パス、
-Schema ポインタ、実際のランタイム用途、編集ロール、リスク、列挙値、フィールド間
-不変条件と根拠を含みます。接頭辞なしの `runtime_verified` と
-`serialization_verified` は AI によるソース確認であり、人間の承認を意味しません。
-`human_` 接頭辞は明示的な人間レビュー専用です。`schema_only` は JSON 形状だけを
-確認済みという意味です。すべての editing format に
-レビュー済み profile があり、未レビューの個別フィールドは引き続き `schema_only` です。推奨順序は
-Capabilities -> Schema -> Guide -> skill/`meido.edit_format` -> inspect -> 最小編集
--> Validate -> Convert で、Guide と Schema の生成時・実行時に `game` ソースを読みません。
+特記がない限り、以下の「JSON」は CLI、service、gRPC、MCP で共通の厳密な editing JSON を意味します。
 
-## 対応ファイル形式
+### CM3D2 / COM3D2
 
-現在のゲームバージョン COM3D2 v2.47.0 および COM3D2.5 v3.47.0
+| ファイルまたは拡張子                                     | 内容                     | 対応操作                 | 備考                                                             |
+|----------------------------------------------------------|--------------------------|--------------------------|------------------------------------------------------------------|
+| `.menu`                                                  | メニュースクリプト       | native ↔ JSON            | 現在判明している全 version                                       |
+| `.mate`、`.mat`                                          | マテリアルファイル       | native ↔ JSON            | COM3D2.5 専用 field を含み、`.mat` は alias として使用可能       |
+| `.pmat`                                                  | 描画順序                 | native ↔ JSON            | 現在判明している全 version                                       |
+| `.col`                                                   | コライダー               | native ↔ JSON            | 現在判明している全 version                                       |
+| `.phy`                                                   | 物理パラメータ           | native ↔ JSON            | 現在判明している全 version                                       |
+| `.psk`                                                   | スカート専用物理         | native ↔ JSON            | KCES と共有。version 217 以降は構造変更なし                      |
+| `.anm`                                                   | アニメーション           | native ↔ JSON            | 現在判明している全 version                                       |
+| `.model`                                                 | モデル                   | native ↔ JSON            | version 1000–2200                                                |
+| `.preset`                                                | キャラクタープリセット   | native ↔ JSON            | 現在判明している全 version。埋め込み KCES data を保持            |
+| `timeline_data.bytes`                                    | ダンスタイムライン       | native ↔ JSON            | transport format ID は `com3d2.timeline`                         |
+| `maid_data.bytes`、`item_data.bytes`、`event_data.bytes` | ダンスオブジェクトデータ | native ↔ JSON            | format ID は `com3d2.object_data`。内容から subtype を判定       |
+| `.tex`                                                   | テクスチャ               | TEX ↔ 画像               | version 1000 は read-only。書き出しは 1010/1011、DXT1/DXT5 対応  |
+| `.nei`                                                   | 暗号化 CSV               | NEI ↔ CSV                | KCES と共有。native text は Shift-JIS、CSV I/O は BOM 付き UTF-8 |
+| `.arc`                                                   | アーカイブ               | 一覧、抽出、pack、unpack | 暗号化 ARC は非対応                                              |
+| `.save`                                                  | セーブデータ             | 判定のみ                 | 変換機能は提供しない                                             |
 
-| 拡張子     | 説明           | バージョン対応             | 変換              | 備考                                                                                                                             |
-|---------|--------------|---------------------|-----------------|--------------------------------------------------------------------------------------------------------------------------------|
-| .menu   | メニューファイル     | 全バージョン[¹](#note1ja) | .menu ↔ .json   |                                                                                                                                |
-| .mate   | マテリアルファイル    | 全バージョン[²](#note2ja) | .mate ↔ .json   |                                                                                                                                |
-| .pmat   | レンダリング順序ファイル | 全バージョン[¹](#note1ja) | .pmat ↔ .json   |                                                                                                                                |
-| .col    | コライダーファイル    | 全バージョン[¹](#note1ja) | .col ↔ .json    |                                                                                                                                |
-| .phy    | 物理ファイル       | 全バージョン[¹](#note1ja) | .phy ↔ .json    |                                                                                                                                |
-| .psk    | パニエスカートファイル  | 全バージョン[³](#note3ja) | .psk ↔ .json    |                                                                                                                                |
-| .tex    | テクスチャファイル    | 全バージョン[¹](#note1ja) | .tex ↔ 画像       | バージョン 1000 の書き出しは非対応（設計が不十分なため。CM3D2 もバージョン 1010 に対応しているため使用する理由がありません）、DXT1/DXT5 圧縮に対応                                        |
-| .anm    | アニメーションファイル  | 全バージョン              | .anm ↔ .json    |                                                                                                                                |
-| .model  | モデルファイル      | バージョン 1000-2200     | .model ↔ .json  |                                                                                                                                |
-| .nei    | 暗号化 CSV ファイル | 全バージョン[¹](#note1ja) | .nei ↔ .csv     | .nei ファイルは内部的に Shift-JIS エンコーディングを使用していますが、CSV の読み書き時には UTF-8-BOM エンコーディングを使用します。Shift-JIS でサポートされていない文字を使用するとエラーが発生する可能性があります |
-| .preset | プリセットファイル    | 全バージョン[¹](#note1ja) | .preset ↔ .json |                                                                                                                                |
-| .arc    | アーカイブファイル    | 全バージョン[¹](#note1ja) | .arc ↔ ディレクトリ   | 暗号化された .arc ファイルは非対応。対応するオリジナル DLC（dlc.arc および dlc_2.arc）をお持ちの場合、_2.arc はゲーム起動時に自動的に復号化されます。そのため、復号化は意味がありません。                 |
-| .bytes  | ダンスバイナリデータ   | 全バージョン[¹](#note1ja) | .bytes ↔ .json  | timeline_data.bytes、maid_data.bytes、item_data.bytes、event_data.bytes に対応。コンテンツスニッフィングによりサブタイプを判別。                              |
+### KCES / COM3D2.5
 
-<div id="note1ja">¹ これまで構造的な変更はないため、バージョン番号は関係ありません</div>
-<div id="note2ja">² これまで構造的な変更はありませんが、COM3D2.5 専用の機能がいくつかあります</div>
-<div id="note3ja">³ バージョン 217 以降、構造的な変更はありません</div>
+| ファイルまたは拡張子                            | 内容                                         | 対応操作                          | 備考                                                                                 |
+|-------------------------------------------------|----------------------------------------------|-----------------------------------|--------------------------------------------------------------------------------------|
+| `.ct`                                           | VirtualDirectory/content table               | JSON 変換と archive 操作          | CT catalog の検査と directory の pack/unpack に対応                                  |
+| `.aba`                                          | UnityFS AssetBundle                          | 一覧、pack、unpack                | `packAba` は対応する `.aba` + `.ct` を生成。暗号化 `abap` は復号不可                 |
+| `.asset_bg`、`.asset_scene`                     | UnityFS AssetBundle                          | 一覧、抽出、unpack                | ABA と同一形式                                                                       |
+| `.menuassets`                                   | メニューファイル container                   | native ↔ JSON                     |                                                                                      |
+| `.materialassets`                               | マテリアルファイル container                 | native ↔ JSON                     |                                                                                      |
+| `.pmatassets`                                   | 描画順序ファイル container                   | native ↔ JSON                     |                                                                                      |
+| `.model`                                        | mesh geometry を含まないモデルデータ         | native ↔ JSON                     |                                                                                      |
+| `.dbconf`                                       | 物理・コライダー payload                     | native ↔ JSON                     |                                                                                      |
+| `.dbcol`                                        | 物理・コライダー payload                     | native ↔ JSON                     |                                                                                      |
+| `.db2conf`                                      | 物理・コライダー payload                     | native ↔ JSON                     |                                                                                      |
+| `.dsbconf`                                      | 物理・コライダー payload                     | native ↔ JSON                     |                                                                                      |
+| `.dsb2conf`                                     | 物理・コライダー payload                     | native ↔ JSON                     |                                                                                      |
+| `.dslconf`                                      | 物理・コライダー payload                     | native ↔ JSON                     |                                                                                      |
+| `.dsl2conf`                                     | 物理・コライダー payload                     | native ↔ JSON                     |                                                                                      |
+| `.dslcol`                                       | 物理・コライダー payload                     | native ↔ JSON                     |                                                                                      |
+| `.ikcol`                                        | 物理・コライダー payload                     | native ↔ JSON                     |                                                                                      |
+| `.ikcol.bytes`                                  | 物理・コライダー payload                     | native ↔ JSON                     |                                                                                      |
+| `.limbcol`                                      | 物理・コライダー payload                     | native ↔ JSON                     |                                                                                      |
+| `.hitcheck`                                     | hit-check data                               | native ↔ editing JSON             |                                                                                      |
+| `.undressdat`                                   | hit-check data                               | native ↔ editing JSON             | native 形式自体が JSON                                                               |
+| `.undresspdat`                                  | hit-check data                               | native ↔ editing JSON             | native 形式自体が JSON                                                               |
+| `.nson`                                         | binary JSON variant                          | native ↔ editing JSON             | native 形式自体が JSON                                                               |
+| `.preset`                                       | キャラクタープリセット                       | native ↔ JSON                     |                                                                                      |
+| `system.dat`                                    | システム状態                                 | native ↔ editing JSON             |                                                                                      |
+| `paths.dat`                                     | リソース検索 path                            | native ↔ editing JSON             |                                                                                      |
+| `bridge_session.vd`                             | ゲーム間 bridge transfer file                | native ↔ JSON                     |                                                                                      |
+| `.brd`                                          | bridge、name map、attachment、collider state | native ↔ JSON                     |                                                                                      |
+| `.enm`                                          | bridge、name map、attachment、collider state | native ↔ JSON                     |                                                                                      |
+| `.sad`                                          | bridge、name map、attachment、collider state | native ↔ JSON                     |                                                                                      |
+| `maid_collider.bytes`                           | bridge、name map、attachment、collider state | native ↔ JSON                     |                                                                                      |
+| raw Unity `.bytes` object と隣接 sidecar        | Unity serialized object                      | raw object ↔ JSON                 | `.meta.json` と任意の `.typetree.json` を primary file と同じ artifact bundle で転送 |
+| native Texture2D、Sprite object file            | 画像                                         | Texture2D → PNG/DDS、Sprite → PNG | 一方向変換                                                                           |
+| native Mesh `.mmesh`、AnimationClip object file | 3D・アニメーションデータ                     | → glTF 2.0/GLB                    | 一方向変換。一部 data は `.model` に残るため、出力は preview 向け                    |
+| native AudioClip object file                    | encode 済み音声                              | inline payload を無劣化抽出       | 一方向変換。OGG、WAV、FSB5 signature を認識し、transcode は行わない                  |
 
-各ファイルには対応する .go
-ファイルがあります：[https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/serialization/COM3D2)
+serializer 実装は [`serialization/COM3D2`](serialization/COM3D2) と
+[`serialization/KCES`](serialization/KCES) にあります。
+
+application-level capability の正式な一覧は gRPC `GetCapabilities` または MCP の
+`meido://capabilities` resource から取得してください。
 
 ## 参考資料
 
-- このライブラリは当初 [COM3D2_MOD_EDITOR](https://github.com/90135/COM3D2_MOD_EDITOR)
-  プロジェクト用に開発され、後に独立して使いやすくなりました。そのプロジェクトの使用方法も参考にできます。
--
+- この library は当初 [COM3D2_MOD_EDITOR](https://github.com/90135/COM3D2_MOD_EDITOR) 用に開発され、後に再利用しやすいよう
+  独立しました。同 project の使用方法も参考にできます。
+- API reference：[pkg.go.dev](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
+- 自動生成された project overview：[DeepWiki](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
+  （AI hallucination を含む可能性があります）
+- AI agent のインストールと基本操作：[docs/ai-agent.md](docs/ai-agent.md)
 
-pkg.go.dev：[https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
+## 必要環境
 
-- DeepWiki（注意：AI
-  ハルシネーションが含まれる可能性があります）：[https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
-
-## 外部依存関係
-
-- テクスチャファイル（.tex）の変換には、ImageMagick バージョン 7 以上が必要で、システム PATH に追加されており、`magick`
-  コマンドが使用可能である必要があります。
+- build 済み CLI の利用に Go toolchain は不要
+- source からの build には `go.mod` と同じ Go 1.26.5 以上が必要
+- COM3D2 `.tex` の画像変換には ImageMagick 7 以上と、`PATH` から実行できる `magick` が必要
 
 ## 使用方法
 
-### Go パッケージとして使用
+### CLI として使用
 
-1. このリポジトリは [Go パッケージ](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
-   として公開されています
-2. go get コマンドでインストール：
-   ```bash
-   go get github.com/MeidoPromotionAssociation/MeidoSerialization
-   ```
-3. テクスチャ（.tex）ファイルの処理には、ImageMagick 7.0 以上がインストールされ、システム PATH に追加されていることを確認してください
+[GitHub Releases](https://github.com/MeidoPromotionAssociation/MeidoSerialization/releases) から build 済み executable を
+ダウンロードしてください。
 
-### コマンドラインインターフェースとして使用
+[完全な CLI ドキュメント](cmd/README.md)も参照してください。
 
-MeidoSerialization CLI は MeidoSerialization ライブラリのコマンドラインインターフェースです
+**CLI クイックスタート**
 
-コマンドラインを使用して COM3D2 MOD ファイルと JSON 形式間の変換、.tex と画像間、または .nei と .csv 間の単一またはバッチ変換が可能です。
+```powershell
+# ファイルを判定して変換、またはディレクトリ内の対応ファイルを再帰処理
+MeidoSerialization.exe convert .\example.menu
+MeidoSerialization.exe convert .\mods
 
-このツールで変換された JSON
-ファイルは [COM3D2 MOD EDITOR V2](https://github.com/MeidoPromotionAssociation/COM3D2_MOD_EDITOR) でも読み込めます。
+# native/editing JSON を明示的に変換
+MeidoSerialization.exe convert2json .\example.menu
+MeidoSerialization.exe convert2mod .\example.menu.json
 
-詳細は別途説明をご覧ください：[cmd 説明](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
+# KCES container を検査・unpack
+MeidoSerialization.exe listCt .\example.ct
+MeidoSerialization.exe listAba .\example.aba
+MeidoSerialization.exe unpackAba .\example.aba -o .\unpacked
 
-### 使用例
+# 単体 native Unity object を出力
+MeidoSerialization.exe convert2image .\texture.texture2d.bytes
+MeidoSerialization.exe convert2gltf .\mesh.mesh.bytes --format glb
+MeidoSerialization.exe convert2audio .\voice.audioclip.bytes
+```
 
-#### コマンドラインインターフェースとして使用
+command group：
 
-詳細は別途説明をご覧ください：[cmd 説明](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/cmd/README.md)
+- 変換と判定：`convert`、`convert2json`、`convert2mod`、`determine`
+- 画像、model、animation、audio：`convert2tex`、`convert2image`、`convert2gltf`、`convert2audio`
+- NEI/CSV：`convert2csv`、`convert2nei`
+- COM3D2 ARC：`listArc`、`extractArc`、`packArc`、`unpackArc`
+- KCES CT/ABA：`listCt`、`packCt`、`unpackCt`、`listAba`、`packAba`、`unpackAba`
+- KCES MOD workflow：`inspectKcesCatalog`、`packKcesMod`
+- API：`serve grpc`、`mcp`
+- utility：`version`、`completion`
 
-CLI は以下の主要コマンドを提供します：
+現在の flag と例は `MeidoSerialization.exe --help` または `<command> --help` で確認できます。完全な command reference は
+[cmd/README.md](cmd/README.md) にあります。`--strict`（`-s`）は内容に基づく形式判定を有効にし、`--type`（`-t`）は native type
+または `<type>.json` で directory 操作を絞り込みます。
 
-- `convert`：MOD と JSON 形式、TEX と画像形式、NEI と CSV 形式間でファイルを自動検出して変換
-- `convert2json`：MOD ファイルを JSON 形式に変換
-- `convert2mod`：JSON ファイルを MOD 形式に変換
-- `convert2tex`：通常の画像ファイルをテクスチャファイル（.tex）に変換
-- `convert2image`：.tex ファイルを通常の画像形式に変換
-- `convert2csv`：.nei ファイルを .csv 形式に変換
-- `convert2nei`：.csv ファイルを .nei 形式に変換
-- `packArc`：フォルダを .arc 形式にパック
-- `unparkArc`：.arc ファイルをフォルダに展開
-- `listArc`：.arc アーカイブ内のすべてのファイルを一覧表示
-- `extractArc`：拡張子またはファイルパス/名前で .arc アーカイブからファイルを抽出
-- `determine`：ディレクトリ内のファイルまたは単一ファイルのタイプを判定
-- `version`：MeidoSerialization のバージョン情報を取得
+### MCP service を使用
 
-#### グローバルフラグ
+転送モードは常に `stdio` です。MCP Host は `MeidoSerialization.exe mcp` を子プロセスとして起動し、MCP プロトコルメッセージを
+stdin/stdout で交換します。診断ログは stderr に出力されます。SSE、HTTP、Streamable HTTP エンドポイントは提供しません。以下の
+`restricted` と `unrestricted` はファイルシステムのアクセスモードであり、転送モードではありません。Host
+の画面で転送モードの選択を求められた場合は、`stdio` を選択してください。
 
-- `--strict` または `-s`：厳密モードでファイルタイプを判定（拡張子ではなくファイル内容に基づく）
-- `--type` または `-t`：タイプでフィルタリング。対応値：
-    - `menu, mate, pmat, col, phy, psk, anm, model, tex, nei, csv, image, arc`
-    - または `'<type>.json'` で MOD の JSON ファイルをフィルタリング（例：`menu.json`）
-    - 注意：`.json` なしの `<type>` はバイナリのみにマッチ、`.json` 付きの `<type>.json` は JSON のみにマッチ
+server を起動します：
 
-### Go プロジェクトでの使用
+```powershell
+# MCP convenience mode。direct path は process account の filesystem permission を使用
+MeidoSerialization.exe mcp
 
-本ライブラリは2つの主要パッケージを提供します：
+# MCP restricted mode。path tool は root ID を使用
+MeidoSerialization.exe mcp --root mods=D:\Games\COM3D2\Mod --write-root work=D:\MeidoWork
+```
 
-- `service` パッケージ：ファイルを直接読み書きするメソッドを提供
-- `serialization` パッケージ：構造体のシリアライズとデシリアライズのメソッドを提供
+次の message を agent に送ると install と設定を依頼できます：
+
+```text
+次のドキュメントに従って MeidoSerialization MCP をインストールし、設定してください：
+https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/docs/ai-agent.md
+
+接続後は meido://capabilities を読み、ドキュメントに従って対応する Schema、Guide、editing skill を取得してください。
+```
+
+手動設定では、読み書き可能な directory を制限しない次の convenience mode の例から始められます。
+
+設定ファイルの場所と外側の構造は Host ごとに異なります。transport mode は stdio で、`command` と `args` が stdio
+子プロセスを起動します。一般的な設定例：
+
+```json
+{
+  "mcpServers": {
+    "meido-serialization": {
+      "command": "D:\\Tools\\MeidoSerialization.exe",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}
+```
+
+読み書き可能な directory を制限する場合：
+
+```json
+{
+  "mcpServers": {
+    "meido-serialization": {
+      "command": "D:\\Tools\\MeidoSerialization.exe",
+      "args": [
+        "mcp",
+        "--root",
+        "mods=D:\\Games\\COM3D2\\Mod",
+        "--write-root",
+        "work=D:\\MeidoWork"
+      ]
+    }
+  }
+}
+```
+
+実行ファイルと directory は実際のローカルパスに置き換えてください。
+
+- `--root mods=...` は `mods` という名前の読み取り専用 directory を作成します。
+- `--write-root work=...` は `work` という名前の読み書き可能な directory を作成します。
+
+### gRPC service を使用（他のプログラミング言語・strongly typed client 向け）
+
+```powershell
+# convenience mode。input.path は server process account が許可する任意の regular file を読み取り可能
+MeidoSerialization.exe serve grpc
+
+# restricted mode。local file は file { root_id, relative_path } を使用
+MeidoSerialization.exe serve grpc --root mods=D:\Games\COM3D2\Mod
+```
+
+`--root` と `--restrict-paths` のどちらも指定しない場合、gRPC は unrestricted convenience mode を使用し、
+`ArtifactInput.path` に server-local の absolute path、または server process の current directory からの relative path
+を指定できます。いずれかを指定すると restricted mode に切り替わり、direct path は拒否され、configured root は常に
+read-only です。現在の mode は `GetCapabilities.filesystem_mode` で確認できます。conversion result は引き続き inline または
+blob で返され、gRPC は server に output file を install しません。
+
+transport layer の完全な説明は [docs/transport-api.md](docs/transport-api.md) にあります。gRPC inline artifact bundle は最大
+3 MiB で、それより大きい data は quota-bounded temporary blob を使用し、archive listing は pagination されます。KCES raw
+Unity `.bytes` の input/output は隣接する metadata と TypeTree sidecar を一つの artifact bundle として保持します。dance
+transport ID は `com3d2.timeline` と `com3d2.object_data` です。
+
+#### Schema-first editing
+
+strongly typed definition を必要とする caller は、最初に sample file を変換する必要がありません。
+
+まず gRPC `GetCapabilities` を呼び、`has_editing_schema: true` の format を選び、その `format_id` で `GetFormatSchema` を呼びます。
+
+response は完全な Draft 2020-12 document を `application/schema+json` bytes として返します。
+
+または repository から checked-in Schema JSON を直接取得できます：
+[場所](https://github.com/MeidoPromotionAssociation/MeidoSerialization/tree/main/schemas/editing/v1)
+
+Schema を [quicktype](https://github.com/glideapps/quicktype)、`json-schema-to-typescript`、NJsonSchema、`typify` などの JSON
+Schema code generator に渡せます。
+
+これにより利用可能な code と structure を生成できます。caller は `sha256` も検証し、`schema_id` と `schema_version` で cache
+してください。
+
+<details>
+
+<summary>詳細説明</summary>
+
+生成された type は `Validate` と `Convert` が受け付ける editing JSON を記述し、polymorphic `oneOf` branch、recursive
+`$defs`、base64 byte field、標準の exact integer range を含みます。MCP client は `meido://schemas/{format_id}`
+から同じ内容を取得できます。`.arc` などの native-only format は editing Schema を持たず、typed editing document として
+公開されません。JSON Schema は structural contract を扱います。編集後は `Validate` を呼び、変換前に cross-field と
+native-wire invariant を確認してください。
+
+semantic editing の支援には、Schema の後で `GetFormatGuide` を取得します。Guide は JSON path と Schema pointer を game usage、
+edit role、risk、invariant、enum meaning、evidence に対応付けます。同じ verification model は JSON Schema にも入り、root には
+`x-meido-format-verification`、review 済み property には title、description、game usage、editing guidance とともに
+`x-meido-verification` があります。script-like format は structured command form、位置引数、target-build note、共有 game
+constant `value_sets` も公開でき、argument の `value_set_refs` が使用すべき enum または slot table を特定します。
+
+whole-file `format_verification.level` は `serialization_verified` と `schema_only` の2値です。前者は file の serialization
+contract を確認済みであること、後者は生成された構造だけが既知であることを表し、全 field の game meaning を保証しません。完了した
+format verification は `authority: ai` または `authority: human` を記録し、認証ではない `schema_only` baseline は
+`authority: generated` を使用します。
+
+field verification は独立した structured claim です。`serialization` は format、位置、read/write behavior を確認しますが、game
+meaning は主張しません。`source_semantics` は game source で用途または consumption path を確認し、serialization verification を
+含みます。`game_behavior` には実際の game-runtime observation が必要で、source review だけでは付与されません。存在する claim は
+`status: verified` と明示的な `authority: ai|human` を持ちます。空の `verification` object は Schema 由来だけであるため、値を
+保持し、名前から behavior を推測してはいけません。`field_coverage` は件数 summary にすぎず、個別 field を昇格させません。公開済みの
+各 editing format には checked-in profile があります。標準 workflow は Capabilities -> Schema -> Guide ->
+skill/`meido.edit_format` -> inspect -> 最小編集 -> Validate -> Convert です。
+
+MCP は portable workflow を `meido://skills/editing/{format_id}` の dynamic `text/markdown` resource として公開します。これは
+WorkBuddy skill や MCP-host plugin として自動 install されず、単独で読んでも Schema と Guide の代わりにはなりません。
+`meido.edit_format` Prompt は skill、完全な Schema、完全な Guide を一度に返す便利な入口ですが、context を準備するだけで file を
+編集しません。whole-file `format_verification` で serialization contract が既知か確認し、その後に exact field 自身の
+`verification` claim を読んでから game meaning を割り当ててください。
+
+</details>
+
+### Go project で使用
+
+```powershell
+go get github.com/MeidoPromotionAssociation/MeidoSerialization@latest
+```
+
+公開実装は game ごとに2つの package family に分かれています：
+
+- `service/COM3D2` と `service/KCES` は path-based read、write、conversion service を提供
+- `serialization/COM3D2` と `serialization/KCES` は typed wire encoder/decoder を提供
 
 <details>
 
@@ -850,76 +1294,66 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 
 	serialcom "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
-	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
+	com3d2service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
 )
 
 func main() {
-	// 例1：service パッケージを使用してファイルを直接処理
-	// マテリアルファイルを処理するサービスを作成
-	mateService := &COM3D2Service.MateService{}
+	// 例1：service package を使用して file を直接処理
+	// material file 用 service を作成
+	mateService := &com3d2service.MateService{}
+	ctx := context.Background()
+	const maxOutputBytes int64 = 64 << 20
 
-	// バイナリマテリアルファイルを JSON に変換
-	err := mateService.ConvertMateToJson("example.mate", "example.mate.json")
+	// binary material file を JSON に変換
+	err := mateService.ConvertMateToJson(ctx, "example.mate", "example.mate.json", maxOutputBytes)
 	if err != nil {
-		fmt.Printf("マテリアルファイルの変換中にエラー：%v\n", err)
+		fmt.Printf("material file の変換中にエラー：%v\n", err)
 		return
 	}
 
-	// JSON ファイルをバイナリマテリアル形式に変換
-	err = mateService.ConvertJsonToMate("example.mate.json", "new_example.mate")
+	// JSON を binary material format に戻す
+	err = mateService.ConvertJsonToMate(ctx, "example.mate.json", "new_example.mate", maxOutputBytes)
 	if err != nil {
-		fmt.Printf("JSON をマテリアルファイルに変換中にエラー：%v\n", err)
+		fmt.Printf("JSON から material file への変換中にエラー：%v\n", err)
 	}
 
-	// 例2：serialization パッケージを使用して構造体を直接操作
-	// .phy ファイルを読み込む
-	// service パッケージのサンプルコードを参照して、ファイル読み込みを正しく処理してください
+	// 例2：serialization package を使用して structure を直接操作
+	// .phy file を読み込む。完全な file handling は service package の例を参照
 	f, err := os.Open("example.phy")
 	if err != nil {
-		fmt.Printf("ファイルを開けません：%v\n", err)
+		fmt.Printf("file を開けません：%v\n", err)
 		return
 	}
 	defer f.Close()
 
-	// バッファ付きリーダーを使用
 	br := bufio.NewReader(f)
-
-	// serialization パッケージの関数を使用してファイル内容を構造体に読み込む
 	phyData, err := serialcom.ReadPhy(br)
 	if err != nil {
-		fmt.Printf(".phy ファイルの解析に失敗：%v\n", err)
+		fmt.Printf(".phy file の解析に失敗：%v\n", err)
 		return
 	}
 
-	// 構造体のデータを変更
 	phyData.Damping = 0.8
 
-	// 新しいファイルを作成し、変更したデータを書き込む
 	newFile, err := os.Create("modified.phy")
 	if err != nil {
-		fmt.Printf("新しいファイルの作成に失敗：%v\n", err)
+		fmt.Printf("新しい file の作成に失敗：%v\n", err)
 		return
 	}
 	defer newFile.Close()
 
-	// バッファ付きライターを使用
 	bw := bufio.NewWriter(newFile)
-
-	// Dump メソッドを使用して構造体をファイルに書き込む
-	err = phyData.Dump(bw)
-	if err != nil {
-		fmt.Printf(".phy ファイルの書き込みに失敗：%v\n", err)
+	if err := phyData.Dump(bw); err != nil {
+		fmt.Printf(".phy file の書き込みに失敗：%v\n", err)
 		return
 	}
-
-	// バッファをフラッシュ
-	err = bw.Flush()
-	if err != nil {
-		fmt.Printf("バッファのフラッシュ中にエラー：%v\n", err)
+	if err := bw.Flush(); err != nil {
+		fmt.Printf("buffer の flush 中にエラー：%v\n", err)
 		return
 	}
 
@@ -966,8 +1400,8 @@ func main() {
 
 ### `.nei` ファイルで特定の文字を使用すると保存できない
 
-以下のエラーが発生した場合、Shift-JIS エンコーディングでサポートされていない文字を使用しています。
-.nei ファイルは内部的に Shift-JIS エンコーディングを使用しており、これについては対処できません。サポートされていない文字を削除してください。
+以下のエラーが発生した場合、Shift-JIS エンコーディングでサポートされていない文字を使用しています。 .nei ファイルは内部的に
+Shift-JIS エンコーディングを使用しており、これについては対処できません。サポートされていない文字を削除してください。
 
 - `failed to write to .neiData file: failed to encode string: encoding: rune not supported by encoding.`
 - `failed to write to .nei file: failed to encode string: encoding: rune not supported by encoding.`
@@ -1009,9 +1443,16 @@ func main() {
 
 # How to Dev
 
-1. Clone this repo, and cd to the project root
-2. Install [Golang](https://go.dev/)  1.25+
-3. `go build`
+1. Install [Go](https://go.dev/) 1.26.5 or later
+2. Clone this repository and change to the project root
+3. Run `go test ./...`
+4. Build the CLI with `go build -o MeidoSerialization.exe .`
+
+If a public editing model changes, regenerate the checked-in JSON Schemas with
+`go run ./internal/schemagen/cmd -out ./schemas/editing/v1`. If the protobuf API changes, edit
+[`api/proto/meido/serialization/v1/serialization.proto`](api/proto/meido/serialization/v1/serialization.proto) and
+regenerate the checked-in bindings as described
+in [docs/transport-api.md](docs/transport-api.md#regenerating-protobuf-code).
 
 <br>
 

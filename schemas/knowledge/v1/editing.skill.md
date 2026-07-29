@@ -1,17 +1,24 @@
 # MeidoSerialization format editing skill
 
 Format: `{{FORMAT_ID}}`
-Semantic coverage: `{{COVERAGE}}`
+Whole-file verification: `{{FORMAT_VERIFICATION}}`
 Schema: `meido://schemas/{{FORMAT_ID}}`
 Guide: `meido://guides/{{FORMAT_ID}}`
 
 ## Required context
 
 Read both the JSON Schema and the format guide before proposing or applying an edit. Treat the Schema as the exact
-editing JSON shape. Treat only `verified` field claims as source-reviewed game-runtime behavior. A `serialization_only`
-field documents codec or wire-preservation behavior, not game-runtime meaning. A `schema_only` field has no reviewed
-semantics; do not infer its purpose from its name. Unprefixed review states may come from AI source review. Only a
-`human_` prefix records explicit human approval; never infer or add that prefix automatically.
+editing JSON shape. Guide-level `format_verification.level` has only two meanings: `serialization_verified` confirms
+the whole-file serialization contract, while `schema_only` means that only the generated structure is available. The
+file-level state never claims that every field's game meaning is known.
+
+Interpret each field's `verification` object independently. `serialization` confirms format, position, or read/write
+behavior but does not establish game meaning. `source_semantics` confirms the documented purpose or consumption path
+against game source and includes serialization verification. `game_behavior` requires evidence from an actual game
+runtime observation; game-source review alone is not runtime observation. Every present claim has `status: verified`
+and an explicit `authority` of `ai` or `human`. An empty `verification` object is not a certification: it means the
+field is derived only from the Schema, must be preserved, and must never be interpreted from its name. Use
+`field_coverage` only as a count summary; it never upgrades an individual field claim.
 
 ## Editing contract
 

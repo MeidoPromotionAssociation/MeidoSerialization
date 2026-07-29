@@ -3,20 +3,20 @@ package knowledgev1
 // com3d2Profiles 构建依据 COM3D2 与 COM3D2_5 游戏源码审核的格式指南 profile
 // com3d2Profiles builds format-guide profiles reviewed against COM3D2 and COM3D2_5 game source
 func com3d2Profiles() map[string]Guide {
-	menuSource := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/Menu.cs", "Menu.ProcScriptBin", 156, 958, "The runtime reads the header and executes the command records in order; command state changes how later records are interpreted.")
-	compileSource := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs", "ModCompile.CompileMenu", 45, 234, "The official compiler extracts name, category, and setumei metadata and writes the ordered command stream and header.")
-	sceneSource := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/SceneEdit.cs", "SceneEdit.InitMenuItemScript", 1297, 1513, "The editor scans menu commands to build the visible name, description, category, icon, and item state.")
-	menu3Source := source("COM3D2_5 3.48.0", "game/COM3D2_5 3.48.0/Assembly-CSharp/Menu.cs", "Menu.ProcScriptBin", 154, 1234, "The COM3D2_5 runtime retains the menu interpreter and adds CRC-body, split-item, mesh-morph, and body-state command branches.")
-	compile3Source := source("COM3D2_5 3.48.0", "game/COM3D2_5 3.48.0/Assembly-CSharp/ModCompile.cs", "ModCompile.CompileMenuScript", 15, 228, "The COM3D2_5 text compiler validates additem, category, texture, and item-parameter forms before writing the same CM3D2_MENU stream.")
-	scene3Source := source("COM3D2_5 3.48.0", "game/COM3D2_5 3.48.0/Assembly-CSharp/SceneEdit.cs", "SceneEdit.InitMenuItemScript", 1343, 1562, "The COM3D2_5 editor scan retains the metadata commands and priority/deletion/collaboration flags used by SceneEdit.")
-	materialMgr3Source := source("COM3D2_5 3.48.0", "game/COM3D2_5 3.48.0/Assembly-CSharp/MaterialMgr.cs", "MaterialMgr.SetMatAlpha", 275, 285, "SetMatAlpha returns without effect for male skins or unloaded slot objects, then indexes the material array directly and applies the requested alpha.")
+	menuSource := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/Menu.cs", "Menu.ProcScriptBin", 156, 958, "The runtime reads the header and executes the command records in order; command state changes how later records are interpreted.")
+	compileSource := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/ModCompile.cs", "ModCompile.CompileMenu", 45, 234, "The official compiler extracts name, category, and setumei metadata and writes the ordered command stream and header.")
+	sceneSource := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/SceneEdit.cs", "SceneEdit.InitMenuItemScript", 1297, 1513, "The editor scans menu commands to build the visible name, description, category, icon, and item state.")
+	menu3Source := source("COM3D2_5 3.48.0", "COM3D2_5 3.48.0/Assembly-CSharp/Menu.cs", "Menu.ProcScriptBin", 154, 1234, "The COM3D2_5 runtime retains the menu interpreter and adds CRC-body, split-item, mesh-morph, and body-state command branches.")
+	compile3Source := source("COM3D2_5 3.48.0", "COM3D2_5 3.48.0/Assembly-CSharp/ModCompile.cs", "ModCompile.CompileMenuScript", 15, 228, "The COM3D2_5 text compiler validates additem, category, texture, and item-parameter forms before writing the same CM3D2_MENU stream.")
+	scene3Source := source("COM3D2_5 3.48.0", "COM3D2_5 3.48.0/Assembly-CSharp/SceneEdit.cs", "SceneEdit.InitMenuItemScript", 1343, 1562, "The COM3D2_5 editor scan retains the metadata commands and priority/deletion/collaboration flags used by SceneEdit.")
+	materialMgr3Source := source("COM3D2_5 3.48.0", "COM3D2_5 3.48.0/Assembly-CSharp/MaterialMgr.cs", "MaterialMgr.SetMatAlpha", 275, 285, "SetMatAlpha returns without effect for male skins or unloaded slot objects, then indexes the material array directly and applies the requested alpha.")
 	field := fieldFrom(compileSource, menuSource, sceneSource, compile3Source, menu3Source, scene3Source, materialMgr3Source)
 
 	menu := guide(
 		"COM3D2 .menu editing guide",
 		"A compiled COM3D2 item-menu script. The header contains compiler metadata and BodySize; Commands is an ordered program that changes item, model, material, texture, bone, and visibility state.",
-		"runtime_verified",
-		"The header, compiler, editor scan, and command interpreters were compared with COM3D2 2.48.0 and COM3D2_5 3.48.0. Command forms identify the build in which each syntax was observed; fields not listed here remain schema_only.",
+		FormatVerificationSerializationVerified,
+		"The whole-file serialization contract was checked against the header, compiler, editor scan, and command interpreters in COM3D2 2.48.0 and COM3D2_5 3.48.0. Command forms identify the build in which each syntax appears. Only fields carrying source_semantics claims have source-reviewed game meaning.",
 		[]Source{compileSource, menuSource, sceneSource, compile3Source, menu3Source, scene3Source, materialMgr3Source},
 		[]Field{
 			field("/Signature", "Menu file signature", "The fixed BinaryWriter signature used to identify a compiled menu script.", "MenuHeader.Deserialize and the command loaders reject a header that is not CM3D2_MENU.", "format_marker", "Keep the exact value CM3D2_MENU.", "critical"),
@@ -45,12 +45,12 @@ func com3d2Profiles() map[string]Guide {
 	}
 	menu.Invariants = []string{"Signature is CM3D2_MENU.", "Commands are ordered and may contain duplicates.", "BodySize is derived from the encoded command region.", "A command's argument meaning depends on its opcode, position, form, and target-build value set."}
 
-	materialSource := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs", "ImportCM.LoadMaterial/ReadMaterial", 317, 505, "The loader validates CM3D2_MATERIAL, reads the material name and shader, then applies typed texture, color, vector, float, range, offset, scale, and keyword properties to a Unity Material.")
+	materialSource := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs", "ImportCM.LoadMaterial/ReadMaterial", 317, 505, "The loader validates CM3D2_MATERIAL, reads the material name and shader, then applies typed texture, color, vector, float, range, offset, scale, and keyword properties to a Unity Material.")
 	field = fieldFrom(materialSource)
 	material := guide(
 		"COM3D2 .mate material guide",
 		"A CM3D2_MATERIAL material container. It identifies a material and applies a shader plus an ordered property stream to a Unity Material instance.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"ImportCM.LoadMaterial and ReadMaterial were reviewed in COM3D2 2.48.0; COM3D2_5 adds properties but retains the same container entry point.",
 		[]Source{materialSource},
 		[]Field{
@@ -67,12 +67,12 @@ func com3d2Profiles() map[string]Guide {
 	material.Rules = []Rule{{ID: "material-property-order", AppliesTo: []string{"/Material/Properties"}, Severity: "warning", Summary: "Preserve property order and concrete types.", Details: "The binary stream has no self-describing JSON type tag beyond each property's registered variant. Reordering or changing a variant can shift subsequent values.", Evidence: []Source{materialSource}}}
 	material.Invariants = []string{"Signature is CM3D2_MATERIAL.", "Material must contain a payload before serialization.", "Shader and property resources must exist in the target build."}
 
-	pmatSource := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs", "ImportCM.TryGetPriorityMaterial", 349, 390, "The loader reads CM3D2_PMATERIAL, stores the hash-keyed material name and render queue, and applies the queue when the material name matches.")
+	pmatSource := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs", "ImportCM.TryGetPriorityMaterial", 349, 390, "The loader reads CM3D2_PMATERIAL, stores the hash-keyed material name and render queue, and applies the queue when the material name matches.")
 	field = fieldFrom(pmatSource)
 	pmat := guide(
 		"COM3D2 .pmat priority-material guide",
 		"A priority-material override that changes a material's render queue and optionally records its shader name.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"The binary layout and the hash-keyed priority lookup were compared with ImportCM.TryGetPriorityMaterial in COM3D2 2.48.0.",
 		[]Source{pmatSource},
 		[]Field{
@@ -87,12 +87,12 @@ func com3d2Profiles() map[string]Guide {
 	pmat.Rules = []Rule{{ID: "priority-hash", AppliesTo: []string{"/Hash", "/MaterialName", "/Shader", "/RenderQueue"}, Severity: "error", Summary: "Keep the lookup hash coherent with the identity fields.", Details: "A mismatched hash can make an otherwise valid override unreachable or associate it with another material.", Evidence: []Source{pmatSource}}}
 	pmat.Invariants = []string{"Signature is CM3D2_PMATERIAL.", "The lookup key must resolve to MaterialName.", "RenderQueue is a Unity queue value, not a material property name."}
 
-	colSource := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs", "DynamicBone.SerializeReadCollider", 232, 282, "The loader validates CM3D21_COL and constructs dbc, dpc, dbm, or missing collider objects, restoring their parent, transform, direction, center, and bound values.")
+	colSource := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs", "DynamicBone.SerializeReadCollider", 232, 282, "The loader validates CM3D21_COL and constructs dbc, dpc, dbm, or missing collider objects, restoring their parent, transform, direction, center, and bound values.")
 	field = fieldFrom(colSource)
 	col := guide(
 		"COM3D2 .col collider guide",
 		"A CM3D21_COL list used by DynamicBone to create runtime collision components for hair, clothing, and other dynamic bones.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"DynamicBone.SerializeWriteCollider/SerializeReadCollider and all supported collider subclasses were reviewed in COM3D2 2.48.0.",
 		[]Source{colSource},
 		[]Field{
@@ -107,12 +107,12 @@ func com3d2Profiles() map[string]Guide {
 		pattern("/Colliders/*/{Direction,Center,Bound}", "Collider geometry", "Axis, center offset, and inside/outside constraint values for the concrete shape.", "DynamicBone collision resolution uses these values to constrain particles.", "runtime_geometry", "Keep Direction in 0..2 and Bound in the shape's supported range.", colSource),
 	}
 
-	phySource := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs", "DynamicBone.SerializeWrite/SerializeRead", 9, 230, "The physics writer and reader serialize root, partial-bone modes, base values, AnimationCurves, end behavior, gravity, force, collider references, exclusions, and freeze axis.")
+	phySource := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/DynamicBone.cs", "DynamicBone.SerializeWrite/SerializeRead", 9, 230, "The physics writer and reader serialize root, partial-bone modes, base values, AnimationCurves, end behavior, gravity, force, collider references, exclusions, and freeze axis.")
 	field = fieldFrom(phySource)
 	phy := guide(
 		"COM3D2 .phy DynamicBone guide",
 		"The legacy DynamicBone simulation settings for one root bone chain. Scalar values can be global, curve-distributed, or partial per bone.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"DynamicBone.SerializeWrite/SerializeRead in COM3D2 2.48.0 was compared with the complete Phy layout. The file's version changes with builds but the reviewed field order is stable.",
 		[]Source{phySource},
 		[]Field{
@@ -139,12 +139,12 @@ func com3d2Profiles() map[string]Guide {
 	phy.Rules = []Rule{{ID: "partial-mode-coherence", AppliesTo: []string{"/EnablePartialDamping", "/PartialDamping", "/DampingDistrib", "/EnablePartialElasticity", "/PartialElasticity", "/EnablePartialStiffness", "/PartialStiffness", "/EnablePartialInert", "/PartialInert", "/EnablePartialRadius", "/PartialRadius"}, Severity: "error", Summary: "Each partial selector must agree with its value representation.", Details: "Mode 0/curve uses the base scalar and distribution; mode 1 requires per-bone entries; mode 2 follows the legacy bone-name behavior. Keep the associated fields together.", Evidence: []Source{phySource}}}
 	phy.Invariants = []string{"Signature is CM3D21_PHY.", "FreezeAxis is 0, 1, 2, or 3.", "A positive EndLength takes precedence over an explicit terminal EndOffset.", "Partial-mode selectors and their lists/curves must describe the same editing strategy."}
 
-	pskSource := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs", "DynamicSkirtBone.SerializeWrite/SerializeRead", 18, 140, "The skirt serializer writes CM3D21_PSK, radius and force curves, per-bone radius groups, stress and scale controls, velocity and gravity curves, and four hard values.")
+	pskSource := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/DynamicSkirtBone.cs", "DynamicSkirtBone.SerializeWrite/SerializeRead", 18, 140, "The skirt serializer writes CM3D21_PSK, radius and force curves, per-bone radius groups, stress and scale controls, velocity and gravity curves, and four hard values.")
 	field = fieldFrom(pskSource)
 	psk := guide(
 		"COM3D2 .psk skirt-physics guide",
 		"DynamicSkirtBone parameters for panier/skirt motion, including radius, force, stress response, gravity, and per-bone radius groups.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"DynamicSkirtBone.SerializeWrite/SerializeRead and its parameter update path were reviewed in COM3D2 2.48.0.",
 		[]Source{pskSource},
 		[]Field{
@@ -161,12 +161,12 @@ func com3d2Profiles() map[string]Guide {
 		pattern("/{PanierRadiusDistrib,PanierForceDistrib,VelocityForceRateDistrib,GravityDistrib}/*", "Skirt parameter keyframe", "A time/value/inTangent/outTangent keyframe.", "The solver evaluates these curves while updating skirt parameters.", "runtime_curve", "Keep keyframe times ordered and avoid extreme tangent overshoot.", pskSource),
 	}
 
-	anmSource := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs", "ImportCM.LoadAniClip", 770, 850, "The animation loader validates CM3D2_ANIM, maps property bytes to Unity AnimationCurve channels, and applies the curves to bone paths.")
+	anmSource := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs", "ImportCM.LoadAniClip", 770, 850, "The animation loader validates CM3D2_ANIM, maps property bytes to Unity AnimationCurve channels, and applies the curves to bone paths.")
 	field = fieldFrom(anmSource)
 	anm := guide(
 		"COM3D2 .anm animation guide",
 		"Legacy CM3D2_ANIM bone animation data. Each bone path contains property-indexed keyframe curves; version 1001 adds left/right bust animation switches.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"ImportCM.LoadAniClip and PhotoMotionData's version handling were reviewed in COM3D2 2.48.0; COM3D2_5 keeps the same property-channel model.",
 		[]Source{anmSource},
 		[]Field{
@@ -182,12 +182,12 @@ func com3d2Profiles() map[string]Guide {
 		pattern("/BoneCurves/*/PropertyCurves/*/{PropertyIndex,Keyframes}", "Animation property curve", "A property index and Unity keyframes with time, value, and tangents.", "ImportCM maps the index to localPosition or localRotation and assigns an AnimationCurve.", "runtime_curve", "Use the documented property index range and finite keyframes.", anmSource),
 	}
 
-	modelSource := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs", "ImportCM.LoadSkinMesh_R", 46, 315, "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.")
+	modelSource := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs", "ImportCM.LoadSkinMesh_R", 46, 315, "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.")
 	field = fieldFrom(modelSource)
 	model := guide(
 		"COM3D2 .model mesh guide",
 		"A CM3D2_MESH skinned-model resource containing bones, bind poses, vertex channels, submeshes, material slots, and optional morph/thickness data.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"ImportCM.LoadSkinMesh_R was reviewed in COM3D2 2.48.0 and COM3D2_5 3.48.0. The loader's counts and conditional fields are part of the wire contract.",
 		[]Source{modelSource},
 		[]Field{
@@ -206,12 +206,12 @@ func com3d2Profiles() map[string]Guide {
 		pattern("/MorphData/*", "Morph target data", "Vertex deltas and metadata for a named morph target.", "ImportCM forwards morph records to TMorph for facial/body deformation.", "runtime_morph", "Keep vertex indices and delta arrays aligned with the model.", modelSource),
 	}
 
-	presetSource := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/CharacterMgr.cs", "CharacterMgr.PresetSave/PresetLoad/PresetSet", 998, 1210, "The preset writer emits CM3D2_PRESET, a type marker, thumbnail, property list, color data, and optional body data; the loader restores those blocks and applies them to a maid.")
+	presetSource := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/CharacterMgr.cs", "CharacterMgr.PresetSave/PresetLoad/PresetSet", 998, 1210, "The preset writer emits CM3D2_PRESET, a type marker, thumbnail, property list, color data, and optional body data; the loader restores those blocks and applies them to a maid.")
 	field = fieldFrom(presetSource)
 	preset := guide(
 		"COM3D2 .preset character guide",
 		"A legacy CM3D2_PRESET character preset. It combines a preset type, thumbnail, maid property list, multi-color data, and optional body data.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"CharacterMgr's save/load/set paths and Maid's property/color/body serializers were reviewed in COM3D2 2.48.0.",
 		[]Source{presetSource},
 		[]Field{
@@ -227,13 +227,13 @@ func com3d2Profiles() map[string]Guide {
 	preset.Rules = []Rule{{ID: "preset-scope", AppliesTo: []string{"/PresetType", "/PresetPropertyList", "/MultiColor", "/BodyProperty"}, Severity: "error", Summary: "PresetType and nested blocks must agree.", Details: "A wear-only, body-only, or all-data preset is applied through different CharacterMgr branches. Preserve the block presence and type combination from a real file.", Evidence: []Source{presetSource}}}
 	preset.Invariants = []string{"Signature is CM3D2_PRESET.", "Thumbnail length must equal the encoded thumbnail bytes.", "PresetType determines which nested data is applied.", "Nested property signatures must remain CM3D2_MPROP_LIST, CM3D2_MULTI_COL, and CM3D2_MAID_BODY where present."}
 
-	timelineSource := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/DanceMain.cs", "DanceMain.Load / timeline_data.bytes", 200, 275, "DanceMain loads timeline_data.bytes and uses track data together with the animation timeline runtime.")
-	timelineBinarySource := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/AMBinaryDataBaseObject.cs", "AMBinaryDataBaseObject.Deserialize", 35, 65, "Object tracks resolve slash-separated Unity object paths before animation data is applied.")
+	timelineSource := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/DanceMain.cs", "DanceMain.Load / timeline_data.bytes", 200, 275, "DanceMain loads timeline_data.bytes and uses track data together with the animation timeline runtime.")
+	timelineBinarySource := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/AMBinaryDataBaseObject.cs", "AMBinaryDataBaseObject.Deserialize", 35, 65, "Object tracks resolve slash-separated Unity object paths before animation data is applied.")
 	field = fieldFrom(timelineSource, timelineBinarySource)
 	timeline := guide(
 		"COM3D2 timeline editing guide",
 		"The binary timeline_data.bytes model used by the dance/photo timeline system. Tracks are typed translation, rotation, property, or event streams.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"DanceMain, AMBinaryDataBaseObject, and the timeline track readers in the COM3D2 2.48.0 source were reviewed. Track IDs and object paths are cross-record references.",
 		[]Source{timelineSource, timelineBinarySource},
 		[]Field{
@@ -248,12 +248,12 @@ func com3d2Profiles() map[string]Guide {
 		pattern("/Tracks/*/MethodDataArray/*", "Event method record", "A frame, component name, method name, and optional typed parameters.", "The event track invokes the named component method at the specified frame.", "runtime_event", "Only reference components and methods present in the target scene.", timelineSource),
 	}
 
-	objectSource := source("COM3D2 2.48.0", "game/COM3D2 2.48.0/Assembly-CSharp/DanceObjectDataBinary.cs", "DanceObjectDataBinary.Load/Save", 6, 130, "The dance loader maps object names and resource paths to referenced track IDs and resolves them in the scene, creating or locating objects as necessary.")
+	objectSource := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/DanceObjectDataBinary.cs", "DanceObjectDataBinary.Load/Save", 6, 130, "The dance loader maps object names and resource paths to referenced track IDs and resolves them in the scene, creating or locating objects as necessary.")
 	field = fieldFrom(objectSource)
 	objectData := guide(
 		"COM3D2 dance object-data guide",
 		"Object-reference tables shared by maid_data.bytes, item_data.bytes, and event_data.bytes. Each entry associates a scene object with timeline track IDs.",
-		"runtime_verified",
+		FormatVerificationSerializationVerified,
 		"DanceObjectDataBinary.Load/Save and its object lookup path were reviewed in COM3D2 2.48.0.",
 		[]Source{objectSource},
 		[]Field{

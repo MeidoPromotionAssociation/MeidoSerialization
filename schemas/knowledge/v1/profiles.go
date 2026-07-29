@@ -38,50 +38,41 @@ func finalizeProfile(formatID string, guide Guide) Guide {
 	guide.Version = Version
 	guide.SchemaURI = "meido://schemas/" + formatID
 	guide.SchemaID = "urn:meido-serialization:editing-json:v1:" + formatID
-	if guide.Coverage.Level == "" {
-		guide.Coverage.Level = CoverageRuntimeVerified
+	if guide.FormatVerification.Level == "" {
+		guide.FormatVerification.Level = FormatVerificationSerializationVerified
 	}
-	if !isKnownCoverageLevel(guide.Coverage.Level) {
-		panic("invalid format-guide coverage " + guide.Coverage.Level + " for " + formatID)
+	if guide.FormatVerification.Authority == "" {
+		if guide.FormatVerification.Level == FormatVerificationSchemaOnly {
+			guide.FormatVerification.Authority = ReviewAuthorityGenerated
+		} else {
+			guide.FormatVerification.Authority = ReviewAuthorityAI
+		}
 	}
-	if guide.Coverage.Notes == "" {
-		guide.Coverage.Notes = "The cited game reader or writer was reviewed against source by AI. Only fields explicitly marked verified have reviewed runtime semantics; all merged schema_only fields remain opaque. The human_ prefix is reserved for explicit human approval."
+	validateFormatVerification(formatID, guide.FormatVerification)
+	if guide.FormatVerification.Notes == "" {
+		guide.FormatVerification.Notes = "The whole-file serialization contract was reviewed by AI. Field verification claims are independent: source_semantics records game-source review, game_behavior requires an actual runtime observation, and an empty verification object means schema-derived only."
 	}
 	validateSources(formatID, "guide", guide.Sources)
-	reviewedFields := 0
 	for index := range guide.Fields {
 		field := &guide.Fields[index]
 		if field.SchemaPointer == "" && strings.Count(field.JSONPath, "/") == 1 {
 			field.SchemaPointer = "#/properties/" + escapeJSONPointer(strings.TrimPrefix(field.JSONPath, "/"))
 		}
-		if field.Confidence == "" {
-			field.Confidence = confidenceForEvidence(field.Evidence)
-		}
-		if !isKnownConfidence(field.Confidence) {
-			panic("invalid field confidence " + field.Confidence + " for " + formatID + field.JSONPath)
-		}
 		validateSources(formatID, "field "+field.JSONPath, field.Evidence)
-		requireGameEvidence(formatID, "field "+field.JSONPath, field.Confidence, field.Evidence)
+		field.Verification = completeFieldVerification(field.Verification, field.Evidence, guide.FormatVerification)
+		validateFieldVerification(formatID, "field "+field.JSONPath, field.Verification, field.Evidence, guide.FormatVerification)
 		if field.Risk == "" {
 			field.Risk = "medium"
-		}
-		if field.Confidence != ConfidenceSchemaOnly {
-			reviewedFields++
 		}
 	}
 	for index := range guide.FieldPatterns {
 		fieldPattern := &guide.FieldPatterns[index]
-		if fieldPattern.Confidence == "" {
-			fieldPattern.Confidence = confidenceForEvidence(fieldPattern.Evidence)
-		}
-		if !isKnownConfidence(fieldPattern.Confidence) {
-			panic("invalid field-pattern confidence " + fieldPattern.Confidence + " for " + formatID + fieldPattern.JSONPathPattern)
-		}
 		validateSources(formatID, "field pattern "+fieldPattern.JSONPathPattern, fieldPattern.Evidence)
-		requireGameEvidence(formatID, "field pattern "+fieldPattern.JSONPathPattern, fieldPattern.Confidence, fieldPattern.Evidence)
+		fieldPattern.Verification = completeFieldVerification(fieldPattern.Verification, fieldPattern.Evidence, guide.FormatVerification)
+		validateFieldVerification(formatID, "field pattern "+fieldPattern.JSONPathPattern, fieldPattern.Verification, fieldPattern.Evidence, guide.FormatVerification)
 	}
-	guide.Coverage.ReviewedFields = reviewedFields
-	finalizeValueSets(formatID, guide.ValueSets)
+	guide.FieldCoverage = summarizeFieldCoverage(guide.Fields)
+	finalizeValueSets(formatID, guide.ValueSets, guide.FormatVerification)
 	validateCommandValueSetRefs(formatID, guide.Commands, guide.ValueSets)
 	for _, rule := range guide.Rules {
 		validateSources(formatID, "rule "+rule.ID, rule.Evidence)
@@ -100,9 +91,9 @@ func finalizeProfile(formatID string, guide Guide) Guide {
 	return guide
 }
 
-// finalizeValueSets 校验值集合完整性、唯一标识符、证据和置信等级
-// finalizeValueSets validates value-set completeness, unique identifiers, evidence, and confidence levels
-func finalizeValueSets(formatID string, valueSets []ValueSet) {
+// finalizeValueSets 校验值集合完整性、唯一标识符、证据和独立认证 claim
+// finalizeValueSets validates value-set completeness, unique identifiers, evidence, and independent verification claims
+func finalizeValueSets(formatID string, valueSets []ValueSet, formatVerification FormatVerification) {
 	ids := make(map[string]struct{}, len(valueSets))
 	for index := range valueSets {
 		valueSet := &valueSets[index]
@@ -113,14 +104,9 @@ func finalizeValueSets(formatID string, valueSets []ValueSet) {
 			panic("duplicate value set " + valueSet.ID + " for " + formatID)
 		}
 		ids[valueSet.ID] = struct{}{}
-		if valueSet.Confidence == "" {
-			valueSet.Confidence = confidenceForEvidence(valueSet.Evidence)
-		}
-		if !isKnownConfidence(valueSet.Confidence) {
-			panic("invalid value-set confidence " + valueSet.Confidence + " for " + valueSet.ID)
-		}
 		validateSources(formatID, "value set "+valueSet.ID, valueSet.Evidence)
-		requireGameEvidence(formatID, "value set "+valueSet.ID, valueSet.Confidence, valueSet.Evidence)
+		valueSet.Verification = completeFieldVerification(valueSet.Verification, valueSet.Evidence, formatVerification)
+		validateFieldVerification(formatID, "value set "+valueSet.ID, valueSet.Verification, valueSet.Evidence, formatVerification)
 		for _, value := range valueSet.Values {
 			if value.Name == "" {
 				panic("unnamed value in value set " + valueSet.ID + " for " + formatID)
@@ -159,80 +145,155 @@ func validateCommandValueSetRefs(formatID string, commands []Command, valueSets 
 	}
 }
 
-// confidenceForEvidence 根据游戏源码或实现源码证据推导默认置信等级
-// confidenceForEvidence derives the default confidence level from game-source or implementation-source evidence
-func confidenceForEvidence(evidence []Source) string {
-	hasImplementationSource := false
+// verificationForEvidence 根据实现源码、游戏源码或实际运行证据推导独立认证
+// verificationForEvidence derives independent claims from implementation-source, game-source, or actual-runtime evidence
+func verificationForEvidence(evidence []Source) FieldVerification {
+	verification := FieldVerification{}
 	for _, item := range evidence {
 		switch item.Kind {
 		case SourceKindGame:
-			return ConfidenceVerified
+			verification.Serialization = verifiedClaim(ReviewAuthorityAI)
+			verification.SourceSemantics = verifiedClaim(ReviewAuthorityAI)
 		case SourceKindImplementation:
-			hasImplementationSource = true
+			verification.Serialization = verifiedClaim(ReviewAuthorityAI)
+		case SourceKindRuntimeObservation:
+			verification.GameBehavior = verifiedClaim(ReviewAuthorityAI)
 		}
 	}
-	if hasImplementationSource {
-		return ConfidenceSerializationOnly
-	}
-	return ConfidenceSchemaOnly
+	return verification
 }
 
-// requireGameEvidence 确保标记为已验证的结论至少引用一处游戏源码
-// requireGameEvidence ensures that a conclusion marked verified cites at least one game-source location
-func requireGameEvidence(formatID, owner, confidence string, evidence []Source) {
-	if confidence != ConfidenceVerified && confidence != ConfidenceHumanVerified {
-		return
+// completeFieldVerification 合并显式认证、证据推导认证和文件级序列化认证
+// completeFieldVerification merges explicit claims, evidence-derived claims, and whole-file serialization verification
+func completeFieldVerification(verification FieldVerification, evidence []Source, formatVerification FormatVerification) FieldVerification {
+	inferred := verificationForEvidence(evidence)
+	if verification.Serialization == nil {
+		verification.Serialization = inferred.Serialization
 	}
+	if verification.SourceSemantics == nil {
+		verification.SourceSemantics = inferred.SourceSemantics
+	}
+	if verification.GameBehavior == nil {
+		verification.GameBehavior = inferred.GameBehavior
+	}
+	if verification.Serialization == nil && verification.SourceSemantics != nil {
+		verification.Serialization = verifiedClaim(verification.SourceSemantics.Authority)
+	}
+	if verification.Serialization == nil && formatVerification.Level == FormatVerificationSerializationVerified {
+		verification.Serialization = verifiedClaim(formatVerification.Authority)
+	}
+	return verification
+}
+
+// verifiedClaim 构建带有明确审阅主体的已认证 claim
+// verifiedClaim builds a verified claim carrying an explicit reviewing authority
+func verifiedClaim(authority string) *VerificationClaim {
+	return &VerificationClaim{Status: VerificationStatusVerified, Authority: authority}
+}
+
+// validateFieldVerification 校验独立认证状态、包含关系及所需证据
+// validateFieldVerification validates independent claims, inclusion rules, and required evidence
+func validateFieldVerification(formatID, owner string, verification FieldVerification, evidence []Source, formatVerification FormatVerification) {
+	for name, claim := range map[string]*VerificationClaim{
+		"serialization":    verification.Serialization,
+		"source_semantics": verification.SourceSemantics,
+		"game_behavior":    verification.GameBehavior,
+	} {
+		if claim == nil {
+			continue
+		}
+		if claim.Status != VerificationStatusVerified || !isReviewAuthority(claim.Authority) {
+			panic("invalid " + name + " verification for " + owner + " in " + formatID)
+		}
+	}
+	if verification.SourceSemantics != nil && verification.Serialization == nil {
+		panic("source verification without serialization verification for " + owner + " in " + formatID)
+	}
+	if verification.Serialization != nil && verification.SourceSemantics == nil && formatVerification.Level != FormatVerificationSerializationVerified && !hasEvidenceKind(evidence, SourceKindImplementation) {
+		panic("serialization verification without serialization evidence for " + owner + " in " + formatID)
+	}
+	if verification.SourceSemantics != nil && !hasEvidenceKind(evidence, SourceKindGame) {
+		panic("source verification without game source for " + owner + " in " + formatID)
+	}
+	if verification.GameBehavior != nil && !hasEvidenceKind(evidence, SourceKindRuntimeObservation) {
+		panic("game-behavior verification without runtime observation for " + owner + " in " + formatID)
+	}
+}
+
+// hasEvidenceKind 判断证据列表是否包含指定种类
+// hasEvidenceKind reports whether an evidence list contains the requested kind
+func hasEvidenceKind(evidence []Source, kind string) bool {
 	for _, item := range evidence {
-		if item.Kind == SourceKindGame {
-			return
+		if item.Kind == kind {
+			return true
 		}
 	}
-	panic("verified " + owner + " has no game source for " + formatID)
+	return false
 }
 
-// validateSources 校验证据种类、精确行范围及其所属源码树
-// validateSources validates evidence kinds, exact line ranges, and source-tree ownership
+// validateSources 校验证据种类、精确行范围及路径约束
+// validateSources validates evidence kinds, exact line ranges, and path constraints
 func validateSources(formatID, owner string, sources []Source) {
 	for _, item := range sources {
-		if item.Kind != SourceKindGame && item.Kind != SourceKindImplementation {
+		if item.Kind != SourceKindGame && item.Kind != SourceKindImplementation && item.Kind != SourceKindRuntimeObservation {
 			panic("invalid source kind " + item.Kind + " for " + owner + " in " + formatID)
 		}
 		path := strings.ReplaceAll(item.Path, "\\", "/")
-		if item.Path == "" || item.LineStart < 1 || item.LineEnd < item.LineStart {
+		if item.GameVersion == "" || item.Observation == "" {
+			panic("incomplete evidence for " + owner + " in " + formatID)
+		}
+		if item.Kind != SourceKindRuntimeObservation && (item.Path == "" || item.LineStart < 1 || item.LineEnd < item.LineStart) {
 			panic("imprecise source for " + owner + " in " + formatID)
 		}
-		if item.Kind == SourceKindGame && !strings.HasPrefix(path, "game/") {
-			panic("game source outside game/ for " + owner + " in " + formatID)
-		}
-		if item.Kind == SourceKindImplementation && strings.HasPrefix(path, "game/") {
-			panic("implementation source inside game/ for " + owner + " in " + formatID)
+		if strings.HasPrefix(path, "game/") {
+			panic("evidence path must not include the game/ prefix for " + owner + " in " + formatID)
 		}
 	}
 }
 
-// isKnownCoverageLevel 判断字符串是否为目录支持的覆盖等级
-// isKnownCoverageLevel reports whether a string is a coverage level supported by the catalog
-func isKnownCoverageLevel(level string) bool {
-	switch level {
-	case CoverageRuntimeVerified, CoverageSerializationVerified, CoverageSchemaOnly,
-		CoverageHumanRuntimeVerified, CoverageHumanSerializationVerified:
-		return true
+// validateFormatVerification 校验文件级认证等级与主体组合
+// validateFormatVerification validates the whole-file verification level and authority combination
+func validateFormatVerification(formatID string, verification FormatVerification) {
+	switch verification.Level {
+	case FormatVerificationSerializationVerified:
+		if !isReviewAuthority(verification.Authority) {
+			panic("invalid serialization verification authority " + verification.Authority + " for " + formatID)
+		}
+	case FormatVerificationSchemaOnly:
+		if verification.Authority != ReviewAuthorityGenerated {
+			panic("schema-only format verification must be generated for " + formatID)
+		}
 	default:
-		return false
+		panic("invalid format verification " + verification.Level + " for " + formatID)
 	}
 }
 
-// isKnownConfidence 判断字符串是否为目录支持的字段置信等级
-// isKnownConfidence reports whether a string is a field confidence level supported by the catalog
-func isKnownConfidence(confidence string) bool {
-	switch confidence {
-	case ConfidenceVerified, ConfidenceSerializationOnly, ConfidenceSchemaOnly,
-		ConfidenceHumanVerified, ConfidenceHumanSerializationOnly:
-		return true
-	default:
-		return false
+// isReviewAuthority 判断字符串是否为允许作出认证结论的主体
+// isReviewAuthority reports whether a string identifies an authority allowed to make verification claims
+func isReviewAuthority(authority string) bool {
+	return authority == ReviewAuthorityAI || authority == ReviewAuthorityHuman
+}
+
+// summarizeFieldCoverage 统计精确字段的独立认证覆盖
+// summarizeFieldCoverage counts independent verification coverage for exact fields
+func summarizeFieldCoverage(fields []Field) FieldCoverage {
+	summary := FieldCoverage{Total: uint32(len(fields))}
+	for _, field := range fields {
+		verification := field.Verification
+		if verification.Serialization != nil {
+			summary.SerializationVerified++
+		}
+		if verification.SourceSemantics != nil {
+			summary.SourceVerified++
+		}
+		if verification.GameBehavior != nil {
+			summary.GameBehaviorVerified++
+		}
+		if verification.Serialization == nil && verification.SourceSemantics == nil && verification.GameBehavior == nil {
+			summary.SchemaDerived++
+		}
 	}
+	return summary
 }
 
 // profileGuide 按稳定格式标识符查找源码审核指南 profile
@@ -256,6 +317,7 @@ func profileFormats() []string {
 // source 构建引用游戏源码精确位置的证据
 // source builds evidence referencing an exact game-source location
 func source(gameVersion, path, symbol string, lineStart, lineEnd int, observation string) Source {
+	path = strings.ReplaceAll(path, "\\", "/")
 	return Source{
 		Kind:        SourceKindGame,
 		GameVersion: gameVersion,
@@ -281,8 +343,8 @@ func implementationSource(gameVersion, path, symbol string, lineStart, lineEnd i
 	}
 }
 
-// field 构建根据所给证据自动推导置信等级的字段语义
-// field builds field semantics with a confidence level derived from the supplied evidence
+// field 构建根据所给证据自动推导独立认证 claim 的字段语义
+// field builds field semantics with independent verification claims derived from the supplied evidence
 func field(path, title, description, gameUsage, editRole, editGuidance, risk string, evidence ...Source) Field {
 	return Field{
 		JSONPath:     path,
@@ -293,7 +355,7 @@ func field(path, title, description, gameUsage, editRole, editGuidance, risk str
 		EditGuidance: editGuidance,
 		Risk:         risk,
 		Evidence:     evidence,
-		Confidence:   confidenceForEvidence(evidence),
+		Verification: verificationForEvidence(evidence),
 	}
 }
 
@@ -305,13 +367,13 @@ func fieldFrom(evidence ...Source) func(string, string, string, string, string, 
 	}
 }
 
-// guide 使用标题、摘要、覆盖信息、证据和字段构建基础 profile
-// guide builds a base profile from a title, summary, coverage information, evidence, and fields
-func guide(title, summary string, coverage string, notes string, sources []Source, fields []Field) Guide {
+// guide 使用标题、摘要、文件认证、证据和字段构建基础 profile
+// guide builds a base profile from a title, summary, whole-file verification, evidence, and fields
+func guide(title, summary string, verification string, notes string, sources []Source, fields []Field) Guide {
 	return Guide{
 		Title: title, Summary: summary,
-		Coverage: Coverage{Level: coverage, Notes: notes},
-		Sources:  sources, Fields: fields,
+		FormatVerification: FormatVerification{Level: verification, Authority: ReviewAuthorityAI, Notes: notes},
+		Sources:            sources, Fields: fields,
 	}
 }
 
@@ -327,7 +389,7 @@ func serializationField(path, title, description, gameUsage, editRole, editGuida
 		EditGuidance: editGuidance,
 		Risk:         risk,
 		Evidence:     evidence,
-		Confidence:   ConfidenceSerializationOnly,
+		Verification: FieldVerification{Serialization: verifiedClaim(ReviewAuthorityAI)},
 	}
 }
 
@@ -339,8 +401,8 @@ func serializationFieldFrom(evidence ...Source) func(string, string, string, str
 	}
 }
 
-// pattern 构建根据所给证据自动推导置信等级的动态字段模式
-// pattern builds a dynamic field pattern with a confidence level derived from the supplied evidence
+// pattern 构建根据所给证据自动推导独立认证 claim 的动态字段模式
+// pattern builds a dynamic field pattern with independent verification claims derived from the supplied evidence
 func pattern(path, title, description, gameUsage, editRole, editGuidance string, evidence ...Source) FieldPattern {
 	return FieldPattern{
 		JSONPathPattern: path,
@@ -350,7 +412,7 @@ func pattern(path, title, description, gameUsage, editRole, editGuidance string,
 		EditRole:        editRole,
 		EditGuidance:    editGuidance,
 		Evidence:        evidence,
-		Confidence:      confidenceForEvidence(evidence),
+		Verification:    verificationForEvidence(evidence),
 	}
 }
 
@@ -382,7 +444,7 @@ func standardWorkflow(formatID string) []string {
 func standardWarnings() []string {
 	return []string{
 		"Schema validation proves structure and supported wire invariants, not that a referenced asset, bone, material, hash, ID, or enum exists in the target installation.",
-		"A runtime_verified guide covers the cited paths and fields only; it does not make merged schema_only fields safe to reinterpret.",
-		"Unprefixed review states record AI source review. The human_ prefix is reserved for explicit human approval and must never be inferred or added automatically.",
+		"Whole-file serialization verification does not establish game semantics; inspect each field's independent verification claims before interpreting it.",
+		"Every verification claim records an explicit AI or human authority. An empty verification object means the field is schema-derived and must not be interpreted from its name.",
 	}
 }

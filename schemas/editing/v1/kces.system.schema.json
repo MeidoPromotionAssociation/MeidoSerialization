@@ -1057,7 +1057,6 @@
         "null",
         "object"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve directory names and versions required by typed and extra files.",
       "x-meido-edit-role": "runtime_container",
       "x-meido-game-usage": "VirtualDirectory recreates the EditData and other child directories from these records.",
@@ -1069,7 +1068,7 @@
           "line_end": 58,
           "line_start": 12,
           "observation": "ApplicationSystemDataManager opens system.dat as a VirtualDirectory and accesses typed EditData files below the EditData directory.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/ApplicationSystemDataManager.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/ApplicationSystemDataManager.cs",
           "symbol": "ApplicationSystemDataManager.Load/Save"
         },
         {
@@ -1078,7 +1077,7 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         },
         {
@@ -1090,7 +1089,17 @@
           "path": "serialization/KCES/system_dat.go",
           "symbol": "KCESEditDataKindForPath/DecodeKCESSystemData"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "editData": {
       "description": "Recognized files under the EditData virtual directory, each carrying a path, kind discriminator, and one typed payload.",
@@ -1102,7 +1111,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep path and kind synchronized and edit each union member with its matching schema.",
       "x-meido-edit-role": "runtime_configuration",
       "x-meido-game-usage": "ApplicationSystemDataManager and SceneEdit read these files to restore editor UI, palette, gradation, and color-preset state.",
@@ -1114,7 +1122,7 @@
           "line_end": 58,
           "line_start": 12,
           "observation": "ApplicationSystemDataManager opens system.dat as a VirtualDirectory and accesses typed EditData files below the EditData directory.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/ApplicationSystemDataManager.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/ApplicationSystemDataManager.cs",
           "symbol": "ApplicationSystemDataManager.Load/Save"
         },
         {
@@ -1123,7 +1131,7 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         },
         {
@@ -1135,7 +1143,17 @@
           "path": "serialization/KCES/system_dat.go",
           "symbol": "KCESEditDataKindForPath/DecodeKCESSystemData"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "extraFiles": {
       "additionalProperties": {
@@ -1152,17 +1170,21 @@
         "null",
         "object"
       ],
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Retain names and bytes only for paths with no known decoder; a recognized path must use its typed union and may never move into extraFiles.",
       "x-meido-edit-role": "binary_virtual_file",
       "x-meido-game-usage": "These files belong to another independently named subsystem while VirtualDirectory stores their real byte-array payloads.",
-      "x-meido-risk": "critical"
+      "x-meido-risk": "critical",
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "format": {
       "description": "The marker for the normalized system.dat envelope.",
       "title": "Editing format marker",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep kces-system-data.",
       "x-meido-edit-role": "editing_metadata",
       "x-meido-game-usage": "It identifies the JSON representation and is not a native VirtualDirectory field.",
@@ -1174,7 +1196,7 @@
           "line_end": 58,
           "line_start": 12,
           "observation": "ApplicationSystemDataManager opens system.dat as a VirtualDirectory and accesses typed EditData files below the EditData directory.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/ApplicationSystemDataManager.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/ApplicationSystemDataManager.cs",
           "symbol": "ApplicationSystemDataManager.Load/Save"
         },
         {
@@ -1183,7 +1205,7 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         },
         {
@@ -1195,7 +1217,17 @@
           "path": "serialization/KCES/system_dat.go",
           "symbol": "KCESEditDataKindForPath/DecodeKCESSystemData"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "version": {
       "description": "The outer VirtualDirectory version, normally 1000.",
@@ -1203,7 +1235,6 @@
       "minimum": -2147483648,
       "title": "System container version",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve the source value; use 1000 for a new current container.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "ApplicationSystemDataManager loads and saves system.dat through VirtualDirectory using this version.",
@@ -1217,7 +1248,7 @@
           "line_end": 58,
           "line_start": 12,
           "observation": "ApplicationSystemDataManager opens system.dat as a VirtualDirectory and accesses typed EditData files below the EditData directory.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/ApplicationSystemDataManager.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/ApplicationSystemDataManager.cs",
           "symbol": "ApplicationSystemDataManager.Load/Save"
         },
         {
@@ -1226,7 +1257,7 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes a fixed signature, a serialize-type byte, raw virtual-file data, compressed indexed metadata, and a trailing metadata length using its declared current layout.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         },
         {
@@ -1238,7 +1269,17 @@
           "path": "serialization/KCES/system_dat.go",
           "symbol": "KCESEditDataKindForPath/DecodeKCESSystemData"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -1248,6 +1289,11 @@
   "title": "kces.system editing JSON",
   "type": "object",
   "x-meido-format-id": "kces.system",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "ApplicationSystemDataManager, the VirtualDirectory implementation, and the KCES EditData path dispatch were reviewed in KCES 1.34.4."
+  },
   "x-meido-native-suffixes": [
     "system.dat"
   ],

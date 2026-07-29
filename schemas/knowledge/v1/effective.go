@@ -50,12 +50,12 @@ func Resolve(formatID, schemaID string, schemaJSON []byte) (Document, error) {
 	return Document{
 		FormatID: id, Version: Version, ID: IDPrefix + id, MediaType: MediaType,
 		SHA256: fmt.Sprintf("%x", digest[:]), SchemaID: schemaID,
-		Coverage: guide.Coverage.Level, JSON: data,
+		FormatVerification: guide.FormatVerification.Level, JSON: data,
 	}, nil
 }
 
 // genericGuide 从编辑模式生成只有结构覆盖的基础格式指南
-// genericGuide generates a base format guide with schema-only structural coverage from an editing schema
+// genericGuide generates a base format guide with schema-only whole-file verification from an editing schema
 func genericGuide(formatID, schemaID string, schema map[string]any) Guide {
 	fields := collectSchemaFields(schema)
 	return Guide{
@@ -66,11 +66,12 @@ func genericGuide(formatID, schemaID string, schema map[string]any) Guide {
 		SchemaID:  schemaID,
 		Title:     formatID + " editing guide",
 		Summary:   "This guide enumerates the published editing JSON fields. No format-specific source-review profile is available.",
-		Coverage: Coverage{
-			Level: CoverageSchemaOnly,
+		FormatVerification: FormatVerification{
+			Level: FormatVerificationSchemaOnly, Authority: ReviewAuthorityGenerated,
 			Notes: "Field shape is derived from the embedded JSON Schema. Runtime behavior must not be inferred from field names alone.",
 		},
-		Fields: fields,
+		FieldCoverage: summarizeFieldCoverage(fields),
+		Fields:        fields,
 		Rules: []Rule{
 			{
 				ID: "respect-schema-fields", Severity: "error",
@@ -85,7 +86,7 @@ func genericGuide(formatID, schemaID string, schema map[string]any) Guide {
 			"Call meido.validate_editing_json after editing, then convert only after validation succeeds.",
 		},
 		Warnings: []string{
-			"Schema-only coverage confirms JSON shape, not how the game uses a value.",
+			"Schema-only format verification confirms JSON shape, not how the game uses a value.",
 			"Validation cannot prove that referenced game assets, bones, materials, hashes, IDs, or enum values exist in the target game build.",
 		},
 	}
@@ -96,9 +97,11 @@ func genericGuide(formatID, schemaID string, schema map[string]any) Guide {
 func mergeGuide(base, profile Guide) Guide {
 	fields := make(map[string]Field, len(base.Fields)+len(profile.Fields))
 	for _, field := range base.Fields {
+		field.Verification = completeFieldVerification(field.Verification, field.Evidence, profile.FormatVerification)
 		fields[field.JSONPath] = field
 	}
 	for _, field := range profile.Fields {
+		field.Verification = completeFieldVerification(field.Verification, field.Evidence, profile.FormatVerification)
 		fields[field.JSONPath] = field
 	}
 	profile.Fields = make([]Field, 0, len(fields))
@@ -106,6 +109,7 @@ func mergeGuide(base, profile Guide) Guide {
 		profile.Fields = append(profile.Fields, field)
 	}
 	sort.Slice(profile.Fields, func(i, j int) bool { return profile.Fields[i].JSONPath < profile.Fields[j].JSONPath })
+	profile.FieldCoverage = summarizeFieldCoverage(profile.Fields)
 	return profile
 }
 
@@ -118,7 +122,7 @@ func validateProfileFields(guide Guide, schema map[string]any) error {
 		paths[field.JSONPath] = true
 	}
 	for _, field := range guide.Fields {
-		if field.JSONPath == "" || field.Title == "" || field.Description == "" || field.GameUsage == "" || field.EditRole == "" || field.EditGuidance == "" || field.Confidence == "" {
+		if field.JSONPath == "" || field.Title == "" || field.Description == "" || field.GameUsage == "" || field.EditRole == "" || field.EditGuidance == "" {
 			return fmt.Errorf("guide %s has incomplete semantic metadata for %q", guide.FormatID, field.JSONPath)
 		}
 		if !paths[field.JSONPath] {
@@ -217,9 +221,9 @@ func genericField(path, pointer, name string, schema map[string]any) Field {
 	}
 	return Field{
 		JSONPath: path, SchemaPointer: pointer, Title: title, Description: description,
-		GameUsage: "Only serialization shape is confirmed; game-runtime use has no source-reviewed profile.",
+		GameUsage: "Only the schema shape is known; serialization and game-runtime behavior have no field verification claim.",
 		EditRole:  role, EditGuidance: guidance,
-		Risk: risk, Confidence: ConfidenceSchemaOnly,
+		Risk: risk, Verification: FieldVerification{},
 	}
 }
 

@@ -867,7 +867,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Do not reorder or rename entries without rewriting every dependent index and path.",
       "x-meido-edit-role": "runtime_skeleton",
       "x-meido-game-usage": "ImportCM creates the hierarchy and resolves each weighted bone by this table.",
@@ -879,10 +878,20 @@
           "line_end": 315,
           "line_start": 46,
           "observation": "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.LoadSkinMesh_R"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "BoneWeights": {
       "description": "Four bone indices and weights per vertex.",
@@ -894,7 +903,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep indices in range and weights coherent with the target bone count.",
       "x-meido-edit-role": "runtime_geometry",
       "x-meido-game-usage": "The SkinnedMeshRenderer uses them with BoneNames and BindPoses to deform the mesh.",
@@ -906,10 +914,20 @@
           "line_end": 315,
           "line_start": 46,
           "observation": "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.LoadSkinMesh_R"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "Bones": {
       "items": {
@@ -944,7 +962,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep material count aligned with SubMeshes and use valid .mate resources.",
       "x-meido-edit-role": "runtime_resource_reference",
       "x-meido-game-usage": "The loader creates or resolves Unity materials and assigns them to the renderer's submesh slots.",
@@ -956,10 +973,20 @@
           "line_end": 315,
           "line_start": 46,
           "observation": "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.LoadSkinMesh_R"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "MorphData": {
       "items": {
@@ -981,7 +1008,6 @@
       "description": "The resource name used to name the generated GameObject.",
       "title": "Model name",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep it aligned with the deployed model resource.",
       "x-meido-edit-role": "resource_identity",
       "x-meido-game-usage": "The loader prefixes it when creating the scene object and uses it as the mesh identity.",
@@ -993,10 +1019,20 @@
           "line_end": 315,
           "line_start": 46,
           "observation": "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.LoadSkinMesh_R"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "RootBoneName": {
       "type": "string"
@@ -1011,7 +1047,6 @@
       "description": "The CM3D2_MESH header string.",
       "title": "Mesh signature",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep CM3D2_MESH.",
       "x-meido-edit-role": "format_marker",
       "x-meido-game-usage": "ImportCM refuses the stream when this signature is not present.",
@@ -1023,10 +1058,20 @@
           "line_end": 315,
           "line_start": 46,
           "observation": "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.LoadSkinMesh_R"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "SkinThickness": {
       "anyOf": [
@@ -1065,7 +1110,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve submesh count and valid vertex indices.",
       "x-meido-edit-role": "runtime_geometry",
       "x-meido-game-usage": "ImportCM assigns each array to a Unity submesh and then binds material records in order.",
@@ -1077,10 +1121,20 @@
           "line_end": 315,
           "line_start": 46,
           "observation": "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.LoadSkinMesh_R"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "Tangents": {
       "items": {
@@ -1097,7 +1151,6 @@
       "minimum": -2147483648,
       "title": "Mesh version",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve it and keep conditional fields consistent with the target build.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "LoadSkinMesh_R uses it when reading bone transforms and model extensions.",
@@ -1111,10 +1164,20 @@
           "line_end": 315,
           "line_start": 46,
           "observation": "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.LoadSkinMesh_R"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "VertCount": {
       "maximum": 2147483647,
@@ -1133,7 +1196,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep its length equal to all vertex-indexed channels and preserve coordinate units.",
       "x-meido-edit-role": "runtime_geometry",
       "x-meido-game-usage": "The loader assigns it directly to the Unity Mesh before skinning and morph processing.",
@@ -1145,10 +1207,20 @@
           "line_end": 315,
           "line_start": 46,
           "observation": "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.",
-          "path": "game/COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
+          "path": "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs",
           "symbol": "ImportCM.LoadSkinMesh_R"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -1170,6 +1242,11 @@
   "title": "com3d2.model editing JSON",
   "type": "object",
   "x-meido-format-id": "com3d2.model",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "ImportCM.LoadSkinMesh_R was reviewed in COM3D2 2.48.0 and COM3D2_5 3.48.0. The loader's counts and conditional fields are part of the wire contract."
+  },
   "x-meido-native-suffixes": [
     ".model"
   ],

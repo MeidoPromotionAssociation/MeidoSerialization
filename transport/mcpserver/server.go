@@ -508,7 +508,7 @@ func (s *Server) registerResources() {
 		}
 		return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{{
 			URI: request.Params.URI, MIMEType: knowledgev1.SkillMediaType,
-			Text: s.editingSkill(formatID, document.Coverage),
+			Text: s.editingSkill(formatID, document.FormatVerification),
 		}}}, nil
 	})
 }
@@ -581,7 +581,7 @@ func (s *Server) editFormatPrompt(_ context.Context, request *mcp.GetPromptReque
 	var task strings.Builder
 	task.WriteString("Editing objective:\n")
 	task.WriteString(objective)
-	task.WriteString("\n\nUse only the embedded Schema and guide as format authority. Preserve any schema_only field unless this objective requires a structural edit and the caller supplies its semantics.")
+	task.WriteString("\n\nUse only the embedded Schema and guide as format authority. A field with an empty verification object is schema-derived only: preserve it unless this objective requires a structural edit and the caller supplies its semantics.")
 	// promptPathArgument 将提示参数键映射为任务文本中显示的标签 / promptPathArgument maps a prompt argument key to the label displayed in task text
 	type promptPathArgument struct {
 		// label 是写入任务文本的路径参数标签 / label is the path-argument label written into task text
@@ -613,9 +613,9 @@ func (s *Server) editFormatPrompt(_ context.Context, request *mcp.GetPromptReque
 	}
 
 	return &mcp.GetPromptResult{
-		Description: "Lossless " + formatID + " editing workflow with coverage " + guide.Coverage,
+		Description: "Lossless " + formatID + " editing workflow with whole-file verification " + guide.FormatVerification,
 		Messages: []*mcp.PromptMessage{
-			{Role: "user", Content: &mcp.TextContent{Text: s.editingSkill(formatID, guide.Coverage)}},
+			{Role: "user", Content: &mcp.TextContent{Text: s.editingSkill(formatID, guide.FormatVerification)}},
 			{Role: "user", Content: &mcp.EmbeddedResource{Resource: &mcp.ResourceContents{
 				URI: "meido://schemas/" + formatID, MIMEType: schema.MediaType, Text: string(schema.JSON),
 			}}},
@@ -629,12 +629,12 @@ func (s *Server) editFormatPrompt(_ context.Context, request *mcp.GetPromptReque
 
 // editingSkill 按文件系统模式选择写入策略并呈现格式编辑技能
 // editingSkill selects a write policy for the filesystem mode and renders the format-editing skill
-func (s *Server) editingSkill(formatID, coverage string) string {
+func (s *Server) editingSkill(formatID, verification string) string {
 	policy := unrestrictedEditingWritePolicy
 	if s.filesystemMode == FilesystemModeRestricted {
 		policy = restrictedEditingWritePolicy
 	}
-	return knowledgev1.EditingSkill(formatID, coverage, policy)
+	return knowledgev1.EditingSkill(formatID, verification, policy)
 }
 
 // writePolicyCapabilities 返回当前文件系统模式的结构化写入策略能力
@@ -669,7 +669,7 @@ func (s *Server) capabilities() map[string]any {
 			"editing_schema_sha256": format.SchemaSHA256,
 			"has_format_guide":      format.GuideVersion != "", "format_guide_version": format.GuideVersion,
 			"format_guide_id": format.GuideID, "format_guide_sha256": format.GuideSHA256,
-			"format_guide_coverage": format.GuideCoverage,
+			"format_guide_verification": format.GuideVerification,
 		})
 	}
 	return map[string]any{

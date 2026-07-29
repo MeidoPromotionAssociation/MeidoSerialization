@@ -44,8 +44,8 @@ type SerializationServiceClient interface {
 	// Returns the complete editing-JSON contract for one format. Callers can
 	// use this before Detect/Convert to generate a strongly typed editor.
 	GetFormatSchema(ctx context.Context, in *GetFormatSchemaRequest, opts ...grpc.CallOption) (*GetFormatSchemaResponse, error)
-	// Returns source-reviewed field purpose, game-runtime behavior, editing
-	// rules, and evidence. Schema-only coverage is explicit for unreviewed fields.
+	// Returns field purpose, editing rules, evidence, whole-file verification,
+	// and independent field-level claims. Unreviewed fields remain schema-derived.
 	GetFormatGuide(ctx context.Context, in *GetFormatGuideRequest, opts ...grpc.CallOption) (*GetFormatGuideResponse, error)
 	Detect(ctx context.Context, in *DetectRequest, opts ...grpc.CallOption) (*DetectResponse, error)
 	Convert(ctx context.Context, in *ConvertRequest, opts ...grpc.CallOption) (*ConvertResponse, error)
@@ -199,8 +199,8 @@ type SerializationServiceServer interface {
 	// Returns the complete editing-JSON contract for one format. Callers can
 	// use this before Detect/Convert to generate a strongly typed editor.
 	GetFormatSchema(context.Context, *GetFormatSchemaRequest) (*GetFormatSchemaResponse, error)
-	// Returns source-reviewed field purpose, game-runtime behavior, editing
-	// rules, and evidence. Schema-only coverage is explicit for unreviewed fields.
+	// Returns field purpose, editing rules, evidence, whole-file verification,
+	// and independent field-level claims. Unreviewed fields remain schema-derived.
 	GetFormatGuide(context.Context, *GetFormatGuideRequest) (*GetFormatGuideResponse, error)
 	Detect(context.Context, *DetectRequest) (*DetectResponse, error)
 	Convert(context.Context, *ConvertRequest) (*ConvertResponse, error)

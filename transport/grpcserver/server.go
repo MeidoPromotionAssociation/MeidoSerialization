@@ -40,12 +40,25 @@ const (
 	MaxArchivePageBytes = 2 << 20
 )
 
+// FilesystemMode 控制 gRPC 请求能否使用服务端本地直接路径
+// FilesystemMode controls whether gRPC requests may use direct server-local paths
+type FilesystemMode string
+
+const (
+	// FilesystemModeUnrestricted 允许访问进程账号有权限读取的任意普通文件 / FilesystemModeUnrestricted permits reading any regular file allowed by the process account
+	FilesystemModeUnrestricted FilesystemMode = "unrestricted"
+	// FilesystemModeRestricted 只允许通过已配置根目录访问服务端文件 / FilesystemModeRestricted permits server-local file access only through configured roots
+	FilesystemModeRestricted FilesystemMode = "restricted"
+)
+
 // Config 配置 gRPC 序列化服务器的依赖和传输资源限制 / Config configures dependencies and transport resource limits for a gRPC serialization server
 type Config struct {
 	// Engine 执行格式检测、转换、校验和归档操作 / Engine performs format detection, conversion, validation, and archive operations
 	Engine *application.Engine
 	// Roots 限制 RPC 文件引用能够访问的目录 / Roots confines directories accessible through RPC file references
 	Roots *application.RootSet
+	// FilesystemMode 控制直接路径输入是否可用 / FilesystemMode controls whether direct path inputs are available
+	FilesystemMode FilesystemMode
 	// Blobs 保存上传内容和无法安全内联的结果 / Blobs stores uploads and results that cannot be safely inlined
 	Blobs *blobstore.Store
 	// MaxInlineBytes 限制一个制品集合在消息中内联的合计字节数 / MaxInlineBytes limits aggregate bytes inlined for one artifact bundle
@@ -62,6 +75,8 @@ type Server struct {
 	engine *application.Engine
 	// roots 解析受限文件输入 / roots resolves confined file inputs
 	roots *application.RootSet
+	// filesystemMode 控制直接路径输入是否可用 / filesystemMode controls whether direct path inputs are available
+	filesystemMode FilesystemMode
 	// blobs 管理上传和大型结果的临时对象 / blobs manages temporary objects for uploads and large results
 	blobs *blobstore.Store
 	// maxInlineBytes 限制主要制品与伴随文件的合计内联字节数 / maxInlineBytes limits aggregate inline bytes for a primary artifact and companions
@@ -81,6 +96,16 @@ func New(config Config) (*Server, error) {
 	if config.Roots == nil {
 		config.Roots = application.NewRootSet()
 	}
+	if config.FilesystemMode == "" {
+		if len(config.Roots.IDs()) == 0 {
+			config.FilesystemMode = FilesystemModeUnrestricted
+		} else {
+			config.FilesystemMode = FilesystemModeRestricted
+		}
+	}
+	if config.FilesystemMode != FilesystemModeUnrestricted && config.FilesystemMode != FilesystemModeRestricted {
+		return nil, fmt.Errorf("unsupported filesystem mode %q", config.FilesystemMode)
+	}
 	if config.MaxInlineBytes <= 0 {
 		config.MaxInlineBytes = DefaultMaxInlineBytes
 	}
@@ -98,7 +123,7 @@ func New(config Config) (*Server, error) {
 		return nil, err
 	}
 	return &Server{
-		engine: config.Engine, roots: config.Roots, blobs: config.Blobs,
+		engine: config.Engine, roots: config.Roots, filesystemMode: config.FilesystemMode, blobs: config.Blobs,
 		maxInlineBytes: config.MaxInlineBytes, chunkBytes: config.ChunkBytes, archivePager: archivePager,
 	}, nil
 }
@@ -117,6 +142,7 @@ func (s *Server) GetCapabilities(context.Context, *serializationv1.GetCapabiliti
 	result := &serializationv1.GetCapabilitiesResponse{
 		ApiVersion:             APIVersion,
 		RootIds:                s.roots.IDs(),
+		FilesystemMode:         filesystemModeToProto(s.filesystemMode),
 		MaxInlineBytes:         s.maxInlineBytes,
 		MaxArchiveListingBytes: maxArchiveListingBytes,
 		MaxArchiveEntries:      int64(maxArchiveEntries),
@@ -136,7 +162,7 @@ func (s *Server) GetCapabilities(context.Context, *serializationv1.GetCapabiliti
 			EditingSchemaSha256: format.SchemaSHA256,
 			HasFormatGuide:      format.GuideVersion != "", FormatGuideVersion: format.GuideVersion,
 			FormatGuideId: format.GuideID, FormatGuideSha256: format.GuideSHA256,
-			FormatGuideCoverage: format.GuideCoverage,
+			FormatGuideVerification: format.GuideVerification,
 		})
 	}
 	return result, nil
@@ -155,7 +181,7 @@ func (s *Server) GetFormatGuide(ctx context.Context, request *serializationv1.Ge
 	return &serializationv1.GetFormatGuideResponse{
 		FormatId: document.FormatID, GuideVersion: document.Version, GuideId: document.ID,
 		MediaType: document.MediaType, Sha256: document.SHA256, SchemaId: document.SchemaID,
-		Coverage: document.Coverage, GuideJson: append([]byte(nil), document.JSON...),
+		FormatVerification: document.FormatVerification, GuideJson: append([]byte(nil), document.JSON...),
 	}, nil
 }
 
@@ -428,8 +454,8 @@ func (s *Server) resolveInput(ctx context.Context, input *serializationv1.Artifa
 	return result, nil
 }
 
-// resolveInputLocation 将内联数据、受限文件引用或 blob 引用转换为应用输入源
-// resolveInputLocation converts inline data, a confined file reference, or a blob reference into an application source
+// resolveInputLocation 将内联数据、直接路径、受限文件引用或 blob 引用转换为应用输入源
+// resolveInputLocation converts inline data, a direct path, a confined file reference, or a blob reference into an application source
 func (s *Server) resolveInputLocation(name string, location interface{}) (application.Source, error) {
 	switch location := location.(type) {
 	case *serializationv1.ArtifactInput_InlineData:
@@ -440,6 +466,10 @@ func (s *Server) resolveInputLocation(name string, location interface{}) (applic
 		return s.resolveFileInput(location.File)
 	case *serializationv1.ArtifactAttachmentInput_File:
 		return s.resolveFileInput(location.File)
+	case *serializationv1.ArtifactInput_Path:
+		return s.resolvePathInput(location.Path)
+	case *serializationv1.ArtifactAttachmentInput_Path:
+		return s.resolvePathInput(location.Path)
 	case *serializationv1.ArtifactInput_Blob:
 		return s.resolveBlobInput(name, location.Blob)
 	case *serializationv1.ArtifactAttachmentInput_Blob:
@@ -447,6 +477,18 @@ func (s *Server) resolveInputLocation(name string, location interface{}) (applic
 	default:
 		return nil, &application.OpError{Op: "resolve input", Code: application.CodeInvalidArgument, Err: fmt.Errorf("input location is required")}
 	}
+}
+
+// resolvePathInput 在便捷模式下把服务端本地直接路径解析为应用输入源
+// resolvePathInput resolves a direct server-local path into an application source in convenience mode
+func (s *Server) resolvePathInput(path string) (application.Source, error) {
+	if s.filesystemMode != FilesystemModeUnrestricted {
+		return nil, &application.OpError{Op: "resolve input", Code: application.CodePermissionDenied, Err: fmt.Errorf("direct paths are disabled in restricted filesystem mode")}
+	}
+	if strings.TrimSpace(path) == "" {
+		return nil, &application.OpError{Op: "resolve input", Code: application.CodeInvalidArgument, Err: fmt.Errorf("input path is required")}
+	}
+	return application.NewFileSource(path)
 }
 
 // resolveInlineInput 校验具名内联内容并创建不可变内存输入源
@@ -687,6 +729,18 @@ func representationToProto(value application.Representation) serializationv1.Rep
 		return serializationv1.Representation_REPRESENTATION_NATIVE
 	}
 	return serializationv1.Representation_REPRESENTATION_UNSPECIFIED
+}
+
+// filesystemModeToProto 将服务端文件系统模式转换为 protobuf 枚举
+// filesystemModeToProto converts a server filesystem mode into its protobuf enum
+func filesystemModeToProto(value FilesystemMode) serializationv1.FilesystemMode {
+	if value == FilesystemModeRestricted {
+		return serializationv1.FilesystemMode_FILESYSTEM_MODE_RESTRICTED
+	}
+	if value == FilesystemModeUnrestricted {
+		return serializationv1.FilesystemMode_FILESYSTEM_MODE_UNRESTRICTED
+	}
+	return serializationv1.FilesystemMode_FILESYSTEM_MODE_UNSPECIFIED
 }
 
 // detectionMessage 将应用检测结果转换为 gRPC 检测响应

@@ -9,7 +9,6 @@
       "description": "The fixed extension marker .undresspdat.",
       "title": "Resource extension",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep the exact value .undresspdat.",
       "x-meido-edit-role": "format_marker",
       "x-meido-game-usage": "The dispatcher uses it to route the TextAsset to the undress-part resource family.",
@@ -21,15 +20,24 @@
           "line_end": 156,
           "line_start": 143,
           "observation": "The game resource layer obtains the resource bytes from the selected file source. No resource-specific undress JSON consumer is established here, so this repository validates one complete JSON value and exposes its semantic content.",
-          "path": "game/KCES 1.34.4/WfSystem.FileSystem/GameResource.cs",
+          "path": "KCES 1.34.4/WfSystem.FileSystem/GameResource.cs",
           "symbol": "GameResource.LoadBinary"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "json": {
       "description": "The parsed JSON document carried by the resource.",
       "title": "Undress-part JSON value",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Edit only fields confirmed for the exact target resource and preserve unknown members.",
       "x-meido-edit-role": "opaque_domain_data",
       "x-meido-game-usage": "The game-side consumer determines which entries control part removal or restoration.",
@@ -41,10 +49,20 @@
           "line_end": 156,
           "line_start": 143,
           "observation": "The game resource layer obtains the resource bytes from the selected file source. No resource-specific undress JSON consumer is established here, so this repository validates one complete JSON value and exposes its semantic content.",
-          "path": "game/KCES 1.34.4/WfSystem.FileSystem/GameResource.cs",
+          "path": "KCES 1.34.4/WfSystem.FileSystem/GameResource.cs",
           "symbol": "GameResource.LoadBinary"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -54,6 +72,11 @@
   "title": "kces.undresspdat editing JSON",
   "type": "object",
   "x-meido-format-id": "kces.undresspdat",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "The whole-file serialization boundary, extension dispatch, and semantic JSON envelope were checked. Resource-specific members without source_semantics claims remain semantically unknown, and source formatting is intentionally normalized."
+  },
   "x-meido-native-suffixes": [
     ".undresspdat"
   ],

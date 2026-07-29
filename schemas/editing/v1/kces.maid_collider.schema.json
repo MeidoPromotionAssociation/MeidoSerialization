@@ -78,7 +78,6 @@
         "null",
         "array"
       ],
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Use bone paths present in the target maid and preserve entry order.",
       "x-meido-edit-role": "runtime_collection",
       "x-meido-game-usage": "MaidColliderCollect creates a Unity CapsuleCollider for each entry and applies its geometry.",
@@ -90,16 +89,25 @@
           "line_end": 223,
           "line_start": 144,
           "observation": "The system resources maid_collider.bytes and maid_collider_touch.bytes contain a count, bone path, center, direction, height, and radius for each capsule collider.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/MaidColliderCollect.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/MaidColliderCollect.cs",
           "symbol": "MaidColliderCollect.Read/ReadCapsuleCollider"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "format": {
       "description": "The marker for the normalized maid-collider list.",
       "title": "Editing format marker",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep kces-maid-capsule-colliders.",
       "x-meido-edit-role": "editing_metadata",
       "x-meido-game-usage": "It identifies the editing representation; the native payload has no signature or format string.",
@@ -111,10 +119,20 @@
           "line_end": 223,
           "line_start": 144,
           "observation": "The system resources maid_collider.bytes and maid_collider_touch.bytes contain a count, bone path, center, direction, height, and radius for each capsule collider.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/MaidColliderCollect.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/MaidColliderCollect.cs",
           "symbol": "MaidColliderCollect.Read/ReadCapsuleCollider"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -124,6 +142,11 @@
   "title": "kces.maid_collider editing JSON",
   "type": "object",
   "x-meido-format-id": "kces.maid_collider",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "MaidColliderCollect.Read and its BinaryReader field order were reviewed in KCES 1.34.4. The same layout is used for maid_collider.bytes and maid_collider_touch.bytes."
+  },
   "x-meido-native-suffixes": [
     ".bytes"
   ],

@@ -82,7 +82,6 @@
       "minimum": -2147483648,
       "title": "VirtualDirectory version",
       "type": "integer",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Preserve the decoded value; use 1000 for a newly created current session.",
       "x-meido-edit-role": "version_marker",
       "x-meido-game-usage": "VirtualDirectory uses this version during MessagePack serialization and migration callbacks.",
@@ -96,7 +95,7 @@
           "line_end": 109,
           "line_start": 23,
           "observation": "The bridge session is a VirtualDirectory containing session_data and session_id; session_data stores an indexed version, session ID, and hidden menu-file hash set.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/CRCEdit/EditBridgeSessionData.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/CRCEdit/EditBridgeSessionData.cs",
           "symbol": "EditBridgeSessionData.Deserialize/Serialize"
         },
         {
@@ -105,10 +104,20 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes virtual-file byte payloads followed by compressed MessagePack directory metadata using the fixed current indexed layouts.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "extraFiles": {
       "additionalProperties": {
@@ -125,17 +134,21 @@
         "null",
         "object"
       ],
-      "x-meido-confidence": "serialization_only",
       "x-meido-edit-guidance": "Retain names and bytes only for independent files outside the two reserved paths; a reserved file must use its typed field and may never fall back here.",
       "x-meido-edit-role": "binary_virtual_file",
       "x-meido-game-usage": "EditBridgeSessionData ignores these files, while VirtualDirectory stores their real byte-array payloads.",
-      "x-meido-risk": "high"
+      "x-meido-risk": "high",
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "format": {
       "description": "The marker for the bridge-session editing envelope.",
       "title": "Editing format marker",
       "type": "string",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Keep kces-bridge-session.",
       "x-meido-edit-role": "editing_metadata",
       "x-meido-game-usage": "It identifies the JSON wrapper and is not a native VirtualDirectory field.",
@@ -147,7 +160,7 @@
           "line_end": 109,
           "line_start": 23,
           "observation": "The bridge session is a VirtualDirectory containing session_data and session_id; session_data stores an indexed version, session ID, and hidden menu-file hash set.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/CRCEdit/EditBridgeSessionData.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/CRCEdit/EditBridgeSessionData.cs",
           "symbol": "EditBridgeSessionData.Deserialize/Serialize"
         },
         {
@@ -156,16 +169,25 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes virtual-file byte payloads followed by compressed MessagePack directory metadata using the fixed current indexed layouts.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     },
     "sessionData": {
       "$ref": "#/$defs/KCES_KCESBridgeSessionData",
       "description": "The typed MessagePack indexed object stored under the reserved session_data virtual file.",
       "title": "session_data payload",
-      "x-meido-confidence": "verified",
       "x-meido-edit-guidance": "Use normal nullable sessionId JSON semantics; the writer derives the required session_id UTF-8 file from this field.",
       "x-meido-edit-role": "runtime_configuration",
       "x-meido-game-usage": "EditBridgeSessionData reads its version, sessionId, and hidden menu-file IDs when opening the bridge.",
@@ -177,7 +199,7 @@
           "line_end": 109,
           "line_start": 23,
           "observation": "The bridge session is a VirtualDirectory containing session_data and session_id; session_data stores an indexed version, session ID, and hidden menu-file hash set.",
-          "path": "game/KCES 1.34.4/Assembly-CSharp/CRCEdit/EditBridgeSessionData.cs",
+          "path": "KCES 1.34.4/Assembly-CSharp/CRCEdit/EditBridgeSessionData.cs",
           "symbol": "EditBridgeSessionData.Deserialize/Serialize"
         },
         {
@@ -186,10 +208,20 @@
           "line_end": 575,
           "line_start": 409,
           "observation": "VirtualDirectory writes virtual-file byte payloads followed by compressed MessagePack directory metadata using the fixed current indexed layouts.",
-          "path": "game/KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
+          "path": "KCES 1.34.4/WfSystem.Serialization/VirtualDirectory.cs",
           "symbol": "VirtualDirectory.Serialize/Deserialize"
         }
-      ]
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
     }
   },
   "required": [
@@ -200,6 +232,11 @@
   "title": "kces.bridge_session editing JSON",
   "type": "object",
   "x-meido-format-id": "kces.bridge_session",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "EditBridgeSessionData and VirtualDirectory were reviewed in KCES 1.34.4. The reserved session files use fixed typed layouts, while only independently named virtual files outside those reserved paths remain byte payloads."
+  },
   "x-meido-native-suffixes": [
     ".vd"
   ],
