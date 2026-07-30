@@ -17,26 +17,166 @@ import (
 )
 
 // .ct
-// KCES 的 Content Table 资源目录文件，外层使用 VirtualDirectory 序列化格式
-// 文件头之后连续保存各 VirtualFile 的原始数据，尾部保存可选 LZ4 Block Array 压缩的 MessagePack 目录结构
-// 旧封装使用 0x8e 标记与 UInt32 长度，新封装使用 0xff 标记、UInt64 长度与固定尾部签名
+//
+// 概览
+//
+// .ct 是 KCES 使用的 Content Table 文件约定，外层采用 WfSystem.Serialization.VirtualDirectory 序列化格式
+// VirtualDirectory 是应用层归档容器而不是操作系统文件系统，虽然是一个虚拟目录+虚拟文件的形式，但是 .ct 实际上只是一个索引
+// 虚拟文件的内容也只是名称和 hash
+// VirtualDirectory 本身是通用容器，能够保存子目录和任意不透明字节，catalog 只是 KCES 对这种容器最重要的一种使用约定
+//
+// 外层结构
+//
+// 文件头之后连续保存所有 VirtualFile 的原始字节，尾部保存描述目录树及各文件位置和大小的 MessagePack VirtualDirectory
+// VirtualFile 没有独立文件头，其 position 是从整个 .ct 文件开头计算并包含八字节文件头的绝对偏移，其 size 使用游戏 C# int 对应的 Int32
+// VirtualDirectory 只负责按名称定位不透明字节，不知道也不限制虚拟文件内部是 MessagePack、文本、Unity 数据还是其他格式
+// 目录元数据可按 MessagePack LZ4 Block Array 规则压缩，尾部长度只表示压缩后目录元数据 M 的大小而不表示文件数据区 N 或整个 .ct 的大小
+// 旧封装使用 0x8e 标记与 UInt32 目录长度，新封装使用 0xff 标记、UInt64 目录长度与固定尾部签名
+// 新封装扩展的只是目录元数据长度，VirtualFile.size 在线格式中仍然是 Int32
 //
 //	[7 bytes]  FileSignature: bb c3 aa 9a a6 4d ad
 //	[1 byte]   SerializeType: 8e = 旧 MessagePack 封装，ff = 扩展 MessagePack 封装
-//	[N bytes]  原始文件数据
+//	[N bytes]  各 VirtualFile 的连续原始数据
 //	[M bytes]  MessagePack VirtualDirectory，可按 LZ4 Block Array 规则压缩
 //	旧封装: [4 bytes] M 的值（Little-Endian UInt32）
 //	新封装: [8 bytes] M 的值（Little-Endian UInt64）+ ed fb aa 55
+//
+// 标准 catalog 内容约定
+//
+// 标准 KCES catalog .ct 通常在根目录包含名为 "catalog" 的主虚拟文件和若干以扩展名命名的辅助虚拟文件
+// "catalog" 的内容是独立使用 LZ4 Block Array MessagePack 编码的 AssetBundleCatalog 或 VirtualAssetCatalog
+//
+// AssetBundleCatalog.items 是按资源 hash 查询的主加载索引，每项保存 resourceIndex、name 和 hash，但不保存资源字节或 .ct 内偏移
+// 游戏通过 Array.BinarySearch 查询 items，因此可用的 AssetBundleCatalog.items 必须按 hash 升序排列
+//
+// AssetBundleCatalog.extensionList 保存 ExtensionNameList 虚拟文件的名称，常见名称包括 ".tex"、".model" 和 ".menuassets"
+// 每个扩展名虚拟文件的内容是独立使用 LZ4 Block Array MessagePack 编码的 ExtensionNameList
+//
+// ExtensionNameList.data 是按扩展名枚举资源的二级索引，每项再次保存资源 name 和 hash
+//
+// items 面向已知 hash 的单项定位，ExtensionNameList 面向已知扩展名的批量枚举，两者重复 name 和 hash 是有意保存的不同查询索引
+// 游戏通常先从 ExtensionNameList 取得候选资源名，再根据名称 hash 通过 items 定位资源加载位置
+// 对于 AssetBundleCatalog，resourceIndex 索引的是 catalog.resourceFileNames 而不是 .ct 的 VirtualFile 表
+// resourceFileNames 通常指向配套 .aba 文件，实际纹理、模型和其他 Unity 资源位于 AssetBundle 中而不位于 .ct
+// VirtualAssetCatalog 使用同一个 "catalog" 虚拟文件约定但具有不同的 catalog 条目布局，因此 .ct 格式本身并不保证存在配套 .aba
+//
+//
+// 为什么重复保存 name 和 hash
+//
+// 这里重复的是少量索引元数据而不是实际资源内容，作用类似数据库同时保存主索引和物化二级索引
+// 已知资源名时，游戏计算或使用其 hash 并在按 hash 排序的 items 中二分查找，以 O(log n) 复杂度取得包含 resourceIndex 的加载记录
+// 只知道扩展名时，调用方尚不知道具体资源名，游戏直接读取对应 ExtensionNameList 并只遍历该组 k 个条目，而不必扫描全部 n 个 items
+// 如果只保存 items，每次枚举一种扩展名都必须完整扫描按 hash 而非扩展名排列的 items，并重新解析文件名后缀和处理无扩展名规则
+// 如果只保存 ExtensionNameList，精确加载时必须先确定并搜索分组，而且其中没有 resourceIndex，无法确定应从 resourceFileNames 的哪个资源源加载
+// 两套索引因此分别解决资源发现和资源定位问题，使按类型批量发现与按 hash 单项加载都具有适合自身访问模式的数据布局
+// 独立的扩展名虚拟文件还允许游戏按需读取一个分组，并在合并多个 catalog 时只枚举当前请求的扩展名
+// 显式分组保存了生产者定义的分类语义，包括使用 "null" 表示无扩展名资源，而不要求消费者每次从 name 推导分类
+// ExtensionNameList 必须重复 name 才能返回可加载的资源名，重复 hash 则使 Pack 保持自包含的 name/hash 固定线格式
+// 在当前可见的 KCES 1.34.4 枚举调用中主要使用 Pack.name，没有足够源码证明 Pack.hash 还承担额外运行时查询职责
+//
+//
+// 容易误解的地方
+//
+// 名为 ".tex" 的虚拟文件不是纹理，名为 ".model" 的虚拟文件也不是模型，它们通常只是相应扩展名的 ExtensionNameList 索引数据
+// catalog.extensionList 中的值是同一 VirtualDirectory 内的虚拟文件名，不是普通资源扩展名集合的内联数据
+// ExtensionNameList 的游戏字段拼写固定为 extention，查找分组时游戏使用 catalog.extensionList 和外层虚拟文件名而不是依赖该字段
+// ExtensionNameList.Pack.hash 与 items 中的 hash 通常重复，当前游戏枚举路径主要消费 Pack.name，但固定两槽线格式仍要求保留 hash
+// 无扩展名资源可以使用名为 "null" 的虚拟文件和分组，这里的 "null" 是普通字符串名称而不是 MessagePack nil
+// "catalog" 和各 ExtensionNameList 虚拟文件的内容压缩与尾部 VirtualDirectory 元数据压缩是彼此独立的两层编码
+// 解码外层 VirtualDirectory 只会得到虚拟文件原始字节，仍需分别解压并反序列化已知的 catalog 和 ExtensionNameList 内容
+// 高层 JSON 编辑封套中的 extensionNameLists 是库将这些独立虚拟文件解码后汇总出的视图，不是 catalog 在线格式中的内联字段
+// catalog.items 的数量是逻辑资源数量，VirtualDirectory.allFiles 的数量是 .ct 内部索引文件数量，两者通常不同
+// extensionList、对应虚拟文件和 ExtensionNameList 内容必须保持一致，否则可能出现能够按 hash 加载却无法按扩展名枚举或能够枚举却无法加载的资源
+//
+//
+// 游戏读取流程
+//
+//	打开 .ct -> 从尾部定位并解码 VirtualDirectory -> GetFile("catalog") -> 解码具体 catalog
+//	按扩展名枚举 -> 在 catalog.extensionList 中匹配名称 -> GetFile(".tex") -> 解码 ExtensionNameList -> 取得资源名
+//	加载资源 -> 计算或使用名称 hash -> 在 catalog.items 中定位 -> 使用 resourceIndex 选择 resourceFileNames -> 从对应资源源加载
+//
+//
+//
 // .ct
-// KCES Content Table resource catalog using the serialized VirtualDirectory format
-// Raw VirtualFile data is stored contiguously after the header and followed by an optionally LZ4 Block Array-compressed MessagePack directory
-// The legacy frame uses marker 0x8e and a UInt32 length while the extended frame uses marker 0xff, a UInt64 length, and a fixed footer signature
+//
+// Overview
+//
+// A .ct is the KCES Content Table file convention whose outer layer uses the serialized WfSystem.Serialization.VirtualDirectory format
+// VirtualDirectory is an application-level archive container rather than an operating-system file system, with directories and files represented only by indexes and byte ranges inside one physical file
+// It does not store permissions, timestamps, or similar file-system attributes and the game does not mount it as a Windows directory
+// VirtualDirectory is a generic container capable of holding child directories and arbitrary opaque bytes, while a catalog is only its most important KCES content convention
+//
+// Outer layout
+//
+// Raw bytes for every VirtualFile are stored contiguously after the header and followed by a MessagePack VirtualDirectory describing the directory tree and every file position and size
+// A VirtualFile has no individual file header, its position is an absolute offset counted from the beginning of the complete .ct including the eight-byte header, and its size uses the Int32 matching the game C# int
+// VirtualDirectory only locates opaque bytes by name and neither knows nor restricts whether a virtual-file payload contains MessagePack, text, Unity data, or another format
+// Directory metadata may use MessagePack LZ4 Block Array compression, and the trailing length describes only the compressed directory metadata M rather than file payload area N or the complete .ct size
+// The legacy frame uses marker 0x8e and a UInt32 directory length while the extended frame uses marker 0xff, a UInt64 directory length, and a fixed footer signature
+// The extended frame widens only the directory metadata length while VirtualFile.size remains an Int32 in the wire format
+//
 //	[7 bytes]  FileSignature: bb c3 aa 9a a6 4d ad
 //	[1 byte]   SerializeType: 8e = legacy MessagePack frame, ff = extended MessagePack frame
-//	[N bytes]  Raw file data
+//	[N bytes]  Contiguous raw data for every VirtualFile
 //	[M bytes]  MessagePack VirtualDirectory, optionally compressed by the LZ4 Block Array rule
 //	Legacy: [4 bytes] M encoded as a Little-Endian UInt32
 //	Extended: [8 bytes] M encoded as a Little-Endian UInt64 + ed fb aa 55
+//
+// Standard catalog content convention
+//
+// A standard KCES catalog .ct usually contains a main virtual file named "catalog" and several extension-named helper virtual files at the root
+// The "catalog" payload is an independently LZ4 Block Array MessagePack-encoded AssetBundleCatalog or VirtualAssetCatalog
+// AssetBundleCatalog.items is the primary loading index queried by resource hash, with each item storing resourceIndex, name, and hash but no resource bytes or .ct offset
+// The game queries items through Array.BinarySearch, so a usable AssetBundleCatalog.items array must be sorted by hash in ascending order
+// AssetBundleCatalog.extensionList stores the names of ExtensionNameList virtual files, with common names including ".tex", ".model", and ".menuassets"
+// Every extension-named virtual-file payload is an independently LZ4 Block Array MessagePack-encoded ExtensionNameList
+// ExtensionNameList.data is the secondary index used to enumerate resources by extension, with every entry storing the resource name and hash again
+// Items serve single-item lookup by a known hash while ExtensionNameList serves bulk enumeration by a known extension, so their duplicated names and hashes intentionally support different queries
+// The game normally obtains candidate resource names from an ExtensionNameList and then locates each loading target through items using the name hash
+// For AssetBundleCatalog, resourceIndex indexes catalog.resourceFileNames rather than the .ct VirtualFile table
+// ResourceFileNames usually identifies a paired .aba while actual textures, models, and other Unity resources reside in the AssetBundle rather than the .ct
+// VirtualAssetCatalog uses the same "catalog" virtual-file convention with a different catalog item layout, so the .ct format itself does not guarantee a paired .aba
+//
+// Why name and hash are stored twice
+//
+// Only small index metadata is duplicated rather than actual resource content, serving the same purpose as a database primary index plus a materialized secondary index
+// Given a resource name, the game computes or uses its hash and binary-searches hash-sorted items to obtain the loading record containing resourceIndex in O(log n) time
+// Given only an extension, the caller does not yet know any concrete resource name, so the game reads the matching ExtensionNameList and visits only the k entries in that group instead of scanning all n items
+// Keeping only items would require every extension enumeration to scan the complete hash-ordered rather than extension-ordered array, parse name suffixes again, and handle extensionless rules
+// Keeping only ExtensionNameList would require exact loading to identify and search a group first, and its entries have no resourceIndex with which to choose a resource source from resourceFileNames
+// The two indexes therefore solve resource discovery and resource location separately, giving bulk discovery by type and single-item loading by hash a data layout suited to each access pattern
+// Separate extension-named virtual files also let the game read one group on demand and enumerate only the requested extension while merging multiple catalogs
+// Explicit grouping preserves producer-defined classification semantics including the "null" group for extensionless resources rather than requiring every consumer to derive a group from name
+// ExtensionNameList must repeat name to return loadable resource names, while the repeated hash keeps Pack in its self-contained fixed name/hash wire layout
+// Visible KCES 1.34.4 enumeration call sites primarily use Pack.name and do not provide enough evidence that Pack.hash has another runtime query responsibility
+// A serializer must still preserve Pack.hash for compatibility with the game's fixed two-slot layout and with other versions or tools that may consume it, without inventing an unverified field meaning
+// This design trades additional index size and synchronization cost for efficient access in both directions, so packing or editing must update items, extensionList, and ExtensionNameList together
+//
+// Counterintuitive details
+//
+// A virtual file named ".tex" is not a texture and one named ".model" is not a model, as these files normally contain only ExtensionNameList index data for the corresponding extension
+// Values in catalog.extensionList are virtual-file names inside the same VirtualDirectory rather than inline data for a conventional set of resource extensions
+// The game wire field in ExtensionNameList is spelled extention, while group lookup uses catalog.extensionList and the outer virtual-file name rather than relying on that field
+// ExtensionNameList.Pack.hash normally duplicates the hash in items, and current game enumeration paths primarily consume Pack.name, but the fixed two-slot wire layout still requires the hash to be preserved
+// Extensionless resources may use a virtual file and group named "null", where "null" is an ordinary string name rather than MessagePack nil
+// Payload compression for "catalog" and each ExtensionNameList is independent from compression of the trailing VirtualDirectory metadata, forming two separate encoding layers
+// Decoding the outer VirtualDirectory produces only raw virtual-file bytes, so known catalog and ExtensionNameList payloads still require their own decompression and deserialization
+// The extensionNameLists property in the high-level JSON editing envelope is a view assembled by decoding these separate virtual files rather than an inline catalog wire field
+// The number of catalog.items is the number of logical resources while the number of VirtualDirectory.allFiles is the number of internal index files, and these counts normally differ
+// ExtensionList, its corresponding virtual files, and each ExtensionNameList payload must remain consistent or a resource may be loadable by hash but absent from extension enumeration, or enumerable but not loadable
+//
+// Extraction semantics
+//
+// Extracting a .ct to a disk directory only materializes the logical VirtualDirectory tree and opaque VirtualFile bytes
+// Raw extraction of a standard catalog .ct normally produces compressed MessagePack index files such as "catalog", ".tex", and ".model" rather than the actual resources described by items
+// Inspecting index semantics requires further catalog and ExtensionNameList decoding, while extracting resources described by an AssetBundleCatalog also requires the .aba identified by resourceFileNames
+// VirtualDirectory can contain real child-directory structure, although official catalog .ct files normally use a flat layout containing only root-level virtual files
+//
+// Game read flow
+//
+//	Open .ct -> locate and decode VirtualDirectory from the footer -> GetFile("catalog") -> decode the concrete catalog
+//	Enumerate by extension -> match a name in catalog.extensionList -> GetFile(".tex") -> decode ExtensionNameList -> obtain resource names
+//	Load a resource -> compute or use the name hash -> locate it in catalog.items -> select resourceFileNames through resourceIndex -> load from the corresponding resource source
 
 // FileSignature 是 .ct 文件的魔数签名（7 字节），用于验证文件格式
 // 对应 C# VirtualDirectory.FileSignature = {0xbb, 0xc3, 0xaa, 0x9a, 0xa6, 0x4d, 0xad}
@@ -93,7 +233,7 @@ type ContentTable struct {
 	Directories map[string]VirtualDirectoryMetadata `json:"Directories,omitempty"` // 子目录路径及其真实版本字段，包含空目录 / Child-directory paths and their real version fields, including empty directories
 	Files       map[string]VirtualFile              `json:"Files"`                 // 虚拟文件表，键为文件名，值为位置和大小 / Virtual file table keyed by file name with position and size values
 	Raw         []byte                              `json:"-"`                     // 完整文件原始字节，用于按偏移提取虚拟文件内容 / Raw bytes of the full file used to slice virtual file contents by offset
-	dataEnd     int64                               // 实际虚拟文件数据区末尾，零值表示使用 len(Raw) / End of the virtual-file payload area; zero means len(Raw)
+	dataEnd     int64                               `json:"-"`                     // 实际虚拟文件数据区末尾，零值表示使用 len(Raw) / End of the virtual-file payload area; zero means len(Raw)
 }
 
 // VirtualDirectoryMetadata 保存子 VirtualDirectory 的真实字段
