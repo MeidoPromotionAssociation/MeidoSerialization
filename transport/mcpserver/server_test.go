@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"os"
 	"path/filepath"
 	"slices"
@@ -62,6 +63,10 @@ func TestMCPToolsAndCapabilitiesResource(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer clientSession.Close()
+	initializeResult := clientSession.InitializeResult()
+	if initializeResult == nil || initializeResult.ProtocolVersion != "2026-07-28" {
+		t.Fatalf("negotiated MCP protocol = %#v, want 2026-07-28", initializeResult)
+	}
 
 	detected, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
 		Name: "meido.detect_file", Arguments: map[string]any{"root_id": "mods", "relative_path": "sample.menu"},
@@ -375,6 +380,107 @@ func TestMCPToolsAndCapabilitiesResource(t *testing.T) {
 	}
 	if len(resourceURIs) != 2 || !json.Valid([]byte(resourceURIs["meido://schemas/com3d2.menu"])) || !json.Valid([]byte(resourceURIs["meido://guides/com3d2.menu"])) {
 		t.Fatalf("editing prompt embedded resources = %#v", resourceURIs)
+	}
+}
+
+func TestMCPLegacyProtocolCompatibility(t *testing.T) {
+	server, err := New(Config{
+		Engine: application.NewEngine(application.EngineOptions{}),
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Version: "test",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	serverConn, clientConn := net.Pipe()
+	defer clientConn.Close()
+	serverSession, err := server.MCPServer().Connect(ctx, &mcp.IOTransport{
+		Reader: serverConn,
+		Writer: serverConn,
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer serverSession.Close()
+
+	encoder := json.NewEncoder(clientConn)
+	decoder := json.NewDecoder(clientConn)
+	if err := encoder.Encode(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      "initialize",
+		"method":  "initialize",
+		"params": map[string]any{
+			"protocolVersion": "2025-11-25",
+			"capabilities":    map[string]any{},
+			"clientInfo": map[string]any{
+				"name":    "legacy-test-client",
+				"version": "test",
+			},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var initializeResponse struct {
+		ID     string `json:"id"`
+		Result struct {
+			ProtocolVersion string `json:"protocolVersion"`
+		} `json:"result"`
+		Error *struct {
+			Code    int64  `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := decoder.Decode(&initializeResponse); err != nil {
+		t.Fatal(err)
+	}
+	if initializeResponse.Error != nil {
+		t.Fatalf("legacy initialize returned error: %+v", initializeResponse.Error)
+	}
+	if initializeResponse.ID != "initialize" || initializeResponse.Result.ProtocolVersion != "2025-11-25" {
+		t.Fatalf("legacy initialize response = %#v", initializeResponse)
+	}
+
+	if err := encoder.Encode(map[string]any{
+		"jsonrpc": "2.0",
+		"method":  "notifications/initialized",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := encoder.Encode(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      "tools",
+		"method":  "tools/list",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var toolsResponse struct {
+		ID     string `json:"id"`
+		Result struct {
+			Tools []struct {
+				Name string `json:"name"`
+			} `json:"tools"`
+		} `json:"result"`
+		Error *struct {
+			Code    int64  `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := decoder.Decode(&toolsResponse); err != nil {
+		t.Fatal(err)
+	}
+	if toolsResponse.Error != nil {
+		t.Fatalf("legacy tools/list returned error: %+v", toolsResponse.Error)
+	}
+	foundDetectTool := false
+	for _, tool := range toolsResponse.Result.Tools {
+		if tool.Name == "meido.detect_file" {
+			foundDetectTool = true
+			break
+		}
+	}
+	if toolsResponse.ID != "tools" || !foundDetectTool {
+		t.Fatalf("legacy tools/list response = %#v", toolsResponse)
 	}
 }
 
