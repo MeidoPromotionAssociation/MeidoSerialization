@@ -72,13 +72,15 @@ MeidoSerialization.exe convert2mod .\body.menu.json
 | `example.menu.json`     | `convert2mod`   | `example.menu`                                                      |
 | `texture.tex`           | `convert2image` | `texture.png`                                                       |
 | `image.png`             | `convert2tex`   | `image.tex`                                                         |
-| `mesh.mesh.bytes`       | `convert2gltf`  | `mesh.mesh.glb`                                                     |
-| `voice.audioclip.bytes` | `convert2audio` | `voice.audioclip.ogg`, `.wav`, or `.fsb` according to its signature |
+| `Texture2D\my_tex.png`  | `convert2texture2d` | native KCES `my_tex.tex`                                        |
+| `body.mmesh`            | `convert2gltf`  | `body.glb`                                                          |
+| `voice.audioclip`       | `convert2audio` | `voice.ogg`, `.wav`, or `.fsb` according to its signature           |
 | `table.nei`             | `convert2csv`   | `table.csv`                                                         |
 | `table.csv`             | `convert2nei`   | `table.nei`                                                         |
 | `example.arc`           | `unpackArc`     | `example.arc_unpacked\`                                             |
 | `example.ct`            | `convert`       | `example.ct.json`                                                   |
 | `example.aba`           | `unpackAba`     | `example.aba_unpacked\`                                             |
+| `example.aba`           | `genCt`         | `example.ct`                                                        |
 
 ### Batch conversion
 
@@ -131,9 +133,9 @@ MeidoSerialization.exe convert2json .\character.perset
 MeidoSerialization.exe convert2json .\system.dat
 MeidoSerialization.exe convert2json .\catalog.ct
 
-# Standalone raw Unity object; adjacent metadata/TypeTree data is preserved by the JSON envelope
-MeidoSerialization.exe convert2json .\Texture2D\body.texture2d.bytes
-MeidoSerialization.exe convert2mod .\Texture2D\body.texture2d.bytes.json
+# Standalone native Unity object; the file's embedded TypeTree is preserved by the JSON envelope
+MeidoSerialization.exe convert2json .\Texture2D\body.tex
+MeidoSerialization.exe convert2mod .\Texture2D\body.tex.json
 ```
 
 `convert2json` does not convert `.tex`; use `convert2image`. It also does not unpack `.aba`; use `unpackAba`. The
@@ -149,11 +151,11 @@ MeidoSerialization.exe convert2image .\texture.tex
 MeidoSerialization.exe convert2image .\texture.tex --format webp
 
 # Native KCES Texture2D -> PNG or DDS
-MeidoSerialization.exe convert2image .\body.texture2d.bytes --format png
-MeidoSerialization.exe convert2image .\body.texture2d.bytes --format dds
+MeidoSerialization.exe convert2image .\Texture2D\body.tex --format png
+MeidoSerialization.exe convert2image .\Texture2D\body.tex --format dds
 
 # Native KCES Sprite -> PNG only
-MeidoSerialization.exe convert2image .\icon.sprite.bytes --format png
+MeidoSerialization.exe convert2image .\Sprite\icon.sprite --format png
 
 # Image -> COM3D2 TEX, preserving PNG payload by default
 MeidoSerialization.exe convert2tex .\texture.png
@@ -176,14 +178,14 @@ ABA by this library:
 
 ```powershell
 # Mesh or AnimationClip -> binary glTF 2.0 (default)
-MeidoSerialization.exe convert2gltf .\body.mesh.bytes
+MeidoSerialization.exe convert2gltf .\Mesh\body.mmesh
 MeidoSerialization.exe convert2gltf .\dance.animationclip.bytes
 
 # JSON glTF with an embedded data URI
-MeidoSerialization.exe convert2gltf .\body.mesh.bytes --format gltf
+MeidoSerialization.exe convert2gltf .\Mesh\body.mmesh --format gltf
 
 # Extract inline encoded AudioClip data without transcoding
-MeidoSerialization.exe convert2audio .\voice.audioclip.bytes
+MeidoSerialization.exe convert2audio .\AudioClip\voice.audioclip
 
 # Batch-export all matching objects below a directory
 MeidoSerialization.exe convert2gltf .\unpacked
@@ -640,13 +642,15 @@ notepad .\body.menu.json
 | `example.menu.json`     | `convert2mod`   | `example.menu`                                                  |
 | `texture.tex`           | `convert2image` | `texture.png`                                                   |
 | `image.png`             | `convert2tex`   | `image.tex`                                                     |
-| `mesh.mesh.bytes`       | `convert2gltf`  | `mesh.mesh.glb`                                                 |
-| `voice.audioclip.bytes` | `convert2audio` | シグネチャに応じて `voice.audioclip.ogg`、`.wav`、または `.fsb` |
+| `Texture2D\my_tex.png`  | `convert2texture2d` | ネイティブ KCES `my_tex.tex`                                |
+| `body.mmesh`            | `convert2gltf`  | `body.glb`                                                      |
+| `voice.audioclip`       | `convert2audio` | シグネチャに応じて `voice.ogg`、`.wav`、または `.fsb`           |
 | `table.nei`             | `convert2csv`   | `table.csv`                                                     |
 | `table.csv`             | `convert2nei`   | `table.nei`                                                     |
 | `example.arc`           | `unpackArc`     | `example.arc_unpacked\`                                         |
 | `example.ct`            | `convert`       | `example.ct.json`                                               |
 | `example.aba`           | `unpackAba`     | `example.aba_unpacked\`                                         |
+| `example.aba`           | `genCt`         | `example.ct`                                                    |
 
 ### ディレクトリの一括変換
 
@@ -699,9 +703,9 @@ notepad .\body.menu.json
 .\MeidoSerialization.exe convert2json .\system.dat
 .\MeidoSerialization.exe convert2json .\catalog.ct
 
-# 単独の Unity ネイティブオブジェクト。隣接 metadata/TypeTree は JSON envelope に保持
-.\MeidoSerialization.exe convert2json .\Texture2D\body.texture2d.bytes
-.\MeidoSerialization.exe convert2mod .\Texture2D\body.texture2d.bytes.json
+# 単独の Unity ネイティブオブジェクト。ファイル内蔵の TypeTree は JSON envelope に保持
+.\MeidoSerialization.exe convert2json .\Texture2D\body.tex
+.\MeidoSerialization.exe convert2mod .\Texture2D\body.tex.json
 ~~~
 
 `convert2json` は `.tex` を変換しません。`convert2image` を使用してください。
@@ -718,11 +722,11 @@ notepad .\body.menu.json
 .\MeidoSerialization.exe convert2image .\texture.tex --format webp
 
 # KCES ネイティブ Texture2D -> PNG または DDS
-.\MeidoSerialization.exe convert2image .\body.texture2d.bytes --format png
-.\MeidoSerialization.exe convert2image .\body.texture2d.bytes --format dds
+.\MeidoSerialization.exe convert2image .\Texture2D\body.tex --format png
+.\MeidoSerialization.exe convert2image .\Texture2D\body.tex --format dds
 
 # KCES ネイティブ Sprite -> PNG のみ
-.\MeidoSerialization.exe convert2image .\icon.sprite.bytes --format png
+.\MeidoSerialization.exe convert2image .\Sprite\icon.sprite --format png
 
 # 画像 -> COM3D2 TEX（既定では PNG ペイロードを保持）
 .\MeidoSerialization.exe convert2tex .\texture.png
@@ -745,14 +749,14 @@ notepad .\body.menu.json
 
 ~~~powershell
 # Mesh または AnimationClip -> binary glTF 2.0（既定）
-.\MeidoSerialization.exe convert2gltf .\body.mesh.bytes
+.\MeidoSerialization.exe convert2gltf .\Mesh\body.mmesh
 .\MeidoSerialization.exe convert2gltf .\dance.animationclip.bytes
 
 # data URI を埋め込んだ JSON glTF
-.\MeidoSerialization.exe convert2gltf .\body.mesh.bytes --format gltf
+.\MeidoSerialization.exe convert2gltf .\Mesh\body.mmesh --format gltf
 
 # AudioClip のエンコード済み音声を、変換せずに抽出
-.\MeidoSerialization.exe convert2audio .\voice.audioclip.bytes
+.\MeidoSerialization.exe convert2audio .\AudioClip\voice.audioclip
 
 # ディレクトリ以下の一致する全オブジェクトを一括出力
 .\MeidoSerialization.exe convert2gltf .\unpacked
@@ -1210,13 +1214,15 @@ notepad .\body.menu.json
 | `example.menu.json`     | `convert2mod`   | `example.menu`                                           |
 | `texture.tex`           | `convert2image` | `texture.png`                                            |
 | `image.png`             | `convert2tex`   | `image.tex`                                              |
-| `mesh.mesh.bytes`       | `convert2gltf`  | `mesh.mesh.glb`                                          |
-| `voice.audioclip.bytes` | `convert2audio` | 根据数据签名输出 `voice.audioclip.ogg`、`.wav` 或 `.fsb` |
+| `Texture2D\my_tex.png`  | `convert2texture2d` | 原生 KCES `my_tex.tex`                               |
+| `body.mmesh`            | `convert2gltf`  | `body.glb`                                               |
+| `voice.audioclip`       | `convert2audio` | 根据数据签名输出 `voice.ogg`、`.wav` 或 `.fsb`           |
 | `table.nei`             | `convert2csv`   | `table.csv`                                              |
 | `table.csv`             | `convert2nei`   | `table.nei`                                              |
 | `example.arc`           | `unpackArc`     | `example.arc_unpacked\`                                  |
 | `example.ct`            | `convert`       | `example.ct.json`                                        |
 | `example.aba`           | `unpackAba`     | `example.aba_unpacked\`                                  |
+| `example.aba`           | `genCt`         | `example.ct`                                             |
 
 ### 批量转换目录
 
@@ -1268,9 +1274,9 @@ notepad .\body.menu.json
 .\MeidoSerialization.exe convert2json .\system.dat
 .\MeidoSerialization.exe convert2json .\catalog.ct
 
-# 独立的 Unity 原生对象；JSON envelope 会保留相邻的 metadata/TypeTree 信息
-.\MeidoSerialization.exe convert2json .\Texture2D\body.texture2d.bytes
-.\MeidoSerialization.exe convert2mod .\Texture2D\body.texture2d.bytes.json
+# 独立的 Unity 原生对象；JSON envelope 会保留文件内嵌的 TypeTree 信息
+.\MeidoSerialization.exe convert2json .\Texture2D\body.tex
+.\MeidoSerialization.exe convert2mod .\Texture2D\body.tex.json
 ~~~
 
 `convert2json` 不负责 `.tex`，请使用 `convert2image`；也不会解包 `.aba`，请使用
@@ -1287,11 +1293,11 @@ notepad .\body.menu.json
 .\MeidoSerialization.exe convert2image .\texture.tex --format webp
 
 # KCES 原生 Texture2D -> PNG 或 DDS
-.\MeidoSerialization.exe convert2image .\body.texture2d.bytes --format png
-.\MeidoSerialization.exe convert2image .\body.texture2d.bytes --format dds
+.\MeidoSerialization.exe convert2image .\Texture2D\body.tex --format png
+.\MeidoSerialization.exe convert2image .\Texture2D\body.tex --format dds
 
 # KCES 原生 Sprite 目前只输出 PNG
-.\MeidoSerialization.exe convert2image .\icon.sprite.bytes --format png
+.\MeidoSerialization.exe convert2image .\Sprite\icon.sprite --format png
 
 # 图片 -> COM3D2 TEX；默认保留 PNG 数据
 .\MeidoSerialization.exe convert2tex .\texture.png
@@ -1313,14 +1319,14 @@ notepad .\body.menu.json
 
 ~~~powershell
 # Mesh 或 AnimationClip -> 二进制 glTF 2.0（默认）
-.\MeidoSerialization.exe convert2gltf .\body.mesh.bytes
+.\MeidoSerialization.exe convert2gltf .\Mesh\body.mmesh
 .\MeidoSerialization.exe convert2gltf .\dance.animationclip.bytes
 
 # 输出 JSON glTF，并把数据作为 data URI 内嵌
-.\MeidoSerialization.exe convert2gltf .\body.mesh.bytes --format gltf
+.\MeidoSerialization.exe convert2gltf .\Mesh\body.mmesh --format gltf
 
 # 提取 AudioClip 中内嵌的编码音频，不进行转码
-.\MeidoSerialization.exe convert2audio .\voice.audioclip.bytes
+.\MeidoSerialization.exe convert2audio .\AudioClip\voice.audioclip
 
 # 批量导出目录下所有匹配对象
 .\MeidoSerialization.exe convert2gltf .\unpacked

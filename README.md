@@ -155,11 +155,12 @@ MeidoSerialization.exe convert2mod .\example.menu.json
 MeidoSerialization.exe listCt .\example.ct
 MeidoSerialization.exe listAba .\example.aba
 MeidoSerialization.exe unpackAba .\example.aba -o .\unpacked
+MeidoSerialization.exe genCt .\example.aba
 
 # Export standalone native Unity objects
-MeidoSerialization.exe convert2image .\texture.texture2d.bytes
-MeidoSerialization.exe convert2gltf .\mesh.mesh.bytes --format glb
-MeidoSerialization.exe convert2audio .\voice.audioclip.bytes
+MeidoSerialization.exe convert2image .\Texture2D\texture.tex
+MeidoSerialization.exe convert2gltf .\Mesh\mesh.mmesh --format glb
+MeidoSerialization.exe convert2audio .\AudioClip\voice.audioclip
 ```
 
 Command groups:
@@ -627,11 +628,12 @@ MeidoSerialization.exe convert2mod .\example.menu.json
 MeidoSerialization.exe listCt .\example.ct
 MeidoSerialization.exe listAba .\example.aba
 MeidoSerialization.exe unpackAba .\example.aba -o .\unpacked
+MeidoSerialization.exe genCt .\example.aba
 
 # 导出独立的原生 Unity 对象
-MeidoSerialization.exe convert2image .\texture.texture2d.bytes
-MeidoSerialization.exe convert2gltf .\mesh.mesh.bytes --format glb
-MeidoSerialization.exe convert2audio .\voice.audioclip.bytes
+MeidoSerialization.exe convert2image .\Texture2D\texture.tex
+MeidoSerialization.exe convert2gltf .\Mesh\mesh.mmesh --format glb
+MeidoSerialization.exe convert2audio .\AudioClip\voice.audioclip
 ```
 
 命令分组如下：
@@ -1109,11 +1111,12 @@ MeidoSerialization.exe convert2mod .\example.menu.json
 MeidoSerialization.exe listCt .\example.ct
 MeidoSerialization.exe listAba .\example.aba
 MeidoSerialization.exe unpackAba .\example.aba -o .\unpacked
+MeidoSerialization.exe genCt .\example.aba
 
 # 単体 native Unity object を出力
-MeidoSerialization.exe convert2image .\texture.texture2d.bytes
-MeidoSerialization.exe convert2gltf .\mesh.mesh.bytes --format glb
-MeidoSerialization.exe convert2audio .\voice.audioclip.bytes
+MeidoSerialization.exe convert2image .\Texture2D\texture.tex
+MeidoSerialization.exe convert2gltf .\Mesh\mesh.mmesh --format glb
+MeidoSerialization.exe convert2audio .\AudioClip\voice.audioclip
 ```
 
 command group：
