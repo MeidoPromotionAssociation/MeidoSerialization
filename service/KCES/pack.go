@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
 )
 
 // PackService 提供将纯资源目录打包为 KCES ABA 和 CT 的服务 / PackService packs a plain resource directory into KCES ABA and CT files
@@ -53,12 +55,23 @@ func (s *PackService) packToAbaAndCt(dirPath string, outputBaseName string, comp
 		relPath = filepath.ToSlash(relPath)
 		name := inferAssetNameForPack(relPath)
 		kind := inferKindForPack(name, relPath)
+		nativeObjectFile := isNativeUnityObjectPackPath(relPath, kind)
+		// 独立 Unity 对象文件按文件头识别，因此 convert2texture2d 等工具的产物放在类型目录之外也不会被当作图像重新编码
+		// Standalone Unity object files are recognized by their header, so output from tools such as convert2texture2d is not re-encoded as an image when stored outside a type directory
+		if !nativeObjectFile && kind != "abaraw" {
+			if header, headerErr := readNativeUnityObjectFileHeader(filePath); headerErr == nil {
+				if detectedKind, ok := unityRawKindForClassID(header.ClassID); ok {
+					kind = detectedKind
+					nativeObjectFile = true
+				}
+			}
+		}
 		manifest.Assets = append(manifest.Assets, ModAsset{
 			Name:             name,
 			Path:             relPath,
 			Kind:             kind,
 			preserveRawData:  true,
-			nativeObjectFile: isNativeUnityObjectPackPath(relPath, kind),
+			nativeObjectFile: nativeObjectFile,
 		})
 		return nil
 	})
@@ -71,6 +84,50 @@ func (s *PackService) packToAbaAndCt(dirPath string, outputBaseName string, comp
 	return packModManifestWithOptions(manifest, dirPath, filepath.Dir(dirPath), modPackOptions{
 		CompressAba: compressAba,
 	})
+}
+
+// unityRawKindForClassID 将 Unity ClassID 映射回原始对象 kind，供按文件头识别独立 Unity 对象文件使用
+// unityRawKindForClassID maps a Unity ClassID back to its raw object kind for header-based recognition of standalone Unity object files
+func unityRawKindForClassID(classID int32) (string, bool) {
+	switch classID {
+	case aba.ClassIDTexture2D:
+		return "rawtexture2d", true
+	case aba.ClassIDMesh:
+		return "mesh", true
+	case aba.ClassIDSprite:
+		return "sprite", true
+	case aba.ClassIDSpriteAtlas:
+		return "spriteatlas", true
+	case aba.ClassIDAnimationClip:
+		return "animationclip", true
+	case aba.ClassIDGameObject:
+		return "gameobject", true
+	case aba.ClassIDTransform:
+		return "transform", true
+	case aba.ClassIDMaterial:
+		return "material", true
+	case aba.ClassIDMeshRenderer:
+		return "meshrenderer", true
+	case aba.ClassIDMeshFilter:
+		return "meshfilter", true
+	case aba.ClassIDShader:
+		return "shader", true
+	case aba.ClassIDAudioClip:
+		return "audioclip", true
+	case aba.ClassIDCubemap:
+		return "cubemap", true
+	case aba.ClassIDMonoBehaviour:
+		return "monobehaviour", true
+	case aba.ClassIDMonoScript:
+		return "monoscript", true
+	case aba.ClassIDFont:
+		return "font", true
+	default:
+		if classID > 0 {
+			return fmt.Sprintf("type_%d", classID), true
+		}
+		return "", false
+	}
 }
 
 // isLinkOrReparse 判断文件信息是否表示符号链接或 Windows reparse point

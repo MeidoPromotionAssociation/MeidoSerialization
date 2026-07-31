@@ -123,3 +123,51 @@ func TestConvertImageToTexture2DRespectsOutputLimit(t *testing.T) {
 		t.Fatal("undersized output limit was accepted")
 	}
 }
+
+func TestPackDirectoryRecognizesNativeTexture2DOutsideTypeDirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+	contentDir := filepath.Join(tmpDir, "mod_root")
+	if err := os.MkdirAll(contentDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	pngPath := filepath.Join(tmpDir, "source.png")
+	writeTestPNG(t, pngPath, 2, 2)
+	texPath := filepath.Join(contentDir, "dress078___test_1.tex")
+	service := &NativeUnityMediaService{}
+	if err := service.ConvertImageToTexture2D(context.Background(), pngPath, texPath, 1<<20); err != nil {
+		t.Fatalf("ConvertImageToTexture2D: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(contentDir, "sample.menuassets"), []byte("menu"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := (&PackService{}).PackToAbaAndCt(contentDir, "native_root_pack"); err != nil {
+		t.Fatalf("PackToAbaAndCt: %v", err)
+	}
+
+	abaData, err := os.ReadFile(filepath.Join(tmpDir, "native_root_pack.aba"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	abaFile, err := aba.ReadAba(bytes.NewReader(abaData))
+	if err != nil {
+		t.Fatal(err)
+	}
+	serialized, err := abaFile.GetFileData(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	af, err := aba.ReadAssetsFile(serialized)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var texType int32
+	for _, entry := range af.GetAssetEntries() {
+		if entry.Name == "dress078___test_1.tex" {
+			texType = entry.TypeId
+		}
+	}
+	if texType != aba.ClassIDTexture2D {
+		t.Fatalf("native .tex outside Texture2D directory got ClassID %d, want Texture2D", texType)
+	}
+}
