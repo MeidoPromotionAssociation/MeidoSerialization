@@ -77,7 +77,7 @@ MeidoSerialization.exe convert2mod .\body.menu.json
 | `table.nei`             | `convert2csv`   | `table.csv`                                                         |
 | `table.csv`             | `convert2nei`   | `table.nei`                                                         |
 | `example.arc`           | `unpackArc`     | `example.arc_unpacked\`                                             |
-| `example.ct`            | `unpackCt`      | `example.ct_unpacked\`                                              |
+| `example.ct`            | `convert`       | `example.ct.json`                                                   |
 | `example.aba`           | `unpackAba`     | `example.aba_unpacked\`                                             |
 
 ### Batch conversion
@@ -160,6 +160,9 @@ MeidoSerialization.exe convert2tex .\texture.png
 
 # Image -> TEX with DXT compression; --compress disables force-PNG automatically
 MeidoSerialization.exe convert2tex .\texture.png --compress
+
+# PNG or JPEG -> native KCES Texture2D (rebuilt as inline RGBA32)
+MeidoSerialization.exe convert2texture2d .\my_texture.png
 ```
 
 `convert2tex` writes TEX version 1010 unless a valid sibling `.uv.csv` supplies version-1011 atlas rectangles. See
@@ -240,8 +243,7 @@ files are not supported.
 | Command                         | Purpose                                                             |
 |---------------------------------|---------------------------------------------------------------------|
 | `listCt <file-or-directory>`    | List virtual files stored in CT/VirtualDirectory containers         |
-| `unpackCt <file-or-directory>`  | Extract CT virtual files into a directory                           |
-| `packCt <directory>`            | Pack a directory into one CT file                                   |
+| `genCt <file-or-directory>`     | Generate the companion .ct catalog from a .aba file                 |
 | `listAba <file-or-directory>`   | List Unity objects with PathID, type, size, and name                |
 | `unpackAba <file-or-directory>` | Extract supported UnityFS assets into type directories              |
 | `packAba <directory>`           | Scan a plain resource directory and create a matching ABA + CT pair |
@@ -249,8 +251,7 @@ files are not supported.
 ```powershell
 # CT
 MeidoSerialization.exe listCt .\my_mod.ct
-MeidoSerialization.exe unpackCt .\my_mod.ct -o .\ct_files
-MeidoSerialization.exe packCt .\ct_files -o .\rebuilt.ct
+MeidoSerialization.exe genCt .\my_mod.aba
 
 # ABA
 MeidoSerialization.exe listAba .\my_mod.aba
@@ -264,39 +265,38 @@ For `packAba`, `--output` is a base name, not an output directory or full filena
 directory name is used. The packer targets the library's canonical Unity 2022.3.35f1 layout. Encrypted `abap` bundles
 can be detected but not decrypted.
 
-### KCES MOD manifest workflow
+`.ct` files are lookup tables (catalog plus ExtensionNameList data), so they are not unpacked into directories.
+To view one, use `listCt` or `inspectKcesCatalog`; to edit one, use the `convert` command, which round-trips a
+`.ct` through an editable `.ct.json` envelope.
 
-`inspectKcesCatalog` prints the `AssetBundleCatalog` and `ExtensionNameList` data from a CT. `packKcesMod` provides
-explicit control over catalog/package metadata and asset kinds through a JSON manifest.
+### KCES MOD editing workflow
+
+`packAba` builds the packing manifest automatically from the directory contents, and `genCt` rebuilds the catalog
+for an existing `.aba`. To edit a texture, convert it to PNG, edit it, then convert it back so repacking picks up
+the change:
+
+```powershell
+MeidoSerialization.exe unpackAba .\my_mod.aba -o .\aba_files
+MeidoSerialization.exe convert2image .\aba_files\Texture2D\my_texture.tex
+# edit my_texture.png, then rebuild the native Texture2D in place
+MeidoSerialization.exe convert2texture2d .\aba_files\Texture2D\my_texture.png
+MeidoSerialization.exe packAba .\aba_files -o my_mod
+```
+
+`packAba` and `genCt` write default catalog metadata (`catalogType` Parts, `packageType` Plugin, priority 0).
+To customize the metadata, edit the generated `.ct` through its JSON envelope:
+
+```powershell
+MeidoSerialization.exe convert .\my_mod.ct        # produces my_mod.ct.json
+# edit catalog fields such as catalogType, packageType, priority, subName
+MeidoSerialization.exe convert .\my_mod.ct.json   # writes my_mod.ct back
+```
+
+`inspectKcesCatalog` prints the `AssetBundleCatalog` and `ExtensionNameList` data from a CT:
 
 ```powershell
 MeidoSerialization.exe inspectKcesCatalog .\existing_mod.ct
-MeidoSerialization.exe packKcesMod .\manifest.json
-MeidoSerialization.exe packKcesMod .\manifest.json -o .\release
 ```
-
-Minimal manifest example:
-
-```json
-{
-  "name": "my_mod",
-  "catalogType": "Parts",
-  "packageType": "Plugin",
-  "priority": 0,
-  "assets": [
-    {
-      "name": "my_hair",
-      "path": "assets/my_hair.menuassets",
-      "kind": "textasset"
-    }
-  ]
-}
-```
-
-Asset paths are relative to the manifest. Common `kind` values include `textasset`, `texture2d`, `rawtexture2d`,
-`mesh`, `sprite`, `spriteatlas`, `animationclip`, `cubemap`, and supported lowercase Unity class names. `catalogType`
-accepts flags such as `Parts|PartsMeta`; `packageType` accepts `Base`, `Plugin`, `PluginPatch`, `BasePatch`,
-`ExtraBase`, or `ExtraPatch`. The output directory receives `<name>.ct` and `<name>.aba`.
 
 ## Global flags
 
@@ -645,7 +645,7 @@ notepad .\body.menu.json
 | `table.nei`             | `convert2csv`   | `table.csv`                                                     |
 | `table.csv`             | `convert2nei`   | `table.nei`                                                     |
 | `example.arc`           | `unpackArc`     | `example.arc_unpacked\`                                         |
-| `example.ct`            | `unpackCt`      | `example.ct_unpacked\`                                          |
+| `example.ct`            | `convert`       | `example.ct.json`                                               |
 | `example.aba`           | `unpackAba`     | `example.aba_unpacked\`                                         |
 
 ### ディレクトリの一括変換
@@ -729,6 +729,9 @@ notepad .\body.menu.json
 
 # DXT 圧縮 TEX。--compress は force-PNG を自動的に無効化
 .\MeidoSerialization.exe convert2tex .\texture.png --compress
+
+# PNG または JPEG -> ネイティブ KCES Texture2D（インライン RGBA32 として再構築）
+.\MeidoSerialization.exe convert2texture2d .\my_texture.png
 ~~~
 
 `convert2tex` は通常 TEX 1010 を書き出します。有効な隣接 `.uv.csv` に 1011 atlas rectangle がある場合のみ 1011 を生成します。詳細は
@@ -810,8 +813,7 @@ NEI テキストは Shift-JIS です。CSV は RFC 4180 形式に近いカンマ
 | コマンド                                 | 用途                                                         |
 |------------------------------------------|--------------------------------------------------------------|
 | `listCt <ファイルまたはディレクトリ>`    | CT/VirtualDirectory 内の仮想ファイルを一覧表示               |
-| `unpackCt <ファイルまたはディレクトリ>`  | CT 仮想ファイルをディレクトリへ抽出                          |
-| `packCt <ディレクトリ>`                  | ディレクトリを一つの CT にパック                             |
+| `genCt <ファイルまたはディレクトリ>`     | .aba ファイルから対応する .ct catalog を生成                 |
 | `listAba <ファイルまたはディレクトリ>`   | Unity オブジェクトの PathID、型、サイズ、名前を一覧表示      |
 | `unpackAba <ファイルまたはディレクトリ>` | 対応 UnityFS asset を型別ディレクトリへ抽出                  |
 | `packAba <ディレクトリ>`                 | 通常のリソースディレクトリを走査して対応する ABA + CT を生成 |
@@ -819,8 +821,7 @@ NEI テキストは Shift-JIS です。CSV は RFC 4180 形式に近いカンマ
 ~~~powershell
 # CT
 .\MeidoSerialization.exe listCt .\my_mod.ct
-.\MeidoSerialization.exe unpackCt .\my_mod.ct -o .\ct_files
-.\MeidoSerialization.exe packCt .\ct_files -o .\rebuilt.ct
+.\MeidoSerialization.exe genCt .\my_mod.aba
 
 # ABA
 .\MeidoSerialization.exe listAba .\my_mod.aba
@@ -833,41 +834,38 @@ NEI テキストは Shift-JIS です。CSV は RFC 4180 形式に近いカンマ
 `packAba --output`（`-o`）は出力先ディレクトリや完全なファイル名ではなく、「出力ベース名」です。省略時は入力ディレクトリ名を使用します。packer
 はライブラリの canonical Unity 2022.3.35f1 レイアウトを対象にします。暗号化された `abap` bundle は判定できますが、復号できません。
 
-### KCES MOD manifest ワークフロー
+`.ct` はルックアップテーブル（catalog と ExtensionNameList）なので、ディレクトリへは展開しません。閲覧には
+`listCt` や `inspectKcesCatalog` を、編集には `.ct` を編集可能な `.ct.json` envelope と相互変換する `convert`
+コマンドを使用してください。
+
+### KCES MOD 編集ワークフロー
+
+`packAba` はディレクトリ内容から packing manifest を自動的に構築し、`genCt` は既存の `.aba` から catalog
+を再生成します。テクスチャを編集するには、PNG に変換して編集した後、再パックが変更を取り込めるように
+ネイティブ Texture2D へ変換し直します。
+
+~~~powershell
+.\MeidoSerialization.exe unpackAba .\my_mod.aba -o .\aba_files
+.\MeidoSerialization.exe convert2image .\aba_files\Texture2D\my_texture.tex
+# my_texture.png を編集した後、ネイティブ Texture2D をその場で再構築
+.\MeidoSerialization.exe convert2texture2d .\aba_files\Texture2D\my_texture.png
+.\MeidoSerialization.exe packAba .\aba_files -o my_mod
+~~~
+
+`packAba` と `genCt` は既定の catalog metadata（`catalogType` Parts、`packageType` Plugin、priority 0）を書き込みます。
+metadata をカスタマイズするには、生成された `.ct` を JSON envelope 経由で編集します。
+
+~~~powershell
+.\MeidoSerialization.exe convert .\my_mod.ct        # my_mod.ct.json を生成
+# catalogType、packageType、priority、subName などの catalog フィールドを編集
+.\MeidoSerialization.exe convert .\my_mod.ct.json   # my_mod.ct へ書き戻し
+~~~
 
 `inspectKcesCatalog` は CT 内の `AssetBundleCatalog` と `ExtensionNameList` を表示します。
-`packKcesMod` は JSON manifest を使って catalog/package metadata と asset kind を明示的に制御します。
 
 ~~~powershell
 .\MeidoSerialization.exe inspectKcesCatalog .\existing_mod.ct
-.\MeidoSerialization.exe packKcesMod .\manifest.json
-.\MeidoSerialization.exe packKcesMod .\manifest.json -o .\release
 ~~~
-
-最小 manifest：
-
-~~~json
-{
-  "name": "my_mod",
-  "catalogType": "Parts",
-  "packageType": "Plugin",
-  "priority": 0,
-  "assets": [
-    {
-      "name": "my_hair",
-      "path": "assets/my_hair.menuassets",
-      "kind": "textasset"
-    }
-  ]
-}
-~~~
-
-asset path は manifest からの相対パスです。主な `kind` は `textasset`、
-`texture2d`、`rawtexture2d`、`mesh`、`sprite`、`spriteatlas`、
-`animationclip`、`cubemap`、および対応する小文字 Unity class name です。
-`catalogType` は `Parts|PartsMeta` などの flags を指定できます。`packageType` は
-`Base`、`Plugin`、`PluginPatch`、`BasePatch`、`ExtraBase`、`ExtraPatch` のいずれかです。出力ディレクトリには `<name>.ct` と
-`<name>.aba` が作成されます。
 
 ## 共通フィルター
 
@@ -1217,7 +1215,7 @@ notepad .\body.menu.json
 | `table.nei`             | `convert2csv`   | `table.csv`                                              |
 | `table.csv`             | `convert2nei`   | `table.nei`                                              |
 | `example.arc`           | `unpackArc`     | `example.arc_unpacked\`                                  |
-| `example.ct`            | `unpackCt`      | `example.ct_unpacked\`                                   |
+| `example.ct`            | `convert`       | `example.ct.json`                                        |
 | `example.aba`           | `unpackAba`     | `example.aba_unpacked\`                                  |
 
 ### 批量转换目录
@@ -1300,6 +1298,9 @@ notepad .\body.menu.json
 
 # 图片 -> 使用 DXT 压缩的 TEX；--compress 会自动关闭强制 PNG
 .\MeidoSerialization.exe convert2tex .\texture.png --compress
+
+# PNG 或 JPEG -> 原生 KCES Texture2D（重建为内联 RGBA32）
+.\MeidoSerialization.exe convert2texture2d .\my_texture.png
 ~~~
 
 `convert2tex` 默认写出 TEX 1010。只有旁边存在有效的 `.uv.csv` 图集矩形信息时，才会写出
@@ -1378,8 +1379,7 @@ Shift-JIS，`convert2nei` 会直接报错，不会静默替换成错误字符。
 | 命令                     | 用途                                       |
 |--------------------------|--------------------------------------------|
 | `listCt <文件或目录>`    | 列出 CT/VirtualDirectory 容器中的虚拟文件  |
-| `unpackCt <文件或目录>`  | 把 CT 虚拟文件提取到目录                   |
-| `packCt <目录>`          | 把一个目录打包成 CT                        |
+| `genCt <文件或目录>`     | 从 .aba 文件生成配套的 .ct catalog         |
 | `listAba <文件或目录>`   | 列出 Unity 对象的 PathID、类型、大小与名称 |
 | `unpackAba <文件或目录>` | 按类型目录提取 UnityFS 中支持的资源        |
 | `packAba <目录>`         | 扫描普通资源目录并生成配套的 ABA + CT      |
@@ -1387,8 +1387,7 @@ Shift-JIS，`convert2nei` 会直接报错，不会静默替换成错误字符。
 ~~~powershell
 # CT
 .\MeidoSerialization.exe listCt .\my_mod.ct
-.\MeidoSerialization.exe unpackCt .\my_mod.ct -o .\ct_files
-.\MeidoSerialization.exe packCt .\ct_files -o .\rebuilt.ct
+.\MeidoSerialization.exe genCt .\my_mod.aba
 
 # ABA
 .\MeidoSerialization.exe listAba .\my_mod.aba
@@ -1402,40 +1401,36 @@ Shift-JIS，`convert2nei` 会直接报错，不会静默替换成错误字符。
 Unity 2022.3.35f1 布局为目标。工具可以识别加密
 `abap` bundle，但无法解密。
 
-### KCES MOD manifest 流程
+`.ct` 是查找表（catalog 与 ExtensionNameList 数据），因此不再解包成目录。查看请使用 `listCt` 或
+`inspectKcesCatalog`；编辑请使用 `convert` 命令，它会在 `.ct` 与可编辑的 `.ct.json` 封套之间往返转换。
 
-`inspectKcesCatalog` 会打印 CT 中的 `AssetBundleCatalog` 与 `ExtensionNameList`。
-`packKcesMod` 使用 JSON manifest 明确控制 catalog/package 元数据和每个资源的种类。
+### KCES MOD 编辑流程
+
+`packAba` 会根据目录内容自动构建打包清单，`genCt` 可以为已有的 `.aba` 重建 catalog。要编辑纹理，先把它转换成
+PNG 并编辑，然后转换回原生 Texture2D，这样重新打包时才能带上改动：
+
+~~~powershell
+.\MeidoSerialization.exe unpackAba .\my_mod.aba -o .\aba_files
+.\MeidoSerialization.exe convert2image .\aba_files\Texture2D\my_texture.tex
+# 编辑 my_texture.png 后，就地重建原生 Texture2D
+.\MeidoSerialization.exe convert2texture2d .\aba_files\Texture2D\my_texture.png
+.\MeidoSerialization.exe packAba .\aba_files -o my_mod
+~~~
+
+`packAba` 和 `genCt` 会写入默认的 catalog 元数据（`catalogType` Parts、`packageType` Plugin、priority 0）。
+需要自定义元数据时，通过 JSON 封套编辑生成的 `.ct`：
+
+~~~powershell
+.\MeidoSerialization.exe convert .\my_mod.ct        # 生成 my_mod.ct.json
+# 编辑 catalogType、packageType、priority、subName 等 catalog 字段
+.\MeidoSerialization.exe convert .\my_mod.ct.json   # 写回 my_mod.ct
+~~~
+
+`inspectKcesCatalog` 会打印 CT 中的 `AssetBundleCatalog` 与 `ExtensionNameList`：
 
 ~~~powershell
 .\MeidoSerialization.exe inspectKcesCatalog .\existing_mod.ct
-.\MeidoSerialization.exe packKcesMod .\manifest.json
-.\MeidoSerialization.exe packKcesMod .\manifest.json -o .\release
 ~~~
-
-最小 manifest 示例：
-
-~~~json
-{
-  "name": "my_mod",
-  "catalogType": "Parts",
-  "packageType": "Plugin",
-  "priority": 0,
-  "assets": [
-    {
-      "name": "my_hair",
-      "path": "assets/my_hair.menuassets",
-      "kind": "textasset"
-    }
-  ]
-}
-~~~
-
-资源路径相对于 manifest 所在目录。常见 `kind` 包括 `textasset`、`texture2d`、
-`rawtexture2d`、`mesh`、`sprite`、`spriteatlas`、`animationclip`、`cubemap`，以及受支持的小写 Unity 类名。`catalogType` 可以使用
-`Parts|PartsMeta` 之类的 flags；
-`packageType` 可选 `Base`、`Plugin`、`PluginPatch`、`BasePatch`、`ExtraBase` 或
-`ExtraPatch`。输出目录中会生成 `<name>.ct` 和 `<name>.aba`。
 
 ## 全局筛选参数
 

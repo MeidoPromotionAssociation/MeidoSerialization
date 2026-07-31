@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
@@ -24,14 +24,14 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
-// ModManifest 定义 KCES MOD 的打包清单 / ModManifest defines the packing manifest for a KCES MOD
+// ModManifest 描述一次 KCES MOD 打包的内部输入，由纯目录扫描自动构建 / ModManifest describes the internal input of one KCES MOD packing run and is built automatically by pure-directory scanning
 type ModManifest struct {
-	Name        string     `json:"name"`              // MOD 名称，同时作为输出文件名 name.ct 和 name.aba / MOD name, also used for output file names name.ct and name.aba
-	SubName     string     `json:"subName,omitempty"` // PluginPatch/ExtraPatch 的依赖子名称 / Dependency sub-name for PluginPatch and ExtraPatch
-	CatalogType string     `json:"catalogType"`       // 资源分类，可用 | 组合 Flags，如 Parts|PartsMeta / Resource category flags, combinable with |
-	PackageType string     `json:"packageType"`       // 包类型，如 Plugin=1 / Package type such as Plugin=1
-	Priority    int32      `json:"priority"`          // 加载优先级 / Load priority
-	Assets      []ModAsset `json:"assets"`            // 资源列表 / Asset list
+	Name        string     // MOD 名称，同时作为输出文件名 name.ct 和 name.aba / MOD name, also used for output file names name.ct and name.aba
+	SubName     string     // PluginPatch/ExtraPatch 的依赖子名称 / Dependency sub-name for PluginPatch and ExtraPatch
+	CatalogType string     // 资源分类，可用 | 组合 Flags，如 Parts|PartsMeta / Resource category flags, combinable with |
+	PackageType string     // 包类型，如 Plugin=1 / Package type such as Plugin=1
+	Priority    int32      // 加载优先级 / Load priority
+	Assets      []ModAsset // 资源列表 / Asset list
 }
 
 // Kind 决定资源在 .aba 中的 Unity 对象类型 / Kind controls the Unity object type written into .aba:
@@ -46,49 +46,18 @@ type ModManifest struct {
 //   - 其他 Unity 原生类型可用小写 Class 名透传，如 "gameobject"、"transform"、"material"、
 //     "meshrenderer"、"meshfilter"、"shader"、"audioclip"、"monobehaviour"、"monoscript"、"font"
 //
-// ModAsset 定义 MOD 中的单个资源文件 / ModAsset defines one asset file in a MOD
+// ModAsset 描述 MOD 中的单个资源文件 / ModAsset describes one asset file in a MOD
 type ModAsset struct {
-	Name             string `json:"name"` // 资源短名称，同时作为 m_Name、m_Container 键和 CT 名称 / Short resource name used as m_Name, the m_Container key, and the CT name
-	Path             string `json:"path"` // 源文件路径，相对于 manifest 所在目录 / Source file path relative to the manifest directory
-	Kind             string `json:"kind"` // 资源类型，如 textasset、texture2d、mesh、sprite / Asset kind such as textasset, texture2d, mesh, or sprite
+	Name             string // 资源短名称，同时作为 m_Name、m_Container 键和 CT 名称 / Short resource name used as m_Name, the m_Container key, and the CT name
+	Path             string // 源文件路径，相对于扫描根目录 / Source file path relative to the scan root directory
+	Kind             string // 资源类型，如 textasset、texture2d、mesh、sprite / Asset kind such as textasset, texture2d, mesh, or sprite
 	preserveRawData  bool   // 纯目录打包时是否严格保留原始对象字节 / Whether pure-directory packing must preserve raw object bytes exactly
 	nativeObjectFile bool   // 输入是否为内嵌 TypeTree 的独立 Unity 对象文件 / Whether the input is a standalone Unity object file with an embedded TypeTree
 }
 
-// ModPackService 提供 KCES MOD 打包服务 / ModPackService provides KCES MOD packing services
-type ModPackService struct{}
-
 // 当前写入器以字节切片接收对象，因此在 io.ReadAll 前限制不可信输入大小
 // The current writer accepts object byte slices, so untrusted input sizes are bounded before io.ReadAll
 const maxPackInMemoryAssetSize int64 = 1 << 30
-
-// PackMod 根据 manifest 生成 .ct + .aba 文件
-// PackMod generates paired .ct and .aba files from a manifest
-func (s *ModPackService) PackMod(manifestPath string, outputDir string) error {
-	manifestData, err := os.ReadFile(manifestPath)
-	if err != nil {
-		return fmt.Errorf("read manifest: %w", err)
-	}
-
-	var manifest ModManifest
-	if err := json.Unmarshal(trimJSONUTF8BOM(manifestData), &manifest); err != nil {
-		return fmt.Errorf("parse manifest: %w", err)
-	}
-
-	if manifest.Name == "" {
-		return fmt.Errorf("manifest: name is required")
-	}
-	if err := validateModOutputName(manifest.Name); err != nil {
-		return fmt.Errorf("manifest: invalid name %q: %w", manifest.Name, err)
-	}
-
-	baseDir := filepath.Dir(manifestPath)
-	if outputDir == "" {
-		outputDir = baseDir
-	}
-
-	return packModManifest(manifest, baseDir, outputDir)
-}
 
 // packModManifest 根据清单中的纯资源文件构建固定 Unity 2022.3.35f1 的 ABA 和对应 CT
 // packModManifest builds a fixed Unity 2022.3.35f1 ABA and matching CT from the manifest's plain resource files
@@ -150,11 +119,7 @@ func packModManifestWithOptions(manifest ModManifest, baseDir string, outputDir 
 	sfWriter.TargetPlatform = versionSettings.TargetPlatform
 	sfWriter.SetExternalFiles(canonicalKCESExternalFiles())
 
-	// catalogEntry 保存生成一个 CT 条目所需的短名称和扩展组 / catalogEntry stores the short name and extension group needed for one generated CT entry
-	type catalogEntry struct {
-		name string // catalog 资源名称 / Catalog resource name
-		ext  string // 资源扩展名 / Resource extension
-	}
+	// catalogEntry 已提升为包级类型供打包和 genCt 共用 / catalogEntry is now a package-level type shared by packing and genCt
 	var entries []catalogEntry
 	assetNames := make(map[uint64]string, len(manifest.Assets))
 	pathIDs := make(map[int64]string, len(manifest.Assets))
@@ -286,27 +251,69 @@ func packModManifestWithOptions(manifest ModManifest, baseDir string, outputDir 
 		Compress:          options.CompressAba,
 	}
 
-	catalogName := manifest.Name
-	catalogSubName := strings.TrimSpace(manifest.SubName)
-	resourceFileName := manifest.Name + ".aba"
+	table, err := buildKcesModContentTable(manifest.Name, manifest.SubName, catalogType, packageType, manifest.Priority, entries)
+	if err != nil {
+		return err
+	}
+
+	// 成对提交器将两个最终文件直接写入同目录临时文件，再备份旧目标并逐一原子重命名，任何提交错误都会删除本次新目标并恢复旧目标
+	// The paired committer writes both final files directly to same-directory temporary files, then backs up old targets, atomically renames each file, and restores the old targets after any commit failure
+	if err := writePackOutputPairWithWriters(
+		outputDir,
+		manifest.Name+".ct", func(out io.Writer) error {
+			if err := ct.WriteContentTable(out, table); err != nil {
+				return fmt.Errorf("write .ct: %w", err)
+			}
+			return nil
+		},
+		manifest.Name+".aba", func(out io.Writer) error {
+			if err := aba.WriteAba(out, abaEntries, abaOptions); err != nil {
+				return fmt.Errorf("write .aba file: %w", err)
+			}
+			return nil
+		},
+	); err != nil {
+		return fmt.Errorf("commit .ct/.aba output pair: %w", err)
+	}
+
+	return nil
+}
+
+// catalogEntry 保存生成一个 CT 条目所需的短名称和扩展组 / catalogEntry stores the short name and extension group needed for one generated CT entry
+type catalogEntry struct {
+	name string // catalog 资源名称 / Catalog resource name
+	ext  string // 资源扩展名 / Resource extension
+}
+
+// buildKcesModContentTable 从 catalog 条目构建包含压缩 AssetBundleCatalog 和 ExtensionNameList 虚拟文件的完整 ContentTable，并拒绝大小写不敏感的名称哈希冲突
+// buildKcesModContentTable builds a complete ContentTable containing the compressed AssetBundleCatalog and ExtensionNameList virtual files from catalog entries and rejects case-insensitive name-hash conflicts
+func buildKcesModContentTable(name string, subName string, catalogType ct.CatalogType, packageType ct.CatalogPackageType, priority int32, entries []catalogEntry) (*ct.ContentTable, error) {
+	catalogName := name
+	catalogSubName := strings.TrimSpace(subName)
+	resourceFileName := name + ".aba"
 	catalog := &ct.AssetBundleCatalog{
 		Kind:              ct.CatalogKindAssetBundle,
 		Version:           1000,
 		CatalogType:       catalogType,
 		PackageType:       packageType,
-		Priority:          manifest.Priority,
+		Priority:          priority,
 		Name:              &catalogName,
 		SubName:           &catalogSubName,
-		Hash:              ct.HashStringIgnoreCase(manifest.Name + ".aba"),
+		Hash:              ct.HashStringIgnoreCase(name + ".aba"),
 		ResourceFileNames: []*string{&resourceFileName},
 	}
 
+	seenHashes := make(map[uint64]string, len(entries))
 	extGroups := map[string][]*ct.ExtensionNamePack{}
 	for _, e := range entries {
 		hash := ct.HashStringIgnoreCase(e.name)
-		name := e.name
-		extGroups[e.ext] = append(extGroups[e.ext], &ct.ExtensionNamePack{Name: &name, Hash: hash})
-		catalog.Items = append(catalog.Items, &ct.CatalogItem{ResourceIndex: 0, Name: &name, Hash: hash})
+		if previous, exists := seenHashes[hash]; exists {
+			return nil, fmt.Errorf("assets %q and %q have the same case-insensitive catalog hash %d", previous, e.name, hash)
+		}
+		seenHashes[hash] = e.name
+		entryName := e.name
+		extGroups[e.ext] = append(extGroups[e.ext], &ct.ExtensionNamePack{Name: &entryName, Hash: hash})
+		catalog.Items = append(catalog.Items, &ct.CatalogItem{ResourceIndex: 0, Name: &entryName, Hash: hash})
 	}
 
 	// 按 hash 升序排序 catalog items（游戏使用 Array.BinarySearch）
@@ -332,11 +339,11 @@ func packModManifestWithOptions(manifest ModManifest, baseDir string, outputDir 
 	// 编码并压缩 catalog
 	catalogData, err := ct.EncodeCatalog(catalog)
 	if err != nil {
-		return fmt.Errorf("encode catalog: %w", err)
+		return nil, fmt.Errorf("encode catalog: %w", err)
 	}
 	compressedCatalog, err := msgpack.CompressLz4BlockArray(catalogData)
 	if err != nil {
-		return fmt.Errorf("compress catalog: %w", err)
+		return nil, fmt.Errorf("compress catalog: %w", err)
 	}
 
 	// 构建 ContentTable
@@ -349,7 +356,7 @@ func packModManifestWithOptions(manifest ModManifest, baseDir string, outputDir 
 	table.Raw[7] = ct.SerializeTypeMsgPack
 
 	if err := table.AddFile("catalog", compressedCatalog); err != nil {
-		return err
+		return nil, err
 	}
 
 	for ext, packs := range extGroups {
@@ -357,38 +364,17 @@ func packModManifestWithOptions(manifest ModManifest, baseDir string, outputDir 
 		enl := &ct.ExtensionNameList{Extension: &extension, Data: packs}
 		enlData, err := ct.EncodeExtensionNameList(enl)
 		if err != nil {
-			return fmt.Errorf("encode ExtensionNameList %q: %w", ext, err)
+			return nil, fmt.Errorf("encode ExtensionNameList %q: %w", ext, err)
 		}
 		compressedEnl, err := msgpack.CompressLz4BlockArray(enlData)
 		if err != nil {
-			return fmt.Errorf("compress ExtensionNameList %q: %w", ext, err)
+			return nil, fmt.Errorf("compress ExtensionNameList %q: %w", ext, err)
 		}
 		if err := table.AddFile(ext, compressedEnl); err != nil {
-			return err
+			return nil, err
 		}
 	}
-
-	// 成对提交器将两个最终文件直接写入同目录临时文件，再备份旧目标并逐一原子重命名，任何提交错误都会删除本次新目标并恢复旧目标
-	// The paired committer writes both final files directly to same-directory temporary files, then backs up old targets, atomically renames each file, and restores the old targets after any commit failure
-	if err := writePackOutputPairWithWriters(
-		outputDir,
-		manifest.Name+".ct", func(out io.Writer) error {
-			if err := ct.WriteContentTable(out, table); err != nil {
-				return fmt.Errorf("write .ct: %w", err)
-			}
-			return nil
-		},
-		manifest.Name+".aba", func(out io.Writer) error {
-			if err := aba.WriteAba(out, abaEntries, abaOptions); err != nil {
-				return fmt.Errorf("write .aba file: %w", err)
-			}
-			return nil
-		},
-	); err != nil {
-		return fmt.Errorf("commit .ct/.aba output pair: %w", err)
-	}
-
-	return nil
+	return table, nil
 }
 
 // buildCanonicalLoadNames 按规范路径为重复资源短名称分配稳定且不冲突的 AssetBundle 加载键
@@ -1151,8 +1137,8 @@ func unityRawClassIDForKind(kind string) (int32, bool) {
 	}
 }
 
-// decodeImageToRGBA32 将 PNG 或 JPEG 图片解码为 RGBA32 像素数据，并以固定宽度返回尺寸
-// decodeImageToRGBA32 decodes a PNG or JPEG image into RGBA32 pixels and returns fixed-width dimensions
+// decodeImageToRGBA32 将 PNG 或 JPEG 图片解码为非预乘 RGBA32 像素数据，并以固定宽度返回尺寸，使用非预乘转换保留透明像素的颜色分量并避免预乘舍入损失
+// decodeImageToRGBA32 decodes a PNG or JPEG image into straight-alpha RGBA32 pixels and returns fixed-width dimensions, using a non-premultiplied conversion that preserves color components of transparent pixels and avoids premultiplication rounding loss
 func decodeImageToRGBA32(data []byte) (width, height int64, rgba []byte, err error) {
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
@@ -1166,12 +1152,12 @@ func decodeImageToRGBA32(data []byte) (width, height int64, rgba []byte, err err
 
 	for y := int64(0); y < height; y++ {
 		for x := int64(0); x < width; x++ {
-			r, g, b, a := img.At(bounds.Min.X+int(x), bounds.Min.Y+int(y)).RGBA()
+			pixel := color.NRGBAModel.Convert(img.At(bounds.Min.X+int(x), bounds.Min.Y+int(y))).(color.NRGBA)
 			offset := (y*width + x) * 4
-			pixels[offset] = byte(r >> 8)
-			pixels[offset+1] = byte(g >> 8)
-			pixels[offset+2] = byte(b >> 8)
-			pixels[offset+3] = byte(a >> 8)
+			pixels[offset] = pixel.R
+			pixels[offset+1] = pixel.G
+			pixels[offset+2] = pixel.B
+			pixels[offset+3] = pixel.A
 		}
 	}
 

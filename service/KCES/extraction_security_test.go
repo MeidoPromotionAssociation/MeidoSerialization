@@ -2,7 +2,6 @@ package KCES
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"os"
 	"path/filepath"
@@ -11,26 +10,7 @@ import (
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
-	"github.com/ugorji/go/codec"
 )
-
-func TestCtServiceUnpackRejectsTraversalName(t *testing.T) {
-	baseDir := t.TempDir()
-	outDir := filepath.Join(baseDir, "out")
-	escapePath := filepath.Join(baseDir, "escaped.txt")
-	ctPath := filepath.Join(baseDir, "malicious.ct")
-	writeMaliciousCT(t, ctPath, "../escaped.txt", []byte("escaped"))
-
-	err := (&CtService{}).UnpackCt(ctPath, outDir)
-	if err == nil {
-		t.Fatal("UnpackCt accepted a parent-directory traversal name")
-	}
-	if _, statErr := os.Stat(escapePath); !os.IsNotExist(statErr) {
-		t.Fatalf("UnpackCt wrote outside output root: stat err=%v", statErr)
-	}
-}
 
 func TestAbaServiceUnpackRejectsTraversalName(t *testing.T) {
 	baseDir := t.TempDir()
@@ -260,37 +240,5 @@ func TestExtractionRootWriteFileStreamIsAtomic(t *testing.T) {
 	}
 	if string(data) != "streamed replacement" {
 		t.Fatalf("streamed target got %q", data)
-	}
-}
-
-func writeMaliciousCT(t *testing.T, path, name string, data []byte) {
-	t.Helper()
-	virtualDirectory := []interface{}{
-		int64(1000),
-		map[string]interface{}{},
-		map[string]interface{}{
-			name: []interface{}{int64(ct.HeaderSize), int64(len(data))},
-		},
-	}
-	h := &codec.MsgpackHandle{}
-	var msgpackData []byte
-	if err := codec.NewEncoderBytes(&msgpackData, h).Encode(virtualDirectory); err != nil {
-		t.Fatalf("encode malicious CT directory: %v", err)
-	}
-	compressed, err := msgpack.CompressLz4BlockArray(msgpackData)
-	if err != nil {
-		t.Fatalf("compress malicious CT directory: %v", err)
-	}
-
-	var file bytes.Buffer
-	file.Write(ct.FileSignature)
-	file.WriteByte(ct.SerializeTypeMsgPack)
-	file.Write(data)
-	file.Write(compressed)
-	var footer [4]byte
-	binary.LittleEndian.PutUint32(footer[:], uint32(len(compressed)))
-	file.Write(footer[:])
-	if err := os.WriteFile(path, file.Bytes(), 0644); err != nil {
-		t.Fatalf("write malicious CT: %v", err)
 	}
 }

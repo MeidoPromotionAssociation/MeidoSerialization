@@ -2,7 +2,6 @@ package KCES
 
 import (
 	"bytes"
-	"encoding/json"
 	"image"
 	"image/color"
 	"image/png"
@@ -16,7 +15,7 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
-func TestPackMod_Integration(t *testing.T) {
+func TestPackModManifest_Integration(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// 准备测试资源
@@ -33,14 +32,9 @@ func TestPackMod_Integration(t *testing.T) {
 			{Name: "test.materialassets", Path: "material.bin", Kind: "textasset"},
 		},
 	}
-	manifestData, _ := json.Marshal(manifest)
-	manifestPath := filepath.Join(tmpDir, "manifest.json")
-	os.WriteFile(manifestPath, manifestData, 0644)
-
 	// 打包
-	service := &ModPackService{}
-	if err := service.PackMod(manifestPath, tmpDir); err != nil {
-		t.Fatalf("PackMod failed: %v", err)
+	if err := packModManifest(manifest, tmpDir, tmpDir); err != nil {
+		t.Fatalf("packModManifest failed: %v", err)
 	}
 
 	// 验证 .ct
@@ -139,7 +133,7 @@ func TestPackMod_Integration(t *testing.T) {
 	}
 }
 
-func TestPackModCatalogsExtensionlessTextAssetsUnderNullGroup(t *testing.T) {
+func TestPackModManifestCatalogsExtensionlessTextAssetsUnderNullGroup(t *testing.T) {
 	tmpDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tmpDir, "maid_collider.bin"), []byte("extensionless TextAsset payload"), 0644); err != nil {
 		t.Fatal(err)
@@ -158,16 +152,8 @@ func TestPackModCatalogsExtensionlessTextAssetsUnderNullGroup(t *testing.T) {
 			{Name: "dependency", Path: "dependency.bin", Kind: "material"},
 		},
 	}
-	manifestData, err := json.Marshal(manifest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manifestPath := filepath.Join(tmpDir, "manifest.json")
-	if err := os.WriteFile(manifestPath, manifestData, 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := (&ModPackService{}).PackMod(manifestPath, tmpDir); err != nil {
-		t.Fatalf("PackMod: %v", err)
+	if err := packModManifest(manifest, tmpDir, tmpDir); err != nil {
+		t.Fatalf("packModManifest: %v", err)
 	}
 
 	ctFile, err := os.Open(filepath.Join(tmpDir, "extensionless_test.ct"))
@@ -199,7 +185,7 @@ func TestPackModCatalogsExtensionlessTextAssetsUnderNullGroup(t *testing.T) {
 	}
 }
 
-func TestPackMod_Texture2D(t *testing.T) {
+func TestPackModManifest_Texture2D(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// 用标准库生成有效的 1x1 PNG
@@ -220,13 +206,8 @@ func TestPackMod_Texture2D(t *testing.T) {
 			{Name: "test.tex", Path: "test.png", Kind: "texture2d"},
 		},
 	}
-	manifestData, _ := json.Marshal(manifest)
-	manifestPath := filepath.Join(tmpDir, "manifest.json")
-	os.WriteFile(manifestPath, manifestData, 0644)
-
-	service := &ModPackService{}
-	if err := service.PackMod(manifestPath, tmpDir); err != nil {
-		t.Fatalf("PackMod failed: %v", err)
+	if err := packModManifest(manifest, tmpDir, tmpDir); err != nil {
+		t.Fatalf("packModManifest failed: %v", err)
 	}
 
 	// 验证 .aba 中的 Texture2D
@@ -250,7 +231,7 @@ func TestPackMod_Texture2D(t *testing.T) {
 	}
 }
 
-func TestPackMod_InferRawTextureAndSpriteFromPath(t *testing.T) {
+func TestPackModManifest_InferRawTextureAndSpriteFromPath(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	rawTexData, err := os.ReadFile(filepath.Join("..", "..", "testdata", "kces_assets", "cm3d2_megane002.tex.bytes"))
@@ -277,18 +258,8 @@ func TestPackMod_InferRawTextureAndSpriteFromPath(t *testing.T) {
 			{Name: "sprite.tex", Path: "sprite.tex.sprite.bytes"},
 		},
 	}
-	manifestData, err := json.Marshal(manifest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manifestPath := filepath.Join(tmpDir, "manifest.json")
-	if err := os.WriteFile(manifestPath, manifestData, 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	service := &ModPackService{}
-	if err := service.PackMod(manifestPath, tmpDir); err != nil {
-		t.Fatalf("PackMod failed: %v", err)
+	if err := packModManifest(manifest, tmpDir, tmpDir); err != nil {
+		t.Fatalf("packModManifest failed: %v", err)
 	}
 
 	abaData, err := os.ReadFile(filepath.Join(tmpDir, "raw_asset_test.aba"))
@@ -320,7 +291,7 @@ func TestPackMod_InferRawTextureAndSpriteFromPath(t *testing.T) {
 	}
 }
 
-func TestPackMod_ExplicitUnityRawObjectKinds(t *testing.T) {
+func TestPackModManifest_ExplicitUnityRawObjectKinds(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	rawData, err := os.ReadFile(filepath.Join("..", "..", "testdata", "kces_assets", "DepthLUT.monoscript.bytes"))
@@ -346,18 +317,8 @@ func TestPackMod_ExplicitUnityRawObjectKinds(t *testing.T) {
 			{Name: "type95_internal", Path: "type95.bytes", Kind: "type_95"},
 		},
 	}
-	manifestData, err := json.Marshal(manifest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manifestPath := filepath.Join(tmpDir, "manifest.json")
-	if err := os.WriteFile(manifestPath, manifestData, 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	service := &ModPackService{}
-	if err := service.PackMod(manifestPath, tmpDir); err != nil {
-		t.Fatalf("PackMod failed: %v", err)
+	if err := packModManifest(manifest, tmpDir, tmpDir); err != nil {
+		t.Fatalf("packModManifest failed: %v", err)
 	}
 
 	abaData, err := os.ReadFile(filepath.Join(tmpDir, "raw_kind_test.aba"))

@@ -7,7 +7,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
-	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
 )
 
 var inspectKcesCatalogCmd = &cobra.Command{
@@ -20,28 +19,6 @@ Examples:
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return inspectKcesCatalog(args[0])
-	},
-}
-
-var packKcesModCmd = &cobra.Command{
-	Use:   "packKcesMod [manifest.json]",
-	Short: "Pack a KCES MOD (.ct + .aba) from a manifest",
-	Long: `Pack a KCES MOD into .ct (catalog) + .aba (Unity AssetBundle) files based on a manifest.json.
-
-The manifest must include name, catalogType, packageType, priority, and an assets list.
-Each asset references a TextAsset payload file (e.g. .menuassets, .materialassets, .pmatassets, .model).
-
-Examples:
-  MeidoSerialization packKcesMod manifest.json
-  MeidoSerialization packKcesMod manifest.json -o ./out`,
-	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		service := &KCESService.ModPackService{}
-		if err := service.PackMod(args[0], outputPathFlag); err != nil {
-			return err
-		}
-		fmt.Printf("Packed KCES MOD from %s\n", args[0])
-		return nil
 	},
 }
 
@@ -121,10 +98,4 @@ func formatNullableStringForCLI(value *string) string {
 		return "<nil>"
 	}
 	return *value
-}
-
-// init 注册 KCES MOD 打包命令的输出目录参数
-// init registers the output-directory flag for the KCES MOD packing command
-func init() {
-	packKcesModCmd.Flags().StringVarP(&outputPathFlag, "output", "o", "", "Output directory")
 }

@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"io"
 	"os"
+	pathpkg "path"
 	"path/filepath"
-	"sort"
 	"strings"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
-// CtService 提供 .ct 文件 VirtualDirectory 的读取、写入、列出和提取操作 / CtService provides read, write, list, and extraction operations for .ct VirtualDirectory files
+// CtService 提供 .ct 文件 VirtualDirectory 的读取、列出、提取、生成和写入操作 / CtService provides read, list, extraction, generation, and write operations for .ct VirtualDirectory files
 type CtService struct{}
 
 // ReadCt 读取 .ct 文件并返回 ContentTable
@@ -41,171 +42,103 @@ func (s *CtService) ListCt(path string) ([]string, error) {
 	return table.GetFileNames(), nil
 }
 
-// UnpackCt 将 .ct 文件安全解压到指定目录
-// UnpackCt safely extracts a .ct file into the requested directory
-func (s *CtService) UnpackCt(ctPath string, outDir string) error {
-	table, err := s.ReadCt(ctPath)
+// GenerateCtFromAba 读取 .aba 的 AssetBundle 容器并生成使用默认 Parts/Plugin 元数据的配套 .ct 文件，outPath 为空时输出到 .aba 同目录同基名
+// GenerateCtFromAba reads the AssetBundle container of a .aba file and generates its companion .ct file with default Parts/Plugin metadata, writing next to the .aba with the same base name when outPath is empty
+func (s *CtService) GenerateCtFromAba(abaPath string, outPath string) error {
+	name := strings.TrimSuffix(filepath.Base(abaPath), filepath.Ext(abaPath))
+	if err := validateModOutputName(name); err != nil {
+		return fmt.Errorf("invalid catalog name %q derived from %q: %w", name, abaPath, err)
+	}
+	entries, err := collectAbaCatalogEntries(abaPath)
 	if err != nil {
 		return err
 	}
-
-	if outDir == "" {
-		outDir = ctPath + "_unpacked"
-	}
-
-	// extractFile 保存提交到安全提取根目录前的单个虚拟文件 / extractFile stores one virtual file before it is committed to the safe extraction root
-	type extractFile struct {
-		archiveName string
-		relPath     string
-		data        []byte
-	}
-	names := table.GetFileNames()
-	sort.Strings(names)
-	files := make([]extractFile, 0, len(names))
-	seenPaths := make(map[string]string, len(names))
-	for _, name := range names {
-		relPath, err := virtualDirectoryNameToExtractionPath(name)
-		if err != nil {
-			return fmt.Errorf("unsafe virtual file name %q: %w", name, err)
-		}
-		// Windows output paths are case-insensitive. Reject portable collisions
-		// instead of letting map iteration order decide which entry wins
-		pathKey := strings.ToLower(relPath)
-		if previous, ok := seenPaths[pathKey]; ok {
-			return fmt.Errorf("virtual file names %q and %q map to the same output path", previous, name)
-		}
-		seenPaths[pathKey] = name
-
-		data, err := table.GetFileData(name)
-		if err != nil {
-			return fmt.Errorf("extract %q failed: %w", name, err)
-		}
-		files = append(files, extractFile{archiveName: name, relPath: relPath, data: data})
-	}
-
-	root, err := openExtractionRoot(outDir)
+	table, err := buildKcesModContentTable(name, "", ct.CatalogTypeParts, ct.PackageTypePlugin, 0, entries)
 	if err != nil {
-		return err
+		return fmt.Errorf("build content table for %q: %w", abaPath, err)
 	}
-	defer root.Close()
-	for _, file := range files {
-		if err := root.WriteFile(file.relPath, file.data, 0644); err != nil {
-			return fmt.Errorf("write virtual file %q failed: %w", file.archiveName, err)
-		}
+	if outPath == "" {
+		outPath = filepath.Join(filepath.Dir(abaPath), name+".ct")
 	}
-	return nil
+	return s.WriteCtFile(outPath, table)
 }
 
-// PackCt 将目录中的普通文件打包为 .ct 文件
-// PackCt packs regular files from a directory into a .ct file
-func (s *CtService) PackCt(dirPath string, outPath string) error {
-	table, err := newContentTableFromGameWindowsDirectory(dirPath)
+// collectAbaCatalogEntries 遍历 .aba 中全部 SerializedFile 并为每个 m_Container 条目按游戏规则收集 catalog 条目
+// collectAbaCatalogEntries walks every SerializedFile in a .aba and collects one catalog entry per m_Container entry using the game's rules
+func collectAbaCatalogEntries(abaPath string) ([]catalogEntry, error) {
+	abaService := &AbaService{}
+	abaFile, f, err := abaService.ReadAba(abaPath)
 	if err != nil {
-		return fmt.Errorf("create content table from directory failed: %w", err)
-	}
-
-	if outPath == "" {
-		outPath = dirPath + ".ct"
-	}
-
-	f, err := os.Create(outPath)
-	if err != nil {
-		return fmt.Errorf("create output file failed: %w", err)
+		return nil, err
 	}
 	defer f.Close()
 
-	if err := ct.WriteContentTable(f, table); err != nil {
-		return fmt.Errorf("write .ct file failed: %w", err)
+	var entries []catalogEntry
+	seenNames := make(map[uint64]string)
+	for directoryIndex, dir := range abaFile.BlockInfo.DirectoryInfos {
+		if !dir.IsSerialized() {
+			continue
+		}
+		data, err := abaFile.GetFileData(int64(directoryIndex))
+		if err != nil {
+			return nil, fmt.Errorf("read serialized .aba entry %q at directory index %d: %w", dir.Name, directoryIndex, err)
+		}
+		af, err := aba.ReadAssetsFile(data)
+		if err != nil {
+			return nil, fmt.Errorf("parse serialized .aba entry %q at directory index %d: %w", dir.Name, directoryIndex, err)
+		}
+		containerNames, err := af.GetAssetBundleContainerMap()
+		if err != nil {
+			return nil, fmt.Errorf("read AssetBundle container map from %q: %w", dir.Name, err)
+		}
+		for _, entry := range af.GetAssetEntries() {
+			if entry.TypeId == aba.ClassIDAssetBundle {
+				continue
+			}
+			containerPath := containerNames[entry.PathId]
+			if containerPath == "" {
+				continue
+			}
+			name := catalogNameFromContainerPath(containerPath)
+			if name == "" {
+				return nil, fmt.Errorf("m_Container path %q for PathID %d in %q yields an empty catalog name", containerPath, entry.PathId, dir.Name)
+			}
+			// 同名不同类型的对象共用一个 catalog 条目，游戏在 LoadAsset 时按类型区分
+			// Objects that share one name across types share one catalog entry, and the game distinguishes them by type in LoadAsset
+			nameHash := ct.HashStringIgnoreCase(name)
+			if previous, exists := seenNames[nameHash]; exists && strings.EqualFold(previous, name) {
+				continue
+			}
+			if _, exists := seenNames[nameHash]; !exists {
+				seenNames[nameHash] = name
+			}
+			ext := strings.ToLower(filepath.Ext(name))
+			// 官方 system.ct 将无后缀资源的 ExtensionNameList 分组命名为 null
+			// Official system.ct names the ExtensionNameList group for extensionless resources null
+			if ext == "" {
+				ext = "null"
+			}
+			entries = append(entries, catalogEntry{name: name, ext: ext})
+		}
 	}
-	return nil
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("no cataloged assets found in %q", abaPath)
+	}
+	return entries, nil
 }
 
-// newContentTableFromGameWindowsDirectory 从游戏使用的 Windows 风格目录结构构建 ContentTable
-// newContentTableFromGameWindowsDirectory builds a ContentTable from the Windows-style directory layout used by the game
-func newContentTableFromGameWindowsDirectory(dirPath string) (*ct.ContentTable, error) {
-	absDir, err := filepath.Abs(dirPath)
-	if err != nil {
-		return nil, fmt.Errorf("resolve source directory: %w", err)
+// catalogNameFromContainerPath 从 m_Container 加载名还原 catalog 资源名称，Unity 资产路径按游戏规则取 basename 并去掉一层资产扩展名，本库打包的平坦短名保持原样
+// catalogNameFromContainerPath restores the catalog resource name from an m_Container load name, taking the basename of a Unity asset path and stripping one asset-extension layer per the game's rules while keeping flat short names from this library's packer unchanged
+func catalogNameFromContainerPath(containerPath string) string {
+	normalized := strings.ReplaceAll(containerPath, "\\", "/")
+	base := pathpkg.Base(normalized)
+	if base == "." || base == "/" {
+		return ""
 	}
-	rootInfo, err := os.Lstat(absDir)
-	if err != nil {
-		return nil, fmt.Errorf("inspect source directory: %w", err)
+	if strings.ContainsRune(normalized, '/') {
+		return strings.TrimSuffix(base, pathpkg.Ext(base))
 	}
-	if !rootInfo.IsDir() || isLinkOrReparse(rootInfo) {
-		return nil, fmt.Errorf("source path must be a real directory, not a symlink or reparse point")
-	}
-	root, err := os.OpenRoot(absDir)
-	if err != nil {
-		return nil, fmt.Errorf("open source directory: %w", err)
-	}
-	defer root.Close()
-
-	// sourceFile 保存磁盘相对路径和对应的 VirtualDirectory 名称 / sourceFile stores a disk-relative path and its corresponding VirtualDirectory name
-	type sourceFile struct {
-		diskPath    string
-		virtualName string
-	}
-	var sources []sourceFile
-	seenVirtualNames := make(map[string]string)
-	err = filepath.WalkDir(absDir, func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if path == absDir {
-			return nil
-		}
-		info, infoErr := entry.Info()
-		if infoErr != nil {
-			return infoErr
-		}
-		if isLinkOrReparse(info) {
-			return fmt.Errorf("source entry %q is a symlink or reparse point", path)
-		}
-		if entry.IsDir() {
-			return nil
-		}
-		if !info.Mode().IsRegular() {
-			return fmt.Errorf("source entry %q is not a regular file", path)
-		}
-		rel, relErr := filepath.Rel(absDir, path)
-		if relErr != nil {
-			return relErr
-		}
-		rel = filepath.ToSlash(rel)
-		virtualName, nameErr := extractionPathToVirtualDirectoryName(rel)
-		if nameErr != nil {
-			return fmt.Errorf("decode game VirtualDirectory file name %q: %w", rel, nameErr)
-		}
-		key := strings.ToLower(virtualName)
-		if previous, exists := seenVirtualNames[key]; exists {
-			return fmt.Errorf("source files %q and %q map to the same case-insensitive VirtualDirectory path %q", previous, rel, virtualName)
-		}
-		seenVirtualNames[key] = rel
-		sources = append(sources, sourceFile{diskPath: rel, virtualName: virtualName})
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("walk source directory: %w", err)
-	}
-	sort.Slice(sources, func(i, j int) bool { return sources[i].virtualName < sources[j].virtualName })
-
-	table := &ct.ContentTable{
-		Version: 1000,
-		Files:   make(map[string]ct.VirtualFile),
-		Raw:     make([]byte, ct.HeaderSize),
-	}
-	copy(table.Raw[:7], ct.FileSignature)
-	table.Raw[7] = ct.SerializeTypeMsgPack
-	for _, source := range sources {
-		data, readErr := readPackRootRegularFile(root, source.diskPath)
-		if readErr != nil {
-			return nil, fmt.Errorf("read source file %q: %w", source.diskPath, readErr)
-		}
-		if err := table.AddFile(source.virtualName, data); err != nil {
-			return nil, err
-		}
-	}
-	return table, nil
+	return base
 }
 
 // ExtractFile 从 .ct 中提取单个虚拟文件并写入目标 writer

@@ -98,6 +98,17 @@ func WriteMonoBehaviour(object *NativeUnityObject) ([]byte, error) {
 	return writeNativeUnityObjectClass(object, ClassIDMonoBehaviour, "MonoBehaviour")
 }
 
+// NewNativeTexture2DObject 从 RGBA32 像素构建自带 Unity 2022.3 内置 TypeTree 的独立 Texture2D 对象，图像数据内联为单 mip RGBA32
+// NewNativeTexture2DObject builds a standalone Texture2D object carrying the Unity 2022.3 built-in TypeTree from RGBA32 pixels with the image data inlined as a single RGBA32 mip
+func NewNativeTexture2DObject(name string, width int64, height int64, rgba []byte) (*NativeUnityObject, error) {
+	data, err := encodeTexture2DData("2022.3.35f1", name, width, height, rgba)
+	if err != nil {
+		return nil, err
+	}
+	tree := unity2022Texture2DTypeTree()
+	return &NativeUnityObject{ClassID: ClassIDTexture2D, BigEndian: false, TypeTree: tree, Data: data}, nil
+}
+
 // readNativeUnityObjectClass 读取独立对象并验证精确 ClassID
 // readNativeUnityObjectClass reads a standalone object and validates its exact ClassID
 func readNativeUnityObjectClass(data []byte, classID int32, typeName string) (*NativeUnityObject, error) {

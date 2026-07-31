@@ -86,6 +86,34 @@ func (s *NativeUnityMediaService) ConvertTexture2DToImage(ctx context.Context, i
 	return writeNativeUnityMediaOutput(ctx, outputPath, output, maxOutputBytes)
 }
 
+// ConvertImageToTexture2D 将 PNG 或 JPEG 图像重建为内联 RGBA32 单 mip 的独立 Texture2D 主文件，资源名按输出文件名推断并与纯目录打包规则一致
+// ConvertImageToTexture2D rebuilds a PNG or JPEG image into a standalone Texture2D primary file with inline single-mip RGBA32 data, and the resource name inferred from the output file name matches the pure-directory packing rules
+func (s *NativeUnityMediaService) ConvertImageToTexture2D(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	if ctx != nil {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+	}
+	data, err := os.ReadFile(inputPath)
+	if err != nil {
+		return fmt.Errorf("read %q: %w", inputPath, err)
+	}
+	width, height, rgba, err := decodeImageToRGBA32(data)
+	if err != nil {
+		return fmt.Errorf("decode image %q: %w", inputPath, err)
+	}
+	name := inferAssetNameForPack(filepath.Base(outputPath))
+	object, err := aba.NewNativeTexture2DObject(name, width, height, rgba)
+	if err != nil {
+		return fmt.Errorf("build native Texture2D %q: %w", name, err)
+	}
+	output, err := aba.WriteTexture2D(object)
+	if err != nil {
+		return fmt.Errorf("encode native Texture2D %q: %w", name, err)
+	}
+	return writeNativeUnityMediaOutput(ctx, outputPath, output, maxOutputBytes)
+}
+
 // ExtractAudioClip 将独立 AudioClip 中已内联的原始音频载荷写出，不进行有损转码
 // ExtractAudioClip writes the inline encoded payload from a standalone AudioClip without lossy transcoding
 func (s *NativeUnityMediaService) ExtractAudioClip(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {

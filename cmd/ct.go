@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -30,63 +32,29 @@ Examples:
 	},
 }
 
-var unpackCtCmd = &cobra.Command{
-	Use:   "unpackCt [file/directory]",
-	Short: "Unpack a .ct archive to a directory",
-	Long: `Unpack a .ct (VirtualDirectory) archive to a directory.
-When given a directory, processes all .ct files recursively.
+var genCtCmd = &cobra.Command{
+	Use:   "genCt [file/directory]",
+	Short: "Generate a .ct catalog from a .aba file",
+	Long: `Generate the companion .ct (catalog) file from a .aba (Unity AssetBundle) file.
+Catalog entries are collected from the AssetBundle container of the .aba, and
+metadata uses the same defaults as packAba (CatalogType Parts, PackageType Plugin,
+priority 0). Use the convert command on the generated .ct for further metadata
+editing through its .ct.json envelope.
+When given a directory, processes all .aba files recursively.
 
 Examples:
-  MeidoSerialization unpackCt example.ct
-  MeidoSerialization unpackCt example.ct -o ./output_dir
-  MeidoSerialization unpackCt ./ct_directory`,
+  MeidoSerialization genCt my_mod.aba
+  MeidoSerialization genCt my_mod.aba -o custom.ct
+  MeidoSerialization genCt ./aba_directory`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := args[0]
 		if isDirectory(path) {
 			return processDirectoryConcurrent(path, func(p string) error {
-				service := &KCESService.CtService{}
-				outDir := p + "_unpacked"
-				if err := service.UnpackCt(p, outDir); err != nil {
-					return err
-				}
-				fmt.Printf("Unpacked %s to %s\n", p, outDir)
-				return nil
-			}, isCtFile)
+				return generateCtFromAbaFile(p, "")
+			}, isAbaFile)
 		}
-		service := &KCESService.CtService{}
-		outDir := outputPathFlag
-		if err := service.UnpackCt(path, outDir); err != nil {
-			return err
-		}
-		if outDir == "" {
-			outDir = path + "_unpacked"
-		}
-		fmt.Printf("Unpacked %s to %s\n", path, outDir)
-		return nil
-	},
-}
-
-var packCtCmd = &cobra.Command{
-	Use:   "packCt [directory]",
-	Short: "Pack a directory into a .ct archive",
-	Long: `Pack a directory into a .ct (VirtualDirectory) archive.
-
-Examples:
-  MeidoSerialization packCt ./my_folder
-  MeidoSerialization packCt ./my_folder -o custom.ct`,
-	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		service := &KCESService.CtService{}
-		outPath := outputPathFlag
-		if err := service.PackCt(args[0], outPath); err != nil {
-			return err
-		}
-		if outPath == "" {
-			outPath = args[0] + ".ct"
-		}
-		fmt.Printf("Packed %s to %s\n", args[0], outPath)
-		return nil
+		return generateCtFromAbaFile(path, outputPathFlag)
 	},
 }
 
@@ -105,9 +73,23 @@ func listCtFile(path string) error {
 	return nil
 }
 
-// init 注册 CT 解包目录和打包文件路径参数
-// init registers the CT unpack directory and pack file-path flags
+// generateCtFromAbaFile 为单个 .aba 生成配套 .ct 并打印实际输出路径
+// generateCtFromAbaFile generates the companion .ct for one .aba file and prints the actual output path
+func generateCtFromAbaFile(abaPath string, outPath string) error {
+	service := &KCESService.CtService{}
+	if err := service.GenerateCtFromAba(abaPath, outPath); err != nil {
+		return err
+	}
+	if outPath == "" {
+		base := strings.TrimSuffix(filepath.Base(abaPath), filepath.Ext(abaPath))
+		outPath = filepath.Join(filepath.Dir(abaPath), base+".ct")
+	}
+	fmt.Printf("Generated %s from %s\n", outPath, abaPath)
+	return nil
+}
+
+// init 注册 CT 生成命令的输出文件路径参数
+// init registers the output file-path flag for the CT generation command
 func init() {
-	unpackCtCmd.Flags().StringVarP(&outputPathFlag, "output", "o", "", "Output directory path")
-	packCtCmd.Flags().StringVarP(&outputPathFlag, "output", "o", "", "Output file path")
+	genCtCmd.Flags().StringVarP(&outputPathFlag, "output", "o", "", "Output file path")
 }

@@ -165,11 +165,11 @@ MeidoSerialization.exe convert2audio .\voice.audioclip.bytes
 Command groups:
 
 - Conversion and detection: `convert`, `convert2json`, `convert2mod`, `determine`
-- Images, models, animations, and audio: `convert2tex`, `convert2image`, `convert2gltf`, `convert2audio`
+- Images, models, animations, and audio: `convert2tex`, `convert2image`, `convert2texture2d`, `convert2gltf`, `convert2audio`
 - NEI/CSV: `convert2csv`, `convert2nei`
 - COM3D2 ARC: `listArc`, `extractArc`, `packArc`, `unpackArc`
-- KCES CT/ABA: `listCt`, `packCt`, `unpackCt`, `listAba`, `packAba`, `unpackAba`
-- KCES MOD workflow: `inspectKcesCatalog`, `packKcesMod`
+- KCES CT/ABA: `listCt`, `genCt`, `listAba`, `packAba`, `unpackAba`
+- KCES MOD workflow: `inspectKcesCatalog`
 - APIs: `serve grpc`, `mcp`
 - Utilities: `version`, `completion`
 
@@ -637,11 +637,11 @@ MeidoSerialization.exe convert2audio .\voice.audioclip.bytes
 命令分组如下：
 
 - 转换与识别：`convert`、`convert2json`、`convert2mod`、`determine`
-- 图片、模型、动画与音频：`convert2tex`、`convert2image`、`convert2gltf`、`convert2audio`
+- 图片、模型、动画与音频：`convert2tex`、`convert2image`、`convert2texture2d`、`convert2gltf`、`convert2audio`
 - NEI/CSV：`convert2csv`、`convert2nei`
 - COM3D2 ARC：`listArc`、`extractArc`、`packArc`、`unpackArc`
-- KCES CT/ABA：`listCt`、`packCt`、`unpackCt`、`listAba`、`packAba`、`unpackAba`
-- KCES MOD 工作流：`inspectKcesCatalog`、`packKcesMod`
+- KCES CT/ABA：`listCt`、`genCt`、`listAba`、`packAba`、`unpackAba`
+- KCES MOD 工作流：`inspectKcesCatalog`
 - API：`serve grpc`、`mcp`
 - 辅助命令：`version`、`completion`
 
@@ -1119,11 +1119,11 @@ MeidoSerialization.exe convert2audio .\voice.audioclip.bytes
 command group：
 
 - 変換と判定：`convert`、`convert2json`、`convert2mod`、`determine`
-- 画像、model、animation、audio：`convert2tex`、`convert2image`、`convert2gltf`、`convert2audio`
+- 画像、model、animation、audio：`convert2tex`、`convert2image`、`convert2texture2d`、`convert2gltf`、`convert2audio`
 - NEI/CSV：`convert2csv`、`convert2nei`
 - COM3D2 ARC：`listArc`、`extractArc`、`packArc`、`unpackArc`
-- KCES CT/ABA：`listCt`、`packCt`、`unpackCt`、`listAba`、`packAba`、`unpackAba`
-- KCES MOD workflow：`inspectKcesCatalog`、`packKcesMod`
+- KCES CT/ABA：`listCt`、`genCt`、`listAba`、`packAba`、`unpackAba`
+- KCES MOD workflow：`inspectKcesCatalog`
 - API：`serve grpc`、`mcp`
 - utility：`version`、`completion`
 

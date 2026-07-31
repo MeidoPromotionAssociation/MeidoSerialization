@@ -588,12 +588,16 @@ func TestKCESAbaCtPackListUnpackCommands(t *testing.T) {
 			t.Fatalf("walk unpacked ABA directory: %v", err)
 		}
 
-		ctOutDir := filepath.Join(tempDir, "ct_unpacked")
-		if _, err := executeCommand(RootCmd, "unpackCt", ctPath, "-o", ctOutDir); err != nil {
-			t.Fatalf("unpackCt failed: %v", err)
+		genCtPath := filepath.Join(tempDir, "generated.ct")
+		if _, err := executeCommand(RootCmd, "genCt", abaPath, "-o", genCtPath); err != nil {
+			t.Fatalf("genCt failed: %v", err)
 		}
-		if _, err := os.Stat(filepath.Join(ctOutDir, "catalog")); err != nil {
-			t.Fatalf("expected unpacked catalog: %v", err)
+		genOut, err := executeCommand(RootCmd, "listCt", genCtPath)
+		if err != nil {
+			t.Fatalf("listCt generated ct failed: %v", err)
+		}
+		if !strings.Contains(genOut, "catalog") || !strings.Contains(genOut, ".hitcheck") {
+			t.Fatalf("unexpected generated ct contents: %s", genOut)
 		}
 	})
 
@@ -634,19 +638,20 @@ func TestKCESAbaCtPackListUnpackCommands(t *testing.T) {
 			t.Fatalf("expected packed .ct: %v", err)
 		}
 
-		ctDir := filepath.Join(tempDir, "ct_input")
-		if err := os.MkdirAll(ctDir, 0755); err != nil {
-			t.Fatal(err)
+		genCtPath := filepath.Join(tempDir, "packed_cli_gen.ct")
+		if _, err := executeCommand(RootCmd, "genCt", filepath.Join(tempDir, "packed_cli.aba"), "-o", genCtPath); err != nil {
+			t.Fatalf("genCt failed: %v", err)
 		}
-		if err := os.WriteFile(filepath.Join(ctDir, "catalog"), []byte("catalog"), 0644); err != nil {
-			t.Fatal(err)
+		packedList, err := executeCommand(RootCmd, "listCt", filepath.Join(tempDir, "packed_cli.ct"))
+		if err != nil {
+			t.Fatalf("listCt packed ct failed: %v", err)
 		}
-		ctOut := filepath.Join(tempDir, "packed_cli_raw.ct")
-		if _, err := executeCommand(RootCmd, "packCt", ctDir, "-o", ctOut); err != nil {
-			t.Fatalf("packCt failed: %v", err)
+		generatedList, err := executeCommand(RootCmd, "listCt", genCtPath)
+		if err != nil {
+			t.Fatalf("listCt generated ct failed: %v", err)
 		}
-		if _, err := os.Stat(ctOut); err != nil {
-			t.Fatalf("expected packed raw .ct: %v", err)
+		if packedList != generatedList {
+			t.Fatalf("genCt virtual files diverge from packAba output:\npacked: %s\ngenerated: %s", packedList, generatedList)
 		}
 	})
 }
