@@ -17,6 +17,8 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
+const canonicalAbaHeavyTestEnv = "KCES_ABA_HEAVY_TESTS"
+
 func TestCanonicalAbaPureDirectoryRoundTrip(t *testing.T) {
 	sample := filepath.Join("..", "..", "testdata", "aba", "parts_personal_om015_gp003.aba")
 	if _, err := os.Stat(sample); err != nil {
@@ -49,6 +51,9 @@ func TestCanonicalAbaPureDirectoryRoundTrip(t *testing.T) {
 }
 
 func TestCanonicalAbaAllReadableSamplesPureDirectoryRoundTrip(t *testing.T) {
+	if os.Getenv(canonicalAbaHeavyTestEnv) == "" {
+		t.Skipf("set %s=1 to round trip every readable KCES ABA sample", canonicalAbaHeavyTestEnv)
+	}
 	const parallelSlots = 10
 	samples, err := filepath.Glob(filepath.Join("..", "..", "testdata", "aba", "*.aba"))
 	if err != nil {
@@ -121,11 +126,7 @@ func TestCanonicalAbaAllReadableSamplesPureDirectoryRoundTrip(t *testing.T) {
 			}
 			readableCount.Add(1)
 
-			work, err := os.MkdirTemp("", "meido-kces-full-roundtrip-")
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer os.RemoveAll(work)
+			work := t.TempDir()
 			first := filepath.Join(work, "first")
 			if err := (&AbaService{}).UnpackAba(sample, first); err != nil {
 				t.Fatalf("first unpack: %v", err)

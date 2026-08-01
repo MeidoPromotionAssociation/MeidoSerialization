@@ -189,13 +189,13 @@ func kcesProfiles() map[string]Guide {
 		"KCES .model guide",
 		"A compressed Parts.Model description. It references a separate mesh resource and carries the skeleton, material slots, morphs, skin-thickness data, and shadow mode used by PartsModelManager.",
 		FormatVerificationSerializationVerified,
-		"Parts.Model and PartsModelManager were reviewed in KCES 1.34.4. The model description does not embed mesh bytes; meshfileName resolves a separate resource.",
+		"Parts.Model and PartsModelManager were reviewed in KCES 1.34.4. The model description does not embed mesh bytes; meshFileName resolves a separate resource.",
 		[]Source{modelSource, modelManagerSource},
 		[]Field{
 			field("/version", "Model version", "The indexed MessagePack version, fixed at 1001 by the current Parts.Model constructor.", "PartsUtility.Deserialize<Model> uses the versioned object while loading model metadata.", "version_marker", "Preserve the source value and do not mix fields from a different model generation.", "critical"),
 			field("/id", "Model resource ID", "The unsigned identifier used by parts resource lookup.", "PartsModelManager registers and resolves model records by their resource identity.", "resource_identity", "Keep it consistent with the target file-name/hash convention.", "high"),
 			field("/fileName", "Model file name", "The logical .model file name stored in the record.", "The parts manager uses it as the model resource name.", "resource_identity", "Use the deployed .model name with its expected extension and case convention.", "critical"),
-			field("/meshfileName", "Mesh resource name", "The separate mesh resource referenced by the model description, normally a .mmesh asset.", "The loader resolves this resource to obtain vertex, index, and skin data.", "resource_reference", "Ensure the referenced mesh exists in the same target catalog and keep the spelling exact.", "critical"),
+			field("/meshFileName", "Mesh resource name", "The separate mesh resource referenced by the model description, normally a .mmesh asset.", "The loader resolves this resource to obtain vertex, index, and skin data.", "resource_reference", "Ensure the referenced mesh exists in the same target catalog.", "critical"),
 			field("/modelName", "Render-root transform selector", "The exact transData[].name selected as the VirtualHierarchy that receives the SkinnedMeshRenderer.", "PartsModelManager names the outer object from fileName, then compares every created transform name with modelName and dereferences the selected hierarchy without a null check.", "runtime_selector", "Keep it equal to exactly one transData[].name. It is not a display name; when renaming the selected transform, update modelName and every dependent bone/reference together.", "critical"),
 			field("/transData", "Bone transform records", "Indexed local transform and parent-index records for the model skeleton.", "The loader builds the bone hierarchy from these records before skinning.", "runtime_skeleton", "Preserve order, valid parent indices, and finite position/rotation/scale values.", "critical"),
 			field("/boneNames", "Bone name table", "The ordered names paired with bone indices in the mesh and transform data.", "Skinning and attachment code resolves weighted bones through this table.", "runtime_skeleton", "Do not reorder or rename entries without rewriting all dependent weights and paths.", "critical"),
@@ -206,7 +206,7 @@ func kcesProfiles() map[string]Guide {
 		},
 	)
 	model.FieldPatterns = []FieldPattern{
-		pattern("/transData/*/{name,paretnNo,isSCL,pos,rot,scale}", "Bone transform entry", "A bone name, parent index, scale-bone flag, and local transform.", "PartsModelManager builds the hierarchy and applies these transforms before binding the mesh.", "runtime_skeleton", "Keep paretnNo valid and preserve the game's misspelled JSON key paretnNo.", modelSource, modelManagerSource),
+		pattern("/transData/*/{name,parentNo,isSCL,pos,rot,scale}", "Bone transform entry", "A bone name, parent index, scale-bone flag, and local transform.", "PartsModelManager builds the hierarchy and applies these transforms before binding the mesh.", "runtime_skeleton", "Keep parentNo within the transform array and use -1 only for a root node.", modelSource, modelManagerSource),
 		pattern("/morphs/*", "Blend-shape entry", "One morph target and its vertex delta data.", "The model loader forwards the entry to the mesh deformation system.", "runtime_morph", "Keep referenced vertex indices within the companion mesh and preserve array lengths.", modelSource, modelManagerSource),
 		pattern("/skinThick/groups/*", "Skin-thickness group", "A named group of thickness points and angle-dependent distances.", "PartsModelManager forwards the skin-thickness object to the runtime mesh state.", "runtime_geometry", "Use only bones and points present in the target model.", modelSource, modelManagerSource),
 	}

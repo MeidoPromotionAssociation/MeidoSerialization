@@ -15,21 +15,24 @@ import (
 
 // Material 表示 KCES 材质数据
 // 对应 C# Parts.Material，继承自 AMessagePackSerializationVersionControlIntKey
-// MessagePack indexed array 依次保存版本、ID、文件名、着色器名和四类属性数组
+// MessagePack indexed array 在 KCES 中保存版本、ID、文件名、着色器名和四类属性数组，KCES2 追加 keyword 与渲染队列
 //
 // Material represents KCES material data
 // It matches C# Parts.Material derived from AMessagePackSerializationVersionControlIntKey
-// Its MessagePack indexed array stores the version, ID, filename, shader name, and four property arrays in order
+// Its MessagePack indexed array stores the version, ID, filename, shader name, and four property arrays in KCES, then appends keywords and the render queue in KCES2
 type Material struct {
-	_struct      struct{}       `codec:",toarray"`    // 强制按数组编码 / Forces array encoding
-	Version      int32          `json:"version"`      // 存储的版本；当前游戏 FixVersion 为 1000 / Stored version; current-game FixVersion is 1000
-	ID           uint64         `json:"id"`           // 材质 ID，通常为 fileName 去扩展名后小写的 FNV hash / Material ID, usually lowercase extensionless fileName FNV hash
-	FileName     *string        `json:"fileName"`     // 可空材质文件名，如 "xxx.mate" / Nullable material file name, for example "xxx.mate"
-	ShaderName   *string        `json:"shaderName"`   // 可空 Unity shader 名称 / Nullable Unity shader name
-	TextureProps []*TextureProp `json:"textureProps"` // 可空纹理属性对象数组 / Array of nullable texture-property objects
-	ColorProps   []*ColorProp   `json:"colorProps"`   // 可空颜色属性对象数组 / Array of nullable color-property objects
-	VectorProps  []*VectorProp  `json:"vectorProps"`  // 可空向量属性对象数组 / Array of nullable vector-property objects
-	FloatProps   []*FloatProp   `json:"floatProps"`   // 可空浮点属性对象数组 / Array of nullable float-property objects
+	_struct           struct{}       `codec:",toarray" kces:"widths=8,10"`          // 强制按数组编码并接受 KCES 与 KCES2 布局 / Forces array encoding and accepts KCES and KCES2 layouts
+	Version           int32          `json:"version"`                               // 存储的版本；当前游戏 FixVersion 为 1000 / Stored version; current-game FixVersion is 1000
+	ID                uint64         `json:"id"`                                    // 材质 ID，通常为 fileName 去扩展名后小写的 FNV hash / Material ID, usually lowercase extensionless fileName FNV hash
+	FileName          *string        `json:"fileName"`                              // 可空材质文件名，如 "xxx.mate" / Nullable material file name, for example "xxx.mate"
+	ShaderName        *string        `json:"shaderName"`                            // 可空 Unity shader 名称 / Nullable Unity shader name
+	TextureProps      []*TextureProp `json:"textureProps"`                          // 可空纹理属性对象数组 / Array of nullable texture-property objects
+	ColorProps        []*ColorProp   `json:"colorProps"`                            // 可空颜色属性对象数组 / Array of nullable color-property objects
+	VectorProps       []*VectorProp  `json:"vectorProps"`                           // 可空向量属性对象数组 / Array of nullable vector-property objects
+	FloatProps        []*FloatProp   `json:"floatProps"`                            // 可空浮点属性对象数组 / Array of nullable float-property objects
+	KeywordProps      []*KeywordProp `json:"keywordProps"`                          // 可空着色器关键字属性对象数组 / Array of nullable shader-keyword property objects
+	RenderQueue       int32          `json:"renderQueue"`                           // Unity 渲染队列 / Unity render queue
+	IndexedArrayWidth int32          `codec:"-" json:"indexedArrayWidth,omitempty"` // 解码时记录的线格式数组宽度，并非游戏成员 / Wire array width recorded during decoding, not a game member
 }
 
 // TextureProp 表示材质的纹理属性，MessagePack indexed array 依次保存类型、文件名、偏移和缩放
@@ -74,6 +77,13 @@ type FloatProp struct {
 	V       float32  `json:"v"`         // 浮点值 / Float value
 }
 
+// KeywordProp 表示材质的 Shader keyword 开关 / KeywordProp represents a material Shader keyword switch
+type KeywordProp struct {
+	_struct struct{} `codec:",toarray"` // 强制按数组编码 / Forces array encoding
+	Type    int32    `json:"type"`      // 属性类型枚举值 / Property type enum value
+	Value   bool     `json:"value"`     // 是否启用 / Whether the keyword is enabled
+}
+
 // MaterialAssets 表示材质资源容器
 // 对应 C# Parts.MaterialAssets，继承自 SerializPartsAssets<Material>
 // MessagePack indexed array 依次保存容器文件名和材质数组
@@ -87,6 +97,26 @@ type MaterialAssets struct {
 }
 
 const materialFixVersion = 1000
+
+const (
+	materialLegacyWidth = 8
+	materialKCES2Width  = 10
+)
+
+// MessagePackIndexedObjectWidth 返回 Material 应写出的 indexed-array 宽度
+// MessagePackIndexedObjectWidth returns the indexed-array width that Material should emit
+func (v *Material) MessagePackIndexedObjectWidth() int32 {
+	if v.IndexedArrayWidth == 0 {
+		return materialLegacyWidth
+	}
+	return v.IndexedArrayWidth
+}
+
+// SetMessagePackIndexedObjectWidth 设置 Material 应写出的 indexed-array 宽度
+// SetMessagePackIndexedObjectWidth sets the indexed-array width that Material should emit
+func (v *Material) SetMessagePackIndexedObjectWidth(width int32) {
+	v.IndexedArrayWidth = width
+}
 
 // DecodeMaterialAssets 从 Lz4BlockArray 压缩的 MessagePack 数据解码 MaterialAssets
 // DecodeMaterialAssets decodes MaterialAssets from Lz4BlockArray-compressed MessagePack data
@@ -149,6 +179,14 @@ func (v FloatProp) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObje
 // CodecDecodeSelf decodes FloatProp using the shared indexed-object rules
 func (v *FloatProp) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
 
+// CodecEncodeSelf 按共享 indexed-object 规则编码 KeywordProp
+// CodecEncodeSelf encodes KeywordProp using the shared indexed-object rules
+func (v KeywordProp) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 KeywordProp
+// CodecDecodeSelf decodes KeywordProp using the shared indexed-object rules
+func (v *KeywordProp) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
 // CodecEncodeSelf 按共享 indexed-object 规则编码 MaterialAssets
 // CodecEncodeSelf encodes MaterialAssets using the shared indexed-object rules
 func (v MaterialAssets) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
@@ -161,4 +199,12 @@ func (v *MaterialAssets) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndex
 // NewMaterial creates a new material with the current fixed version
 func NewMaterial() *Material {
 	return &Material{Version: materialFixVersion}
+}
+
+// NewKCES2Material 创建使用 KCES2 10 槽布局的新材质
+// NewKCES2Material creates a new material using the 10-slot KCES2 layout
+func NewKCES2Material() *Material {
+	material := NewMaterial()
+	material.SetMessagePackIndexedObjectWidth(materialKCES2Width)
+	return material
 }

@@ -60,6 +60,13 @@ type ConstructorDefaults interface {
 	ApplyMessagePackConstructorDefaults()
 }
 
+// IndexedObjectLayoutState 保存对象最近一次解码使用的 indexed-array 宽度
+// IndexedObjectLayoutState stores the indexed-array width used by the object's most recent decode
+type IndexedObjectLayoutState interface {
+	MessagePackIndexedObjectWidth() int32
+	SetMessagePackIndexedObjectWidth(int32)
+}
+
 // EncodeIndexedObjectSelf 按当前支持的固定 int-key 布局编码 MessagePack 对象，稀疏 Key 始终写为 nil
 // EncodeIndexedObjectSelf encodes a MessagePack object using the currently supported fixed int-key layout and always writes sparse keys as nil
 func EncodeIndexedObjectSelf(e *codec.Encoder, value interface{}) {
@@ -68,8 +75,31 @@ func EncodeIndexedObjectSelf(e *codec.Encoder, value interface{}) {
 		panic(err)
 	}
 
-	values := make([]interface{}, len(layout.fields))
+	width := len(layout.fields)
+	if state, ok := value.(IndexedObjectLayoutState); ok {
+		if stored := state.MessagePackIndexedObjectWidth(); stored != 0 {
+			storedWidth := int(stored)
+			if !layout.supportsDecodeWidth(storedWidth) {
+				panic(fmt.Errorf("unsupported %s indexed-array width %d, supported widths are %s", layout.label, stored, formatIndexedObjectWidths(layout.decodeWidths)))
+			}
+			width = storedWidth
+		}
+	}
+	for slot := width; slot < len(layout.fields); slot++ {
+		field := layout.fields[slot]
+		if field.sparse {
+			continue
+		}
+		if value := rv.FieldByIndex(field.index); !value.IsZero() {
+			panic(fmt.Errorf("encode %s slot %d (%s): field is not representable in the selected indexed-array width %d", layout.label, slot, field.name, width))
+		}
+	}
+
+	values := make([]interface{}, width)
 	for slot := range layout.fields {
+		if slot >= width {
+			break
+		}
 		field := layout.fields[slot]
 		if field.sparse {
 			values[slot] = nil
@@ -92,6 +122,9 @@ func DecodeIndexedObjectSelf(d *codec.Decoder, value interface{}) {
 	d.MustDecode(&slots)
 	if !layout.supportsDecodeWidth(len(slots)) {
 		panic(fmt.Errorf("unsupported %s indexed-array width %d, supported widths are %s", layout.label, len(slots), formatIndexedObjectWidths(layout.decodeWidths)))
+	}
+	if state, ok := value.(IndexedObjectLayoutState); ok {
+		state.SetMessagePackIndexedObjectWidth(int32(len(slots)))
 	}
 
 	for _, field := range layout.fields {

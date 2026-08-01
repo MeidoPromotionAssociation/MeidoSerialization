@@ -14,10 +14,10 @@ import (
 )
 
 // system.dat
-// KCES 用户系统数据容器，使用 VirtualDirectory 保存 EditData 下的界面、调色板和颜色预设等虚拟文件
+// KCES 与 KCES2 用户系统数据容器，使用 VirtualDirectory 保存 EditData 下的界面、调色板、渐变和收藏状态等虚拟文件
 // 外层使用 KCES VirtualDirectory 版本控制，已知虚拟文件按各自 MessagePack 布局解析，只有不匹配任何已知路径的独立虚拟文件才逐字节保留
 // system.dat
-// KCES user system-data container using VirtualDirectory to store UI, palette, and color-preset virtual files below EditData
+// KCES and KCES2 user system-data container using VirtualDirectory to store UI, palette, gradation, and favourite-state virtual files below EditData
 // The outer layer uses KCES VirtualDirectory versioning, known virtual files use their MessagePack schemas, and only independent virtual files matching no known path are preserved byte-for-byte
 
 const KCESSystemDataFormat = "kces-system-data"
@@ -27,12 +27,14 @@ const KCESSystemDataFormat = "kces-system-data"
 type KCESEditDataKind string
 
 const (
-	KCESEditDataPresetPanelNames KCESEditDataKind = "preset-panel-names"
-	KCESEditDataPaletteColor     KCESEditDataKind = "palette-color"
-	KCESEditDataGradPoints       KCESEditDataKind = "gradation-points"
-	KCESEditDataMoveablePanel    KCESEditDataKind = "moveable-panel"
-	KCESEditDataPresetOrderList  KCESEditDataKind = "color-preset-order-list"
-	KCESEditDataColorPreset      KCESEditDataKind = "color-preset"
+	KCESEditDataPresetPanelNames          KCESEditDataKind = "preset-panel-names"
+	KCESEditDataPaletteColor              KCESEditDataKind = "palette-color"
+	KCESEditDataGradPoints                KCESEditDataKind = "gradation-points"
+	KCESEditDataKCES2GradPoints           KCESEditDataKind = "kces2-gradation-points"
+	KCESEditDataItemFavouriteStateSetting KCESEditDataKind = "item-favourite-state-setting"
+	KCESEditDataMoveablePanel             KCESEditDataKind = "moveable-panel"
+	KCESEditDataPresetOrderList           KCESEditDataKind = "color-preset-order-list"
+	KCESEditDataColorPreset               KCESEditDataKind = "color-preset"
 )
 
 const (
@@ -79,26 +81,30 @@ func (value *KCESSystemData) UnmarshalJSON(data []byte) error {
 // KCESEditDataFile represents one recognized file below the EditData directory in system.dat
 // Path retains the save-slot index while Kind prevents edited JSON from silently interpreting one typed object as another
 type KCESEditDataFile struct {
-	Path             string                   `json:"path"`                       // 游戏用于选择解析器的完整 VirtualDirectory 路径 / Complete VirtualDirectory path used by the game to select a parser
-	Kind             KCESEditDataKind         `json:"kind"`                       // 从路径确定的强类型载荷种类 / Typed payload kind determined from the path
-	PresetPanelNames *PresetPanelNameSaveData `json:"presetPanelNames,omitempty"` // 预设面板框名称载荷，仅用于对应种类 / Preset-panel box-name payload used only for its matching kind
-	PaletteColor     *PaletteColorSaveData    `json:"paletteColor,omitempty"`     // 调色板颜色槽载荷，仅用于对应种类 / Palette-color slot payload used only for its matching kind
-	GradPoints       *GradPointsData          `json:"gradPoints,omitempty"`       // 渐变控制点载荷，仅用于对应种类 / Gradation control-point payload used only for its matching kind
-	MoveablePanel    *MoveablePanelSaveData   `json:"moveablePanel,omitempty"`    // 可移动面板状态载荷，仅用于对应种类 / Moveable-panel state payload used only for its matching kind
-	PresetOrderList  *ColorPresetOrderList    `json:"presetOrderList,omitempty"`  // 颜色预设顺序载荷，仅用于对应种类 / Color-preset order payload used only for its matching kind
-	ColorPreset      *ColorPreset             `json:"colorPreset,omitempty"`      // 用户颜色预设载荷，仅用于对应种类 / User color-preset payload used only for its matching kind
+	Path                      string                         `json:"path"`                                // 游戏用于选择解析器的完整 VirtualDirectory 路径 / Complete VirtualDirectory path used by the game to select a parser
+	Kind                      KCESEditDataKind               `json:"kind"`                                // 从路径确定的强类型载荷种类 / Typed payload kind determined from the path
+	PresetPanelNames          *PresetPanelNameSaveData       `json:"presetPanelNames,omitempty"`          // 预设面板框名称载荷，仅用于对应种类 / Preset-panel box-name payload used only for its matching kind
+	PaletteColor              *PaletteColorSaveData          `json:"paletteColor,omitempty"`              // 调色板颜色槽载荷，仅用于对应种类 / Palette-color slot payload used only for its matching kind
+	GradPoints                *GradPointsData                `json:"gradPoints,omitempty"`                // 渐变控制点载荷，仅用于对应种类 / Gradation control-point payload used only for its matching kind
+	KCES2GradPoints           *KCES2GradPointsData           `json:"kces2GradPoints,omitempty"`           // KCES2 六槽渐变控制点载荷，仅用于对应种类 / KCES2 six-slot gradation control-point payload used only for its matching kind
+	ItemFavouriteStateSetting KCES2ItemFavouriteStateSetting `json:"itemFavouriteStateSetting,omitempty"` // KCES2 物品收藏状态载荷，仅用于对应种类 / KCES2 item-favourite state payload used only for its matching kind
+	MoveablePanel             *MoveablePanelSaveData         `json:"moveablePanel,omitempty"`             // 可移动面板状态载荷，仅用于对应种类 / Moveable-panel state payload used only for its matching kind
+	PresetOrderList           *ColorPresetOrderList          `json:"presetOrderList,omitempty"`           // 颜色预设顺序载荷，仅用于对应种类 / Color-preset order payload used only for its matching kind
+	ColorPreset               *ColorPreset                   `json:"colorPreset,omitempty"`               // 用户颜色预设载荷，仅用于对应种类 / User color-preset payload used only for its matching kind
 }
 
 // kcesEditDataFileJSON 以原始 JSON 值区分 EditData union 分支字段缺失与显式 null / kcesEditDataFileJSON distinguishes missing EditData union fields from explicit null by retaining each JSON value
 type kcesEditDataFileJSON struct {
-	Path             string           `json:"path"`                       // 完整虚拟路径 / Complete virtual path
-	Kind             KCESEditDataKind `json:"kind"`                       // union 判别类型 / Union discriminator
-	PresetPanelNames json.RawMessage  `json:"presetPanelNames,omitempty"` // 预设面板框名称分支 / Preset-panel box-name branch
-	PaletteColor     json.RawMessage  `json:"paletteColor,omitempty"`     // 调色板颜色分支 / Palette-color branch
-	GradPoints       json.RawMessage  `json:"gradPoints,omitempty"`       // 渐变控制点分支 / Gradation control-point branch
-	MoveablePanel    json.RawMessage  `json:"moveablePanel,omitempty"`    // 可移动面板分支 / Moveable-panel branch
-	PresetOrderList  json.RawMessage  `json:"presetOrderList,omitempty"`  // 颜色预设顺序分支 / Color-preset order branch
-	ColorPreset      json.RawMessage  `json:"colorPreset,omitempty"`      // 用户颜色预设分支 / User color-preset branch
+	Path                      string           `json:"path"`                                // 完整虚拟路径 / Complete virtual path
+	Kind                      KCESEditDataKind `json:"kind"`                                // union 判别类型 / Union discriminator
+	PresetPanelNames          json.RawMessage  `json:"presetPanelNames,omitempty"`          // 预设面板框名称分支 / Preset-panel box-name branch
+	PaletteColor              json.RawMessage  `json:"paletteColor,omitempty"`              // 调色板颜色分支 / Palette-color branch
+	GradPoints                json.RawMessage  `json:"gradPoints,omitempty"`                // 渐变控制点分支 / Gradation control-point branch
+	KCES2GradPoints           json.RawMessage  `json:"kces2GradPoints,omitempty"`           // KCES2 六槽渐变控制点分支 / KCES2 six-slot gradation control-point branch
+	ItemFavouriteStateSetting json.RawMessage  `json:"itemFavouriteStateSetting,omitempty"` // KCES2 物品收藏状态分支 / KCES2 item-favourite state branch
+	MoveablePanel             json.RawMessage  `json:"moveablePanel,omitempty"`             // 可移动面板分支 / Moveable-panel branch
+	PresetOrderList           json.RawMessage  `json:"presetOrderList,omitempty"`           // 颜色预设顺序分支 / Color-preset order branch
+	ColorPreset               json.RawMessage  `json:"colorPreset,omitempty"`               // 用户颜色预设分支 / User color-preset branch
 }
 
 // MarshalJSON 仅写出 Kind 对应的活动 EditData 分支并让类型化 nil 根显式成为 JSON null
@@ -121,6 +127,10 @@ func (entry KCESEditDataFile) MarshalJSON() ([]byte, error) {
 		raw.PaletteColor, err = json.Marshal(entry.PaletteColor)
 	case "gradPoints":
 		raw.GradPoints, err = json.Marshal(entry.GradPoints)
+	case "kces2GradPoints":
+		raw.KCES2GradPoints, err = json.Marshal(entry.KCES2GradPoints)
+	case "itemFavouriteStateSetting":
+		raw.ItemFavouriteStateSetting, err = json.Marshal(entry.ItemFavouriteStateSetting)
 	case "moveablePanel":
 		raw.MoveablePanel, err = json.Marshal(entry.MoveablePanel)
 	case "presetOrderList":
@@ -158,6 +168,10 @@ func (entry *KCESEditDataFile) UnmarshalJSON(data []byte) error {
 		err = decodeKCESJSONStrict(raw.PaletteColor, &value.PaletteColor)
 	case "gradPoints":
 		err = decodeKCESJSONStrict(raw.GradPoints, &value.GradPoints)
+	case "kces2GradPoints":
+		err = decodeKCESJSONStrict(raw.KCES2GradPoints, &value.KCES2GradPoints)
+	case "itemFavouriteStateSetting":
+		err = decodeKCESJSONStrict(raw.ItemFavouriteStateSetting, &value.ItemFavouriteStateSetting)
 	case "moveablePanel":
 		err = decodeKCESJSONStrict(raw.MoveablePanel, &value.MoveablePanel)
 	case "presetOrderList":
@@ -182,6 +196,10 @@ func editDataRootFieldName(kind KCESEditDataKind) string {
 		return "paletteColor"
 	case KCESEditDataGradPoints:
 		return "gradPoints"
+	case KCESEditDataKCES2GradPoints:
+		return "kces2GradPoints"
+	case KCESEditDataItemFavouriteStateSetting:
+		return "itemFavouriteStateSetting"
 	case KCESEditDataMoveablePanel:
 		return "moveablePanel"
 	case KCESEditDataPresetOrderList:
@@ -203,6 +221,8 @@ func validateEditDataJSONInactiveRoots(entry *KCESEditDataFile, active string) e
 		{name: "presetPanelNames", present: entry.PresetPanelNames != nil},
 		{name: "paletteColor", present: entry.PaletteColor != nil},
 		{name: "gradPoints", present: entry.GradPoints != nil},
+		{name: "kces2GradPoints", present: entry.KCES2GradPoints != nil},
+		{name: "itemFavouriteStateSetting", present: entry.ItemFavouriteStateSetting != nil},
 		{name: "moveablePanel", present: entry.MoveablePanel != nil},
 		{name: "presetOrderList", present: entry.PresetOrderList != nil},
 		{name: "colorPreset", present: entry.ColorPreset != nil},
@@ -224,6 +244,8 @@ func validateEditDataJSONRootPresence(raw *kcesEditDataFileJSON, active string) 
 		{name: "presetPanelNames", data: raw.PresetPanelNames},
 		{name: "paletteColor", data: raw.PaletteColor},
 		{name: "gradPoints", data: raw.GradPoints},
+		{name: "kces2GradPoints", data: raw.KCES2GradPoints},
+		{name: "itemFavouriteStateSetting", data: raw.ItemFavouriteStateSetting},
 		{name: "moveablePanel", data: raw.MoveablePanel},
 		{name: "presetOrderList", data: raw.PresetOrderList},
 		{name: "colorPreset", data: raw.ColorPreset},
@@ -248,6 +270,9 @@ func KCESEditDataKindForPath(path string) KCESEditDataKind {
 	}
 	if path == kcesMoveablePanelSaveDataPath {
 		return KCESEditDataMoveablePanel
+	}
+	if path == KCES2ItemFavouriteStateSettingPath {
+		return KCESEditDataItemFavouriteStateSetting
 	}
 	if !strings.HasPrefix(path, kcesEditDataPrefix) {
 		return ""
@@ -274,6 +299,9 @@ func KCESEditDataKindForPath(path string) KCESEditDataKind {
 	if hasNonNegativeDecimalSuffix(name, kcesGradPointsDataNamePrefix) {
 		return KCESEditDataGradPoints
 	}
+	if hasNonNegativeDecimalSuffix(name, KCES2GradationSaveFilePrefix) {
+		return KCESEditDataKCES2GradPoints
+	}
 	return ""
 }
 
@@ -291,9 +319,9 @@ func hasNonNegativeDecimalSuffix(value, prefix string) bool {
 	return true
 }
 
-// DecodeKCESSystemData 验证 VirtualDirectory 容器并解码 KCES 1.34.4 已知的所有强类型 EditData 模式
+// DecodeKCESSystemData 验证 VirtualDirectory 容器并解码 KCES 与 KCES2 已知的所有强类型载荷
 // 已知路径中的畸形文件会返回错误而不会退回不透明数据，因为游戏也会按该路径选择同一解析器并在加载 system.dat 时失败
-// DecodeKCESSystemData validates a VirtualDirectory container and decodes every strongly typed EditData schema known to KCES 1.34.4
+// DecodeKCESSystemData validates a VirtualDirectory container and decodes every strongly typed payload known to KCES and KCES2
 // A malformed file at a known path returns an error instead of falling back to opaque data because the game selects the same parser by path and fails while loading system.dat
 func DecodeKCESSystemData(data []byte) (*KCESSystemData, error) {
 	table, err := ct.ReadContentTable(bytes.NewReader(data))
@@ -328,6 +356,10 @@ func DecodeKCESSystemData(data []byte) (*KCESSystemData, error) {
 			entry.PaletteColor, err = DecodePaletteColorSaveData(payload)
 		case KCESEditDataGradPoints:
 			entry.GradPoints, err = DecodeGradPointsData(payload)
+		case KCESEditDataKCES2GradPoints:
+			entry.KCES2GradPoints, err = DecodeKCES2GradPointsData(payload)
+		case KCESEditDataItemFavouriteStateSetting:
+			entry.ItemFavouriteStateSetting, err = DecodeKCES2ItemFavouriteStateSetting(payload)
 		case KCESEditDataMoveablePanel:
 			entry.MoveablePanel, err = DecodeMoveablePanelSaveData(payload)
 		case KCESEditDataPresetOrderList:
@@ -359,7 +391,7 @@ func EncodeKCESSystemData(value *KCESSystemData) ([]byte, error) {
 		Raw:         make([]byte, ct.HeaderSize),
 		Files:       make(map[string]ct.VirtualFile),
 	}
-	seenPaths := make(map[string]struct{}, len(value.EditData)+len(value.ExtraFiles))
+	seenPaths := makeKCESCountedMap[string, struct{}](uint64(len(value.EditData)) + uint64(len(value.ExtraFiles)))
 	for index := range value.EditData {
 		entry := &value.EditData[index]
 		if err := validateSystemVirtualPath(entry.Path); err != nil {
@@ -372,7 +404,7 @@ func EncodeKCESSystemData(value *KCESSystemData) ([]byte, error) {
 
 		expectedKind := KCESEditDataKindForPath(entry.Path)
 		if expectedKind == "" {
-			return nil, fmt.Errorf("editData[%d] path %q is not a recognized KCES 1.34.4 EditData path", index, entry.Path)
+			return nil, fmt.Errorf("editData[%d] path %q is not a recognized KCES or KCES2 EditData path", index, entry.Path)
 		}
 		kind := entry.Kind
 		if kind == "" {
@@ -394,6 +426,10 @@ func EncodeKCESSystemData(value *KCESSystemData) ([]byte, error) {
 			payload, err = EncodePaletteColorSaveData(entry.PaletteColor)
 		case KCESEditDataGradPoints:
 			payload, err = EncodeGradPointsData(entry.GradPoints)
+		case KCESEditDataKCES2GradPoints:
+			payload, err = EncodeKCES2GradPointsData(entry.KCES2GradPoints)
+		case KCESEditDataItemFavouriteStateSetting:
+			payload, err = EncodeKCES2ItemFavouriteStateSetting(entry.ItemFavouriteStateSetting)
 		case KCESEditDataMoveablePanel:
 			payload, err = EncodeMoveablePanelSaveData(entry.MoveablePanel)
 		case KCESEditDataPresetOrderList:
@@ -461,6 +497,12 @@ func validateEditDataUnion(entry *KCESEditDataFile, kind KCESEditDataKind) error
 	}
 	if kind != KCESEditDataGradPoints && entry.GradPoints != nil {
 		return fmt.Errorf("gradPoints is set for kind %q", kind)
+	}
+	if kind != KCESEditDataKCES2GradPoints && entry.KCES2GradPoints != nil {
+		return fmt.Errorf("kces2GradPoints is set for kind %q", kind)
+	}
+	if kind != KCESEditDataItemFavouriteStateSetting && entry.ItemFavouriteStateSetting != nil {
+		return fmt.Errorf("itemFavouriteStateSetting is set for kind %q", kind)
 	}
 	if kind != KCESEditDataMoveablePanel && entry.MoveablePanel != nil {
 		return fmt.Errorf("moveablePanel is set for kind %q", kind)

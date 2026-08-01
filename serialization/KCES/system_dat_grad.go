@@ -13,28 +13,28 @@ import (
 // This payload has no standalone disk extension
 
 // GradPointsData 表示 system.dat/EditData/GradSv 加索引文件中的类型化 Standard MessagePack 对象
-// 它对应游戏 GradPointsData 类的固定 indexed array 字段，GradaPointPosRates 与 EditMPN 是当前界面不读取但仍按真实类型建模的旧字段
+// 它对应游戏 GradPointsData 类的固定 indexed array 字段，GradationPointPositionRates 与 EditMPN 是当前界面不读取但仍按真实类型建模的旧字段
 // GradPointsData represents the typed Standard MessagePack object stored in a system.dat/EditData/GradSv file suffixed by its index
-// It corresponds to the fixed indexed-array fields of the game GradPointsData class, while GradaPointPosRates and EditMPN are legacy fields not read by the current UI but still modeled with their real types
+// It corresponds to the fixed indexed-array fields of the game GradPointsData class, while GradationPointPositionRates and EditMPN are legacy fields not read by the current UI but still modeled with their real types
 type GradPointsData struct {
-	GradPointParam        []map[int32]int32 `json:"gradPointParam"`        // Key 0 的各渐变点颜色参数字典，键布局与 PaletteColorSaveData 相同 / Per-point color-parameter maps at Key 0 using the same key layout as PaletteColorSaveData
-	ControlPointPosValue  []float32         `json:"controlPointPosValue"`  // Key 1 的各渐变控制点中心位置 / Center positions of gradation control points at Key 1
-	GradaPointPosRates    []float32         `json:"gradaPointPosRates"`    // Key 2 的旧式渐变点位置比例，当前游戏界面不读取 / Legacy gradation-point position rates at Key 2, not read by the current game UI
-	EditMPN               int32             `json:"editMpn"`               // Key 3 的旧式编辑 MPN 整数，当前游戏界面不读取 / Legacy edited MPN integer at Key 3, not read by the current game UI
-	PointRangeAfterRates  []float32         `json:"pointRangeAfterRates"`  // Key 4 的各控制点后侧范围值 / After-range values for control points at Key 4
-	PointRangeBeforeRates []float32         `json:"pointRangeBeforeRates"` // Key 5 的各控制点前侧范围值 / Before-range values for control points at Key 5
-	IsSave                int32             `json:"isSave"`                // Key 6 的保存状态，游戏以 1 表示已保存 / Save state at Key 6, with 1 indicating saved in the game
+	GradPointParam              []map[int32]int32 `json:"gradPointParam"`              // Key 0 的各渐变点颜色参数字典，键布局与 PaletteColorSaveData 相同 / Per-point color-parameter maps at Key 0 using the same key layout as PaletteColorSaveData
+	ControlPointPosValue        []float32         `json:"controlPointPosValue"`        // Key 1 的各渐变控制点中心位置 / Center positions of gradation control points at Key 1
+	GradationPointPositionRates []float32         `json:"gradationPointPositionRates"` // Key 2 的旧式渐变点位置比例，当前游戏界面不读取 / Legacy gradation-point position rates at Key 2, not read by the current game UI
+	EditMPN                     int32             `json:"editMpn"`                     // Key 3 的旧式编辑 MPN 整数，当前游戏界面不读取 / Legacy edited MPN integer at Key 3, not read by the current game UI
+	PointRangeAfterRates        []float32         `json:"pointRangeAfterRates"`        // Key 4 的各控制点后侧范围值 / After-range values for control points at Key 4
+	PointRangeBeforeRates       []float32         `json:"pointRangeBeforeRates"`       // Key 5 的各控制点前侧范围值 / Before-range values for control points at Key 5
+	IsSave                      int32             `json:"isSave"`                      // Key 6 的保存状态，游戏以 1 表示已保存 / Save state at Key 6, with 1 indicating saved in the game
 }
 
 // NewGradPointsData 显式返回当前游戏字段初始化器为新对象创建的默认空列表
 // NewGradPointsData explicitly returns the default empty lists created by the current game field initializers for a new object
 func NewGradPointsData() *GradPointsData {
 	return &GradPointsData{
-		GradPointParam:        []map[int32]int32{},
-		ControlPointPosValue:  []float32{},
-		GradaPointPosRates:    []float32{},
-		PointRangeAfterRates:  []float32{},
-		PointRangeBeforeRates: []float32{},
+		GradPointParam:              []map[int32]int32{},
+		ControlPointPosValue:        []float32{},
+		GradationPointPositionRates: []float32{},
+		PointRangeAfterRates:        []float32{},
+		PointRangeBeforeRates:       []float32{},
 	}
 }
 
@@ -69,7 +69,7 @@ func DecodeGradPointsData(data []byte) (*GradPointsData, error) {
 		case 1:
 			value.ControlPointPosValue, err = reader.readFloat32List("controlPointPosValue")
 		case 2:
-			value.GradaPointPosRates, err = reader.readFloat32List("gradaPointPosRates")
+			value.GradationPointPositionRates, err = reader.readFloat32List("gradationPointPositionRates")
 		case 3:
 			value.EditMPN, err = reader.readInt32("editMpn")
 		case 4:
@@ -133,7 +133,7 @@ func EncodeGradPointsData(value *GradPointsData) ([]byte, error) {
 		out = appendGradPointsFloat32List(out, value.ControlPointPosValue)
 	}
 	{
-		out = appendGradPointsFloat32List(out, value.GradaPointPosRates)
+		out = appendGradPointsFloat32List(out, value.GradationPointPositionRates)
 	}
 	{
 		out = appendGradPointsInt32(out, value.EditMPN)
@@ -162,7 +162,7 @@ func validateGradPointsData(value *GradPointsData) error {
 	}{
 		{name: "gradPointParam", length: int64(len(value.GradPointParam))},
 		{name: "controlPointPosValue", length: int64(len(value.ControlPointPosValue))},
-		{name: "gradaPointPosRates", length: int64(len(value.GradaPointPosRates))},
+		{name: "gradationPointPositionRates", length: int64(len(value.GradationPointPositionRates))},
 		{name: "pointRangeAfterRates", length: int64(len(value.PointRangeAfterRates))},
 		{name: "pointRangeBeforeRates", length: int64(len(value.PointRangeBeforeRates))},
 	}

@@ -4,15 +4,14 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"sort"
 	"unicode/utf8"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
-// system.dat 内 color_preset 目录中自定义颜色预设虚拟文件的 MessagePack 和 LZ4 布局
-// 该载荷没有独立磁盘扩展名
-// MessagePack and LZ4 layout for custom color-preset virtual files below color_preset inside system.dat
-// This payload has no standalone disk extension
+// system.dat 内 color_preset 虚拟文件与 KCES2 独立 .presetcolor 文件共用的 MessagePack 和 LZ4 布局
+// MessagePack and LZ4 layout shared by color_preset virtual files in system.dat and standalone KCES2 .presetcolor files
 
 const (
 	// ColorPresetVersion 是 KCES 1.34.4 中 CustomColorPresetBase<T>.FixVersion 的值
@@ -52,13 +51,18 @@ const (
 // Ordinary decoding does not reproduce the game Guid.NewGuid callback, and a non-empty wire value remains opaque because the game never passes it through Guid.Parse
 // LegacyInstanceGUIDOmitted only preserves the array width from before instanceGuid was added and does not correspond to a game-class member
 type ColorPreset struct {
-	Version                   int32                   `json:"version"`                             // Key 0 的预设版本，当前 FixVersion 为 1004 / Preset version at Key 0, with a current FixVersion of 1004
+	Version                   int32                   `json:"version"`                             // Key 0 的预设版本，KCES FixVersion 为 1004，KCES2 为 1005 / Preset version at Key 0, with FixVersion 1004 in KCES and 1005 in KCES2
 	ID                        *string                 `json:"id"`                                  // Key 1 的预设标识，用户预设保存时也作为虚拟文件名 / Preset identifier at Key 1, also used as the virtual filename for user presets
 	BaseMenuFile              *string                 `json:"baseMenuFile"`                        // Key 2 的基础颜色预设菜单文件名 / Base color-preset menu filename at Key 2
 	UserCreated               bool                    `json:"userCreated"`                         // Key 3 的用户创建标志，游戏据此决定是否保存预设二进制 / User-created flag at Key 3, used by the game to decide whether to save preset bytes
 	IsAdvancedMode            bool                    `json:"isAdvancedMode"`                      // Key 4 的高级模式状态 / Advanced-mode state at Key 4
 	ColorPackList             []*ColorPresetColorPack `json:"colorPackList"`                       // Key 5 的颜色层包列表 / Color-layer pack list at Key 5
 	InstanceGUID              *string                 `json:"instanceGuid"`                        // Key 6 的可空实例标识，非空值由游戏作为不透明字符串使用 / Nullable instance identifier at Key 6, with non-empty values treated as opaque strings by the game
+	SaveLocationHash          uint64                  `json:"saveLocationHash"`                    // Key 7 的保存目录哈希，KCES2 新增 / Save-directory hash at Key 7, added by KCES2
+	CreationTicks             int64                   `json:"creationTicks"`                       // Key 8 的创建时间 DateTime ticks，KCES2 新增 / Creation time as DateTime ticks at Key 8, added by KCES2
+	LastUpdateTicks           int64                   `json:"lastUpdateTicks"`                     // Key 9 的最后更新时间 DateTime ticks，KCES2 新增 / Last update time as DateTime ticks at Key 9, added by KCES2
+	MetaTexts                 map[string]*string      `json:"metaTexts"`                           // Key 10 的可空元数据文本字典，KCES2 新增 / Nullable metadata text map at Key 10, added by KCES2
+	IndexedArrayWidth         int32                   `json:"indexedArrayWidth,omitempty"`         // 解码时记录的 6、7 或 11 槽线格式宽度，并非游戏成员 / Decoded 6-slot, 7-slot, or 11-slot wire width, not a game member
 	LegacyInstanceGUIDOmitted bool                    `json:"legacyInstanceGuidOmitted,omitempty"` // 旧版六槽对象未保存 Key 6 的线格式标记，并非游戏成员 / Wire marker for a legacy six-slot object that did not store Key 6, not a game member
 }
 
@@ -146,9 +150,10 @@ func NewColorPresetSlot(instanceGUID string) (*ColorPresetSlot, error) {
 // newColorPresetDefaults creates the version, empty color-pack list, and supplied instance identifier produced after CustomColorPresetBase construction
 func newColorPresetDefaults(instanceGUID string) *ColorPreset {
 	return &ColorPreset{
-		Version:       ColorPresetVersion,
-		ColorPackList: make([]*ColorPresetColorPack, 0),
-		InstanceGUID:  &instanceGUID,
+		Version:           ColorPresetVersion,
+		ColorPackList:     make([]*ColorPresetColorPack, 0),
+		InstanceGUID:      &instanceGUID,
+		IndexedArrayWidth: 7,
 	}
 }
 
@@ -220,8 +225,8 @@ func DecodeColorPresetSlotWithInstanceGUID(data []byte, constructorGUID string) 
 	return DecodeColorPresetWithInstanceGUID(data, constructorGUID)
 }
 
-// decodeColorPreset 解压颜色预设根值，兼容 instanceGuid 加入前的六槽布局与当前七槽布局，并要求完整消费输入
-// decodeColorPreset decompresses a color-preset root, accepts both the six-slot layout predating instanceGuid and the current seven-slot layout, and requires complete input consumption
+// decodeColorPreset 解压颜色预设根值，兼容六槽、七槽与 KCES2 十一槽布局，并要求完整消费输入
+// decodeColorPreset decompresses a color-preset root, accepts the 6-slot, 7-slot, and KCES2 11-slot layouts, and requires complete input consumption
 func decodeColorPreset(data []byte, constructorGUID string) (*ColorPreset, error) {
 	raw, err := msgpack.DecompressLz4BlockArray(data)
 	if err != nil {
@@ -239,10 +244,13 @@ func decodeColorPreset(data []byte, constructorGUID string) (*ColorPreset, error
 	if err != nil {
 		return nil, err
 	}
-	if fieldCount != 6 && fieldCount != 7 {
-		return nil, fmt.Errorf("unsupported ColorPreset indexed-array width %d, expected 6 or 7", fieldCount)
+	if fieldCount != 6 && fieldCount != 7 && fieldCount != 11 {
+		return nil, fmt.Errorf("unsupported ColorPreset indexed-array width %d, expected 6, 7, or 11", fieldCount)
 	}
-	value := &ColorPreset{LegacyInstanceGUIDOmitted: fieldCount == 6}
+	value := &ColorPreset{
+		IndexedArrayWidth:         int32(fieldCount),
+		LegacyInstanceGUIDOmitted: fieldCount == 6,
+	}
 	value.Version, err = r.readInt32("ColorPreset.version")
 	if err != nil {
 		return nil, err
@@ -267,8 +275,26 @@ func decodeColorPreset(data []byte, constructorGUID string) (*ColorPreset, error
 	if err != nil {
 		return nil, err
 	}
-	if fieldCount == 7 {
+	if fieldCount >= 7 {
 		value.InstanceGUID, err = colorPresetReadNullableString(&r, "ColorPreset.instanceGuid")
+		if err != nil {
+			return nil, err
+		}
+	}
+	if fieldCount == 11 {
+		value.SaveLocationHash, err = colorPresetReadUint64(&r, "ColorPreset.saveLocationHash")
+		if err != nil {
+			return nil, err
+		}
+		value.CreationTicks, err = colorPresetReadInt64(&r, "ColorPreset.creationTicks")
+		if err != nil {
+			return nil, err
+		}
+		value.LastUpdateTicks, err = colorPresetReadInt64(&r, "ColorPreset.lastUpdateTicks")
+		if err != nil {
+			return nil, err
+		}
+		value.MetaTexts, err = colorPresetReadStringMap(&r, "ColorPreset.metaTexts")
 		if err != nil {
 			return nil, err
 		}
@@ -276,6 +302,9 @@ func decodeColorPreset(data []byte, constructorGUID string) (*ColorPreset, error
 	if constructorGUID != "" && (value.InstanceGUID == nil || *value.InstanceGUID == "") {
 		value.InstanceGUID = &constructorGUID
 		value.LegacyInstanceGUIDOmitted = false
+		if value.IndexedArrayWidth == 6 {
+			value.IndexedArrayWidth = 7
+		}
 	}
 	if err := r.requireEOF("ColorPreset"); err != nil {
 		return nil, err
@@ -286,9 +315,9 @@ func decodeColorPreset(data []byte, constructorGUID string) (*ColorPreset, error
 	return value, nil
 }
 
-// EncodeColorPreset 按解码时记录的六槽旧布局或当前七槽布局写出预设，不调用游戏迁移或序列化回调
+// EncodeColorPreset 按记录的六槽、七槽或 KCES2 十一槽布局写出预设，不调用游戏迁移或序列化回调
 // 所有显式版本以及数值和名称两组 MPN 数组都按调用者提供内容保留
-// EncodeColorPreset emits either the recorded legacy six-slot layout or the current seven-slot layout without invoking game migrations or serialization callbacks
+// EncodeColorPreset emits the recorded 6-slot, 7-slot, or KCES2 11-slot layout without invoking game migrations or serialization callbacks
 // Every explicit version and both numeric and named MPN arrays are preserved as supplied by the caller
 func EncodeColorPreset(value *ColorPreset) ([]byte, error) {
 	if value == nil {
@@ -298,11 +327,11 @@ func EncodeColorPreset(value *ColorPreset) ([]byte, error) {
 		return nil, err
 	}
 
-	fieldCount := int64(7)
-	if value.LegacyInstanceGUIDOmitted {
-		fieldCount = 6
+	fieldCount, err := colorPresetWireWidth(value)
+	if err != nil {
+		return nil, err
 	}
-	raw := simpleEditDataAppendArrayHeader(nil, fieldCount)
+	raw := simpleEditDataAppendArrayHeader(nil, int64(fieldCount))
 	raw = simpleEditDataAppendInt32(raw, value.Version)
 	raw = colorPresetAppendNullableString(raw, value.ID)
 	raw = colorPresetAppendNullableString(raw, value.BaseMenuFile)
@@ -320,10 +349,42 @@ func EncodeColorPreset(value *ColorPreset) ([]byte, error) {
 			}
 		}
 	}
-	if !value.LegacyInstanceGUIDOmitted {
+	if fieldCount >= 7 {
 		raw = colorPresetAppendNullableString(raw, value.InstanceGUID)
 	}
+	if fieldCount == 11 {
+		raw = colorPresetAppendUint64(raw, value.SaveLocationHash)
+		raw = colorPresetAppendInt64(raw, value.CreationTicks)
+		raw = colorPresetAppendInt64(raw, value.LastUpdateTicks)
+		raw = colorPresetAppendStringMap(raw, value.MetaTexts)
+	}
 	return colorPresetCompress(raw)
+}
+
+// colorPresetWireWidth 返回调用方选择的颜色预设根数组宽度并拒绝不可表示字段
+// colorPresetWireWidth returns the caller-selected color-preset root width and rejects fields that cannot be represented
+func colorPresetWireWidth(value *ColorPreset) (int32, error) {
+	width := value.IndexedArrayWidth
+	if width == 0 {
+		if value.LegacyInstanceGUIDOmitted {
+			width = 6
+		} else {
+			width = 7
+		}
+	}
+	if width != 6 && width != 7 && width != 11 {
+		return 0, fmt.Errorf("unsupported ColorPreset indexed-array width %d, expected 6, 7, or 11", width)
+	}
+	if value.LegacyInstanceGUIDOmitted && width != 6 {
+		return 0, fmt.Errorf("legacyInstanceGuidOmitted requires ColorPreset indexed-array width 6")
+	}
+	if width == 6 && value.InstanceGUID != nil {
+		return 0, fmt.Errorf("ColorPreset.instanceGuid is not representable in indexed-array width 6")
+	}
+	if width < 11 && (value.SaveLocationHash != 0 || value.CreationTicks != 0 || value.LastUpdateTicks != 0 || value.MetaTexts != nil) {
+		return 0, fmt.Errorf("KCES2 ColorPreset metadata fields are not representable in indexed-array width %d", width)
+	}
+	return width, nil
 }
 
 // EncodeColorPresetSlot 写出与 ColorPreset 线格式相同的 ColorPresetSlot 载荷
@@ -357,8 +418,21 @@ func validateColorPresetForEncoding(value *ColorPreset) error {
 	if err := colorPresetValidateNullableString(value.InstanceGUID, "ColorPreset.instanceGuid"); err != nil {
 		return err
 	}
-	if value.LegacyInstanceGUIDOmitted && value.InstanceGUID != nil {
-		return fmt.Errorf("ColorPreset.instanceGuid must be nil when legacyInstanceGuidOmitted is true")
+	if _, err := colorPresetWireWidth(value); err != nil {
+		return err
+	}
+	if uint64(len(value.MetaTexts)) > math.MaxUint32 {
+		return fmt.Errorf("ColorPreset.metaTexts length %d exceeds the MessagePack map32 limit", len(value.MetaTexts))
+	}
+	for key, text := range value.MetaTexts {
+		if err := colorPresetValidateString(key, "ColorPreset.metaTexts key"); err != nil {
+			return err
+		}
+		if text != nil {
+			if err := colorPresetValidateString(*text, fmt.Sprintf("ColorPreset.metaTexts[%q]", key)); err != nil {
+				return err
+			}
+		}
 	}
 	for index, pack := range value.ColorPackList {
 		if err := validateColorPresetPack(pack, fmt.Sprintf("ColorPreset.colorPackList[%d]", index), false); err != nil {
@@ -1032,6 +1106,182 @@ func colorPresetReadSingle(r *simpleEditDataReader, path string) (float32, error
 	}
 }
 
+// colorPresetReadUint64 按 MessagePackReader.ReadUInt64 兼容的整数标记读取 UInt64
+// colorPresetReadUint64 reads a UInt64 from integer markers accepted by MessagePackReader.ReadUInt64
+func colorPresetReadUint64(r *simpleEditDataReader, path string) (uint64, error) {
+	marker, err := r.readByte(path)
+	if err != nil {
+		return 0, err
+	}
+	if marker <= 0x7f {
+		return uint64(marker), nil
+	}
+	if marker >= 0xe0 {
+		return 0, fmt.Errorf("%s cannot decode negative integer %d as UInt64", path, int8(marker))
+	}
+	switch marker {
+	case 0xcc:
+		value, err := r.readByte(path + " uint8")
+		return uint64(value), err
+	case 0xcd:
+		data, err := r.readBytes(2, path+" uint16")
+		if err != nil {
+			return 0, err
+		}
+		return uint64(binary.BigEndian.Uint16(data)), nil
+	case 0xce:
+		data, err := r.readBytes(4, path+" uint32")
+		if err != nil {
+			return 0, err
+		}
+		return uint64(binary.BigEndian.Uint32(data)), nil
+	case 0xcf:
+		data, err := r.readBytes(8, path+" uint64")
+		if err != nil {
+			return 0, err
+		}
+		return binary.BigEndian.Uint64(data), nil
+	case 0xd0:
+		value, err := r.readByte(path + " int8")
+		if err != nil {
+			return 0, err
+		}
+		signed := int8(value)
+		if signed < 0 {
+			return 0, fmt.Errorf("%s cannot decode negative integer %d as UInt64", path, signed)
+		}
+		return uint64(signed), nil
+	case 0xd1:
+		data, err := r.readBytes(2, path+" int16")
+		if err != nil {
+			return 0, err
+		}
+		signed := int16(binary.BigEndian.Uint16(data))
+		if signed < 0 {
+			return 0, fmt.Errorf("%s cannot decode negative integer %d as UInt64", path, signed)
+		}
+		return uint64(signed), nil
+	case 0xd2:
+		data, err := r.readBytes(4, path+" int32")
+		if err != nil {
+			return 0, err
+		}
+		signed := int32(binary.BigEndian.Uint32(data))
+		if signed < 0 {
+			return 0, fmt.Errorf("%s cannot decode negative integer %d as UInt64", path, signed)
+		}
+		return uint64(signed), nil
+	case 0xd3:
+		data, err := r.readBytes(8, path+" int64")
+		if err != nil {
+			return 0, err
+		}
+		signed := int64(binary.BigEndian.Uint64(data))
+		if signed < 0 {
+			return 0, fmt.Errorf("%s cannot decode negative integer %d as UInt64", path, signed)
+		}
+		return uint64(signed), nil
+	default:
+		return 0, fmt.Errorf("%s must be a MessagePack UInt64-compatible integer, got marker 0x%02x", path, marker)
+	}
+}
+
+// colorPresetReadInt64 按 MessagePackReader.ReadInt64 兼容的整数标记读取 Int64
+// colorPresetReadInt64 reads an Int64 from integer markers accepted by MessagePackReader.ReadInt64
+func colorPresetReadInt64(r *simpleEditDataReader, path string) (int64, error) {
+	marker, err := r.readByte(path)
+	if err != nil {
+		return 0, err
+	}
+	if marker <= 0x7f {
+		return int64(marker), nil
+	}
+	if marker >= 0xe0 {
+		return int64(int8(marker)), nil
+	}
+	switch marker {
+	case 0xcc:
+		value, err := r.readByte(path + " uint8")
+		return int64(value), err
+	case 0xcd:
+		data, err := r.readBytes(2, path+" uint16")
+		if err != nil {
+			return 0, err
+		}
+		return int64(binary.BigEndian.Uint16(data)), nil
+	case 0xce:
+		data, err := r.readBytes(4, path+" uint32")
+		if err != nil {
+			return 0, err
+		}
+		return int64(binary.BigEndian.Uint32(data)), nil
+	case 0xcf:
+		data, err := r.readBytes(8, path+" uint64")
+		if err != nil {
+			return 0, err
+		}
+		value := binary.BigEndian.Uint64(data)
+		if value > math.MaxInt64 {
+			return 0, fmt.Errorf("%s=%d exceeds Int64", path, value)
+		}
+		return int64(value), nil
+	case 0xd0:
+		value, err := r.readByte(path + " int8")
+		return int64(int8(value)), err
+	case 0xd1:
+		data, err := r.readBytes(2, path+" int16")
+		if err != nil {
+			return 0, err
+		}
+		return int64(int16(binary.BigEndian.Uint16(data))), nil
+	case 0xd2:
+		data, err := r.readBytes(4, path+" int32")
+		if err != nil {
+			return 0, err
+		}
+		return int64(int32(binary.BigEndian.Uint32(data))), nil
+	case 0xd3:
+		data, err := r.readBytes(8, path+" int64")
+		if err != nil {
+			return 0, err
+		}
+		return int64(binary.BigEndian.Uint64(data)), nil
+	default:
+		return 0, fmt.Errorf("%s must be a MessagePack Int64-compatible integer, got marker 0x%02x", path, marker)
+	}
+}
+
+// colorPresetReadStringMap 读取可为 nil 且值也可为 nil 的字符串字典并拒绝重复键
+// colorPresetReadStringMap reads a nullable string map with nullable values and rejects duplicate keys
+func colorPresetReadStringMap(r *simpleEditDataReader, path string) (map[string]*string, error) {
+	if r.tryReadNil() {
+		return nil, nil
+	}
+	count, err := r.readMapLength(path)
+	if err != nil {
+		return nil, err
+	}
+	if count > r.remaining()/2 {
+		return nil, fmt.Errorf("%s count %d exceeds the capacity of %d remaining bytes", path, count, r.remaining())
+	}
+	result := makeKCESCountedMap[string, *string](uint64(count))
+	for index := int64(0); index < count; index++ {
+		key, err := r.readString(fmt.Sprintf("%s key %d", path, index))
+		if err != nil {
+			return nil, err
+		}
+		if _, duplicate := result[key]; duplicate {
+			return nil, fmt.Errorf("%s contains duplicate key %q", path, key)
+		}
+		value, err := colorPresetReadNullableString(r, fmt.Sprintf("%s[%q]", path, key))
+		if err != nil {
+			return nil, err
+		}
+		result[key] = value
+	}
+	return result, nil
+}
+
 // colorPresetReadObjectHeader 读取 indexed object 数组头并按剩余字节限制字段数量
 // colorPresetReadObjectHeader reads an indexed object array header and bounds its field count by remaining bytes
 func colorPresetReadObjectHeader(r *simpleEditDataReader, path string) (int64, error) {
@@ -1086,6 +1336,70 @@ func colorPresetAppendNullableString(dst []byte, value *string) []byte {
 		return append(dst, 0xc0)
 	}
 	return simpleEditDataAppendString(dst, *value)
+}
+
+// colorPresetAppendUint64 以可表示给定 UInt64 值的最短 MessagePack 整数形式追加值
+// colorPresetAppendUint64 appends a UInt64 using the shortest MessagePack integer representation
+func colorPresetAppendUint64(dst []byte, value uint64) []byte {
+	switch {
+	case value <= 0x7f:
+		return append(dst, byte(value))
+	case value <= math.MaxUint8:
+		return append(dst, 0xcc, byte(value))
+	case value <= math.MaxUint16:
+		return append(dst, 0xcd, byte(value>>8), byte(value))
+	case value <= math.MaxUint32:
+		dst = append(dst, 0xce, 0, 0, 0, 0)
+		binary.BigEndian.PutUint32(dst[len(dst)-4:], uint32(value))
+		return dst
+	default:
+		dst = append(dst, 0xcf, 0, 0, 0, 0, 0, 0, 0, 0)
+		binary.BigEndian.PutUint64(dst[len(dst)-8:], value)
+		return dst
+	}
+}
+
+// colorPresetAppendInt64 以可表示给定 Int64 值的最短 MessagePack 整数形式追加值
+// colorPresetAppendInt64 appends an Int64 using the shortest MessagePack integer representation
+func colorPresetAppendInt64(dst []byte, value int64) []byte {
+	if value >= 0 {
+		return colorPresetAppendUint64(dst, uint64(value))
+	}
+	switch {
+	case value >= -32:
+		return append(dst, byte(int8(value)))
+	case value >= math.MinInt8:
+		return append(dst, 0xd0, byte(int8(value)))
+	case value >= math.MinInt16:
+		return append(dst, 0xd1, byte(int16(value)>>8), byte(int16(value)))
+	case value >= math.MinInt32:
+		dst = append(dst, 0xd2, 0, 0, 0, 0)
+		binary.BigEndian.PutUint32(dst[len(dst)-4:], uint32(value))
+		return dst
+	default:
+		dst = append(dst, 0xd3, 0, 0, 0, 0, 0, 0, 0, 0)
+		binary.BigEndian.PutUint64(dst[len(dst)-8:], uint64(value))
+		return dst
+	}
+}
+
+// colorPresetAppendStringMap 以规范键顺序追加可为 nil 且值也可为 nil 的字符串字典
+// colorPresetAppendStringMap appends a nullable string map with nullable values using canonical key order
+func colorPresetAppendStringMap(dst []byte, value map[string]*string) []byte {
+	if value == nil {
+		return append(dst, 0xc0)
+	}
+	keys := make([]string, 0, len(value))
+	for key := range value {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	dst = simpleEditDataAppendMapHeader(dst, int64(len(keys)))
+	for _, key := range keys {
+		dst = simpleEditDataAppendString(dst, key)
+		dst = colorPresetAppendNullableString(dst, value[key])
+	}
+	return dst
 }
 
 // colorPresetAppendBool 追加标准 MessagePack false 或 true 标记

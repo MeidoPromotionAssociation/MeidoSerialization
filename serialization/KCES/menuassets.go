@@ -12,7 +12,7 @@ import (
 // KCES menu-resource container storing an array of Parts.Menu values in a TextAsset inside an .aba file
 // The payload is an LZ4 Block Array-compressed MessagePack indexed array, with current Menu fixed version 1005
 
-// MessagePack indexed array 布局（31 个字段，Key(0)~Key(30)）/ MessagePack indexed-array layout with 31 fields from Key(0) to Key(30)
+// MessagePack indexed array 布局（KCES 为 Key(0)~Key(30)，KCES2 追加 Key(31)）/ MessagePack indexed-array layout using Key(0) through Key(30) in KCES and appending Key(31) in KCES2
 //
 //	[Key(0)]  version                    int
 //	[Key(1)]  guid                       uint64
@@ -45,45 +45,97 @@ import (
 //	[Key(28)] exportModelFormTextureName string
 //	[Key(29)] isHarayureAvailable        int (enum)
 //	[Key(30)] skirt_phys                 int
+//	[Key(31)] hairMake                   HairMake
 
 // Menu 表示 Parts.Menu 的菜单数据
 // 对应 C# Parts.Menu，继承自 AMessagePackSerializationVersionControlIntKey
-// MessagePack indexed array 包含 Key(0) 至 Key(30) 的 31 个槽位，Key(24) 在 C# 中没有成员
+// MessagePack indexed array 在 KCES 中包含 Key(0) 至 Key(30)，KCES2 在 Key(31) 追加 HairMake，Key(24) 在 C# 中没有成员
 // Menu represents menu data from Parts.Menu
 // It matches C# Parts.Menu derived from AMessagePackSerializationVersionControlIntKey
-// Its MessagePack indexed array contains 31 slots from Key(0) through Key(30), with no C# member at Key(24)
+// Its MessagePack indexed array contains Key(0) through Key(30) in KCES and appends HairMake at Key(31) in KCES2, with no C# member at Key(24)
 type Menu struct {
-	_struct                    struct{}                   `codec:",toarray" kces:"nil=24;widths=21,22,27,28,31"` // 强制按数组编码并声明游戏已知历史宽度与固定 nil Key / Forces array encoding and declares known game widths plus the fixed nil key
-	Version                    int32                      `json:"version"`                                       // 存储的版本；当前游戏 FixVersion 为 1005 / Stored version; current-game FixVersion is 1005
-	GUID                       uint64                     `json:"guid"`                                          // 全局唯一标识 / Global unique identifier
-	ID                         uint64                     `json:"id"`                                            // 菜单 ID / Menu ID
-	FileName                   *string                    `json:"fileName"`                                      // 可空菜单文件名，如 xxx.menu / Nullable menu file name such as xxx.menu
-	ItemName                   *string                    `json:"itemName"`                                      // 可空物品显示名称 / Nullable display name of the item
-	IconFileName               *string                    `json:"iconFileName"`                                  // 可空图标文件名 / Nullable icon file name
-	InfoText                   *string                    `json:"infoText"`                                      // 可空说明文本 / Nullable description text
-	Priority                   int32                      `json:"priority"`                                      // 优先级 / Priority
-	ParentID                   uint64                     `json:"parentId"`                                      // 父菜单 ID，0 表示无父级 / Parent menu ID, zero means no parent
-	IsMan                      bool                       `json:"isMan"`                                         // 是否为男性用 / Whether this menu is for male characters
-	IsDiff                     bool                       `json:"isDiff"`                                        // 是否为差分 / Whether this menu is a variation
-	IsDelete                   bool                       `json:"isDelete"`                                      // 是否为删除项 / Whether this menu removes an item
-	Commands                   []*Command                 `json:"commandList"`                                   // 可空命令对象数组 / Array of nullable command objects
-	CategoryText               *string                    `json:"categoryText"`                                  // 可空分类文本，通常为 MPN 枚举名 / Nullable category text, usually an MPN enum name
-	ColorSetText               *string                    `json:"colorSetText"`                                  // 可空颜色集文本，通常为 MPN 枚举名 / Nullable color-set text, usually an MPN enum name
-	DefineTagNames             uint64                     `json:"defineTagNames"`                                // DEFINE 标志位 / DEFINE flag bits
-	PreMulTexDatas             map[uint64]*PreMulTexDatas `json:"preMulTexDatas"`                                // 可空预乘纹理数据对象表 / Map of nullable pre-multiplied texture data objects
-	ColvariFileNameExp         *string                    `json:"colvariFileNameExp"`                            // 可空颜色变体文件名表达式 / Nullable color-variant file-name expression
-	ColvariInfo                *Colvari                   `json:"colvariInfo"`                                   // 颜色变体信息 / Color-variant information
-	SrcFileHashCRC32           uint32                     `json:"srcFileHashCRC32"`                              // 源文件 CRC32 哈希 / Source-file CRC32 hash
-	DefineFirst                uint64                     `json:"defineFirst"`                                   // 首要 DEFINE 标志位 / Primary DEFINE flag bits
-	PartsVer                   *TupleStringInt            `json:"partsVer"`                                      // 部件版本元组 / Parts version tuple
-	IsRecommendMan             bool                       `json:"isRecommendMan"`                                // 是否推荐男性使用 / Whether male use is recommended
-	TargetBodyType             int32                      `json:"targetBodyType"`                                // 目标体型枚举，0=None, 1=Woman, 2=Man / Target body-type enum, 0=None, 1=Woman, 2=Man
-	Attribute                  uint64                     `json:"attribute"`                                     // 属性标志位 / Attribute flag bits
-	HideInEdit                 bool                       `json:"hideInEdit"`                                    // 是否在编辑界面隐藏 / Whether hidden in edit mode
-	ToeLockSlotId              *string                    `json:"toeLockSlotId"`                                 // 可空脚趾锁定槽位 ID / Nullable toe-lock slot ID
-	ExportModelFormTextureName *string                    `json:"exportModelFormTextureName"`                    // 可空导出模型纹理名 / Nullable exported model texture name
-	IsHarayureAvailable        int32                      `json:"isHarayureAvailable"`                           // 腹揺れ可用性枚举，0=None, 1=Available, 2=Disable / Belly-jiggle availability enum, 0=None, 1=Available, 2=Disable
-	SkirtPhys                  int32                      `json:"skirt_phys"`                                    // 裙子物理类型 / Skirt physics type
+	_struct                    struct{}                   `codec:",toarray" kces:"nil=24;widths=21,22,27,28,31,32"` // 强制按数组编码并声明游戏已知历史宽度与固定 nil Key / Forces array encoding and declares known game widths plus the fixed nil key
+	Version                    int32                      `json:"version"`                                          // 存储的版本；当前游戏 FixVersion 为 1005 / Stored version; current-game FixVersion is 1005
+	GUID                       uint64                     `json:"guid"`                                             // 来源 GUID 字符串的大小写无关 FNV-1a 64 位哈希 / Case-insensitive FNV-1a 64-bit hash of the source GUID
+	ID                         uint64                     `json:"id"`                                               // Menu 文件名的大小写无关 FNV-1a 64 位哈希 / Case-insensitive FNV-1a 64-bit hash of the menu filename
+	FileName                   *string                    `json:"fileName"`                                         // 可空菜单文件名，如 xxx.menu / Nullable menu file name such as xxx.menu
+	ItemName                   *string                    `json:"itemName"`                                         // 可空物品显示名称 / Nullable display name of the item
+	IconFileName               *string                    `json:"iconFileName"`                                     // 可空图标文件名 / Nullable icon file name
+	InfoText                   *string                    `json:"infoText"`                                         // 可空说明文本 / Nullable description text
+	Priority                   int32                      `json:"priority"`                                         // 优先级 / Priority
+	ParentID                   uint64                     `json:"parentId"`                                         // 父菜单 ID，0 表示无父级 / Parent menu ID, zero means no parent
+	IsMan                      bool                       `json:"isMan"`                                            // 是否为男性用 / Whether this menu is for male characters
+	IsDiff                     bool                       `json:"isDiff"`                                           // 是否为差分 / Whether this menu is a variation
+	IsDelete                   bool                       `json:"isDelete"`                                         // 是否为删除项 / Whether this menu removes an item
+	Commands                   []*Command                 `json:"commandList"`                                      // 可空命令对象数组 / Array of nullable command objects
+	CategoryText               *string                    `json:"categoryText"`                                     // 可空分类文本，通常为 MPN 枚举名 / Nullable category text, usually an MPN enum name
+	ColorSetText               *string                    `json:"colorSetText"`                                     // 可空颜色集文本，通常为 MPN 枚举名 / Nullable color-set text, usually an MPN enum name
+	DefineTagNames             uint64                     `json:"defineTagNames"`                                   // DEFINE 标志位 / DEFINE flag bits
+	PreMulTexDatas             map[uint64]*PreMulTexDatas `json:"preMulTexDatas"`                                   // 可空预乘纹理数据对象表 / Map of nullable pre-multiplied texture data objects
+	ColvariFileNameExp         *string                    `json:"colvariFileNameExp"`                               // 可空颜色变体文件名表达式 / Nullable color-variant file-name expression
+	ColvariInfo                *Colvari                   `json:"colvariInfo"`                                      // 颜色变体信息 / Color-variant information
+	SrcFileHashCRC32           uint32                     `json:"srcFileHashCRC32"`                                 // 源文件 CRC32 哈希 / Source-file CRC32 hash
+	DefineFirst                uint64                     `json:"defineFirst"`                                      // 首要 DEFINE 标志位 / Primary DEFINE flag bits
+	PartsVer                   *TupleStringInt            `json:"partsVer"`                                         // 部件版本元组 / Parts version tuple
+	IsRecommendMan             bool                       `json:"isRecommendMan"`                                   // 是否推荐男性使用 / Whether male use is recommended
+	TargetBodyType             int32                      `json:"targetBodyType"`                                   // 目标体型枚举，0=None, 1=Woman, 2=Man / Target body-type enum, 0=None, 1=Woman, 2=Man
+	Attribute                  uint64                     `json:"attribute"`                                        // 属性标志位 / Attribute flag bits
+	HideInEdit                 bool                       `json:"hideInEdit"`                                       // 是否在编辑界面隐藏 / Whether hidden in edit mode
+	ToeLockSlotId              *string                    `json:"toeLockSlotId"`                                    // 可空脚趾锁定槽位 ID / Nullable toe-lock slot ID
+	ExportModelFormTextureName *string                    `json:"exportModelFormTextureName"`                       // 可空导出模型纹理名 / Nullable exported model texture name
+	IsHarayureAvailable        int32                      `json:"isHarayureAvailable"`                              // 腹揺れ可用性枚举，0=None, 1=Available, 2=Disable / Belly-jiggle availability enum, 0=None, 1=Available, 2=Disable
+	SkirtPhys                  int32                      `json:"skirt_phys"`                                       // 裙子物理类型 / Skirt physics type
+	HairMake                   *HairMake                  `json:"hairMake"`                                         // KCES2 HairMake 导出信息 / KCES2 HairMake export information
+	IndexedArrayWidth          int32                      `codec:"-" json:"indexedArrayWidth,omitempty"`            // 解码时记录的线格式数组宽度，并非游戏成员 / Wire array width recorded during decoding, not a game member
+}
+
+// HairMake 表示 KCES2 Menu 中的 HairMake 导出信息 / HairMake represents HairMake export information embedded in a KCES2 Menu
+type HairMake struct {
+	_struct                         struct{}  `codec:",toarray"`                             // 强制按数组编码 / Forces array encoding
+	Version                         int32     `json:"version"`                               // 版本号，当前为 1001 / Version value, currently 1001
+	ExportedGUID                    *string   `json:"exportedGuid"`                          // 导出 GUID / Exported GUID
+	ExportedHairBuildVersion        int32     `json:"exportedHairBuildVersion"`              // 导出 HairMake 构建版本 / Exported HairMake build version
+	ExportedHairGameVersion         int32     `json:"exportedHairGameVersion"`               // 导出游戏版本 / Exported game version
+	SuspendedSaveFileName           *string   `json:"suspendedSaveFileName"`                 // 继续编辑存档文件名 / Continue-editing save filename
+	MaterialPerOriginalMenuFileName []*string `json:"materialPerOriginalMenuFileName"`       // 原始菜单文件名 / Original menu filenames
+	MaterialPerOriginalMenuVersion  []int32   `json:"materialPerOriginalMenuVersion"`        // 原始菜单版本 / Original menu versions
+	IndexedArrayWidth               int32     `codec:"-" json:"indexedArrayWidth,omitempty"` // 解码时记录的线格式数组宽度，并非游戏成员 / Wire array width recorded during decoding, not a game member
+}
+
+const (
+	menuLegacyWidth   = 31
+	menuKCES2Width    = 32
+	hairMakeWireWidth = 7
+)
+
+// MessagePackIndexedObjectWidth 返回 Menu 应写出的 indexed-array 宽度
+// MessagePackIndexedObjectWidth returns the indexed-array width that Menu should emit
+func (v *Menu) MessagePackIndexedObjectWidth() int32 {
+	if v.IndexedArrayWidth == 0 {
+		return menuLegacyWidth
+	}
+	return v.IndexedArrayWidth
+}
+
+// SetMessagePackIndexedObjectWidth 设置 Menu 应写出的 indexed-array 宽度
+// SetMessagePackIndexedObjectWidth sets the indexed-array width that Menu should emit
+func (v *Menu) SetMessagePackIndexedObjectWidth(width int32) {
+	v.IndexedArrayWidth = width
+}
+
+// MessagePackIndexedObjectWidth 返回 HairMake 应写出的 indexed-array 宽度
+// MessagePackIndexedObjectWidth returns the indexed-array width that HairMake should emit
+func (v *HairMake) MessagePackIndexedObjectWidth() int32 {
+	if v.IndexedArrayWidth == 0 {
+		return hairMakeWireWidth
+	}
+	return v.IndexedArrayWidth
+}
+
+// SetMessagePackIndexedObjectWidth 设置 HairMake 应写出的 indexed-array 宽度
+// SetMessagePackIndexedObjectWidth sets the indexed-array width that HairMake should emit
+func (v *HairMake) SetMessagePackIndexedObjectWidth(width int32) {
+	v.IndexedArrayWidth = width
 }
 
 // Command 表示一条 Parts.Menu 菜单命令
@@ -145,6 +197,14 @@ func (v Menu) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSel
 // CodecDecodeSelf decodes Menu using the shared indexed-object rules
 func (v *Menu) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
 
+// CodecEncodeSelf 按共享 indexed-object 规则编码 HairMake
+// CodecEncodeSelf encodes HairMake using the shared indexed-object rules
+func (v HairMake) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
+
+// CodecDecodeSelf 按共享 indexed-object 规则解码 HairMake
+// CodecDecodeSelf decodes HairMake using the shared indexed-object rules
+func (v *HairMake) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
 // CodecEncodeSelf 按共享 indexed-object 规则编码 Command
 // CodecEncodeSelf encodes Command using the shared indexed-object rules
 func (v Command) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedObjectSelf(e, &v) }
@@ -170,4 +230,18 @@ func NewMenu() *Menu {
 		CategoryText: &defaultMPN,
 		ColorSetText: &defaultMPN,
 	}
+}
+
+// NewKCES2Menu 创建使用 KCES2 32 槽布局的新菜单
+// NewKCES2Menu creates a new menu using the 32-slot KCES2 layout
+func NewKCES2Menu() *Menu {
+	menu := NewMenu()
+	menu.SetMessagePackIndexedObjectWidth(menuKCES2Width)
+	return menu
+}
+
+// NewHairMake 创建使用当前固定版本的新 HairMake 导出信息
+// NewHairMake creates new HairMake export information using the current fixed version
+func NewHairMake() *HairMake {
+	return &HairMake{Version: 1001}
 }

@@ -24,13 +24,19 @@ const (
 	// KCESPresetFormat distinguishes the VirtualDirectory-based KCES preset JSON representation from the legacy CM3D2_PRESET representation using the same .preset extension
 	KCESPresetFormat = "kces-virtual-directory-preset"
 
-	kcesPresetVersion = 1000
+	kcesPresetContainerVersion int32 = 1000
+	kcesPresetCoreVersion      int32 = 1000
+	kcesPresetMetaVersion      int32 = 1000
+	kces2PresetMetaVersion     int32 = 1001
+	kcesPresetVersion                = kcesPresetContainerVersion
 )
 
 const (
 	kcesPresetThumbnailFile = "thumbnail"
 	kcesPresetMaidDataFile  = "maiddata"
 	kcesPresetMetaFile      = "meta"
+	kcesPresetNameMetaKey   = "presetName"
+	kces2PresetNameMetaKey  = "name"
 )
 
 // KCESPreset 表示仅供二进制封装层使用的 KCES VirtualDirectory 预设
@@ -281,7 +287,7 @@ func NewKCESPresetCore() (*KCESPresetCore, error) {
 		return nil, fmt.Errorf("create KCES preset bodyData: %w", err)
 	}
 	return &KCESPresetCore{
-		Version:   kcesPresetVersion,
+		Version:   kcesPresetCoreVersion,
 		PropData:  propertyData,
 		ColorData: colorData,
 		BodyData:  bodyData,
@@ -297,13 +303,63 @@ func NewKCESPreset() (*KCESPreset, error) {
 	}
 	return &KCESPreset{
 		Format:           KCESPresetFormat,
-		ContainerVersion: kcesPresetVersion,
+		ContainerVersion: kcesPresetContainerVersion,
 		MaidData:         core,
 		Meta: &KCESPresetMeta{
-			Version: kcesPresetVersion,
+			Version: kcesPresetMetaVersion,
 			Data:    map[string]*string{},
 		},
 	}, nil
+}
+
+// NewKCES2Preset 创建容器和核心仍为 1000、元数据为 1001 的新 KCES2 预设
+// NewKCES2Preset creates a new KCES2 preset whose container and core remain version 1000 while its metadata uses version 1001
+func NewKCES2Preset() (*KCESPreset, error) {
+	core, err := NewKCESPresetCore()
+	if err != nil {
+		return nil, err
+	}
+	return &KCESPreset{
+		Format:           KCESPresetFormat,
+		ContainerVersion: kcesPresetContainerVersion,
+		MaidData:         core,
+		Meta: &KCESPresetMeta{
+			Version: kces2PresetMetaVersion,
+			Data:    map[string]*string{},
+		},
+	}, nil
+}
+
+// PresetName 返回与元数据版本对应的预设名称而不迁移字典键
+// PresetName returns the preset name selected by the metadata version without migrating dictionary keys
+func (meta *KCESPresetMeta) PresetName() string {
+	if meta == nil || meta.Data == nil {
+		return ""
+	}
+	value := meta.Data[meta.presetNameKey()]
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+// SetPresetName 使用与元数据版本对应的键设置预设名称而不修改版本
+// SetPresetName sets the preset name using the key selected by the metadata version without changing that version
+func (meta *KCESPresetMeta) SetPresetName(value string) {
+	if meta.Data == nil {
+		meta.Data = make(map[string]*string)
+	}
+	copyValue := value
+	meta.Data[meta.presetNameKey()] = &copyValue
+}
+
+// presetNameKey 返回当前元数据版本由游戏读取的名称键
+// presetNameKey returns the name key read by the game for the current metadata version
+func (meta *KCESPresetMeta) presetNameKey() string {
+	if meta != nil && meta.Version >= kces2PresetMetaVersion {
+		return kces2PresetNameMetaKey
+	}
+	return kcesPresetNameMetaKey
 }
 
 // cloneStringMap 复制字符串映射以避免编码过程共享调用方可变状态

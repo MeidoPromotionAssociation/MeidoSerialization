@@ -1,0 +1,67 @@
+package KCES
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestMaterialLayoutRoundTripPreservesKCESGeneration(t *testing.T) {
+	tests := []struct {
+		name     string
+		material *Material
+		width    int
+		version  int32
+	}{
+		{name: "KCES", material: NewMaterial(), width: materialLegacyWidth, version: 801},
+		{name: "KCES2", material: NewKCES2Material(), width: materialKCES2Width, version: 802},
+	}
+	for index := range tests {
+		tests[index].material.Version = tests[index].version
+	}
+	tests[1].material.KeywordProps = []*KeywordProp{{Type: 300, Value: true}}
+	tests[1].material.RenderQueue = 2450
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			encoded, err := EncodeMaterialAssets(&MaterialAssets{Assets: []*Material{test.material}})
+			if err != nil {
+				t.Fatalf("EncodeMaterialAssets: %v", err)
+			}
+			if got := nestedCompressedArrayWidth(t, encoded, 1, 0); got != test.width {
+				t.Fatalf("encoded Material width = %d, want %d", got, test.width)
+			}
+
+			decoded, err := DecodeMaterialAssets(encoded)
+			if err != nil {
+				t.Fatalf("DecodeMaterialAssets: %v", err)
+			}
+			if got := int(decoded.Assets[0].MessagePackIndexedObjectWidth()); got != test.width {
+				t.Fatalf("decoded Material width = %d, want %d", got, test.width)
+			}
+			if decoded.Assets[0].Version != test.version {
+				t.Fatalf("decoded Material version = %d, want %d", decoded.Assets[0].Version, test.version)
+			}
+			if test.width == materialKCES2Width {
+				if len(decoded.Assets[0].KeywordProps) != 1 || decoded.Assets[0].RenderQueue != 2450 {
+					t.Fatalf("KCES2 material fields were not preserved: %+v", decoded.Assets[0])
+				}
+			}
+
+			reencoded, err := EncodeMaterialAssets(decoded)
+			if err != nil {
+				t.Fatalf("re-encode MaterialAssets: %v", err)
+			}
+			if got := nestedCompressedArrayWidth(t, reencoded, 1, 0); got != test.width {
+				t.Fatalf("re-encoded Material width = %d, want %d", got, test.width)
+			}
+		})
+	}
+}
+
+func TestHistoricalMaterialLayoutRejectsKCES2TailField(t *testing.T) {
+	material := NewMaterial()
+	material.RenderQueue = 2450
+	if _, err := EncodeMaterialAssets(&MaterialAssets{Assets: []*Material{material}}); err == nil || !strings.Contains(err.Error(), "not representable") {
+		t.Fatalf("EncodeMaterialAssets error = %v, want unrepresentable-tail error", err)
+	}
+}

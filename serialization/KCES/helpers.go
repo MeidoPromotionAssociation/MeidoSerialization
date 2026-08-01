@@ -75,7 +75,7 @@ func cloneSlicePreserveNil[T any](src []T) []T {
 // encodeCompressedMsgpack encodes a fixed-layout indexed MessagePack root and compresses it as an LZ4 Block Array
 func encodeCompressedMsgpack(v interface{}, name string) ([]byte, error) {
 	rv := reflect.ValueOf(v)
-	if !rv.IsValid() || ((rv.Kind() == reflect.Ptr || rv.Kind() == reflect.Interface) && rv.IsNil()) {
+	if !rv.IsValid() || ((rv.Kind() == reflect.Pointer || rv.Kind() == reflect.Interface) && rv.IsNil()) {
 		encoded, err := msgpack.EncodeMsgpack(nil)
 		if err != nil {
 			return nil, fmt.Errorf("encode %s null root: %w", name, err)
@@ -116,6 +116,28 @@ func indexedMessagePackSelfer(value interface{}) (codec.Selfer, bool) {
 	copyPointer.Elem().Set(rv)
 	selfer, ok := copyPointer.Interface().(codec.Selfer)
 	return selfer, ok
+}
+
+// encodeUncompressedIndexedMsgpack 编码未压缩的固定 indexed object 并保留 nil 根值
+// encodeUncompressedIndexedMsgpack encodes an uncompressed fixed indexed object while preserving a nil root
+func encodeUncompressedIndexedMsgpack(value interface{}, name string) ([]byte, error) {
+	rv := reflect.ValueOf(value)
+	if !rv.IsValid() || ((rv.Kind() == reflect.Ptr || rv.Kind() == reflect.Interface) && rv.IsNil()) {
+		encoded, err := msgpack.EncodeMsgpack(nil)
+		if err != nil {
+			return nil, fmt.Errorf("encode %s null root: %w", name, err)
+		}
+		return encoded, nil
+	}
+	selfer, ok := indexedMessagePackSelfer(value)
+	if !ok {
+		return nil, fmt.Errorf("encode %s: %T does not implement the indexed MessagePack codec", name, value)
+	}
+	encoded, err := msgpack.EncodeIndexedMsgpack(selfer)
+	if err != nil {
+		return nil, fmt.Errorf("encode %s: %w", name, err)
+	}
+	return encoded, nil
 }
 
 // decodeRawMsgpackArray 将通用数组重新编码后解码进强类型 indexed object

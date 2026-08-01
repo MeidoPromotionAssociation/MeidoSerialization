@@ -807,11 +807,25 @@
             "array"
           ]
         },
+        "creationTicks": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
         "id": {
           "type": [
             "null",
             "string"
           ]
+        },
+        "indexedArrayWidth": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
         },
         "instanceGuid": {
           "type": [
@@ -822,8 +836,34 @@
         "isAdvancedMode": {
           "type": "boolean"
         },
+        "lastUpdateTicks": {
+          "maximum": 9223372036854775807,
+          "minimum": -9223372036854775808,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": true
+        },
         "legacyInstanceGuidOmitted": {
           "type": "boolean"
+        },
+        "metaTexts": {
+          "additionalProperties": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "saveLocationHash": {
+          "maximum": 18446744073709551615,
+          "minimum": 0,
+          "type": "integer",
+          "x-meido-integer-bits": 64,
+          "x-meido-integer-signed": false
         },
         "userCreated": {
           "type": "boolean"
@@ -843,7 +883,11 @@
         "userCreated",
         "isAdvancedMode",
         "colorPackList",
-        "instanceGuid"
+        "instanceGuid",
+        "saveLocationHash",
+        "creationTicks",
+        "lastUpdateTicks",
+        "metaTexts"
       ],
       "type": "object"
     },

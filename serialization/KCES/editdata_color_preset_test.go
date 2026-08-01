@@ -117,8 +117,8 @@ func TestColorPresetRejectsUnsupportedLayouts(t *testing.T) {
 		root []interface{}
 		want string
 	}{
-		{name: "short root", root: validRoot[:5], want: "indexed-array width 5, expected 6 or 7"},
-		{name: "high root slot", root: append(append([]interface{}(nil), validRoot...), nil), want: "indexed-array width 8, expected 6 or 7"},
+		{name: "short root", root: validRoot[:5], want: "indexed-array width 5, expected 6, 7, or 11"},
+		{name: "high root slot", root: append(append([]interface{}(nil), validRoot...), nil), want: "indexed-array width 8, expected 6, 7, or 11"},
 		{name: "nil version", root: []interface{}{nil, nil, nil, false, false, []interface{}{}, nil}, want: "version"},
 		{name: "short pack", root: []interface{}{int64(ColorPresetVersion), nil, nil, false, false, []interface{}{validPack[:8]}, nil}, want: "indexed-array width 8, expected 9 or 10"},
 		{name: "high pack slot", root: []interface{}{int64(ColorPresetVersion), nil, nil, false, false, []interface{}{append(append([]interface{}(nil), validPack...), nil)}, nil}, want: "indexed-array width 11, expected 9 or 10"},

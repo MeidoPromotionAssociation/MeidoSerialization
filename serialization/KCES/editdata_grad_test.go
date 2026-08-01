@@ -15,12 +15,12 @@ func TestGradPointsDataTypedRoundTrip(t *testing.T) {
 			nil,
 			{0: 10, 1: 20, 8: 90},
 		},
-		ControlPointPosValue:  []float32{0.25, math.Float32frombits(0x7fc01234)},
-		GradaPointPosRates:    []float32{-1.5, float32(math.Inf(1))},
-		EditMPN:               math.MinInt32,
-		PointRangeAfterRates:  []float32{0.75},
-		PointRangeBeforeRates: []float32{1},
-		IsSave:                math.MaxInt32,
+		ControlPointPosValue:        []float32{0.25, math.Float32frombits(0x7fc01234)},
+		GradationPointPositionRates: []float32{-1.5, float32(math.Inf(1))},
+		EditMPN:                     math.MinInt32,
+		PointRangeAfterRates:        []float32{0.75},
+		PointRangeBeforeRates:       []float32{1},
+		IsSave:                      math.MaxInt32,
 	}
 	first, err := EncodeGradPointsData(value)
 	if err != nil {
@@ -67,7 +67,7 @@ func TestGradPointsDataNullableRootAndCollections(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if decoded.GradPointParam != nil || decoded.ControlPointPosValue != nil || decoded.GradaPointPosRates != nil || decoded.PointRangeAfterRates != nil || decoded.PointRangeBeforeRates != nil {
+	if decoded.GradPointParam != nil || decoded.ControlPointPosValue != nil || decoded.GradationPointPositionRates != nil || decoded.PointRangeAfterRates != nil || decoded.PointRangeBeforeRates != nil {
 		t.Fatalf("nil collections changed: %#v", decoded)
 	}
 }

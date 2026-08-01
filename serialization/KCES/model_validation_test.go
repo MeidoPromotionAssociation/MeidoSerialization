@@ -69,7 +69,7 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 				model.TransData[0].ParentNo = -2
 				return model
 			},
-			want: "transData[0].paretnNo",
+			want: "transData[0].parentNo",
 		},
 		{
 			name: "parent out of range",
@@ -78,7 +78,7 @@ func TestModelEncodersPreserveRuntimeUnsafeButRepresentableStructures(t *testing
 				model.TransData[0].ParentNo = int32(len(model.TransData))
 				return model
 			},
-			want: "transData[0].paretnNo",
+			want: "transData[0].parentNo",
 		},
 		{
 			name: "self parent",

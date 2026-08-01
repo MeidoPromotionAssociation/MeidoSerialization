@@ -259,6 +259,86 @@
       ],
       "type": "object"
     },
+    "KCES_HairMake": {
+      "additionalProperties": false,
+      "properties": {
+        "exportedGuid": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "exportedHairBuildVersion": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "exportedHairGameVersion": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "indexedArrayWidth": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "materialPerOriginalMenuFileName": {
+          "items": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "materialPerOriginalMenuVersion": {
+          "items": {
+            "maximum": 2147483647,
+            "minimum": -2147483648,
+            "type": "integer",
+            "x-meido-integer-bits": 32,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "suspendedSaveFileName": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "version": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "required": [
+        "version",
+        "exportedGuid",
+        "exportedHairBuildVersion",
+        "exportedHairGameVersion",
+        "suspendedSaveFileName",
+        "materialPerOriginalMenuFileName",
+        "materialPerOriginalMenuVersion"
+      ],
+      "type": "object"
+    },
     "KCES_InfColData": {
       "additionalProperties": false,
       "properties": {
@@ -591,6 +671,16 @@
           "x-meido-integer-bits": 64,
           "x-meido-integer-signed": false
         },
+        "hairMake": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_HairMake"
+            }
+          ]
+        },
         "hideInEdit": {
           "type": "boolean"
         },
@@ -606,6 +696,13 @@
           "type": "integer",
           "x-meido-integer-bits": 64,
           "x-meido-integer-signed": false
+        },
+        "indexedArrayWidth": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
         },
         "infoText": {
           "type": [
@@ -743,7 +840,8 @@
         "toeLockSlotId",
         "exportModelFormTextureName",
         "isHarayureAvailable",
-        "skirt_phys"
+        "skirt_phys",
+        "hairMake"
       ],
       "type": "object"
     },
