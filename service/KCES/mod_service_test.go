@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
@@ -138,7 +139,15 @@ func TestPackModManifestCatalogsExtensionlessTextAssetsUnderNullGroup(t *testing
 	if err := os.WriteFile(filepath.Join(tmpDir, "maid_collider.bin"), []byte("extensionless TextAsset payload"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "dependency.bin"), []byte("raw dependency"), 0644); err != nil {
+	nativeTex, err := aba.NewNativeTexture2DObject("dependency", 1, 1, []byte{1, 2, 3, 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var nativeBuf bytes.Buffer
+	if err := aba.WriteNativeUnityObject(&nativeBuf, nativeTex); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "dependency.bin"), nativeBuf.Bytes(), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -148,8 +157,8 @@ func TestPackModManifestCatalogsExtensionlessTextAssetsUnderNullGroup(t *testing
 		PackageType: "Plugin",
 		Assets: []ModAsset{
 			{Name: "maid_collider", Path: "maid_collider.bin", Kind: "textasset"},
-			// Extensionless raw Unity objects remain m_Container-only by default.
-			{Name: "dependency", Path: "dependency.bin", Kind: "material"},
+			// Extensionless standalone Unity objects remain m_Container-only by default.
+			{Name: "dependency", Path: "dependency.bin", Kind: "rawtexture2d", nativeObjectFile: true},
 		},
 	}
 	if err := packModManifest(manifest, tmpDir, tmpDir); err != nil {
@@ -231,7 +240,7 @@ func TestPackModManifest_Texture2D(t *testing.T) {
 	}
 }
 
-func TestPackModManifest_InferRawTextureAndSpriteFromPath(t *testing.T) {
+func TestPackModManifest_RejectsBareSidecarPayloadInferredFromPath(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	rawTexData, err := os.ReadFile(filepath.Join("..", "..", "testdata", "kces_assets", "cm3d2_megane002.tex.bytes"))
@@ -241,13 +250,6 @@ func TestPackModManifest_InferRawTextureAndSpriteFromPath(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(tmpDir, "raw.tex.bytes"), rawTexData, 0644); err != nil {
 		t.Fatal(err)
 	}
-	rawSpriteData, err := os.ReadFile(filepath.Join("..", "..", "testdata", "kces_assets", "cm3d2_megane002_i_.tex.sprite.bytes"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "sprite.tex.sprite.bytes"), rawSpriteData, 0644); err != nil {
-		t.Fatal(err)
-	}
 
 	manifest := ModManifest{
 		Name:        "raw_asset_test",
@@ -255,43 +257,17 @@ func TestPackModManifest_InferRawTextureAndSpriteFromPath(t *testing.T) {
 		PackageType: "Plugin",
 		Assets: []ModAsset{
 			{Name: "raw.tex", Path: "raw.tex.bytes"},
-			{Name: "sprite.tex", Path: "sprite.tex.sprite.bytes"},
 		},
 	}
-	if err := packModManifest(manifest, tmpDir, tmpDir); err != nil {
-		t.Fatalf("packModManifest failed: %v", err)
-	}
-
-	abaData, err := os.ReadFile(filepath.Join(tmpDir, "raw_asset_test.aba"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	abaFile, err := aba.ReadAba(bytes.NewReader(abaData))
-	if err != nil {
-		t.Fatalf("ReadAba: %v", err)
-	}
-	fileData, err := abaFile.GetFileData(0)
-	if err != nil {
-		t.Fatalf("GetFileData: %v", err)
-	}
-	af, err := aba.ReadAssetsFile(fileData)
-	if err != nil {
-		t.Fatalf("ReadAssetsFile: %v", err)
-	}
-
-	assetTypes := map[string]int32{}
-	for _, e := range af.GetAssetEntries() {
-		assetTypes[e.Name] = e.TypeId
-	}
-	if assetTypes["raw.tex"] != aba.ClassIDTexture2D {
-		t.Fatalf("raw.tex type got %d, want Texture2D", assetTypes["raw.tex"])
-	}
-	if assetTypes["sprite.tex"] != aba.ClassIDSprite {
-		t.Fatalf("sprite.tex type got %d, want Sprite", assetTypes["sprite.tex"])
+	// Bare sidecar payloads carry no TypeTree, and files without one per type can no
+	// longer be produced because the game cannot read them.
+	err = packModManifest(manifest, tmpDir, tmpDir)
+	if err == nil || !strings.Contains(err.Error(), "has no TypeTree") {
+		t.Fatalf("packModManifest error = %v, want missing-TypeTree rejection", err)
 	}
 }
 
-func TestPackModManifest_ExplicitUnityRawObjectKinds(t *testing.T) {
+func TestPackModManifest_RejectsBarePayloadForExplicitRawKinds(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	rawData, err := os.ReadFile(filepath.Join("..", "..", "testdata", "kces_assets", "DepthLUT.monoscript.bytes"))
@@ -301,12 +277,6 @@ func TestPackModManifest_ExplicitUnityRawObjectKinds(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(tmpDir, "material.bytes"), rawData, 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "type95.bytes"), rawData, 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := writeAssetMeta(filepath.Join(tmpDir, "type95.bytes"), -95, "type95_internal"); err != nil {
-		t.Fatal(err)
-	}
 
 	manifest := ModManifest{
 		Name:        "raw_kind_test",
@@ -314,46 +284,11 @@ func TestPackModManifest_ExplicitUnityRawObjectKinds(t *testing.T) {
 		PackageType: "Plugin",
 		Assets: []ModAsset{
 			{Name: "mat_internal", Path: "material.bytes", Kind: "material"},
-			{Name: "type95_internal", Path: "type95.bytes", Kind: "type_95"},
 		},
 	}
-	if err := packModManifest(manifest, tmpDir, tmpDir); err != nil {
-		t.Fatalf("packModManifest failed: %v", err)
-	}
-
-	abaData, err := os.ReadFile(filepath.Join(tmpDir, "raw_kind_test.aba"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	abaFile, err := aba.ReadAba(bytes.NewReader(abaData))
-	if err != nil {
-		t.Fatalf("ReadAba: %v", err)
-	}
-	fileData, err := abaFile.GetFileData(0)
-	if err != nil {
-		t.Fatalf("GetFileData: %v", err)
-	}
-	af, err := aba.ReadAssetsFile(fileData)
-	if err != nil {
-		t.Fatalf("ReadAssetsFile: %v", err)
-	}
-
-	assetTypes := assetTypesByLoadName(t, af)
-	if assetTypes["mat_internal"] != aba.ClassIDMaterial {
-		t.Fatalf("mat_internal type got %d, want Material", assetTypes["mat_internal"])
-	}
-	if assetTypes["type95_internal"] != 95 {
-		t.Fatalf("type95_internal type got %d, want Type_95", assetTypes["type95_internal"])
-	}
-	wantIDs, err := buildCanonicalPathIDs([]string{"material.bytes", "type95.bytes"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info := af.GetAssetInfoByPathID(wantIDs["type95.bytes"]); info == nil || info.TypeId != 95 {
-		t.Fatalf("type95 canonical PathID missing: %+v", info)
-	}
-	if info := af.GetAssetInfoByPathID(-95); info != nil {
-		t.Fatalf("legacy sidecar PathID was preserved: %+v", info)
+	err = packModManifest(manifest, tmpDir, tmpDir)
+	if err == nil || !strings.Contains(err.Error(), "has no TypeTree") {
+		t.Fatalf("packModManifest error = %v, want missing-TypeTree rejection", err)
 	}
 }
 

@@ -143,6 +143,7 @@ func (w *SerializedFileWriter) AddTextAssetWithLoadNameAndPathID(name string, lo
 		return 0
 	}
 	actualPathID := w.reserveOrAllocatePathID(pathID)
+	typeTree := unity2022TextAssetTypeTree()
 	w.objects = append(w.objects, sfObject{
 		pathId:   actualPathID,
 		classId:  ClassIDTextAsset,
@@ -150,6 +151,7 @@ func (w *SerializedFileWriter) AddTextAssetWithLoadNameAndPathID(name string, lo
 		loadName: nonEmptyLoadName(loadName, name),
 		data:     data,
 		dataSize: dataSize,
+		typeTree: &typeTree,
 	})
 	return actualPathID
 }
@@ -526,6 +528,7 @@ func (w *SerializedFileWriter) Size() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	containerTree := unity2022AssetBundleTypeTree()
 	allObjects := make([]sfObject, 0, len(w.objects)+1)
 	allObjects = append(allObjects, w.objects...)
 	allObjects = append(allObjects, sfObject{
@@ -534,6 +537,7 @@ func (w *SerializedFileWriter) Size() (int64, error) {
 		name:     "CAB-generated",
 		data:     containerData,
 		dataSize: containerDataSize,
+		typeTree: &containerTree,
 	})
 	serializedTypes, scriptTypes, err := collectSerializedTypes(allObjects)
 	if err != nil {
@@ -596,6 +600,7 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 		return err
 	}
 	abPathId := w.nextAvailablePathID()
+	containerTree := unity2022AssetBundleTypeTree()
 	allObjects := make([]sfObject, 0, len(w.objects)+1)
 	allObjects = append(allObjects, w.objects...)
 	allObjects = append(allObjects, sfObject{
@@ -604,6 +609,7 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 		name:     "CAB-generated",
 		data:     containerData,
 		dataSize: containerDataSize,
+		typeTree: &containerTree,
 	})
 
 	// 按首次出现顺序收集 SerializedType，并为不同 MonoScript 目标创建独立的 MonoBehaviour 类型
@@ -749,10 +755,9 @@ func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, seri
 		return nil, fmt.Errorf("write target platform: %w", err)
 	}
 
-	// 只要任一独立对象携带 TypeTree，就为整个 SerializedFile 启用标准 TypeTree metadata
-	// Enable standard TypeTree metadata for the SerializedFile when any standalone object carries a TypeTree
-	typeTreeEnabled := serializedTypesContainTypeTree(serializedTypes)
-	if err := bw.WriteBool(typeTreeEnabled); err != nil {
+	// 官方 KCES 与 COM3D2 转换器产出的每个 SerializedFile 都启用 TypeTree 且每个类型都携带完整树，Unity 无法读取空树与完整树混合的类型表，因此这里恒写 true 并要求所有类型有树
+	// Every SerializedFile produced by official KCES and the COM3D2 converter enables TypeTree with a complete tree per type, and Unity cannot read a type table mixing empty and complete trees, so this always writes true and requires a tree for every type
+	if err := bw.WriteBool(true); err != nil {
 		return nil, fmt.Errorf("write type tree enabled: %w", err)
 	}
 
@@ -762,6 +767,9 @@ func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, seri
 		return nil, fmt.Errorf("write type count: %w", err)
 	}
 	for _, serializedType := range serializedTypes {
+		if serializedType.typeTree == nil || len(serializedType.typeTree.Nodes) == 0 {
+			return nil, fmt.Errorf("class %d has no TypeTree; objects without a complete TypeTree cannot be written into a Unity-readable SerializedFile", serializedType.classId)
+		}
 		if err := bw.WriteInt32(serializedType.classId); err != nil { // TypeId
 			return nil, fmt.Errorf("write type id %d: %w", serializedType.classId, err)
 		}
@@ -779,44 +787,39 @@ func (w *SerializedFileWriter) buildMetadataWithOffsets(objects []sfObject, seri
 		if err := bw.WriteBytes(serializedType.typeHash[:]); err != nil { // TypeHash
 			return nil, fmt.Errorf("write type hash for type %d: %w", serializedType.classId, err)
 		}
-		if typeTreeEnabled {
-			var tree TypeTreeType
-			if serializedType.typeTree != nil {
-				tree = *serializedType.typeTree
+		tree := *serializedType.typeTree
+		nodeCount, err := int32WireLength(fmt.Sprintf("class %d TypeTree node count", serializedType.classId), uint64(len(tree.Nodes)))
+		if err != nil {
+			return nil, err
+		}
+		stringSize, err := int32WireLength(fmt.Sprintf("class %d TypeTree string buffer size", serializedType.classId), uint64(len(tree.StringBuffer)))
+		if err != nil {
+			return nil, err
+		}
+		if err := bw.WriteInt32(nodeCount); err != nil {
+			return nil, fmt.Errorf("write TypeTree node count for type %d: %w", serializedType.classId, err)
+		}
+		if err := bw.WriteInt32(stringSize); err != nil {
+			return nil, fmt.Errorf("write TypeTree string buffer size for type %d: %w", serializedType.classId, err)
+		}
+		for nodeIndex := range tree.Nodes {
+			if err := writeNativeUnityObjectNode(bw, &tree.Nodes[nodeIndex]); err != nil {
+				return nil, fmt.Errorf("write TypeTree node[%d] for type %d: %w", nodeIndex, serializedType.classId, err)
 			}
-			nodeCount, err := int32WireLength(fmt.Sprintf("class %d TypeTree node count", serializedType.classId), uint64(len(tree.Nodes)))
-			if err != nil {
-				return nil, err
-			}
-			stringSize, err := int32WireLength(fmt.Sprintf("class %d TypeTree string buffer size", serializedType.classId), uint64(len(tree.StringBuffer)))
-			if err != nil {
-				return nil, err
-			}
-			if err := bw.WriteInt32(nodeCount); err != nil {
-				return nil, fmt.Errorf("write TypeTree node count for type %d: %w", serializedType.classId, err)
-			}
-			if err := bw.WriteInt32(stringSize); err != nil {
-				return nil, fmt.Errorf("write TypeTree string buffer size for type %d: %w", serializedType.classId, err)
-			}
-			for nodeIndex := range tree.Nodes {
-				if err := writeNativeUnityObjectNode(bw, &tree.Nodes[nodeIndex]); err != nil {
-					return nil, fmt.Errorf("write TypeTree node[%d] for type %d: %w", nodeIndex, serializedType.classId, err)
-				}
-			}
-			if err := bw.WriteBytes(tree.StringBuffer); err != nil {
-				return nil, fmt.Errorf("write TypeTree string buffer for type %d: %w", serializedType.classId, err)
-			}
-			dependencyCount, err := int32WireLength(fmt.Sprintf("class %d TypeTree dependency count", serializedType.classId), uint64(len(tree.TypeDependencies)))
-			if err != nil {
-				return nil, err
-			}
-			if err := bw.WriteInt32(dependencyCount); err != nil {
-				return nil, fmt.Errorf("write TypeTree dependency count for type %d: %w", serializedType.classId, err)
-			}
-			for dependencyIndex, dependency := range tree.TypeDependencies {
-				if err := bw.WriteInt32(dependency); err != nil {
-					return nil, fmt.Errorf("write TypeTree dependency[%d] for type %d: %w", dependencyIndex, serializedType.classId, err)
-				}
+		}
+		if err := bw.WriteBytes(tree.StringBuffer); err != nil {
+			return nil, fmt.Errorf("write TypeTree string buffer for type %d: %w", serializedType.classId, err)
+		}
+		dependencyCount, err := int32WireLength(fmt.Sprintf("class %d TypeTree dependency count", serializedType.classId), uint64(len(tree.TypeDependencies)))
+		if err != nil {
+			return nil, err
+		}
+		if err := bw.WriteInt32(dependencyCount); err != nil {
+			return nil, fmt.Errorf("write TypeTree dependency count for type %d: %w", serializedType.classId, err)
+		}
+		for dependencyIndex, dependency := range tree.TypeDependencies {
+			if err := bw.WriteInt32(dependency); err != nil {
+				return nil, fmt.Errorf("write TypeTree dependency[%d] for type %d: %w", dependencyIndex, serializedType.classId, err)
 			}
 		}
 	}
@@ -1257,61 +1260,159 @@ func encodeTexture2DData(unityVersion string, name string, width, height int64, 
 	return buf.Bytes(), nil
 }
 
-// unity2022Texture2DTypeTree 构造与生成的内联 RGBA32 Texture2D 正文严格一致的 Unity 2022.3 TypeTree
-// unity2022Texture2DTypeTree constructs a Unity 2022.3 TypeTree that exactly matches generated inline RGBA32 Texture2D payloads
+// unity2022Texture2DTypeTree 返回从官方 KCES parts_cafesp001_2.aba 提取的 Unity 2022.3 内置 Texture2D TypeTree，与 encodeTexture2DData 写出的正文严格一致且 TypeHash 在官方 2022.3 样本中保持一致
+// unity2022Texture2DTypeTree returns the built-in Unity 2022.3 Texture2D TypeTree extracted from the official KCES parts_cafesp001_2.aba, exactly matching the payload emitted by encodeTexture2DData with a TypeHash consistent across official 2022.3 samples
 func unity2022Texture2DTypeTree() TypeTreeType {
-	tree := TypeTreeType{TypeId: ClassIDTexture2D, ScriptTypeIndex: -1}
-	stringOffset := func(value string) uint32 {
-		offset := uint32(len(tree.StringBuffer))
-		tree.StringBuffer = append(tree.StringBuffer, value...)
-		tree.StringBuffer = append(tree.StringBuffer, 0)
-		return offset
+	tree := TypeTreeType{
+		TypeId:          ClassIDTexture2D,
+		ScriptTypeIndex: -1,
+		TypeHash:        [16]byte{0x31, 0xF6, 0x5A, 0xE3, 0x43, 0xF6, 0x71, 0xBF, 0x46, 0x2F, 0x15, 0xC1, 0xB4, 0x1E, 0x97, 0x68},
+		StringBuffer:    []byte("m_ForcedFallbackFormat\x00m_DownscaleFallback\x00m_IsAlphaChannelOptional\x00m_Width\x00m_Height\x00m_CompleteImageSize\x00m_MipsStripped\x00m_TextureFormat\x00m_MipCount\x00m_IsReadable\x00m_IsPreProcessed\x00m_IgnoreMipmapLimit\x00m_MipmapLimitGroupName\x00m_StreamingMipmaps\x00m_StreamingMipmapsPriority\x00m_ImageCount\x00m_TextureDimension\x00GLTextureSettings\x00m_TextureSettings\x00m_FilterMode\x00m_Aniso\x00m_MipBias\x00m_WrapU\x00m_WrapV\x00m_WrapW\x00m_LightmapFormat\x00m_ColorSpace\x00m_PlatformBlob\x00image data\x00StreamingInfo\x00m_StreamData\x00offset\x00path\x00"),
 	}
-	appendNode := func(level byte, typeName string, name string, byteSize int32, metaFlags uint32) {
-		tree.Nodes = append(tree.Nodes, TypeTreeNode{
-			Version:    1,
-			Level:      level,
-			TypeStrOff: stringOffset(typeName),
-			NameStrOff: stringOffset(name),
-			ByteSize:   byteSize,
-			Index:      int32(len(tree.Nodes)),
-			MetaFlags:  metaFlags,
-		})
+	tree.Nodes = []TypeTreeNode{
+		{Version: 2, TypeStrOff: 0x8000036A, NameStrOff: 0x80000037, ByteSize: -1, Index: 0, MetaFlags: 0x8000},
+		{Version: 1, Level: 1, TypeStrOff: 0x80000348, NameStrOff: 0x800001AB, ByteSize: -1, Index: 1, MetaFlags: 0x88001},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 2, MetaFlags: 0x84001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 3, MetaFlags: 0x80001},
+		{Version: 1, Level: 3, TypeStrOff: 0x80000051, NameStrOff: 0x8000006A, ByteSize: 1, Index: 4, MetaFlags: 0x80001},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000DE, NameStrOff: 0x0, ByteSize: 4, Index: 5},
+		{Version: 1, Level: 1, TypeStrOff: 0x8000004C, NameStrOff: 0x17, ByteSize: 1, Index: 6},
+		{Version: 1, Level: 1, TypeStrOff: 0x8000004C, NameStrOff: 0x2B, ByteSize: 1, Index: 7, MetaFlags: 0x4000},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000DE, NameStrOff: 0x44, ByteSize: 4, Index: 8, MetaFlags: 0x10},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000DE, NameStrOff: 0x4C, ByteSize: 4, Index: 9, MetaFlags: 0x10},
+		{Version: 1, Level: 1, TypeStrOff: 0x800003A6, NameStrOff: 0x55, ByteSize: 4, Index: 10, MetaFlags: 0x10},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000DE, NameStrOff: 0x69, ByteSize: 4, Index: 11, MetaFlags: 0x10},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000DE, NameStrOff: 0x78, ByteSize: 4, Index: 12, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000DE, NameStrOff: 0x88, ByteSize: 4, Index: 13, MetaFlags: 0x10},
+		{Version: 1, Level: 1, TypeStrOff: 0x8000004C, NameStrOff: 0x93, ByteSize: 1, Index: 14},
+		{Version: 1, Level: 1, TypeStrOff: 0x8000004C, NameStrOff: 0xA0, ByteSize: 1, Index: 15, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x8000004C, NameStrOff: 0xB1, ByteSize: 1, Index: 16, MetaFlags: 0x4000},
+		{Version: 1, Level: 1, TypeStrOff: 0x80000348, NameStrOff: 0xC5, ByteSize: -1, Index: 17, MetaFlags: 0x8000},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 18, MetaFlags: 0x4001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 19, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x80000051, NameStrOff: 0x8000006A, ByteSize: 1, Index: 20, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x8000004C, NameStrOff: 0xDC, ByteSize: 1, Index: 21, MetaFlags: 0x4000},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000DE, NameStrOff: 0xEF, ByteSize: 4, Index: 22, MetaFlags: 0x4000},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000DE, NameStrOff: 0x10A, ByteSize: 4, Index: 23, MetaFlags: 0x10},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000DE, NameStrOff: 0x117, ByteSize: 4, Index: 24, MetaFlags: 0x1},
+		{Version: 2, Level: 1, TypeStrOff: 0x12A, NameStrOff: 0x13C, ByteSize: 24, Index: 25},
+		{Version: 1, Level: 2, TypeStrOff: 0x800000DE, NameStrOff: 0x14E, ByteSize: 4, Index: 26},
+		{Version: 1, Level: 2, TypeStrOff: 0x800000DE, NameStrOff: 0x15B, ByteSize: 4, Index: 27},
+		{Version: 1, Level: 2, TypeStrOff: 0x800000A1, NameStrOff: 0x163, ByteSize: 4, Index: 28},
+		{Version: 1, Level: 2, TypeStrOff: 0x800000DE, NameStrOff: 0x16D, ByteSize: 4, Index: 29},
+		{Version: 1, Level: 2, TypeStrOff: 0x800000DE, NameStrOff: 0x175, ByteSize: 4, Index: 30},
+		{Version: 1, Level: 2, TypeStrOff: 0x800000DE, NameStrOff: 0x17D, ByteSize: 4, Index: 31},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000DE, NameStrOff: 0x185, ByteSize: 4, Index: 32},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000DE, NameStrOff: 0x196, ByteSize: 4, Index: 33},
+		{Version: 1, Level: 1, TypeStrOff: 0x800003D5, NameStrOff: 0x1A3, ByteSize: -1, Index: 34, MetaFlags: 0x8000},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 35, MetaFlags: 0x4000},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 36},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A0, NameStrOff: 0x8000006A, ByteSize: 1, Index: 37},
+		{Version: 1, Level: 1, TypeFlags: 0x1, TypeStrOff: 0x8000037E, NameStrOff: 0x1B2, ByteSize: -1, Index: 38, MetaFlags: 0x4001},
+		{Version: 1, Level: 2, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 39, MetaFlags: 0x1},
+		{Version: 1, Level: 2, TypeStrOff: 0x800003A0, NameStrOff: 0x8000006A, ByteSize: 1, Index: 40, MetaFlags: 0x1},
+		{Version: 2, Level: 1, TypeStrOff: 0x1BD, NameStrOff: 0x1CB, ByteSize: -1, Index: 41, MetaFlags: 0x8000},
+		{Version: 1, Level: 2, TypeStrOff: 0x80000399, NameStrOff: 0x1D8, ByteSize: 8, Index: 42},
+		{Version: 1, Level: 2, TypeStrOff: 0x800003A6, NameStrOff: 0x8000031B, ByteSize: 4, Index: 43},
+		{Version: 1, Level: 2, TypeStrOff: 0x80000348, NameStrOff: 0x1DF, ByteSize: -1, Index: 44, MetaFlags: 0x8000},
+		{Version: 1, Level: 3, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 45, MetaFlags: 0x4001},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 46, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x80000051, NameStrOff: 0x8000006A, ByteSize: 1, Index: 47, MetaFlags: 0x1},
 	}
-	appendNode(0, "Texture2D", "Base", -1, 0)
-	appendNode(1, "string", "m_Name", -1, 0x4000)
-	appendNode(1, "int", "m_ForcedFallbackFormat", 4, 0)
-	appendNode(1, "bool", "m_DownscaleFallback", 1, 0)
-	appendNode(1, "bool", "m_IsAlphaChannelOptional", 1, 0x4000)
-	appendNode(1, "int", "m_Width", 4, 0)
-	appendNode(1, "int", "m_Height", 4, 0)
-	appendNode(1, "int", "m_CompleteImageSize", 4, 0)
-	appendNode(1, "int", "m_MipsStripped", 4, 0)
-	appendNode(1, "int", "m_TextureFormat", 4, 0)
-	appendNode(1, "int", "m_MipCount", 4, 0)
-	appendNode(1, "bool", "m_IsReadable", 1, 0)
-	appendNode(1, "bool", "m_IsPreProcessed", 1, 0)
-	appendNode(1, "bool", "m_IgnoreMipmapLimit", 1, 0x4000)
-	appendNode(1, "string", "m_MipmapLimitGroupName", -1, 0x4000)
-	appendNode(1, "bool", "m_StreamingMipmaps", 1, 0x4000)
-	appendNode(1, "int", "m_StreamingMipmapsPriority", 4, 0)
-	appendNode(1, "int", "m_ImageCount", 4, 0)
-	appendNode(1, "int", "m_TextureDimension", 4, 0)
-	appendNode(1, "GLTextureSettings", "m_TextureSettings", 24, 0)
-	appendNode(2, "int", "m_FilterMode", 4, 0)
-	appendNode(2, "int", "m_Aniso", 4, 0)
-	appendNode(2, "float", "m_MipBias", 4, 0)
-	appendNode(2, "int", "m_WrapU", 4, 0)
-	appendNode(2, "int", "m_WrapV", 4, 0)
-	appendNode(2, "int", "m_WrapW", 4, 0)
-	appendNode(1, "int", "m_LightmapFormat", 4, 0)
-	appendNode(1, "int", "m_ColorSpace", 4, 0)
-	appendNode(1, "TypelessData", "m_PlatformBlob", -1, 0x4000)
-	appendNode(1, "TypelessData", "image data", -1, 0x4000)
-	appendNode(1, "StreamingInfo", "m_StreamData", -1, 0)
-	appendNode(2, "unsigned long long", "offset", 8, 0)
-	appendNode(2, "unsigned int", "size", 4, 0)
-	appendNode(2, "string", "path", -1, 0x4000)
+	return tree
+}
+
+// unity2022TextAssetTypeTree 返回从官方 KCES csv.aba 提取的 Unity 内置 TextAsset TypeTree，节点名称全部引用 Unity 公共字符串表且 TypeHash 在官方 2020.3 至 2022.3 样本中保持一致
+// unity2022TextAssetTypeTree returns the built-in Unity TextAsset TypeTree extracted from the official KCES csv.aba, with every node name referencing the Unity common string table and a TypeHash consistent across official 2020.3 through 2022.3 samples
+func unity2022TextAssetTypeTree() TypeTreeType {
+	tree := TypeTreeType{
+		TypeId:          ClassIDTextAsset,
+		ScriptTypeIndex: -1,
+		TypeHash:        [16]byte{0x48, 0x6B, 0xA4, 0xE1, 0x5D, 0xBD, 0x6A, 0xEA, 0x8A, 0xC1, 0xA0, 0x64, 0x30, 0x58, 0x89, 0xC8},
+	}
+	tree.Nodes = []TypeTreeNode{
+		{Version: 1, TypeStrOff: 0x8000034F, NameStrOff: 0x80000037, ByteSize: -1, Index: 0, MetaFlags: 0x8000},
+		{Version: 1, Level: 1, TypeStrOff: 0x80000348, NameStrOff: 0x800001AB, ByteSize: -1, Index: 1, MetaFlags: 0x88001},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 2, MetaFlags: 0x84001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 3, MetaFlags: 0x80001},
+		{Version: 1, Level: 3, TypeStrOff: 0x80000051, NameStrOff: 0x8000006A, ByteSize: 1, Index: 4, MetaFlags: 0x80001},
+		{Version: 1, Level: 1, TypeStrOff: 0x80000348, NameStrOff: 0x800001EA, ByteSize: -1, Index: 5, MetaFlags: 0x4008001},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 6, MetaFlags: 0x4004001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 7, MetaFlags: 0x4000001},
+		{Version: 1, Level: 3, TypeStrOff: 0x80000051, NameStrOff: 0x8000006A, ByteSize: 1, Index: 8, MetaFlags: 0x4000001},
+	}
+	return tree
+}
+
+// unity2022AssetBundleTypeTree 返回从官方 KCES csv.aba 提取的 Unity 内置 AssetBundle 容器 TypeTree，字段顺序与 encodeAssetBundleObject 写出的正文严格一致且 TypeHash 在官方 2020.3 至 2022.3 样本中保持一致
+// unity2022AssetBundleTypeTree returns the built-in Unity AssetBundle container TypeTree extracted from the official KCES csv.aba, with a field order exactly matching the payload emitted by encodeAssetBundleObject and a TypeHash consistent across official 2020.3 through 2022.3 samples
+func unity2022AssetBundleTypeTree() TypeTreeType {
+	tree := TypeTreeType{
+		TypeId:          ClassIDAssetBundle,
+		ScriptTypeIndex: -1,
+		TypeHash:        [16]byte{0x97, 0xDA, 0x5F, 0x46, 0x88, 0xE4, 0x5A, 0x57, 0xC8, 0xB4, 0x2D, 0x4F, 0x42, 0x49, 0x72, 0x97},
+		StringBuffer:    []byte("AssetBundle\x00m_PreloadTable\x00m_FileID\x00m_PathID\x00m_Container\x00AssetInfo\x00preloadIndex\x00preloadSize\x00asset\x00m_MainAsset\x00m_RuntimeCompatibility\x00m_AssetBundleName\x00m_Dependencies\x00m_IsStreamedSceneAssetBundle\x00m_ExplicitDataLayout\x00m_PathFlags\x00m_SceneHashes\x00"),
+	}
+	tree.Nodes = []TypeTreeNode{
+		{Version: 3, TypeStrOff: 0x0, NameStrOff: 0x80000037, ByteSize: -1, Index: 0, MetaFlags: 0x8000},
+		{Version: 1, Level: 1, TypeStrOff: 0x80000348, NameStrOff: 0x800001AB, ByteSize: -1, Index: 1, MetaFlags: 0x88001},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 2, MetaFlags: 0x84001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 3, MetaFlags: 0x80001},
+		{Version: 1, Level: 3, TypeStrOff: 0x80000051, NameStrOff: 0x8000006A, ByteSize: 1, Index: 4, MetaFlags: 0x80001},
+		{Version: 1, Level: 1, TypeStrOff: 0x800003D5, NameStrOff: 0xC, ByteSize: -1, Index: 5, MetaFlags: 0x8000},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 6, MetaFlags: 0x4000},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 7},
+		{Version: 1, Level: 3, TypeStrOff: 0x80000279, NameStrOff: 0x8000006A, ByteSize: 12, Index: 8},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000DE, NameStrOff: 0x1B, ByteSize: 4, Index: 9, MetaFlags: 0x800001},
+		{Version: 1, Level: 4, TypeStrOff: 0x8000032E, NameStrOff: 0x24, ByteSize: 8, Index: 10, MetaFlags: 0x800001},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000F1, NameStrOff: 0x2D, ByteSize: -1, Index: 11, MetaFlags: 0x8000},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 12, MetaFlags: 0x8000},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 13},
+		{Version: 1, Level: 3, TypeStrOff: 0x8000021F, NameStrOff: 0x8000006A, ByteSize: -1, Index: 14, MetaFlags: 0x8000},
+		{Version: 1, Level: 4, TypeStrOff: 0x80000348, NameStrOff: 0x8000009B, ByteSize: -1, Index: 15, MetaFlags: 0x8000},
+		{Version: 1, Level: 5, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 16, MetaFlags: 0x4001},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 17, MetaFlags: 0x1},
+		{Version: 1, Level: 6, TypeStrOff: 0x80000051, NameStrOff: 0x8000006A, ByteSize: 1, Index: 18, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x39, NameStrOff: 0x8000030A, ByteSize: 20, Index: 19},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000DE, NameStrOff: 0x43, ByteSize: 4, Index: 20},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000DE, NameStrOff: 0x50, ByteSize: 4, Index: 21},
+		{Version: 1, Level: 5, TypeStrOff: 0x80000279, NameStrOff: 0x5C, ByteSize: 12, Index: 22},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000DE, NameStrOff: 0x1B, ByteSize: 4, Index: 23, MetaFlags: 0x800001},
+		{Version: 1, Level: 6, TypeStrOff: 0x8000032E, NameStrOff: 0x24, ByteSize: 8, Index: 24, MetaFlags: 0x800001},
+		{Version: 1, Level: 1, TypeStrOff: 0x39, NameStrOff: 0x62, ByteSize: 20, Index: 25},
+		{Version: 1, Level: 2, TypeStrOff: 0x800000DE, NameStrOff: 0x43, ByteSize: 4, Index: 26},
+		{Version: 1, Level: 2, TypeStrOff: 0x800000DE, NameStrOff: 0x50, ByteSize: 4, Index: 27},
+		{Version: 1, Level: 2, TypeStrOff: 0x80000279, NameStrOff: 0x5C, ByteSize: 12, Index: 28},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x1B, ByteSize: 4, Index: 29, MetaFlags: 0x800001},
+		{Version: 1, Level: 3, TypeStrOff: 0x8000032E, NameStrOff: 0x24, ByteSize: 8, Index: 30, MetaFlags: 0x800001},
+		{Version: 1, Level: 1, TypeStrOff: 0x800003A6, NameStrOff: 0x6E, ByteSize: 4, Index: 31},
+		{Version: 1, Level: 1, TypeStrOff: 0x80000348, NameStrOff: 0x85, ByteSize: -1, Index: 32, MetaFlags: 0x8000},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 33, MetaFlags: 0x4001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 34, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x80000051, NameStrOff: 0x8000006A, ByteSize: 1, Index: 35, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x800003D5, NameStrOff: 0x97, ByteSize: -1, Index: 36, MetaFlags: 0x8000},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 37, MetaFlags: 0xC000},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 38},
+		{Version: 1, Level: 3, TypeStrOff: 0x80000348, NameStrOff: 0x8000006A, ByteSize: -1, Index: 39, MetaFlags: 0x8000},
+		{Version: 1, Level: 4, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 40, MetaFlags: 0x4001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 41, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x80000051, NameStrOff: 0x8000006A, ByteSize: 1, Index: 42, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x8000004C, NameStrOff: 0xA6, ByteSize: 1, Index: 43, MetaFlags: 0x4000},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000DE, NameStrOff: 0xC3, ByteSize: 4, Index: 44},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000DE, NameStrOff: 0xD8, ByteSize: 4, Index: 45},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000F1, NameStrOff: 0xE4, ByteSize: -1, Index: 46, MetaFlags: 0x8000},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 47, MetaFlags: 0x8000},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 48},
+		{Version: 1, Level: 3, TypeStrOff: 0x8000021F, NameStrOff: 0x8000006A, ByteSize: -1, Index: 49, MetaFlags: 0x8000},
+		{Version: 1, Level: 4, TypeStrOff: 0x80000348, NameStrOff: 0x8000009B, ByteSize: -1, Index: 50, MetaFlags: 0x8000},
+		{Version: 1, Level: 5, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 51, MetaFlags: 0x4001},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 52, MetaFlags: 0x1},
+		{Version: 1, Level: 6, TypeStrOff: 0x80000051, NameStrOff: 0x8000006A, ByteSize: 1, Index: 53, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x80000348, NameStrOff: 0x8000030A, ByteSize: -1, Index: 54, MetaFlags: 0x8000},
+		{Version: 1, Level: 5, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 55, MetaFlags: 0x4001},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 56, MetaFlags: 0x1},
+		{Version: 1, Level: 6, TypeStrOff: 0x80000051, NameStrOff: 0x8000006A, ByteSize: 1, Index: 57, MetaFlags: 0x1},
+	}
 	return tree
 }
 
@@ -1526,17 +1627,6 @@ func serializedTypeIndex(serializedTypes []sfSerializedType, obj sfObject) int32
 		}
 	}
 	return -1
-}
-
-// serializedTypesContainTypeTree 判断类型表中是否至少有一个完整 TypeTree
-// serializedTypesContainTypeTree reports whether the serialized type table contains at least one complete TypeTree
-func serializedTypesContainTypeTree(serializedTypes []sfSerializedType) bool {
-	for typeIndex := range serializedTypes {
-		if serializedTypes[typeIndex].typeTree != nil {
-			return true
-		}
-	}
-	return false
 }
 
 // typeTreesEquivalent 判断两个对象是否可以安全共享同一个 SerializedType 项

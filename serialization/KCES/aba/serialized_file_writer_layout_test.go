@@ -3,6 +3,7 @@ package aba
 import (
 	"bytes"
 	"encoding/binary"
+	"strings"
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
@@ -76,65 +77,54 @@ func TestSerializedFileWriterEmitsStandardEmptyMetadataTailTables(t *testing.T) 
 	}
 }
 
-func TestSerializedFileWriterOmitsTypeDependenciesWhenTypeTreeDisabled(t *testing.T) {
+func TestSerializedFileWriterAlwaysWritesCompleteTypeTrees(t *testing.T) {
 	writer := NewSerializedFileWriter("2022.3.35f")
 	writer.AddTextAsset("layout.menuassets", []byte("payload"))
 	var out bytes.Buffer
 	if err := writer.Write(&out); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
-	data := out.Bytes()
-	metadataSize := int64(binary.BigEndian.Uint32(data[20:24]))
-	r := binaryio.NewEndianReader(data[48:48+metadataSize], binary.LittleEndian)
-	if _, err := r.ReadNullString(); err != nil {
-		t.Fatalf("read Unity version: %v", err)
-	}
-	if _, err := r.ReadUInt32(); err != nil {
-		t.Fatalf("read target platform: %v", err)
-	}
-	enabled, err := r.ReadByte()
-	if err != nil || enabled != 0 {
-		t.Fatalf("TypeTreeEnabled = %d, %v; want 0", enabled, err)
-	}
-	typeCount, err := r.ReadInt32()
+	af, err := ReadAssetsFile(out.Bytes())
 	if err != nil {
-		t.Fatalf("read type count: %v", err)
+		t.Fatalf("ReadAssetsFile: %v", err)
 	}
-	for i := int32(0); i < typeCount; i++ {
-		classID, err := r.ReadInt32()
-		if err != nil {
-			t.Fatalf("read type[%d] class ID: %v", i, err)
+	if !af.Metadata.TypeTreeEnabled {
+		t.Fatal("TypeTreeEnabled = false; official KCES SerializedFiles always carry type trees")
+	}
+	wantHashes := map[int32][16]byte{
+		ClassIDTextAsset:   unity2022TextAssetTypeTree().TypeHash,
+		ClassIDAssetBundle: unity2022AssetBundleTypeTree().TypeHash,
+	}
+	if len(af.Metadata.TypeTreeTypes) != len(wantHashes) {
+		t.Fatalf("type count = %d, want %d", len(af.Metadata.TypeTreeTypes), len(wantHashes))
+	}
+	for _, tt := range af.Metadata.TypeTreeTypes {
+		if len(tt.Nodes) == 0 {
+			t.Fatalf("class %d has an empty TypeTree", tt.TypeId)
 		}
-		if _, err := r.ReadByte(); err != nil {
-			t.Fatalf("read type[%d] stripped flag: %v", i, err)
+		want, ok := wantHashes[tt.TypeId]
+		if !ok {
+			t.Fatalf("unexpected class %d in type table", tt.TypeId)
 		}
-		if _, err := r.ReadInt16(); err != nil {
-			t.Fatalf("read type[%d] script index: %v", i, err)
-		}
-		if classID == ClassIDMonoBehaviour {
-			var scriptHash [16]byte
-			if err := r.ReadFull(scriptHash[:]); err != nil {
-				t.Fatalf("read type[%d] script hash: %v", i, err)
-			}
-		}
-		var typeHash [16]byte
-		if err := r.ReadFull(typeHash[:]); err != nil {
-			t.Fatalf("read type[%d] hash: %v", i, err)
+		if tt.TypeHash != want {
+			t.Fatalf("class %d TypeHash = %x, want official %x", tt.TypeId, tt.TypeHash, want)
 		}
 	}
-	assetCount, err := r.ReadInt32()
-	if err != nil {
-		t.Fatalf("read asset count immediately after types: %v", err)
-	}
-	if assetCount != 2 {
-		t.Fatalf("asset count after types = %d, want 2; a stray dependency count may have been written", assetCount)
+}
+
+func TestSerializedFileWriterRejectsObjectsWithoutTypeTree(t *testing.T) {
+	writer := NewSerializedFileWriter("2022.3.35f")
+	writer.AddRawObject(ClassIDTransform, "treeless", []byte{1, 2, 3, 4})
+	err := writer.Write(&bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "has no TypeTree") {
+		t.Fatalf("Write error = %v, want missing-TypeTree rejection", err)
 	}
 }
 
 func TestSerializedFileWriterAlignsEveryObjectToEightBytes(t *testing.T) {
 	writer := NewSerializedFileWriter("2022.3.35f")
-	writer.AddRawObject(ClassIDMonoBehaviour, "a", []byte{1})
-	writer.AddRawObject(ClassIDMonoBehaviour, "b", []byte{2, 3, 4, 5, 6})
+	writer.AddTextAsset("a", []byte{1})
+	writer.AddTextAsset("b", []byte{2, 3, 4, 5, 6})
 
 	var out bytes.Buffer
 	if err := writer.Write(&out); err != nil {

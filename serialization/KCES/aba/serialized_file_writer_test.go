@@ -8,6 +8,34 @@ import (
 	"testing"
 )
 
+// minimalTestTypeTree builds the smallest valid TypeTree for a class so tests can
+// exercise writer mechanics through the tree-carrying native-object entry points.
+func minimalTestTypeTree(classID int32, typeName string) TypeTreeType {
+	tree := TypeTreeType{TypeId: classID, ScriptTypeIndex: -1}
+	tree.StringBuffer = append(tree.StringBuffer, typeName...)
+	tree.StringBuffer = append(tree.StringBuffer, 0)
+	nameOff := uint32(len(tree.StringBuffer))
+	tree.StringBuffer = append(tree.StringBuffer, "Base"...)
+	tree.StringBuffer = append(tree.StringBuffer, 0)
+	tree.Nodes = []TypeTreeNode{{Version: 1, NameStrOff: nameOff, ByteSize: -1}}
+	return tree
+}
+
+// addTestObjectWithTree adds an opaque payload through the native-object entry point
+// with a minimal tree, replacing the treeless raw-object calls used before every
+// SerializedFile type was required to carry a complete TypeTree.
+func addTestObjectWithTree(w *SerializedFileWriter, classID int32, typeName string, name string, loadName string, data []byte, pathID int64) int64 {
+	payload := append([]byte(nil), data...)
+	return w.AddNativeUnityObjectSourceWithLoadNameAndPathID(classID, minimalTestTypeTree(classID, typeName), name, loadName, SerializedObjectDataSource{
+		Size:   uint32(len(payload)),
+		Prefix: payload,
+		WriteTo: func(out io.Writer) error {
+			_, err := out.Write(payload)
+			return err
+		},
+	}, pathID)
+}
+
 func TestSerializedFileWriter_TextAsset(t *testing.T) {
 	w := NewSerializedFileWriter("2022.3.35f")
 
@@ -131,7 +159,7 @@ func TestSerializedFileWriter_InAba(t *testing.T) {
 func TestSerializedFileWriter_MonoBehaviourTypeMetadata(t *testing.T) {
 	w := NewSerializedFileWriter("2022.3.35f")
 	raw := []byte{1, 2, 3, 4, 5, 6, 7, 8}
-	w.AddRawObject(ClassIDMonoBehaviour, "sample_monobehaviour", raw)
+	addTestObjectWithTree(w, ClassIDMonoBehaviour, "MonoBehaviour", "sample_monobehaviour", "sample_monobehaviour", raw, 0)
 
 	var buf bytes.Buffer
 	if err := w.Write(&buf); err != nil {
@@ -169,8 +197,8 @@ func TestSerializedFileWriter_AssociatesDistinctMonoBehaviourScriptTypes(t *test
 	const scriptAPathID int64 = 101
 	const scriptBPathID int64 = 202
 	w := NewSerializedFileWriter("2022.3.35f")
-	w.AddRawObjectWithPathID(ClassIDMonoScript, "ScriptA", []byte{1}, scriptAPathID)
-	w.AddRawObjectWithPathID(ClassIDMonoScript, "ScriptB", []byte{2}, scriptBPathID)
+	addTestObjectWithTree(w, ClassIDMonoScript, "MonoScript", "ScriptA", "ScriptA", []byte{1}, scriptAPathID)
+	addTestObjectWithTree(w, ClassIDMonoScript, "MonoScript", "ScriptB", "ScriptB", []byte{2}, scriptBPathID)
 
 	monoA := make([]byte, 28)
 	monoA[12] = 1
@@ -178,8 +206,8 @@ func TestSerializedFileWriter_AssociatesDistinctMonoBehaviourScriptTypes(t *test
 	monoB := make([]byte, 28)
 	monoB[12] = 1
 	binary.LittleEndian.PutUint64(monoB[20:28], uint64(scriptBPathID))
-	w.AddRawObject(ClassIDMonoBehaviour, "BehaviourA", monoA)
-	w.AddRawObject(ClassIDMonoBehaviour, "BehaviourB", monoB)
+	addTestObjectWithTree(w, ClassIDMonoBehaviour, "MonoBehaviour", "BehaviourA", "BehaviourA", monoA, 0)
+	addTestObjectWithTree(w, ClassIDMonoBehaviour, "MonoBehaviour", "BehaviourB", "BehaviourB", monoB, 0)
 
 	var out bytes.Buffer
 	if err := w.Write(&out); err != nil {
@@ -223,45 +251,28 @@ func TestSerializedFileWriter_RawObjectNameRewriteOnlyForNamedClasses(t *testing
 	w.AddRawObject(ClassIDMaterial, "material_new", oldData)
 	w.AddRawObject(ClassIDTransform, "transform_new", oldData)
 
-	var buf bytes.Buffer
-	if err := w.Write(&buf); err != nil {
-		t.Fatalf("Write failed: %v", err)
+	// The rewrite happens when the object is added, so the queued object bytes are
+	// checked directly; treeless raw objects can no longer be written to a file.
+	if len(w.objects) != 2 {
+		t.Fatalf("queued object count = %d, want 2", len(w.objects))
 	}
-	af, err := ReadAssetsFile(buf.Bytes())
-	if err != nil {
-		t.Fatalf("ReadAssetsFile failed: %v", err)
+	material := w.objects[0].data
+	if bytes.Equal(material, oldData) {
+		t.Fatalf("Material raw data was not renamed")
 	}
-
-	for i, e := range af.GetAssetEntries() {
-		switch e.TypeId {
-		case ClassIDMaterial:
-			got, err := af.GetAssetData(&af.Metadata.AssetInfos[i])
-			if err != nil {
-				t.Fatalf("GetAssetData Material: %v", err)
-			}
-			if bytes.Equal(got, oldData) {
-				t.Fatalf("Material raw data was not renamed")
-			}
-			name, ok := readLeadingAlignedNameForTest(got)
-			if !ok || name != "material_new" {
-				t.Fatalf("Material name got %q ok=%v", name, ok)
-			}
-		case ClassIDTransform:
-			got, err := af.GetAssetData(&af.Metadata.AssetInfos[i])
-			if err != nil {
-				t.Fatalf("GetAssetData Transform: %v", err)
-			}
-			if !bytes.Equal(got, oldData) {
-				t.Fatalf("Transform raw data should remain byte-identical")
-			}
-		}
+	if name, ok := readLeadingAlignedNameForTest(material); !ok || name != "material_new" {
+		t.Fatalf("Material name got %q ok=%v", name, ok)
+	}
+	transform := w.objects[1].data
+	if !bytes.Equal(transform, oldData) {
+		t.Fatalf("Transform raw data should remain byte-identical")
 	}
 }
 
 func TestSerializedFileWriter_PreservesOpaqueNamedObjectPayload(t *testing.T) {
 	raw := []byte{1, 2, 3}
 	w := NewSerializedFileWriter("2022.3.35f")
-	pathID := w.AddRawObjectWithLoadNameAndPathID(ClassIDTextAsset, "internal_name", "load_name", raw, 42)
+	pathID := addTestObjectWithTree(w, ClassIDTextAsset, "TextAsset", "internal_name", "load_name", raw, 42)
 	if pathID != 42 {
 		t.Fatalf("PathID got %d, want 42", pathID)
 	}
@@ -300,7 +311,7 @@ func TestSerializedFileWriter_PreservingRawObjectDoesNotRewriteLeadingName(t *te
 		t.Fatalf("encodeTextAssetData: %v", err)
 	}
 	w := NewSerializedFileWriter("2022.3.35f1")
-	pathID := w.AddRawObjectPreservingDataWithLoadNameAndPathID(ClassIDTextAsset, "directory_name", "load_name", raw, 42)
+	pathID := addTestObjectWithTree(w, ClassIDTextAsset, "TextAsset", "directory_name", "load_name", raw, 42)
 
 	var buf bytes.Buffer
 	if err := w.Write(&buf); err != nil {
@@ -330,8 +341,9 @@ func TestSerializedFileWriterStreamsRawObjectData(t *testing.T) {
 	raw := []byte("streamed-object-payload")
 	w := NewSerializedFileWriter("2022.3.35f1")
 	var calls int64
-	pathID := w.AddRawObjectSourcePreservingDataWithLoadNameAndPathID(
+	pathID := w.AddNativeUnityObjectSourceWithLoadNameAndPathID(
 		ClassIDTransform,
+		minimalTestTypeTree(ClassIDTransform, "Transform"),
 		"streamed",
 		"streamed_load",
 		SerializedObjectDataSource{
@@ -372,8 +384,9 @@ func TestSerializedFileWriterSizeDoesNotReadStreamedObjects(t *testing.T) {
 	payload := []byte("sized payload")
 	w := NewSerializedFileWriter("2022.3.35f1")
 	var calls int64
-	w.AddRawObjectSourcePreservingDataWithLoadNameAndPathID(
+	w.AddNativeUnityObjectSourceWithLoadNameAndPathID(
 		ClassIDTransform,
+		minimalTestTypeTree(ClassIDTransform, "Transform"),
 		"sized",
 		"sized",
 		SerializedObjectDataSource{
@@ -414,8 +427,9 @@ func TestSerializedFileWriterRejectsIncorrectStreamedObjectSize(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := NewSerializedFileWriter("2022.3.35f1")
-			w.AddRawObjectSourcePreservingDataWithLoadNameAndPathID(
+			w.AddNativeUnityObjectSourceWithLoadNameAndPathID(
 				ClassIDTransform,
+				minimalTestTypeTree(ClassIDTransform, "Transform"),
 				"invalid",
 				"invalid",
 				SerializedObjectDataSource{
@@ -507,7 +521,7 @@ func TestSerializedFileWriter_AssetBundleContainerKeepsLoadNames(t *testing.T) {
 	}
 
 	w := NewSerializedFileWriter("2022.3.35f")
-	pathID := w.AddRawObject(ClassIDTransform, "load_name", raw)
+	pathID := addTestObjectWithTree(w, ClassIDTransform, "Transform", "load_name", "load_name", raw, 0)
 
 	var buf bytes.Buffer
 	if err := w.Write(&buf); err != nil {
@@ -575,7 +589,7 @@ func TestSerializedFileWriter_SeparatesInternalNameAndLoadName(t *testing.T) {
 func TestSerializedFileWriter_ReadAssetBundleContainerEntries(t *testing.T) {
 	w := NewSerializedFileWriter("2022.3.35f")
 	firstID := w.AddTextAsset("first.menuassets", []byte("first"))
-	secondID := w.AddRawObject(ClassIDTransform, "second_transform", []byte{1, 2, 3, 4})
+	secondID := addTestObjectWithTree(w, ClassIDTransform, "Transform", "second_transform", "second_transform", []byte{1, 2, 3, 4}, 0)
 
 	var buf bytes.Buffer
 	if err := w.Write(&buf); err != nil {
@@ -618,7 +632,7 @@ func TestSerializedFileWriter_ReadAssetBundleContainerEntries(t *testing.T) {
 func TestSerializedFileWriter_PreservesPreferredRawObjectPathID(t *testing.T) {
 	w := NewSerializedFileWriter("2022.3.35f")
 	preferredID := int64(-1466831684398908746)
-	gotID := w.AddRawObjectWithPathID(ClassIDMonoBehaviour, "sample_monobehaviour", []byte{1, 2, 3, 4}, preferredID)
+	gotID := addTestObjectWithTree(w, ClassIDMonoBehaviour, "MonoBehaviour", "sample_monobehaviour", "sample_monobehaviour", []byte{1, 2, 3, 4}, preferredID)
 	if gotID != preferredID {
 		t.Fatalf("AddRawObjectWithPathID got %d, want %d", gotID, preferredID)
 	}

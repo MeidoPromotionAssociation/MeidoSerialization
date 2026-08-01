@@ -34,9 +34,9 @@ type AbaFileEntry struct {
 }
 
 // WriteAba 将文件条目列表写入采用 Unity AssetBundle UnityFS 格式的 .aba 文件
-// 输出依次包含 Header、BlockAndDirInfo 和数据块，数据块按 0x20000 字节分块并可选使用 LZ4 压缩
+// 输出依次包含 Header、BlockAndDirInfo、16 字节对齐填充和数据块，数据块按 0x20000 字节分块并可选使用 LZ4 压缩
 // WriteAba writes file entries as an .aba file using the Unity AssetBundle UnityFS format
-// Output contains Header, BlockAndDirInfo, and data blocks in order; data is split into 0x20000-byte blocks with optional LZ4 compression
+// Output contains Header, BlockAndDirInfo, 16-byte alignment padding, and data blocks in order; data is split into 0x20000-byte blocks with optional LZ4 compression
 func WriteAba(w io.Writer, entries []AbaFileEntry, opts *AbaWriteOptions) error {
 	if w == nil {
 		return fmt.Errorf(".aba writer is nil")
@@ -175,14 +175,21 @@ func WriteAba(w io.Writer, entries []AbaFileEntry, opts *AbaWriteOptions) error 
 	if !ok {
 		return fmt.Errorf(".aba header and metadata size overflow")
 	}
-	totalFileSize, ok = addNonNegativeInt64(totalFileSize, compressedDataSize)
+	// 官方 KCES 文件设置 FlagBlockInfoNeedPaddingAtStart 并把数据块起点对齐到 16 字节，这里保持同样布局
+	// Official KCES files set FlagBlockInfoNeedPaddingAtStart and align the data-block start to 16 bytes, and this writer keeps the same layout
+	dataStart, ok := alignInt64(totalFileSize, 16)
+	if !ok {
+		return fmt.Errorf(".aba data-block start offset overflow")
+	}
+	dataPadding := dataStart - totalFileSize
+	totalFileSize, ok = addNonNegativeInt64(dataStart, compressedDataSize)
 	if !ok {
 		return fmt.Errorf("total .aba file size overflow")
 	}
 
-	// 当前写入布局将 BlockAndDirInfo 放在数据块之前并设置组合目录标志
-	// The emitted layout places BlockAndDirInfo before data blocks and sets the combined-directory flag
-	flags := uint32(FlagHasDirectoryInfo) | uint32(infoCompression)
+	// 当前写入布局将 BlockAndDirInfo 放在数据块之前，并设置组合目录与数据块起始对齐标志
+	// The emitted layout places BlockAndDirInfo before data blocks and sets the combined-directory and data-block alignment flags
+	flags := uint32(FlagHasDirectoryInfo) | uint32(FlagBlockInfoNeedPaddingAtStart) | uint32(infoCompression)
 
 	// 在内存缓冲区中构造 Big-Endian Header
 	// Build the Big-Endian Header in a memory buffer
@@ -244,13 +251,19 @@ func WriteAba(w io.Writer, entries []AbaFileEntry, opts *AbaWriteOptions) error 
 		}
 	}
 
-	// 最后顺序输出 Header、BlockAndDirInfo 和第二遍编码的数据块
-	// Finally output Header, BlockAndDirInfo, and the second-pass encoded data blocks in order
+	// 最后顺序输出 Header、BlockAndDirInfo、数据块起始对齐填充和第二遍编码的数据块
+	// Finally output Header, BlockAndDirInfo, data-block start alignment padding, and the second-pass encoded data blocks in order
 	if err := writeAbaBytes(w, buf.Bytes()); err != nil {
 		return fmt.Errorf("write UnityFS header: %w", err)
 	}
 	if err := writeAbaBytes(w, blockAndDirCompressed); err != nil {
 		return fmt.Errorf("write block and dir info: %w", err)
+	}
+	if dataPadding > 0 {
+		var paddingBytes [16]byte
+		if err := writeAbaBytes(w, paddingBytes[:dataPadding]); err != nil {
+			return fmt.Errorf("write data-block start padding: %w", err)
+		}
 	}
 	var blockIndex int64
 	err = forEachAbaDataBlock(entries, func(index int64, block []byte) error {
@@ -304,7 +317,7 @@ func uncompressedAbaBlockInfos(totalDataSize int64) ([]BlockInfo, error) {
 		blocks = append(blocks, BlockInfo{
 			DecompressedSize: uint32(dataSize),
 			CompressedSize:   uint32(dataSize),
-			Flags:            0x40 | uint16(CompressionNone),
+			Flags:            uint16(CompressionNone),
 		})
 		remaining -= dataSize
 	}
@@ -499,7 +512,9 @@ func (w *abaExactWriter) Write(data []byte) (int, error) {
 }
 
 // encodeAbaDataBlock 按选项尝试 LZ4 压缩一个数据块，并在无收益时保留原始字节
+// 块 Flags 只保存压缩类型，官方 KCES 文件的数据块不设置额外标志位
 // encodeAbaDataBlock attempts LZ4 compression for one data block and retains raw bytes when compression has no benefit
+// Block Flags store only the compression type because official KCES data blocks set no extra flag bits
 func encodeAbaDataBlock(block []byte, compress bool) (BlockInfo, []byte, error) {
 	if len(block) > maxAbaBlockSize || uint64(len(block)) > uint64(^uint32(0)) {
 		return BlockInfo{}, nil, fmt.Errorf("data block is too large: %d bytes", len(block))
@@ -507,7 +522,7 @@ func encodeAbaDataBlock(block []byte, compress bool) (BlockInfo, []byte, error) 
 	rawInfo := BlockInfo{
 		DecompressedSize: uint32(len(block)),
 		CompressedSize:   uint32(len(block)),
-		Flags:            0x40,
+		Flags:            uint16(CompressionNone),
 	}
 	if !compress || len(block) == 0 {
 		return rawInfo, block, nil
@@ -524,7 +539,7 @@ func encodeAbaDataBlock(block []byte, compress bool) (BlockInfo, []byte, error) 
 	return BlockInfo{
 		DecompressedSize: uint32(len(block)),
 		CompressedSize:   uint32(n),
-		Flags:            0x40 | uint16(CompressionLZ4),
+		Flags:            uint16(CompressionLZ4),
 	}, dst[:n], nil
 }
 

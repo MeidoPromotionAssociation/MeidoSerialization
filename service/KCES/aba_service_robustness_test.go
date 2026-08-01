@@ -3,6 +3,7 @@ package KCES
 import (
 	"bytes"
 	"encoding/binary"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,31 @@ import (
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
 )
+
+// minimalAbaServiceTypeTree builds the smallest valid TypeTree so fixtures can
+// carry deliberately malformed payloads through the tree-requiring writer.
+func minimalAbaServiceTypeTree(classID int32) aba.TypeTreeType {
+	return aba.TypeTreeType{
+		TypeId:          classID,
+		ScriptTypeIndex: -1,
+		StringBuffer:    []byte("Base\x00"),
+		Nodes:           []aba.TypeTreeNode{{Version: 1, ByteSize: -1}},
+	}
+}
+
+// addMalformedAbaServiceObject queues an arbitrary payload for a class through the
+// native-object entry point, bypassing the payload encoding used by real assets.
+func addMalformedAbaServiceObject(w *aba.SerializedFileWriter, classID int32, name string, payload []byte) {
+	data := append([]byte(nil), payload...)
+	w.AddNativeUnityObjectSourceWithLoadNameAndPathID(classID, minimalAbaServiceTypeTree(classID), name, name, aba.SerializedObjectDataSource{
+		Size:   uint32(len(data)),
+		Prefix: data,
+		WriteTo: func(out io.Writer) error {
+			_, err := out.Write(data)
+			return err
+		},
+	}, 0)
+}
 
 func buildAbaServiceSerializedFile(t *testing.T, add func(*aba.SerializedFileWriter)) []byte {
 	t.Helper()
@@ -131,7 +157,7 @@ func TestAbaServiceListAbaReturnsAbaDataError(t *testing.T) {
 
 func TestAbaServiceUnpackRejectsMalformedTextAsset(t *testing.T) {
 	serialized := buildAbaServiceSerializedFile(t, func(w *aba.SerializedFileWriter) {
-		w.AddRawObject(aba.ClassIDTextAsset, "broken.txt", []byte{1, 2, 3})
+		addMalformedAbaServiceObject(w, aba.ClassIDTextAsset, "broken.txt", []byte{1, 2, 3})
 	})
 	path := writeAbaServiceFile(t, []aba.AbaFileEntry{{
 		Name: "CAB-broken-text", Data: serialized, IsSerialized: true,
@@ -151,7 +177,7 @@ func TestAbaServiceUnpackRejectsMalformedAssetBundleContainer(t *testing.T) {
 		// SerializedFileWriter will append its valid structural AssetBundle too;
 		// this deliberately malformed earlier one verifies that map failures are
 		// not discarded.
-		w.AddRawObject(aba.ClassIDAssetBundle, "broken-container", []byte{1, 2, 3})
+		addMalformedAbaServiceObject(w, aba.ClassIDAssetBundle, "broken-container", []byte{1, 2, 3})
 	})
 	path := writeAbaServiceFile(t, []aba.AbaFileEntry{{
 		Name: "CAB-broken-container", Data: serialized, IsSerialized: true,
@@ -195,10 +221,11 @@ func TestAbaServiceUnpackPreservesEmptyTextAsset(t *testing.T) {
 }
 
 func TestAbaServiceUnpackRejectsTextureWithoutTypeTree(t *testing.T) {
+	// The writer can no longer produce files without type trees, so a minimal v22
+	// SerializedFile with a treeless Texture2D type is written by hand the way a
+	// third-party tool might emit it.
 	rawTexture := []byte{3, 0, 0, 0, 'b', 'a', 'd', 0}
-	serialized := buildAbaServiceSerializedFile(t, func(w *aba.SerializedFileWriter) {
-		w.AddRawObject(aba.ClassIDTexture2D, "bad", rawTexture)
-	})
+	serialized := writeTypeTreelessTexture2DSerializedFile(t, rawTexture)
 	path := writeAbaServiceFile(t, []aba.AbaFileEntry{{
 		Name: "CAB-bad-preview", Data: serialized, IsSerialized: true,
 	}})
@@ -238,4 +265,69 @@ func TestAbaServiceUnpackDisambiguatesCollidingRequiredAssetPaths(t *testing.T) 
 			t.Fatalf("disambiguated asset %q = %q, want %q", name, got, want)
 		}
 	}
+}
+
+// writeTypeTreelessTexture2DSerializedFile hand-writes a minimal v22 SerializedFile
+// containing one Texture2D object whose serialized type carries no TypeTree.
+func writeTypeTreelessTexture2DSerializedFile(t *testing.T, payload []byte) []byte {
+	t.Helper()
+	var metadata bytes.Buffer
+	metadata.WriteString(defaultKCESUnityVersion)
+	metadata.WriteByte(0)
+	mustWriteLittle := func(value interface{}) {
+		t.Helper()
+		if err := binary.Write(&metadata, binary.LittleEndian, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mustWriteLittle(uint32(5)) // TargetPlatform: Windows Standalone
+	metadata.WriteByte(0)      // TypeTreeEnabled = false
+	mustWriteLittle(int32(1))  // type count
+	mustWriteLittle(aba.ClassIDTexture2D)
+	metadata.WriteByte(0)            // IsStrippedType
+	mustWriteLittle(int16(-1))       // ScriptTypeIndex
+	metadata.Write(make([]byte, 16)) // TypeHash
+	mustWriteLittle(int32(1))        // object count
+	for metadata.Len()%4 != 0 {
+		metadata.WriteByte(0)
+	}
+	mustWriteLittle(int64(1))             // PathID
+	mustWriteLittle(int64(0))             // ByteOffset
+	mustWriteLittle(uint32(len(payload))) // ByteSize
+	mustWriteLittle(int32(0))             // TypeIndex
+	mustWriteLittle(int32(0))             // ScriptTypes
+	mustWriteLittle(int32(0))             // ExternalFiles
+	mustWriteLittle(uint32(0))            // RefTypes
+	metadata.WriteByte(0)                 // UserInformation
+
+	const headerSize = 48
+	dataOffset := int64(headerSize + metadata.Len())
+	for dataOffset%16 != 0 {
+		dataOffset++
+	}
+	fileSize := dataOffset + int64(len(payload))
+
+	var file bytes.Buffer
+	mustWriteBig := func(value interface{}) {
+		t.Helper()
+		if err := binary.Write(&file, binary.BigEndian, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mustWriteBig(uint32(0))  // legacy MetadataSize
+	mustWriteBig(uint32(0))  // legacy FileSize
+	mustWriteBig(uint32(22)) // Version
+	mustWriteBig(uint32(0))  // legacy DataOffset
+	file.WriteByte(0)        // Endianness = Little
+	file.Write(make([]byte, 3))
+	mustWriteBig(uint32(metadata.Len()))
+	mustWriteBig(fileSize)
+	mustWriteBig(dataOffset)
+	mustWriteBig(int64(0))
+	file.Write(metadata.Bytes())
+	for int64(file.Len()) < dataOffset {
+		file.WriteByte(0)
+	}
+	file.Write(payload)
+	return file.Bytes()
 }
