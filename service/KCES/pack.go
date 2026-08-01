@@ -24,7 +24,11 @@ func (s *PackService) PackToAbaAndCt(dirPath string, outputBaseName string) erro
 // packToAbaAndCt scans a plain resource directory and lets in-package tests choose whether ABA data blocks are compressed
 func (s *PackService) packToAbaAndCt(dirPath string, outputBaseName string, compressAba bool) error {
 	if outputBaseName == "" {
+		// 默认输出名剥掉 unpackAba 输出目录的 .aba_unpacked 后缀，因为游戏只从名为 <包名>.menuassets 的文件读取部件定义，包名带解包后缀会使 MOD 在游戏内不显示
+		// The default output name strips the .aba_unpacked suffix of unpackAba output directories, because the game reads parts definitions only from a file named <bundle name>.menuassets and a bundle name carrying the unpack suffix makes the MOD invisible in game
 		outputBaseName = filepath.Base(dirPath)
+		outputBaseName = strings.TrimSuffix(outputBaseName, "_unpacked")
+		outputBaseName = strings.TrimSuffix(outputBaseName, ".aba")
 	}
 
 	manifest := ModManifest{
@@ -81,9 +85,35 @@ func (s *PackService) packToAbaAndCt(dirPath string, outputBaseName string, comp
 	if len(manifest.Assets) == 0 {
 		return fmt.Errorf("no resource files found in directory")
 	}
+	if warning := menuAssetsNameMismatchWarning(manifest); warning != "" {
+		fmt.Fprintln(os.Stderr, "warning: "+warning)
+	}
 	return packModManifestWithOptions(manifest, dirPath, filepath.Dir(dirPath), modPackOptions{
 		CompressAba: compressAba,
 	})
+}
+
+// menuAssetsNameMismatchWarning 在包内存在部件定义但游戏无法识别时返回提示文本
+// 游戏 BasePartsManager 仅从名为 <包名>.menuassets 的文件读取部件列表，且要求包名为小写，名称不匹配的 MOD 可以加载但不会在游戏内显示
+// menuAssetsNameMismatchWarning returns a hint when the package carries parts definitions the game cannot recognize
+// The game's BasePartsManager reads the parts list only from a file named <bundle name>.menuassets and requires a lowercase bundle name, so a mismatched MOD loads but never shows up in game
+func menuAssetsNameMismatchWarning(manifest ModManifest) string {
+	expected := manifest.Name + ".menuassets"
+	hasMenuAssets := false
+	for _, asset := range manifest.Assets {
+		name := strings.ToLower(asset.Name)
+		if !strings.HasSuffix(name, ".menuassets") {
+			continue
+		}
+		hasMenuAssets = true
+		if name == expected {
+			return ""
+		}
+	}
+	if !hasMenuAssets {
+		return ""
+	}
+	return fmt.Sprintf("\n\nno %q found in the aba; the game reads parts definitions only from a lowercase file named exactly <aba name>.menuassets(There should be an xxx.menuassets in xxx.aba), so this MOD will not appear in game (rename the output with -o or rename the .menuassets file)\n\n在 aba 文件中未找到 %q；游戏仅从名为 <aba 名称>.menuassets 的小写文件名中读取部件定义（xxx.aba 中应该有一个 xxx.menuassets 文件），因此该 MOD 将不会出现在游戏中（请使用 -o 重命名输出文件或重命名 .menuassets 文件）\n", expected, expected)
 }
 
 // unityRawKindForClassID 将 Unity ClassID 映射回原始对象 kind，供按文件头识别独立 Unity 对象文件使用

@@ -199,3 +199,66 @@ func readPackedAbaForTest(t *testing.T, path string) (*aba.Aba, *aba.AssetsFile)
 	}
 	return bundle, af
 }
+
+func TestPackDefaultOutputNameStripsUnpackSuffix(t *testing.T) {
+	tmpDir := t.TempDir()
+	contentDir := filepath.Join(tmpDir, "mymod.aba_unpacked")
+	if err := os.MkdirAll(contentDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(contentDir, "mymod.menuassets"), []byte("menu"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := (&PackService{}).PackToAbaAndCt(contentDir, ""); err != nil {
+		t.Fatalf("PackToAbaAndCt: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmpDir, "mymod.aba")); err != nil {
+		t.Fatalf("default output name did not strip the .aba_unpacked suffix: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmpDir, "mymod.ct")); err != nil {
+		t.Fatalf("ct output missing: %v", err)
+	}
+}
+
+func TestMenuAssetsNameMismatchWarning(t *testing.T) {
+	tests := []struct {
+		name     string
+		manifest ModManifest
+		warn     bool
+	}{
+		{
+			name: "matching",
+			manifest: ModManifest{Name: "mymod", Assets: []ModAsset{
+				{Name: "mymod.menuassets"}, {Name: "body.tex"},
+			}},
+		},
+		{
+			name: "mismatched",
+			manifest: ModManifest{Name: "mymod.aba_unpacked", Assets: []ModAsset{
+				{Name: "mymod.menuassets"},
+			}},
+			warn: true,
+		},
+		{
+			name: "uppercase bundle name",
+			manifest: ModManifest{Name: "MyMod", Assets: []ModAsset{
+				{Name: "MyMod.menuassets"},
+			}},
+			warn: true,
+		},
+		{
+			name: "no menuassets",
+			manifest: ModManifest{Name: "whatever", Assets: []ModAsset{
+				{Name: "body.tex"},
+			}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			warning := menuAssetsNameMismatchWarning(tt.manifest)
+			if (warning != "") != tt.warn {
+				t.Fatalf("warning = %q, want warn=%v", warning, tt.warn)
+			}
+		})
+	}
+}
