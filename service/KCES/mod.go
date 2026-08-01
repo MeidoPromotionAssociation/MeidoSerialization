@@ -117,6 +117,7 @@ func packModManifestWithOptions(manifest ModManifest, baseDir string, outputDir 
 	// All objects share one SerializedFile, so raw Unity objects must use the same version context
 	sfWriter := aba.NewSerializedFileWriter(versionSettings.UnityVersion)
 	sfWriter.TargetPlatform = versionSettings.TargetPlatform
+	sfWriter.AssetBundleName = manifest.Name + ".aba"
 	sfWriter.SetExternalFiles(canonicalKCESExternalFiles())
 
 	// catalogEntry 已提升为包级类型供打包和 genCt 共用 / catalogEntry is now a package-level type shared by packing and genCt

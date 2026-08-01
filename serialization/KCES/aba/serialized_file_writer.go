@@ -14,13 +14,14 @@ import (
 
 // SerializedFileWriter 生成包含 TextAsset、Texture2D、原始对象和 AssetBundle 容器的 Unity SerializedFile v22 / SerializedFileWriter generates Unity SerializedFile v22 data containing TextAsset, Texture2D, raw objects, and an AssetBundle container
 type SerializedFileWriter struct {
-	UnityVersion   string             // Unity 版本字符串，默认固定为 2022.3.35f1 / Unity version string, fixed to 2022.3.35f1 by default
-	TargetPlatform uint32             // 目标平台 ID，5 表示 Windows Standalone / Target platform ID, with 5 meaning Windows Standalone
-	objects        []sfObject         // 待写入的对象列表 / Object list to write
-	nextPathId     int64              // 下一次自动分配的 PathID / Next automatically allocated PathID
-	usedPathIds    map[int64]struct{} // 已占用的 PathID 集合 / Set of already used PathIDs
-	externalFiles  []ExternalFile     // metadata 中按 fileID 顺序写入的外部文件 / External files written to metadata in fileID order
-	err            error              // 延迟到 Write 返回的构建错误 / Build error deferred until Write
+	UnityVersion    string             // Unity 版本字符串，默认固定为 2022.3.35f1 / Unity version string, fixed to 2022.3.35f1 by default
+	TargetPlatform  uint32             // 目标平台 ID，19 表示 Windows Standalone 64 位 / Target platform ID, with 19 meaning 64-bit Windows Standalone
+	AssetBundleName string             // 写入容器对象 m_AssetBundleName 的包名，官方文件形如 name.aba / Bundle name written to the container's m_AssetBundleName, shaped like name.aba in official files
+	objects         []sfObject         // 待写入的对象列表 / Object list to write
+	nextPathId      int64              // 下一次自动分配的 PathID / Next automatically allocated PathID
+	usedPathIds     map[int64]struct{} // 已占用的 PathID 集合 / Set of already used PathIDs
+	externalFiles   []ExternalFile     // metadata 中按 fileID 顺序写入的外部文件 / External files written to metadata in fileID order
+	err             error              // 延迟到 Write 返回的构建错误 / Build error deferred until Write
 }
 
 // SerializedObjectWriteFunc 将一个对象的完整序列化字节写入目标
@@ -60,9 +61,12 @@ type sfSerializedType struct {
 
 const (
 	sfVersion uint32 = 22
-	// defaultPlatform 是 Windows Standalone 的 TargetPlatform 值
-	// defaultPlatform is the TargetPlatform value for Windows Standalone
-	defaultPlatform uint32 = 5
+	// defaultPlatform 是官方 KCES 文件统一使用的 Windows Standalone 64 位 TargetPlatform 值
+	// defaultPlatform is the 64-bit Windows Standalone TargetPlatform value used uniformly by official KCES files
+	defaultPlatform uint32 = 19
+	// containerPathID 是 Unity 运行时定位 AssetBundle 容器对象的固定 PathID，官方文件恒为 1，其他 PathID 会使 Unity 报 not compatible with this newer version of the Unity runtime
+	// containerPathID is the fixed PathID the Unity runtime uses to locate the AssetBundle container object; official files always use 1, and any other PathID makes Unity report not compatible with this newer version of the Unity runtime
+	containerPathID int64 = 1
 )
 
 // NewSerializedFileWriter 创建一个新的 SerializedFile v22 写入器并验证 Unity 版本
@@ -75,7 +79,7 @@ func NewSerializedFileWriter(unityVersion string) *SerializedFileWriter {
 		UnityVersion:   unityVersion,
 		TargetPlatform: defaultPlatform,
 		nextPathId:     1,
-		usedPathIds:    map[int64]struct{}{},
+		usedPathIds:    map[int64]struct{}{containerPathID: {}},
 	}
 	if err := validateSerializedFileUnityVersion(unityVersion); err != nil {
 		w.setError(err)
@@ -429,29 +433,14 @@ func (w *SerializedFileWriter) reserveOrAllocatePathID(pathID int64) int64 {
 	return pathID
 }
 
-// nextAvailablePathID 查找不与已占用集合冲突的下一个 PathID
-// nextAvailablePathID finds the next PathID that does not conflict with the used set
-func (w *SerializedFileWriter) nextAvailablePathID() int64 {
-	w.ensurePathIDState()
-	pathID := w.nextPathId
-	for pathID == 0 || w.isPathIDUsed(pathID) {
-		if pathID == math.MaxInt64 {
-			pathID = math.MinInt64
-		} else {
-			pathID++
-		}
-	}
-	return pathID
-}
-
-// ensurePathIDState 初始化 PathID 游标和已占用集合
-// ensurePathIDState initializes the PathID cursor and used set
+// ensurePathIDState 初始化 PathID 游标和已占用集合，并把容器 PathID 保留给自动追加的 AssetBundle 对象，并把容器 PathID 保留给自动追加的 AssetBundle 对象
+// ensurePathIDState initializes the PathID cursor and used set while reserving the container PathID for the auto-appended AssetBundle object
 func (w *SerializedFileWriter) ensurePathIDState() {
 	if w.nextPathId == 0 {
 		w.nextPathId = 1
 	}
 	if w.usedPathIds == nil {
-		w.usedPathIds = map[int64]struct{}{}
+		w.usedPathIds = map[int64]struct{}{containerPathID: {}}
 		for _, obj := range w.objects {
 			w.usedPathIds[obj.pathId] = struct{}{}
 		}
@@ -532,13 +521,14 @@ func (w *SerializedFileWriter) Size() (int64, error) {
 	allObjects := make([]sfObject, 0, len(w.objects)+1)
 	allObjects = append(allObjects, w.objects...)
 	allObjects = append(allObjects, sfObject{
-		pathId:   w.nextAvailablePathID(),
+		pathId:   containerPathID,
 		classId:  ClassIDAssetBundle,
 		name:     "CAB-generated",
 		data:     containerData,
 		dataSize: containerDataSize,
 		typeTree: &containerTree,
 	})
+	sortSerializedObjectsByPathID(allObjects)
 	serializedTypes, scriptTypes, err := collectSerializedTypes(allObjects)
 	if err != nil {
 		return 0, err
@@ -589,8 +579,8 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 		}
 	}
 
-	// 追加一个保存 m_Container 加载映射的 AssetBundle 对象
-	// Append an AssetBundle object containing the m_Container load mapping
+	// 追加保存 m_Container 加载映射的 AssetBundle 对象，Unity 运行时固定从 PathID 1 读取它
+	// Append the AssetBundle object holding the m_Container load mapping; the Unity runtime always reads it at PathID 1
 	containerData, err := w.encodeAssetBundleObject()
 	if err != nil {
 		return fmt.Errorf("encode AssetBundle object: %w", err)
@@ -599,18 +589,18 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	abPathId := w.nextAvailablePathID()
 	containerTree := unity2022AssetBundleTypeTree()
 	allObjects := make([]sfObject, 0, len(w.objects)+1)
 	allObjects = append(allObjects, w.objects...)
 	allObjects = append(allObjects, sfObject{
-		pathId:   abPathId,
+		pathId:   containerPathID,
 		classId:  ClassIDAssetBundle,
 		name:     "CAB-generated",
 		data:     containerData,
 		dataSize: containerDataSize,
 		typeTree: &containerTree,
 	})
+	sortSerializedObjectsByPathID(allObjects)
 
 	// 按首次出现顺序收集 SerializedType，并为不同 MonoScript 目标创建独立的 MonoBehaviour 类型
 	// Collect SerializedTypes in first-seen order and create a distinct MonoBehaviour type for each MonoScript target
@@ -718,6 +708,21 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 		return fmt.Errorf("write data: %w", err)
 	}
 	return nil
+}
+
+// sortSerializedObjectsByPathID 将对象表按 PathID 有符号升序排列，官方文件保持此顺序且 Unity 运行时按有序表二分定位对象，乱序会使 PathID 1 的容器无法被找到
+// sortSerializedObjectsByPathID sorts the object table by signed ascending PathID; official files keep this order and the Unity runtime locates objects by binary search over the sorted table, so an unsorted table makes the container at PathID 1 unreachable
+func sortSerializedObjectsByPathID(objects []sfObject) {
+	slices.SortFunc(objects, func(left sfObject, right sfObject) int {
+		switch {
+		case left.pathId < right.pathId:
+			return -1
+		case left.pathId > right.pathId:
+			return 1
+		default:
+			return 0
+		}
+	})
 }
 
 // buildMetadata 构建对象偏移暂为零的 metadata，用于计算布局
@@ -935,10 +940,18 @@ func (w *SerializedFileWriter) encodeAssetBundleObject() ([]byte, error) {
 		return nil, fmt.Errorf("write AssetBundle m_Name: %w", err)
 	}
 
-	// m_PreloadTable 写为空数组
-	// m_PreloadTable is an empty array
-	if err := bw.WriteUInt32(0); err != nil {
+	// m_PreloadTable 为每个容器条目保存一条指向自身对象的 PPtr，与官方文件的每条目单对象预加载布局一致
+	// m_PreloadTable stores one self-referencing PPtr per container entry, matching the one-object-per-entry preload layout of official files
+	if err := bw.WriteInt32(containerCount); err != nil {
 		return nil, fmt.Errorf("write AssetBundle m_PreloadTable size: %w", err)
+	}
+	for _, obj := range w.objects {
+		if err := bw.WriteUInt32(0); err != nil { // PPtr fileIndex (0 = this file)
+			return nil, fmt.Errorf("write AssetBundle m_PreloadTable fileIndex: %w", err)
+		}
+		if err := bw.WriteInt64(obj.pathId); err != nil { // PPtr pathId
+			return nil, fmt.Errorf("write AssetBundle m_PreloadTable pathId: %w", err)
+		}
 	}
 
 	// m_Container 将加载名映射到对象 PPtr
@@ -946,7 +959,7 @@ func (w *SerializedFileWriter) encodeAssetBundleObject() ([]byte, error) {
 	if err := bw.WriteInt32(containerCount); err != nil {
 		return nil, fmt.Errorf("write AssetBundle m_Container size: %w", err)
 	}
-	for _, obj := range w.objects {
+	for objectIndex, obj := range w.objects {
 		// map 键是对齐加载名字符串
 		// The map key is an aligned load-name string
 		loadName := nonEmptyLoadName(obj.loadName, obj.name)
@@ -954,12 +967,12 @@ func (w *SerializedFileWriter) encodeAssetBundleObject() ([]byte, error) {
 			return nil, fmt.Errorf("write AssetBundle m_Container key %q: %w", loadName, err)
 		}
 		// value: AssetInfo { preloadIndex, preloadSize, asset PPtr }
-		// map 值依次保存零 preloadIndex、零 preloadSize、当前文件 fileIndex 和对象 pathID
-		// The map value stores zero preloadIndex, zero preloadSize, current-file fileIndex, and object pathID in order
-		if err := bw.WriteUInt32(0); err != nil { // preloadIndex
+		// map 值依次保存指向条目自身预加载段的 preloadIndex、单对象 preloadSize、当前文件 fileIndex 和对象 pathID
+		// The map value stores the preloadIndex of the entry's own preload segment, a one-object preloadSize, the current-file fileIndex, and the object pathID in order
+		if err := bw.WriteInt32(int32(objectIndex)); err != nil { // preloadIndex
 			return nil, fmt.Errorf("write AssetBundle m_Container[%q].preloadIndex: %w", loadName, err)
 		}
-		if err := bw.WriteUInt32(0); err != nil { // preloadSize
+		if err := bw.WriteInt32(1); err != nil { // preloadSize
 			return nil, fmt.Errorf("write AssetBundle m_Container[%q].preloadSize: %w", loadName, err)
 		}
 		if err := bw.WriteUInt32(0); err != nil { // PPtr fileIndex (0 = this file)
@@ -985,15 +998,15 @@ func (w *SerializedFileWriter) encodeAssetBundleObject() ([]byte, error) {
 		return nil, fmt.Errorf("write AssetBundle m_MainAsset path id: %w", err)
 	}
 
-	// m_RuntimeCompatibility 写零
-	// m_RuntimeCompatibility is zero
-	if err := bw.WriteUInt32(0); err != nil {
+	// m_RuntimeCompatibility 必须写官方运行时兼容值 1，写零会使 Unity 报 not compatible with this newer version of the Unity runtime 并拒绝加载
+	// m_RuntimeCompatibility must be the official runtime-compatibility value 1; zero makes Unity refuse the bundle with not compatible with this newer version of the Unity runtime
+	if err := bw.WriteUInt32(1); err != nil {
 		return nil, fmt.Errorf("write AssetBundle m_RuntimeCompatibility: %w", err)
 	}
 
-	// m_AssetBundleName 写为空字符串
-	// m_AssetBundleName is an empty string
-	if err := bw.WriteAlignedString(""); err != nil {
+	// m_AssetBundleName 写包名，官方文件形如 name.aba
+	// m_AssetBundleName is the bundle name, shaped like name.aba in official files
+	if err := bw.WriteAlignedString(w.AssetBundleName); err != nil {
 		return nil, fmt.Errorf("write AssetBundle m_AssetBundleName: %w", err)
 	}
 
@@ -1019,7 +1032,9 @@ func (w *SerializedFileWriter) encodeAssetBundleObject() ([]byte, error) {
 	if err := bw.WriteInt32(0); err != nil { // m_ExplicitDataLayout
 		return nil, fmt.Errorf("write AssetBundle m_ExplicitDataLayout: %w", err)
 	}
-	if err := bw.WriteInt32(0); err != nil { // m_PathFlags
+	// m_PathFlags 写官方文件统一使用的 7
+	// m_PathFlags is 7, used uniformly by official files
+	if err := bw.WriteInt32(7); err != nil { // m_PathFlags
 		return nil, fmt.Errorf("write AssetBundle m_PathFlags: %w", err)
 	}
 	if err := bw.WriteUInt32(0); err != nil { // m_SceneHashes (empty map)

@@ -112,6 +112,26 @@ func TestSerializedFileWriterAlwaysWritesCompleteTypeTrees(t *testing.T) {
 	}
 }
 
+func TestSerializedFileWriterPlacesContainerAtPathIDOne(t *testing.T) {
+	writer := NewSerializedFileWriter("2022.3.35f")
+	firstID := writer.AddTextAsset("first.menuassets", []byte("payload"))
+	if firstID == 1 {
+		t.Fatalf("user object was allocated the reserved container PathID 1")
+	}
+	var out bytes.Buffer
+	if err := writer.Write(&out); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	af, err := ReadAssetsFile(out.Bytes())
+	if err != nil {
+		t.Fatalf("ReadAssetsFile: %v", err)
+	}
+	info := af.GetAssetInfoByPathID(1)
+	if info == nil || info.TypeId != ClassIDAssetBundle {
+		t.Fatalf("PathID 1 is not the AssetBundle container: %+v; the Unity runtime locates the container at PathID 1", info)
+	}
+}
+
 func TestSerializedFileWriterRejectsObjectsWithoutTypeTree(t *testing.T) {
 	writer := NewSerializedFileWriter("2022.3.35f")
 	writer.AddRawObject(ClassIDTransform, "treeless", []byte{1, 2, 3, 4})
@@ -147,6 +167,7 @@ func TestSerializedFileWriterAlignsEveryObjectToEightBytes(t *testing.T) {
 func TestEncodeAssetBundleObject_MatchesRealKCESTypeTree(t *testing.T) {
 	tt := sampleTypeTree(t, "parts_bcc4_gp003_2.aba", ClassIDAssetBundle)
 	w := NewSerializedFileWriter("2022.3.35f")
+	w.AssetBundleName = "layout_test.aba"
 	pathID := w.AddTextAssetWithLoadName("inside.menuassets", "assets/test/inside.menuassets.bytes", []byte("payload"))
 	data, err := w.encodeAssetBundleObject()
 	if err != nil {
@@ -155,9 +176,10 @@ func TestEncodeAssetBundleObject_MatchesRealKCESTypeTree(t *testing.T) {
 	root := decodeObjectWithTypeTree(t, &tt, data)
 
 	assertTypeTreeString(t, root, "m_Name", "CAB-generated")
-	assertTypeTreeInt(t, root, "m_RuntimeCompatibility", 0)
+	assertTypeTreeString(t, root, "m_AssetBundleName", "layout_test.aba")
+	assertTypeTreeInt(t, root, "m_RuntimeCompatibility", 1)
 	assertTypeTreeInt(t, root, "m_ExplicitDataLayout", 0)
-	assertTypeTreeInt(t, root, "m_PathFlags", 0)
+	assertTypeTreeInt(t, root, "m_PathFlags", 7)
 	mainAsset := root.Field("m_MainAsset")
 	if mainAsset == nil {
 		t.Fatal("m_MainAsset missing")

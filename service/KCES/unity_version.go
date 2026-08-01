@@ -9,8 +9,10 @@ import (
 )
 
 const (
-	defaultKCESUnityVersion               = "2022.3.35f1"
-	defaultKCESTargetPlatform      uint32 = 5
+	defaultKCESUnityVersion = "2022.3.35f1"
+	// defaultKCESTargetPlatform 是官方 KCES 文件统一使用的 Windows Standalone 64 位平台 ID
+	// defaultKCESTargetPlatform is the 64-bit Windows Standalone platform ID used uniformly by official KCES files
+	defaultKCESTargetPlatform      uint32 = 19
 	defaultKCESGenerationVersion          = "5.x.x"
 	supportedSerializedFileVersion uint32 = 22
 	defaultKCESAbaVersion          uint32 = 8

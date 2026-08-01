@@ -107,11 +107,18 @@ func TestSerializedFileWriterPreservesLongAssetNameInEntries(t *testing.T) {
 		t.Fatalf("ReadAssetsFile: %v", err)
 	}
 	entries := af.GetAssetEntries()
-	if len(entries) < 1 {
-		t.Fatal("no asset entries")
+	found := false
+	for _, entry := range entries {
+		if entry.TypeId != ClassIDTextAsset {
+			continue
+		}
+		found = true
+		if entry.Name != name {
+			t.Fatalf("entry name length = %d, want %d", len(entry.Name), len(name))
+		}
 	}
-	if entries[0].Name != name {
-		t.Fatalf("entry name length = %d, want %d", len(entries[0].Name), len(name))
+	if !found {
+		t.Fatal("TextAsset entry not found")
 	}
 }
 

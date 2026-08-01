@@ -280,9 +280,9 @@ func writeTypeTreelessTexture2DSerializedFile(t *testing.T, payload []byte) []by
 			t.Fatal(err)
 		}
 	}
-	mustWriteLittle(uint32(5)) // TargetPlatform: Windows Standalone
-	metadata.WriteByte(0)      // TypeTreeEnabled = false
-	mustWriteLittle(int32(1))  // type count
+	mustWriteLittle(uint32(19)) // TargetPlatform: 64-bit Windows Standalone
+	metadata.WriteByte(0)       // TypeTreeEnabled = false
+	mustWriteLittle(int32(1))   // type count
 	mustWriteLittle(aba.ClassIDTexture2D)
 	metadata.WriteByte(0)            // IsStrippedType
 	mustWriteLittle(int16(-1))       // ScriptTypeIndex

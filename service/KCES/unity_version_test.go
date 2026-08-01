@@ -15,7 +15,7 @@ func TestResolveUnityPackSettingsIsFixed(t *testing.T) {
 	want := unityPackSettings{
 		UnityVersion:          "2022.3.35f1",
 		EngineVersion:         "2022.3.35f1",
-		TargetPlatform:        5,
+		TargetPlatform:        19,
 		AbaVersion:            8,
 		GenerationVersion:     "5.x.x",
 		SerializedFileVersion: 22,
