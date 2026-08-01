@@ -285,6 +285,11 @@ MeidoSerialization.exe convert2texture2d .\aba_files\Texture2D\my_texture.png
 MeidoSerialization.exe packAba .\aba_files -o my_mod
 ```
 
+The game reads parts definitions only from a file named exactly `<aba_name>.menuassets` (lowercase), so the
+output name passed to `-o` must match the `.menuassets` file inside the package, or rename the `menuassets`, and cannot be the same as an existing filename.. When packing an unpack
+directory without `-o`, the default output name strips the `.aba_unpacked` suffix so the original name is kept,
+and `packAba` prints a warning when the names do not match.
+
 `packAba` and `genCt` write default catalog metadata (`catalogType` Parts, `packageType` Plugin, priority 0).
 To customize the metadata, edit the generated `.ct` through its JSON envelope:
 
@@ -563,6 +568,573 @@ MeidoSerialization.exe version
 MeidoSerialization.exe completion powershell
 MeidoSerialization.exe <command> --help
 ```
+
+---
+
+# 简体中文
+
+# MeidoSerialization 命令行工具
+
+MeidoSerialization CLI 把仓库中的 COM3D2/CM3D2 与 KCES 序列化功能做成了普通文件命令，同时提供版本化的 protobuf/gRPC 服务和
+MCP stdio 服务。既可以处理单个文件，也可以递归处理整个目录。完整的格式清单请查看[主 README](../README.md#支持的格式)。
+
+转换得到的 JSON 可能是紧凑格式，也可能带有缩进，这取决于原格式。空白不属于编辑协议，可以放心使用 JSON
+格式化工具改善可读性。对于编辑器已经支持的格式，也可以使用
+[COM3D2 MOD EDITOR V2](https://github.com/MeidoPromotionAssociation/COM3D2_MOD_EDITOR)
+打开本工具生成的文件。
+
+## 下载和运行前准备
+
+- 普通用户可以从 [GitHub Releases](https://github.com/MeidoPromotionAssociation/MeidoSerialization/releases) 下载预编译的
+  Windows 可执行文件
+- 从源码构建需要 Go 1.26.5 或更高版本，与 `go.mod` 保持一致
+- COM3D2 TEX 与普通图片互转需要 ImageMagick 7 或更高版本，并确保 `magick` 命令已加入 `PATH`
+
+以下示例均使用 PowerShell。示例假设 `MeidoSerialization.exe` 位于当前目录，因此使用 `.\`
+前缀；如果已经把它加入 `PATH`，也可以省略该前缀。路径中有空格时，请用双引号包住完整路径。
+
+## 从这里开始
+
+### 最常用的转换
+
+不知道该用哪个命令时，可以先看这四条：
+
+~~~powershell
+# 原生游戏文件 -> 同目录下的编辑 JSON
+.\MeidoSerialization.exe convert2json .\example.menu
+# 输出：.\example.menu.json
+
+# 编辑 JSON -> 同目录下的原生游戏文件
+.\MeidoSerialization.exe convert2mod .\example.menu.json
+# 输出：.\example.menu
+
+# 让工具根据输入自动选择转换方向
+.\MeidoSerialization.exe convert .\example.menu
+.\MeidoSerialization.exe convert .\example.menu.json
+
+# 不确定文件类型时，先按内容识别
+.\MeidoSerialization.exe determine --strict .\unknown_file
+~~~
+
+转换命令通常把结果写到输入文件旁边，并可能覆盖同名的既有输出文件。编辑重要游戏数据前，建议先备份。下面是一个可以直接照着操作的完整流程：
+
+~~~powershell
+# 1. 备份原文件
+Copy-Item .\body.menu .\body.menu.bak
+
+# 2. 确认工具识别到的格式
+.\MeidoSerialization.exe determine --strict .\body.menu
+
+# 3. 转成可编辑 JSON
+.\MeidoSerialization.exe convert2json .\body.menu
+
+# 4. 使用熟悉的编辑器修改 body.menu.json
+notepad .\body.menu.json
+
+# 5. 转回原生文件；默认会写回 body.menu
+.\MeidoSerialization.exe convert2mod .\body.menu.json
+~~~
+
+常见默认输出名如下：
+
+| 输入示例                | 命令            | 默认输出                                                 |
+|-------------------------|-----------------|----------------------------------------------------------|
+| `example.menu`          | `convert2json`  | `example.menu.json`                                      |
+| `example.menu.json`     | `convert2mod`   | `example.menu`                                           |
+| `texture.tex`           | `convert2image` | `texture.png`                                            |
+| `image.png`             | `convert2tex`   | `image.tex`                                              |
+| `Texture2D\my_tex.png`  | `convert2texture2d` | 原生 KCES `my_tex.tex`                               |
+| `body.mmesh`            | `convert2gltf`  | `body.glb`                                               |
+| `voice.audioclip`       | `convert2audio` | 根据数据签名输出 `voice.ogg`、`.wav` 或 `.fsb`           |
+| `table.nei`             | `convert2csv`   | `table.csv`                                              |
+| `table.csv`             | `convert2nei`   | `table.nei`                                              |
+| `example.arc`           | `unpackArc`     | `example.arc_unpacked\`                                  |
+| `example.ct`            | `convert`       | `example.ct.json`                                        |
+| `example.aba`           | `unpackAba`     | `example.aba_unpacked\`                                  |
+| `example.aba`           | `genCt`         | `example.ct`                                             |
+
+### 批量转换目录
+
+把目录而不是单个文件传给命令，就会递归处理其中匹配的文件：
+
+~~~powershell
+# 把目录下所有支持编辑的原生格式转成 JSON
+.\MeidoSerialization.exe convert2json .\mods
+
+# 只转换原生 KCES .dbconf 文件
+.\MeidoSerialization.exe convert2json --type dbconf .\mods
+
+# 只把 .menu 编辑 JSON 转回原生文件
+.\MeidoSerialization.exe convert2mod --type menu.json .\editing
+
+# 按文件内容严格识别目录中的所有已知文件
+.\MeidoSerialization.exe determine --strict .\mods
+~~~
+
+大多数专用目录命令会并发处理文件。遇到一个坏文件时，它会打印错误并继续处理其余文件，所以批量任务结束后要检查完整的控制台输出。泛用
+`convert` 命令按顺序处理目录，适合混合输入，但通常比专用命令慢。
+
+## 文件转换命令
+
+### 原生格式与编辑 JSON
+
+| 命令                        | 用途                                                       |
+|-----------------------------|------------------------------------------------------------|
+| `convert2json <文件或目录>` | 把支持的 COM3D2/KCES 原生数据转换为相邻的编辑 JSON         |
+| `convert2mod <文件或目录>`  | 去掉末尾的 `.json`，把编辑 JSON 编码回原生格式             |
+| `convert <文件或目录>`      | 自动选择原生 ↔ JSON、TEX ↔ 图片、NEI ↔ CSV，或解包单个 ARC |
+| `determine <文件或目录>`    | 报告游戏、文件类型、表示形式、签名、版本和大小             |
+
+示例：
+
+~~~powershell
+# COM3D2
+.\MeidoSerialization.exe convert2json .\body.menu
+.\MeidoSerialization.exe convert2json .\body.mate
+.\MeidoSerialization.exe convert2mod .\body.mate.json
+
+# KCES 部件、物理与碰撞数据
+.\MeidoSerialization.exe convert2json .\parts\hair.menuassets
+.\MeidoSerialization.exe convert2json .\physics\default_hairf.dbconf
+.\MeidoSerialization.exe convert2mod .\physics\default_hairf.dbconf.json
+
+# KCES 容器与状态文件
+.\MeidoSerialization.exe convert2json .\character.perset
+.\MeidoSerialization.exe convert2json .\system.dat
+.\MeidoSerialization.exe convert2json .\catalog.ct
+
+# 独立的 Unity 原生对象；JSON envelope 会保留文件内嵌的 TypeTree 信息
+.\MeidoSerialization.exe convert2json .\Texture2D\body.tex
+.\MeidoSerialization.exe convert2mod .\Texture2D\body.tex.json
+~~~
+
+`convert2json` 不负责 `.tex`，请使用 `convert2image`；也不会解包 `.aba`，请使用
+`unpackAba`。泛用 `convert` 可以解包单个 `.arc`，但处理目录中的 ARC 时应使用
+`unpackArc`。
+
+### 图片与 COM3D2 TEX
+
+~~~powershell
+# COM3D2 TEX -> PNG（默认）
+.\MeidoSerialization.exe convert2image .\texture.tex
+
+# COM3D2 TEX -> ImageMagick 支持的其他图片格式
+.\MeidoSerialization.exe convert2image .\texture.tex --format webp
+
+# KCES 原生 Texture2D -> PNG 或 DDS
+.\MeidoSerialization.exe convert2image .\Texture2D\body.tex --format png
+.\MeidoSerialization.exe convert2image .\Texture2D\body.tex --format dds
+
+# KCES 原生 Sprite 目前只输出 PNG
+.\MeidoSerialization.exe convert2image .\Sprite\icon.sprite --format png
+
+# 图片 -> COM3D2 TEX；默认保留 PNG 数据
+.\MeidoSerialization.exe convert2tex .\texture.png
+
+# 图片 -> 使用 DXT 压缩的 TEX；--compress 会自动关闭强制 PNG
+.\MeidoSerialization.exe convert2tex .\texture.png --compress
+
+# PNG 或 JPEG -> 原生 KCES Texture2D（重建为内联 RGBA32）
+.\MeidoSerialization.exe convert2texture2d .\my_texture.png
+~~~
+
+`convert2tex` 默认写出 TEX 1010。只有旁边存在有效的 `.uv.csv` 图集矩形信息时，才会写出
+1011。详情见 [TEX 1011 常见问题](../README.md#关于-1011-版本的-tex)。也可以显式使用 `--forcePng=false`；`--compress`
+的优先级更高。
+
+### KCES Mesh、AnimationClip 与 AudioClip
+
+这些命令处理带内嵌 TypeTree 的独立 Unity 原生对象，通常来自本库解包的 ABA：
+
+~~~powershell
+# Mesh 或 AnimationClip -> 二进制 glTF 2.0（默认）
+.\MeidoSerialization.exe convert2gltf .\Mesh\body.mmesh
+.\MeidoSerialization.exe convert2gltf .\dance.animationclip.bytes
+
+# 输出 JSON glTF，并把数据作为 data URI 内嵌
+.\MeidoSerialization.exe convert2gltf .\Mesh\body.mmesh --format gltf
+
+# 提取 AudioClip 中内嵌的编码音频，不进行转码
+.\MeidoSerialization.exe convert2audio .\AudioClip\voice.audioclip
+
+# 批量导出目录下所有匹配对象
+.\MeidoSerialization.exe convert2gltf .\unpacked
+.\MeidoSerialization.exe convert2audio .\unpacked
+~~~
+
+动画导出支持带 Transform 路径的显式旋转、位置、缩放和欧拉曲线。音频导出根据 OGG、WAV 或 FSB5
+数据签名选择后缀，只提取现有编码数据，不会把音频转成另一种编码。
+
+### NEI 与 CSV
+
+~~~powershell
+.\MeidoSerialization.exe convert2csv .\table.nei
+.\MeidoSerialization.exe convert2nei .\table.csv
+~~~
+
+NEI 文本使用 Shift-JIS。CSV 按类似 RFC 4180 的逗号分隔格式读写，编码为带 BOM 的 UTF-8。如果 CSV 中的字符无法编码为
+Shift-JIS，`convert2nei` 会直接报错，不会静默替换成错误字符。
+
+## 归档命令
+
+### COM3D2 ARC
+
+| 命令                      | 用途                                |
+|---------------------------|-------------------------------------|
+| `listArc <文件>`          | 列出 ARC 中保存的全部路径           |
+| `unpackArc <文件或目录>`  | 完整解包 ARC                        |
+| `packArc <目录>`          | 保持目录相对结构并打包为 ARC        |
+| `extractArc <文件或目录>` | 按扩展名或精确路径/文件名选择性提取 |
+
+~~~powershell
+# 查看内容并完整解包
+.\MeidoSerialization.exe listArc .\game.arc
+.\MeidoSerialization.exe unpackArc .\game.arc
+.\MeidoSerialization.exe unpackArc .\game.arc -o .\game_files
+
+# 重新打包目录；默认输出为 <目录名>.arc
+.\MeidoSerialization.exe packArc .\game_files
+.\MeidoSerialization.exe packArc .\game_files -o .\custom.arc
+
+# 提取所有 .menu 文件
+.\MeidoSerialization.exe extractArc .\game.arc --ext menu
+
+# 按 ARC 内的完整路径提取一个文件
+.\MeidoSerialization.exe extractArc .\game.arc --file menu\parts\body.menu -o .\selected
+
+# 只写文件名时，该名称在 ARC 中必须唯一
+.\MeidoSerialization.exe extractArc .\game.arc --file body.menu
+~~~
+
+`--ext` 与 `--file` 必须且只能选择一个。`--file` 只支持单个 ARC，不支持输入 ARC
+目录。工具优先匹配归档内完整路径；裸文件名不区分大小写，但重名时会拒绝提取，避免选错。目前不支持加密 ARC。
+
+### KCES CT 与 ABA
+
+| 命令                     | 用途                                       |
+|--------------------------|--------------------------------------------|
+| `listCt <文件或目录>`    | 列出 CT/VirtualDirectory 容器中的虚拟文件  |
+| `genCt <文件或目录>`     | 从 .aba 文件生成配套的 .ct catalog         |
+| `listAba <文件或目录>`   | 列出 Unity 对象的 PathID、类型、大小与名称 |
+| `unpackAba <文件或目录>` | 按类型目录提取 UnityFS 中支持的资源        |
+| `packAba <目录>`         | 扫描普通资源目录并生成配套的 ABA + CT      |
+
+~~~powershell
+# CT
+.\MeidoSerialization.exe listCt .\my_mod.ct
+.\MeidoSerialization.exe genCt .\my_mod.aba
+
+# ABA
+.\MeidoSerialization.exe listAba .\my_mod.aba
+.\MeidoSerialization.exe unpackAba .\my_mod.aba -o .\aba_files
+
+# 在 .\aba_files 的父目录生成 my_mod.aba 与 my_mod.ct
+.\MeidoSerialization.exe packAba .\aba_files -o my_mod
+~~~
+
+`packAba --output`/`-o` 表示“输出基础名称”，不是输出目录，也不是完整文件名。省略时会使用输入目录名。打包器以本库规范化的
+Unity 2022.3.35f1 布局为目标。工具可以识别加密
+`abap` bundle，但无法解密。
+
+`.ct` 是查找表（catalog 与 ExtensionNameList 数据），因此不再解包成目录。查看请使用 `listCt` 或
+`inspectKcesCatalog`；编辑请使用 `convert` 命令，它会在 `.ct` 与可编辑的 `.ct.json` 封套之间往返转换。
+
+### KCES MOD 编辑流程
+
+`packAba` 会根据目录内容自动构建打包清单，`genCt` 可以为已有的 `.aba` 重建 catalog。要编辑纹理，先把它转换成
+PNG 并编辑，然后转换回原生 Texture2D，这样重新打包时才能带上改动：
+
+~~~powershell
+.\MeidoSerialization.exe unpackAba .\my_mod.aba -o .\aba_files
+.\MeidoSerialization.exe convert2image .\aba_files\Texture2D\my_texture.tex
+# 编辑 my_texture.png 后，就地重建原生 Texture2D
+.\MeidoSerialization.exe convert2texture2d .\aba_files\Texture2D\my_texture.png
+.\MeidoSerialization.exe packAba .\aba_files -o my_mod
+~~~
+
+游戏只从名字恰好为 `<aba名>.menuassets`（小写）的文件读取部件定义，因此 `-o` 指定的输出名必须与包内的
+`.menuassets` 文件名一致，或者修改 menuassets 名称，且不能与现有的文件重名。不指定 `-o` 直接打包解包目录时，默认输出名会去掉 `.aba_unpacked` 后缀以保持
+原名；名字不匹配时 `packAba` 会输出警告。
+
+`packAba` 和 `genCt` 会写入默认的 catalog 元数据（`catalogType` Parts、`packageType` Plugin、priority 0）。
+需要自定义元数据时，通过 JSON 封套编辑生成的 `.ct`：
+
+~~~powershell
+.\MeidoSerialization.exe convert .\my_mod.ct        # 生成 my_mod.ct.json
+# 编辑 catalogType、packageType、priority、subName 等 catalog 字段
+.\MeidoSerialization.exe convert .\my_mod.ct.json   # 写回 my_mod.ct
+~~~
+
+`inspectKcesCatalog` 会打印 CT 中的 `AssetBundleCatalog` 与 `ExtensionNameList`：
+
+~~~powershell
+.\MeidoSerialization.exe inspectKcesCatalog .\existing_mod.ct
+~~~
+
+## 全局筛选参数
+
+`--strict`（`-s`）要求类型筛选和 `determine` 根据文件内容验证，而不是只依赖名称与扩展名。`--type`（`-t`）把目录操作限制到一种原生类型或对应的编辑
+JSON。
+
+~~~powershell
+# 类型名前面的点可以省略
+.\MeidoSerialization.exe convert2json --type .menu .\mods
+
+# 只处理原生文件
+.\MeidoSerialization.exe convert2json --type dbconf .\mods
+
+# 只处理编辑 JSON
+.\MeidoSerialization.exe convert2mod --type dbconf.json .\editing
+
+# 根据内容严格匹配
+.\MeidoSerialization.exe determine --strict --type preset .\presets
+~~~
+
+常见筛选值包括 COM3D2 类型（`menu`、`mate`、`pmat`、`col`、`phy`、`psk`、
+`anm`、`model`、`preset`、`tex`、`nei`、`arc`、`bytes`），通用类型 （`image`、`csv`），以及 KCES 类型，例如 `menuassets`、
+`materialassets`、
+`pmatassets`、`dbconf`、`dbcol`、`db2conf`、`dsbconf`、`dsb2conf`、
+`dslconf`、`dsl2conf`、`dslcol`、`ikcol`、`ikcol.bytes`、`limbcol`、
+`hitcheck`、`undressdat`、`undresspdat`、`nson`、`ct`、`aba`、
+`bridge_session`、`brd`、`enm`、`sad`、`system`、`paths` 和
+`maid_collider`。
+
+当前版本到底注册了哪些参数，请以 `.\MeidoSerialization.exe <命令> --help` 为准。
+
+## gRPC 服务
+
+### 启动本地服务
+
+~~~powershell
+# 完全可信的本地客户端可以使用 unrestricted 便捷模式
+.\MeidoSerialization.exe serve grpc --listen 127.0.0.1:50051
+
+# restricted root-ID 模式
+.\MeidoSerialization.exe serve grpc `
+  --listen 127.0.0.1:50051 `
+  --root mods=C:\Games\COM3D2\Mod
+~~~
+
+不提供 `--root` 或 `--restrict-paths` 时，服务会报告 `FILESYSTEM_MODE_UNRESTRICTED`，并接受服务端本地
+`input.path`。提供其中任意参数后会报告 `FILESYSTEM_MODE_RESTRICTED`，拒绝直接路径，本地文件必须使用已配置
+root。只提供 `--restrict-paths` 而不配置 root 时，会拒绝全部服务端本地文件输入，但 inline 与 blob 输入仍然可用。
+
+版本化服务名为 `meido.serialization.v1.SerializationService`，已启用 server reflection 和标准 gRPC health
+service。安装 [grpcurl](https://github.com/fullstorydev/grpcurl) 后，可以这样检查服务发现：
+
+~~~powershell
+grpcurl -plaintext 127.0.0.1:50051 list
+grpcurl -plaintext -d '{}' 127.0.0.1:50051 meido.serialization.v1.SerializationService/GetCapabilities
+~~~
+
+下面分别使用便捷模式和受限模式识别同一个文件：
+
+~~~powershell
+# 便捷模式：gRPC 服务所在机器上的绝对路径
+grpcurl -plaintext `
+  -d '{"input":{"path":"C:\\Games\\COM3D2\\Mod\\menu\\sample.menu"}}' `
+  127.0.0.1:50051 meido.serialization.v1.SerializationService/Detect
+
+# 受限模式：公开的 root ID 加上该 root 下的路径
+grpcurl -plaintext `
+  -d '{"input":{"file":{"rootId":"mods","relativePath":"menu\\sample.menu"}}}' `
+  127.0.0.1:50051 meido.serialization.v1.SerializationService/Detect
+~~~
+
+已注册的 RPC：
+
+| RPC                                  | 用途                                                                        |
+|--------------------------------------|-----------------------------------------------------------------------------|
+| `GetCapabilities`                    | 发现文件系统模式、root ID、格式、限制和 Schema/Guide 元数据                  |
+| `GetFormatSchema`                    | 返回某个可转换格式的 Draft 2020-12 编辑 JSON Schema                         |
+| `GetFormatGuide`                     | 返回与该 Schema 配套、经过源码核对的语义 Guide                              |
+| `Detect`                             | 识别原生或编辑 JSON artifact                                                |
+| `Convert`                            | 原生格式与编辑 JSON 互转                                                    |
+| `Validate`                           | 执行公开 Schema、跨字段规则和原生 serializer 验证                           |
+| `Upload`、`Download`、`DeleteBlob`   | 管理进程内、有 TTL 限制的大型临时 blob                                      |
+| `ListArchive`、`ExtractArchiveEntry` | 分页浏览或提取 ARC、CT/VirtualDirectory、ABA、`.asset_bg` 与 `.asset_scene` |
+
+每个输入 artifact 必须且只能使用一种来源：带文件名的 inline bytes、服务端签发的 blob ID、unrestricted `path`，或
+restricted `file { root_id, relative_path }`。direct/rooted 输入会自动发现旁边的 `.meta.json` 与
+`.typetree.json`；inline/blob 调用方必须把这些受支持的附件显式提交。主文件与 sidecar 共用同一个 inline 总预算。放不进
+inline 的结果会改用 blob 引用。
+
+安全与存储行为：
+
+- 不提供 root 参数时使用 unrestricted 模式；`path` 可使用绝对路径，或相对于服务进程当前目录的路径
+- `--root id=目录` 可以重复指定，始终只读，并自动启用 restricted 模式
+- `--restrict-paths` 显式启用 restricted 模式，拒绝直接 `path` 输入
+- root 相对路径不能是绝对路径，不能包含 `..` 或卷名，也不能逃出所选 root
+- 默认监听 `127.0.0.1:50051`
+- 非 loopback 地址必须显式添加 `--allow-remote`，但这仍然没有 TLS、认证或授权；与 unrestricted
+  模式组合时，远程客户端可读取服务进程账号有权限访问的任意普通文件
+- gRPC 不会把转换结果安装到本地路径或 root，结果仍以内联数据或 blob 返回
+- 默认限制为单 blob 4 GiB、总计 16 GiB、4096 个 blob、30 分钟 TTL，以及每个完整 artifact bundle 3 MiB inline
+- `--blob-dir` 在服务生命周期内使用独占锁；第二个进程不能同时使用同一目录
+- 归档分页默认每页 128 条，每个请求最多 1000 条
+
+相关参数包括 `--root`、`--restrict-paths`、`--max-blob-mib`、`--max-total-blob-mib`、`--max-blobs`、
+`--blob-ttl`、`--inline-mib`、`--blob-dir` 和 `--allow-remote`。inline 上限不能超过 3
+MiB。完整协议细节见[传输 API 参考](../docs/transport-api.md)。
+
+## MCP stdio 服务
+
+### 添加到 MCP Host
+
+MCP 通过 stdio 作为 Host 的子进程运行，不提供 SSE、HTTP 或 Streamable HTTP 端点。如果 Host 界面要求选择传输模式，
+请选择 `stdio`。不同 Host 的配置文件格式可能不同；下面是通用 JSON 示例，使用受限 root，适合作为安全的起点：
+
+~~~json
+{
+  "mcpServers": {
+    "meido-serialization": {
+      "command": "C:\\Tools\\MeidoSerialization.exe",
+      "args": [
+        "mcp",
+        "--root",
+        "mods=C:\\Games\\COM3D2\\Mod",
+        "--write-root",
+        "work=C:\\MeidoWork"
+      ]
+    }
+  }
+}
+~~~
+
+完全可信的本地 Host 也可以使用最短启动方式：
+
+~~~powershell
+.\MeidoSerialization.exe mcp
+~~~
+
+| 模式           | 如何启用                                            | 读取参数                    | 写入参数                                  | 访问边界                         |
+|----------------|-----------------------------------------------------|-----------------------------|-------------------------------------------|----------------------------------|
+| `unrestricted` | 不传任何路径相关参数                                | `path`                      | `output_path`                             | 进程账号有权限访问的任意普通文件 |
+| `restricted`   | 任意 `--root`、`--write-root` 或 `--restrict-paths` | `root_id` + `relative_path` | `output_root_id` + `output_relative_path` | 仅限已配置 root                  |
+
+`--root` 只读；`--write-root` 可写，也可作为输入读取。只指定 `--restrict-paths` 而不配置 root 时，会有意拒绝所有文件访问。stdout
+只写 MCP 协议消息，诊断日志写入 stderr。
+
+### MCP 工具
+
+| 工具                          | 用途                                                            |
+|-------------------------------|-----------------------------------------------------------------|
+| `meido.detect_file`           | 识别格式 ID、版本、表示形式和文件元数据                         |
+| `meido.inspect_file`          | 把大小合理的原生文件转换成 inline 编辑 JSON，便于查看           |
+| `meido.validate_editing_json` | 使用 Schema 与原生 serializer 验证 inline 或文件形式的编辑 JSON |
+| `meido.convert_file`          | 转换原生/编辑 JSON，并原子安装主文件与受管理 sidecar            |
+| `meido.list_archive`          | 返回一页有上限的精确归档条目名                                  |
+| `meido.extract_archive_entry` | 把一个精确条目提取到已授权的目标位置                            |
+
+`--max-result-mib` 默认 2 MiB，限制 inspect/list 的 inline 结果；更大的 JSON 文档应使用
+`meido.convert_file`。`--max-write-mib` 默认 512 MiB，按主文件与 sidecar 的完整输出 bundle 计算。写入会先暂存，校验大小与
+SHA-256；安装失败时会按 bundle 回滚。
+
+### MCP 资源、Prompt 与 portable editing skill
+
+| 入口                                 | 返回内容                                                                     |
+|--------------------------------------|------------------------------------------------------------------------------|
+| `meido://capabilities`               | 当前文件系统模式、root ID、可写 root、限制、格式能力以及 Schema/Guide 元数据 |
+| `meido://schemas/{format_id}`        | 编辑 JSON 的精确 Draft 2020-12 结构协议                                      |
+| `meido://guides/{format_id}`         | 字段目录、语义证据、编辑角色、风险、不变量、命令和 value set                 |
+| `meido://skills/editing/{format_id}` | portable Markdown 编辑流程，以及当前文件系统模式对应的写入策略               |
+| `meido.edit_format`                  | 把编辑目标与渲染后的 skill 组合，并内嵌完整 Schema 和 Guide 的 Prompt        |
+
+这里的 portable skill 是 MCP `text/markdown` 资源，不是自动安装到 Codex 或 MCP Host 中的插件。只读取 skill 也不能替代
+Schema 与 Guide：skill 定义保留、验证和写入流程，Schema 给出精确 JSON 结构，Guide 给出经审阅的字段语义。`meido.edit_format`
+对普通调用方最方便，因为一次 Prompt 结果会同时返回 skill 文本、完整 Schema 与完整 Guide。这个 Prompt 只准备编辑上下文，不会自行修改文件。
+
+认证数据按作用范围拆开：
+
+| 范围 | 值或 claim | 含义 |
+|---|---|---|
+| 文件级 `format_verification.level` | `serialization_verified`、`schema_only` | 表示整个文件的序列化契约已知，或目前只有生成出的结构 |
+| 字段 `verification.serialization` | `status: verified`、`authority: ai\|human` | 已核对格式、位置或读写方式，不表示游戏含义已知 |
+| 字段 `verification.source_semantics` | `status: verified`、`authority: ai\|human` | 已对照游戏源码确认用途或消费路径，并包含序列化认证 |
+| 字段 `verification.game_behavior` | `status: verified`、`authority: ai\|human` | 已根据实际游戏运行观察确认行为 |
+
+`schema_only` 不是认证，因此使用 `authority: generated`。字段的空 `verification` 对象表示仅由 Schema
+派生：必须保留其值，不能根据名称猜测行为。`field_coverage` 只是数量汇总，不能提升任何字段。Schema
+也保存同一套模型，根节点使用 `x-meido-format-verification`，经过描述的属性使用
+`x-meido-verification`。
+
+下面这个例子表示字段已经完成源码认证，但还没有实际游戏行为认证：
+
+```json
+{
+  "format_verification": {
+    "level": "serialization_verified",
+    "authority": "ai"
+  },
+  "field_coverage": {
+    "total": 42,
+    "serialization_verified": 42,
+    "source_verified": 8,
+    "game_behavior_verified": 0,
+    "schema_derived": 0
+  },
+  "fields": [
+    {
+      "json_path": "/example",
+      "verification": {
+        "serialization": {"status": "verified", "authority": "ai"},
+        "source_semantics": {"status": "verified", "authority": "ai"}
+      }
+    }
+  ]
+}
+```
+
+skill 要求模型或客户端按以下顺序操作：
+
+1. 读取 `meido://capabilities`，选择同时具有 `has_editing_schema` 和 `has_format_guide` 的格式
+2. 读取并核对 Schema 与 Guide，包括二者一致的 `schema_id`
+3. 识别并 inspect 真实输入，不要用默认值重新构造整个文档
+4. 只完成用户要求的修改，并保留顺序、重复项、null/空集合区别、整数宽度、raw 字段、ID、哈希、未知新字段和 base64 bytes
+5. 遵守已审阅的 `edit_role`、不变量、命令顺序和 `value_set_refs`，不要编造游戏常量
+6. 把完整文档提交给 `meido.validate_editing_json`
+7. 只有验证成功后才转换回原生格式，并遵守 skill 中动态写入的当前 write policy
+8. 把视觉与行为正确性留给游戏内验证；Schema/原生验证无法证明 Unity 中的实际效果
+
+`meido.edit_format` 必填 `format_id` 和 `objective`。可选路径参数随当前模式变化：
+
+| 模式           | 可选的输入/输出 Prompt 参数                                                      |
+|----------------|----------------------------------------------------------------------------------|
+| `unrestricted` | `input_path`、`output_path`                                                      |
+| `restricted`   | `input_root_id`、`input_relative_path`、`output_root_id`、`output_relative_path` |
+
+受限 MCP Host 的目标示例：
+
+~~~text
+Prompt: meido.edit_format
+format_id: com3d2.menu
+objective: 只修改菜单显示名称，并保留所有无关命令
+input_root_id: mods
+input_relative_path: menu/parts/example.menu
+output_root_id: work
+output_relative_path: menu/parts/example.menu
+~~~
+
+`com3d2.arc`、`com3d2.tex` 这类 native-only/detect-only 格式不会提供编辑 Schema、Guide、skill 或 edit Prompt 流程。应先发现
+capabilities，不要猜测资源 URI。
+
+## 从源码构建
+
+~~~powershell
+git clone https://github.com/MeidoPromotionAssociation/MeidoSerialization.git
+Set-Location MeidoSerialization
+go build -o MeidoSerialization.exe .
+~~~
+
+其他常用命令：
+
+~~~powershell
+.\MeidoSerialization.exe version
+.\MeidoSerialization.exe completion powershell
+.\MeidoSerialization.exe <命令> --help
+~~~
+
+---
 
 ---
 
@@ -856,6 +1428,11 @@ NEI テキストは Shift-JIS です。CSV は RFC 4180 形式に近いカンマ
 .\MeidoSerialization.exe packAba .\aba_files -o my_mod
 ~~~
 
+ゲームは `<aba名>.menuassets`（小文字）という名前のファイルからのみパーツ定義を読み込むため、`-o` に
+渡す出力名はパッケージ内の `.menuassets` ファイル名と一致させる必要があります，あるいは、menuassets の名前を変更することもできますが、既存のファイルと同じ名前にすることはできません。`-o` を指定せずに解凍
+ディレクトリをパックする場合、既定の出力名は `.aba_unpacked` サフィックスを取り除いて元の名前を維持し、
+名前が一致しない場合 `packAba` は警告を出力します。
+
 `packAba` と `genCt` は既定の catalog metadata（`catalogType` Parts、`packageType` Plugin、priority 0）を書き込みます。
 metadata をカスタマイズするには、生成された `.ct` を JSON envelope 経由で編集します。
 
@@ -1139,566 +1716,3 @@ go build -o MeidoSerialization.exe .
 .\MeidoSerialization.exe completion powershell
 .\MeidoSerialization.exe <コマンド> --help
 ~~~
-
----
-
-# 简体中文
-
-# MeidoSerialization 命令行工具
-
-MeidoSerialization CLI 把仓库中的 COM3D2/CM3D2 与 KCES 序列化功能做成了普通文件命令，同时提供版本化的 protobuf/gRPC 服务和
-MCP stdio 服务。既可以处理单个文件，也可以递归处理整个目录。完整的格式清单请查看[主 README](../README.md#支持的格式)。
-
-转换得到的 JSON 可能是紧凑格式，也可能带有缩进，这取决于原格式。空白不属于编辑协议，可以放心使用 JSON
-格式化工具改善可读性。对于编辑器已经支持的格式，也可以使用
-[COM3D2 MOD EDITOR V2](https://github.com/MeidoPromotionAssociation/COM3D2_MOD_EDITOR)
-打开本工具生成的文件。
-
-## 下载和运行前准备
-
-- 普通用户可以从 [GitHub Releases](https://github.com/MeidoPromotionAssociation/MeidoSerialization/releases) 下载预编译的
-  Windows 可执行文件
-- 从源码构建需要 Go 1.26.5 或更高版本，与 `go.mod` 保持一致
-- COM3D2 TEX 与普通图片互转需要 ImageMagick 7 或更高版本，并确保 `magick` 命令已加入 `PATH`
-
-以下示例均使用 PowerShell。示例假设 `MeidoSerialization.exe` 位于当前目录，因此使用 `.\`
-前缀；如果已经把它加入 `PATH`，也可以省略该前缀。路径中有空格时，请用双引号包住完整路径。
-
-## 从这里开始
-
-### 最常用的转换
-
-不知道该用哪个命令时，可以先看这四条：
-
-~~~powershell
-# 原生游戏文件 -> 同目录下的编辑 JSON
-.\MeidoSerialization.exe convert2json .\example.menu
-# 输出：.\example.menu.json
-
-# 编辑 JSON -> 同目录下的原生游戏文件
-.\MeidoSerialization.exe convert2mod .\example.menu.json
-# 输出：.\example.menu
-
-# 让工具根据输入自动选择转换方向
-.\MeidoSerialization.exe convert .\example.menu
-.\MeidoSerialization.exe convert .\example.menu.json
-
-# 不确定文件类型时，先按内容识别
-.\MeidoSerialization.exe determine --strict .\unknown_file
-~~~
-
-转换命令通常把结果写到输入文件旁边，并可能覆盖同名的既有输出文件。编辑重要游戏数据前，建议先备份。下面是一个可以直接照着操作的完整流程：
-
-~~~powershell
-# 1. 备份原文件
-Copy-Item .\body.menu .\body.menu.bak
-
-# 2. 确认工具识别到的格式
-.\MeidoSerialization.exe determine --strict .\body.menu
-
-# 3. 转成可编辑 JSON
-.\MeidoSerialization.exe convert2json .\body.menu
-
-# 4. 使用熟悉的编辑器修改 body.menu.json
-notepad .\body.menu.json
-
-# 5. 转回原生文件；默认会写回 body.menu
-.\MeidoSerialization.exe convert2mod .\body.menu.json
-~~~
-
-常见默认输出名如下：
-
-| 输入示例                | 命令            | 默认输出                                                 |
-|-------------------------|-----------------|----------------------------------------------------------|
-| `example.menu`          | `convert2json`  | `example.menu.json`                                      |
-| `example.menu.json`     | `convert2mod`   | `example.menu`                                           |
-| `texture.tex`           | `convert2image` | `texture.png`                                            |
-| `image.png`             | `convert2tex`   | `image.tex`                                              |
-| `Texture2D\my_tex.png`  | `convert2texture2d` | 原生 KCES `my_tex.tex`                               |
-| `body.mmesh`            | `convert2gltf`  | `body.glb`                                               |
-| `voice.audioclip`       | `convert2audio` | 根据数据签名输出 `voice.ogg`、`.wav` 或 `.fsb`           |
-| `table.nei`             | `convert2csv`   | `table.csv`                                              |
-| `table.csv`             | `convert2nei`   | `table.nei`                                              |
-| `example.arc`           | `unpackArc`     | `example.arc_unpacked\`                                  |
-| `example.ct`            | `convert`       | `example.ct.json`                                        |
-| `example.aba`           | `unpackAba`     | `example.aba_unpacked\`                                  |
-| `example.aba`           | `genCt`         | `example.ct`                                             |
-
-### 批量转换目录
-
-把目录而不是单个文件传给命令，就会递归处理其中匹配的文件：
-
-~~~powershell
-# 把目录下所有支持编辑的原生格式转成 JSON
-.\MeidoSerialization.exe convert2json .\mods
-
-# 只转换原生 KCES .dbconf 文件
-.\MeidoSerialization.exe convert2json --type dbconf .\mods
-
-# 只把 .menu 编辑 JSON 转回原生文件
-.\MeidoSerialization.exe convert2mod --type menu.json .\editing
-
-# 按文件内容严格识别目录中的所有已知文件
-.\MeidoSerialization.exe determine --strict .\mods
-~~~
-
-大多数专用目录命令会并发处理文件。遇到一个坏文件时，它会打印错误并继续处理其余文件，所以批量任务结束后要检查完整的控制台输出。泛用
-`convert` 命令按顺序处理目录，适合混合输入，但通常比专用命令慢。
-
-## 文件转换命令
-
-### 原生格式与编辑 JSON
-
-| 命令                        | 用途                                                       |
-|-----------------------------|------------------------------------------------------------|
-| `convert2json <文件或目录>` | 把支持的 COM3D2/KCES 原生数据转换为相邻的编辑 JSON         |
-| `convert2mod <文件或目录>`  | 去掉末尾的 `.json`，把编辑 JSON 编码回原生格式             |
-| `convert <文件或目录>`      | 自动选择原生 ↔ JSON、TEX ↔ 图片、NEI ↔ CSV，或解包单个 ARC |
-| `determine <文件或目录>`    | 报告游戏、文件类型、表示形式、签名、版本和大小             |
-
-示例：
-
-~~~powershell
-# COM3D2
-.\MeidoSerialization.exe convert2json .\body.menu
-.\MeidoSerialization.exe convert2json .\body.mate
-.\MeidoSerialization.exe convert2mod .\body.mate.json
-
-# KCES 部件、物理与碰撞数据
-.\MeidoSerialization.exe convert2json .\parts\hair.menuassets
-.\MeidoSerialization.exe convert2json .\physics\default_hairf.dbconf
-.\MeidoSerialization.exe convert2mod .\physics\default_hairf.dbconf.json
-
-# KCES 容器与状态文件
-.\MeidoSerialization.exe convert2json .\character.perset
-.\MeidoSerialization.exe convert2json .\system.dat
-.\MeidoSerialization.exe convert2json .\catalog.ct
-
-# 独立的 Unity 原生对象；JSON envelope 会保留文件内嵌的 TypeTree 信息
-.\MeidoSerialization.exe convert2json .\Texture2D\body.tex
-.\MeidoSerialization.exe convert2mod .\Texture2D\body.tex.json
-~~~
-
-`convert2json` 不负责 `.tex`，请使用 `convert2image`；也不会解包 `.aba`，请使用
-`unpackAba`。泛用 `convert` 可以解包单个 `.arc`，但处理目录中的 ARC 时应使用
-`unpackArc`。
-
-### 图片与 COM3D2 TEX
-
-~~~powershell
-# COM3D2 TEX -> PNG（默认）
-.\MeidoSerialization.exe convert2image .\texture.tex
-
-# COM3D2 TEX -> ImageMagick 支持的其他图片格式
-.\MeidoSerialization.exe convert2image .\texture.tex --format webp
-
-# KCES 原生 Texture2D -> PNG 或 DDS
-.\MeidoSerialization.exe convert2image .\Texture2D\body.tex --format png
-.\MeidoSerialization.exe convert2image .\Texture2D\body.tex --format dds
-
-# KCES 原生 Sprite 目前只输出 PNG
-.\MeidoSerialization.exe convert2image .\Sprite\icon.sprite --format png
-
-# 图片 -> COM3D2 TEX；默认保留 PNG 数据
-.\MeidoSerialization.exe convert2tex .\texture.png
-
-# 图片 -> 使用 DXT 压缩的 TEX；--compress 会自动关闭强制 PNG
-.\MeidoSerialization.exe convert2tex .\texture.png --compress
-
-# PNG 或 JPEG -> 原生 KCES Texture2D（重建为内联 RGBA32）
-.\MeidoSerialization.exe convert2texture2d .\my_texture.png
-~~~
-
-`convert2tex` 默认写出 TEX 1010。只有旁边存在有效的 `.uv.csv` 图集矩形信息时，才会写出
-1011。详情见 [TEX 1011 常见问题](../README.md#关于-1011-版本的-tex)。也可以显式使用 `--forcePng=false`；`--compress`
-的优先级更高。
-
-### KCES Mesh、AnimationClip 与 AudioClip
-
-这些命令处理带内嵌 TypeTree 的独立 Unity 原生对象，通常来自本库解包的 ABA：
-
-~~~powershell
-# Mesh 或 AnimationClip -> 二进制 glTF 2.0（默认）
-.\MeidoSerialization.exe convert2gltf .\Mesh\body.mmesh
-.\MeidoSerialization.exe convert2gltf .\dance.animationclip.bytes
-
-# 输出 JSON glTF，并把数据作为 data URI 内嵌
-.\MeidoSerialization.exe convert2gltf .\Mesh\body.mmesh --format gltf
-
-# 提取 AudioClip 中内嵌的编码音频，不进行转码
-.\MeidoSerialization.exe convert2audio .\AudioClip\voice.audioclip
-
-# 批量导出目录下所有匹配对象
-.\MeidoSerialization.exe convert2gltf .\unpacked
-.\MeidoSerialization.exe convert2audio .\unpacked
-~~~
-
-动画导出支持带 Transform 路径的显式旋转、位置、缩放和欧拉曲线。音频导出根据 OGG、WAV 或 FSB5
-数据签名选择后缀，只提取现有编码数据，不会把音频转成另一种编码。
-
-### NEI 与 CSV
-
-~~~powershell
-.\MeidoSerialization.exe convert2csv .\table.nei
-.\MeidoSerialization.exe convert2nei .\table.csv
-~~~
-
-NEI 文本使用 Shift-JIS。CSV 按类似 RFC 4180 的逗号分隔格式读写，编码为带 BOM 的 UTF-8。如果 CSV 中的字符无法编码为
-Shift-JIS，`convert2nei` 会直接报错，不会静默替换成错误字符。
-
-## 归档命令
-
-### COM3D2 ARC
-
-| 命令                      | 用途                                |
-|---------------------------|-------------------------------------|
-| `listArc <文件>`          | 列出 ARC 中保存的全部路径           |
-| `unpackArc <文件或目录>`  | 完整解包 ARC                        |
-| `packArc <目录>`          | 保持目录相对结构并打包为 ARC        |
-| `extractArc <文件或目录>` | 按扩展名或精确路径/文件名选择性提取 |
-
-~~~powershell
-# 查看内容并完整解包
-.\MeidoSerialization.exe listArc .\game.arc
-.\MeidoSerialization.exe unpackArc .\game.arc
-.\MeidoSerialization.exe unpackArc .\game.arc -o .\game_files
-
-# 重新打包目录；默认输出为 <目录名>.arc
-.\MeidoSerialization.exe packArc .\game_files
-.\MeidoSerialization.exe packArc .\game_files -o .\custom.arc
-
-# 提取所有 .menu 文件
-.\MeidoSerialization.exe extractArc .\game.arc --ext menu
-
-# 按 ARC 内的完整路径提取一个文件
-.\MeidoSerialization.exe extractArc .\game.arc --file menu\parts\body.menu -o .\selected
-
-# 只写文件名时，该名称在 ARC 中必须唯一
-.\MeidoSerialization.exe extractArc .\game.arc --file body.menu
-~~~
-
-`--ext` 与 `--file` 必须且只能选择一个。`--file` 只支持单个 ARC，不支持输入 ARC
-目录。工具优先匹配归档内完整路径；裸文件名不区分大小写，但重名时会拒绝提取，避免选错。目前不支持加密 ARC。
-
-### KCES CT 与 ABA
-
-| 命令                     | 用途                                       |
-|--------------------------|--------------------------------------------|
-| `listCt <文件或目录>`    | 列出 CT/VirtualDirectory 容器中的虚拟文件  |
-| `genCt <文件或目录>`     | 从 .aba 文件生成配套的 .ct catalog         |
-| `listAba <文件或目录>`   | 列出 Unity 对象的 PathID、类型、大小与名称 |
-| `unpackAba <文件或目录>` | 按类型目录提取 UnityFS 中支持的资源        |
-| `packAba <目录>`         | 扫描普通资源目录并生成配套的 ABA + CT      |
-
-~~~powershell
-# CT
-.\MeidoSerialization.exe listCt .\my_mod.ct
-.\MeidoSerialization.exe genCt .\my_mod.aba
-
-# ABA
-.\MeidoSerialization.exe listAba .\my_mod.aba
-.\MeidoSerialization.exe unpackAba .\my_mod.aba -o .\aba_files
-
-# 在 .\aba_files 的父目录生成 my_mod.aba 与 my_mod.ct
-.\MeidoSerialization.exe packAba .\aba_files -o my_mod
-~~~
-
-`packAba --output`/`-o` 表示“输出基础名称”，不是输出目录，也不是完整文件名。省略时会使用输入目录名。打包器以本库规范化的
-Unity 2022.3.35f1 布局为目标。工具可以识别加密
-`abap` bundle，但无法解密。
-
-`.ct` 是查找表（catalog 与 ExtensionNameList 数据），因此不再解包成目录。查看请使用 `listCt` 或
-`inspectKcesCatalog`；编辑请使用 `convert` 命令，它会在 `.ct` 与可编辑的 `.ct.json` 封套之间往返转换。
-
-### KCES MOD 编辑流程
-
-`packAba` 会根据目录内容自动构建打包清单，`genCt` 可以为已有的 `.aba` 重建 catalog。要编辑纹理，先把它转换成
-PNG 并编辑，然后转换回原生 Texture2D，这样重新打包时才能带上改动：
-
-~~~powershell
-.\MeidoSerialization.exe unpackAba .\my_mod.aba -o .\aba_files
-.\MeidoSerialization.exe convert2image .\aba_files\Texture2D\my_texture.tex
-# 编辑 my_texture.png 后，就地重建原生 Texture2D
-.\MeidoSerialization.exe convert2texture2d .\aba_files\Texture2D\my_texture.png
-.\MeidoSerialization.exe packAba .\aba_files -o my_mod
-~~~
-
-`packAba` 和 `genCt` 会写入默认的 catalog 元数据（`catalogType` Parts、`packageType` Plugin、priority 0）。
-需要自定义元数据时，通过 JSON 封套编辑生成的 `.ct`：
-
-~~~powershell
-.\MeidoSerialization.exe convert .\my_mod.ct        # 生成 my_mod.ct.json
-# 编辑 catalogType、packageType、priority、subName 等 catalog 字段
-.\MeidoSerialization.exe convert .\my_mod.ct.json   # 写回 my_mod.ct
-~~~
-
-`inspectKcesCatalog` 会打印 CT 中的 `AssetBundleCatalog` 与 `ExtensionNameList`：
-
-~~~powershell
-.\MeidoSerialization.exe inspectKcesCatalog .\existing_mod.ct
-~~~
-
-## 全局筛选参数
-
-`--strict`（`-s`）要求类型筛选和 `determine` 根据文件内容验证，而不是只依赖名称与扩展名。`--type`（`-t`）把目录操作限制到一种原生类型或对应的编辑
-JSON。
-
-~~~powershell
-# 类型名前面的点可以省略
-.\MeidoSerialization.exe convert2json --type .menu .\mods
-
-# 只处理原生文件
-.\MeidoSerialization.exe convert2json --type dbconf .\mods
-
-# 只处理编辑 JSON
-.\MeidoSerialization.exe convert2mod --type dbconf.json .\editing
-
-# 根据内容严格匹配
-.\MeidoSerialization.exe determine --strict --type preset .\presets
-~~~
-
-常见筛选值包括 COM3D2 类型（`menu`、`mate`、`pmat`、`col`、`phy`、`psk`、
-`anm`、`model`、`preset`、`tex`、`nei`、`arc`、`bytes`），通用类型 （`image`、`csv`），以及 KCES 类型，例如 `menuassets`、
-`materialassets`、
-`pmatassets`、`dbconf`、`dbcol`、`db2conf`、`dsbconf`、`dsb2conf`、
-`dslconf`、`dsl2conf`、`dslcol`、`ikcol`、`ikcol.bytes`、`limbcol`、
-`hitcheck`、`undressdat`、`undresspdat`、`nson`、`ct`、`aba`、
-`bridge_session`、`brd`、`enm`、`sad`、`system`、`paths` 和
-`maid_collider`。
-
-当前版本到底注册了哪些参数，请以 `.\MeidoSerialization.exe <命令> --help` 为准。
-
-## gRPC 服务
-
-### 启动本地服务
-
-~~~powershell
-# 完全可信的本地客户端可以使用 unrestricted 便捷模式
-.\MeidoSerialization.exe serve grpc --listen 127.0.0.1:50051
-
-# restricted root-ID 模式
-.\MeidoSerialization.exe serve grpc `
-  --listen 127.0.0.1:50051 `
-  --root mods=C:\Games\COM3D2\Mod
-~~~
-
-不提供 `--root` 或 `--restrict-paths` 时，服务会报告 `FILESYSTEM_MODE_UNRESTRICTED`，并接受服务端本地
-`input.path`。提供其中任意参数后会报告 `FILESYSTEM_MODE_RESTRICTED`，拒绝直接路径，本地文件必须使用已配置
-root。只提供 `--restrict-paths` 而不配置 root 时，会拒绝全部服务端本地文件输入，但 inline 与 blob 输入仍然可用。
-
-版本化服务名为 `meido.serialization.v1.SerializationService`，已启用 server reflection 和标准 gRPC health
-service。安装 [grpcurl](https://github.com/fullstorydev/grpcurl) 后，可以这样检查服务发现：
-
-~~~powershell
-grpcurl -plaintext 127.0.0.1:50051 list
-grpcurl -plaintext -d '{}' 127.0.0.1:50051 meido.serialization.v1.SerializationService/GetCapabilities
-~~~
-
-下面分别使用便捷模式和受限模式识别同一个文件：
-
-~~~powershell
-# 便捷模式：gRPC 服务所在机器上的绝对路径
-grpcurl -plaintext `
-  -d '{"input":{"path":"C:\\Games\\COM3D2\\Mod\\menu\\sample.menu"}}' `
-  127.0.0.1:50051 meido.serialization.v1.SerializationService/Detect
-
-# 受限模式：公开的 root ID 加上该 root 下的路径
-grpcurl -plaintext `
-  -d '{"input":{"file":{"rootId":"mods","relativePath":"menu\\sample.menu"}}}' `
-  127.0.0.1:50051 meido.serialization.v1.SerializationService/Detect
-~~~
-
-已注册的 RPC：
-
-| RPC                                  | 用途                                                                        |
-|--------------------------------------|-----------------------------------------------------------------------------|
-| `GetCapabilities`                    | 发现文件系统模式、root ID、格式、限制和 Schema/Guide 元数据                  |
-| `GetFormatSchema`                    | 返回某个可转换格式的 Draft 2020-12 编辑 JSON Schema                         |
-| `GetFormatGuide`                     | 返回与该 Schema 配套、经过源码核对的语义 Guide                              |
-| `Detect`                             | 识别原生或编辑 JSON artifact                                                |
-| `Convert`                            | 原生格式与编辑 JSON 互转                                                    |
-| `Validate`                           | 执行公开 Schema、跨字段规则和原生 serializer 验证                           |
-| `Upload`、`Download`、`DeleteBlob`   | 管理进程内、有 TTL 限制的大型临时 blob                                      |
-| `ListArchive`、`ExtractArchiveEntry` | 分页浏览或提取 ARC、CT/VirtualDirectory、ABA、`.asset_bg` 与 `.asset_scene` |
-
-每个输入 artifact 必须且只能使用一种来源：带文件名的 inline bytes、服务端签发的 blob ID、unrestricted `path`，或
-restricted `file { root_id, relative_path }`。direct/rooted 输入会自动发现旁边的 `.meta.json` 与
-`.typetree.json`；inline/blob 调用方必须把这些受支持的附件显式提交。主文件与 sidecar 共用同一个 inline 总预算。放不进
-inline 的结果会改用 blob 引用。
-
-安全与存储行为：
-
-- 不提供 root 参数时使用 unrestricted 模式；`path` 可使用绝对路径，或相对于服务进程当前目录的路径
-- `--root id=目录` 可以重复指定，始终只读，并自动启用 restricted 模式
-- `--restrict-paths` 显式启用 restricted 模式，拒绝直接 `path` 输入
-- root 相对路径不能是绝对路径，不能包含 `..` 或卷名，也不能逃出所选 root
-- 默认监听 `127.0.0.1:50051`
-- 非 loopback 地址必须显式添加 `--allow-remote`，但这仍然没有 TLS、认证或授权；与 unrestricted
-  模式组合时，远程客户端可读取服务进程账号有权限访问的任意普通文件
-- gRPC 不会把转换结果安装到本地路径或 root，结果仍以内联数据或 blob 返回
-- 默认限制为单 blob 4 GiB、总计 16 GiB、4096 个 blob、30 分钟 TTL，以及每个完整 artifact bundle 3 MiB inline
-- `--blob-dir` 在服务生命周期内使用独占锁；第二个进程不能同时使用同一目录
-- 归档分页默认每页 128 条，每个请求最多 1000 条
-
-相关参数包括 `--root`、`--restrict-paths`、`--max-blob-mib`、`--max-total-blob-mib`、`--max-blobs`、
-`--blob-ttl`、`--inline-mib`、`--blob-dir` 和 `--allow-remote`。inline 上限不能超过 3
-MiB。完整协议细节见[传输 API 参考](../docs/transport-api.md)。
-
-## MCP stdio 服务
-
-### 添加到 MCP Host
-
-MCP 通过 stdio 作为 Host 的子进程运行，不提供 SSE、HTTP 或 Streamable HTTP 端点。如果 Host 界面要求选择传输模式，
-请选择 `stdio`。不同 Host 的配置文件格式可能不同；下面是通用 JSON 示例，使用受限 root，适合作为安全的起点：
-
-~~~json
-{
-  "mcpServers": {
-    "meido-serialization": {
-      "command": "C:\\Tools\\MeidoSerialization.exe",
-      "args": [
-        "mcp",
-        "--root",
-        "mods=C:\\Games\\COM3D2\\Mod",
-        "--write-root",
-        "work=C:\\MeidoWork"
-      ]
-    }
-  }
-}
-~~~
-
-完全可信的本地 Host 也可以使用最短启动方式：
-
-~~~powershell
-.\MeidoSerialization.exe mcp
-~~~
-
-| 模式           | 如何启用                                            | 读取参数                    | 写入参数                                  | 访问边界                         |
-|----------------|-----------------------------------------------------|-----------------------------|-------------------------------------------|----------------------------------|
-| `unrestricted` | 不传任何路径相关参数                                | `path`                      | `output_path`                             | 进程账号有权限访问的任意普通文件 |
-| `restricted`   | 任意 `--root`、`--write-root` 或 `--restrict-paths` | `root_id` + `relative_path` | `output_root_id` + `output_relative_path` | 仅限已配置 root                  |
-
-`--root` 只读；`--write-root` 可写，也可作为输入读取。只指定 `--restrict-paths` 而不配置 root 时，会有意拒绝所有文件访问。stdout
-只写 MCP 协议消息，诊断日志写入 stderr。
-
-### MCP 工具
-
-| 工具                          | 用途                                                            |
-|-------------------------------|-----------------------------------------------------------------|
-| `meido.detect_file`           | 识别格式 ID、版本、表示形式和文件元数据                         |
-| `meido.inspect_file`          | 把大小合理的原生文件转换成 inline 编辑 JSON，便于查看           |
-| `meido.validate_editing_json` | 使用 Schema 与原生 serializer 验证 inline 或文件形式的编辑 JSON |
-| `meido.convert_file`          | 转换原生/编辑 JSON，并原子安装主文件与受管理 sidecar            |
-| `meido.list_archive`          | 返回一页有上限的精确归档条目名                                  |
-| `meido.extract_archive_entry` | 把一个精确条目提取到已授权的目标位置                            |
-
-`--max-result-mib` 默认 2 MiB，限制 inspect/list 的 inline 结果；更大的 JSON 文档应使用
-`meido.convert_file`。`--max-write-mib` 默认 512 MiB，按主文件与 sidecar 的完整输出 bundle 计算。写入会先暂存，校验大小与
-SHA-256；安装失败时会按 bundle 回滚。
-
-### MCP 资源、Prompt 与 portable editing skill
-
-| 入口                                 | 返回内容                                                                     |
-|--------------------------------------|------------------------------------------------------------------------------|
-| `meido://capabilities`               | 当前文件系统模式、root ID、可写 root、限制、格式能力以及 Schema/Guide 元数据 |
-| `meido://schemas/{format_id}`        | 编辑 JSON 的精确 Draft 2020-12 结构协议                                      |
-| `meido://guides/{format_id}`         | 字段目录、语义证据、编辑角色、风险、不变量、命令和 value set                 |
-| `meido://skills/editing/{format_id}` | portable Markdown 编辑流程，以及当前文件系统模式对应的写入策略               |
-| `meido.edit_format`                  | 把编辑目标与渲染后的 skill 组合，并内嵌完整 Schema 和 Guide 的 Prompt        |
-
-这里的 portable skill 是 MCP `text/markdown` 资源，不是自动安装到 Codex 或 MCP Host 中的插件。只读取 skill 也不能替代
-Schema 与 Guide：skill 定义保留、验证和写入流程，Schema 给出精确 JSON 结构，Guide 给出经审阅的字段语义。`meido.edit_format`
-对普通调用方最方便，因为一次 Prompt 结果会同时返回 skill 文本、完整 Schema 与完整 Guide。这个 Prompt 只准备编辑上下文，不会自行修改文件。
-
-认证数据按作用范围拆开：
-
-| 范围 | 值或 claim | 含义 |
-|---|---|---|
-| 文件级 `format_verification.level` | `serialization_verified`、`schema_only` | 表示整个文件的序列化契约已知，或目前只有生成出的结构 |
-| 字段 `verification.serialization` | `status: verified`、`authority: ai\|human` | 已核对格式、位置或读写方式，不表示游戏含义已知 |
-| 字段 `verification.source_semantics` | `status: verified`、`authority: ai\|human` | 已对照游戏源码确认用途或消费路径，并包含序列化认证 |
-| 字段 `verification.game_behavior` | `status: verified`、`authority: ai\|human` | 已根据实际游戏运行观察确认行为 |
-
-`schema_only` 不是认证，因此使用 `authority: generated`。字段的空 `verification` 对象表示仅由 Schema
-派生：必须保留其值，不能根据名称猜测行为。`field_coverage` 只是数量汇总，不能提升任何字段。Schema
-也保存同一套模型，根节点使用 `x-meido-format-verification`，经过描述的属性使用
-`x-meido-verification`。
-
-下面这个例子表示字段已经完成源码认证，但还没有实际游戏行为认证：
-
-```json
-{
-  "format_verification": {
-    "level": "serialization_verified",
-    "authority": "ai"
-  },
-  "field_coverage": {
-    "total": 42,
-    "serialization_verified": 42,
-    "source_verified": 8,
-    "game_behavior_verified": 0,
-    "schema_derived": 0
-  },
-  "fields": [
-    {
-      "json_path": "/example",
-      "verification": {
-        "serialization": {"status": "verified", "authority": "ai"},
-        "source_semantics": {"status": "verified", "authority": "ai"}
-      }
-    }
-  ]
-}
-```
-
-skill 要求模型或客户端按以下顺序操作：
-
-1. 读取 `meido://capabilities`，选择同时具有 `has_editing_schema` 和 `has_format_guide` 的格式
-2. 读取并核对 Schema 与 Guide，包括二者一致的 `schema_id`
-3. 识别并 inspect 真实输入，不要用默认值重新构造整个文档
-4. 只完成用户要求的修改，并保留顺序、重复项、null/空集合区别、整数宽度、raw 字段、ID、哈希、未知新字段和 base64 bytes
-5. 遵守已审阅的 `edit_role`、不变量、命令顺序和 `value_set_refs`，不要编造游戏常量
-6. 把完整文档提交给 `meido.validate_editing_json`
-7. 只有验证成功后才转换回原生格式，并遵守 skill 中动态写入的当前 write policy
-8. 把视觉与行为正确性留给游戏内验证；Schema/原生验证无法证明 Unity 中的实际效果
-
-`meido.edit_format` 必填 `format_id` 和 `objective`。可选路径参数随当前模式变化：
-
-| 模式           | 可选的输入/输出 Prompt 参数                                                      |
-|----------------|----------------------------------------------------------------------------------|
-| `unrestricted` | `input_path`、`output_path`                                                      |
-| `restricted`   | `input_root_id`、`input_relative_path`、`output_root_id`、`output_relative_path` |
-
-受限 MCP Host 的目标示例：
-
-~~~text
-Prompt: meido.edit_format
-format_id: com3d2.menu
-objective: 只修改菜单显示名称，并保留所有无关命令
-input_root_id: mods
-input_relative_path: menu/parts/example.menu
-output_root_id: work
-output_relative_path: menu/parts/example.menu
-~~~
-
-`com3d2.arc`、`com3d2.tex` 这类 native-only/detect-only 格式不会提供编辑 Schema、Guide、skill 或 edit Prompt 流程。应先发现
-capabilities，不要猜测资源 URI。
-
-## 从源码构建
-
-~~~powershell
-git clone https://github.com/MeidoPromotionAssociation/MeidoSerialization.git
-Set-Location MeidoSerialization
-go build -o MeidoSerialization.exe .
-~~~
-
-其他常用命令：
-
-~~~powershell
-.\MeidoSerialization.exe version
-.\MeidoSerialization.exe completion powershell
-.\MeidoSerialization.exe <命令> --help
-~~~
-
----
