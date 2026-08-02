@@ -88,22 +88,49 @@ func TestEncodeKCMenuLookupFieldsRecalculateByDefaultAndCanBeDisabled(t *testing
 	}
 }
 
-func TestEncodeKCMenuPreservesGUIDWithoutExportedGUID(t *testing.T) {
+func TestEncodeKCMenuRegeneratesGUIDWithoutExportedGUID(t *testing.T) {
 	fileName := "no_guid.kcmenu"
 	menu := NewKCES2Menu()
 	menu.FileName = &fileName
 	menu.GUID = 99
 	menu.HairMake = NewHairMake()
 
-	wire, err := EncodeKCMenuWithOptions(menu, &LookupHashOptions{RecalculateHash: true})
+	first, err := EncodeKCMenuWithOptions(menu, &LookupHashOptions{RecalculateHash: true})
 	if err != nil {
 		t.Fatalf("EncodeKCMenuWithOptions: %v", err)
 	}
-	decoded, err := DecodeKCMenu(wire)
+	firstDecoded, err := DecodeKCMenu(first)
 	if err != nil {
 		t.Fatalf("DecodeKCMenu: %v", err)
 	}
-	if decoded.GUID != 99 {
-		t.Fatalf("decoded GUID = %d, want preserved 99", decoded.GUID)
+	if firstDecoded.GUID == 99 || firstDecoded.GUID == 0 {
+		t.Fatalf("decoded GUID = %d, want a regenerated non-zero value", firstDecoded.GUID)
+	}
+
+	second, err := EncodeKCMenuWithOptions(menu, &LookupHashOptions{RecalculateHash: true})
+	if err != nil {
+		t.Fatalf("EncodeKCMenuWithOptions second: %v", err)
+	}
+	secondDecoded, err := DecodeKCMenu(second)
+	if err != nil {
+		t.Fatalf("DecodeKCMenu second: %v", err)
+	}
+	if secondDecoded.GUID == firstDecoded.GUID {
+		t.Fatalf("consecutive encodes reused GUID %d", firstDecoded.GUID)
+	}
+
+	preserved, err := EncodeKCMenuWithOptions(menu, &LookupHashOptions{RecalculateHash: false})
+	if err != nil {
+		t.Fatalf("EncodeKCMenuWithOptions preserve: %v", err)
+	}
+	preservedDecoded, err := DecodeKCMenu(preserved)
+	if err != nil {
+		t.Fatalf("DecodeKCMenu preserve: %v", err)
+	}
+	if preservedDecoded.GUID != 99 {
+		t.Fatalf("disabled recalculation changed GUID to %d, want preserved 99", preservedDecoded.GUID)
+	}
+	if menu.GUID != 99 {
+		t.Fatalf("encoding mutated input GUID: %d", menu.GUID)
 	}
 }

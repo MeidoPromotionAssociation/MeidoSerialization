@@ -5,6 +5,7 @@ go 1.26.5
 require (
 	github.com/emmansun/base64 v0.10.0
 	github.com/google/jsonschema-go v0.4.3
+	github.com/google/uuid v1.6.0
 	github.com/modelcontextprotocol/go-sdk v1.7.0
 	github.com/pierrec/lz4/v4 v4.1.27
 	github.com/qmuntal/gltf v0.28.0

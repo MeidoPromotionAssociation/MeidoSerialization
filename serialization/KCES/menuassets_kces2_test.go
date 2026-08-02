@@ -127,3 +127,61 @@ func TestEncodeMenuAssetsLookupFieldsRecalculateByDefaultAndCanBeDisabled(t *tes
 		t.Fatalf("encoding mutated input lookup fields: ID=%d GUID=%d", menu.ID, menu.GUID)
 	}
 }
+
+func TestEncodeMenuAssetsRegeneratesGUIDPerMenuWithoutExportedGUID(t *testing.T) {
+	firstName := "first.menu"
+	secondName := "second.menu"
+	first := NewMenu()
+	first.FileName = &firstName
+	first.GUID = 7
+	second := NewMenu()
+	second.FileName = &secondName
+	second.GUID = 7
+	assets := &MenuAssets{Assets: []*Menu{first, second}}
+
+	wire, err := EncodeMenuAssets(assets)
+	if err != nil {
+		t.Fatalf("EncodeMenuAssets: %v", err)
+	}
+	decoded, err := DecodeMenuAssets(wire)
+	if err != nil {
+		t.Fatalf("DecodeMenuAssets: %v", err)
+	}
+	for index, menu := range decoded.Assets {
+		if menu.GUID == 7 || menu.GUID == 0 {
+			t.Fatalf("menu[%d] GUID = %d, want a regenerated non-zero value", index, menu.GUID)
+		}
+	}
+	if decoded.Assets[0].GUID == decoded.Assets[1].GUID {
+		t.Fatalf("both menus share regenerated GUID %d", decoded.Assets[0].GUID)
+	}
+	if first.GUID != 7 || second.GUID != 7 {
+		t.Fatalf("encoding mutated input GUIDs: %d %d", first.GUID, second.GUID)
+	}
+}
+
+func TestEncodeMenuAssetsGUIDMatchesGameHashOfUUIDSource(t *testing.T) {
+	// The game derives GUID as GetHashIgnoreCase over a D-format UUID string,
+	// so a regenerated GUID must be reachable from some canonical UUID text.
+	fileName := "uuid_source.menu"
+	exported := "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
+	menu := NewKCES2Menu()
+	menu.FileName = &fileName
+	menu.HairMake = NewHairMake()
+	menu.HairMake.ExportedGUID = &exported
+
+	wire, err := EncodeMenuAssets(&MenuAssets{Assets: []*Menu{menu}})
+	if err != nil {
+		t.Fatalf("EncodeMenuAssets: %v", err)
+	}
+	decoded, err := DecodeMenuAssets(wire)
+	if err != nil {
+		t.Fatalf("DecodeMenuAssets: %v", err)
+	}
+	if got, want := decoded.Assets[0].GUID, ct.HashStringIgnoreCase(exported); got != want {
+		t.Fatalf("GUID = %d, want %d", got, want)
+	}
+	if got, want := decoded.Assets[0].GUID, ct.HashStringIgnoreCase(strings.ToUpper(exported)); got != want {
+		t.Fatalf("GUID is case sensitive: %d vs %d", got, want)
+	}
+}

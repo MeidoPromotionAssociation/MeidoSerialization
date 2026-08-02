@@ -34,7 +34,9 @@ func TestKCES2AbaTextAssetCodecsPreserveRealLayouts(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					reencoded, err := EncodeMenuAssets(value)
+					// Recalculation is disabled so the layout comparison stays deterministic:
+					// a Menu without HairMake.ExportedGUID gets a fresh random GUID on every encode.
+					reencoded, err := EncodeMenuAssetsWithOptions(value, &LookupHashOptions{RecalculateHash: false})
 					if err != nil {
 						return err
 					}

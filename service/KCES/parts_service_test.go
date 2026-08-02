@@ -243,6 +243,9 @@ func TestPartsService_FixedSamplesJSONRoundTrip(t *testing.T) {
 					if err != nil {
 						t.Fatalf("canonicalize expected parts: %v", err)
 					}
+					assertRegeneratedMenuGUIDs(t, got)
+					clearRegeneratedMenuGUIDs(got)
+					clearRegeneratedMenuGUIDs(want)
 					if !reflect.DeepEqual(got, want) {
 						t.Fatalf("service parts JSON round-trip changed %s: got %#v, want %#v", name, got, want)
 					}
@@ -296,6 +299,44 @@ func TestIsKCESPartsJSONFileAcceptsNullableModelRoot(t *testing.T) {
 	}
 	if !IsKCESPartsJSONFile(path) {
 		t.Fatal("nullable KCES model JSON was not detected")
+	}
+}
+
+// A Menu without HairMake.ExportedGUID gets a fresh random GUID on every
+// encode, so both sides carry unequal non-zero GUIDs that must be checked
+// for regeneration and then cleared before the layout comparison.
+func assertRegeneratedMenuGUIDs(t *testing.T, value interface{}) {
+	t.Helper()
+	assets, ok := value.(*serializationKCES.MenuAssets)
+	if !ok || assets == nil {
+		return
+	}
+	for index, menu := range assets.Assets {
+		if menu == nil {
+			continue
+		}
+		if menu.HairMake != nil && menu.HairMake.ExportedGUID != nil {
+			continue
+		}
+		if menu.GUID == 0 {
+			t.Fatalf("menu[%d] GUID was not regenerated", index)
+		}
+	}
+}
+
+func clearRegeneratedMenuGUIDs(value interface{}) {
+	assets, ok := value.(*serializationKCES.MenuAssets)
+	if !ok || assets == nil {
+		return
+	}
+	for _, menu := range assets.Assets {
+		if menu == nil {
+			continue
+		}
+		if menu.HairMake != nil && menu.HairMake.ExportedGUID != nil {
+			continue
+		}
+		menu.GUID = 0
 	}
 }
 

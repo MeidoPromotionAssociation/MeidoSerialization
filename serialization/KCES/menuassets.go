@@ -3,6 +3,7 @@ package KCES
 import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
+	"github.com/google/uuid"
 	"github.com/ugorji/go/codec"
 )
 
@@ -57,7 +58,7 @@ import (
 type Menu struct {
 	_struct                    struct{}                   `codec:",toarray" kces:"nil=24;widths=21,22,27,28,31,32"` // 强制按数组编码并声明游戏已知历史宽度与固定 nil Key / Forces array encoding and declares known game widths plus the fixed nil key
 	Version                    int32                      `json:"version"`                                          // 存储的版本；当前游戏 FixVersion 为 1005 / Stored version; current-game FixVersion is 1005
-	GUID                       uint64                     `json:"guid"`                                             // 来源 GUID 字符串的大小写无关 FNV-1a 64 位哈希，来源存在时写入默认重算 / Case-insensitive FNV-1a 64-bit hash of the source GUID, recalculated by default during encoding when the source is present
+	GUID                       uint64                     `json:"guid"`                                             // 来源 GUID 字符串的大小写无关 FNV-1a 64 位哈希，写入默认重算，来源为 HairMake.ExportedGUID 或缺少该来源时新生成的 UUID v4，可显式保留 / Case-insensitive FNV-1a 64-bit hash of the source GUID string, recalculated by default during encoding from HairMake.ExportedGUID or from a freshly generated UUID v4 when that source is absent, and explicitly preservable
 	ID                         uint64                     `json:"id"`                                               // Menu 文件名的大小写无关 FNV-1a 64 位哈希，写入默认重算且可显式保留 / Case-insensitive FNV-1a 64-bit hash of the menu filename, recalculated by default during encoding and explicitly preservable
 	FileName                   *string                    `json:"fileName"`                                         // 可空菜单文件名，如 xxx.menu / Nullable menu file name such as xxx.menu
 	ItemName                   *string                    `json:"itemName"`                                         // 可空物品显示名称 / Nullable display name of the item
@@ -179,8 +180,10 @@ func DecodeMenuAssets(data []byte) (*MenuAssets, error) {
 	return assets, nil
 }
 
-// EncodeMenuAssets 将 MenuAssets 编码为 Lz4BlockArray 压缩的 MessagePack 数据，并默认按每个 Menu 自身字段重算可确定的查找字段
-// EncodeMenuAssets encodes MenuAssets as Lz4BlockArray-compressed MessagePack data and recalculates determinable lookup fields from each Menu's own fields by default
+// EncodeMenuAssets 将 MenuAssets 编码为 Lz4BlockArray 压缩的 MessagePack 数据，并默认按每个 Menu 自身字段重算查找字段
+// 缺少 HairMake.ExportedGUID 来源的 Menu 会取得新的随机 GUID，需要逐字节复现时应显式关闭重算
+// EncodeMenuAssets encodes MenuAssets as Lz4BlockArray-compressed MessagePack data and recalculates lookup fields from each Menu's own fields by default
+// A Menu without a HairMake.ExportedGUID source receives a new random GUID, so callers needing byte-for-byte reproducible output should disable recalculation explicitly
 func EncodeMenuAssets(assets *MenuAssets) ([]byte, error) {
 	return EncodeMenuAssetsWithOptions(assets, nil)
 }
@@ -258,8 +261,12 @@ func NewHairMake() *HairMake {
 	return &HairMake{Version: 1001}
 }
 
-// normalizeMenuLookupFields 重算游戏可从 Menu 自身确定的查找字段，缺少来源字段时保留原值
-// normalizeMenuLookupFields recalculates game lookup fields determined by a Menu itself and preserves existing values when their source fields are absent
+// normalizeMenuLookupFields 重算游戏在写出 Menu 时会赋值的查找字段
+// ID 由 Menu 文件名确定，缺少文件名时保留原值
+// GUID 在 HairMake.ExportedGUID 存在时由该来源确定，否则改用新生成的 UUID v4，因为游戏对 GUID 使用的随机来源字符串不会保存进文件
+// normalizeMenuLookupFields recalculates the lookup fields that the game assigns when writing a Menu
+// ID is determined by the menu filename and keeps its existing value when the filename is absent
+// GUID is determined by HairMake.ExportedGUID when that source is present and otherwise uses a freshly generated UUID v4, because the game never stores the random source string it hashes into GUID
 func normalizeMenuLookupFields(menu *Menu) {
 	if menu == nil {
 		return
@@ -269,7 +276,9 @@ func normalizeMenuLookupFields(menu *Menu) {
 	}
 	if menu.HairMake != nil && menu.HairMake.ExportedGUID != nil {
 		menu.GUID = ct.HashStringIgnoreCase(*menu.HairMake.ExportedGUID)
+		return
 	}
+	menu.GUID = ct.HashStringIgnoreCase(uuid.NewString())
 }
 
 // cloneMenuForEncoding 复制单个 Menu，并按默认值或显式选项使用外部文件名和自身字段处理查找字段
