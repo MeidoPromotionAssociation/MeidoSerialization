@@ -71,7 +71,7 @@ func (s *MaterialAssetsService) ConvertJsonToMaterialAssets(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("read .materialassets JSON %q: %w", inputPath, err)
 	}
-	encoded, err := encodeMaterialAssetsJSON(data)
+	encoded, err := encodeMaterialAssetsJSONWithOptions(data, &serializationKCES.LookupHashOptions{RecalculateHash: true})
 	if err != nil {
 		return err
 	}
@@ -97,17 +97,23 @@ func readMaterialAssetsFile(path string) (*serializationKCES.MaterialAssets, err
 // encodeMaterialAssetsJSON 严格解码编辑 JSON 并编码原生 .materialassets 数据
 // encodeMaterialAssetsJSON strictly decodes editing JSON and encodes native .materialassets data
 func encodeMaterialAssetsJSON(data []byte) ([]byte, error) {
+	return encodeMaterialAssetsJSONWithOptions(data, nil)
+}
+
+// encodeMaterialAssetsJSONWithOptions 严格解码编辑 JSON 并按指定查找字段选项编码原生 .materialassets 数据
+// encodeMaterialAssetsJSONWithOptions strictly decodes editing JSON and encodes native .materialassets data with the selected lookup-field options
+func encodeMaterialAssetsJSONWithOptions(data []byte, options *serializationKCES.LookupHashOptions) ([]byte, error) {
 	var value *serializationKCES.MaterialAssets
 	if err := decodeStrictJSON(trimJSONUTF8BOM(data), &value, "KCES materialassets JSON"); err != nil {
 		return nil, fmt.Errorf("parse materialassets json: %w", err)
 	}
-	return serializationKCES.EncodeMaterialAssets(value)
+	return serializationKCES.EncodeMaterialAssetsWithOptions(value, options)
 }
 
 // writeMaterialAssetsFile 编码并直接写入原生 .materialassets 数据
 // writeMaterialAssetsFile encodes and directly writes native .materialassets data
 func writeMaterialAssetsFile(path string, value *serializationKCES.MaterialAssets) error {
-	encoded, err := serializationKCES.EncodeMaterialAssets(value)
+	encoded, err := serializationKCES.EncodeMaterialAssetsWithOptions(value, &serializationKCES.LookupHashOptions{RecalculateHash: true})
 	if err != nil {
 		return fmt.Errorf("encode KCES materialassets: %w", err)
 	}

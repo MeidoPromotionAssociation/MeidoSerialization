@@ -1,6 +1,7 @@
 package KCES
 
 import (
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 	"github.com/ugorji/go/codec"
 )
@@ -23,7 +24,7 @@ import (
 type Material struct {
 	_struct           struct{}       `codec:",toarray" kces:"widths=8,10"`          // 强制按数组编码并接受 KCES 与 KCES2 布局 / Forces array encoding and accepts KCES and KCES2 layouts
 	Version           int32          `json:"version"`                               // 存储的版本；当前游戏 FixVersion 为 1000 / Stored version; current-game FixVersion is 1000
-	ID                uint64         `json:"id"`                                    // 材质 ID，通常为 fileName 去扩展名后小写的 FNV hash / Material ID, usually lowercase extensionless fileName FNV hash
+	ID                uint64         `json:"id"`                                    // 材质文件名的 FNV-1a 64 位哈希，写入默认按当前大小写重算且可显式保留 / FNV-1a 64-bit hash of the material filename, recalculated with its current casing by default during encoding and explicitly preservable
 	FileName          *string        `json:"fileName"`                              // 可空材质文件名，如 "xxx.mate" / Nullable material file name, for example "xxx.mate"
 	ShaderName        *string        `json:"shaderName"`                            // 可空 Unity shader 名称 / Nullable Unity shader name
 	TextureProps      []*TextureProp `json:"textureProps"`                          // 可空纹理属性对象数组 / Array of nullable texture-property objects
@@ -128,14 +129,25 @@ func DecodeMaterialAssets(data []byte) (*MaterialAssets, error) {
 	return assets, nil
 }
 
-// EncodeMaterialAssets 将 MaterialAssets 编码为 Lz4BlockArray 压缩的 MessagePack 数据
-// EncodeMaterialAssets encodes MaterialAssets as Lz4BlockArray-compressed MessagePack data
+// EncodeMaterialAssets 将 MaterialAssets 编码为 Lz4BlockArray 压缩的 MessagePack 数据，并默认按每个 Material 自身字段重算可确定的查找字段
+// EncodeMaterialAssets encodes MaterialAssets as Lz4BlockArray-compressed MessagePack data and recalculates determinable lookup fields from each Material's own fields by default
 func EncodeMaterialAssets(assets *MaterialAssets) ([]byte, error) {
+	return EncodeMaterialAssetsWithOptions(assets, nil)
+}
+
+// EncodeMaterialAssetsWithOptions 将 MaterialAssets 编码为 Lz4BlockArray 压缩的 MessagePack 数据，并允许显式关闭每个 Material 自身可确定的查找字段重算
+// EncodeMaterialAssetsWithOptions encodes MaterialAssets as Lz4BlockArray-compressed MessagePack data and allows recalculation of lookup fields determined by each Material itself to be explicitly disabled
+func EncodeMaterialAssetsWithOptions(assets *MaterialAssets, options *LookupHashOptions) ([]byte, error) {
 	if assets == nil {
 		return encodeCompressedMsgpack(nil, "MaterialAssets")
 	}
 	normalized := *assets
 	normalized.Assets = cloneSlicePreserveNil(assets.Assets)
+	if ShouldRecalculateLookupHashes(options) {
+		for index, material := range normalized.Assets {
+			normalized.Assets[index] = cloneMaterialForEncoding(material, options, false)
+		}
+	}
 	return encodeCompressedMsgpack(&normalized, "MaterialAssets")
 }
 
@@ -207,4 +219,30 @@ func NewKCES2Material() *Material {
 	material := NewMaterial()
 	material.SetMessagePackIndexedObjectWidth(materialKCES2Width)
 	return material
+}
+
+// normalizeMaterialLookupFields 重算游戏可从 Material 自身文件名确定的查找字段，缺少文件名时保留原 ID
+// normalizeMaterialLookupFields recalculates the game lookup field determined by a Material filename and preserves the existing ID when the filename is absent
+func normalizeMaterialLookupFields(material *Material) {
+	if material == nil || material.FileName == nil {
+		return
+	}
+	material.ID = ct.HashString(*material.FileName)
+}
+
+// cloneMaterialForEncoding 复制单个 Material，并按默认值或显式选项使用外部文件名和自身字段处理查找字段
+// cloneMaterialForEncoding copies one Material and handles its lookup field from the external filename and the material's own fields under the default or explicitly selected behavior
+func cloneMaterialForEncoding(material *Material, options *LookupHashOptions, useExternalFileName bool) *Material {
+	if material == nil {
+		return nil
+	}
+	normalized := *material
+	if ShouldRecalculateLookupHashes(options) && useExternalFileName && options != nil && options.FileName != "" {
+		fileName := options.FileName
+		normalized.FileName = &fileName
+	}
+	if ShouldRecalculateLookupHashes(options) {
+		normalizeMaterialLookupFields(&normalized)
+	}
+	return &normalized
 }

@@ -1,6 +1,7 @@
 package KCES
 
 import (
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 	"github.com/ugorji/go/codec"
 )
@@ -56,8 +57,8 @@ import (
 type Menu struct {
 	_struct                    struct{}                   `codec:",toarray" kces:"nil=24;widths=21,22,27,28,31,32"` // 强制按数组编码并声明游戏已知历史宽度与固定 nil Key / Forces array encoding and declares known game widths plus the fixed nil key
 	Version                    int32                      `json:"version"`                                          // 存储的版本；当前游戏 FixVersion 为 1005 / Stored version; current-game FixVersion is 1005
-	GUID                       uint64                     `json:"guid"`                                             // 来源 GUID 字符串的大小写无关 FNV-1a 64 位哈希 / Case-insensitive FNV-1a 64-bit hash of the source GUID
-	ID                         uint64                     `json:"id"`                                               // Menu 文件名的大小写无关 FNV-1a 64 位哈希 / Case-insensitive FNV-1a 64-bit hash of the menu filename
+	GUID                       uint64                     `json:"guid"`                                             // 来源 GUID 字符串的大小写无关 FNV-1a 64 位哈希，来源存在时写入默认重算 / Case-insensitive FNV-1a 64-bit hash of the source GUID, recalculated by default during encoding when the source is present
+	ID                         uint64                     `json:"id"`                                               // Menu 文件名的大小写无关 FNV-1a 64 位哈希，写入默认重算且可显式保留 / Case-insensitive FNV-1a 64-bit hash of the menu filename, recalculated by default during encoding and explicitly preservable
 	FileName                   *string                    `json:"fileName"`                                         // 可空菜单文件名，如 xxx.menu / Nullable menu file name such as xxx.menu
 	ItemName                   *string                    `json:"itemName"`                                         // 可空物品显示名称 / Nullable display name of the item
 	IconFileName               *string                    `json:"iconFileName"`                                     // 可空图标文件名 / Nullable icon file name
@@ -178,14 +179,25 @@ func DecodeMenuAssets(data []byte) (*MenuAssets, error) {
 	return assets, nil
 }
 
-// EncodeMenuAssets 将 MenuAssets 编码为 Lz4BlockArray 压缩的 MessagePack 数据
-// EncodeMenuAssets encodes MenuAssets as Lz4BlockArray-compressed MessagePack data
+// EncodeMenuAssets 将 MenuAssets 编码为 Lz4BlockArray 压缩的 MessagePack 数据，并默认按每个 Menu 自身字段重算可确定的查找字段
+// EncodeMenuAssets encodes MenuAssets as Lz4BlockArray-compressed MessagePack data and recalculates determinable lookup fields from each Menu's own fields by default
 func EncodeMenuAssets(assets *MenuAssets) ([]byte, error) {
+	return EncodeMenuAssetsWithOptions(assets, nil)
+}
+
+// EncodeMenuAssetsWithOptions 将 MenuAssets 编码为 Lz4BlockArray 压缩的 MessagePack 数据，并允许显式关闭每个 Menu 自身可确定的查找字段重算
+// EncodeMenuAssetsWithOptions encodes MenuAssets as Lz4BlockArray-compressed MessagePack data and allows recalculation of lookup fields determined by each Menu itself to be explicitly disabled
+func EncodeMenuAssetsWithOptions(assets *MenuAssets, options *LookupHashOptions) ([]byte, error) {
 	if assets == nil {
 		return encodeCompressedMsgpack(nil, "MenuAssets")
 	}
 	normalized := *assets
 	normalized.Assets = cloneSlicePreserveNil(assets.Assets)
+	if ShouldRecalculateLookupHashes(options) {
+		for index, menu := range normalized.Assets {
+			normalized.Assets[index] = cloneMenuForEncoding(menu, options, false)
+		}
+	}
 	return encodeCompressedMsgpack(&normalized, "MenuAssets")
 }
 
@@ -244,4 +256,35 @@ func NewKCES2Menu() *Menu {
 // NewHairMake creates new HairMake export information using the current fixed version
 func NewHairMake() *HairMake {
 	return &HairMake{Version: 1001}
+}
+
+// normalizeMenuLookupFields 重算游戏可从 Menu 自身确定的查找字段，缺少来源字段时保留原值
+// normalizeMenuLookupFields recalculates game lookup fields determined by a Menu itself and preserves existing values when their source fields are absent
+func normalizeMenuLookupFields(menu *Menu) {
+	if menu == nil {
+		return
+	}
+	if menu.FileName != nil {
+		menu.ID = ct.HashStringIgnoreCase(*menu.FileName)
+	}
+	if menu.HairMake != nil && menu.HairMake.ExportedGUID != nil {
+		menu.GUID = ct.HashStringIgnoreCase(*menu.HairMake.ExportedGUID)
+	}
+}
+
+// cloneMenuForEncoding 复制单个 Menu，并按默认值或显式选项使用外部文件名和自身字段处理查找字段
+// cloneMenuForEncoding copies one Menu and handles lookup fields from the external filename and the menu's own fields under the default or explicitly selected behavior
+func cloneMenuForEncoding(menu *Menu, options *LookupHashOptions, useExternalFileName bool) *Menu {
+	if menu == nil {
+		return nil
+	}
+	normalized := *menu
+	if ShouldRecalculateLookupHashes(options) && useExternalFileName && options != nil && options.FileName != "" {
+		fileName := options.FileName
+		normalized.FileName = &fileName
+	}
+	if ShouldRecalculateLookupHashes(options) {
+		normalizeMenuLookupFields(&normalized)
+	}
+	return &normalized
 }

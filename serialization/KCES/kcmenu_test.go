@@ -1,6 +1,10 @@
 package KCES
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+)
 
 func TestKCMenuPreservesKCES2Width(t *testing.T) {
 	menu := NewKCES2Menu()
@@ -18,5 +22,88 @@ func TestKCMenuPreservesKCES2Width(t *testing.T) {
 	}
 	if got := decoded.MessagePackIndexedObjectWidth(); got != menuKCES2Width {
 		t.Fatalf("decoded KCMenu width = %d, want %d", got, menuKCES2Width)
+	}
+}
+
+func TestEncodeKCMenuLookupFieldsRecalculateByDefaultAndCanBeDisabled(t *testing.T) {
+	fileName := "stale.kcmenu"
+	writtenFileName := "MixedCase.KCMENU"
+	exportedGUID := "ABCDEF01-2345-6789-ABCD-EF0123456789"
+	menu := NewKCES2Menu()
+	menu.FileName = &fileName
+	menu.ID = 1
+	menu.GUID = 2
+	menu.HairMake = NewHairMake()
+	menu.HairMake.ExportedGUID = &exportedGUID
+
+	defaultWire, err := EncodeKCMenu(menu)
+	if err != nil {
+		t.Fatalf("EncodeKCMenu: %v", err)
+	}
+	defaultValue, err := DecodeKCMenu(defaultWire)
+	if err != nil {
+		t.Fatalf("DecodeKCMenu: %v", err)
+	}
+	if got, want := defaultValue.ID, ct.HashStringIgnoreCase(fileName); got != want {
+		t.Fatalf("default ID = %d, want %d", got, want)
+	}
+	if got, want := defaultValue.GUID, ct.HashStringIgnoreCase(exportedGUID); got != want {
+		t.Fatalf("default GUID = %d, want %d", got, want)
+	}
+
+	preservedWire, err := EncodeKCMenuWithOptions(menu, &LookupHashOptions{RecalculateHash: false, FileName: writtenFileName})
+	if err != nil {
+		t.Fatalf("EncodeKCMenuWithOptions preserve: %v", err)
+	}
+	preserved, err := DecodeKCMenu(preservedWire)
+	if err != nil {
+		t.Fatalf("DecodeKCMenu preserve: %v", err)
+	}
+	if preserved.FileName == nil || *preserved.FileName != fileName {
+		t.Fatalf("preserved fileName = %v, want %q", preserved.FileName, fileName)
+	}
+	if preserved.ID != 1 || preserved.GUID != 2 {
+		t.Fatalf("disabled recalculation changed lookup fields: ID=%d GUID=%d", preserved.ID, preserved.GUID)
+	}
+
+	wire, err := EncodeKCMenuWithOptions(menu, &LookupHashOptions{RecalculateHash: true, FileName: writtenFileName})
+	if err != nil {
+		t.Fatalf("EncodeKCMenuWithOptions: %v", err)
+	}
+	decoded, err := DecodeKCMenu(wire)
+	if err != nil {
+		t.Fatalf("DecodeKCMenu: %v", err)
+	}
+	if decoded.FileName == nil || *decoded.FileName != writtenFileName {
+		t.Fatalf("decoded fileName = %v, want %q", decoded.FileName, writtenFileName)
+	}
+	if got, want := decoded.ID, ct.HashStringIgnoreCase(writtenFileName); got != want {
+		t.Fatalf("decoded ID = %d, want %d", got, want)
+	}
+	if got, want := decoded.GUID, ct.HashStringIgnoreCase(exportedGUID); got != want {
+		t.Fatalf("decoded GUID = %d, want %d", got, want)
+	}
+	if menu.ID != 1 || menu.GUID != 2 {
+		t.Fatalf("EncodeKCMenu mutated input IDs: ID=%d GUID=%d", menu.ID, menu.GUID)
+	}
+}
+
+func TestEncodeKCMenuPreservesGUIDWithoutExportedGUID(t *testing.T) {
+	fileName := "no_guid.kcmenu"
+	menu := NewKCES2Menu()
+	menu.FileName = &fileName
+	menu.GUID = 99
+	menu.HairMake = NewHairMake()
+
+	wire, err := EncodeKCMenuWithOptions(menu, &LookupHashOptions{RecalculateHash: true})
+	if err != nil {
+		t.Fatalf("EncodeKCMenuWithOptions: %v", err)
+	}
+	decoded, err := DecodeKCMenu(wire)
+	if err != nil {
+		t.Fatalf("DecodeKCMenu: %v", err)
+	}
+	if decoded.GUID != 99 {
+		t.Fatalf("decoded GUID = %d, want preserved 99", decoded.GUID)
 	}
 }

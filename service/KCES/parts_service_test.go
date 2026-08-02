@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
 func TestPartsService_MenuAssetsJSONRoundTrip(t *testing.T) {
@@ -73,6 +74,87 @@ func TestPartsService_ModelJSONRoundTrip(t *testing.T) {
 	}
 	if len(model.TransData) == 0 {
 		t.Errorf("transData is empty")
+	}
+}
+
+func TestPartsServiceWritersRecalculateLookupFields(t *testing.T) {
+	dir := t.TempDir()
+	menuFileName := "MixedCase.KCMENU"
+	exportedGUID := "ABCDEF01-2345-6789-ABCD-EF0123456789"
+	menu := serializationKCES.NewKCES2Menu()
+	menu.FileName = &menuFileName
+	menu.ID = 1
+	menu.GUID = 2
+	menu.HairMake = serializationKCES.NewHairMake()
+	menu.HairMake.ExportedGUID = &exportedGUID
+	menuPath := filepath.Join(dir, "parts.menuassets")
+	if err := (&MenuAssetsService{}).WriteMenuAssetsFile(menuPath, &serializationKCES.MenuAssets{Assets: []*serializationKCES.Menu{menu}}); err != nil {
+		t.Fatalf("WriteMenuAssetsFile: %v", err)
+	}
+	menuWire, err := os.ReadFile(menuPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	menuOutput, err := serializationKCES.DecodeMenuAssets(menuWire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := menuOutput.Assets[0].ID, ct.HashStringIgnoreCase(menuFileName); got != want {
+		t.Fatalf("menu ID = %d, want %d", got, want)
+	}
+	if got, want := menuOutput.Assets[0].GUID, ct.HashStringIgnoreCase(exportedGUID); got != want {
+		t.Fatalf("menu GUID = %d, want %d", got, want)
+	}
+	if menu.ID != 1 || menu.GUID != 2 {
+		t.Fatalf("WriteMenuAssetsFile mutated input IDs: ID=%d GUID=%d", menu.ID, menu.GUID)
+	}
+
+	materialFileName := "MixedCase.Mate"
+	material := serializationKCES.NewKCES2Material()
+	material.FileName = &materialFileName
+	material.ID = 1
+	materialPath := filepath.Join(dir, "parts.materialassets")
+	if err := (&MaterialAssetsService{}).WriteMaterialAssetsFile(materialPath, &serializationKCES.MaterialAssets{Assets: []*serializationKCES.Material{material}}); err != nil {
+		t.Fatalf("WriteMaterialAssetsFile: %v", err)
+	}
+	materialWire, err := os.ReadFile(materialPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	materialOutput, err := serializationKCES.DecodeMaterialAssets(materialWire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := materialOutput.Assets[0].ID, ct.HashString(materialFileName); got != want {
+		t.Fatalf("material ID = %d, want %d", got, want)
+	}
+	if material.ID != 1 {
+		t.Fatalf("WriteMaterialAssetsFile mutated input ID: %d", material.ID)
+	}
+
+	modelFileName := "stale.model"
+	model := &serializationKCES.Model{FileName: &modelFileName, ID: 1}
+	modelPath := filepath.Join(dir, "written.model")
+	if err := (&ModelService{}).WriteModelFile(modelPath, model); err != nil {
+		t.Fatalf("WriteModelFile: %v", err)
+	}
+	modelWire, err := os.ReadFile(modelPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	modelOutput, err := serializationKCES.DecodeModel(modelWire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writtenFileName := filepath.Base(modelPath)
+	if modelOutput.FileName == nil || *modelOutput.FileName != writtenFileName {
+		t.Fatalf("model fileName = %v, want %q", modelOutput.FileName, writtenFileName)
+	}
+	if got, want := modelOutput.ID, ct.HashString(writtenFileName); got != want {
+		t.Fatalf("model ID = %d, want %d", got, want)
+	}
+	if model.ID != 1 || model.FileName == nil || *model.FileName != modelFileName {
+		t.Fatalf("WriteModelFile mutated input: %+v", model)
 	}
 }
 

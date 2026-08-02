@@ -15,13 +15,13 @@ type PartsService struct{}
 // IsKCESPartsFile 判断路径是否为受支持的 KCES 部件载荷
 // IsKCESPartsFile reports whether a path is a supported KCES parts payload
 func IsKCESPartsFile(path string) bool {
-	return IsKCESMenuAssetsFile(path) || IsKCESMaterialAssetsFile(path) || IsKCESPriorityMaterialAssetsFile(path) || IsKCESModelFile(path)
+	return IsKCESMenuAssetsFile(path) || IsKCESMaterialAssetsFile(path) || IsKCESPriorityMaterialAssetsFile(path) || IsKCESModelFile(path) || IsKCESKCMenuFile(path) || IsKCESKCMatFile(path) || IsKCESKCModelFile(path)
 }
 
 // IsKCESPartsJSONFile 判断路径是否为受支持部件载荷的编辑 JSON
 // IsKCESPartsJSONFile reports whether a path is editing JSON for a supported KCES parts payload
 func IsKCESPartsJSONFile(path string) bool {
-	return IsKCESMenuAssetsJSONFile(path) || IsKCESMaterialAssetsJSONFile(path) || IsKCESPriorityMaterialAssetsJSONFile(path) || IsKCESModelJSONFile(path)
+	return IsKCESMenuAssetsJSONFile(path) || IsKCESMaterialAssetsJSONFile(path) || IsKCESPriorityMaterialAssetsJSONFile(path) || IsKCESModelJSONFile(path) || IsKCESKCMenuJSONFile(path) || IsKCESKCMatJSONFile(path) || IsKCESKCModelJSONFile(path)
 }
 
 // ConvertPartsToJson 根据输入扩展名调用对应的独立部件 service
@@ -36,6 +36,12 @@ func (s *PartsService) ConvertPartsToJson(ctx context.Context, inputPath string,
 		return (&PriorityMaterialAssetsService{}).ConvertPriorityMaterialAssetsToJson(ctx, inputPath, outputPath, maxOutputBytes)
 	case modelExtension:
 		return (&ModelService{}).ConvertModelToJson(ctx, inputPath, outputPath, maxOutputBytes)
+	case serializationKCES.KCMenuExtension:
+		return (&KCMenuService{}).ConvertKCMenuToJson(ctx, inputPath, outputPath, maxOutputBytes)
+	case kcMatExtension:
+		return (&KCMatService{}).ConvertKCMatToJson(ctx, inputPath, outputPath, maxOutputBytes)
+	case kcModelExtension:
+		return (&KCModelService{}).ConvertKCModelToJson(ctx, inputPath, outputPath, maxOutputBytes)
 	default:
 		return fmt.Errorf("unsupported KCES parts file type: %s", filepath.Ext(inputPath))
 	}
@@ -57,6 +63,12 @@ func (s *PartsService) ConvertJsonToParts(ctx context.Context, inputPath string,
 		return (&PriorityMaterialAssetsService{}).ConvertJsonToPriorityMaterialAssets(ctx, inputPath, outputPath, maxOutputBytes)
 	case modelExtension:
 		return (&ModelService{}).ConvertJsonToModel(ctx, inputPath, outputPath, maxOutputBytes)
+	case serializationKCES.KCMenuExtension:
+		return (&KCMenuService{}).ConvertJsonToKCMenu(ctx, inputPath, outputPath, maxOutputBytes)
+	case kcMatExtension:
+		return (&KCMatService{}).ConvertJsonToKCMat(ctx, inputPath, outputPath, maxOutputBytes)
+	case kcModelExtension:
+		return (&KCModelService{}).ConvertJsonToKCModel(ctx, inputPath, outputPath, maxOutputBytes)
 	default:
 		return fmt.Errorf("unsupported KCES parts JSON type: %s", extension)
 	}
@@ -74,6 +86,12 @@ func (s *PartsService) ReadPartsFile(path string) (any, error) {
 		return (&PriorityMaterialAssetsService{}).ReadPriorityMaterialAssetsFile(path)
 	case modelExtension:
 		return (&ModelService{}).ReadModelFile(path)
+	case serializationKCES.KCMenuExtension:
+		return (&KCMenuService{}).ReadKCMenuFile(path)
+	case kcMatExtension:
+		return (&KCMatService{}).ReadKCMatFile(path)
+	case kcModelExtension:
+		return (&KCModelService{}).ReadKCModelFile(path)
 	default:
 		return nil, fmt.Errorf("unsupported KCES parts file type: %s", filepath.Ext(path))
 	}
@@ -107,6 +125,24 @@ func (s *PartsService) WritePartsFile(path string, value any) error {
 			return fmt.Errorf(".model output requires *KCES.Model, got %T", value)
 		}
 		return (&ModelService{}).WriteModelFile(path, model)
+	case serializationKCES.KCMenuExtension:
+		menu, ok := value.(*serializationKCES.Menu)
+		if !ok && value != nil {
+			return fmt.Errorf(".kcmenu output requires *KCES.Menu, got %T", value)
+		}
+		return (&KCMenuService{}).WriteKCMenuFile(path, menu)
+	case kcMatExtension:
+		material, ok := value.(*serializationKCES.Material)
+		if !ok && value != nil {
+			return fmt.Errorf(".kcmat output requires *KCES.Material, got %T", value)
+		}
+		return (&KCMatService{}).WriteKCMatFile(path, material)
+	case kcModelExtension:
+		model, ok := value.(*serializationKCES.Model)
+		if !ok && value != nil {
+			return fmt.Errorf(".kcmodel output requires *KCES.Model, got %T", value)
+		}
+		return (&KCModelService{}).WriteKCModelFile(path, model)
 	default:
 		return fmt.Errorf("unsupported KCES parts output type: %s", filepath.Ext(path))
 	}
@@ -124,6 +160,12 @@ func encodePartsJSON(extension string, data []byte) ([]byte, error) {
 		return encodePriorityMaterialAssetsJSON(data)
 	case modelExtension:
 		return encodeModelJSON(data)
+	case serializationKCES.KCMenuExtension:
+		return encodeKCMenuJSON(data)
+	case kcMatExtension:
+		return encodeKCMatJSON(data)
+	case kcModelExtension:
+		return encodeKCModelJSON(data)
 	default:
 		return nil, fmt.Errorf("unsupported KCES parts JSON type: %s", extension)
 	}

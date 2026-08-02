@@ -71,7 +71,7 @@ func (s *MenuAssetsService) ConvertJsonToMenuAssets(ctx context.Context, inputPa
 	if err != nil {
 		return fmt.Errorf("read .menuassets JSON %q: %w", inputPath, err)
 	}
-	encoded, err := encodeMenuAssetsJSON(data)
+	encoded, err := encodeMenuAssetsJSONWithOptions(data, &serializationKCES.LookupHashOptions{RecalculateHash: true})
 	if err != nil {
 		return err
 	}
@@ -97,17 +97,23 @@ func readMenuAssetsFile(path string) (*serializationKCES.MenuAssets, error) {
 // encodeMenuAssetsJSON 严格解码编辑 JSON 并编码原生 .menuassets 数据
 // encodeMenuAssetsJSON strictly decodes editing JSON and encodes native .menuassets data
 func encodeMenuAssetsJSON(data []byte) ([]byte, error) {
+	return encodeMenuAssetsJSONWithOptions(data, nil)
+}
+
+// encodeMenuAssetsJSONWithOptions 严格解码编辑 JSON 并按指定查找字段选项编码原生 .menuassets 数据
+// encodeMenuAssetsJSONWithOptions strictly decodes editing JSON and encodes native .menuassets data with the selected lookup-field options
+func encodeMenuAssetsJSONWithOptions(data []byte, options *serializationKCES.LookupHashOptions) ([]byte, error) {
 	var value *serializationKCES.MenuAssets
 	if err := decodeStrictJSON(trimJSONUTF8BOM(data), &value, "KCES menuassets JSON"); err != nil {
 		return nil, fmt.Errorf("parse menuassets json: %w", err)
 	}
-	return serializationKCES.EncodeMenuAssets(value)
+	return serializationKCES.EncodeMenuAssetsWithOptions(value, options)
 }
 
 // writeMenuAssetsFile 编码并直接写入原生 .menuassets 数据
 // writeMenuAssetsFile encodes and directly writes native .menuassets data
 func writeMenuAssetsFile(path string, value *serializationKCES.MenuAssets) error {
-	encoded, err := serializationKCES.EncodeMenuAssets(value)
+	encoded, err := serializationKCES.EncodeMenuAssetsWithOptions(value, &serializationKCES.LookupHashOptions{RecalculateHash: true})
 	if err != nil {
 		return fmt.Errorf("encode KCES menuassets: %w", err)
 	}

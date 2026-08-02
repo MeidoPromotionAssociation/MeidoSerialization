@@ -657,7 +657,7 @@ func probeKCESOnlyEditingJSONByPath(path string, data []byte, info COM3D2Service
 		return info, true, nil
 	}
 
-	if innerExt == ".menuassets" || innerExt == ".materialassets" || innerExt == ".pmatassets" {
+	if innerExt == ".menuassets" || innerExt == ".materialassets" || innerExt == ".pmatassets" || innerExt == ".kcmenu" || innerExt == ".kcmat" || innerExt == ".kcmodel" {
 		if _, err := encodePartsJSON(innerExt, data); err != nil {
 			return info, true, fmt.Errorf("validate KCES parts JSON %q: %w", path, err)
 		}
@@ -783,7 +783,7 @@ func probeKCESOnlyEditingJSONByPath(path string, data []byte, info COM3D2Service
 // kcesPartsType maps a supported KCES parts extension to its canonical file type
 func kcesPartsType(ext string) (string, bool) {
 	switch strings.ToLower(ext) {
-	case ".menuassets", ".materialassets", ".pmatassets", ".model":
+	case ".menuassets", ".materialassets", ".pmatassets", ".model", ".kcmenu", ".kcmat", ".kcmodel":
 		return strings.TrimPrefix(strings.ToLower(ext), "."), true
 	default:
 		return "", false
@@ -802,6 +802,12 @@ func decodeKCESPartsForProbe(ext string, data []byte) (interface{}, error) {
 		return serializationKCES.DecodePriorityMaterialAssets(data)
 	case ".model":
 		return serializationKCES.DecodeModel(data)
+	case ".kcmenu":
+		return serializationKCES.DecodeKCMenu(data)
+	case ".kcmat":
+		return serializationKCES.DecodeKCMat(data)
+	case ".kcmodel":
+		return serializationKCES.DecodeKCModel(data)
 	default:
 		return nil, fmt.Errorf("unsupported KCES parts extension %q", ext)
 	}
@@ -812,6 +818,10 @@ func decodeKCESPartsForProbe(ext string, data []byte) (interface{}, error) {
 func kcesPartsVersion(value interface{}) int32 {
 	switch value := value.(type) {
 	case *serializationKCES.Model:
+		return value.Version
+	case *serializationKCES.Menu:
+		return value.Version
+	case *serializationKCES.Material:
 		return value.Version
 	case *serializationKCES.MenuAssets:
 		if len(value.Assets) > 0 {

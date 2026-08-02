@@ -145,7 +145,7 @@ func isModFile(path string) bool {
 	}
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
-	case ".menu", ".mate", ".mat", ".pmat", ".col", ".phy", ".psk", ".anm", ".model", ".preset", ".perset", ".menuassets", ".materialassets", ".pmatassets":
+	case ".menu", ".mate", ".mat", ".pmat", ".col", ".phy", ".psk", ".anm", ".model", ".preset", ".perset", ".menuassets", ".materialassets", ".pmatassets", ".kcmenu", ".kcmat", ".kcmodel":
 		return true
 	default:
 		return false
@@ -284,7 +284,7 @@ func isModJsonFile(path string) bool {
 	// Otherwise check if it's any supported MOD file
 	// We need to check directly without using isModFile because it also considers fileType
 	switch strings.ToLower(ext) {
-	case ".menu", ".mate", ".mat", ".pmat", ".col", ".phy", ".psk", ".anm", ".model", ".preset", ".perset", ".bytes", ".ct", ".menuassets", ".materialassets", ".pmatassets":
+	case ".menu", ".mate", ".mat", ".pmat", ".col", ".phy", ".psk", ".anm", ".model", ".preset", ".perset", ".bytes", ".ct", ".menuassets", ".materialassets", ".pmatassets", ".kcmenu", ".kcmat", ".kcmodel":
 		return true
 	default:
 		return false

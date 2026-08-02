@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
 func TestMenuLayoutRoundTripPreservesKCESGeneration(t *testing.T) {
@@ -81,5 +83,47 @@ func TestHistoricalMenuLayoutRejectsKCES2TailField(t *testing.T) {
 	menu.HairMake = NewHairMake()
 	if _, err := EncodeMenuAssets(&MenuAssets{Assets: []*Menu{menu}}); err == nil || !strings.Contains(err.Error(), "not representable") {
 		t.Fatalf("EncodeMenuAssets error = %v, want unrepresentable-tail error", err)
+	}
+}
+
+func TestEncodeMenuAssetsLookupFieldsRecalculateByDefaultAndCanBeDisabled(t *testing.T) {
+	fileName := "MixedCase.menu"
+	exportedGUID := "ABCDEF01-2345-6789-ABCD-EF0123456789"
+	menu := NewKCES2Menu()
+	menu.FileName = &fileName
+	menu.ID = 1
+	menu.GUID = 2
+	menu.HairMake = NewHairMake()
+	menu.HairMake.ExportedGUID = &exportedGUID
+	assets := &MenuAssets{Assets: []*Menu{menu}}
+
+	defaultWire, err := EncodeMenuAssets(assets)
+	if err != nil {
+		t.Fatalf("EncodeMenuAssets: %v", err)
+	}
+	defaultValue, err := DecodeMenuAssets(defaultWire)
+	if err != nil {
+		t.Fatalf("DecodeMenuAssets: %v", err)
+	}
+	if got, want := defaultValue.Assets[0].ID, ct.HashStringIgnoreCase(fileName); got != want {
+		t.Fatalf("default ID = %d, want %d", got, want)
+	}
+	if got, want := defaultValue.Assets[0].GUID, ct.HashStringIgnoreCase(exportedGUID); got != want {
+		t.Fatalf("default GUID = %d, want %d", got, want)
+	}
+
+	preservedWire, err := EncodeMenuAssetsWithOptions(assets, &LookupHashOptions{RecalculateHash: false})
+	if err != nil {
+		t.Fatalf("EncodeMenuAssetsWithOptions preserve: %v", err)
+	}
+	preserved, err := DecodeMenuAssets(preservedWire)
+	if err != nil {
+		t.Fatalf("DecodeMenuAssets preserve: %v", err)
+	}
+	if preserved.Assets[0].ID != 1 || preserved.Assets[0].GUID != 2 {
+		t.Fatalf("disabled recalculation changed lookup fields: ID=%d GUID=%d", preserved.Assets[0].ID, preserved.Assets[0].GUID)
+	}
+	if menu.ID != 1 || menu.GUID != 2 {
+		t.Fatalf("encoding mutated input lookup fields: ID=%d GUID=%d", menu.ID, menu.GUID)
 	}
 }

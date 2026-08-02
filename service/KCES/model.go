@@ -97,7 +97,10 @@ func (s *ModelService) ConvertJsonToModel(ctx context.Context, inputPath string,
 	if err != nil {
 		return fmt.Errorf("read KCES .model JSON %q: %w", inputPath, err)
 	}
-	encoded, err := encodeModelJSON(data)
+	encoded, err := encodeModelJSONWithOptions(data, &serializationKCES.LookupHashOptions{
+		RecalculateHash: true,
+		FileName:        filepath.Base(outputPath),
+	})
 	if err != nil {
 		return err
 	}
@@ -123,17 +126,26 @@ func readModelFile(path string) (*serializationKCES.Model, error) {
 // encodeModelJSON 严格解码编辑 JSON 并编码原生 KCES .model 数据
 // encodeModelJSON strictly decodes editing JSON and encodes native KCES .model data
 func encodeModelJSON(data []byte) ([]byte, error) {
+	return encodeModelJSONWithOptions(data, nil)
+}
+
+// encodeModelJSONWithOptions 严格解码编辑 JSON 并按指定查找字段选项编码原生 .model 数据
+// encodeModelJSONWithOptions strictly decodes editing JSON and encodes native .model data with the selected lookup-field options
+func encodeModelJSONWithOptions(data []byte, options *serializationKCES.LookupHashOptions) ([]byte, error) {
 	var value *serializationKCES.Model
 	if err := decodeStrictJSON(trimJSONUTF8BOM(data), &value, "KCES model JSON"); err != nil {
 		return nil, fmt.Errorf("parse model json: %w", err)
 	}
-	return serializationKCES.EncodeModel(value)
+	return serializationKCES.EncodeModelWithOptions(value, options)
 }
 
 // writeModelFile 编码并直接写入原生 KCES .model 数据
 // writeModelFile encodes and directly writes native KCES .model data
 func writeModelFile(path string, value *serializationKCES.Model) error {
-	encoded, err := serializationKCES.EncodeModel(value)
+	encoded, err := serializationKCES.EncodeModelWithOptions(value, &serializationKCES.LookupHashOptions{
+		RecalculateHash: true,
+		FileName:        filepath.Base(path),
+	})
 	if err != nil {
 		return fmt.Errorf("encode KCES model: %w", err)
 	}

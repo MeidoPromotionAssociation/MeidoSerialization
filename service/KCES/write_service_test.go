@@ -203,7 +203,7 @@ func TestKCESDirectWritersMatchNativeEncoders(t *testing.T) {
 		{
 			name:     "model",
 			fileName: "direct.model",
-			expected: mustEncode(serializationKCES.EncodeModel(model)),
+			expected: mustEncode(serializationKCES.EncodeModelWithOptions(model, &serializationKCES.LookupHashOptions{RecalculateHash: true, FileName: "direct.model"})),
 			write: func(path string) error {
 				return (&PartsService{}).WritePartsFile(path, model)
 			},

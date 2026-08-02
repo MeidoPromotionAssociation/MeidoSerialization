@@ -16,7 +16,7 @@ var convert2jsonCmd = &cobra.Command{
 This command can process a single file or all files in a directory.
 Supported file types include: .menu, .mate/.mat, .pmat, .col, .phy, .psk, .anm, .model and .preset.
 KCES parts payloads are also supported: .menuassets, .materialassets, .pmatassets,
-and KCES MessagePack .model files.
+.model, .kcmenu, .kcmat, and .kcmodel files.
 
 Not supported: .tex
   please use convert2image instead

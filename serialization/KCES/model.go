@@ -3,6 +3,7 @@ package KCES
 import (
 	"fmt"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 	"github.com/ugorji/go/codec"
 )
@@ -39,7 +40,7 @@ import (
 type Model struct {
 	_struct           struct{}       `codec:",toarray" kces:"widths=10,11"`         // 强制按数组编码并接受游戏已知的无阴影标志旧布局 / Forces array encoding and accepts the known older game layout without shadow flags
 	Version           int32          `json:"version"`                               // 版本号，固定为 1001 / Version value, fixed to 1001
-	ID                uint64         `json:"id"`                                    // 模型 ID / Model ID
+	ID                uint64         `json:"id"`                                    // 模型文件名的 FNV-1a 64 位哈希，游戏导出器会先小写文件名，写入默认按当前值重算且可显式保留 / FNV-1a 64-bit hash of the model filename, which the game exporter lowercases before encoding and which is recalculated from the current value by default during encoding and explicitly preservable
 	FileName          *string        `json:"fileName"`                              // 可空模型文件名 / Nullable model file name
 	MeshFileName      *string        `json:"meshFileName"`                          // 可空网格文件名 / Nullable mesh file name
 	ModelName         *string        `json:"modelName"`                             // 可空模型名称 / Nullable model name
@@ -154,19 +155,25 @@ func DecodeModel(data []byte) (*Model, error) {
 	return m, nil
 }
 
-// EncodeModel 将单个 Model 编码为 Lz4BlockArray 压缩的 MessagePack 数据
+// EncodeModel 将单个 Model 编码为 Lz4BlockArray 压缩的 MessagePack 数据，并默认按自身 FileName 重算 ID
 // 生成的数据可直接作为 .model TextAsset 的 m_Script
-// EncodeModel encodes one Model as Lz4BlockArray-compressed MessagePack data
+// EncodeModel encodes one Model as Lz4BlockArray-compressed MessagePack data and recalculates its ID from its own FileName by default
 // The resulting data can be used directly as .model TextAsset m_Script
 func EncodeModel(m *Model) ([]byte, error) {
+	return EncodeModelWithOptions(m, nil)
+}
+
+// EncodeModelWithOptions 将单个 Model 编码为 Lz4BlockArray 压缩的 MessagePack 数据，并允许显式关闭或按输出文件名执行查找字段重算
+// EncodeModelWithOptions encodes one Model as Lz4BlockArray-compressed MessagePack data and allows lookup-field recalculation to be explicitly disabled or performed from the output filename
+func EncodeModelWithOptions(m *Model, options *LookupHashOptions) ([]byte, error) {
 	if m == nil {
 		return encodeCompressedMsgpack(nil, "Model")
 	}
-	normalized := *m
-	if err := validateModelForEncoding(&normalized); err != nil {
+	normalized := cloneModelForEncoding(m, options, true)
+	if err := validateModelForEncoding(normalized); err != nil {
 		return nil, fmt.Errorf("validate Model: %w", err)
 	}
-	return encodeCompressedMsgpack(&normalized, "Model")
+	return encodeCompressedMsgpack(normalized, "Model")
 }
 
 // DecodeModelAssets 从 Lz4BlockArray 压缩的 MessagePack 数据解码 ModelAssets 容器
@@ -187,14 +194,25 @@ func DecodeModelAssets(data []byte) (*ModelAssets, error) {
 	return assets, nil
 }
 
-// EncodeModelAssets 将 ModelAssets 编码为 Lz4BlockArray 压缩的 MessagePack 数据
-// EncodeModelAssets encodes ModelAssets as Lz4BlockArray-compressed MessagePack data
+// EncodeModelAssets 将 ModelAssets 编码为 Lz4BlockArray 压缩的 MessagePack 数据，并默认按每个 Model 自身字段重算可确定的查找字段
+// EncodeModelAssets encodes ModelAssets as Lz4BlockArray-compressed MessagePack data and recalculates determinable lookup fields from each Model's own fields by default
 func EncodeModelAssets(assets *ModelAssets) ([]byte, error) {
+	return EncodeModelAssetsWithOptions(assets, nil)
+}
+
+// EncodeModelAssetsWithOptions 将 ModelAssets 编码为 Lz4BlockArray 压缩的 MessagePack 数据，并允许显式关闭每个 Model 自身可确定的查找字段重算
+// EncodeModelAssetsWithOptions encodes ModelAssets as Lz4BlockArray-compressed MessagePack data and allows recalculation of lookup fields determined by each Model itself to be explicitly disabled
+func EncodeModelAssetsWithOptions(assets *ModelAssets, options *LookupHashOptions) ([]byte, error) {
 	if assets == nil {
 		return encodeCompressedMsgpack(nil, "ModelAssets")
 	}
 	normalized := *assets
 	normalized.Assets = cloneSlicePreserveNil(assets.Assets)
+	if ShouldRecalculateLookupHashes(options) {
+		for index, model := range normalized.Assets {
+			normalized.Assets[index] = cloneModelForEncoding(model, options, false)
+		}
+	}
 	for i := range normalized.Assets {
 		if err := validateModelForEncoding(normalized.Assets[i]); err != nil {
 			return nil, fmt.Errorf("validate ModelAssets assetArray[%d]: %w", i, err)
@@ -232,3 +250,29 @@ func (v ModelAssets) CodecEncodeSelf(e *codec.Encoder) { msgpack.EncodeIndexedOb
 // CodecDecodeSelf 按共享 indexed-object 规则解码 ModelAssets
 // CodecDecodeSelf decodes ModelAssets using the shared indexed-object rules
 func (v *ModelAssets) CodecDecodeSelf(d *codec.Decoder) { msgpack.DecodeIndexedObjectSelf(d, v) }
+
+// normalizeModelLookupFields 重算游戏可从 Model 自身文件名确定的查找字段，缺少文件名时保留原 ID
+// normalizeModelLookupFields recalculates the game lookup field determined by a Model filename and preserves the existing ID when the filename is absent
+func normalizeModelLookupFields(model *Model) {
+	if model == nil || model.FileName == nil {
+		return
+	}
+	model.ID = ct.HashString(*model.FileName)
+}
+
+// cloneModelForEncoding 复制单个 Model，并按默认值或显式选项使用外部文件名和自身字段处理查找字段
+// cloneModelForEncoding copies one Model and handles its lookup field from the external filename and the model's own fields under the default or explicitly selected behavior
+func cloneModelForEncoding(model *Model, options *LookupHashOptions, useExternalFileName bool) *Model {
+	if model == nil {
+		return nil
+	}
+	normalized := *model
+	if ShouldRecalculateLookupHashes(options) && useExternalFileName && options != nil && options.FileName != "" {
+		fileName := options.FileName
+		normalized.FileName = &fileName
+	}
+	if ShouldRecalculateLookupHashes(options) {
+		normalizeModelLookupFields(&normalized)
+	}
+	return &normalized
+}
