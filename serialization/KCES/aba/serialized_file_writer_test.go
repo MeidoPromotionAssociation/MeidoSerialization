@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -693,4 +695,143 @@ func readLeadingAlignedNameForTest(data []byte) (string, bool) {
 
 func bytesToLittleUint32(data []byte) uint32 {
 	return uint32(data[0]) | uint32(data[1])<<8 | uint32(data[2])<<16 | uint32(data[3])<<24
+}
+
+func legacyHandBuiltTexture2DTestTree() TypeTreeType {
+	tree := TypeTreeType{TypeId: ClassIDTexture2D, ScriptTypeIndex: -1}
+	stringOffset := func(value string) uint32 {
+		offset := uint32(len(tree.StringBuffer))
+		tree.StringBuffer = append(tree.StringBuffer, value...)
+		tree.StringBuffer = append(tree.StringBuffer, 0)
+		return offset
+	}
+	for _, want := range legacyTexture2DTreeSignature {
+		tree.Nodes = append(tree.Nodes, TypeTreeNode{
+			Version:    1,
+			Level:      want.level,
+			TypeStrOff: stringOffset(want.typeName),
+			NameStrOff: stringOffset(want.fieldName),
+			ByteSize:   want.byteSize,
+			Index:      int32(len(tree.Nodes)),
+			MetaFlags:  want.metaFlags,
+		})
+	}
+	return tree
+}
+
+func TestSerializedFileWriter_UpgradesLegacyZeroHashTexture2DTree(t *testing.T) {
+	object, err := NewNativeTexture2DObject("legacy.tex", 2, 2, make([]byte, 16))
+	if err != nil {
+		t.Fatal(err)
+	}
+	object.TypeTree = legacyHandBuiltTexture2DTestTree()
+
+	w := NewSerializedFileWriter("")
+	w.AddNativeUnityObjectWithLoadNameAndPathID(object, "legacy.tex", "legacy.tex", 0)
+	var buf bytes.Buffer
+	if err := w.Write(&buf); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	af, err := ReadAssetsFileRange(int64(buf.Len()), func(off, size int64) ([]byte, error) {
+		return buf.Bytes()[off : off+size], nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	official := unity2022Texture2DTypeTree()
+	found := false
+	for _, tt := range af.Metadata.TypeTreeTypes {
+		if tt.TypeId != ClassIDTexture2D {
+			continue
+		}
+		found = true
+		if len(tt.Nodes) != len(official.Nodes) {
+			t.Fatalf("emitted Texture2D tree has %d nodes, want official %d", len(tt.Nodes), len(official.Nodes))
+		}
+		if tt.TypeHash != official.TypeHash {
+			t.Fatalf("emitted Texture2D TypeHash = %x, want official %x", tt.TypeHash, official.TypeHash)
+		}
+	}
+	if !found {
+		t.Fatal("no Texture2D type emitted")
+	}
+}
+
+func TestSerializedFileWriter_PreservesUnknownZeroHashTree(t *testing.T) {
+	object, err := NewNativeTexture2DObject("unknown.tex", 2, 2, make([]byte, 16))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree := legacyHandBuiltTexture2DTestTree()
+	tree.Nodes[5].ByteSize = 8
+	object.TypeTree = tree
+
+	w := NewSerializedFileWriter("")
+	w.AddNativeUnityObjectWithLoadNameAndPathID(object, "unknown.tex", "unknown.tex", 0)
+	var buf bytes.Buffer
+	if err := w.Write(&buf); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	af, err := ReadAssetsFileRange(int64(buf.Len()), func(off, size int64) ([]byte, error) {
+		return buf.Bytes()[off : off+size], nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range af.Metadata.TypeTreeTypes {
+		if tt.TypeId != ClassIDTexture2D {
+			continue
+		}
+		if len(tt.Nodes) != len(tree.Nodes) || tt.TypeHash != ([16]byte{}) {
+			t.Fatalf("unknown zero-hash tree was rewritten: nodes=%d hash=%x", len(tt.Nodes), tt.TypeHash)
+		}
+		return
+	}
+	t.Fatal("no Texture2D type emitted")
+}
+
+func TestSerializedFileWriter_HealsLegacyErrorSampleTexture(t *testing.T) {
+	f, err := os.Open(filepath.Join("..", "..", "..", "testdata", "error", "test.aba"))
+	if os.IsNotExist(err) {
+		t.Skip("no legacy error sample")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	bundle, err := ReadAba(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for directoryIndex, entry := range bundle.BlockInfo.DirectoryInfos {
+		if !entry.IsSerialized() {
+			continue
+		}
+		directoryIndex := directoryIndex
+		af, err := ReadAssetsFileRange(entry.DecompressedSize, func(offset, size int64) ([]byte, error) {
+			return bundle.GetFileDataRange(int64(directoryIndex), offset, size)
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for infoIndex := range af.Metadata.AssetInfos {
+			info := &af.Metadata.AssetInfos[infoIndex]
+			if info.TypeId != ClassIDTexture2D {
+				continue
+			}
+			tree, err := af.AssetTypeTree(info)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !isLegacyHandBuiltTexture2DTree(&tree) {
+				t.Fatalf("error-sample texture tree no longer matches the legacy signature: nodes=%d hash=%x", len(tree.Nodes), tree.TypeHash)
+			}
+			upgraded := upgradeZeroHashNativeTypeTree(&tree)
+			if upgraded.TypeHash == ([16]byte{}) || len(upgraded.Nodes) != len(unity2022Texture2DTypeTree().Nodes) {
+				t.Fatalf("legacy sample tree was not upgraded: nodes=%d hash=%x", len(upgraded.Nodes), upgraded.TypeHash)
+			}
+			return
+		}
+	}
+	t.Skip("error sample carries no Texture2D")
 }

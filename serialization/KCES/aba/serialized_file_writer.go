@@ -325,7 +325,7 @@ func (w *SerializedFileWriter) addNativeUnityObjectSource(classID int32, name st
 		w.setError(fmt.Errorf("native Unity object %q: %w", name, err))
 		return 0
 	}
-	clonedTree := cloneTypeTreeType(tree)
+	clonedTree := cloneTypeTreeType(upgradeZeroHashNativeTypeTree(tree))
 	actualPathID := w.reserveOrAllocatePathID(pathID)
 	var scriptPathID int64
 	if classID == ClassIDMonoBehaviour {
@@ -1273,6 +1273,90 @@ func encodeTexture2DData(unityVersion string, name string, width, height int64, 
 	}
 
 	return buf.Bytes(), nil
+}
+
+// legacyTexture2DTreeSignature 逐节点描述旧版库手工构造的 34 节点零哈希 Texture2D TypeTree
+// 该旧树与 encodeTexture2DData 的正文字节布局一致，但对 Unity 运行时是结构非法的，加载贴图会在原生层崩溃
+// legacyTexture2DTreeSignature describes node by node the hand-built 34-node zero-hash Texture2D TypeTree emitted by older library versions
+// That legacy tree matches the encodeTexture2DData payload byte layout but is structurally invalid for the Unity runtime, which crashes natively when loading such textures
+var legacyTexture2DTreeSignature = []struct {
+	level     uint8
+	typeName  string
+	fieldName string
+	byteSize  int32
+	metaFlags uint32
+}{
+	{0, "Texture2D", "Base", -1, 0},
+	{1, "string", "m_Name", -1, 0x4000},
+	{1, "int", "m_ForcedFallbackFormat", 4, 0},
+	{1, "bool", "m_DownscaleFallback", 1, 0},
+	{1, "bool", "m_IsAlphaChannelOptional", 1, 0x4000},
+	{1, "int", "m_Width", 4, 0},
+	{1, "int", "m_Height", 4, 0},
+	{1, "int", "m_CompleteImageSize", 4, 0},
+	{1, "int", "m_MipsStripped", 4, 0},
+	{1, "int", "m_TextureFormat", 4, 0},
+	{1, "int", "m_MipCount", 4, 0},
+	{1, "bool", "m_IsReadable", 1, 0},
+	{1, "bool", "m_IsPreProcessed", 1, 0},
+	{1, "bool", "m_IgnoreMipmapLimit", 1, 0x4000},
+	{1, "string", "m_MipmapLimitGroupName", -1, 0x4000},
+	{1, "bool", "m_StreamingMipmaps", 1, 0x4000},
+	{1, "int", "m_StreamingMipmapsPriority", 4, 0},
+	{1, "int", "m_ImageCount", 4, 0},
+	{1, "int", "m_TextureDimension", 4, 0},
+	{1, "GLTextureSettings", "m_TextureSettings", 24, 0},
+	{2, "int", "m_FilterMode", 4, 0},
+	{2, "int", "m_Aniso", 4, 0},
+	{2, "float", "m_MipBias", 4, 0},
+	{2, "int", "m_WrapU", 4, 0},
+	{2, "int", "m_WrapV", 4, 0},
+	{2, "int", "m_WrapW", 4, 0},
+	{1, "int", "m_LightmapFormat", 4, 0},
+	{1, "int", "m_ColorSpace", 4, 0},
+	{1, "TypelessData", "m_PlatformBlob", -1, 0x4000},
+	{1, "TypelessData", "image data", -1, 0x4000},
+	{1, "StreamingInfo", "m_StreamData", -1, 0},
+	{2, "unsigned long long", "offset", 8, 0},
+	{2, "unsigned int", "size", 4, 0},
+	{2, "string", "path", -1, 0x4000},
+}
+
+// isLegacyHandBuiltTexture2DTree 判断 TypeTree 是否逐节点匹配旧版手工 Texture2D 树
+// isLegacyHandBuiltTexture2DTree reports whether a TypeTree matches the legacy hand-built Texture2D tree node by node
+func isLegacyHandBuiltTexture2DTree(tree *TypeTreeType) bool {
+	if tree == nil || tree.TypeId != ClassIDTexture2D || len(tree.Nodes) != len(legacyTexture2DTreeSignature) {
+		return false
+	}
+	for index := range tree.Nodes {
+		node := &tree.Nodes[index]
+		want := &legacyTexture2DTreeSignature[index]
+		if node.Version != 1 || node.TypeFlags != 0 || node.Level != want.level ||
+			node.ByteSize != want.byteSize || node.MetaFlags != want.metaFlags {
+			return false
+		}
+		if tree.GetTypeTreeString(node, true) != want.typeName || tree.GetTypeTreeString(node, false) != want.fieldName {
+			return false
+		}
+	}
+	return true
+}
+
+// upgradeZeroHashNativeTypeTree 把独立对象携带的已知旧版手工 Texture2D 树替换为官方树
+// 旧版库为该手工树写零 TypeHash，Unity 因哈希不匹配走类型树转换路径，而该树缺少 string 与 TypelessData 的 Array 子结构，转换读取会在原生层崩溃
+// 该旧树与官方树的正文字节布局一致，可安全替换；其余零哈希树是 Unity 2022.3 布局迁移的有意产物，结构合法且 Unity 能通过转换路径读取，保持透传
+// upgradeZeroHashNativeTypeTree replaces the known legacy hand-built Texture2D tree carried by a standalone object with the official tree
+// Older library versions wrote that hand-built tree with a zero TypeHash, so Unity takes the type-tree conversion path on the hash mismatch and crashes natively because the tree lacks the Array substructure of string and TypelessData
+// The legacy tree shares its payload byte layout with the official tree so replacement is safe, while other zero-hash trees are intentional products of Unity 2022.3 layout migration that stay structurally valid and readable through the conversion path, so they pass through unchanged
+func upgradeZeroHashNativeTypeTree(tree *TypeTreeType) *TypeTreeType {
+	if tree == nil || tree.TypeHash != ([16]byte{}) {
+		return tree
+	}
+	if isLegacyHandBuiltTexture2DTree(tree) {
+		official := unity2022Texture2DTypeTree()
+		return &official
+	}
+	return tree
 }
 
 // unity2022Texture2DTypeTree 返回从官方 KCES parts_cafesp001_2.aba 提取的 Unity 2022.3 内置 Texture2D TypeTree，与 encodeTexture2DData 写出的正文严格一致且 TypeHash 在官方 2022.3 样本中保持一致
