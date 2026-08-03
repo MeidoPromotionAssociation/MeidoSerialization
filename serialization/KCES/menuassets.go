@@ -1,6 +1,9 @@
 package KCES
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 	"github.com/google/uuid"
@@ -164,6 +167,10 @@ type MenuAssets struct {
 
 const menuFixVersion = 1005
 
+// MenuExtension 是游戏内 Menu 文件名使用的扩展名
+// MenuExtension is the extension used by in-game menu filenames
+const MenuExtension = ".menu"
+
 const (
 	preMulTexDatasFixVersion = 1001
 	colvariFixVersion        = 1000
@@ -199,6 +206,11 @@ func EncodeMenuAssetsWithOptions(assets *MenuAssets, options *LookupHashOptions)
 	if ShouldRecalculateLookupHashes(options) {
 		for index, menu := range normalized.Assets {
 			normalized.Assets[index] = cloneMenuForEncoding(menu, options, false)
+		}
+	}
+	for index, menu := range normalized.Assets {
+		if err := validateMenuFileNameExtension(menu, fmt.Sprintf("MenuAssets.assetArray[%d]", index)); err != nil {
+			return nil, err
 		}
 	}
 	return encodeCompressedMsgpack(&normalized, "MenuAssets")
@@ -259,6 +271,23 @@ func NewKCES2Menu() *Menu {
 // NewHairMake creates new HairMake export information using the current fixed version
 func NewHairMake() *HairMake {
 	return &HairMake{Version: 1001}
+}
+
+// validateMenuFileNameExtension 校验 Menu 文件名以 .menu 或 .kcmenu 结尾，nil 文件名跳过
+// 游戏 PartsMenuManager.GetMenu 会给无扩展名的查找名补上 .menu 再哈希，而注册键直接取存储的 ID
+// 无扩展名的文件名会产生游戏永远查不到的 ID，此类菜单在列表中可见但无法打开，因此写出时拒绝
+// validateMenuFileNameExtension validates that a menu filename ends in .menu or .kcmenu, skipping nil filenames
+// The game's PartsMenuManager.GetMenu appends .menu to extensionless lookup names before hashing while the registration key uses the stored ID directly
+// An extensionless filename therefore produces an ID the game can never look up, leaving the menu visible in lists but impossible to open, so encoding rejects it
+func validateMenuFileNameExtension(menu *Menu, path string) error {
+	if menu == nil || menu.FileName == nil {
+		return nil
+	}
+	name := strings.ToLower(*menu.FileName)
+	if strings.HasSuffix(name, MenuExtension) || strings.HasSuffix(name, KCMenuExtension) {
+		return nil
+	}
+	return fmt.Errorf("%s.fileName %q must end in %s or %s so the stored ID matches game lookups", path, *menu.FileName, MenuExtension, KCMenuExtension)
 }
 
 // normalizeMenuLookupFields 重算游戏在写出 Menu 时会赋值的查找字段

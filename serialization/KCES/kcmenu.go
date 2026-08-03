@@ -25,5 +25,9 @@ func EncodeKCMenu(value *Menu) ([]byte, error) {
 // EncodeKCMenuWithOptions 编码单个 Parts.Menu 的 LZ4 MessagePack .kcmenu 数据，并允许显式关闭或按输出文件名执行查找字段重算
 // EncodeKCMenuWithOptions encodes LZ4 MessagePack .kcmenu data containing one Parts.Menu and allows lookup-field recalculation to be explicitly disabled or performed from the output filename
 func EncodeKCMenuWithOptions(value *Menu, options *LookupHashOptions) ([]byte, error) {
-	return encodeCompressedMsgpack(cloneMenuForEncoding(value, options, true), "KCMenu")
+	normalized := cloneMenuForEncoding(value, options, true)
+	if err := validateMenuFileNameExtension(normalized, "KCMenu"); err != nil {
+		return nil, err
+	}
+	return encodeCompressedMsgpack(normalized, "KCMenu")
 }

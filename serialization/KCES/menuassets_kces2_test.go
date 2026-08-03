@@ -160,6 +160,36 @@ func TestEncodeMenuAssetsRegeneratesGUIDPerMenuWithoutExportedGUID(t *testing.T)
 	}
 }
 
+func TestEncodeMenuAssetsRejectsFileNameWithoutMenuExtension(t *testing.T) {
+	invalid := []string{"testmenu", "", "testmenu.tex", "testmenu.menu.bak", "menu"}
+	for _, name := range invalid {
+		name := name
+		menu := NewMenu()
+		menu.FileName = &name
+		assets := &MenuAssets{Assets: []*Menu{menu}}
+		if _, err := EncodeMenuAssets(assets); err == nil || !strings.Contains(err.Error(), ".menu") {
+			t.Fatalf("EncodeMenuAssets(%q) error = %v, want missing-extension error", name, err)
+		}
+		if _, err := EncodeMenuAssetsWithOptions(assets, &LookupHashOptions{RecalculateHash: false}); err == nil {
+			t.Fatalf("EncodeMenuAssetsWithOptions(%q, preserve) accepted an extensionless filename", name)
+		}
+	}
+
+	valid := []string{"testmenu.menu", "TestMenu.MENU", "hair.kcmenu", "Hair.KCMenu"}
+	for _, name := range valid {
+		name := name
+		menu := NewKCES2Menu()
+		menu.FileName = &name
+		if _, err := EncodeMenuAssets(&MenuAssets{Assets: []*Menu{menu}}); err != nil {
+			t.Fatalf("EncodeMenuAssets(%q): %v", name, err)
+		}
+	}
+
+	if _, err := EncodeMenuAssets(&MenuAssets{Assets: []*Menu{{Version: menuFixVersion}}}); err != nil {
+		t.Fatalf("EncodeMenuAssets(nil fileName): %v", err)
+	}
+}
+
 func TestEncodeMenuAssetsGUIDMatchesGameHashOfUUIDSource(t *testing.T) {
 	// The game derives GUID as GetHashIgnoreCase over a D-format UUID string,
 	// so a regenerated GUID must be reachable from some canonical UUID text.

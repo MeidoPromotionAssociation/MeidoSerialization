@@ -1,6 +1,7 @@
 package KCES
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
@@ -85,6 +86,21 @@ func TestEncodeKCMenuLookupFieldsRecalculateByDefaultAndCanBeDisabled(t *testing
 	}
 	if menu.ID != 1 || menu.GUID != 2 {
 		t.Fatalf("EncodeKCMenu mutated input IDs: ID=%d GUID=%d", menu.ID, menu.GUID)
+	}
+}
+
+func TestEncodeKCMenuRejectsFileNameWithoutMenuExtension(t *testing.T) {
+	fileName := "testmenu"
+	menu := NewKCES2Menu()
+	menu.FileName = &fileName
+	if _, err := EncodeKCMenu(menu); err == nil || !strings.Contains(err.Error(), ".kcmenu") {
+		t.Fatalf("EncodeKCMenu error = %v, want missing-extension error", err)
+	}
+	if _, err := EncodeKCMenuWithOptions(menu, &LookupHashOptions{RecalculateHash: false}); err == nil {
+		t.Fatal("EncodeKCMenuWithOptions(preserve) accepted an extensionless filename")
+	}
+	if _, err := EncodeKCMenuWithOptions(menu, &LookupHashOptions{RecalculateHash: true, FileName: "fixed.kcmenu"}); err != nil {
+		t.Fatalf("EncodeKCMenuWithOptions(override): %v", err)
 	}
 }
 
