@@ -99,6 +99,12 @@ type MaterialAssets struct {
 
 const materialFixVersion = 1000
 
+// MaterialExtension 是容器内材质条目虚拟文件名使用的扩展名
+// KCES 没有独立的材质文件，该扩展名只出现在 .materialassets 条目的 fileName 中，游戏按它补全无扩展名的查找名
+// MaterialExtension is the extension used by the virtual filenames of material entries inside a container
+// KCES has no standalone material files, so this extension appears only in the fileName of .materialassets entries, where the game uses it to complete extensionless lookup names
+const MaterialExtension = ".mate"
+
 const (
 	materialLegacyWidth = 8
 	materialKCES2Width  = 10

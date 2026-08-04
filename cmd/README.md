@@ -318,10 +318,18 @@ MeidoSerialization.exe convert2texture2d .\aba_files\Texture2D\my_texture.png
 MeidoSerialization.exe packAba .\aba_files -o my_mod
 ```
 
-The game reads parts definitions only from a file named exactly `<aba_name>.menuassets` (lowercase), so the
-output name passed to `-o` must match the `.menuassets` file inside the package, or rename the `menuassets`, and cannot be the same as an existing filename.. When packing an unpack
-directory without `-o`, the default output name strips the `.aba_unpacked` suffix so the original name is kept,
-and `packAba` prints a warning when the names do not match.
+KCES 1.34.5 reads a parts container only from a file named exactly `<aba_name>.menuassets` or
+`<aba_name>.materialassets`, and it compares that name case-sensitively against entries it registered in lowercase.
+The output name passed to `-o` therefore has to be all lowercase and has to match the container file names inside
+the package (renaming the containers instead works too), and it cannot be the same as an existing filename. When
+packing an unpack directory without `-o`, the default output name strips the `.aba_unpacked` suffix so the original
+name is kept. `packAba` prints a warning for:
+
+- an output name that is not all lowercase
+- a `.menuassets` or `.materialassets` whose name does not match the output name
+- `.materialassets` entries the game can never look up: a material `fileName` has to end in `.mate` and stay
+  lowercase, because the game appends `.mate` to extensionless lookup names and hashes them ignoring case, while
+  the stored ID is the case-sensitive hash of the file name
 
 `packAba` and `genCt` write default catalog metadata (`catalogType` Parts, `packageType` Plugin, priority 0).
 To customize the metadata, edit the generated `.ct` through its JSON envelope:
@@ -912,9 +920,15 @@ PNG 并编辑，然后转换回原生 Texture2D，这样重新打包时才能带
 .\MeidoSerialization.exe packAba .\aba_files -o my_mod
 ~~~
 
-游戏只从名字恰好为 `<aba名>.menuassets`（小写）的文件读取部件定义，因此 `-o` 指定的输出名必须与包内的
-`.menuassets` 文件名一致，或者修改 menuassets 名称，且不能与现有的文件重名。不指定 `-o` 直接打包解包目录时，默认输出名会去掉 `.aba_unpacked` 后缀以保持
-原名；名字不匹配时 `packAba` 会输出警告。
+KCES 1.34.5 只从名字恰好为 `<aba名>.menuassets` 或 `<aba名>.materialassets` 的文件读取部件容器，而且这个名字会
+与它按小写登记的条目做区分大小写的比较。因此 `-o` 指定的输出名必须全小写，并与包内的容器文件名一致（也可以
+改容器名称），且不能与现有的文件重名。不指定 `-o` 直接打包解包目录时，默认输出名会去掉 `.aba_unpacked` 后缀以
+保持原名。`packAba` 会在以下情况输出警告：
+
+- 输出名不是全小写
+- `.menuassets` 或 `.materialassets` 的名字与输出名不一致
+- `.materialassets` 中存在游戏永远查不到的条目：材质 `fileName` 必须以 `.mate` 结尾并保持小写，因为游戏会给无
+  扩展名的查找名补上 `.mate` 再按忽略大小写哈希，而条目存储的 ID 是区分大小写的文件名哈希
 
 `packAba` 和 `genCt` 会写入默认的 catalog 元数据（`catalogType` Parts、`packageType` Plugin、priority 0）。
 需要自定义元数据时，通过 JSON 封套编辑生成的 `.ct`：
@@ -1519,10 +1533,17 @@ NEI テキストは Shift-JIS です。CSV は RFC 4180 形式に近いカンマ
 .\MeidoSerialization.exe packAba .\aba_files -o my_mod
 ~~~
 
-ゲームは `<aba名>.menuassets`（小文字）という名前のファイルからのみパーツ定義を読み込むため、`-o` に
-渡す出力名はパッケージ内の `.menuassets` ファイル名と一致させる必要があります，あるいは、menuassets の名前を変更することもできますが、既存のファイルと同じ名前にすることはできません。`-o` を指定せずに解凍
-ディレクトリをパックする場合、既定の出力名は `.aba_unpacked` サフィックスを取り除いて元の名前を維持し、
-名前が一致しない場合 `packAba` は警告を出力します。
+KCES 1.34.5 は `<aba名>.menuassets` または `<aba名>.materialassets` という名前のファイルからのみパーツ container
+を読み込み、その名前を小文字で登録されたエントリと大文字小文字を区別して比較します。そのため `-o` に渡す出力名は
+すべて小文字であり、パッケージ内の container ファイル名と一致している必要があります（container 側の名前を変更しても
+構いません）。また既存のファイルと同じ名前にはできません。`-o` を指定せずに解凍ディレクトリをパックする場合、
+既定の出力名は `.aba_unpacked` サフィックスを取り除いて元の名前を維持します。`packAba` は次の場合に警告を出力します。
+
+- 出力名がすべて小文字でない場合
+- `.menuassets` または `.materialassets` の名前が出力名と一致しない場合
+- ゲームが決して検索できない `.materialassets` エントリがある場合。マテリアルの `fileName` は `.mate` で終わり
+  小文字である必要があります。ゲームは拡張子のない検索名に `.mate` を付けてから大文字小文字を無視してハッシュ化
+  しますが、保存されている ID はファイル名を大文字小文字を区別してハッシュ化した値だからです
 
 `packAba` と `genCt` は既定の catalog metadata（`catalogType` Parts、`packageType` Plugin、priority 0）を書き込みます。
 metadata をカスタマイズするには、生成された `.ct` を JSON envelope 経由で編集します。

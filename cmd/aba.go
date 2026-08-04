@@ -76,6 +76,12 @@ Files are classified by extension:
   - Unity assets (.tex, .mesh, .png, etc.) → .aba
   - Game data (.menuassets, .materialassets, catalog, etc.) → .ct
 
+KCES 1.34.5 reads parts containers only from files named exactly <aba name>.menuassets and
+<aba name>.materialassets and compares those names case-sensitively, so the output name must be
+all lowercase and must match the container names inside the package. A warning is printed for a
+mismatch and for .materialassets entries whose fileName does not end in a lowercase .mate, since
+the game can never look those materials up.
+
 Examples:
   MeidoSerialization packAba ./my_folder
   MeidoSerialization packAba ./my_folder -o output_name`,

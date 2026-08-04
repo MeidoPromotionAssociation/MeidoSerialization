@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
@@ -220,45 +221,155 @@ func TestPackDefaultOutputNameStripsUnpackSuffix(t *testing.T) {
 	}
 }
 
-func TestMenuAssetsNameMismatchWarning(t *testing.T) {
+func TestPartsAssetsNameMismatchWarning(t *testing.T) {
 	tests := []struct {
-		name     string
-		manifest ModManifest
-		warn     bool
+		name      string
+		manifest  ModManifest
+		container partsAssetsContainer
+		warn      bool
 	}{
 		{
-			name: "matching",
+			name: "matching menuassets",
 			manifest: ModManifest{Name: "mymod", Assets: []ModAsset{
 				{Name: "mymod.menuassets"}, {Name: "body.tex"},
 			}},
+			container: partsAssetsContainers[0],
 		},
 		{
-			name: "mismatched",
+			name: "mismatched menuassets",
 			manifest: ModManifest{Name: "mymod.aba_unpacked", Assets: []ModAsset{
 				{Name: "mymod.menuassets"},
 			}},
-			warn: true,
+			container: partsAssetsContainers[0],
+			warn:      true,
 		},
 		{
-			name: "uppercase bundle name",
+			name: "uppercase bundle name still matches its container",
 			manifest: ModManifest{Name: "MyMod", Assets: []ModAsset{
 				{Name: "MyMod.menuassets"},
 			}},
-			warn: true,
+			container: partsAssetsContainers[0],
 		},
 		{
 			name: "no menuassets",
 			manifest: ModManifest{Name: "whatever", Assets: []ModAsset{
 				{Name: "body.tex"},
 			}},
+			container: partsAssetsContainers[0],
+		},
+		{
+			name: "matching materialassets",
+			manifest: ModManifest{Name: "mymod", Assets: []ModAsset{
+				{Name: "mymod.materialassets"},
+			}},
+			container: partsAssetsContainers[1],
+		},
+		{
+			name: "mismatched materialassets",
+			manifest: ModManifest{Name: "mymod", Assets: []ModAsset{
+				{Name: "other.materialassets"},
+			}},
+			container: partsAssetsContainers[1],
+			warn:      true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			warning := menuAssetsNameMismatchWarning(tt.manifest)
+			warning := partsAssetsNameMismatchWarning(tt.manifest, tt.container)
 			if (warning != "") != tt.warn {
 				t.Fatalf("warning = %q, want warn=%v", warning, tt.warn)
 			}
 		})
+	}
+}
+
+func TestPackNameCaseWarning(t *testing.T) {
+	if warning := packNameCaseWarning("mymod_2"); warning != "" {
+		t.Fatalf("lowercase name warning = %q", warning)
+	}
+	warning := packNameCaseWarning("Override")
+	if warning == "" {
+		t.Fatal("uppercase name produced no warning")
+	}
+	if !strings.Contains(warning, "override") {
+		t.Fatalf("warning does not suggest the lowercase name: %q", warning)
+	}
+}
+
+func TestMaterialAssetsLookupWarnings(t *testing.T) {
+	dir := t.TempDir()
+	container := "mymod.materialassets"
+	names := []string{"reachable.mate", "no_extension", "MixedCase.mate"}
+	assets := &serializationKCES.MaterialAssets{FileName: &container}
+	for index := range names {
+		material := serializationKCES.NewMaterial()
+		material.FileName = &names[index]
+		assets.Assets = append(assets.Assets, material)
+	}
+	encoded, err := serializationKCES.EncodeMaterialAssets(assets)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, container), encoded, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	manifest := ModManifest{Name: "mymod", Assets: []ModAsset{{Name: container, Path: container}}}
+	warnings := materialAssetsLookupWarnings(manifest, dir)
+	if len(warnings) != 1 {
+		t.Fatalf("warnings = %v, want exactly one", warnings)
+	}
+	for _, want := range []string{"no_extension", "MixedCase.mate"} {
+		if !strings.Contains(warnings[0], want) {
+			t.Errorf("warning does not mention %q: %q", want, warnings[0])
+		}
+	}
+	if strings.Contains(warnings[0], "reachable.mate,") || strings.Contains(warnings[0], ", reachable.mate") {
+		t.Errorf("warning reports the reachable entry: %q", warnings[0])
+	}
+
+	assets.Assets = assets.Assets[:1]
+	encoded, err = serializationKCES.EncodeMaterialAssets(assets)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, container), encoded, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if warnings := materialAssetsLookupWarnings(manifest, dir); len(warnings) != 0 {
+		t.Fatalf("warnings for reachable entries = %v", warnings)
+	}
+}
+
+func TestMaterialAssetsLookupWarningsAcceptOfficialContainers(t *testing.T) {
+	matches, err := filepath.Glob(filepath.Join("..", "..", "testdata", "kces_parts", "*.materialassets"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) == 0 {
+		t.Skip("no official .materialassets fixtures available")
+	}
+	for _, path := range matches {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assets, err := serializationKCES.DecodeMaterialAssets(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		name := filepath.Base(path)
+		warning := materialAssetsEntryLookupWarning(name, assets)
+		// crc_nt008_accha009 是官方数据中确实无法被查找到的混合大小写条目
+		// crc_nt008_accha009 carries the mixed-case entries that official data genuinely cannot look up
+		if name == "crc_nt008_accha009.materialassets" {
+			if warning == "" {
+				t.Errorf("%s: known unreachable entries produced no warning", name)
+			}
+			continue
+		}
+		if warning != "" {
+			t.Errorf("%s: unexpected warning %q", name, warning)
+		}
 	}
 }

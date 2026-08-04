@@ -8,7 +8,9 @@ import (
 	"reflect"
 	"strings"
 
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
 // PackService 提供将纯资源目录打包为 KCES ABA 和 CT 的服务 / PackService packs a plain resource directory into KCES ABA and CT files
@@ -85,7 +87,7 @@ func (s *PackService) packToAbaAndCt(dirPath string, outputBaseName string, comp
 	if len(manifest.Assets) == 0 {
 		return fmt.Errorf("no resource files found in directory")
 	}
-	if warning := menuAssetsNameMismatchWarning(manifest); warning != "" {
+	for _, warning := range packGameLoadWarnings(manifest, dirPath) {
 		fmt.Fprintln(os.Stderr, "warning: "+warning)
 	}
 	return packModManifestWithOptions(manifest, dirPath, filepath.Dir(dirPath), modPackOptions{
@@ -93,27 +95,157 @@ func (s *PackService) packToAbaAndCt(dirPath string, outputBaseName string, comp
 	})
 }
 
-// menuAssetsNameMismatchWarning 在包内存在部件定义但游戏无法识别时返回提示文本
-// 游戏 BasePartsManager 仅从名为 <包名>.menuassets 的文件读取部件列表，且要求包名为小写，名称不匹配的 MOD 可以加载但不会在游戏内显示
-// menuAssetsNameMismatchWarning returns a hint when the package carries parts definitions the game cannot recognize
-// The game's BasePartsManager reads the parts list only from a file named <bundle name>.menuassets and requires a lowercase bundle name, so a mismatched MOD loads but never shows up in game
-func menuAssetsNameMismatchWarning(manifest ModManifest) string {
-	expected := manifest.Name + ".menuassets"
-	hasMenuAssets := false
+// partsAssetsContainer 描述一种游戏按 <包名>.<扩展名> 读取的部件容器及其提示用词 / partsAssetsContainer describes one parts container the game reads as <bundle name>.<extension> together with its hint wording
+type partsAssetsContainer struct {
+	extension   string // 容器扩展名 / Container extension
+	englishRole string // 英文提示中的容器内容 / Container contents named in the English hint
+	chineseRole string // 中文提示中的容器内容 / Container contents named in the Chinese hint
+}
+
+// partsAssetsContainers 列出游戏按包名解析的部件容器
+// partsAssetsContainers lists the parts containers the game resolves through the bundle name
+var partsAssetsContainers = []partsAssetsContainer{
+	{extension: menuAssetsExtension, englishRole: "parts definitions", chineseRole: "部件定义"},
+	{extension: materialAssetsExtension, englishRole: "material definitions", chineseRole: "材质定义"},
+}
+
+// packGameLoadWarnings 汇总打包前可检测出的游戏加载失败风险
+// packGameLoadWarnings collects the game-load failures that are detectable before packing
+func packGameLoadWarnings(manifest ModManifest, dirPath string) []string {
+	var warnings []string
+	if warning := packNameCaseWarning(manifest.Name); warning != "" {
+		warnings = append(warnings, warning)
+	}
+	for _, container := range partsAssetsContainers {
+		if warning := partsAssetsNameMismatchWarning(manifest, container); warning != "" {
+			warnings = append(warnings, warning)
+		}
+	}
+	return append(warnings, materialAssetsLookupWarnings(manifest, dirPath)...)
+}
+
+// packNameCaseWarning 在打包名称含有大写字母时返回提示文本
+// KCES 1.34.5 的 BasePartsManager.Reload 用未转小写的 catalog.name 拼出 <包名>.menuassets 这类键，去查早已按小写登记的容器条目，键比较区分大小写，因此含大写字母的包名会让 MOD 加载后没有任何部件，KCES2 1.35.1 两侧都转小写后不再受影响
+// packNameCaseWarning returns a hint when the packed name carries uppercase letters
+// BasePartsManager.Reload in KCES 1.34.5 builds keys such as <bundle name>.menuassets from a catalog.name that is never lowercased and looks them up among container entries registered in lowercase, and the comparison is case-sensitive, so an uppercase bundle name leaves the MOD loaded without any parts, while KCES2 1.35.1 lowercases both sides and is unaffected
+func packNameCaseWarning(name string) string {
+	lowered := strings.ToLower(name)
+	if name == lowered {
+		return ""
+	}
+	return fmt.Sprintf("\n\npacked name %q is not all lowercase; KCES 1.34.5 matches the catalog name against lowercase container entries with a case-sensitive comparison, so this MOD loads without any parts there (pack with -o %s, or rename the source directory)\n\n打包名称 %q 不是全小写；KCES 1.34.5 会用区分大小写的比较把目录名和已按小写登记的容器条目相匹配，因此该 MOD 在该版本中加载后没有任何部件（请使用 -o %s 打包，或重命名源目录）\n", name, lowered, name, lowered)
+}
+
+// partsAssetsNameMismatchWarning 在包内存在部件容器但游戏无法识别时返回提示文本
+// KCES 1.34.5 的 BasePartsManager 仅从名为 <包名>.<扩展名> 的文件读取该容器，名称不匹配的 MOD 可以加载但其中的定义不会生效，KCES2 1.35.1 改为枚举目录内全部同扩展名条目后不再要求同名
+// partsAssetsNameMismatchWarning returns a hint when the package carries a parts container the game cannot recognize
+// BasePartsManager in KCES 1.34.5 reads a container only from a file named <bundle name>.<extension>, so a mismatched MOD loads while none of its definitions take effect, while KCES2 1.35.1 enumerates every catalog entry with that extension and no longer requires the matching name
+func partsAssetsNameMismatchWarning(manifest ModManifest, container partsAssetsContainer) string {
+	expected := strings.ToLower(manifest.Name) + container.extension
+	hasContainer := false
 	for _, asset := range manifest.Assets {
 		name := strings.ToLower(asset.Name)
-		if !strings.HasSuffix(name, ".menuassets") {
+		if !strings.HasSuffix(name, container.extension) {
 			continue
 		}
-		hasMenuAssets = true
+		hasContainer = true
 		if name == expected {
 			return ""
 		}
 	}
-	if !hasMenuAssets {
+	if !hasContainer {
 		return ""
 	}
-	return fmt.Sprintf("\n\nno %q found in the aba; the game reads parts definitions only from a lowercase file named exactly <aba name>.menuassets(There should be an xxx.menuassets in xxx.aba), so this MOD will not appear in game (rename the output with -o or rename the .menuassets file)\n\n在 aba 文件中未找到 %q；游戏仅从名为 <aba 名称>.menuassets 的小写文件名中读取部件定义（xxx.aba 中应该有一个 xxx.menuassets 文件），因此该 MOD 将不会出现在游戏中（请使用 -o 重命名输出文件或重命名 .menuassets 文件）\n", expected, expected)
+	return fmt.Sprintf("\n\nno %q found in the aba; KCES 1.34.5 reads %s only from a file named exactly <aba name>%s (there should be an xxx%s in xxx.aba), so this MOD loads there while its %s never take effect (rename the output with -o or rename the %s file)\n\n在 aba 文件中未找到 %q；KCES 1.34.5 仅从名为 <aba 名称>%s 的文件中读取%s（xxx.aba 中应该有一个 xxx%s 文件），因此该 MOD 在该版本中可以加载但其中的%s不会生效（请使用 -o 重命名输出文件或重命名 %s 文件）\n",
+		expected, container.englishRole, container.extension, container.extension, container.englishRole, container.extension,
+		expected, container.extension, container.chineseRole, container.extension, container.chineseRole, container.extension)
+}
+
+// 提示中最多列举的问题材质条目数，避免大型容器刷屏
+// Maximum number of problematic material entries listed in a hint, which keeps large containers from flooding the output
+const materialAssetsWarningSampleLimit = 5
+
+// materialAssetsLookupWarnings 解码包内每个 .materialassets 容器，并对游戏永远查不到的材质条目返回提示文本
+// 游戏 PartsMaterialManager.GetMaterial 给无扩展名的查找名补上 .mate 后按 GetHashIgnoreCase 取键，而注册键直接取条目存储的 ID，且该 ID 按区分大小写的文件名哈希写出，因此缺少 .mate 后缀或带大写字母的条目会得到查不到的 ID
+// materialAssetsLookupWarnings decodes every .materialassets container in the package and returns hints for material entries the game can never look up
+// The game's PartsMaterialManager.GetMaterial appends .mate to extensionless lookup names before keying by GetHashIgnoreCase while the registration key is the entry's stored ID, which is written as a case-sensitive hash of the filename, so an entry missing the .mate suffix or carrying uppercase letters ends up with an unreachable ID
+func materialAssetsLookupWarnings(manifest ModManifest, dirPath string) []string {
+	sourceRoot, err := os.OpenRoot(dirPath)
+	if err != nil {
+		return nil
+	}
+	defer sourceRoot.Close()
+
+	var warnings []string
+	for _, asset := range manifest.Assets {
+		if !strings.HasSuffix(strings.ToLower(asset.Name), materialAssetsExtension) {
+			continue
+		}
+		relPath, err := normalizeModAssetPath(asset.Path)
+		if err != nil {
+			continue
+		}
+		data, err := readPackRootRegularFile(sourceRoot, relPath)
+		if err != nil {
+			continue
+		}
+		assets, err := serializationKCES.DecodeMaterialAssets(data)
+		if err != nil {
+			continue
+		}
+		if warning := materialAssetsEntryLookupWarning(asset.Name, assets); warning != "" {
+			warnings = append(warnings, warning)
+		}
+	}
+	return warnings
+}
+
+// materialAssetsEntryLookupWarning 检查单个容器的材质条目，并把缺少 .mate 后缀和 ID 无法命中查找的条目汇总为提示文本
+// materialAssetsEntryLookupWarning inspects one container's material entries and summarizes those missing the .mate suffix and those whose ID cannot be reached by lookups into a single hint
+func materialAssetsEntryLookupWarning(containerName string, assets *serializationKCES.MaterialAssets) string {
+	if assets == nil {
+		return ""
+	}
+	var missingExtension, unreachableID []string
+	for _, material := range assets.Assets {
+		if material == nil || material.FileName == nil {
+			continue
+		}
+		fileName := *material.FileName
+		switch {
+		case !strings.HasSuffix(strings.ToLower(fileName), serializationKCES.MaterialExtension):
+			missingExtension = append(missingExtension, fileName)
+		case material.ID != ct.HashStringIgnoreCase(fileName):
+			unreachableID = append(unreachableID, fileName)
+		}
+	}
+	if len(missingExtension) == 0 && len(unreachableID) == 0 {
+		return ""
+	}
+	var builder strings.Builder
+	builder.WriteString("\n\n")
+	if len(missingExtension) > 0 {
+		fmt.Fprintf(&builder, "%d material entries in %q do not end in %s: %s\nThe game appends %s to extensionless lookup names before hashing, so these materials are never found and every sub-mesh using them stays invisible\n",
+			len(missingExtension), containerName, serializationKCES.MaterialExtension, formatMaterialWarningSamples(missingExtension), serializationKCES.MaterialExtension)
+		fmt.Fprintf(&builder, "%q 中有 %d 个材质条目不以 %s 结尾：%s\n游戏会先给无扩展名的查找名补上 %s 再做哈希，因此这些材质永远查不到，使用它们的子网格都不会显示\n",
+			containerName, len(missingExtension), serializationKCES.MaterialExtension, formatMaterialWarningSamples(missingExtension), serializationKCES.MaterialExtension)
+	}
+	if len(unreachableID) > 0 {
+		fmt.Fprintf(&builder, "%d material entries in %q store an ID that lookups can never produce: %s\nThe ID is a case-sensitive hash of the filename while lookups hash it case-insensitively, so uppercase letters in a material filename make it unreachable (rename these entries to lowercase)\n",
+			len(unreachableID), containerName, formatMaterialWarningSamples(unreachableID))
+		fmt.Fprintf(&builder, "%q 中有 %d 个材质条目存储了查找永远算不出的 ID：%s\nID 是区分大小写的文件名哈希，而查找按忽略大小写哈希，因此材质文件名中的大写字母会让它无法被找到（请将这些条目改为小写）\n",
+			containerName, len(unreachableID), formatMaterialWarningSamples(unreachableID))
+	}
+	return builder.String()
+}
+
+// formatMaterialWarningSamples 把问题条目名称截断为固定数量的示例列表
+// formatMaterialWarningSamples truncates problematic entry names into a fixed-size sample list
+func formatMaterialWarningSamples(names []string) string {
+	if len(names) <= materialAssetsWarningSampleLimit {
+		return strings.Join(names, ", ")
+	}
+	return fmt.Sprintf("%s, ... (+%d)", strings.Join(names[:materialAssetsWarningSampleLimit], ", "), len(names)-materialAssetsWarningSampleLimit)
 }
 
 // unityRawKindForClassID 将 Unity ClassID 映射回原始对象 kind，供按文件头识别独立 Unity 对象文件使用
