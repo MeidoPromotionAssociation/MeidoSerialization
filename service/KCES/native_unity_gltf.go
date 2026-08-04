@@ -97,11 +97,11 @@ func encodeMeshGLTF(geometry *aba.MeshGeometry, binaryOutput bool) ([]byte, erro
 		}
 		attributes[gltf.TANGENT] = modeler.WriteTangent(document, tangents)
 	}
-	if len(geometry.TexCoord0) != 0 {
-		if len(geometry.TexCoord0) != len(positions) {
-			return nil, fmt.Errorf("texture-coordinate count %d does not match position count %d", len(geometry.TexCoord0), len(positions))
+	if len(geometry.TexCoords[0]) != 0 {
+		if len(geometry.TexCoords[0]) != len(positions) {
+			return nil, fmt.Errorf("texture-coordinate count %d does not match position count %d", len(geometry.TexCoords[0]), len(positions))
 		}
-		texCoord0 := append([][2]float32(nil), geometry.TexCoord0...)
+		texCoord0 := append([][2]float32(nil), geometry.TexCoords[0]...)
 		for coordinateIndex := range texCoord0 {
 			texCoord0[coordinateIndex][1] = 1 - texCoord0[coordinateIndex][1]
 		}

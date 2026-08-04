@@ -26,15 +26,33 @@ type MeshPrimitive struct {
 	Indices []uint32          // 已应用 baseVertex 的顶点索引 / Vertex indices with baseVertex applied
 }
 
+// MeshTexCoordSetCount 是 Unity Mesh 支持的纹理坐标组数量
+// MeshTexCoordSetCount is the number of texture-coordinate sets a Unity Mesh supports
+const MeshTexCoordSetCount = 8
+
 // MeshGeometry 表示从 Unity Mesh 中解码的通用几何数据 / MeshGeometry represents generic geometry decoded from a Unity Mesh
 type MeshGeometry struct {
-	Name       string          // Unity m_Name / Unity m_Name
-	Positions  [][3]float32    // 顶点位置 / Vertex positions
-	Normals    [][3]float32    // 可选顶点法线 / Optional vertex normals
-	Tangents   [][4]float32    // 可选顶点切线 / Optional vertex tangents
-	TexCoord0  [][2]float32    // 可选第一组纹理坐标 / Optional first texture-coordinate set
-	Colors     [][4]float32    // 可选顶点颜色 / Optional vertex colors
-	Primitives []MeshPrimitive // SubMesh 图元 / SubMesh primitives
+	Name         string                             // Unity m_Name / Unity m_Name
+	Positions    [][3]float32                       // 顶点位置 / Vertex positions
+	Normals      [][3]float32                       // 可选顶点法线 / Optional vertex normals
+	Tangents     [][4]float32                       // 可选顶点切线 / Optional vertex tangents
+	Colors       [][4]float32                       // 可选顶点颜色 / Optional vertex colors
+	TexCoords    [MeshTexCoordSetCount][][2]float32 // 可选纹理坐标组，索引即 UV 组序号 / Optional texture-coordinate sets indexed by UV set number
+	SkinCounts   []uint8                            // 每顶点骨骼影响数量，未蒙皮时为 nil / Bone influence count per vertex, nil when unskinned
+	SkinIndices  []uint32                           // 按顶点顺序扁平化的骨骼索引 / Bone indices flattened in vertex order
+	SkinWeights  []float32                          // 按顶点顺序扁平化的骨骼权重 / Bone weights flattened in vertex order
+	BindPoses    [][16]float32                      // 可选骨骼绑定姿势矩阵，按 e00 到 e33 的行主序 / Optional bone bind-pose matrices in row-major e00 through e33 order
+	MorphTargets []MeshMorphTarget                  // 可选内嵌 BlendShape 目标 / Optional embedded blend-shape targets
+	Primitives   []MeshPrimitive                    // SubMesh 图元 / SubMesh primitives
+}
+
+// MeshMorphTarget 表示 Unity Mesh 内嵌的一个单帧 BlendShape / MeshMorphTarget represents one single-frame blend shape embedded in a Unity Mesh
+type MeshMorphTarget struct {
+	Name           string       // BlendShape 名称 / Blend-shape name
+	FrameWeight    float32      // 帧权重，通常为一百 / Frame weight, normally one hundred
+	DeltaPositions [][3]float32 // 顶点位置差分，长度等于顶点数 / Vertex position deltas with one entry per vertex
+	DeltaNormals   [][3]float32 // 可选法线差分 / Optional normal deltas
+	DeltaTangents  [][3]float32 // 可选切线差分 / Optional tangent deltas
 }
 
 // meshVertexChannel 描述 Unity VertexData 中一个通道的在线布局 / meshVertexChannel describes the wire layout of one Unity VertexData channel
@@ -91,10 +109,10 @@ func (object *NativeUnityObject) DecodeMeshGeometry() (*MeshGeometry, error) {
 
 	geometry := &MeshGeometry{}
 	geometry.Name, _ = root.Field("m_Name").String()
-	if len(channels) == 0 || channels[0].Dimension != 3 {
+	if !meshChannelActive(channels, meshChannelPosition) || channels[meshChannelPosition].Dimension != 3 {
 		return nil, fmt.Errorf("Mesh position channel is absent or does not have three components")
 	}
-	positions, err := decodeMeshFloatChannel(vertexBytes, object.BigEndian, vertexCount, channels[0], streamOffsets, streamStrides)
+	positions, err := decodeMeshFloatChannel(vertexBytes, object.BigEndian, vertexCount, channels[meshChannelPosition], streamOffsets, streamStrides)
 	if err != nil {
 		return nil, fmt.Errorf("decode Mesh positions: %w", err)
 	}
@@ -102,33 +120,90 @@ func (object *NativeUnityObject) DecodeMeshGeometry() (*MeshGeometry, error) {
 	if uint64(len(geometry.Positions)) != uint64(vertexCount) {
 		return nil, fmt.Errorf("Mesh position count %d does not match vertex count %d", len(geometry.Positions), vertexCount)
 	}
-	if len(channels) > 1 && channels[1].Dimension == 3 {
-		values, err := decodeMeshFloatChannel(vertexBytes, object.BigEndian, vertexCount, channels[1], streamOffsets, streamStrides)
+	if meshChannelActive(channels, meshChannelNormal) {
+		if channels[meshChannelNormal].Dimension != 3 {
+			return nil, fmt.Errorf("Mesh normal channel has %d components instead of three", channels[meshChannelNormal].Dimension)
+		}
+		values, err := decodeMeshFloatChannel(vertexBytes, object.BigEndian, vertexCount, channels[meshChannelNormal], streamOffsets, streamStrides)
 		if err != nil {
 			return nil, fmt.Errorf("decode Mesh normals: %w", err)
 		}
 		geometry.Normals = meshFloat3Values(values)
 	}
-	if len(channels) > 2 && channels[2].Dimension == 4 {
-		values, err := decodeMeshFloatChannel(vertexBytes, object.BigEndian, vertexCount, channels[2], streamOffsets, streamStrides)
+	if meshChannelActive(channels, meshChannelTangent) {
+		if channels[meshChannelTangent].Dimension != 4 {
+			return nil, fmt.Errorf("Mesh tangent channel has %d components instead of four", channels[meshChannelTangent].Dimension)
+		}
+		values, err := decodeMeshFloatChannel(vertexBytes, object.BigEndian, vertexCount, channels[meshChannelTangent], streamOffsets, streamStrides)
 		if err != nil {
 			return nil, fmt.Errorf("decode Mesh tangents: %w", err)
 		}
 		geometry.Tangents = meshFloat4Values(values)
 	}
-	if len(channels) > 3 && channels[3].Dimension == 4 {
-		values, err := decodeMeshFloatChannel(vertexBytes, object.BigEndian, vertexCount, channels[3], streamOffsets, streamStrides)
+	if meshChannelActive(channels, meshChannelColor) {
+		if channels[meshChannelColor].Dimension != 4 {
+			return nil, fmt.Errorf("Mesh color channel has %d components instead of four", channels[meshChannelColor].Dimension)
+		}
+		values, err := decodeMeshFloatChannel(vertexBytes, object.BigEndian, vertexCount, channels[meshChannelColor], streamOffsets, streamStrides)
 		if err != nil {
 			return nil, fmt.Errorf("decode Mesh colors: %w", err)
 		}
 		geometry.Colors = meshFloat4Values(values)
 	}
-	if len(channels) > 4 && channels[4].Dimension >= 2 {
-		values, err := decodeMeshFloatChannel(vertexBytes, object.BigEndian, vertexCount, channels[4], streamOffsets, streamStrides)
-		if err != nil {
-			return nil, fmt.Errorf("decode Mesh texture coordinates: %w", err)
+	for setIndex := int64(0); setIndex < MeshTexCoordSetCount; setIndex++ {
+		channelIndex := meshChannelTexCoord0 + setIndex
+		if !meshChannelActive(channels, channelIndex) {
+			continue
 		}
-		geometry.TexCoord0 = meshFloat2Values(values, channels[4].Dimension)
+		if channels[channelIndex].Dimension < 2 {
+			return nil, fmt.Errorf("Mesh UV%d channel has %d components instead of at least two", setIndex, channels[channelIndex].Dimension)
+		}
+		values, err := decodeMeshFloatChannel(vertexBytes, object.BigEndian, vertexCount, channels[channelIndex], streamOffsets, streamStrides)
+		if err != nil {
+			return nil, fmt.Errorf("decode Mesh UV%d: %w", setIndex, err)
+		}
+		geometry.TexCoords[setIndex] = meshFloat2Values(values, channels[channelIndex].Dimension)
+	}
+	weightsActive := meshChannelActive(channels, meshChannelBlendWeight)
+	indicesActive := meshChannelActive(channels, meshChannelBlendIndices)
+	if weightsActive != indicesActive {
+		return nil, fmt.Errorf("Mesh has only one of the blend-weight and blend-index channels")
+	}
+	if weightsActive {
+		if channels[meshChannelBlendWeight].Dimension != 4 || channels[meshChannelBlendIndices].Dimension != 4 {
+			return nil, fmt.Errorf("Mesh skin channels do not carry four bone influences per vertex")
+		}
+		weights, err := decodeMeshFloatChannel(vertexBytes, object.BigEndian, vertexCount, channels[meshChannelBlendWeight], streamOffsets, streamStrides)
+		if err != nil {
+			return nil, fmt.Errorf("decode Mesh bone weights: %w", err)
+		}
+		fixedWeights := meshFloat4Values(weights)
+		fixedIndices, err := decodeMeshUintChannel(vertexBytes, object.BigEndian, vertexCount, channels[meshChannelBlendIndices], streamOffsets, streamStrides)
+		if err != nil {
+			return nil, fmt.Errorf("decode Mesh bone indices: %w", err)
+		}
+		variableData := root.FieldPath("m_VariableBoneCountWeights", "m_Data")
+		if variableData != nil && len(variableData.Children) != 0 {
+			geometry.SkinCounts, geometry.SkinIndices, geometry.SkinWeights, err = decodeMeshVariableBoneWeights(variableData, vertexCount)
+		} else {
+			geometry.SkinCounts, geometry.SkinIndices, geometry.SkinWeights, err = meshRaggedSkinFromFixed(fixedWeights, fixedIndices)
+		}
+		if err != nil {
+			return nil, err
+		}
+	} else if variableData := root.FieldPath("m_VariableBoneCountWeights", "m_Data"); variableData != nil && len(variableData.Children) != 0 {
+		return nil, fmt.Errorf("Mesh has variable bone-count weights but no skin channels")
+	}
+	geometry.BindPoses, err = decodeMeshBindPoses(root)
+	if err != nil {
+		return nil, err
+	}
+	if geometry.BindPoses != nil && geometry.SkinCounts == nil {
+		return nil, fmt.Errorf("Mesh has %d bind poses but no skin channels", len(geometry.BindPoses))
+	}
+	geometry.MorphTargets, err = decodeMeshMorphTargets(root, vertexCount)
+	if err != nil {
+		return nil, err
 	}
 
 	geometry.Primitives, err = decodeMeshPrimitives(root, object.BigEndian, vertexCount)
@@ -139,6 +214,264 @@ func (object *NativeUnityObject) DecodeMeshGeometry() (*MeshGeometry, error) {
 		return nil, fmt.Errorf("Mesh has no non-empty SubMesh primitives")
 	}
 	return geometry, nil
+}
+
+// Unity 2018 及更高版本 Mesh 顶点通道的语义索引
+// Semantic channel indices of Unity 2018 and newer Mesh vertex channels
+const (
+	meshChannelPosition     int64 = 0
+	meshChannelNormal       int64 = 1
+	meshChannelTangent      int64 = 2
+	meshChannelColor        int64 = 3
+	meshChannelTexCoord0    int64 = 4
+	meshChannelBlendWeight  int64 = 12
+	meshChannelBlendIndices int64 = 13
+)
+
+// meshChannelActive 判断语义索引对应的顶点通道是否存在且启用
+// meshChannelActive reports whether the vertex channel at a semantic index exists and is enabled
+func meshChannelActive(channels []meshVertexChannel, index int64) bool {
+	return index >= 0 && index < int64(len(channels)) && channels[index].Dimension != 0
+}
+
+// decodeMeshUintChannel 将整数格式的顶点通道解码为每顶点四个无符号整数
+// decodeMeshUintChannel decodes an integer-format vertex channel into four unsigned integers per vertex
+func decodeMeshUintChannel(data []byte, bigEndian bool, vertexCount uint32, channel meshVertexChannel, streamOffsets []uint64, streamStrides []uint64) ([][4]uint32, error) {
+	if channel.Dimension != 4 || uint64(channel.Stream) >= uint64(len(streamOffsets)) || uint64(channel.Stream) >= uint64(len(streamStrides)) {
+		return nil, fmt.Errorf("invalid integer vertex channel")
+	}
+	componentSize, ok := meshVertexFormatSize(channel.Format)
+	if !ok {
+		return nil, fmt.Errorf("unsupported vertex format %d", channel.Format)
+	}
+	var order binary.ByteOrder = binary.LittleEndian
+	if bigEndian {
+		order = binary.BigEndian
+	}
+	values := make([][4]uint32, vertexCount)
+	streamOffset := streamOffsets[channel.Stream]
+	stride := streamStrides[channel.Stream]
+	for vertexIndex := uint32(0); vertexIndex < vertexCount; vertexIndex++ {
+		for componentIndex := uint8(0); componentIndex < channel.Dimension; componentIndex++ {
+			offset := streamOffset + uint64(vertexIndex)*stride + uint64(channel.Offset) + uint64(componentIndex)*componentSize
+			if offset > uint64(len(data)) || componentSize > uint64(len(data))-offset {
+				return nil, fmt.Errorf("component range [%d,%d) exceeds %d vertex bytes", offset, offset+componentSize, len(data))
+			}
+			var value uint32
+			switch channel.Format {
+			case 6:
+				value = uint32(data[offset])
+			case 8:
+				value = uint32(order.Uint16(data[offset : offset+2]))
+			case 10:
+				value = order.Uint32(data[offset : offset+4])
+			default:
+				return nil, fmt.Errorf("vertex format %d is not an unsigned integer format", channel.Format)
+			}
+			values[vertexIndex][componentIndex] = value
+		}
+	}
+	return values, nil
+}
+
+// meshRaggedSkinFromFixed 将固定四影响的蒙皮通道转换为按权重截断的变长表示
+// meshRaggedSkinFromFixed converts fixed four-influence skin channels to a ragged representation truncated at zero weights
+func meshRaggedSkinFromFixed(weights [][4]float32, indices [][4]uint32) ([]uint8, []uint32, []float32, error) {
+	if len(weights) != len(indices) {
+		return nil, nil, nil, fmt.Errorf("Mesh skin channel counts differ: %d weights and %d indices", len(weights), len(indices))
+	}
+	counts := make([]uint8, len(weights))
+	flatIndices := make([]uint32, 0, len(weights))
+	flatWeights := make([]float32, 0, len(weights))
+	for vertexIndex := range weights {
+		var count uint8
+		for componentIndex := int64(0); componentIndex < 4; componentIndex++ {
+			weight := weights[vertexIndex][componentIndex]
+			if weight < 0 || weight != weight {
+				return nil, nil, nil, fmt.Errorf("Mesh vertex %d has invalid bone weight %f", vertexIndex, weight)
+			}
+			if weight == 0 {
+				continue
+			}
+			flatWeights = append(flatWeights, weight)
+			flatIndices = append(flatIndices, indices[vertexIndex][componentIndex])
+			count++
+		}
+		if count == 0 {
+			return nil, nil, nil, fmt.Errorf("Mesh vertex %d has no bone influences", vertexIndex)
+		}
+		counts[vertexIndex] = count
+	}
+	return counts, flatIndices, flatWeights, nil
+}
+
+// decodeMeshVariableBoneWeights 解析 m_VariableBoneCountWeights 的偏移表和打包权重对
+// 数据布局为顶点数加一个的递增偏移表，随后是高十六位 UNorm16 权重与低十六位骨骼索引的打包对
+// decodeMeshVariableBoneWeights parses the offset table and packed weight pairs in m_VariableBoneCountWeights
+// The layout is a monotonic offset table with one entry more than the vertex count, followed by pairs packing a UNorm16 weight in the high sixteen bits and a bone index in the low sixteen bits
+func decodeMeshVariableBoneWeights(data *TypeTreeValue, vertexCount uint32) ([]uint8, []uint32, []float32, error) {
+	entries := data.Children
+	tableSize := uint64(vertexCount) + 1
+	if uint64(len(entries)) < tableSize {
+		return nil, nil, nil, fmt.Errorf("Mesh variable bone weights have %d entries for %d vertices", len(entries), vertexCount)
+	}
+	offsets := make([]uint64, tableSize)
+	for tableIndex := uint64(0); tableIndex < tableSize; tableIndex++ {
+		value, ok := entries[tableIndex].UInt64()
+		if !ok {
+			return nil, nil, nil, fmt.Errorf("Mesh variable bone weight offset %d is not an unsigned integer", tableIndex)
+		}
+		offsets[tableIndex] = value
+	}
+	if offsets[0] != tableSize || offsets[tableSize-1] != uint64(len(entries)) {
+		return nil, nil, nil, fmt.Errorf("Mesh variable bone weight offsets span [%d,%d) instead of [%d,%d)", offsets[0], offsets[tableSize-1], tableSize, len(entries))
+	}
+	counts := make([]uint8, vertexCount)
+	flatIndices := make([]uint32, 0, uint64(len(entries))-tableSize)
+	flatWeights := make([]float32, 0, uint64(len(entries))-tableSize)
+	for vertexIndex := uint64(0); vertexIndex < uint64(vertexCount); vertexIndex++ {
+		start, end := offsets[vertexIndex], offsets[vertexIndex+1]
+		if start > end || end > uint64(len(entries)) {
+			return nil, nil, nil, fmt.Errorf("Mesh vertex %d has invalid variable bone weight range [%d,%d)", vertexIndex, start, end)
+		}
+		count := end - start
+		if count == 0 || count > math.MaxUint8 {
+			return nil, nil, nil, fmt.Errorf("Mesh vertex %d has %d bone influences", vertexIndex, count)
+		}
+		counts[vertexIndex] = uint8(count)
+		for entryIndex := start; entryIndex < end; entryIndex++ {
+			packed, ok := entries[entryIndex].UInt64()
+			if !ok || packed > math.MaxUint32 {
+				return nil, nil, nil, fmt.Errorf("Mesh variable bone weight pair %d is not a UInt32", entryIndex)
+			}
+			flatWeights = append(flatWeights, float32(packed>>16)/65535)
+			flatIndices = append(flatIndices, uint32(packed&0xFFFF))
+		}
+	}
+	return counts, flatIndices, flatWeights, nil
+}
+
+// decodeMeshBindPoses 解码 m_BindPose 矩阵数组，缺失或为空时返回 nil
+// decodeMeshBindPoses decodes the m_BindPose matrix array and returns nil when it is absent or empty
+func decodeMeshBindPoses(root *TypeTreeValue) ([][16]float32, error) {
+	bindPose := root.Field("m_BindPose")
+	if bindPose == nil || len(bindPose.Children) == 0 {
+		return nil, nil
+	}
+	result := make([][16]float32, len(bindPose.Children))
+	for matrixIndex, matrix := range bindPose.Children {
+		if matrix == nil || len(matrix.Children) != 16 {
+			return nil, fmt.Errorf("Mesh bind pose %d does not contain sixteen elements", matrixIndex)
+		}
+		for elementIndex, element := range matrix.Children {
+			value, ok := element.Float32()
+			if !ok {
+				return nil, fmt.Errorf("Mesh bind pose %d element %d is not a float", matrixIndex, elementIndex)
+			}
+			result[matrixIndex][elementIndex] = value
+		}
+	}
+	return result, nil
+}
+
+// decodeMeshMorphTargets 将 m_Shapes 中的单帧 BlendShape 展开为稠密差分数组
+// decodeMeshMorphTargets expands single-frame blend shapes in m_Shapes into dense delta arrays
+func decodeMeshMorphTargets(root *TypeTreeValue, vertexCount uint32) ([]MeshMorphTarget, error) {
+	shapesData := root.Field("m_Shapes")
+	if shapesData == nil {
+		return nil, nil
+	}
+	shapeChannels := shapesData.Field("channels")
+	if shapeChannels == nil || len(shapeChannels.Children) == 0 {
+		return nil, nil
+	}
+	shapeVertices := shapesData.Field("vertices")
+	shapeFrames := shapesData.Field("shapes")
+	fullWeights := shapesData.Field("fullWeights")
+	if shapeVertices == nil || shapeFrames == nil || fullWeights == nil {
+		return nil, fmt.Errorf("Mesh m_Shapes is missing the vertices, shapes, or fullWeights array")
+	}
+	targets := make([]MeshMorphTarget, 0, len(shapeChannels.Children))
+	for channelIndex, channel := range shapeChannels.Children {
+		name, _ := channel.Field("name").String()
+		frameIndexValue, frameIndexOK := meshUnsignedField(channel, "frameIndex")
+		frameCount, frameCountOK := meshUnsignedField(channel, "frameCount")
+		if !frameIndexOK || !frameCountOK {
+			return nil, fmt.Errorf("Mesh blend-shape channel %d has an invalid frame range", channelIndex)
+		}
+		if frameCount != 1 {
+			return nil, fmt.Errorf("Mesh blend-shape channel %q has %d frames, but only single-frame shapes are supported", name, frameCount)
+		}
+		if frameIndexValue >= uint64(len(shapeFrames.Children)) || frameIndexValue >= uint64(len(fullWeights.Children)) {
+			return nil, fmt.Errorf("Mesh blend-shape channel %q frame %d is outside the shapes array", name, frameIndexValue)
+		}
+		frame := shapeFrames.Children[frameIndexValue]
+		firstVertex, firstOK := meshUnsignedField(frame, "firstVertex")
+		shapeVertexCount, countOK := meshUnsignedField(frame, "vertexCount")
+		if !firstOK || !countOK || firstVertex > uint64(len(shapeVertices.Children)) || shapeVertexCount > uint64(len(shapeVertices.Children))-firstVertex {
+			return nil, fmt.Errorf("Mesh blend-shape channel %q references vertices outside the shape vertex array", name)
+		}
+		hasNormals := frame.Field("hasNormals") != nil && frame.Field("hasNormals").Value == true
+		hasTangents := frame.Field("hasTangents") != nil && frame.Field("hasTangents").Value == true
+		weight, _ := fullWeights.Children[frameIndexValue].Float32()
+		target := MeshMorphTarget{
+			Name:           name,
+			FrameWeight:    weight,
+			DeltaPositions: make([][3]float32, vertexCount),
+		}
+		if hasNormals {
+			target.DeltaNormals = make([][3]float32, vertexCount)
+		}
+		if hasTangents {
+			target.DeltaTangents = make([][3]float32, vertexCount)
+		}
+		for vertexOffset := uint64(0); vertexOffset < shapeVertexCount; vertexOffset++ {
+			shapeVertex := shapeVertices.Children[firstVertex+vertexOffset]
+			targetIndex, indexOK := meshUnsignedField(shapeVertex, "index")
+			if !indexOK || targetIndex >= uint64(vertexCount) {
+				return nil, fmt.Errorf("Mesh blend-shape channel %q targets vertex %d outside %d vertices", name, targetIndex, vertexCount)
+			}
+			position, err := meshVector3Field(shapeVertex, "vertex")
+			if err != nil {
+				return nil, fmt.Errorf("Mesh blend-shape channel %q: %w", name, err)
+			}
+			target.DeltaPositions[targetIndex] = position
+			if hasNormals {
+				normal, err := meshVector3Field(shapeVertex, "normal")
+				if err != nil {
+					return nil, fmt.Errorf("Mesh blend-shape channel %q: %w", name, err)
+				}
+				target.DeltaNormals[targetIndex] = normal
+			}
+			if hasTangents {
+				tangent, err := meshVector3Field(shapeVertex, "tangent")
+				if err != nil {
+					return nil, fmt.Errorf("Mesh blend-shape channel %q: %w", name, err)
+				}
+				target.DeltaTangents[targetIndex] = tangent
+			}
+		}
+		targets = append(targets, target)
+	}
+	return targets, nil
+}
+
+// meshVector3Field 读取一个 Vector3f 子字段的三个浮点分量
+// meshVector3Field reads the three float components of a Vector3f child field
+func meshVector3Field(parent *TypeTreeValue, name string) ([3]float32, error) {
+	field := parent.Field(name)
+	if field == nil {
+		return [3]float32{}, fmt.Errorf("field %q is missing", name)
+	}
+	var result [3]float32
+	for componentIndex, componentName := range []string{"x", "y", "z"} {
+		value, ok := field.Field(componentName).Float32()
+		if !ok {
+			return [3]float32{}, fmt.Errorf("field %q component %q is not a float", name, componentName)
+		}
+		result[componentIndex] = value
+	}
+	return result, nil
 }
 
 // meshVertexStreams 根据 Unity 5 及更高版本的隐式流规则计算每个顶点流的起始偏移和步长

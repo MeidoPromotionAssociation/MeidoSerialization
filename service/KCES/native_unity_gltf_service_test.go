@@ -18,12 +18,12 @@ func TestEncodeMeshGLB(t *testing.T) {
 		Name:      "triangle",
 		Positions: [][3]float32{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}},
 		Normals:   [][3]float32{{0, 0, 1}, {0, 0, 1}, {0, 0, 1}},
-		TexCoord0: [][2]float32{{0, 0}, {1, 0}, {0, 1}},
 		Primitives: []aba.MeshPrimitive{{
 			Mode:    aba.MeshPrimitiveModeTriangles,
 			Indices: []uint32{0, 1, 2},
 		}},
 	}
+	geometry.TexCoords[0] = [][2]float32{{0, 0}, {1, 0}, {0, 1}}
 	data, err := encodeMeshGLB(geometry)
 	if err != nil {
 		t.Fatal(err)
