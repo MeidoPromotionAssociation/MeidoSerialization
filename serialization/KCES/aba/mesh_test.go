@@ -67,6 +67,20 @@ func TestDecodeMeshGeometryDecodesVariableBoneWeightFixture(t *testing.T) {
 	assertRaggedSkinValid(t, geometry)
 }
 
+func TestDecodeMeshGeometryDecodesReducedSkinChannelFixture(t *testing.T) {
+	geometry := readMeshFixture(t, filepath.Join("..", "..", "..", "testdata", "aba", "parts_dlc580_gp003.aba_unpacked", "Mesh", "crc2_dress311_acchead.mmesh"))
+	maxCount := uint8(0)
+	for _, count := range geometry.SkinCounts {
+		if count > maxCount {
+			maxCount = count
+		}
+	}
+	if maxCount == 0 || maxCount > 2 {
+		t.Fatalf("fixture max influence count is %d, expected one or two from the reduced skin channels", maxCount)
+	}
+	assertRaggedSkinValid(t, geometry)
+}
+
 func assertRaggedSkinValid(t *testing.T, geometry *MeshGeometry) {
 	t.Helper()
 	boneCount := uint32(len(geometry.BindPoses))

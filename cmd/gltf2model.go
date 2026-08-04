@@ -21,6 +21,10 @@ names become the Model data, and the geometry becomes an official Unity 2022.3 n
 An unskinned scene is bound rigidly to the mesh node with a synthesized single-bone skin.
 Material appearance is not converted: glTF PBR parameters and textures are ignored, and each
 material's name must match the KCES material the game should load for that sub-mesh.
+Material names from the kcesModel extras take precedence when present; a file re-exported by
+Blender normally drops those extras, so the Blender material slot names take effect instead.
+UV layers map by order: TEXCOORD_0 through TEXCOORD_7 become Unity UV0 through UV7, and the
+main texture always samples UV0.
 KCES fields saved by convert2gltf in the kcesModel extras are restored losslessly.
 Output files are written next to the input by default; use --output to select a directory.`,
 	Args: cobra.ExactArgs(1),

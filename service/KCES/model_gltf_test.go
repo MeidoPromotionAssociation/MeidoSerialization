@@ -13,9 +13,9 @@ import (
 	"github.com/qmuntal/gltf/modeler"
 )
 
-func officialModelSample(t *testing.T, name string) string {
+func officialModelSample(t *testing.T, bundle string, name string) string {
 	t.Helper()
-	path := filepath.Join("..", "..", "testdata", "aba", "parts_dlc395_gp003.aba_unpacked", "TextAsset", name+".model")
+	path := filepath.Join("..", "..", "testdata", "aba", bundle+".aba_unpacked", "TextAsset", name+".model")
 	if _, err := os.Stat(path); err != nil {
 		t.Skipf("sample not available: %v", err)
 	}
@@ -56,13 +56,20 @@ func approxEqual(a, b, tolerance float32) bool {
 }
 
 func TestModelGLTFRoundTripOfficialSamples(t *testing.T) {
-	for _, sample := range []string{"crc_dress044_shoe", "crc_dress044_wear"} {
-		t.Run(sample, func(t *testing.T) {
-			modelPath := officialModelSample(t, sample)
+	for _, sample := range []struct {
+		bundle string
+		name   string
+	}{
+		{bundle: "parts_dlc395_gp003", name: "crc_dress044_shoe"},
+		{bundle: "parts_dlc395_gp003", name: "crc_dress044_wear"},
+		{bundle: "parts_dlc580_gp003", name: "crc2_dress311_acchead"},
+	} {
+		t.Run(sample.name, func(t *testing.T) {
+			modelPath := officialModelSample(t, sample.bundle, sample.name)
 			original, originalGeometry := decodeModelAndMesh(t, modelPath)
 
 			service := &ModelService{}
-			glbPath := filepath.Join(t.TempDir(), sample+".glb")
+			glbPath := filepath.Join(t.TempDir(), sample.name+".glb")
 			if err := service.ConvertModelToGLTF(context.Background(), modelPath, glbPath, "glb", TestConversionMaxOutput); err != nil {
 				t.Fatal(err)
 			}
@@ -88,7 +95,7 @@ func TestModelGLTFRoundTripOfficialSamples(t *testing.T) {
 			if err := service.ConvertGLTFToModel(context.Background(), glbPath, outputDir, TestConversionMaxOutput); err != nil {
 				t.Fatal(err)
 			}
-			rebuilt, rebuiltGeometry := decodeModelAndMesh(t, filepath.Join(outputDir, sample+".model"))
+			rebuilt, rebuiltGeometry := decodeModelAndMesh(t, filepath.Join(outputDir, sample.name+".model"))
 
 			assertModelsEquivalent(t, original, rebuilt)
 			assertGeometryEquivalent(t, originalGeometry, rebuiltGeometry)

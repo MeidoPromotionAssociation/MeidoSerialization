@@ -170,14 +170,17 @@ func (object *NativeUnityObject) DecodeMeshGeometry() (*MeshGeometry, error) {
 		return nil, fmt.Errorf("Mesh has only one of the blend-weight and blend-index channels")
 	}
 	if weightsActive {
-		if channels[meshChannelBlendWeight].Dimension != 4 || channels[meshChannelBlendIndices].Dimension != 4 {
-			return nil, fmt.Errorf("Mesh skin channels do not carry four bone influences per vertex")
+		// Unity 的 Skin Weights 精简设置会把蒙皮通道压缩为每顶点一或两个影响，因此接受一到四维并在缺少的分量处补零
+		// The Unity Skin Weights reduction setting compresses skin channels to one or two influences per vertex, so accept one to four dimensions and pad the missing components with zeros
+		weightDimension := channels[meshChannelBlendWeight].Dimension
+		if weightDimension != channels[meshChannelBlendIndices].Dimension {
+			return nil, fmt.Errorf("Mesh skin channels carry %d weights but %d indices per vertex", weightDimension, channels[meshChannelBlendIndices].Dimension)
 		}
 		weights, err := decodeMeshFloatChannel(vertexBytes, object.BigEndian, vertexCount, channels[meshChannelBlendWeight], streamOffsets, streamStrides)
 		if err != nil {
 			return nil, fmt.Errorf("decode Mesh bone weights: %w", err)
 		}
-		fixedWeights := meshFloat4Values(weights)
+		fixedWeights := meshFloat4PaddedValues(weights, weightDimension)
 		fixedIndices, err := decodeMeshUintChannel(vertexBytes, object.BigEndian, vertexCount, channels[meshChannelBlendIndices], streamOffsets, streamStrides)
 		if err != nil {
 			return nil, fmt.Errorf("decode Mesh bone indices: %w", err)
@@ -234,10 +237,10 @@ func meshChannelActive(channels []meshVertexChannel, index int64) bool {
 	return index >= 0 && index < int64(len(channels)) && channels[index].Dimension != 0
 }
 
-// decodeMeshUintChannel 将整数格式的顶点通道解码为每顶点四个无符号整数
-// decodeMeshUintChannel decodes an integer-format vertex channel into four unsigned integers per vertex
+// decodeMeshUintChannel 将整数格式的顶点通道解码为每顶点四个无符号整数，不足四维的通道在缺少的分量处补零
+// decodeMeshUintChannel decodes an integer-format vertex channel into four unsigned integers per vertex, padding the missing components of channels below four dimensions with zeros
 func decodeMeshUintChannel(data []byte, bigEndian bool, vertexCount uint32, channel meshVertexChannel, streamOffsets []uint64, streamStrides []uint64) ([][4]uint32, error) {
-	if channel.Dimension != 4 || uint64(channel.Stream) >= uint64(len(streamOffsets)) || uint64(channel.Stream) >= uint64(len(streamStrides)) {
+	if channel.Dimension == 0 || channel.Dimension > 4 || uint64(channel.Stream) >= uint64(len(streamOffsets)) || uint64(channel.Stream) >= uint64(len(streamStrides)) {
 		return nil, fmt.Errorf("invalid integer vertex channel")
 	}
 	componentSize, ok := meshVertexFormatSize(channel.Format)
@@ -808,6 +811,22 @@ func meshFloat4Values(values []float32) [][4]float32 {
 	result := make([][4]float32, len(values)/4)
 	for index := range result {
 		result[index] = [4]float32{values[index*4], values[index*4+1], values[index*4+2], values[index*4+3]}
+	}
+	return result
+}
+
+// meshFloat4PaddedValues 将每顶点 dimension 个分量的扁平数组转换为四维向量并把缺少的分量补零
+// meshFloat4PaddedValues converts a flat array of dimension components per vertex to four-dimensional vectors, padding the missing components with zeros
+func meshFloat4PaddedValues(values []float32, dimension uint8) [][4]float32 {
+	if dimension == 0 || dimension > 4 || uint64(len(values))%uint64(dimension) != 0 {
+		return nil
+	}
+	result := make([][4]float32, uint64(len(values))/uint64(dimension))
+	for index := range result {
+		base := uint64(index) * uint64(dimension)
+		for componentIndex := uint64(0); componentIndex < uint64(dimension); componentIndex++ {
+			result[index][componentIndex] = values[base+componentIndex]
+		}
 	}
 	return result
 }
