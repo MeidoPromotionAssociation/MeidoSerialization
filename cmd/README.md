@@ -225,6 +225,22 @@ nothing logs `CreateMaterial not found material` and leaves that sub-mesh invisi
 material after the target material entry (for example `crc_dress044_shoe`), and author the entry itself through
 the existing `.materialassets` JSON workflow.
 
+In Blender the material slots follow the SubMesh order, and the face-to-slot assignment is what defines the
+SubMesh split: faces assigned to another slot become their own SubMesh with that slot's material name on export.
+Renaming a slot is how a sub-mesh is re-bound to a different material entry. One caveat: the glb written by
+`convert2gltf` also carries a copy of the material name list in its `kcesModel` document extras, and `gltf2model`
+prefers that copy for a lossless round trip. Blender drops the document-level extras on re-export by default, so
+after editing in Blender the material slot names take effect — and every material must then be named, because an
+unnamed material is rejected.
+
+Texture coordinates map positionally: the Blender UV Maps list is exported in order as `TEXCOORD_0` through
+`TEXCOORD_7`, matching Unity UV0 through UV7, and layer names are ignored. The main texture always samples UV0,
+the first layer. What any further UV set means is decided by the shader named in the `.mate` entry, so keep the
+layer count and order unchanged when editing an official mesh. The V-axis flip between glTF and Unity is applied
+automatically in both directions. For a viewport preview, convert the unpacked `Texture2D` assets to images with
+`convert2image` and wire them into Base Color — preview nodes are never exported back; change real game textures
+with `convert2texture2d`, and material parameters through the `.materialassets` JSON.
+
 Animation export supports explicit rotation, position, scale, and Euler curves with Transform paths. Audio export
 recognizes OGG, WAV, and FSB5 signatures and chooses the corresponding suffix; it does not transcode audio.
 
@@ -829,6 +845,18 @@ empty。只有当经 `gltf2model` 再导出的往返精度比视口显示更重�
 `.materialassets` 条目中查找；名字对不上会输出 `CreateMaterial not found material`
 错误日志，对应子网格渲染缺失。因此每个 glTF 材质都要按目标材质条目命名（例如
 `crc_dress044_shoe`），材质条目本体请通过现有的 `.materialassets` JSON 流程制作。
+
+在 Blender 中，材质槽按 SubMesh 顺序排列，面到材质槽的分配就是 SubMesh 的拆分依据：把面指给另一个材质槽，
+导出后它们就成为带该槽材质名的独立 SubMesh。给材质槽改名即可把子网格重新绑定到别的材质条目。注意一个细节：
+`convert2gltf` 写出的 glb 还在文档 extras 的 `kcesModel` 中保存了一份材质名列表副本，`gltf2model`
+为保证无损往返会优先使用这份副本；而 Blender 重新导出时默认会丢弃文档级 extras，因此经 Blender
+编辑后以材质槽名字为准——此时每个材质都必须命名，匿名材质会被拒绝。
+
+纹理坐标按位置对应：Blender 的 UV Maps 列表按顺序导出为 `TEXCOORD_0` 到 `TEXCOORD_7`，对应 Unity 的 UV0 到
+UV7，层的名字无关紧要。主纹理永远采样第一层 UV0。其余 UV 组的用途由 `.mate` 条目指定的着色器决定，改造官方
+mesh 时请保持 UV 层的数量和顺序不变。glTF 与 Unity 之间的 V 轴翻转在两个方向都会自动处理。想在视口中预览贴图，
+可用 `convert2image` 把解包出的 `Texture2D` 转成图片接到 Base Color 上——预览节点不会被导出回游戏；真正修改
+游戏贴图用 `convert2texture2d`，修改材质参数走 `.materialassets` JSON。
 
 动画导出支持带 Transform 路径的显式旋转、位置、缩放和欧拉曲线。音频导出根据 OGG、WAV 或 FSB5
 数据签名选择后缀，只提取现有编码数据，不会把音频转成另一种编码。
@@ -1439,6 +1467,22 @@ Blender インポートのヒント：glTF インポーターの `Bones & Skin` 
 エントリを検索します。一致しない名前は `CreateMaterial not found material`
 エラーになり、そのサブメッシュは表示されません。したがって各 glTF マテリアルには対象マテリアルエントリの名前（例：
 `crc_dress044_shoe`）を付け、エントリ本体は既存の `.materialassets` JSON ワークフローで作成してください。
+
+Blender ではマテリアルスロットが SubMesh 順に並び、面とスロットの割り当てが SubMesh 分割の基準になります。
+別のスロットに割り当てた面はエクスポート時にそのスロットのマテリアル名を持つ独立した SubMesh になります。
+スロット名の変更がサブメッシュを別のマテリアルエントリへ結び付け直す操作です。注意点として、`convert2gltf`
+が書き出す glb はドキュメント extras の `kcesModel` にもマテリアル名リストの複製を保持し、`gltf2model`
+はロスレス往復のためにその複製を優先します。Blender は再エクスポート時に既定でドキュメントレベルの extras
+を破棄するため、Blender で編集した後はマテリアルスロット名が有効になります。その際はすべてのマテリアルに
+名前が必要で、無名のマテリアルは拒否されます。
+
+テクスチャ座標は位置で対応します。Blender の UV Maps リストは順番どおり `TEXCOORD_0` から `TEXCOORD_7`
+としてエクスポートされ、Unity の UV0 から UV7 に対応し、レイヤー名は無視されます。メインテクスチャは常に先頭レイヤーの
+UV0 をサンプリングします。それ以外の UV セットの用途は `.mate` エントリが指すシェーダーが決めるため、公式 mesh
+を改造するときはレイヤーの数と順序を変えないでください。glTF と Unity の間の V 軸反転は双方向とも自動処理されます。
+ビューポートでプレビューするには、展開した `Texture2D` を `convert2image` で画像化して Base Color
+につないでください。プレビュー用ノードがゲームへ書き戻されることはありません。実際のゲームテクスチャの変更は
+`convert2texture2d`、マテリアルパラメーターの変更は `.materialassets` JSON で行います。
 
 アニメーション出力は Transform パスを持つ明示的な回転、位置、スケール、Euler curve に対応します。音声出力は OGG、WAV、FSB5
 シグネチャから拡張子を選びます。音声のトランスコードは行いません。
