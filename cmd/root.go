@@ -63,6 +63,7 @@ func init() {
 	RootCmd.AddCommand(convert2imageCmd)
 	RootCmd.AddCommand(convert2texture2dCmd)
 	RootCmd.AddCommand(convert2gltfCmd)
+	RootCmd.AddCommand(gltf2modelCmd)
 	RootCmd.AddCommand(convert2audioCmd)
 	RootCmd.AddCommand(convert2neiCmd)
 	RootCmd.AddCommand(convert2csvCmd)

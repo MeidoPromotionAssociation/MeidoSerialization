@@ -74,6 +74,8 @@ MeidoSerialization.exe convert2mod .\body.menu.json
 | `image.png`             | `convert2tex`   | `image.tex`                                                         |
 | `Texture2D\my_tex.png`  | `convert2texture2d` | native KCES `my_tex.tex`                                        |
 | `body.mmesh`            | `convert2gltf`  | `body.glb`                                                          |
+| `dress.model`           | `convert2gltf`  | `dress.glb` with the skeleton, skin, and morphs from its `.mmesh`   |
+| `dress.glb`             | `gltf2model`    | `dress.model` and `dress.mmesh`                                     |
 | `voice.audioclip`       | `convert2audio` | `voice.ogg`, `.wav`, or `.fsb` according to its signature           |
 | `table.nei`             | `convert2csv`   | `table.csv`                                                         |
 | `table.csv`             | `convert2nei`   | `table.nei`                                                         |
@@ -171,13 +173,21 @@ MeidoSerialization.exe convert2texture2d .\my_texture.png
 the [TEX 1011 FAQ](../README.md#about-version-1011-of-the-tex-file). `--forcePng=false` can be used explicitly;
 `--compress` takes precedence.
 
-### KCES Mesh, AnimationClip, and AudioClip
+### KCES Model, Mesh, AnimationClip, and AudioClip
 
-These commands operate on standalone native Unity object files with an embedded TypeTree, typically extracted from an
-ABA by this library:
+These commands operate on KCES `.model` files and standalone native Unity object files with an embedded TypeTree,
+typically extracted from an ABA by this library:
 
 ```powershell
-# Mesh or AnimationClip -> binary glTF 2.0 (default)
+# Model plus its referenced .mmesh -> complete skinned binary glTF 2.0 (default)
+# The skeleton, bone weights, morph targets, and material names are included, and
+# KCES-only fields are stored in the kcesModel extras for the reverse conversion
+MeidoSerialization.exe convert2gltf .\TextAsset\dress.model
+
+# glTF or GLB -> KCES .model and .mmesh (a Blender export works when it has one triangle mesh)
+MeidoSerialization.exe gltf2model .\dress.glb -o .\out
+
+# Standalone Mesh or AnimationClip -> binary glTF 2.0 (default)
 MeidoSerialization.exe convert2gltf .\Mesh\body.mmesh
 MeidoSerialization.exe convert2gltf .\dance.animationclip.bytes
 
@@ -191,6 +201,29 @@ MeidoSerialization.exe convert2audio .\AudioClip\voice.audioclip
 MeidoSerialization.exe convert2gltf .\unpacked
 MeidoSerialization.exe convert2audio .\unpacked
 ```
+
+Model conversion is bidirectional: `convert2gltf` looks up the `.mmesh` next to the `.model` or in the sibling
+`Mesh` directory of an unpacked ABA, and `gltf2model` writes an official Unity 2022.3 native Mesh that packs
+straight back into an ABA. A glTF scene without a skin is bound rigidly to its mesh node through a synthesized
+single-bone skin.
+
+Blender import tip: in the glTF importer's `Bones & Skin` panel, uncheck `Guess Original Bind Pose` and set
+`Bone Dir` to "Temperance" to get a clean octahedral skeleton. KCES bind poses are baked against a body-scaled
+skeleton and intentionally differ from the node rest pose, and Blender's guess drops the scale component while
+reconstructing it, which derails the whole armature of clothing models where nearly every node is a joint.
+With the default settings every joint also displays as a small icosphere by design; accessories with few joints
+import the rest of the skeleton as plain-axis empties instead. Keep the default "Blender" `Bone Dir` only when
+the most accurate re-export round trip through `gltf2model` matters more than the viewport display.
+
+Material appearance is intentionally not converted in either direction. KCES materials are entries packed inside
+the bundle's `.materialassets` container, each carrying a virtual file name such as `crc_dress044_shoe.mate` along
+with game-specific shader parameters and texture references that have no glTF equivalent, so `convert2gltf`
+exports each sub-mesh material as a name-only placeholder, and `gltf2model` ignores every glTF PBR parameter and
+texture and stores only each material's name in the Model. At runtime the game appends `.mate` to an extensionless
+name, hashes it ignoring case, and looks it up among the registered `.materialassets` entries; a name that matches
+nothing logs `CreateMaterial not found material` and leaves that sub-mesh invisible. Therefore name every glTF
+material after the target material entry (for example `crc_dress044_shoe`), and author the entry itself through
+the existing `.materialassets` JSON workflow.
 
 Animation export supports explicit rotation, position, scale, and Euler curves with Transform paths. Audio export
 recognizes OGG, WAV, and FSB5 signatures and chooses the corresponding suffix; it does not transcode audio.
@@ -645,6 +678,8 @@ notepad .\body.menu.json
 | `image.png`             | `convert2tex`   | `image.tex`                                              |
 | `Texture2D\my_tex.png`  | `convert2texture2d` | 原生 KCES `my_tex.tex`                               |
 | `body.mmesh`            | `convert2gltf`  | `body.glb`                                               |
+| `dress.model`           | `convert2gltf`  | 含其 `.mmesh` 骨架、蒙皮与 morph 的 `dress.glb`          |
+| `dress.glb`             | `gltf2model`    | `dress.model` 与 `dress.mmesh`                           |
 | `voice.audioclip`       | `convert2audio` | 根据数据签名输出 `voice.ogg`、`.wav` 或 `.fsb`           |
 | `table.nei`             | `convert2csv`   | `table.csv`                                              |
 | `table.csv`             | `convert2nei`   | `table.nei`                                              |
@@ -742,12 +777,19 @@ notepad .\body.menu.json
 1011。详情见 [TEX 1011 常见问题](../README.md#关于-1011-版本的-tex)。也可以显式使用 `--forcePng=false`；`--compress`
 的优先级更高。
 
-### KCES Mesh、AnimationClip 与 AudioClip
+### KCES Model、Mesh、AnimationClip 与 AudioClip
 
-这些命令处理带内嵌 TypeTree 的独立 Unity 原生对象，通常来自本库解包的 ABA：
+这些命令处理 KCES `.model` 文件和带内嵌 TypeTree 的独立 Unity 原生对象，后者通常来自本库解包的 ABA：
 
 ~~~powershell
-# Mesh 或 AnimationClip -> 二进制 glTF 2.0（默认）
+# Model 及其引用的 .mmesh -> 完整蒙皮的二进制 glTF 2.0（默认）
+# 包含骨架、蒙皮权重、变形目标和材质名，KCES 专有字段保存在 kcesModel extras 中供反向转换使用
+.\MeidoSerialization.exe convert2gltf .\TextAsset\dress.model
+
+# glTF 或 GLB -> KCES .model 与 .mmesh（Blender 导出的单三角网格场景可直接转换）
+.\MeidoSerialization.exe gltf2model .\dress.glb -o .\out
+
+# 独立 Mesh 或 AnimationClip -> 二进制 glTF 2.0（默认）
 .\MeidoSerialization.exe convert2gltf .\Mesh\body.mmesh
 .\MeidoSerialization.exe convert2gltf .\dance.animationclip.bytes
 
@@ -761,6 +803,24 @@ notepad .\body.menu.json
 .\MeidoSerialization.exe convert2gltf .\unpacked
 .\MeidoSerialization.exe convert2audio .\unpacked
 ~~~
+
+Model 转换是双向的：`convert2gltf` 会在 `.model` 同目录或 ABA 解包目录的同级 `Mesh`
+目录中查找 `.mmesh`；`gltf2model` 写出官方 Unity 2022.3 原生 Mesh，可直接重新打包进 ABA。
+不带蒙皮的 glTF 场景会合成单骨骼蒙皮，把网格刚性绑定到其挂载节点。
+
+Blender 导入提示：在 glTF 导入器的 `Bones & Skin` 面板中，取消勾选 `Guess Original Bind Pose`（猜测原始绑定姿态），
+并把 `Bone Dir` 设为 "Temperance"，即可得到干净的八面锥骨架。KCES 的 bindpose 是在带体型缩放的骨架下烘焙的，
+与节点 rest 姿态本就不同，而 Blender 反推绑定姿态时会丢弃缩放分量——服装模型几乎每个节点都是关节，
+整个骨架会因此错乱。默认设置下每个关节还会刻意显示为小棱角球；关节很少的配饰则把骨架其余节点导入为十字轴
+empty。只有当经 `gltf2model` 再导出的往返精度比视口显示更重要时，才保留默认的 "Blender" `Bone Dir`。
+
+材质外观在两个方向上都刻意不转换。KCES 材质是打包在资源包 `.materialassets` 容器中的条目，每个条目带有形如
+`crc_dress044_shoe.mate` 的虚拟文件名，以及游戏专有的着色器参数和贴图引用，在 glTF 中没有对应物，因此
+`convert2gltf` 只为每个子网格导出一个仅有名字的占位材质，`gltf2model` 会忽略 glTF 的全部 PBR
+参数和贴图，只把每个材质的名字写入 Model。游戏运行时会给无扩展名的名字补上 `.mate`，做忽略大小写的哈希后在已注册的
+`.materialassets` 条目中查找；名字对不上会输出 `CreateMaterial not found material`
+错误日志，对应子网格渲染缺失。因此每个 glTF 材质都要按目标材质条目命名（例如
+`crc_dress044_shoe`），材质条目本体请通过现有的 `.materialassets` JSON 流程制作。
 
 动画导出支持带 Transform 路径的显式旋转、位置、缩放和欧拉曲线。音频导出根据 OGG、WAV 或 FSB5
 数据签名选择后缀，只提取现有编码数据，不会把音频转成另一种编码。
@@ -1216,6 +1276,8 @@ notepad .\body.menu.json
 | `image.png`             | `convert2tex`   | `image.tex`                                                     |
 | `Texture2D\my_tex.png`  | `convert2texture2d` | ネイティブ KCES `my_tex.tex`                                |
 | `body.mmesh`            | `convert2gltf`  | `body.glb`                                                      |
+| `dress.model`           | `convert2gltf`  | その `.mmesh` の skeleton・skin・morph を含む `dress.glb`       |
+| `dress.glb`             | `gltf2model`    | `dress.model` と `dress.mmesh`                                  |
 | `voice.audioclip`       | `convert2audio` | シグネチャに応じて `voice.ogg`、`.wav`、または `.fsb`           |
 | `table.nei`             | `convert2csv`   | `table.csv`                                                     |
 | `table.csv`             | `convert2nei`   | `table.nei`                                                     |
@@ -1314,13 +1376,20 @@ notepad .\body.menu.json
 [TEX 1011 FAQ](../README.md#tex-ファイルのバージョン-1011-について)を参照してください。
 `--forcePng=false` も明示的に指定できますが、`--compress` が優先されます。
 
-### KCES Mesh、AnimationClip、AudioClip
+### KCES Model、Mesh、AnimationClip、AudioClip
 
-これらのコマンドは、埋め込み TypeTree を持つ単独の Unity ネイティブオブジェクトを処理します。通常は本ライブラリで ABA
+これらのコマンドは、KCES `.model` ファイルと、埋め込み TypeTree を持つ単独の Unity ネイティブオブジェクトを処理します。後者は通常本ライブラリで ABA
 から展開したファイルです。
 
 ~~~powershell
-# Mesh または AnimationClip -> binary glTF 2.0（既定）
+# Model と参照先 .mmesh -> skeleton・skin・morph を含む完全な binary glTF 2.0（既定）
+# KCES 固有フィールドは kcesModel extras に保存され、逆変換で復元されます
+.\MeidoSerialization.exe convert2gltf .\TextAsset\dress.model
+
+# glTF または GLB -> KCES .model と .mmesh
+.\MeidoSerialization.exe gltf2model .\dress.glb -o .\out
+
+# 単独の Mesh または AnimationClip -> binary glTF 2.0（既定）
 .\MeidoSerialization.exe convert2gltf .\Mesh\body.mmesh
 .\MeidoSerialization.exe convert2gltf .\dance.animationclip.bytes
 
@@ -1334,6 +1403,28 @@ notepad .\body.menu.json
 .\MeidoSerialization.exe convert2gltf .\unpacked
 .\MeidoSerialization.exe convert2audio .\unpacked
 ~~~
+
+Model 変換は双方向です。`convert2gltf` は `.model` と同じディレクトリ、または展開済み ABA の隣接 `Mesh`
+ディレクトリから `.mmesh` を探します。`gltf2model` は公式 Unity 2022.3 ネイティブ Mesh を書き出し、そのまま ABA
+に再パックできます。skin のない glTF シーンは単一ボーンの skin を合成してメッシュノードに剛体バインドされます。
+
+Blender インポートのヒント：glTF インポーターの `Bones & Skin` パネルで `Guess Original Bind Pose`
+のチェックを外し、`Bone Dir` を "Temperance" にすると、きれいな八面体スケルトンになります。KCES の bindpose
+は体型スケール込みのスケルトンでベイクされておりノードの rest ポーズと一致しません。Blender
+の推測はスケール成分を捨てて再構築するため、ほぼ全ノードがジョイントである衣装モデルではスケルトン全体が崩れます。
+既定設定では各ジョイントが仕様として小さな ico 球で表示され、ジョイントの少ないアクセサリーでは残りのノードが
+十字軸の empty として読み込まれます。`gltf2model` での再出力精度を表示より優先する場合のみ、既定の "Blender"
+`Bone Dir` を維持してください。
+
+マテリアルの見た目は双方向とも意図的に変換しません。KCES マテリアルはバンドルの `.materialassets`
+コンテナにパックされたエントリで、`crc_dress044_shoe.mate` のような仮想ファイル名と、glTF
+に対応物のないゲーム固有のシェーダーパラメーターおよびテクスチャ参照を持ちます。`convert2gltf`
+は各サブメッシュに名前だけのプレースホルダーマテリアルを出力し、`gltf2model` は glTF の PBR
+パラメーターとテクスチャをすべて無視して各マテリアルの名前のみを Model に書き込みます。ゲームは実行時、拡張子のない名前に
+`.mate` を補い、大文字小文字を無視したハッシュで登録済みの `.materialassets`
+エントリを検索します。一致しない名前は `CreateMaterial not found material`
+エラーになり、そのサブメッシュは表示されません。したがって各 glTF マテリアルには対象マテリアルエントリの名前（例：
+`crc_dress044_shoe`）を付け、エントリ本体は既存の `.materialassets` JSON ワークフローで作成してください。
 
 アニメーション出力は Transform パスを持つ明示的な回転、位置、スケール、Euler curve に対応します。音声出力は OGG、WAV、FSB5
 シグネチャから拡張子を選びます。音声のトランスコードは行いません。

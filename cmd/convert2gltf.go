@@ -15,8 +15,10 @@ var gltfOutputFormat string
 
 var convert2gltfCmd = &cobra.Command{
 	Use:   "convert2gltf [file/directory]",
-	Short: "Export native KCES Mesh and AnimationClip files to glTF",
-	Long: `Export standalone KCES Mesh or AnimationClip primary files to glTF 2.0.
+	Short: "Export KCES Model and native Mesh or AnimationClip files to glTF",
+	Long: `Export KCES .model files or standalone Mesh and AnimationClip primary files to glTF 2.0.
+A .model input also loads the .mmesh referenced by meshFileName and produces a complete skinned
+glTF with the skeleton, bone weights, morph targets, material names, and KCES extras for gltf2model.
 The default output is binary .glb; use --format gltf for JSON glTF with an embedded data URI.
 Animation export supports explicit Rotation, Position, Scale, and Euler curves with Transform paths.`,
 	Args: cobra.ExactArgs(1),
@@ -28,15 +30,15 @@ Animation export supports explicit Rotation, Position, Scale, and Euler curves w
 		if isDirectory(path) {
 			fmt.Printf("Processing directory: %s\n", path)
 			return processDirectoryConcurrent(path, processor, func(candidate string) bool {
-				return fileTypeFilter(candidate) && (KCESService.IsKCESNativeMeshFile(candidate) || KCESService.IsKCESNativeAnimationClipFile(candidate))
+				return fileTypeFilter(candidate) && (KCESService.IsKCESModelFile(candidate) || KCESService.IsKCESNativeMeshFile(candidate) || KCESService.IsKCESNativeAnimationClipFile(candidate))
 			})
 		}
 		return processFile(path, processor)
 	},
 }
 
-// convertNativeUnityToGLTF 将 Mesh 或 AnimationClip 主文件导出为 glTF
-// convertNativeUnityToGLTF exports a Mesh or AnimationClip primary file to glTF
+// convertNativeUnityToGLTF 将 Model、Mesh 或 AnimationClip 主文件导出为 glTF
+// convertNativeUnityToGLTF exports a Model, Mesh, or AnimationClip primary file to glTF
 func convertNativeUnityToGLTF(path string, format string) error {
 	format = strings.ToLower(strings.TrimPrefix(strings.TrimSpace(format), "."))
 	if format != "glb" && format != "gltf" {
@@ -46,12 +48,14 @@ func convertNativeUnityToGLTF(path string, format string) error {
 	service := &KCESService.NativeUnityMediaService{}
 	var err error
 	switch {
+	case KCESService.IsKCESModelFile(path):
+		err = (&KCESService.ModelService{}).ConvertModelToGLTF(context.Background(), path, outputPath, format, application.DefaultMaxOutputBytes)
 	case KCESService.IsKCESNativeMeshFile(path):
 		err = service.ConvertMeshToGLTF(context.Background(), path, outputPath, format, application.DefaultMaxOutputBytes)
 	case KCESService.IsKCESNativeAnimationClipFile(path):
 		err = service.ConvertAnimationClipToGLTF(context.Background(), path, outputPath, format, application.DefaultMaxOutputBytes)
 	default:
-		return fmt.Errorf("not a native KCES Mesh or AnimationClip file: %s", path)
+		return fmt.Errorf("not a KCES Model or native Mesh or AnimationClip file: %s", path)
 	}
 	if err != nil {
 		return err

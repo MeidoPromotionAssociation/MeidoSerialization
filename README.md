@@ -106,7 +106,8 @@ and MCP.
 | `maid_collider.bytes`                               | Bridge, name-map, attachment, and collider state | Native ↔ JSON                          |                                                                                                |
 | Raw Unity `.bytes` object plus adjacent sidecars    | Unity serialized object                          | Raw object ↔ JSON                      | `.meta.json` and optional `.typetree.json` travel with the primary file as one artifact bundle |
 | Native Texture2D and Sprite object files            | Image                                            | Texture2D → PNG/DDS; Sprite → PNG      | One-way conversion                                                                             |
-| Native Mesh `.mmesh` and AnimationClip object files | 3D and animation data                            | → glTF 2.0/GLB                         | One-way conversion; some data remains in `.model`, so output is intended for preview           |
+| KCES `.model` with its `.mmesh`                     | Skinned model with skeleton and morphs           | Model + Mesh ↔ glTF 2.0/GLB            | Bidirectional; skeleton, skin weights, and morph targets convert both ways, KCES-only fields ride in glTF extras, and materials transfer by name only because their appearance lives in `.materialassets` entries with game-specific shaders |
+| Native Mesh `.mmesh` and AnimationClip object files | 3D and animation data                            | → glTF 2.0/GLB                         | Standalone geometry or animation preview export; use the `.model` path for full skinned round trips |
 | Native AudioClip object files                       | Encoded audio                                    | Lossless inline-payload extraction     | One-way conversion; recognizes OGG, WAV, and FSB5 signatures without transcoding               |
 
 The serializer implementations are under [`serialization/COM3D2`](serialization/COM3D2) and
@@ -159,14 +160,16 @@ MeidoSerialization.exe genCt .\example.aba
 
 # Export standalone native Unity objects
 MeidoSerialization.exe convert2image .\Texture2D\texture.tex
+MeidoSerialization.exe convert2gltf .\TextAsset\dress.model
 MeidoSerialization.exe convert2gltf .\Mesh\mesh.mmesh --format glb
+MeidoSerialization.exe gltf2model .\dress.glb -o .\out
 MeidoSerialization.exe convert2audio .\AudioClip\voice.audioclip
 ```
 
 Command groups:
 
 - Conversion and detection: `convert`, `convert2json`, `convert2mod`, `determine`
-- Images, models, animations, and audio: `convert2tex`, `convert2image`, `convert2texture2d`, `convert2gltf`, `convert2audio`
+- Images, models, animations, and audio: `convert2tex`, `convert2image`, `convert2texture2d`, `convert2gltf`, `gltf2model`, `convert2audio`
 - NEI/CSV: `convert2csv`, `convert2nei`
 - COM3D2 ARC: `listArc`, `extractArc`, `packArc`, `unpackArc`
 - KCES CT/ABA: `listCt`, `genCt`, `listAba`, `packAba`, `unpackAba`
@@ -585,7 +588,8 @@ KCES、gRPC、MCP 支持在 MeidoSerialization v2.0.0 版本后可用。
 | `maid_collider.bytes`                      | 桥接、名称映射、附件与碰撞体状态 | 原生格式 ↔ JSON                   |                                                                              |
 | raw Unity 对象 `.bytes` 及相邻 sidecar     | Unity 序列化对象                 | raw 对象 ↔ JSON                   | `.meta.json` 和可选 `.typetree.json` 与主文件作为同一个 artifact bundle 传输 |
 | 原生 Texture2D、Sprite 对象文件            | 图片                             | Texture2D → PNG/DDS；Sprite → PNG | 单向转换                                                                     |
-| 原生 Mesh `.mmesh`、AnimationClip 对象文件 | 3D 与动画数据                    | → glTF 2.0/GLB                    | 单向转换，部分数据位于 .model 非完整转换，仅建议用于预览                     |
+| KCES `.model` 及其 `.mmesh`                | 带骨架和 morph 的蒙皮模型        | Model + Mesh ↔ glTF 2.0/GLB       | 双向转换；骨架、蒙皮权重和变形目标双向保留，KCES 专有字段通过 glTF extras 保真；材质仅按名字引用，外观位于 `.materialassets` 容器条目（游戏专有着色器）中不参与转换 |
+| 原生 Mesh `.mmesh`、AnimationClip 对象文件 | 3D 与动画数据                    | → glTF 2.0/GLB                    | 独立几何或动画的预览导出；完整蒙皮往返请使用 `.model` 路径                   |
 | 原生 AudioClip 对象文件                    | 编码音频                         | 无损提取内联载荷                  | 单向转换，识别 OGG、WAV 和 FSB5 签名，不执行转码                             |
 
 序列化实现位于 [`serialization/COM3D2`](serialization/COM3D2) 和 [`serialization/KCES`](serialization/KCES)。
@@ -632,14 +636,16 @@ MeidoSerialization.exe genCt .\example.aba
 
 # 导出独立的原生 Unity 对象
 MeidoSerialization.exe convert2image .\Texture2D\texture.tex
+MeidoSerialization.exe convert2gltf .\TextAsset\dress.model
 MeidoSerialization.exe convert2gltf .\Mesh\mesh.mmesh --format glb
+MeidoSerialization.exe gltf2model .\dress.glb -o .\out
 MeidoSerialization.exe convert2audio .\AudioClip\voice.audioclip
 ```
 
 命令分组如下：
 
 - 转换与识别：`convert`、`convert2json`、`convert2mod`、`determine`
-- 图片、模型、动画与音频：`convert2tex`、`convert2image`、`convert2texture2d`、`convert2gltf`、`convert2audio`
+- 图片、模型、动画与音频：`convert2tex`、`convert2image`、`convert2texture2d`、`convert2gltf`、`gltf2model`、`convert2audio`
 - NEI/CSV：`convert2csv`、`convert2nei`
 - COM3D2 ARC：`listArc`、`extractArc`、`packArc`、`unpackArc`
 - KCES CT/ABA：`listCt`、`genCt`、`listAba`、`packAba`、`unpackAba`
@@ -1063,7 +1069,8 @@ KCES、gRPC、MCP のサポートは MeidoSerialization v2.0.0 以降で利用�
 | `maid_collider.bytes`                           | bridge、name map、attachment、collider state | native ↔ JSON                     |                                                                                      |
 | raw Unity `.bytes` object と隣接 sidecar        | Unity serialized object                      | raw object ↔ JSON                 | `.meta.json` と任意の `.typetree.json` を primary file と同じ artifact bundle で転送 |
 | native Texture2D、Sprite object file            | 画像                                         | Texture2D → PNG/DDS、Sprite → PNG | 一方向変換                                                                           |
-| native Mesh `.mmesh`、AnimationClip object file | 3D・アニメーションデータ                     | → glTF 2.0/GLB                    | 一方向変換。一部 data は `.model` に残るため、出力は preview 向け                    |
+| KCES `.model` とその `.mmesh`                   | skeleton と morph を持つ skinned model       | Model + Mesh ↔ glTF 2.0/GLB       | 双方向変換。skeleton、skin weight、morph target を双方向に保持し、KCES 固有 field は glTF extras で保持。material は名前のみで参照され、見た目はゲーム固有 shader を使う `.materialassets` エントリにあるため変換対象外 |
+| native Mesh `.mmesh`、AnimationClip object file | 3D・アニメーションデータ                     | → glTF 2.0/GLB                    | 単体 geometry・animation の preview 出力。完全な skinned round trip には `.model` 経由を使用      |
 | native AudioClip object file                    | encode 済み音声                              | inline payload を無劣化抽出       | 一方向変換。OGG、WAV、FSB5 signature を認識し、transcode は行わない                  |
 
 serializer 実装は [`serialization/COM3D2`](serialization/COM3D2) と
@@ -1115,14 +1122,16 @@ MeidoSerialization.exe genCt .\example.aba
 
 # 単体 native Unity object を出力
 MeidoSerialization.exe convert2image .\Texture2D\texture.tex
+MeidoSerialization.exe convert2gltf .\TextAsset\dress.model
 MeidoSerialization.exe convert2gltf .\Mesh\mesh.mmesh --format glb
+MeidoSerialization.exe gltf2model .\dress.glb -o .\out
 MeidoSerialization.exe convert2audio .\AudioClip\voice.audioclip
 ```
 
 command group：
 
 - 変換と判定：`convert`、`convert2json`、`convert2mod`、`determine`
-- 画像、model、animation、audio：`convert2tex`、`convert2image`、`convert2texture2d`、`convert2gltf`、`convert2audio`
+- 画像、model、animation、audio：`convert2tex`、`convert2image`、`convert2texture2d`、`convert2gltf`、`gltf2model`、`convert2audio`
 - NEI/CSV：`convert2csv`、`convert2nei`
 - COM3D2 ARC：`listArc`、`extractArc`、`packArc`、`unpackArc`
 - KCES CT/ABA：`listCt`、`genCt`、`listAba`、`packAba`、`unpackAba`

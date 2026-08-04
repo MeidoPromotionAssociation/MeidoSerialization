@@ -207,6 +207,10 @@ MeidoSerialization.exe unpackAba .\example.aba -o .\unpacked
 MeidoSerialization.exe convert2image .\texture.texture2d.bytes
 MeidoSerialization.exe convert2gltf .\mesh.mmesh --format glb
 MeidoSerialization.exe convert2audio .\voice.audioclip.bytes
+
+# Convert a KCES model to and from glTF (skeleton, skin, morphs, and material names included)
+MeidoSerialization.exe convert2gltf .\TextAsset\dress.model
+MeidoSerialization.exe gltf2model .\dress.glb -o .\out
 ```
 
 Read `MeidoSerialization.exe --help`, `<command> --help`, and [the complete CLI reference](../cmd/README.md) before
