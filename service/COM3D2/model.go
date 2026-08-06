@@ -109,7 +109,6 @@ func (m *ModelService) WriteModelMetadata(inputPath string, outputPath string, m
 	if err != nil {
 		return fmt.Errorf("cannot open .model file: %w", err)
 	}
-	defer f.Close()
 
 	var modelData *COM3D2.Model
 
@@ -117,14 +116,18 @@ func (m *ModelService) WriteModelMetadata(inputPath string, outputPath string, m
 		decoder := json.NewDecoder(f)
 		modelData = &COM3D2.Model{}
 		if err = decoder.Decode(modelData); err != nil {
+			f.Close()
 			return fmt.Errorf("failed to read .model.json file: %w", err)
 		}
 	} else {
-		modelData, err = COM3D2.ReadModel(f)
+		br := bufio.NewReaderSize(f, 1*1024*1024) // 1MB 缓冲区，因为只读取部分数据
+		modelData, err = COM3D2.ReadModel(br)
 		if err != nil {
+			f.Close()
 			return fmt.Errorf("parsing the .model file failed: %w", err)
 		}
 	}
+	f.Close()
 
 	modelData.Signature = metadata.Signature
 	modelData.Version = metadata.Version
@@ -153,7 +156,6 @@ func (m *ModelService) WriteModelMaterial(inputPath string, outputPath string, m
 	if err != nil {
 		return fmt.Errorf("cannot open .model file: %w", err)
 	}
-	defer f.Close()
 
 	var modelData *COM3D2.Model
 
@@ -161,14 +163,19 @@ func (m *ModelService) WriteModelMaterial(inputPath string, outputPath string, m
 		decoder := json.NewDecoder(f)
 		modelData = &COM3D2.Model{}
 		if err = decoder.Decode(modelData); err != nil {
+			f.Close()
 			return fmt.Errorf("failed to read.model.json file: %w", err)
 		}
 	} else {
-		modelData, err = COM3D2.ReadModel(f)
+		br := bufio.NewReaderSize(f, 1*1024*1024) // 1MB 缓冲区，因为只读取部分数据
+		modelData, err = COM3D2.ReadModel(br)
 		if err != nil {
+			f.Close()
 			return fmt.Errorf("parsing the .model file failed: %w", err)
 		}
 	}
+
+	f.Close()
 
 	modelData.Materials = materials
 
@@ -180,8 +187,8 @@ func (m *ModelService) ConvertModelToJson(ctx context.Context, inputPath string,
 	if err := checkConversionContext(ctx); err != nil {
 		return err
 	}
-	if strings.HasSuffix(outputPath, ".model") {
-		outputPath = strings.TrimSuffix(outputPath, ".model") + ".model.json"
+	if before, ok := strings.CutSuffix(outputPath, ".model"); ok {
+		outputPath = before + ".model.json"
 	}
 
 	modelData, err := m.ReadModelFile(inputPath)
@@ -200,8 +207,8 @@ func (m *ModelService) ConvertModelToJson(ctx context.Context, inputPath string,
 
 // ConvertJsonToModel 接收输入文件路径和输出文件路径，将输入文件转换为 .model 文件
 func (m *ModelService) ConvertJsonToModel(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
-	if strings.HasSuffix(outputPath, ".json") {
-		outputPath = strings.TrimSuffix(outputPath, ".json") + ".model"
+	if before, ok := strings.CutSuffix(outputPath, ".json"); ok {
+		outputPath = before + ".model"
 	}
 
 	var modelData *COM3D2.Model
