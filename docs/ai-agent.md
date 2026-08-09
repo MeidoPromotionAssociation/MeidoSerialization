@@ -21,6 +21,8 @@ required change, validate the complete JSON document, and convert it back to the
 
 ### Preferred: use a release build
 
+MCP functionality is available only in versions 2.0.0 and above. If release build is lower than this version, please build from source or download from the Github Actions.
+
 1. Open the latest [GitHub Release](https://github.com/MeidoPromotionAssociation/MeidoSerialization/releases).
 2. Select the executable for the current operating system and architecture.
 3. Extract it to a stable location that the MCP Host can execute.
@@ -45,6 +47,10 @@ go build -o MeidoSerialization.exe .
 ```
 
 Do not run `go install ...@latest` when reproducibility matters; clone the requested revision and build that revision.
+
+Or you can download form Github action form nightly.link: https://nightly.link/MeidoPromotionAssociation/MeidoSerialization/workflows/auto_build/main
+
+The auto build action file is located at https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/.github/workflows/auto_build.yml
 
 ### Optional ImageMagick dependency
 
