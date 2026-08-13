@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/common/nei"
 )
 
 const (
@@ -53,7 +54,7 @@ const (
 )
 
 var (
-	NeiSignature = []byte{0x77, 0x73, 0x76, 0xFF}
+	NeiSignature = nei.Signature
 )
 
 // Vector2 表示二维向量或UV坐标

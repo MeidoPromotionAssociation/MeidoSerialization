@@ -10,8 +10,11 @@ import (
 var convert2csvCmd = &cobra.Command{
 	Use:   "convert2csv [file/directory]",
 	Short: "Convert .nei files to CSV",
-	Long: `Convert .nei files (encrypted Shift-JIS CSV) to .csv format.
+	Long: `Convert .nei files (encrypted CSV) to .csv format.
 This command can process a single file or all files in a directory.
+
+The cell text encoding is detected from the file content, so both COM3D2
+(Shift-JIS) and KCES (UTF-8) tables are decoded correctly.
 
 The CSV is written with UTF-8-BOM encoding, using ',' as the separator.
 

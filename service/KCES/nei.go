@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
 )
 
@@ -26,13 +26,13 @@ func IsKCESNeiFile(path string) bool {
 
 // ReadNeiFile 读取并解码 .nei 文件
 // ReadNeiFile reads and decodes a .nei file
-func (s *NeiService) ReadNeiFile(path string) (*serializationCOM3D2.Nei, error) {
+func (s *NeiService) ReadNeiFile(path string) (*serializationKCES.Nei, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open .nei file %q: %w", path, err)
 	}
 	defer file.Close()
-	value, err := serializationCOM3D2.ReadNei(bufio.NewReader(file), nil)
+	value, err := serializationKCES.ReadNei(bufio.NewReader(file), nil)
 	if err != nil {
 		return nil, fmt.Errorf("decode .nei file %q: %w", path, err)
 	}
@@ -41,7 +41,7 @@ func (s *NeiService) ReadNeiFile(path string) (*serializationCOM3D2.Nei, error) 
 
 // WriteNeiFile 编码并写入 .nei 文件
 // WriteNeiFile encodes and writes a .nei file
-func (s *NeiService) WriteNeiFile(path string, value *serializationCOM3D2.Nei) error {
+func (s *NeiService) WriteNeiFile(path string, value *serializationKCES.Nei) error {
 	return writeNeiFile(path, value)
 }
 
@@ -101,22 +101,20 @@ func (s *NeiService) ConvertCSVToNei(inputPath string, outputPath string) error 
 		copy(row, record)
 		data[index] = row
 	}
-	return s.WriteNeiFile(outputPath, &serializationCOM3D2.Nei{
-		Rows: uint32(len(records)),
-		Cols: maxCols,
-		Data: data,
-	})
+	// NewNei 固定使用 UTF-8，KCES 的 crc.dll 按 UTF-8 解码单元格，写出 Shift-JIS 会让游戏读到乱码
+	// NewNei always selects UTF-8 because KCES's crc.dll decodes cells as UTF-8 and writing Shift-JIS would make the game read garbage
+	return s.WriteNeiFile(outputPath, serializationKCES.NewNei(uint32(len(records)), maxCols, data))
 }
 
 // WriteNeiFile 为聚合 service 保留 .nei 直接写入 API
 // WriteNeiFile preserves the direct .nei writer on the aggregate service
-func (s *DataService) WriteNeiFile(path string, value *serializationCOM3D2.Nei) error {
+func (s *DataService) WriteNeiFile(path string, value *serializationKCES.Nei) error {
 	return writeNeiFile(path, value)
 }
 
 // writeNeiFile 编码并直接写入原生 .nei 数据
 // writeNeiFile encodes and directly writes native .nei data
-func writeNeiFile(path string, value *serializationCOM3D2.Nei) error {
+func writeNeiFile(path string, value *serializationKCES.Nei) error {
 	if value == nil {
 		return fmt.Errorf("encode KCES shared nei: nil nei")
 	}

@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/application"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2/arc"
 	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
 	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
@@ -794,8 +795,8 @@ func isCsvFile(path string) bool {
 	return strings.HasSuffix(strings.ToLower(path), ".csv")
 }
 
-// convertToCsv 将加密 Shift-JIS NEI 表格转换为相邻 UTF-8 CSV 文件
-// convertToCsv converts an encrypted Shift-JIS NEI table to an adjacent UTF-8 CSV file
+// convertToCsv 将加密 NEI 表格转换为相邻 UTF-8 CSV 文件，单元格编码按内容自动探测
+// convertToCsv converts an encrypted NEI table to an adjacent UTF-8 CSV file, detecting the cell encoding from content
 func convertToCsv(path string) error {
 	if !isNeiFile(path) {
 		return fmt.Errorf("not a NEI file: %s", path)
@@ -811,21 +812,34 @@ func convertToCsv(path string) error {
 	return nil
 }
 
-// convertToNei 将 UTF-8 CSV 表格转换为相邻的加密 Shift-JIS NEI 文件
-// convertToNei converts a UTF-8 CSV table to an adjacent encrypted Shift-JIS NEI file
-func convertToNei(path string) error {
+// convertToNei 将 UTF-8 CSV 表格转换为相邻的加密 NEI 文件，单元格按 encoding 编码
+// convertToNei converts a UTF-8 CSV table to an adjacent encrypted NEI file, writing cells in encoding
+func convertToNei(path string, encoding COM3D2.NeiTextEncoding) error {
 	if !isCsvFile(path) {
 		return fmt.Errorf("not a CSV file: %s", path)
 	}
 
 	service := &COM3D2Service.NeiService{}
 	outputPath := strings.TrimSuffix(path, ".csv") + ".nei"
-	if err := service.CSVFileToNeiFile(path, outputPath); err != nil {
+	if err := service.CSVFileToNeiFileWithEncoding(path, outputPath, encoding); err != nil {
 		return fmt.Errorf("failed to convert %s to NEI: %w", path, err)
 	}
 
-	fmt.Printf("Converted %s to %s\n", path, outputPath)
+	fmt.Printf("Converted %s to %s (%s)\n", path, outputPath, encoding)
 	return nil
+}
+
+// parseNeiTextEncoding 将命令行编码名称解析为 NEI 单元格编码
+// parseNeiTextEncoding parses a command-line encoding name into a NEI cell encoding
+func parseNeiTextEncoding(name string) (COM3D2.NeiTextEncoding, error) {
+	switch strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(name, "_", ""), "-", "")) {
+	case "shiftjis", "sjis", "cp932", "com3d2":
+		return COM3D2.NeiTextEncodingShiftJIS, nil
+	case "utf8", "kces":
+		return COM3D2.NeiTextEncodingUTF8, nil
+	default:
+		return "", fmt.Errorf("unknown NEI text encoding %q, expected shift-jis or utf-8", name)
+	}
 }
 
 // unpackArc 将 ARC 解包到根据输入路径派生的默认目录
@@ -1057,7 +1071,7 @@ func convertFile(path string) error {
 
 	// If it's a CSV file, convert to NEI
 	if isCsvFile(path) {
-		return convertToNei(path)
+		return convertToNei(path, COM3D2.NeiTextEncodingShiftJIS)
 	}
 
 	// If it's an ARC file, unpack it

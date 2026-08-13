@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
 )
 
 // DataService 为旧调用方提供 KCES 与 COM3D2 共用格式的兼容分派入口 / DataService provides compatibility dispatch for formats shared by KCES and COM3D2
@@ -73,9 +74,9 @@ func (s *DataService) WriteDataFile(path string, value any) error {
 		}
 		return s.WritePskFile(path, psk)
 	case neiExtension:
-		nei, ok := value.(*serializationCOM3D2.Nei)
+		nei, ok := value.(*serializationKCES.Nei)
 		if !ok {
-			return fmt.Errorf(".nei output requires *COM3D2.Nei, got %T", value)
+			return fmt.Errorf(".nei output requires *KCES.Nei, got %T", value)
 		}
 		return s.WriteNeiFile(path, nei)
 	default:

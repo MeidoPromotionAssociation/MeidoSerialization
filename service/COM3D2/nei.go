@@ -96,12 +96,22 @@ func (s *NeiService) NeiFileToCSVFile(inputPath string, outputPath string) error
 	return nil
 }
 
-// CSVFileToNeiFile 将 CSV 文件转换为 Nei 文件
+// CSVFileToNeiFile 将 CSV 文件转换为 Nei 文件，单元格按 Shift-JIS 编码写出
+// CSVFileToNeiFile converts a CSV file to a Nei file, writing cells in Shift-JIS
 func (s *NeiService) CSVFileToNeiFile(inputPath string, outputPath string) error {
+	return s.CSVFileToNeiFileWithEncoding(inputPath, outputPath, COM3D2.NeiTextEncodingShiftJIS)
+}
+
+// CSVFileToNeiFileWithEncoding 将 CSV 文件转换为使用指定单元格编码的 Nei 文件
+// COM3D2 按 Shift-JIS 读取 .nei，KCES 按 UTF-8 读取，选错编码会让游戏显示乱码
+// CSVFileToNeiFileWithEncoding converts a CSV file to a Nei file using the selected cell encoding
+// COM3D2 reads .nei as Shift-JIS while KCES reads it as UTF-8, and the wrong choice makes the game display garbage
+func (s *NeiService) CSVFileToNeiFileWithEncoding(inputPath string, outputPath string, encoding COM3D2.NeiTextEncoding) error {
 	csvData, err := s.CSVFileToNei(inputPath)
 	if err != nil {
 		return fmt.Errorf("failed to read CSV file: %w", err)
 	}
+	csvData.TextEncoding = encoding
 
 	err = s.WriteNeiFile(csvData, outputPath)
 	if err != nil {
