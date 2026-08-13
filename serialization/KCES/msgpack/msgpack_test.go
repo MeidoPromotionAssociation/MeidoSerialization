@@ -162,22 +162,21 @@ func TestCompressLz4BlockArray_IncompressibleBlock(t *testing.T) {
 		t.Fatalf("generate deterministic data: %v", err)
 	}
 
-	probe := make([]byte, lz4.CompressBlockBound(blockSize))
-	n, err := lz4.CompressBlock(data[:blockSize], probe, nil)
+	probe, err := compressLz4Block(data[:blockSize])
 	if err != nil {
-		t.Fatalf("probe CompressBlock: %v", err)
+		t.Fatalf("probe compressLz4Block: %v", err)
 	}
-	if n > 0 && n < blockSize {
-		t.Fatalf("test precondition failed: first block compressed to %d bytes, want an incompressible result", n)
+	if len(probe) < blockSize {
+		t.Fatalf("test precondition failed: first block compressed to %d bytes, want an incompressible result", len(probe))
 	}
-	// Some pierrec/lz4 versions report incompressibility as n == 0, while the
-	// current version emits a valid literal-only block larger than the input.
-	// Exercise the n == 0 production fallback explicitly as well.
+	// pierrec/lz4 emits a valid literal-only block that is larger than the input
+	// when the data is incompressible, and reports a block it refuses to compress
+	// as size zero. Exercise the size zero production fallback explicitly as well.
 	fallback := finishLz4Block(data[:blockSize], nil, 0)
 	fallbackDecoded := make([]byte, blockSize)
 	fallbackN, err := lz4.UncompressBlock(fallback, fallbackDecoded)
 	if err != nil || fallbackN != blockSize || !bytes.Equal(fallbackDecoded, data[:blockSize]) {
-		t.Fatalf("n == 0 literal fallback failed: n=%d err=%v", fallbackN, err)
+		t.Fatalf("size zero literal fallback failed: n=%d err=%v", fallbackN, err)
 	}
 
 	encoded, err := CompressLz4BlockArray(data)
@@ -205,6 +204,62 @@ func TestCompressLz4BlockArray_IncompressibleBlock(t *testing.T) {
 	}
 	if len(firstBlock) <= blockSize {
 		t.Fatalf("literal-only LZ4 block got %d bytes, expected overhead beyond %d raw bytes", len(firstBlock), blockSize)
+	}
+}
+
+func TestCompressLz4Block_RoundTripsEveryBoundaryLength(t *testing.T) {
+	rng := rand.New(rand.NewSource(0x4b434553))
+	noise := make([]byte, blockSize)
+	if _, err := rng.Read(noise); err != nil {
+		t.Fatalf("generate deterministic noise: %v", err)
+	}
+
+	lengths := []int{0, 1, 4, 12, 13, 14, 15, 16, 18, 254, 255, 256, 269, 270, 509, 510, 511, 4096, 65535, blockSize}
+	for _, length := range lengths {
+		cases := map[string][]byte{
+			"noise":      noise[:length],
+			"repeating":  bytes.Repeat([]byte("KCES"), length/4+1)[:length],
+			"zero":       make([]byte, length),
+			"mixed":      append(append([]byte{}, noise[:length/2]...), make([]byte, length-length/2)...),
+			"long match": append(append([]byte{}, noise[:min(length, 64)]...), bytes.Repeat([]byte{0x5a}, length-min(length, 64))...),
+		}
+		for name, block := range cases {
+			compressed, err := compressLz4Block(block)
+			if err != nil {
+				t.Fatalf("%s/%d compress: %v", name, length, err)
+			}
+			if length == 0 {
+				continue
+			}
+			decoded := make([]byte, length)
+			n, err := lz4.UncompressBlock(compressed, decoded)
+			if err != nil {
+				t.Fatalf("%s/%d independent LZ4 decode: %v", name, length, err)
+			}
+			if n != length || !bytes.Equal(decoded, block) {
+				t.Fatalf("%s/%d round trip differs: decoded %d bytes", name, length, n)
+			}
+		}
+	}
+}
+
+func TestCompressLz4Block_IsDeterministic(t *testing.T) {
+	first := bytes.Repeat([]byte("deterministic-lz4-output"), 400)
+	second := bytes.Repeat([]byte{0x00, 0x11, 0x22, 0x33}, 400)
+
+	warmed, err := compressLz4Block(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := compressLz4Block(second); err != nil {
+		t.Fatal(err)
+	}
+	again, err := compressLz4Block(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(warmed, again) {
+		t.Fatalf("compressing the same block twice produced %d and %d bytes", len(warmed), len(again))
 	}
 }
 

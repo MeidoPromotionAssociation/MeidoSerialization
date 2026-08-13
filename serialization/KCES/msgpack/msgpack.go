@@ -3,6 +3,7 @@ package msgpack
 import (
 	"encoding/binary"
 	"fmt"
+	"sync"
 
 	"github.com/pierrec/lz4/v4"
 	"github.com/ugorji/go/codec"
@@ -279,7 +280,13 @@ func uint64ToInt64(value uint64, consumed int64) (int64, int64, error) {
 }
 
 // CompressLz4BlockArray 将数据按 65536 字节分块并压缩为 MessagePack-CSharp 标准 Lz4BlockArray 布局
+// 输出不追求与游戏写出的字节一致：游戏的 ToLZ4BinaryCore 按 ReadOnlySequence 的内部缓冲段切块，段尾放不下下一个值时会提前换段，
+// 这种块边界无法从载荷本身推导，而游戏自带的 LZ4Codec 压缩强度也低于本库使用的编码器
+// 分块方式与压缩强度都只影响体积，不影响解码结果，游戏按 ext 98 头中记录的每块解压大小还原数据
 // CompressLz4BlockArray splits data into 65536-byte blocks and compresses it into the standard MessagePack-CSharp Lz4BlockArray layout
+// The output does not aim to match the bytes the game writes, because the game ToLZ4BinaryCore splits by the internal buffer segments of a ReadOnlySequence and starts a new segment early when the next value does not fit,
+// which produces block boundaries that cannot be derived from the payload itself, while the bundled game LZ4Codec also compresses less tightly than the encoder used here
+// The split and the compression strength affect only the size and never the decoded result, because the game restores data using the per-block decompressed sizes recorded in the ext 98 header
 func CompressLz4BlockArray(data []byte) ([]byte, error) {
 	if len(data) == 0 {
 		return data, nil
@@ -319,15 +326,23 @@ func CompressLz4BlockArray(data []byte) ([]byte, error) {
 	return out, nil
 }
 
-// compressLz4Block 压缩单块并将不可压缩结果交给兼容收尾逻辑
-// compressLz4Block compresses one block and delegates incompressible output to compatibility finishing logic
+// lz4HighCompressorPool 复用高压缩率编码器，因为每个编码器持有约 1 MiB 的哈希表且不能被并发调用
+// lz4HighCompressorPool reuses high-compression encoders because each encoder holds about 1 MiB of hash tables and cannot be called concurrently
+var lz4HighCompressorPool = sync.Pool{New: func() any { return new(lz4.CompressorHC) }}
+
+// compressLz4Block 用高压缩率编码器压缩单块，并将不可压缩结果交给兼容收尾逻辑
+// 该编码器不限制搜索深度，在同一 LZ4 块格式下比游戏自带的 LZ4Codec 明显更小，且复用前会清空哈希表，因此相同输入总得到相同字节
+// compressLz4Block compresses one block with the high-compression encoder and delegates incompressible output to compatibility finishing logic
+// The encoder applies no search-depth limit and stays clearly smaller than the bundled game LZ4Codec within the same LZ4 block format, and it clears its hash tables before reuse so identical input always produces identical bytes
 func compressLz4Block(block []byte) ([]byte, error) {
 	dst := make([]byte, lz4.CompressBlockBound(len(block)))
-	n, err := lz4.CompressBlock(block, dst, nil)
+	compressor := lz4HighCompressorPool.Get().(*lz4.CompressorHC)
+	compressedSize, err := compressor.CompressBlock(block, dst)
+	lz4HighCompressorPool.Put(compressor)
 	if err != nil {
 		return nil, err
 	}
-	return finishLz4Block(block, dst, int64(n)), nil
+	return finishLz4Block(block, dst, int64(compressedSize)), nil
 }
 
 // finishLz4Block 返回压缩结果，或为不可压缩块构造 MessagePack-CSharp 可解码的纯字面量 LZ4 块
@@ -337,9 +352,9 @@ func finishLz4Block(block, compressed []byte, compressedSize int64) []byte {
 		return compressed[:compressedSize]
 	}
 
-	// pierrec/lz4 对不可压缩块返回 n 等于零并要求框架调用者标记原始块
+	// pierrec/lz4 对认定不可压缩的块返回大小零，并要求框架调用者把该块标记为原始数据
 	// MessagePack-CSharp 此布局没有原始标记且总会调用 LZ4Codec.Decode，因此必须编码有效纯字面量 LZ4 块而不能逐字节复制
-	// pierrec/lz4 returns n equal to zero for an incompressible block and expects its framing caller to mark the block as raw
+	// pierrec/lz4 returns size zero for a block it considers incompressible and expects its framing caller to mark the block as raw
 	// MessagePack-CSharp has no raw marker in this layout and always calls LZ4Codec.Decode, so a valid literal-only LZ4 block must be encoded instead of copying bytes verbatim
 	return encodeLz4LiteralBlock(block)
 }
@@ -703,6 +718,11 @@ func newMsgpackEncoderHandle(allowRaw bool) *codec.MsgpackHandle {
 	// 游戏按键查找 VirtualDirectory 字典且 VirtualFile 使用绝对偏移，字典顺序不承载语义；规范排序让重建结果与已排序的数据块顺序保持一致
 	// The game looks up VirtualDirectory dictionaries by key and VirtualFile uses absolute offsets, so map order has no semantic role; canonical ordering keeps rebuilt metadata aligned with the already sorted data-block order
 	h.Canonical = true
+	// MessagePack-CSharp 的 WriteInt32 与 WriteInt64 对非负值选择无符号编码，因此 1001 写作 cd 03 e9 而不是 d1 03 e9
+	// 两种形式解码结果相同，但只有无符号形式能让重新编码的文件与游戏写出的字节一致
+	// MessagePack-CSharp WriteInt32 and WriteInt64 select unsigned encodings for non-negative values, so 1001 is written as cd 03 e9 rather than d1 03 e9
+	// Both forms decode identically, but only the unsigned form makes a re-encoded file match the bytes the game writes
+	h.PositiveIntUnsigned = true
 	h.MaxDepth = 256
 	return h
 }
