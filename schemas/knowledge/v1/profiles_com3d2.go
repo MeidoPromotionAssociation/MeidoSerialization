@@ -162,13 +162,14 @@ func com3d2Profiles() map[string]Guide {
 	}
 
 	anmSource := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs", "ImportCM.LoadAniClip", 770, 850, "The animation loader validates CM3D2_ANIM, maps property bytes to Unity AnimationCurve channels, and applies the curves to bone paths.")
+	anmMyPoseSource := source("COM3D2 2.49.0", "COM3D2 2.49.0/Assembly-CSharp/PhotoMotionData.cs", "PhotoMotionData.AddMyPose", 198, 243, "The my-pose loader reads the bust flags for version 1001 and later by seeking two bytes back from the end of the file rather than by reading sequentially after the curve terminator.")
 	field = fieldFrom(anmSource)
 	anm := guide(
 		"COM3D2 .anm animation guide",
 		"Legacy CM3D2_ANIM bone animation data. Each bone path contains property-indexed keyframe curves; version 1001 adds left/right bust animation switches.",
 		FormatVerificationSerializationVerified,
 		"ImportCM.LoadAniClip and PhotoMotionData's version handling were reviewed in COM3D2 2.48.0; COM3D2_5 keeps the same property-channel model.",
-		[]Source{anmSource},
+		[]Source{anmSource, anmMyPoseSource},
 		[]Field{
 			field("/Signature", "Animation signature", "The CM3D2_ANIM header string.", "ImportCM validates it before constructing a Unity AnimationClip.", "format_marker", "Keep CM3D2_ANIM.", "critical"),
 			field("/Version", "Animation version", "The version controlling optional bust-key flags.", "The reviewed reader accepts the channel stream and uses version-aware handling for BustKeyLeft and BustKeyRight.", "version_marker", "Preserve the original value; use 1001 when creating a modern file with bust flags.", "high"),
@@ -181,6 +182,9 @@ func com3d2Profiles() map[string]Guide {
 		pattern("/BoneCurves/*/BonePath", "Animated bone path", "The Unity transform path receiving the curve channels.", "AnimationClip.SetCurve targets this path.", "runtime_resource_reference", "Use the exact path in the target model hierarchy.", anmSource),
 		pattern("/BoneCurves/*/PropertyCurves/*/{PropertyIndex,Keyframes}", "Animation property curve", "A property index and Unity keyframes with time, value, and tangents.", "ImportCM maps the index to localPosition or localRotation and assigns an AnimationCurve.", "runtime_curve", "Use the documented property index range and finite keyframes.", anmSource),
 	}
+	anm.Rules = []Rule{{ID: "bust-key-trailer", AppliesTo: []string{"/Version", "/BustKeyLeft", "/BustKeyRight"}, Severity: "warning", Summary: "Version 1001 and later require the two bust-flag bytes at end of file.", Details: "PhotoMotionData.AddMyPose reads the flags with Seek(-2, SeekOrigin.End) instead of reading sequentially, so for version 1001 and later the last two bytes of the file are the flags. ImportCM.LoadAniClip stops at the 0 terminator and never reads them. A version 1001 or later source file that ends at the terminator therefore makes the my-pose loader interpret the final bone-path byte and the terminator as flags, and the writer always emits the two bytes so the round-tripped file grows by two bytes and the flags become the explicit decoded values.", Evidence: []Source{anmSource, anmMyPoseSource}}}
+	anm.Invariants = []string{"Signature is CM3D2_ANIM.", "Each property curve belongs to the bone path that precedes it.", "A property index maps to an ImportCM channel through 100 + index.", "For version 1001 and later, the bust flags are the last two bytes of the file."}
+	anm.Warnings = []string{"Writing a file with version 1001 or later always appends the two bust-flag bytes. A source file of that version that ends at the 0 terminator gains two bytes, which is normalization rather than data loss because the game reads those flags from the end of the file."}
 
 	modelSource := source("COM3D2 2.48.0", "COM3D2 2.48.0/Assembly-CSharp/ImportCM.cs", "ImportCM.LoadSkinMesh_R", 46, 315, "The mesh loader validates CM3D2_MESH, builds the bone hierarchy and bind poses, fills vertices, normals, UVs, weights, submeshes, materials, and morph data, then creates a SkinnedMeshRenderer.")
 	field = fieldFrom(modelSource)

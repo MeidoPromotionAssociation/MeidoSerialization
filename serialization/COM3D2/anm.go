@@ -15,6 +15,11 @@ import (
 // 只在 public static PhotoMotionData AddMyPose(string fullpath) in class PhotoMotionData 中判断过版本号
 // 因此读取时保留了尝试读取 BustKeyLeft 和 BustKeyRight 的逻辑，即使版本号不匹配也不会报错
 // 但在写入时，会根据版本号判断是否写入 BustKeyLeft 和 BustKeyRight
+//
+// AddMyPose 对版本 1001 及以上用 Seek(-2, SeekOrigin.End) 读取这两个字节，而不是顺序读取
+// 因此这两个字节必须是文件的最后两字节，ImportCM.LoadAniClip 则在 0 终结符处停止且从不读取它们
+// 版本 1001 及以上却以终结符结尾的文件会让 AddMyPose 把最后一个骨骼路径字节和终结符当作标志读出
+// 写入时总是补齐这两个字节，因此这类文件回写后会增加两字节，这是规范化而不是数据变更
 // CM3D2_ANIM
 // This animation file describes model animation data
 //
@@ -23,6 +28,11 @@ import (
 // The version is checked only in public static PhotoMotionData AddMyPose(string fullpath) in class PhotoMotionData
 // The reader therefore retains the attempt to read BustKeyLeft and BustKeyRight and does not report an error when the version does not match
 // The writer checks the version before writing BustKeyLeft and BustKeyRight
+//
+// AddMyPose reads these two bytes for version 1001 and later with Seek(-2, SeekOrigin.End) rather than sequentially
+// They must therefore be the last two bytes of the file, while ImportCM.LoadAniClip stops at the 0 terminator and never reads them
+// A file of version 1001 or later that ends at the terminator makes AddMyPose read the final bone-path byte and the terminator as the flags
+// The writer always completes the pair, so such a file grows by two bytes when written back, which is normalization rather than a data change
 
 // PropertyIndex 表示属性索引，用于标识属性的类型
 // 最高位为 6，含义如下
