@@ -520,11 +520,17 @@ denies all file access. Only MCP protocol messages go to stdout; diagnostics go 
 document. `--max-write-mib` defaults to 512 MiB for the combined primary/sidecar output bundle. Writes are staged,
 size/hash checked, and rolled back as a bundle if installation fails.
 
+`meido.validate_editing_json` accepts either a file location or inline `editing_json`, and its input schema requires
+`name` whenever inline JSON is supplied. `meido.convert_file` derives the required input representation from `target`:
+`target=editing_json` reads a native game file and `target=native` reads an editing JSON document.
+`meido.list_archive` publishes its `page_size` bounds in the input schema, rejects an out-of-range value, and reports the
+effective value as `page_size`.
+
 ### MCP resources, Prompt, and portable editing skill
 
 | Entry point                          | What it returns                                                                                             |
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------|
-| `meido://capabilities`               | Active filesystem mode, root IDs, writable root IDs, limits, format capabilities, and Schema/Guide metadata |
+| `meido://capabilities`               | Active filesystem mode, root IDs, writable root IDs, limits, format capabilities, Schema/Guide metadata, and the MCP format support boundary |
 | `meido://schemas/{format_id}`        | Exact Draft 2020-12 structural contract for editing JSON                                                    |
 | `meido://guides/{format_id}`         | Field inventory, semantic evidence, edit roles, risks, invariants, commands, and value sets                 |
 | `meido://skills/editing/{format_id}` | Portable Markdown editing workflow plus the current filesystem write policy                                 |
@@ -588,7 +594,9 @@ The skill requires the model/client to:
 7. Convert only after validation succeeds and follow the write policy rendered into the skill
 8. Treat visual/behavioral correctness as requiring in-game verification; Schema/native validation cannot prove it
 
-`meido.edit_format` requires `format_id` and `objective`. Its optional path arguments depend on the active mode:
+`meido.edit_format` requires `format_id` and `objective`. An MCP Prompt has no input schema in the protocol, so those
+required parameters are declared in the Prompt's own argument list. Its optional path arguments depend on the active
+mode:
 
 | Mode           | Optional input/output Prompt arguments                                           |
 |----------------|----------------------------------------------------------------------------------|
@@ -608,7 +616,11 @@ output_relative_path: menu/parts/example.menu
 ```
 
 Native-only/detect-only formats such as `com3d2.arc` or `com3d2.tex` do not expose an editing Schema, Guide, skill, or
-edit Prompt workflow. Always discover capabilities instead of guessing a resource URI.
+edit Prompt workflow. Always discover capabilities instead of guessing a resource URI. The advertised format list is the
+complete MCP support set: `format_support_boundary` states that a file type absent from it is never detected, converted,
+validated, or listed through MCP, and `cli_only_operations` names the conversions that require the command line, such as
+`.nei` CSV conversion, texture and Sprite image export, Mesh/AnimationClip glTF export, AudioClip extraction, and
+whole-container packing or unpacking.
 
 ## Build from source
 
@@ -1132,11 +1144,16 @@ MCP 通过 stdio 作为 Host 的子进程运行，不提供 SSE、HTTP 或 Strea
 `meido.convert_file`。`--max-write-mib` 默认 512 MiB，按主文件与 sidecar 的完整输出 bundle 计算。写入会先暂存，校验大小与
 SHA-256；安装失败时会按 bundle 回滚。
 
+`meido.validate_editing_json` 接受文件位置或 inline `editing_json`，提供 inline JSON 时其 input schema 会要求同时提供
+`name`。`meido.convert_file` 由 `target` 决定输入必须持有的 representation：`target=editing_json` 读取原生游戏文件，
+`target=native` 读取编辑 JSON 文档。`meido.list_archive` 在 input schema 中公开 `page_size` 边界，越界时报错，并以
+`page_size` 返回实际生效的值。
+
 ### MCP 资源、Prompt 与 portable editing skill
 
 | 入口                                 | 返回内容                                                                     |
 |--------------------------------------|------------------------------------------------------------------------------|
-| `meido://capabilities`               | 当前文件系统模式、root ID、可写 root、限制、格式能力以及 Schema/Guide 元数据 |
+| `meido://capabilities`               | 当前文件系统模式、root ID、可写 root、限制、格式能力、Schema/Guide 元数据以及 MCP 格式支持边界 |
 | `meido://schemas/{format_id}`        | 编辑 JSON 的精确 Draft 2020-12 结构协议                                      |
 | `meido://guides/{format_id}`         | 字段目录、语义证据、编辑角色、风险、不变量、命令和 value set                 |
 | `meido://skills/editing/{format_id}` | portable Markdown 编辑流程，以及当前文件系统模式对应的写入策略               |
@@ -1198,7 +1215,8 @@ skill 要求模型或客户端按以下顺序操作：
 7. 只有验证成功后才转换回原生格式，并遵守 skill 中动态写入的当前 write policy
 8. 把视觉与行为正确性留给游戏内验证；Schema/原生验证无法证明 Unity 中的实际效果
 
-`meido.edit_format` 必填 `format_id` 和 `objective`。可选路径参数随当前模式变化：
+`meido.edit_format` 必填 `format_id` 和 `objective`。MCP 协议中的 Prompt 没有 input schema，因此这两个必填参数声明在 Prompt
+自身的参数列表中。可选路径参数随当前模式变化：
 
 | 模式           | 可选的输入/输出 Prompt 参数                                                      |
 |----------------|----------------------------------------------------------------------------------|
@@ -1218,7 +1236,9 @@ output_relative_path: menu/parts/example.menu
 ~~~
 
 `com3d2.arc`、`com3d2.tex` 这类 native-only/detect-only 格式不会提供编辑 Schema、Guide、skill 或 edit Prompt 流程。应先发现
-capabilities，不要猜测资源 URI。
+capabilities，不要猜测资源 URI。公开的格式列表就是 MCP 的完整支持集：`format_support_boundary` 说明不在其中的文件类型永远不会
+经 MCP 检测、转换、校验或列出，`cli_only_operations` 则列出只能用命令行完成的转换，例如 `.nei` 的 CSV 转换、贴图与 Sprite
+的图片导出、Mesh/AnimationClip 的 glTF 导出、AudioClip 提取，以及整包封装与解包。
 
 ## 从源码构建
 
@@ -1767,11 +1787,17 @@ log は stderr に出力します。
 `meido.convert_file` を使用します。`--max-write-mib` は primary と sidecar の全 output bundle に対して既定 512 MiB
 です。書き込みは staging 後に size と SHA-256 を確認し、install に失敗すれば bundle 単位で rollback します。
 
+`meido.validate_editing_json` は file location または inline `editing_json` を受け付け、inline JSON を渡す場合は input
+schema が `name` を必須にします。`meido.convert_file` は `target` から input が持つべき representation を決めます。
+`target=editing_json` は native game file を読み、`target=native` は編集 JSON document を読みます。
+`meido.list_archive` は `page_size` の境界を input schema に公開し、範囲外の値を拒否し、実際に適用された値を
+`page_size` として返します。
+
 ### MCP resources、Prompt、portable editing skill
 
 | Entry point                          | 戻り値                                                                                          |
 |--------------------------------------|-------------------------------------------------------------------------------------------------|
-| `meido://capabilities`               | 現在の filesystem mode、root ID、writable root、limit、format capability、Schema/Guide metadata |
+| `meido://capabilities`               | 現在の filesystem mode、root ID、writable root、limit、format capability、Schema/Guide metadata、MCP format support boundary |
 | `meido://schemas/{format_id}`        | 編集 JSON の正確な Draft 2020-12 構造契約                                                       |
 | `meido://guides/{format_id}`         | field inventory、semantic evidence、edit role、risk、invariant、command、value set              |
 | `meido://skills/editing/{format_id}` | portable Markdown 編集 workflow と現在の filesystem write policy                                |
@@ -1835,7 +1861,8 @@ skill が model/client に要求する順序：
 7. validation 成功後のみネイティブ形式へ変換し、skill に動的に追加された write policy に従う
 8. 見た目や動作の正しさはゲーム内で検証する。Schema/native validation は Unity での結果を保証しない
 
-`meido.edit_format` は `format_id` と `objective` が必須です。任意の path 引数は現在の mode によって変わります。
+`meido.edit_format` は `format_id` と `objective` が必須です。MCP protocol の Prompt には input schema が無いため、これらの
+必須 parameter は Prompt 自身の引数リストで宣言されます。任意の path 引数は現在の mode によって変わります。
 
 | モード         | 任意の input/output Prompt 引数                                                  |
 |----------------|----------------------------------------------------------------------------------|
@@ -1855,7 +1882,10 @@ output_relative_path: menu/parts/example.menu
 ~~~
 
 `com3d2.arc` や `com3d2.tex` などの native-only/detect-only 形式は、編集 Schema、Guide、skill、edit Prompt workflow
-を提供しません。resource URI を推測せず、capabilities から discovery してください。
+を提供しません。resource URI を推測せず、capabilities から discovery してください。公開された format list が MCP の完全な
+support set です。`format_support_boundary` は list に無い file type が MCP 経由で detect、convert、validate、list
+されないことを示し、`cli_only_operations` は command line だけが行う変換、たとえば `.nei` の CSV 変換、texture と Sprite の
+image 書き出し、Mesh/AnimationClip の glTF 書き出し、AudioClip の抽出、container 全体の pack/unpack を列挙します。
 
 ## ソースからビルド
 

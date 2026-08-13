@@ -16,6 +16,7 @@ import (
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/application"
 	knowledgev1 "github.com/MeidoPromotionAssociation/MeidoSerialization/schemas/knowledge/v1"
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -117,7 +118,9 @@ func New(config Config) (*Server, error) {
 		server: mcpServer, maxResultBytes: config.MaxResultBytes, maxWriteBytes: config.MaxWriteBytes,
 		archivePager: archivePager,
 	}
-	s.registerTools()
+	if err := s.registerTools(); err != nil {
+		return nil, err
+	}
 	s.registerResources()
 	s.registerPrompts()
 	return s, nil
@@ -206,9 +209,9 @@ type validateInput struct {
 	// RelativePath 是校验受限文件时相对于根目录的路径 / RelativePath is the path relative to the root when validating a confined file
 	RelativePath string `json:"relative_path,omitempty" jsonschema:"relative path when validating a rooted file"`
 	// Name 是直接提供编辑 JSON 时包含原生双后缀的文件名 / Name is the filename including the native double suffix when editing JSON is supplied directly
-	Name string `json:"name,omitempty" jsonschema:"editing JSON filename including the native double extension"`
+	Name string `json:"name,omitempty" jsonschema:"editing JSON filename including the native double extension; required whenever editing_json is supplied"`
 	// EditingJSON 是代替受限文件直接提供的 UTF-8 编辑 JSON / EditingJSON is UTF-8 editing JSON supplied directly instead of a confined file
-	EditingJSON string `json:"editing_json,omitempty" jsonschema:"UTF-8 editing JSON supplied directly instead of a rooted file"`
+	EditingJSON string `json:"editing_json,omitempty" jsonschema:"UTF-8 editing JSON supplied directly instead of a rooted file; requires name and ignores root_id and relative_path"`
 	// FormatID 是可选显式格式标识符，空值启用检测 / FormatID is an optional explicit format identifier with an empty value enabling detection
 	FormatID string `json:"format_id,omitempty" jsonschema:"optional explicit format ID; empty enables detection"`
 }
@@ -218,9 +221,9 @@ type directValidateInput struct {
 	// Path 是待校验文件的直接路径 / Path is the direct path of the file to validate
 	Path string `json:"path,omitempty" jsonschema:"absolute path or path relative to the MCP server working directory"`
 	// Name 是直接提供编辑 JSON 时包含原生双后缀的文件名 / Name is the filename including the native double suffix when editing JSON is supplied directly
-	Name string `json:"name,omitempty" jsonschema:"editing JSON filename including the native double extension"`
+	Name string `json:"name,omitempty" jsonschema:"editing JSON filename including the native double extension; required whenever editing_json is supplied"`
 	// EditingJSON 是代替文件直接提供的 UTF-8 编辑 JSON / EditingJSON is UTF-8 editing JSON supplied directly instead of a file
-	EditingJSON string `json:"editing_json,omitempty" jsonschema:"UTF-8 editing JSON supplied directly instead of a file"`
+	EditingJSON string `json:"editing_json,omitempty" jsonschema:"UTF-8 editing JSON supplied directly instead of a file; requires name and ignores path"`
 	// FormatID 是可选显式格式标识符，空值启用检测 / FormatID is an optional explicit format identifier with an empty value enabling detection
 	FormatID string `json:"format_id,omitempty" jsonschema:"optional explicit format ID; empty enables detection"`
 }
@@ -238,11 +241,11 @@ type convertInput struct {
 	// RootID 是输入文件所在的配置根标识符 / RootID is the configured root identifier containing the input file
 	RootID string `json:"root_id" jsonschema:"configured input root ID"`
 	// RelativePath 是相对于输入根目录的可移植路径 / RelativePath is the portable path relative to the input root
-	RelativePath string `json:"relative_path" jsonschema:"portable input path relative to root_id"`
+	RelativePath string `json:"relative_path" jsonschema:"portable input path relative to root_id; the representation this file must already hold is decided by target"`
 	// FormatID 是可选显式格式标识符，空值启用检测 / FormatID is an optional explicit format identifier with an empty value enabling detection
 	FormatID string `json:"format_id,omitempty" jsonschema:"optional explicit format ID; empty enables detection"`
 	// Target 是 native 或 editing_json 目标表示 / Target is the native or editing_json target representation
-	Target string `json:"target" jsonschema:"target representation: native or editing_json"`
+	Target string `json:"target" jsonschema:"target representation: native or editing_json; the input must hold the other representation, so editing_json reads a native game file and native reads an editing JSON document"`
 	// OutputRootID 是接收转换结果的可写根标识符 / OutputRootID is the writable root identifier that receives the conversion result
 	OutputRootID string `json:"output_root_id" jsonschema:"configured output root ID"`
 	// OutputRelativePath 是相对于输出根目录的可移植目标路径 / OutputRelativePath is the portable destination path relative to the output root
@@ -252,11 +255,11 @@ type convertInput struct {
 // directConvertInput 描述非受限模式下直接路径之间的格式转换请求 / directConvertInput describes a format conversion request between direct paths in unrestricted mode
 type directConvertInput struct {
 	// Path 是绝对输入路径或相对于服务器工作目录的路径 / Path is an absolute input path or a path relative to the server working directory
-	Path string `json:"path" jsonschema:"absolute input path or path relative to the MCP server working directory"`
+	Path string `json:"path" jsonschema:"absolute input path or path relative to the MCP server working directory; the representation this file must already hold is decided by target"`
 	// FormatID 是可选显式格式标识符，空值启用检测 / FormatID is an optional explicit format identifier with an empty value enabling detection
 	FormatID string `json:"format_id,omitempty" jsonschema:"optional explicit format ID; empty enables detection"`
 	// Target 是 native 或 editing_json 目标表示 / Target is the native or editing_json target representation
-	Target string `json:"target" jsonschema:"target representation: native or editing_json"`
+	Target string `json:"target" jsonschema:"target representation: native or editing_json; the input must hold the other representation, so editing_json reads a native game file and native reads an editing JSON document"`
 	// OutputPath 是调用方授权的直接目标文件路径 / OutputPath is the direct destination file path authorized by the caller
 	OutputPath string `json:"output_path" jsonschema:"absolute destination path or path relative to the MCP server working directory"`
 }
@@ -310,7 +313,7 @@ type listArchiveInput struct {
 	// FormatID 是可选显式归档格式标识符 / FormatID is an optional explicit archive format identifier
 	FormatID string `json:"format_id,omitempty" jsonschema:"optional explicit archive format ID"`
 	// PageSize 是可选的页面条目数 / PageSize is the optional number of entries requested for the page
-	PageSize int `json:"page_size,omitempty" jsonschema:"optional page size; defaults to 128"`
+	PageSize int32 `json:"page_size,omitempty" jsonschema:"optional page size; 0 or omitted selects the default 128 and the maximum is 1000; the effective value is returned as page_size"`
 	// PageToken 是上一次调用返回的不透明服务器签名游标 / PageToken is the opaque server-signed cursor returned by the previous call
 	PageToken string `json:"page_token,omitempty" jsonschema:"opaque server-signed page token returned by the previous call"`
 }
@@ -322,7 +325,7 @@ type directListArchiveInput struct {
 	// FormatID 是可选显式归档格式标识符 / FormatID is an optional explicit archive format identifier
 	FormatID string `json:"format_id,omitempty" jsonschema:"optional explicit archive format ID"`
 	// PageSize 是可选的页面条目数 / PageSize is the optional number of entries requested for the page
-	PageSize int `json:"page_size,omitempty" jsonschema:"optional page size; defaults to 128"`
+	PageSize int32 `json:"page_size,omitempty" jsonschema:"optional page size; 0 or omitted selects the default 128 and the maximum is 1000; the effective value is returned as page_size"`
 	// PageToken 是上一次调用返回的不透明服务器签名游标 / PageToken is the opaque server-signed cursor returned by the previous call
 	PageToken string `json:"page_token,omitempty" jsonschema:"opaque server-signed page token returned by the previous call"`
 }
@@ -341,6 +344,8 @@ type archiveEntryOutput struct {
 type listArchiveOutput struct {
 	// FormatID 是实际用于读取归档的稳定格式标识符 / FormatID is the stable format identifier actually used to read the archive
 	FormatID string `json:"format_id"`
+	// PageSize 是本次调用实际生效的页大小 / PageSize is the page size that actually applied to this call
+	PageSize int32 `json:"page_size"`
 	// Entries 是当前页面包含的有序归档条目 / Entries contains ordered archive entries in the current page
 	Entries []archiveEntryOutput `json:"entries"`
 	// NextPageToken 是读取下一页时提交的不透明服务器签名游标 / NextPageToken is the opaque server-signed cursor submitted to read the next page
@@ -377,10 +382,17 @@ type directExtractArchiveInput struct {
 
 // registerTools 根据文件系统模式注册受限或直接路径版本的文件工具
 // registerTools registers confined-root or direct-path file tools according to the filesystem mode
-func (s *Server) registerTools() {
+func (s *Server) registerTools() error {
 	if s.filesystemMode == FilesystemModeUnrestricted {
-		s.registerUnrestrictedTools()
-		return
+		return s.registerUnrestrictedTools()
+	}
+	validateSchema, err := validateToolInputSchema[validateInput]()
+	if err != nil {
+		return err
+	}
+	listArchiveSchema, err := listArchiveToolInputSchema[listArchiveInput]()
+	if err != nil {
+		return err
 	}
 	mcp.AddTool(s.server, &mcp.Tool{
 		Name:        "meido.detect_file",
@@ -392,25 +404,36 @@ func (s *Server) registerTools() {
 	}, s.inspectFile)
 	mcp.AddTool(s.server, &mcp.Tool{
 		Name:        "meido.validate_editing_json",
-		Description: "Strictly validate rooted or directly supplied editing JSON by encoding it with the native serializer.",
+		Description: "Strictly validate rooted or directly supplied editing JSON by encoding it with the native serializer. Supply either root_id with relative_path, or editing_json with name.",
+		InputSchema: validateSchema,
 	}, s.validateEditingJSON)
 	mcp.AddTool(s.server, &mcp.Tool{
 		Name:        "meido.convert_file",
-		Description: "Convert a rooted file to native or editing JSON and write it beneath a configured output root.",
+		Description: "Convert a rooted file to native or editing JSON and write it beneath a configured output root. The input representation is decided by target: target=editing_json reads a native game file, and target=native reads an editing JSON document produced by meido.inspect_file or by an earlier target=editing_json conversion.",
 	}, s.convertFile)
 	mcp.AddTool(s.server, &mcp.Tool{
 		Name:        "meido.list_archive",
 		Description: "List entries in a COM3D2 ARC or KCES CT/ABA container.",
+		InputSchema: listArchiveSchema,
 	}, s.listArchive)
 	mcp.AddTool(s.server, &mcp.Tool{
 		Name:        "meido.extract_archive_entry",
 		Description: "Extract one exact archive entry beneath a configured output root.",
 	}, s.extractArchiveEntry)
+	return nil
 }
 
 // registerUnrestrictedTools 注册使用直接文件系统路径的非受限工具处理器
 // registerUnrestrictedTools registers unrestricted tool handlers that accept direct filesystem paths
-func (s *Server) registerUnrestrictedTools() {
+func (s *Server) registerUnrestrictedTools() error {
+	validateSchema, err := validateToolInputSchema[directValidateInput]()
+	if err != nil {
+		return err
+	}
+	listArchiveSchema, err := listArchiveToolInputSchema[directListArchiveInput]()
+	if err != nil {
+		return err
+	}
 	mcp.AddTool(s.server, &mcp.Tool{
 		Name:        "meido.detect_file",
 		Description: "Detect the exact COM3D2 or KCES format of a file path.",
@@ -421,20 +444,69 @@ func (s *Server) registerUnrestrictedTools() {
 	}, s.inspectDirectFile)
 	mcp.AddTool(s.server, &mcp.Tool{
 		Name:        "meido.validate_editing_json",
-		Description: "Strictly validate file-based or directly supplied editing JSON by encoding it with the native serializer.",
+		Description: "Strictly validate file-based or directly supplied editing JSON by encoding it with the native serializer. Supply either path, or editing_json with name.",
+		InputSchema: validateSchema,
 	}, s.validateDirectEditingJSON)
 	mcp.AddTool(s.server, &mcp.Tool{
 		Name:        "meido.convert_file",
-		Description: "Convert a file to native or editing JSON and write it to an unrestricted filesystem path.",
+		Description: "Convert a file to native or editing JSON and write it to an unrestricted filesystem path. The input representation is decided by target: target=editing_json reads a native game file, and target=native reads an editing JSON document produced by meido.inspect_file or by an earlier target=editing_json conversion.",
 	}, s.convertDirectFile)
 	mcp.AddTool(s.server, &mcp.Tool{
 		Name:        "meido.list_archive",
 		Description: "List entries in a COM3D2 ARC or KCES CT/ABA container at a filesystem path.",
+		InputSchema: listArchiveSchema,
 	}, s.listDirectArchive)
 	mcp.AddTool(s.server, &mcp.Tool{
 		Name:        "meido.extract_archive_entry",
 		Description: "Extract one exact archive entry to an unrestricted filesystem path.",
 	}, s.extractDirectArchiveEntry)
+	return nil
+}
+
+// toolInputSchema 从工具输入类型推断输入模式，以便在推断结果上追加 Go 结构体标签无法表达的声明式约束
+// toolInputSchema infers an input schema from a tool input type so that declarative constraints beyond Go struct tags can be appended to the inferred result
+func toolInputSchema[Input any]() (*jsonschema.Schema, error) {
+	schema, err := jsonschema.For[Input](&jsonschema.ForOptions{})
+	if err != nil {
+		return nil, err
+	}
+	if schema == nil || schema.Type != "object" {
+		return nil, fmt.Errorf("inferred tool input schema is not an object")
+	}
+	return schema, nil
+}
+
+// validateToolInputSchema 声明内联提供编辑 JSON 时 name 同时必填，使该条件要求出现在工具输入模式中而不是只在运行时报错
+// validateToolInputSchema declares that name is required alongside inline editing JSON so that the conditional requirement appears in the tool input schema instead of only failing at run time
+func validateToolInputSchema[Input any]() (*jsonschema.Schema, error) {
+	schema, err := toolInputSchema[Input]()
+	if err != nil {
+		return nil, err
+	}
+	nonEmptyEditingJSON := 1
+	schema.If = &jsonschema.Schema{
+		Required:   []string{"editing_json"},
+		Properties: map[string]*jsonschema.Schema{"editing_json": {MinLength: &nonEmptyEditingJSON}},
+	}
+	schema.Then = &jsonschema.Schema{Required: []string{"name"}}
+	return schema, nil
+}
+
+// listArchiveToolInputSchema 在工具输入模式中公开归档页大小的精确边界，使越界请求在协议层就被拒绝
+// listArchiveToolInputSchema publishes the exact archive page-size bounds in the tool input schema so that out-of-range requests are rejected at the protocol layer
+func listArchiveToolInputSchema[Input any]() (*jsonschema.Schema, error) {
+	schema, err := toolInputSchema[Input]()
+	if err != nil {
+		return nil, err
+	}
+	pageSize, found := schema.Properties["page_size"]
+	if !found {
+		return nil, fmt.Errorf("inferred archive listing schema has no page_size property")
+	}
+	minimumPageSize, maximumPageSize := float64(0), float64(maxArchivePageSize)
+	pageSize.Minimum = &minimumPageSize
+	pageSize.Maximum = &maximumPageSize
+	return schema, nil
 }
 
 // registerResources 注册能力、格式模式、字段指南和编辑技能资源
@@ -549,7 +621,7 @@ func (s *Server) registerPrompts() {
 	s.server.AddPrompt(&mcp.Prompt{
 		Name:        "meido.edit_format",
 		Title:       "Edit a COM3D2 or KCES format",
-		Description: "Load the exact editing Schema, game field guide, and lossless editing workflow for one format.",
+		Description: "Load the exact editing Schema, game field guide, and lossless editing workflow for one format. The required arguments are format_id and objective; the remaining path arguments are optional. MCP prompts declare their parameters in this prompt's arguments list rather than in a tool input schema.",
 		Arguments:   arguments,
 	}, s.editFormatPrompt)
 }
@@ -564,10 +636,10 @@ func (s *Server) editFormatPrompt(_ context.Context, request *mcp.GetPromptReque
 	formatID := strings.ToLower(strings.TrimSpace(arguments["format_id"]))
 	objective := strings.TrimSpace(arguments["objective"])
 	if formatID == "" || strings.ContainsAny(formatID, `/\\?#`) {
-		return nil, fmt.Errorf("format_id is required")
+		return nil, fmt.Errorf("prompt argument format_id is required and must be one format ID advertised by meido://capabilities")
 	}
 	if objective == "" {
-		return nil, fmt.Errorf("objective is required")
+		return nil, fmt.Errorf("prompt argument objective is required and must describe the specific requested edit")
 	}
 	schema, err := s.engine.GetFormatSchema(formatID)
 	if err != nil {
@@ -680,10 +752,63 @@ func (s *Server) capabilities() map[string]any {
 		"default_archive_page_size": defaultArchivePageSize, "max_archive_page_size": maxArchivePageSize,
 		"max_archive_listing_bytes": maxArchiveListingBytes, "max_archive_entries": maxArchiveEntries,
 		"formats":                  result,
+		"format_support_boundary":  formatSupportBoundary,
+		"cli_only_operations":      cliOnlyOperations(),
 		"schema_resource_template": "meido://schemas/{format_id}",
 		"guide_resource_template":  "meido://guides/{format_id}",
 		"skill_resource_template":  "meido://skills/editing/{format_id}",
 		"editing_prompt":           "meido.edit_format",
+	}
+}
+
+// formatSupportBoundary 说明 formats 列表就是 MCP 的完整支持集，使调用方不必通过失败的检测去发现边界
+// formatSupportBoundary states that the formats list is the complete MCP support set so that callers do not discover the boundary through a failing detection
+const formatSupportBoundary = "The formats list is the complete MCP support set. A file type absent from it is not detected, converted, validated, or listed through MCP even when the MeidoSerialization command line supports it, and meido.detect_file reports such a file as not recognized. A listed format with can_convert false has no editing JSON representation, and a listed format with is_archive true is read through meido.list_archive and meido.extract_archive_entry. See cli_only_operations for the conversions that only the command line performs."
+
+// cliOnlyOperations 列出 MeidoSerialization 命令行支持而 MCP 表面不公开的操作，并说明每条边界的原因
+// cliOnlyOperations lists operations that the MeidoSerialization command line supports while the MCP surface does not expose them, and explains the reason for each boundary
+func cliOnlyOperations() []map[string]any {
+	return []map[string]any{
+		{
+			"game": "COM3D2", "file_type": "nei", "native_suffixes": []string{".nei"},
+			"cli_commands": []string{"convert2csv", "convert2nei"},
+			"detail":       "No MCP format is registered for .nei because it converts to CSV rather than to editing JSON. The command line converts .nei to .csv and .csv back to .nei.",
+		},
+		{
+			"game": "COM3D2", "file_type": "tex", "native_suffixes": []string{".tex"},
+			"cli_commands": []string{"convert2image", "convert2tex"},
+			"detail":       "The registered com3d2.tex format is detect only because a texture converts to an image rather than to editing JSON. The command line converts .tex to PNG or DDS and an image back to .tex.",
+		},
+		{
+			"game": "KCES", "file_type": "texture2d", "native_suffixes": []string{".tex", ".texture2d"},
+			"cli_commands": []string{"convert2image", "convert2texture2d"},
+			"detail":       "A native Unity Texture2D primary file is recognized by its class ID rather than by a suffix and has no MCP format. The command line converts it to PNG or DDS and an image back to a native Texture2D.",
+		},
+		{
+			"game": "KCES", "file_type": "sprite", "native_suffixes": []string{".sprite"},
+			"cli_commands": []string{"convert2image"},
+			"detail":       "A native Unity Sprite primary file is recognized by its class ID rather than by a suffix and has no MCP format. The command line exports it to PNG.",
+		},
+		{
+			"game": "KCES", "file_type": "mesh", "native_suffixes": []string{".mmesh"},
+			"cli_commands": []string{"convert2gltf", "gltf2model"},
+			"detail":       "MCP converts kces.model to editing JSON, while the geometry lives in the .mmesh companion that has no MCP format. Exporting a Model with its Mesh to glTF and importing glTF back to .model and .mmesh are command line only.",
+		},
+		{
+			"game": "KCES", "file_type": "animation_clip", "native_suffixes": []string{".anm"},
+			"cli_commands": []string{"convert2gltf"},
+			"detail":       "A native Unity AnimationClip primary file is recognized by its class ID rather than by a suffix and has no MCP format. The command line exports it to glTF. The registered com3d2.anm format is the unrelated CM3D2_ANIM binary.",
+		},
+		{
+			"game": "KCES", "file_type": "audio_clip", "native_suffixes": []string{".audioclip"},
+			"cli_commands": []string{"convert2audio"},
+			"detail":       "A native Unity AudioClip primary file is recognized by its class ID rather than by a suffix and has no MCP format. The command line extracts its inline OGG, WAV, or FSB5 payload without transcoding.",
+		},
+		{
+			"game": "COM3D2 and KCES", "file_type": "archive", "native_suffixes": []string{".arc", ".aba", ".ct"},
+			"cli_commands": []string{"packArc", "unpackArc", "packAba", "unpackAba", "genCt"},
+			"detail":       "MCP lists container entries and extracts one exact entry at a time. Creating a container or unpacking a whole container in one call is command line only.",
+		},
 	}
 }
 
@@ -885,7 +1010,7 @@ func (s *Server) listDirectArchive(ctx context.Context, _ *mcp.CallToolRequest, 
 
 // listArchiveSource 返回同时受条目数和 MCP 结果字节数限制的归档页面
 // listArchiveSource returns an archive page bounded by both entry count and MCP result bytes
-func (s *Server) listArchiveSource(ctx context.Context, source application.Source, requestedFormatID string, requestedPageSize int, pageToken string) (*mcp.CallToolResult, listArchiveOutput, error) {
+func (s *Server) listArchiveSource(ctx context.Context, source application.Source, requestedFormatID string, requestedPageSize int32, pageToken string) (*mcp.CallToolResult, listArchiveOutput, error) {
 	pageSize, err := mcpArchivePageSize(requestedPageSize)
 	if err != nil {
 		return nil, listArchiveOutput{}, err
@@ -898,9 +1023,9 @@ func (s *Server) listArchiveSource(ctx context.Context, source application.Sourc
 	if err != nil {
 		return nil, listArchiveOutput{}, err
 	}
-	result := listArchiveOutput{FormatID: listing.FormatID, Entries: make([]archiveEntryOutput, 0, pageSize)}
+	result := listArchiveOutput{FormatID: listing.FormatID, PageSize: pageSize, Entries: make([]archiveEntryOutput, 0, pageSize)}
 	nextIndex := start
-	for nextIndex < len(listing.Entries) && len(result.Entries) < pageSize {
+	for nextIndex < len(listing.Entries) && int32(len(result.Entries)) < pageSize {
 		entry := listing.Entries[nextIndex]
 		result.Entries = append(result.Entries, archiveEntryOutput{Name: entry.Name, Size: entry.Size, Kind: entry.Kind})
 		if nextIndex+1 < len(listing.Entries) {
@@ -948,14 +1073,14 @@ func (s *Server) listArchiveSource(ctx context.Context, source application.Sourc
 
 const (
 	// defaultArchivePageSize 是 MCP 归档列表未指定页大小时返回的默认条目数 / defaultArchivePageSize is the default number of MCP archive entries returned when no page size is specified
-	defaultArchivePageSize = 128
+	defaultArchivePageSize int32 = 128
 	// maxArchivePageSize 是单个 MCP 归档页面允许的最大条目数 / maxArchivePageSize is the maximum number of entries permitted in one MCP archive page
-	maxArchivePageSize = 1000
+	maxArchivePageSize int32 = 1000
 )
 
-// mcpArchivePageSize 规范化请求页大小并应用 MCP 归档页面上限
-// mcpArchivePageSize normalizes a requested page size and applies the MCP archive-page maximum
-func mcpArchivePageSize(value int) (int, error) {
+// mcpArchivePageSize 把未指定的页大小解析为默认值，并拒绝越界的页大小而不是静默改写请求
+// mcpArchivePageSize resolves an unspecified page size to the default and rejects an out-of-range page size instead of silently rewriting the request
+func mcpArchivePageSize(value int32) (int32, error) {
 	if value < 0 {
 		return 0, fmt.Errorf("page_size must not be negative")
 	}
@@ -963,7 +1088,7 @@ func mcpArchivePageSize(value int) (int, error) {
 		return defaultArchivePageSize, nil
 	}
 	if value > maxArchivePageSize {
-		return maxArchivePageSize, nil
+		return 0, fmt.Errorf("page_size %d is above the maximum %d", value, maxArchivePageSize)
 	}
 	return value, nil
 }

@@ -126,10 +126,17 @@ After the MCP server is connected:
 5. Read `meido://skills/editing/{format_id}`, or call the `meido.edit_format` Prompt with the editing objective.
 
 The Prompt is a context-preparation entry point. It returns the portable skill, complete Schema, and complete Guide; it
-does not edit a file by itself.
+does not edit a file by itself. Its required arguments, `format_id` and `objective`, are declared in the Prompt's own
+`arguments` list, because an MCP Prompt has no input schema.
 
 Native-only or detect-only formats may not publish an editing Schema or Guide. Use their dedicated archive or conversion
 operations instead of inventing editing JSON.
+
+The advertised `formats` list is the complete MCP support set, as `format_support_boundary` states in the same resource.
+A file type absent from that list is not detected, converted, validated, or listed through MCP, and `meido.detect_file`
+reports it as not recognized. Read `cli_only_operations` to see which conversions require the command line instead; it
+currently covers COM3D2 `.nei`, COM3D2 `.tex`, the native Unity Texture2D, Sprite, Mesh, AnimationClip, and AudioClip
+primary files, and whole-container packing or unpacking.
 
 ## 5. Standard Agent Editing Workflow
 
@@ -179,6 +186,16 @@ never promotes an individual field.
 | `meido.extract_archive_entry` | Extract one exact listed archive entry                                |
 
 Do not guess archive entry names. List entries first, then pass an exact returned name to extraction.
+
+Three argument contracts are worth reading before the first call:
+
+- `meido.validate_editing_json` accepts either a file location or inline `editing_json`; inline JSON also requires
+  `name`, including the native double extension such as `sample.menu.json`.
+- `meido.convert_file` derives the required input representation from `target`. Use `target=editing_json` on a native
+  game file, and `target=native` on an editing JSON document. Native data with `target=native` is rejected as invalid
+  editing JSON.
+- `meido.list_archive` accepts `page_size` up to 1000, treats 0 or an omitted value as the default 128, rejects an
+  out-of-range value, and returns the value that actually applied as `page_size`.
 
 ## 8. Artifact and Write Rules
 

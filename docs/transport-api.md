@@ -137,7 +137,10 @@ and owns a private temporary directory as before.
 
 `ListArchive` is paged with `page_size` (default 128, maximum 1000) and the
 `page_token`/`next_page_token` fields. A response is kept below 2 MiB even when entry names are unusually long; an
-individual entry that cannot fit is reported as `RESOURCE_EXHAUSTED`.
+individual entry that cannot fit is reported as `RESOURCE_EXHAUSTED`. The gRPC RPC caps a larger request at the maximum,
+while `meido.list_archive` publishes `minimum: 0` and `maximum: 1000` in its input schema, rejects an out-of-range
+`page_size` instead of silently rewriting the request, and reports the value that actually applied as `page_size` in
+every page.
 
 Each server instance signs opaque page cursors with a process-local random HMAC key. A cursor binds its version, offset,
 normalized format ID, source archive digest, and the sorted entry name/size/kind inventory. Tampering, using a different
@@ -232,8 +235,15 @@ obsolete managed sidecars from their target names so stale metadata cannot be pa
 rollback, sidecar replacement, and size-limit implementation.
 
 `meido.inspect_file` returns editing JSON once as text content and keeps only artifact metadata in structured content.
-`meido.list_archive` returns one bounded structured page at a time (default 128, maximum 1000 entries); use its
-`next_page_token` for the next page.
+`meido.list_archive` returns one bounded structured page at a time (default 128, maximum 1000 entries) and echoes the
+effective `page_size`; use its `next_page_token` for the next page.
+
+Two tool contracts are declared instead of being discovered through a failed call.
+`meido.validate_editing_json` accepts either `root_id` with `relative_path` (`path` in unrestricted mode) or
+`editing_json` with `name`, and its input schema requires `name` whenever a non-empty `editing_json` is supplied.
+`meido.convert_file` decides the required input representation from `target`: `target=editing_json` reads a native game
+file, while `target=native` reads an editing JSON document produced by `meido.inspect_file` or by an earlier
+`target=editing_json` conversion. Passing native game data with `target=native` is rejected as invalid editing JSON.
 
 Only protocol messages are written to stdout. Logs go to stderr. The first MCP implementation intentionally uses stdio;
 Streamable HTTP can be added as a separate deployment surface without changing the engine.
@@ -244,8 +254,8 @@ Streamable HTTP can be added as a separate deployment surface without changing t
 |-------------------------------|----------------------------------------------------------------------------------------------------------|
 | `meido.detect_file`           | Detect a COM3D2/KCES file and return its format ID, version, and representation.                         |
 | `meido.inspect_file`          | Return a small editing JSON document inline. Larger documents should use `meido.convert_file`.           |
-| `meido.validate_editing_json` | Validate one JSON document against the published Schema, then re-encode it with the native serializer.   |
-| `meido.convert_file`          | Convert native/editing JSON and install the complete primary/sidecar bundle at the selected destination. |
+| `meido.validate_editing_json` | Validate one JSON document against the published Schema, then re-encode it with the native serializer. Inline `editing_json` requires `name`. |
+| `meido.convert_file`          | Convert native/editing JSON and install the complete primary/sidecar bundle at the selected destination. `target` decides the required input representation. |
 | `meido.list_archive`          | List exact entries in ARC, CT/VirtualDirectory, ABA, `.asset_bg`, or `.asset_scene`.                     |
 | `meido.extract_archive_entry` | Extract one exact listed entry at the selected destination.                                              |
 
@@ -262,12 +272,22 @@ absolute root paths:
 | `meido://skills/editing/{format_id}` | A portable Markdown workflow that tells an LLM how to preserve opaque and unreviewed fields.                |
 | `meido.edit_format`                  | MCP prompt that embeds the exact Schema, Guide, portable skill, objective, and optional input/output paths. |
 
+The same resource declares the MCP support boundary so that a client does not have to discover it through a failing
+detection. `format_support_boundary` states that the advertised `formats` list is the complete MCP support set: a file
+type absent from it is not detected, converted, validated, or listed through MCP, and `meido.detect_file` reports it as
+not recognized. `cli_only_operations` lists the conversions that only the command line performs, each with its game,
+file type, native suffixes, CLI commands, and the reason for the boundary. It currently covers COM3D2 `.nei` (CSV
+conversion), COM3D2 `.tex` (image conversion), the native Unity Texture2D, Sprite, Mesh, AnimationClip, and AudioClip
+primary files that are recognized by class ID rather than by suffix, and whole-container packing/unpacking.
+
 The portable editing skill is a `text/markdown` MCP resource. It is not an automatically installed Codex skill or
 MCP-host plugin. Reading the resource alone also does not replace its linked Schema and Guide: the resource defines the
 preservation, validation, and active-filesystem write workflow, while the two contracts supply the exact structure and
 reviewed semantics. The rendered skill dynamically includes the write policy for the server's current filesystem mode.
 
-`meido.edit_format` requires `format_id` and `objective`. Its Schema and Guide are returned as two `EmbeddedResource`
+`meido.edit_format` requires `format_id` and `objective`. An MCP prompt has no input schema in the protocol, so those
+required parameters are declared in the prompt's own `arguments` list and repeated in its description. Its Schema and
+Guide are returned as two `EmbeddedResource`
 messages, not merely URI hints, so the LLM receives the complete structural and semantic context before it edits a file.
 In unrestricted mode, optional `input_path` and `output_path` arguments carry the concrete workflow into the prompt. In
 restricted mode, the prompt instead exposes `input_root_id`, `input_relative_path`, `output_root_id`, and
@@ -464,7 +484,9 @@ name 字节数。CLI 默认限制为单 blob 4 GiB、总计 16 GiB、4096 个对
 旧文件之前启动失败，因此无法删除第一个进程仍在使用的 blob。进程退出或崩溃后，操作系统会释放锁。不指定该参数时，服务器会创建并独占自己的私有临时目录。
 
 `ListArchive` 使用 `page_size`（默认 128，最大 1000）以及 `page_token` /
-`next_page_token` 分页。即使条目名异常长，单页响应也会保持在 2 MiB 以下；单个条目本身无法放入时，返回 `RESOURCE_EXHAUSTED`。
+`next_page_token` 分页。即使条目名异常长，单页响应也会保持在 2 MiB 以下；单个条目本身无法放入时，返回 `RESOURCE_EXHAUSTED`。gRPC
+接口会把超出上限的请求钳制到最大值；`meido.list_archive` 则在 input schema 中公开 `minimum: 0` 与 `maximum: 1000`，对越界
+`page_size` 直接报错而不是静默改写请求，并在每一页中以 `page_size` 返回实际生效的值。
 
 每个服务器实例使用进程内随机 HMAC key 签名 opaque 分页 cursor。cursor 会绑定版本、offset、规范化 format ID、源归档摘要，以及排序后的
 entry name/size/kind 目录。篡改 cursor、换用其他服务器实例或归档、或者归档内容发生变化，都会使旧 cursor 失效。
@@ -546,7 +568,14 @@ metadata 与新主文件错误配对。`--max-write-mib` 对主文件与 sidecar
 `output_path` 使用同一套暂存、回滚、sidecar 替换和大小限制实现。
 
 `meido.inspect_file` 会把 editing JSON 作为 text content 返回一次，structured content 只保留 artifact metadata。
-`meido.list_archive` 每次返回一页有界 structured result，默认 128 条、最多 1000 条；下一页使用 `next_page_token`。
+`meido.list_archive` 每次返回一页有界 structured result，默认 128 条、最多 1000 条，并回显实际生效的 `page_size`；下一页使用
+`next_page_token`。
+
+有两条工具约定是显式声明的，不需要通过失败调用去发现。`meido.validate_editing_json` 接受 `root_id` + `relative_path`
+（unrestricted 模式为 `path`），或者 `editing_json` + `name`；只要提供了非空 `editing_json`，其 input schema 就要求同时提供
+`name`。`meido.convert_file` 由 `target` 决定输入必须持有的 representation：`target=editing_json` 读取原生游戏文件，
+`target=native` 读取由 `meido.inspect_file` 或先前 `target=editing_json` 转换产生的 editing JSON 文档。用
+`target=native` 提交原生游戏数据会作为无效 editing JSON 被拒绝。
 
 stdout 只写 MCP 协议消息，日志写入 stderr。第一版 MCP 有意只实现 stdio；以后可以把 Streamable HTTP 作为独立部署面加入，而不需要修改
 engine。
@@ -557,8 +586,8 @@ engine。
 |-------------------------------|----------------------------------------------------------------------------|
 | `meido.detect_file`           | 检测 COM3D2/KCES 文件，返回 format ID、版本和 representation               |
 | `meido.inspect_file`          | 内联返回较小的 editing JSON；较大文档应使用 `meido.convert_file`           |
-| `meido.validate_editing_json` | 先按公开 Schema 验证一个 JSON 文档，再使用原生 serializer 重新编码         |
-| `meido.convert_file`          | 转换原生/editing JSON，并在目标位置安装完整主文件/sidecar bundle           |
+| `meido.validate_editing_json` | 先按公开 Schema 验证一个 JSON 文档，再使用原生 serializer 重新编码；内联 `editing_json` 必须同时提供 `name` |
+| `meido.convert_file`          | 转换原生/editing JSON，并在目标位置安装完整主文件/sidecar bundle；`target` 决定输入必须持有的 representation |
 | `meido.list_archive`          | 精确列出 ARC、CT/VirtualDirectory、ABA、`.asset_bg` 或 `.asset_scene` 条目 |
 | `meido.extract_archive_entry` | 把一个精确列出的条目提取到选定目标                                         |
 
@@ -574,11 +603,18 @@ engine。
 | `meido://skills/editing/{format_id}` | 告诉 LLM 如何保留不透明与未审阅字段的 portable Markdown workflow                   |
 | `meido.edit_format`                  | 内嵌精确 Schema、Guide、portable skill、objective 和可选输入/输出路径的 MCP Prompt |
 
+同一份资源还声明了 MCP 的格式支持边界，客户端不需要通过失败的检测去摸索。`format_support_boundary` 说明公开的 `formats`
+列表就是 MCP 的完整支持集：不在其中的文件类型在 MCP 上不会被检测、转换、校验或列出，`meido.detect_file` 会报告
+not recognized。`cli_only_operations` 列出只有命令行才提供的转换，每条包含游戏、文件类型、原生后缀、CLI 命令，以及该边界的原因。
+当前覆盖 COM3D2 `.nei`（CSV 转换）、COM3D2 `.tex`（图片转换）、按 class ID 而非后缀识别的原生 Unity Texture2D、Sprite、Mesh、
+AnimationClip 与 AudioClip 主文件，以及整包封装/解包。
+
 portable editing skill 是 MCP `text/markdown` 资源，不会自动安装成 Codex skill 或 MCP Host 插件。单独读取该资源也不能替代它链接的
 Schema 与 Guide：skill 定义保留、验证以及当前文件系统的写入流程，另外两份协议提供精确结构和经审阅语义。渲染后的 skill
 会动态附带服务器当前 filesystem mode 对应的 write policy。
 
-`meido.edit_format` 必填 `format_id` 与 `objective`。Schema 和 Guide 会作为两个完整
+`meido.edit_format` 必填 `format_id` 与 `objective`。MCP 协议中的 Prompt 没有 input schema，因此这两个必填参数声明在 Prompt
+自身的 `arguments` 列表中，并在其 description 中重复说明。Schema 和 Guide 会作为两个完整
 `EmbeddedResource` 返回，而不仅是 URI 提示，因此 LLM 在编辑前会收到完整结构与语义上下文。unrestricted 模式可以选填
 `input_path` 和 `output_path`；restricted 模式改为
 `input_root_id`、`input_relative_path`、`output_root_id` 和 `output_relative_path`。这是一次取得 skill、完整 Schema 与完整
@@ -785,7 +821,9 @@ process は stale-file cleanup より前に起動失敗するため、一つ目�
 の終了または crash 時は OS が lock を解放します。flag を省略すると、server は private temporary directory を作成して所有します。
 
 `ListArchive` は `page_size`（既定 128、最大 1000）と `page_token` / `next_page_token` で pagination します。entry name
-が非常に長くても response は 2 MiB 未満に保たれ、一つの entry 自体が収まらない場合は `RESOURCE_EXHAUSTED` になります。
+が非常に長くても response は 2 MiB 未満に保たれ、一つの entry 自体が収まらない場合は `RESOURCE_EXHAUSTED` になります。gRPC RPC
+は上限を超える要求を最大値に切り詰めますが、`meido.list_archive` は input schema に `minimum: 0` と `maximum: 1000` を公開し、
+範囲外の `page_size` を黙って書き換えるのではなく拒否し、実際に適用された値を各 page の `page_size` として返します。
 
 各 server instance は process-local random HMAC key で opaque page cursor を署名します。cursor は version、
 offset、normalized format ID、source archive digest、sorted entry name/size/kind inventory に結び付けられます。cursor
@@ -880,8 +918,15 @@ obsolete managed sidecar を target name から削除し、古い metadata と�
 staging、rollback、sidecar replacement、size limit を使用します。
 
 `meido.inspect_file` は editing JSON を text content として一度返し、structured content には artifact metadata だけを保持します。
-`meido.list_archive` は一度に bounded structured page を一つ返します （既定 128、最大 1000 entries）。次の page には
-`next_page_token` を使用します。
+`meido.list_archive` は一度に bounded structured page を一つ返し （既定 128、最大 1000 entries）、実際に適用された
+`page_size` を返します。次の page には `next_page_token` を使用します。
+
+二つの tool contract は失敗した call から推測するのではなく明示的に宣言されています。`meido.validate_editing_json` は
+`root_id` + `relative_path`（unrestricted mode では `path`）、または `editing_json` + `name` を受け付け、空でない
+`editing_json` を指定した場合は input schema が `name` を必須にします。`meido.convert_file` は `target` によって input が
+持つべき representation を決めます。`target=editing_json` は native game file を読み、`target=native` は
+`meido.inspect_file` または以前の `target=editing_json` 変換が生成した editing JSON document を読みます。
+`target=native` に native game data を渡すと invalid editing JSON として拒否されます。
 
 stdout には protocol message だけを書き、log は stderr に出力します。最初の MCP implementation は意図的に stdio
 のみです。Streamable HTTP は engine を変更せず、別 deployment surface として追加できます。
@@ -892,8 +937,8 @@ stdout には protocol message だけを書き、log は stderr に出力しま�
 |-------------------------------|----------------------------------------------------------------------------------------|
 | `meido.detect_file`           | COM3D2/KCES file を detect し、format ID、version、representation を返す               |
 | `meido.inspect_file`          | 小さい editing JSON を inline で返す。大きい document には `meido.convert_file` を使用 |
-| `meido.validate_editing_json` | 一つの JSON document を公開 Schema で検証し、native serializer で再エンコード          |
-| `meido.convert_file`          | native/editing JSON を変換し、完全な primary/sidecar bundle を destination に install  |
+| `meido.validate_editing_json` | 一つの JSON document を公開 Schema で検証し、native serializer で再エンコード。inline `editing_json` には `name` が必須 |
+| `meido.convert_file`          | native/editing JSON を変換し、完全な primary/sidecar bundle を destination に install。`target` が input の representation を決める |
 | `meido.list_archive`          | ARC、CT/VirtualDirectory、ABA、`.asset_bg`、`.asset_scene` の正確な entry を一覧表示   |
 | `meido.extract_archive_entry` | 一つの正確な listed entry を選択 destination へ抽出                                    |
 
@@ -909,12 +954,21 @@ hash、whole-file Guide verification、および次の MCP entry point を記述
 | `meido://skills/editing/{format_id}` | opaque/unreviewed field の保持方法を LLM に示す portable Markdown workflow                   |
 | `meido.edit_format`                  | exact Schema、Guide、portable skill、objective、任意 input/output path を埋め込む MCP Prompt |
 
+同じ resource は MCP の format support boundary も宣言するため、client は失敗した detection から境界を推測する必要がありません。
+`format_support_boundary` は公開された `formats` list が MCP の完全な support set であることを示します。list に無い file type
+は MCP 経由で detect、convert、validate、list されず、`meido.detect_file` は not recognized と報告します。
+`cli_only_operations` は command line だけが行う変換を、game、file type、native suffix、CLI command、境界の理由とともに列挙します。
+現在は COM3D2 `.nei`（CSV 変換）、COM3D2 `.tex`（image 変換）、suffix ではなく class ID で識別される native Unity Texture2D、
+Sprite、Mesh、AnimationClip、AudioClip の primary file、および container 全体の pack/unpack を対象にしています。
+
 portable editing skill は MCP `text/markdown` resource です。Codex skill や MCP Host plugin として
 自動インストールされるものではありません。resource だけを読んでも、link された Schema と Guide の代わりにはなりません。skill
 は preservation、validation、active filesystem write workflow を定義し、二つの contract は exact structure と reviewed
 semantics を提供します。rendered skill には server の現在の filesystem mode に対応する write policy が動的に含まれます。
 
-`meido.edit_format` は `format_id` と `objective` が必須です。Schema と Guide は URI hint だけではなく、二つの完全な
+`meido.edit_format` は `format_id` と `objective` が必須です。MCP protocol の Prompt には input schema が無いため、これらの必須
+parameter は Prompt 自身の `arguments` list で宣言され、description でも繰り返されます。Schema と Guide は URI hint
+だけではなく、二つの完全な
 `EmbeddedResource` として返されるため、LLM は編集前に完全な structural/semantic context を受け取ります。unrestricted mode
 では `input_path` と `output_path`、restricted mode では
 `input_root_id`、`input_relative_path`、`output_root_id`、`output_relative_path` を任意指定できます。skill、完全な

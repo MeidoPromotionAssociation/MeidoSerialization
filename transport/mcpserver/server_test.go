@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
@@ -383,6 +384,255 @@ func TestMCPToolsAndCapabilitiesResource(t *testing.T) {
 	}
 }
 
+func TestMCPToolContractDeclarations(t *testing.T) {
+	inputDirectory := t.TempDir()
+	outputDirectory := t.TempDir()
+	if err := os.WriteFile(filepath.Join(inputDirectory, "sample.menu"), mcpSyntheticMenu(t), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(inputDirectory, "page.ct"), mcpContentTable(t, 5), 0644); err != nil {
+		t.Fatal(err)
+	}
+	roots := application.NewRootSet()
+	defer roots.Close()
+	if err := roots.Add("mods", inputDirectory); err != nil {
+		t.Fatal(err)
+	}
+	if err := roots.AddWritable("work", outputDirectory); err != nil {
+		t.Fatal(err)
+	}
+	server, err := New(Config{
+		Engine: application.NewEngine(application.EngineOptions{}), Roots: roots,
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Version: "test",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	serverSession, err := server.MCPServer().Connect(ctx, serverTransport, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer serverSession.Close()
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "test"}, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clientSession.Close()
+
+	tools, err := clientSession.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	toolsByName := make(map[string]*mcp.Tool)
+	for _, tool := range tools.Tools {
+		toolsByName[tool.Name] = tool
+	}
+	validateTool, listArchiveTool, convertTool := toolsByName["meido.validate_editing_json"], toolsByName["meido.list_archive"], toolsByName["meido.convert_file"]
+	if validateTool == nil || listArchiveTool == nil || convertTool == nil {
+		t.Fatalf("advertised tools = %v", slices.Sorted(maps.Keys(toolsByName)))
+	}
+
+	inlineCondition := mcpSchemaObject(t, validateTool.InputSchema, "if")
+	if !slices.Equal(mcpSchemaStrings(t, inlineCondition["required"]), []string{"editing_json"}) {
+		t.Fatalf("validate schema if = %#v", inlineCondition)
+	}
+	if mcpSchemaObject(t, inlineCondition, "properties", "editing_json")["minLength"] != float64(1) {
+		t.Fatalf("validate schema inline condition = %#v", inlineCondition)
+	}
+	if !slices.Equal(mcpSchemaStrings(t, mcpSchemaObject(t, validateTool.InputSchema, "then")["required"]), []string{"name"}) {
+		t.Fatalf("validate schema then = %#v", validateTool.InputSchema)
+	}
+	nameDescription, _ := mcpSchemaObject(t, validateTool.InputSchema, "properties", "name")["description"].(string)
+	if !strings.Contains(nameDescription, "required whenever editing_json is supplied") {
+		t.Fatalf("validate schema name description = %q", nameDescription)
+	}
+
+	pageSizeSchema := mcpSchemaObject(t, listArchiveTool.InputSchema, "properties", "page_size")
+	if pageSizeSchema["minimum"] != float64(0) || pageSizeSchema["maximum"] != float64(maxArchivePageSize) {
+		t.Fatalf("page_size schema = %#v", pageSizeSchema)
+	}
+
+	if !strings.Contains(convertTool.Description, "The input representation is decided by target") {
+		t.Fatalf("convert description = %q", convertTool.Description)
+	}
+	targetDescription, _ := mcpSchemaObject(t, convertTool.InputSchema, "properties", "target")["description"].(string)
+	if !strings.Contains(targetDescription, "the input must hold the other representation") {
+		t.Fatalf("convert target description = %q", targetDescription)
+	}
+
+	inspected, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "meido.inspect_file", Arguments: map[string]any{"root_id": "mods", "relative_path": "sample.menu"},
+	})
+	if err != nil || inspected.IsError || len(inspected.Content) == 0 {
+		t.Fatalf("inspect for inline validation: result=%+v err=%v", inspected, err)
+	}
+	editingJSON := mcpResultText(t, inspected)
+
+	missingName, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "meido.validate_editing_json", Arguments: map[string]any{"editing_json": editingJSON, "format_id": "com3d2.menu"},
+	})
+	if err != nil || !missingName.IsError {
+		t.Fatalf("inline editing JSON without name: result=%+v err=%v", missingName, err)
+	}
+	if message := mcpResultText(t, missingName); !strings.Contains(message, `validating "arguments"`) || !strings.Contains(message, "name") {
+		t.Fatalf("inline editing JSON without name = %q", message)
+	}
+	withName, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "meido.validate_editing_json", Arguments: map[string]any{
+			"editing_json": editingJSON, "name": "sample.menu.json", "format_id": "com3d2.menu",
+		},
+	})
+	if err != nil || withName.IsError {
+		t.Fatalf("inline editing JSON with name: result=%+v err=%v", withName, err)
+	}
+	emptyInline, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "meido.validate_editing_json", Arguments: map[string]any{
+			"root_id": "mods", "relative_path": "sample.menu", "editing_json": "", "name": "",
+		},
+	})
+	if err != nil || emptyInline.IsError {
+		t.Fatalf("rooted validation with empty inline arguments: result=%+v err=%v", emptyInline, err)
+	}
+
+	wrongRepresentation, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "meido.convert_file", Arguments: map[string]any{
+			"root_id": "mods", "relative_path": "sample.menu", "format_id": "com3d2.menu", "target": "native",
+			"output_root_id": "work", "output_relative_path": "out/sample.menu",
+		},
+	})
+	if err != nil || !wrongRepresentation.IsError {
+		t.Fatalf("native target with native input: result=%+v err=%v", wrongRepresentation, err)
+	}
+	if message := mcpResultText(t, wrongRepresentation); !strings.Contains(message, "must already be the editing JSON representation of com3d2.menu") {
+		t.Fatalf("native target with native input = %q", message)
+	}
+
+	for _, requested := range []any{9999, -1} {
+		rejected, listErr := clientSession.CallTool(ctx, &mcp.CallToolParams{
+			Name: "meido.list_archive", Arguments: map[string]any{
+				"root_id": "mods", "relative_path": "page.ct", "format_id": "kces.ct", "page_size": requested,
+			},
+		})
+		if listErr != nil || !rejected.IsError {
+			t.Fatalf("page_size %v: result=%+v err=%v", requested, rejected, listErr)
+		}
+		if message := mcpResultText(t, rejected); !strings.Contains(message, `validating "arguments"`) {
+			t.Fatalf("page_size %v = %q", requested, message)
+		}
+	}
+	defaulted, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "meido.list_archive", Arguments: map[string]any{
+			"root_id": "mods", "relative_path": "page.ct", "format_id": "kces.ct",
+		},
+	})
+	if err != nil || defaulted.IsError {
+		t.Fatalf("omitted page_size: result=%+v err=%v", defaulted, err)
+	}
+	defaultedPage, ok := defaulted.StructuredContent.(map[string]any)
+	if !ok {
+		t.Fatalf("omitted page_size content = %#v", defaulted.StructuredContent)
+	}
+	defaultedEntries, ok := defaultedPage["entries"].([]any)
+	if !ok || len(defaultedEntries) != 5 || defaultedPage["page_size"] != float64(defaultArchivePageSize) || defaultedPage["next_page_token"] != nil {
+		t.Fatalf("omitted page_size page = %#v", defaultedPage)
+	}
+	partial, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "meido.list_archive", Arguments: map[string]any{
+			"root_id": "mods", "relative_path": "page.ct", "format_id": "kces.ct", "page_size": 2,
+		},
+	})
+	if err != nil || partial.IsError {
+		t.Fatalf("explicit page_size: result=%+v err=%v", partial, err)
+	}
+	partialPage, ok := partial.StructuredContent.(map[string]any)
+	if !ok {
+		t.Fatalf("explicit page_size content = %#v", partial.StructuredContent)
+	}
+	partialEntries, ok := partialPage["entries"].([]any)
+	nextToken, tokenOK := partialPage["next_page_token"].(string)
+	if !ok || len(partialEntries) != 2 || partialPage["page_size"] != float64(2) || !tokenOK || nextToken == "" {
+		t.Fatalf("explicit page_size page = %#v", partialPage)
+	}
+
+	resource, err := clientSession.ReadResource(ctx, &mcp.ReadResourceParams{URI: "meido://capabilities"})
+	if err != nil || len(resource.Contents) != 1 {
+		t.Fatalf("capabilities resource = %+v err=%v", resource, err)
+	}
+	var capabilities struct {
+		DefaultArchivePageSize int32  `json:"default_archive_page_size"`
+		MaxArchivePageSize     int32  `json:"max_archive_page_size"`
+		FormatSupportBoundary  string `json:"format_support_boundary"`
+		CLIOnlyOperations      []struct {
+			Game           string   `json:"game"`
+			FileType       string   `json:"file_type"`
+			NativeSuffixes []string `json:"native_suffixes"`
+			CLICommands    []string `json:"cli_commands"`
+			Detail         string   `json:"detail"`
+		} `json:"cli_only_operations"`
+	}
+	if err := json.Unmarshal([]byte(resource.Contents[0].Text), &capabilities); err != nil {
+		t.Fatal(err)
+	}
+	if capabilities.DefaultArchivePageSize != defaultArchivePageSize || capabilities.MaxArchivePageSize != maxArchivePageSize {
+		t.Fatalf("advertised page-size bounds = %+v", capabilities)
+	}
+	if !strings.Contains(capabilities.FormatSupportBoundary, "complete MCP support set") ||
+		!strings.Contains(capabilities.FormatSupportBoundary, "not recognized") {
+		t.Fatalf("format support boundary = %q", capabilities.FormatSupportBoundary)
+	}
+	foundNEI := false
+	for _, operation := range capabilities.CLIOnlyOperations {
+		if operation.Game == "" || operation.FileType == "" || len(operation.NativeSuffixes) == 0 || len(operation.CLICommands) == 0 || operation.Detail == "" {
+			t.Fatalf("cli-only operation = %+v", operation)
+		}
+		if operation.FileType == "nei" && slices.Contains(operation.NativeSuffixes, ".nei") && slices.Contains(operation.CLICommands, "convert2csv") {
+			foundNEI = true
+		}
+	}
+	if !foundNEI || len(capabilities.CLIOnlyOperations) < 5 {
+		t.Fatalf("cli-only operations = %+v", capabilities.CLIOnlyOperations)
+	}
+
+	prompts, err := clientSession.ListPrompts(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var editingPrompt *mcp.Prompt
+	for _, prompt := range prompts.Prompts {
+		if prompt.Name == "meido.edit_format" {
+			editingPrompt = prompt
+			break
+		}
+	}
+	if editingPrompt == nil {
+		t.Fatalf("advertised prompts = %+v", prompts.Prompts)
+	}
+	if !strings.Contains(editingPrompt.Description, "The required arguments are format_id and objective") {
+		t.Fatalf("editing prompt description = %q", editingPrompt.Description)
+	}
+	requiredArguments := make(map[string]bool)
+	for _, argument := range editingPrompt.Arguments {
+		requiredArguments[argument.Name] = argument.Required
+	}
+	if !requiredArguments["format_id"] || !requiredArguments["objective"] || requiredArguments["input_root_id"] {
+		t.Fatalf("editing prompt arguments = %#v", requiredArguments)
+	}
+	if _, err := clientSession.GetPrompt(ctx, &mcp.GetPromptParams{
+		Name: "meido.edit_format", Arguments: map[string]string{"format_id": "com3d2.menu"},
+	}); err == nil || !strings.Contains(err.Error(), "prompt argument objective is required") {
+		t.Fatalf("editing prompt without objective: err=%v", err)
+	}
+	if _, err := clientSession.GetPrompt(ctx, &mcp.GetPromptParams{
+		Name: "meido.edit_format", Arguments: map[string]string{"objective": "Change the displayed name."},
+	}); err == nil || !strings.Contains(err.Error(), "prompt argument format_id is required") {
+		t.Fatalf("editing prompt without format_id: err=%v", err)
+	}
+}
+
 func TestMCPLegacyProtocolCompatibility(t *testing.T) {
 	server, err := New(Config{
 		Engine: application.NewEngine(application.EngineOptions{}),
@@ -575,6 +825,42 @@ func TestMCPUnrestrictedFilesystemMode(t *testing.T) {
 	if err != nil || validated.IsError {
 		t.Fatalf("direct validate: result=%+v err=%v", validated, err)
 	}
+	editingJSON, err := os.ReadFile(editingPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	missingName, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "meido.validate_editing_json", Arguments: map[string]any{
+			"editing_json": string(editingJSON), "format_id": "com3d2.menu",
+		},
+	})
+	if err != nil || !missingName.IsError {
+		t.Fatalf("direct inline editing JSON without name: result=%+v err=%v", missingName, err)
+	}
+	if message := mcpResultText(t, missingName); !strings.Contains(message, `validating "arguments"`) || !strings.Contains(message, "name") {
+		t.Fatalf("direct inline editing JSON without name = %q", message)
+	}
+	inlineValidated, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "meido.validate_editing_json", Arguments: map[string]any{
+			"editing_json": string(editingJSON), "name": "sample.menu.json", "format_id": "com3d2.menu",
+		},
+	})
+	if err != nil || inlineValidated.IsError {
+		t.Fatalf("direct inline editing JSON with name: result=%+v err=%v", inlineValidated, err)
+	}
+
+	nativeFromNative, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "meido.convert_file", Arguments: map[string]any{
+			"path": menuPath, "format_id": "com3d2.menu", "target": "native",
+			"output_path": filepath.Join(directory, "out", "roundtrip.menu"),
+		},
+	})
+	if err != nil || !nativeFromNative.IsError {
+		t.Fatalf("direct native target with native input: result=%+v err=%v", nativeFromNative, err)
+	}
+	if message := mcpResultText(t, nativeFromNative); !strings.Contains(message, "must already be the editing JSON representation of com3d2.menu") {
+		t.Fatalf("direct native target with native input = %q", message)
+	}
 
 	listed, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
 		Name: "meido.list_archive", Arguments: map[string]any{"path": archivePath, "format_id": "kces.ct", "page_size": 2},
@@ -588,8 +874,16 @@ func TestMCPUnrestrictedFilesystemMode(t *testing.T) {
 	}
 	entries, ok := listData["entries"].([]any)
 	nextToken, tokenOK := listData["next_page_token"].(string)
-	if !ok || len(entries) != 2 || !tokenOK || nextToken == "" || nextToken == "2" {
+	if !ok || len(entries) != 2 || listData["page_size"] != float64(2) || !tokenOK || nextToken == "" || nextToken == "2" {
 		t.Fatalf("direct archive page = %#v", listed.StructuredContent)
+	}
+	oversized, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
+		Name: "meido.list_archive", Arguments: map[string]any{
+			"path": archivePath, "format_id": "kces.ct", "page_size": maxArchivePageSize + 1,
+		},
+	})
+	if err != nil || !oversized.IsError {
+		t.Fatalf("direct oversized page_size: result=%+v err=%v", oversized, err)
 	}
 
 	extractedPath := filepath.Join(directory, "out", "entry-01.bin")
@@ -860,4 +1154,51 @@ func mcpContentTable(t *testing.T, count int) []byte {
 func mcpSHA256(data []byte) string {
 	digest := sha256.Sum256(data)
 	return fmt.Sprintf("%x", digest[:])
+}
+
+func mcpSchemaObject(t *testing.T, schema any, keys ...string) map[string]any {
+	t.Helper()
+	current, ok := schema.(map[string]any)
+	if !ok {
+		t.Fatalf("schema node = %#v", schema)
+	}
+	for index, key := range keys {
+		next, found := current[key]
+		if !found {
+			t.Fatalf("schema path %v has no %q: %#v", keys[:index], key, current)
+		}
+		if current, ok = next.(map[string]any); !ok {
+			t.Fatalf("schema path %v is not an object: %#v", keys[:index+1], next)
+		}
+	}
+	return current
+}
+
+func mcpSchemaStrings(t *testing.T, value any) []string {
+	t.Helper()
+	items, ok := value.([]any)
+	if !ok {
+		t.Fatalf("schema string list = %#v", value)
+	}
+	values := make([]string, 0, len(items))
+	for _, item := range items {
+		text, ok := item.(string)
+		if !ok {
+			t.Fatalf("schema string list item = %#v", item)
+		}
+		values = append(values, text)
+	}
+	return values
+}
+
+func mcpResultText(t *testing.T, result *mcp.CallToolResult) string {
+	t.Helper()
+	if result == nil || len(result.Content) == 0 {
+		t.Fatalf("tool result has no content: %+v", result)
+	}
+	text, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("tool result content = %#v", result.Content[0])
+	}
+	return text.Text
 }

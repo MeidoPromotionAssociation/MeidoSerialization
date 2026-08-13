@@ -37,7 +37,7 @@ func (e *Engine) validateEditingJSONPath(ctx context.Context, path, formatID str
 	decoder.UseNumber()
 	var instance any
 	if err := decoder.Decode(&instance); err != nil {
-		return opError("validate editing JSON", CodeInvalidArgument, fmt.Errorf("decode %s: %w", formatID, err))
+		return opError("validate editing JSON", CodeInvalidArgument, fmt.Errorf("decode %s: %w; this input must already be the editing JSON representation of %s rather than native game data, so convert native data to editing JSON before requesting a native target", formatID, err, formatID))
 	}
 	var trailing any
 	if err := decoder.Decode(&trailing); err != io.EOF {
