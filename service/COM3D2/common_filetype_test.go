@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 )
 
 func TestStrictFileTypeCSVDetectionRequiresValidTextAndStructure(t *testing.T) {
@@ -40,11 +42,14 @@ func TestStrictFileTypeCSVDetectionRequiresValidTextAndStructure(t *testing.T) {
 
 func TestLegacyStrictDetectorDoesNotCallKCESBinaryCSV(t *testing.T) {
 	service := &CommonService{}
+	menuAssetsPath := kcesfixtures.TextAssetPath(t, "cm3d2_eyes.aba", "cm3d2_eyes.menuassets")
+	payloadPath := kcesfixtures.TextAssetPath(t, "partsmeta.aba", "default_hairf.dbconf")
+	hitCheckPath := kcesfixtures.TextAssetPath(t, "system.aba", "IK.hitcheck")
 	for _, path := range []string{
 		filepath.Join("..", "..", "testdata", "aba", "cm3d2_eyes.aba"),
-		filepath.Join("..", "..", "testdata", "kces_parts", "cm3d2_eyes.menuassets"),
-		filepath.Join("..", "..", "testdata", "kces_payload", "default_hairf.dbconf"),
-		filepath.Join("..", "..", "testdata", "kces_misc", "IK.hitcheck"),
+		menuAssetsPath,
+		payloadPath,
+		hitCheckPath,
 	} {
 		info, err := service.FileTypeDetermine(path, true)
 		if err != nil {
@@ -71,8 +76,9 @@ func TestTryFileTypeDetermineMatchesCOM3D2BeforeKCESFallback(t *testing.T) {
 		}
 	}
 
+	modelPath := kcesfixtures.TextAssetPath(t, "cm3d2_megane002.aba", "cm3d2_megane002.model")
 	for _, path := range []string{
-		filepath.Join("..", "..", "testdata", "kces_parts", "cm3d2_megane002.model"),
+		modelPath,
 		filepath.Join("..", "..", "testdata", "aba", "cm3d2_eyes.aba"),
 	} {
 		info, matched, err := service.TryFileTypeDetermine(path)

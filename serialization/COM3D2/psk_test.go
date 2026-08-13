@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 )
 
 func TestPsk(t *testing.T) {
@@ -63,7 +65,8 @@ func TestPskDumpRejectsGroupsUnsupportedByStoredVersion(t *testing.T) {
 }
 
 func TestPskDump_KCESLegacyVersionSample(t *testing.T) {
-	data, err := os.ReadFile("../../testdata/kces_assets/default_skirt.psk")
+	samplePath := kcesfixtures.TextAssetPath(t, "partsmeta.aba", "default_skirt.psk")
+	data, err := os.ReadFile(samplePath)
 	if err != nil {
 		t.Fatalf("read KCES psk sample: %v", err)
 	}

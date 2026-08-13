@@ -9,7 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
 	"github.com/spf13/cobra"
@@ -92,6 +94,12 @@ func TestDetermineCommand(t *testing.T) {
 }
 
 func TestDetermineCommandPrefersCOM3D2AndFallsBackToKCES(t *testing.T) {
+	modelPath := kcesfixtures.TextAssetPath(t, "cm3d2_megane002.aba", "cm3d2_megane002.model")
+	menuAssetsPath := kcesfixtures.TextAssetPath(t, "cm3d2_eyes.aba", "cm3d2_eyes.menuassets")
+	payloadPath := kcesfixtures.TextAssetPath(t, "partsmeta.aba", "default_hairf.dbconf")
+	hitCheckPath := kcesfixtures.TextAssetPath(t, "system.aba", "IK.hitcheck")
+	nativeJSONPath := kcesfixtures.TextAssetPath(t, "parts_bv001.aba", "crc2_Underwear038_pants.undressdat")
+
 	tests := []struct {
 		name   string
 		path   string
@@ -101,11 +109,11 @@ func TestDetermineCommandPrefersCOM3D2AndFallsBackToKCES(t *testing.T) {
 	}{
 		{name: "content_table", path: "../testdata/aba/cm3d2_eyes.ct", typeID: "ct", format: "binary", game: "KCES"},
 		{name: "unityfs", path: "../testdata/aba/cm3d2_eyes.aba", typeID: "aba", format: "binary", game: "KCES"},
-		{name: "model", path: "../testdata/kces_parts/cm3d2_megane002.model", typeID: "model", format: "binary", game: "KCES"},
-		{name: "menuassets", path: "../testdata/kces_parts/cm3d2_eyes.menuassets", typeID: "menuassets", format: "binary", game: "KCES"},
-		{name: "payload", path: "../testdata/kces_payload/default_hairf.dbconf", typeID: "dbconf", format: "binary", game: "KCES"},
-		{name: "hitcheck", path: "../testdata/kces_misc/IK.hitcheck", typeID: "hitcheck", format: "binary", game: "KCES"},
-		{name: "native_json", path: "../testdata/kces_misc/crc2_Underwear038_pants.undressdat", typeID: "undressdat", format: "json", game: "KCES"},
+		{name: "model", path: modelPath, typeID: "model", format: "binary", game: "KCES"},
+		{name: "menuassets", path: menuAssetsPath, typeID: "menuassets", format: "binary", game: "KCES"},
+		{name: "payload", path: payloadPath, typeID: "dbconf", format: "binary", game: "KCES"},
+		{name: "hitcheck", path: hitCheckPath, typeID: "hitcheck", format: "binary", game: "KCES"},
+		{name: "native_json", path: nativeJSONPath, typeID: "undressdat", format: "json", game: "KCES"},
 		{name: "legacy_model", path: "../testdata/test.model", typeID: "model", format: "binary", game: "COM3D2"},
 		{name: "legacy_preset", path: "../testdata/test.preset", typeID: "preset", format: "binary", game: "COM3D2"},
 	}
@@ -130,6 +138,10 @@ func TestDetermineCommandPrefersCOM3D2AndFallsBackToKCES(t *testing.T) {
 }
 
 func TestStrictFileTypeFilterIncludesKCESModelAndNativeJSON(t *testing.T) {
+	modelPath := kcesfixtures.TextAssetPath(t, "cm3d2_megane002.aba", "cm3d2_megane002.model")
+	menuAssetsPath := kcesfixtures.TextAssetPath(t, "cm3d2_eyes.aba", "cm3d2_eyes.menuassets")
+	nativeJSONPath := kcesfixtures.TextAssetPath(t, "parts_bv001.aba", "crc2_Underwear038_pants.undressdat")
+
 	oldStrict, oldType := strictMode, fileType
 	t.Cleanup(func() {
 		strictMode = oldStrict
@@ -138,33 +150,42 @@ func TestStrictFileTypeFilterIncludesKCESModelAndNativeJSON(t *testing.T) {
 	strictMode = true
 
 	fileType = "model"
-	if !fileTypeFilter("../testdata/kces_parts/cm3d2_megane002.model") {
+	if !fileTypeFilter(modelPath) {
 		t.Fatal("strict model filter rejected a decoded KCES model")
 	}
-	if fileTypeFilter("../testdata/kces_parts/cm3d2_eyes.menuassets") {
+	if fileTypeFilter(menuAssetsPath) {
 		t.Fatal("strict model filter accepted menuassets")
 	}
 
 	// A native .undressdat is JSON text on the wire, but it is not an editing
 	// .json envelope. The non-.json selector must still include it.
 	fileType = "undressdat"
-	if !fileTypeFilter("../testdata/kces_misc/crc2_Underwear038_pants.undressdat") {
+	if !fileTypeFilter(nativeJSONPath) {
 		t.Fatal("strict undressdat filter rejected native JSON-text payload")
 	}
 	fileType = "undressdat.json"
-	if fileTypeFilter("../testdata/kces_misc/crc2_Underwear038_pants.undressdat") {
+	if fileTypeFilter(nativeJSONPath) {
 		t.Fatal("strict undressdat.json filter accepted the native non-envelope path")
 	}
 }
 
 func TestConcurrentDeterminePrintsAtomicFileBlocks(t *testing.T) {
 	dir := t.TempDir()
-	for _, name := range []string{"cm3d2_megane002.model", "crc_acchead003.model", "hair_aho007.model"} {
-		data, err := os.ReadFile(filepath.Join("..", "testdata", "kces_parts", name))
+	samples := []struct {
+		aba  string
+		name string
+	}{
+		{"cm3d2_megane002.aba", "cm3d2_megane002.model"},
+		{"parts_bcc2_gp003.aba", "crc_acchead003.model"},
+		{"parts_personal002.aba", "hair_aho007.model"},
+	}
+	for _, sample := range samples {
+		path := kcesfixtures.TextAssetPath(t, sample.aba, sample.name)
+		data, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(dir, name), data, 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, sample.name), data, 0644); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -419,8 +440,9 @@ func TestKCESRawUnityBytesConvertCommands(t *testing.T) {
 	inputPath := filepath.Join(tempDir, "cm3d2_megane002.tex.bytes")
 	metaPath := inputPath + ".meta.json"
 
-	data := mustReadFile(t, filepath.Join("../testdata", "kces_assets", "cm3d2_megane002.tex.bytes"))
-	meta := mustReadFile(t, filepath.Join("../testdata", "kces_assets", "cm3d2_megane002.tex.bytes.meta.json"))
+	rawPath, rawMetaPath := kcesfixtures.RawObjectPath(t, "cm3d2_megane002.aba", "cm3d2_megane002.tex", aba.ClassIDTexture2D, "cm3d2_megane002.tex.bytes")
+	data := mustReadFile(t, rawPath)
+	meta := mustReadFile(t, rawMetaPath)
 	if err := os.WriteFile(inputPath, data, 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -513,8 +535,9 @@ func TestKCESAutoConvertDirectoryIncludesCtAndRawUnityBytes(t *testing.T) {
 	}
 
 	rawPath := filepath.Join(tempDir, "DepthLUT.monoscript.bytes")
-	rawData := mustReadFile(t, filepath.Join("../testdata", "kces_assets", "DepthLUT.monoscript.bytes"))
-	rawMeta := mustReadFile(t, filepath.Join("../testdata", "kces_assets", "DepthLUT.monoscript.bytes.meta.json"))
+	rawSourcePath, rawSourceMetaPath := kcesfixtures.RawObjectPath(t, "system.aba", "DepthLUT", aba.ClassIDMonoScript, "DepthLUT.monoscript.bytes")
+	rawData := mustReadFile(t, rawSourcePath)
+	rawMeta := mustReadFile(t, rawSourceMetaPath)
 	if err := os.WriteFile(rawPath, rawData, 0644); err != nil {
 		t.Fatal(err)
 	}

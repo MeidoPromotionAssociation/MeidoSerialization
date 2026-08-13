@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
 )
 
@@ -112,6 +113,11 @@ func TestIndependentPayloadServicesRoundTrip(t *testing.T) {
 }
 
 func TestIndependentPartsServicesRoundTrip(t *testing.T) {
+	menuAssetsPath := kcesfixtures.TextAssetPath(t, "parts_personal002.aba", "parts_personal002.menuassets")
+	materialAssetsPath := kcesfixtures.TextAssetPath(t, "parts_personal002.aba", "parts_personal002.materialassets")
+	pmatAssetsPath := kcesfixtures.TextAssetPath(t, "partsmeta.aba", "partsmeta.pmatassets")
+	modelPath := kcesfixtures.TextAssetPath(t, "parts_personal002.aba", "hair_twin019.model")
+
 	tests := []struct {
 		name       string
 		samplePath string
@@ -122,7 +128,7 @@ func TestIndependentPartsServicesRoundTrip(t *testing.T) {
 	}{
 		{
 			name:       "menuassets",
-			samplePath: filepath.Join("..", "..", "testdata", "kces_parts", "parts_personal002.menuassets"),
+			samplePath: menuAssetsPath,
 			extension:  menuAssetsExtension,
 			toJSON: func(inputPath string, outputPath string) error {
 				return (&MenuAssetsService{}).ConvertMenuAssetsToJson(TestConversionContext, inputPath, outputPath, TestConversionMaxOutput)
@@ -137,7 +143,7 @@ func TestIndependentPartsServicesRoundTrip(t *testing.T) {
 		},
 		{
 			name:       "materialassets",
-			samplePath: filepath.Join("..", "..", "testdata", "kces_parts", "parts_personal002.materialassets"),
+			samplePath: materialAssetsPath,
 			extension:  materialAssetsExtension,
 			toJSON: func(inputPath string, outputPath string) error {
 				return (&MaterialAssetsService{}).ConvertMaterialAssetsToJson(TestConversionContext, inputPath, outputPath, TestConversionMaxOutput)
@@ -152,7 +158,7 @@ func TestIndependentPartsServicesRoundTrip(t *testing.T) {
 		},
 		{
 			name:       "pmatassets",
-			samplePath: filepath.Join("..", "..", "testdata", "kces_parts", "partsmeta.pmatassets"),
+			samplePath: pmatAssetsPath,
 			extension:  priorityMaterialAssetsExtension,
 			toJSON: func(inputPath string, outputPath string) error {
 				return (&PriorityMaterialAssetsService{}).ConvertPriorityMaterialAssetsToJson(TestConversionContext, inputPath, outputPath, TestConversionMaxOutput)
@@ -167,7 +173,7 @@ func TestIndependentPartsServicesRoundTrip(t *testing.T) {
 		},
 		{
 			name:       "model",
-			samplePath: filepath.Join("..", "..", "testdata", "kces_parts", "hair_twin019.model"),
+			samplePath: modelPath,
 			extension:  modelExtension,
 			toJSON: func(inputPath string, outputPath string) error {
 				return (&ModelService{}).ConvertModelToJson(TestConversionContext, inputPath, outputPath, TestConversionMaxOutput)
@@ -304,7 +310,7 @@ func TestIndependentMiscServicesRoundTrip(t *testing.T) {
 
 func TestIndependentSharedDataServicesRoundTrip(t *testing.T) {
 	t.Run("psk", func(t *testing.T) {
-		samplePath := filepath.Join("..", "..", "testdata", "kces_assets", "default_skirt.psk")
+		samplePath := kcesfixtures.TextAssetPath(t, "partsmeta.aba", "default_skirt.psk")
 		dir := t.TempDir()
 		jsonPath := filepath.Join(dir, "default_skirt.psk.json")
 		outputPath := filepath.Join(dir, "default_skirt.psk")
@@ -321,7 +327,7 @@ func TestIndependentSharedDataServicesRoundTrip(t *testing.T) {
 	})
 
 	t.Run("nei", func(t *testing.T) {
-		samplePath := filepath.Join("..", "..", "testdata", "kces_assets", "edit_pose_enabled_list.nei")
+		samplePath := kcesfixtures.TextAssetPath(t, "csv.aba", "edit_pose_enabled_list.nei")
 		dir := t.TempDir()
 		csvPath := filepath.Join(dir, "edit_pose_enabled_list.csv")
 		outputPath := filepath.Join(dir, "edit_pose_enabled_list.nei")

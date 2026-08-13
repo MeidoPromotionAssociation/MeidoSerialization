@@ -5,16 +5,16 @@ import (
 	"encoding/json"
 	"math"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
 func TestDecodeKCESPayloadRequiresGameLengthPrefix(t *testing.T) {
-	path := filepath.Join("..", "..", "testdata", "kces_payload", "default_hairf.dbconf")
+	path := kcesfixtures.TextAssetPath(t, "partsmeta.aba", "default_hairf.dbconf")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

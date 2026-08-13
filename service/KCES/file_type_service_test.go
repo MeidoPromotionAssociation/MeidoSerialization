@@ -6,12 +6,21 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
 	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
 )
 
 func TestFileTypeServiceRecognizesRealKCESFilesByContent(t *testing.T) {
 	testdata := filepath.Join("..", "..", "testdata")
+	modelPath := kcesfixtures.TextAssetPath(t, "cm3d2_megane002.aba", "cm3d2_megane002.model")
+	menuAssetsPath := kcesfixtures.TextAssetPath(t, "cm3d2_eyes.aba", "cm3d2_eyes.menuassets")
+	dbConfPath := kcesfixtures.TextAssetPath(t, "partsmeta.aba", "default_hairf.dbconf")
+	db2ConfPath := kcesfixtures.TextAssetPath(t, "partsmeta.aba", "default_hairf.db2conf")
+	ikColliderPath := kcesfixtures.TextAssetPath(t, "system.aba", "maidIKCollider.ikcol")
+	hitCheckPath := kcesfixtures.TextAssetPath(t, "system.aba", "IK.hitcheck")
+	nativeJSONPath := kcesfixtures.TextAssetPath(t, "parts_bv001.aba", "crc2_Underwear038_pants.undressdat")
+
 	tests := []struct {
 		name     string
 		path     string
@@ -21,13 +30,13 @@ func TestFileTypeServiceRecognizesRealKCESFilesByContent(t *testing.T) {
 	}{
 		{name: "content_table", path: filepath.Join(testdata, "aba", "cm3d2_eyes.ct"), typeName: "ct", format: COM3D2Service.FormatBinary, version: 1000},
 		{name: "unityfs", path: filepath.Join(testdata, "aba", "cm3d2_eyes.aba"), typeName: "aba", format: COM3D2Service.FormatBinary, version: 7},
-		{name: "model", path: filepath.Join(testdata, "kces_parts", "cm3d2_megane002.model"), typeName: "model", format: COM3D2Service.FormatBinary, version: 1001},
-		{name: "menuassets", path: filepath.Join(testdata, "kces_parts", "cm3d2_eyes.menuassets"), typeName: "menuassets", format: COM3D2Service.FormatBinary, version: 1000},
-		{name: "dynamic_bone", path: filepath.Join(testdata, "kces_payload", "default_hairf.dbconf"), typeName: "dbconf", format: COM3D2Service.FormatBinary, version: 1000},
-		{name: "msgpack_string", path: filepath.Join(testdata, "kces_payload", "default_hairf.db2conf"), typeName: "db2conf", format: COM3D2Service.FormatBinary},
-		{name: "ik_collider", path: filepath.Join(testdata, "kces_payload", "maidIKCollider.ikcol"), typeName: "ikcol", format: COM3D2Service.FormatBinary, version: 1000},
-		{name: "hitcheck", path: filepath.Join(testdata, "kces_misc", "IK.hitcheck"), typeName: "hitcheck", format: COM3D2Service.FormatBinary},
-		{name: "native_json_text", path: filepath.Join(testdata, "kces_misc", "crc2_Underwear038_pants.undressdat"), typeName: "undressdat", format: COM3D2Service.FormatJSON},
+		{name: "model", path: modelPath, typeName: "model", format: COM3D2Service.FormatBinary, version: 1001},
+		{name: "menuassets", path: menuAssetsPath, typeName: "menuassets", format: COM3D2Service.FormatBinary, version: 1000},
+		{name: "dynamic_bone", path: dbConfPath, typeName: "dbconf", format: COM3D2Service.FormatBinary, version: 1000},
+		{name: "msgpack_string", path: db2ConfPath, typeName: "db2conf", format: COM3D2Service.FormatBinary},
+		{name: "ik_collider", path: ikColliderPath, typeName: "ikcol", format: COM3D2Service.FormatBinary, version: 1000},
+		{name: "hitcheck", path: hitCheckPath, typeName: "hitcheck", format: COM3D2Service.FormatBinary},
+		{name: "native_json_text", path: nativeJSONPath, typeName: "undressdat", format: COM3D2Service.FormatJSON},
 	}
 
 	service := &FileTypeService{}

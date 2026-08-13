@@ -7,15 +7,13 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
 	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
 )
 
 func TestDataService_PskUsesFixedKCESSample(t *testing.T) {
-	sample := filepath.Join("..", "..", "testdata", "kces_assets", "default_skirt.psk")
-	if _, err := os.Stat(sample); err != nil {
-		t.Fatalf("fixed KCES .psk sample missing: %v", err)
-	}
+	sample := kcesfixtures.TextAssetPath(t, "partsmeta.aba", "default_skirt.psk")
 
 	tmpDir := t.TempDir()
 	jsonPath := filepath.Join(tmpDir, "default_skirt.psk.json")
@@ -55,10 +53,7 @@ func TestDataService_PskUsesFixedKCESSample(t *testing.T) {
 }
 
 func TestDataService_NeiUsesFixedKCESSample(t *testing.T) {
-	sample := filepath.Join("..", "..", "testdata", "kces_assets", "edit_pose_enabled_list.nei")
-	if _, err := os.Stat(sample); err != nil {
-		t.Fatalf("fixed KCES .nei sample missing: %v", err)
-	}
+	sample := kcesfixtures.TextAssetPath(t, "csv.aba", "edit_pose_enabled_list.nei")
 
 	referenceService := &COM3D2Service.NeiService{}
 	want, err := referenceService.ReadNeiFile(sample)

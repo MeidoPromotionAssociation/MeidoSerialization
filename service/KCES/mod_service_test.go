@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
@@ -243,7 +244,8 @@ func TestPackModManifest_Texture2D(t *testing.T) {
 func TestPackModManifest_RejectsBareSidecarPayloadInferredFromPath(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	rawTexData, err := os.ReadFile(filepath.Join("..", "..", "testdata", "kces_assets", "cm3d2_megane002.tex.bytes"))
+	rawTexPath, _ := kcesfixtures.RawObjectPath(t, "cm3d2_megane002.aba", "cm3d2_megane002.tex", aba.ClassIDTexture2D, "raw.tex.bytes")
+	rawTexData, err := os.ReadFile(rawTexPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,7 +272,8 @@ func TestPackModManifest_RejectsBareSidecarPayloadInferredFromPath(t *testing.T)
 func TestPackModManifest_RejectsBarePayloadForExplicitRawKinds(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	rawData, err := os.ReadFile(filepath.Join("..", "..", "testdata", "kces_assets", "DepthLUT.monoscript.bytes"))
+	rawSourcePath, _ := kcesfixtures.RawObjectPath(t, "system.aba", "DepthLUT", aba.ClassIDMonoScript, "material.bytes")
+	rawData, err := os.ReadFile(rawSourcePath)
 	if err != nil {
 		t.Fatal(err)
 	}

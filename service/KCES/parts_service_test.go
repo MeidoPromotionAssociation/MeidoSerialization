@@ -7,12 +7,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
 func TestPartsService_MenuAssetsJSONRoundTrip(t *testing.T) {
-	sample := filepath.Join("..", "..", "testdata", "kces_parts", "parts_personal002.menuassets")
+	sample := kcesfixtures.TextAssetPath(t, "parts_personal002.aba", "parts_personal002.menuassets")
 
 	tmpDir := t.TempDir()
 	jsonPath := filepath.Join(tmpDir, "parts_personal002.menuassets.json")
@@ -43,7 +44,7 @@ func TestPartsService_MenuAssetsJSONRoundTrip(t *testing.T) {
 }
 
 func TestPartsService_ModelJSONRoundTrip(t *testing.T) {
-	sample := filepath.Join("..", "..", "testdata", "kces_parts", "hair_twin019.model")
+	sample := kcesfixtures.TextAssetPath(t, "parts_personal002.aba", "hair_twin019.model")
 
 	tmpDir := t.TempDir()
 	jsonPath := filepath.Join(tmpDir, "hair_twin019.model.json")

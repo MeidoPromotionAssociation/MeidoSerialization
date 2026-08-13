@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 )
 
 func TestPublicWireTypesRemainInKCESPackage(t *testing.T) {
@@ -88,7 +90,7 @@ func TestPriorityMaterial_RoundTrip(t *testing.T) {
 }
 
 func TestDecodeMaterialAssets_FromAba(t *testing.T) {
-	data := readPartsSample(t, "parts_personal002.materialassets")
+	data := kcesfixtures.TextAssetBytes(t, "parts_personal002.aba", "parts_personal002.materialassets")
 
 	assets, err := DecodeMaterialAssets(data)
 	if err != nil {
@@ -123,7 +125,7 @@ func TestDecodeMaterialAssets_FromAba(t *testing.T) {
 }
 
 func TestDecodeMenuAssets_FromAba(t *testing.T) {
-	data := readPartsSample(t, "parts_personal002.menuassets")
+	data := kcesfixtures.TextAssetBytes(t, "parts_personal002.aba", "parts_personal002.menuassets")
 
 	assets, err := DecodeMenuAssets(data)
 	if err != nil {
@@ -156,7 +158,7 @@ func TestDecodeMenuAssets_FromAba(t *testing.T) {
 }
 
 func TestDecodeMenuAssets_ByteEqual(t *testing.T) {
-	original := readPartsSample(t, "parts_personal002.menuassets")
+	original := kcesfixtures.TextAssetBytes(t, "parts_personal002.aba", "parts_personal002.menuassets")
 
 	assets, err := DecodeMenuAssets(original)
 	if err != nil {
