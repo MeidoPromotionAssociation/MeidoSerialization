@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"math"
-	"runtime/debug"
 	"strings"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/application"
@@ -83,12 +82,11 @@ func mebibytes(value int64) (int64, error) {
 	return value << 20, nil
 }
 
-// applicationVersion 从 Go 构建信息中读取应用版本并为开发构建返回 dev
-// applicationVersion reads the application version from Go build information and returns dev for development builds
+// applicationVersion 返回构建时注入的应用版本号
+// applicationVersion returns the application version injected at build time
 func applicationVersion() string {
-	info, ok := debug.ReadBuildInfo()
-	if !ok || info.Main.Version == "" || info.Main.Version == "(devel)" {
+	if buildVersion == "" || buildVersion == "(devel)" {
 		return "dev"
 	}
-	return info.Main.Version
+	return buildVersion
 }

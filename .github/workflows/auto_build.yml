@@ -27,17 +27,23 @@ jobs:
           GOARCH: amd64
         run: |
           mkdir -p dist
-          GOOS=linux go build -trimpath -ldflags="-s -w" -o dist/MeidoSerialization-linux-amd64 .
-          GOOS=windows go build -trimpath -ldflags="-s -w" -o dist/MeidoSerialization-amd64.exe .
+          VERSION="${GITHUB_REF_NAME}"
+          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then
+            VERSION="dev"
+          fi
+          COMMIT="${GITHUB_SHA:0:8}"
+          LDFLAGS="-s -w -X github.com/MeidoPromotionAssociation/MeidoSerialization/cmd.buildVersion=${VERSION} -X github.com/MeidoPromotionAssociation/MeidoSerialization/cmd.buildCommit=${COMMIT}"
+          GOOS=linux go build -trimpath -ldflags="${LDFLAGS}" -o dist/MeidoSerialization_linux_amd64 .
+          GOOS=windows go build -trimpath -ldflags="${LDFLAGS}" -o dist/MeidoSerialization.exe .
 
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v7
         with:
           name: linux-amd64          
-          path: dist/MeidoSerialization-linux-amd64
+          path: dist/MeidoSerialization_linux_amd64
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v7
         with:
           name: windows-amd64
-          path: dist/MeidoSerialization-amd64.exe
+          path: dist/MeidoSerialization.exe
