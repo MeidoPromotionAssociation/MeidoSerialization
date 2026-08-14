@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v7
@@ -27,12 +29,10 @@ jobs:
           GOARCH: amd64
         run: |
           mkdir -p dist
-          VERSION="${GITHUB_REF_NAME}"
-          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then
-            VERSION="dev"
-          fi
+          VERSION="$(git describe --tags --abbrev=0 2>/dev/null || echo dev)"
           COMMIT="${GITHUB_SHA:0:8}"
-          LDFLAGS="-s -w -X github.com/MeidoPromotionAssociation/MeidoSerialization/cmd.buildVersion=${VERSION} -X github.com/MeidoPromotionAssociation/MeidoSerialization/cmd.buildCommit=${COMMIT}"
+          BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          LDFLAGS="-s -w -X github.com/MeidoPromotionAssociation/MeidoSerialization/cmd.buildVersion=${VERSION} -X github.com/MeidoPromotionAssociation/MeidoSerialization/cmd.buildCommit=${COMMIT} -X github.com/MeidoPromotionAssociation/MeidoSerialization/cmd.buildDate=${BUILD_DATE}"
           GOOS=linux go build -trimpath -ldflags="${LDFLAGS}" -o dist/MeidoSerialization_linux_amd64 .
           GOOS=windows go build -trimpath -ldflags="${LDFLAGS}" -o dist/MeidoSerialization.exe .
 

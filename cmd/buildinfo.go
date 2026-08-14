@@ -8,6 +8,10 @@ var buildVersion = "dev"
 // buildCommit is the Git commit hash injected through ldflags at build time
 var buildCommit = "unknown"
 
+// buildDate 是构建时通过 ldflags 注入的编译日期
+// buildDate is the compilation date injected through ldflags at build time
+var buildDate = "unknown"
+
 // shortBuildCommit 将 Git 提交哈希截断为前 8 位
 // shortBuildCommit truncates the Git commit hash to its first 8 characters
 func shortBuildCommit() string {
