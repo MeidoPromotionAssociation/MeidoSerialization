@@ -236,7 +236,7 @@ MeidoSerialization.exe convert2gltf .\TextAsset\dress.model
 MeidoSerialization.exe gltf2model .\dress.glb -o .\out
 ```
 
-Read `MeidoSerialization.exe --help`, `<command> --help`, and [the complete CLI reference](../cmd/README.md) before
+Read `MeidoSerialization.exe --help`, `<command> --help`, and [the complete CLI reference](cli-document.md) before
 constructing less common commands.
 
 ## 10. gRPC Basics

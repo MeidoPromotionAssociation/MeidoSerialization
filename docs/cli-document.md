@@ -1,4 +1,4 @@
-[English](#english) | [日本語](#日本語) | [简体中文](#简体中文)
+[English](#english) | [简体中文](#简体中文) | [日本語](#日本語)
 
 # English
 
@@ -17,10 +17,10 @@ format.
 
 - Download a prebuilt executable
   from [GitHub Releases](https://github.com/MeidoPromotionAssociation/MeidoSerialization/releases)
-- Building from source requires Go 1.26.5 or later, matching `go.mod`
+- Building from source requires Go 1.26.5 or later, matching `../go.mod`
 - COM3D2 TEX/image conversion requires ImageMagick 7 or later, with `magick` available on `PATH`
 
-All examples below use PowerShell and assume `MeidoSerialization.exe` is available in the current directory or on
+All examples below use PowerShell and assume `../MeidoSerialization.exe` is available in the current directory or on
 `PATH`. Prefix it with `.\` when PowerShell requires an explicit current-directory path.
 
 ## Start here
@@ -66,23 +66,23 @@ notepad .\body.menu.json
 MeidoSerialization.exe convert2mod .\body.menu.json
 ```
 
-| Input example           | Command         | Default output                                                      |
-|-------------------------|-----------------|---------------------------------------------------------------------|
-| `example.menu`          | `convert2json`  | `example.menu.json`                                                 |
-| `example.menu.json`     | `convert2mod`   | `example.menu`                                                      |
-| `texture.tex`           | `convert2image` | `texture.png`                                                       |
-| `image.png`             | `convert2tex`   | `image.tex`                                                         |
-| `Texture2D\my_tex.png`  | `convert2texture2d` | native KCES `my_tex.tex`                                        |
-| `body.mmesh`            | `convert2gltf`  | `body.glb`                                                          |
-| `dress.model`           | `convert2gltf`  | `dress.glb` with the skeleton, skin, and morphs from its `.mmesh`   |
-| `dress.glb`             | `gltf2model`    | `dress.model` and `dress.mmesh`                                     |
-| `voice.audioclip`       | `convert2audio` | `voice.ogg`, `.wav`, or `.fsb` according to its signature           |
-| `table.nei`             | `convert2csv`   | `table.csv`                                                         |
-| `table.csv`             | `convert2nei`   | `table.nei`                                                         |
-| `example.arc`           | `unpackArc`     | `example.arc_unpacked\`                                             |
-| `example.ct`            | `convert`       | `example.ct.json`                                                   |
-| `example.aba`           | `unpackAba`     | `example.aba_unpacked\`                                             |
-| `example.aba`           | `genCt`         | `example.ct`                                                        |
+| Input example          | Command             | Default output                                                    |
+|------------------------|---------------------|-------------------------------------------------------------------|
+| `example.menu`         | `convert2json`      | `example.menu.json`                                               |
+| `example.menu.json`    | `convert2mod`       | `example.menu`                                                    |
+| `texture.tex`          | `convert2image`     | `texture.png`                                                     |
+| `image.png`            | `convert2tex`       | `image.tex`                                                       |
+| `Texture2D\my_tex.png` | `convert2texture2d` | native KCES `my_tex.tex`                                          |
+| `body.mmesh`           | `convert2gltf`      | `body.glb`                                                        |
+| `dress.model`          | `convert2gltf`      | `dress.glb` with the skeleton, skin, and morphs from its `.mmesh` |
+| `dress.glb`            | `gltf2model`        | `dress.model` and `dress.mmesh`                                   |
+| `voice.audioclip`      | `convert2audio`     | `voice.ogg`, `.wav`, or `.fsb` according to its signature         |
+| `table.nei`            | `convert2csv`       | `table.csv`                                                       |
+| `table.csv`            | `convert2nei`       | `table.nei`                                                       |
+| `example.arc`          | `unpackArc`         | `example.arc_unpacked\`                                           |
+| `example.ct`           | `convert`           | `example.ct.json`                                                 |
+| `example.aba`          | `unpackAba`         | `example.aba_unpacked\`                                           |
+| `example.aba`          | `genCt`             | `example.ct`                                                      |
 
 ### Batch conversion
 
@@ -179,11 +179,11 @@ the [TEX 1011 FAQ](../README.md#about-version-1011-of-the-tex-file). `--forcePng
 `convert2image` is one-way for Sprite because a Sprite object stores no pixels, and there is no image-to-Sprite
 command. Unpacking splits the three Unity objects into separate files:
 
-| File                          | Unity object           | Contents                                                          |
-|-------------------------------|------------------------|-------------------------------------------------------------------|
-| `Sprite\icon.sprite`          | Sprite (213)           | rect, pivot, border, render-data key, render mesh, physics shape   |
-| `SpriteAtlas\pack.partsatlas` | SpriteAtlas (687078895) | `m_RenderDataMap`, the position of every sprite inside the atlas   |
-| `Texture2D\sactx-*.texture2d` | Texture2D (28)         | the pixels                                                        |
+| File                          | Unity object            | Contents                                                         |
+|-------------------------------|-------------------------|------------------------------------------------------------------|
+| `Sprite\icon.sprite`          | Sprite (213)            | rect, pivot, border, render-data key, render mesh, physics shape |
+| `SpriteAtlas\pack.partsatlas` | SpriteAtlas (687078895) | `m_RenderDataMap`, the position of every sprite inside the atlas |
+| `Texture2D\sactx-*.texture2d` | Texture2D (28)          | the pixels                                                       |
 
 To change how a Sprite looks, edit the Texture2D it resolves to and repack. The `.sprite` and `.partsatlas` files
 are copied through byte for byte, so the sprite metadata and the atlas mapping survive unchanged:
@@ -505,7 +505,7 @@ Important security and storage behavior:
 
 Relevant flags are `--root`, `--restrict-paths`, `--max-blob-mib`, `--max-total-blob-mib`, `--max-blobs`, `--blob-ttl`,
 `--inline-mib`, `--blob-dir`, and `--allow-remote`. The inline limit cannot exceed 3 MiB. See the complete
-[transport API reference](../docs/transport-api.md).
+[transport API reference](transport-api.md).
 
 ## MCP stdio server
 
@@ -569,13 +569,13 @@ effective value as `page_size`.
 
 ### MCP resources, Prompt, and portable editing skill
 
-| Entry point                          | What it returns                                                                                             |
-|--------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| Entry point                          | What it returns                                                                                                                              |
+|--------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
 | `meido://capabilities`               | Active filesystem mode, root IDs, writable root IDs, limits, format capabilities, Schema/Guide metadata, and the MCP format support boundary |
-| `meido://schemas/{format_id}`        | Exact Draft 2020-12 structural contract for editing JSON                                                    |
-| `meido://guides/{format_id}`         | Field inventory, semantic evidence, edit roles, risks, invariants, commands, and value sets                 |
-| `meido://skills/editing/{format_id}` | Portable Markdown editing workflow plus the current filesystem write policy                                 |
-| `meido.edit_format`                  | Prompt that combines an objective with the rendered skill and embeds the exact Schema and Guide             |
+| `meido://schemas/{format_id}`        | Exact Draft 2020-12 structural contract for editing JSON                                                                                     |
+| `meido://guides/{format_id}`         | Field inventory, semantic evidence, edit roles, risks, invariants, commands, and value sets                                                  |
+| `meido://skills/editing/{format_id}` | Portable Markdown editing workflow plus the current filesystem write policy                                                                  |
+| `meido.edit_format`                  | Prompt that combines an objective with the rendered skill and embeds the exact Schema and Guide                                              |
 
 The portable skill is an MCP `text/markdown` resource, not an automatically installed Codex/host plugin. Reading the
 skill resource alone does not replace reading the Schema and Guide: it links to both and defines the preservation,
@@ -584,12 +584,12 @@ complete Schema and Guide in the same Prompt result. The Prompt prepares context
 
 The verification data is split by scope:
 
-| Scope | Values or claims | Meaning |
-|---|---|---|
-| Whole-file `format_verification.level` | `serialization_verified`, `schema_only` | Whether the file's serialization contract, or only its generated structure, is known |
-| Field `verification.serialization` | `status: verified`, `authority: ai\|human` | Format, position, or read/write behavior is checked; game meaning is not implied |
-| Field `verification.source_semantics` | `status: verified`, `authority: ai\|human` | Purpose or consumption path is checked against game source and includes serialization verification |
-| Field `verification.game_behavior` | `status: verified`, `authority: ai\|human` | Behavior is confirmed from an actual game-runtime observation |
+| Scope                                  | Values or claims                           | Meaning                                                                                            |
+|----------------------------------------|--------------------------------------------|----------------------------------------------------------------------------------------------------|
+| Whole-file `format_verification.level` | `serialization_verified`, `schema_only`    | Whether the file's serialization contract, or only its generated structure, is known               |
+| Field `verification.serialization`     | `status: verified`, `authority: ai\|human` | Format, position, or read/write behavior is checked; game meaning is not implied                   |
+| Field `verification.source_semantics`  | `status: verified`, `authority: ai\|human` | Purpose or consumption path is checked against game source and includes serialization verification |
+| Field `verification.game_behavior`     | `status: verified`, `authority: ai\|human` | Behavior is confirmed from an actual game-runtime observation                                      |
 
 `schema_only` is not a certification and therefore uses `authority: generated`. An empty field `verification` object
 means schema-derived only: preserve the value and do not infer behavior from its name. `field_coverage` is a count
@@ -697,10 +697,10 @@ MCP stdio 服务。既可以处理单个文件，也可以递归处理整个目�
 
 - 普通用户可以从 [GitHub Releases](https://github.com/MeidoPromotionAssociation/MeidoSerialization/releases) 下载预编译的
   Windows 可执行文件
-- 从源码构建需要 Go 1.26.5 或更高版本，与 `go.mod` 保持一致
+- 从源码构建需要 Go 1.26.5 或更高版本，与 `../go.mod` 保持一致
 - COM3D2 TEX 与普通图片互转需要 ImageMagick 7 或更高版本，并确保 `magick` 命令已加入 `PATH`
 
-以下示例均使用 PowerShell。示例假设 `MeidoSerialization.exe` 位于当前目录，因此使用 `.\`
+以下示例均使用 PowerShell。示例假设 `../MeidoSerialization.exe` 位于当前目录，因此使用 `.\`
 前缀；如果已经把它加入 `PATH`，也可以省略该前缀。路径中有空格时，请用双引号包住完整路径。
 
 ## 从这里开始
@@ -747,23 +747,23 @@ notepad .\body.menu.json
 
 常见默认输出名如下：
 
-| 输入示例                | 命令            | 默认输出                                                 |
-|-------------------------|-----------------|----------------------------------------------------------|
-| `example.menu`          | `convert2json`  | `example.menu.json`                                      |
-| `example.menu.json`     | `convert2mod`   | `example.menu`                                           |
-| `texture.tex`           | `convert2image` | `texture.png`                                            |
-| `image.png`             | `convert2tex`   | `image.tex`                                              |
-| `Texture2D\my_tex.png`  | `convert2texture2d` | 原生 KCES `my_tex.tex`                               |
-| `body.mmesh`            | `convert2gltf`  | `body.glb`                                               |
-| `dress.model`           | `convert2gltf`  | 含其 `.mmesh` 骨架、蒙皮与 morph 的 `dress.glb`          |
-| `dress.glb`             | `gltf2model`    | `dress.model` 与 `dress.mmesh`                           |
-| `voice.audioclip`       | `convert2audio` | 根据数据签名输出 `voice.ogg`、`.wav` 或 `.fsb`           |
-| `table.nei`             | `convert2csv`   | `table.csv`                                              |
-| `table.csv`             | `convert2nei`   | `table.nei`                                              |
-| `example.arc`           | `unpackArc`     | `example.arc_unpacked\`                                  |
-| `example.ct`            | `convert`       | `example.ct.json`                                        |
-| `example.aba`           | `unpackAba`     | `example.aba_unpacked\`                                  |
-| `example.aba`           | `genCt`         | `example.ct`                                             |
+| 输入示例               | 命令                | 默认输出                                        |
+|------------------------|---------------------|-------------------------------------------------|
+| `example.menu`         | `convert2json`      | `example.menu.json`                             |
+| `example.menu.json`    | `convert2mod`       | `example.menu`                                  |
+| `texture.tex`          | `convert2image`     | `texture.png`                                   |
+| `image.png`            | `convert2tex`       | `image.tex`                                     |
+| `Texture2D\my_tex.png` | `convert2texture2d` | 原生 KCES `my_tex.tex`                          |
+| `body.mmesh`           | `convert2gltf`      | `body.glb`                                      |
+| `dress.model`          | `convert2gltf`      | 含其 `.mmesh` 骨架、蒙皮与 morph 的 `dress.glb` |
+| `dress.glb`            | `gltf2model`        | `dress.model` 与 `dress.mmesh`                  |
+| `voice.audioclip`      | `convert2audio`     | 根据数据签名输出 `voice.ogg`、`.wav` 或 `.fsb`  |
+| `table.nei`            | `convert2csv`       | `table.csv`                                     |
+| `table.csv`            | `convert2nei`       | `table.nei`                                     |
+| `example.arc`          | `unpackArc`         | `example.arc_unpacked\`                         |
+| `example.ct`           | `convert`           | `example.ct.json`                               |
+| `example.aba`          | `unpackAba`         | `example.aba_unpacked\`                         |
+| `example.aba`          | `genCt`             | `example.ct`                                    |
 
 ### 批量转换目录
 
@@ -859,11 +859,11 @@ notepad .\body.menu.json
 
 Sprite 对象本身不存像素，因此 `convert2image` 对 Sprite 是单向的，也没有图片转 Sprite 的命令。解包后三个 Unity 对象是分开的文件：
 
-| 文件                            | Unity 对象               | 内容                                    |
-|-------------------------------|------------------------|---------------------------------------|
-| `Sprite\icon.sprite`          | Sprite（213）            | rect、pivot、border、渲染数据键、渲染网格、碰撞形状     |
-| `SpriteAtlas\pack.partsatlas` | SpriteAtlas（687078895） | `m_RenderDataMap`，即每个 sprite 在图集中的位置  |
-| `Texture2D\sactx-*.texture2d` | Texture2D（28）          | 像素                                    |
+| 文件                          | Unity 对象               | 内容                                                |
+|-------------------------------|--------------------------|-----------------------------------------------------|
+| `Sprite\icon.sprite`          | Sprite（213）            | rect、pivot、border、渲染数据键、渲染网格、碰撞形状 |
+| `SpriteAtlas\pack.partsatlas` | SpriteAtlas（687078895） | `m_RenderDataMap`，即每个 sprite 在图集中的位置     |
+| `Texture2D\sactx-*.texture2d` | Texture2D（28）          | 像素                                                |
 
 要改变 Sprite 的外观，请修改它所指向的 Texture2D 后重新打包。`.sprite` 与 `.partsatlas` 会按字节原样透传，因此 sprite 元数据和图集映射不会有任何改变：
 
@@ -1134,7 +1134,7 @@ grpcurl -plaintext `
 
 | RPC                                  | 用途                                                                        |
 |--------------------------------------|-----------------------------------------------------------------------------|
-| `GetCapabilities`                    | 发现文件系统模式、root ID、格式、限制和 Schema/Guide 元数据                  |
+| `GetCapabilities`                    | 发现文件系统模式、root ID、格式、限制和 Schema/Guide 元数据                 |
 | `GetFormatSchema`                    | 返回某个可转换格式的 Draft 2020-12 编辑 JSON Schema                         |
 | `GetFormatGuide`                     | 返回与该 Schema 配套、经过源码核对的语义 Guide                              |
 | `Detect`                             | 识别原生或编辑 JSON artifact                                                |
@@ -1164,7 +1164,7 @@ inline 的结果会改用 blob 引用。
 
 相关参数包括 `--root`、`--restrict-paths`、`--max-blob-mib`、`--max-total-blob-mib`、`--max-blobs`、
 `--blob-ttl`、`--inline-mib`、`--blob-dir` 和 `--allow-remote`。inline 上限不能超过 3
-MiB。完整协议细节见[传输 API 参考](../docs/transport-api.md)。
+MiB。完整协议细节见[传输 API 参考](transport-api.md)。
 
 ## MCP stdio 服务
 
@@ -1226,13 +1226,13 @@ SHA-256；安装失败时会按 bundle 回滚。
 
 ### MCP 资源、Prompt 与 portable editing skill
 
-| 入口                                 | 返回内容                                                                     |
-|--------------------------------------|------------------------------------------------------------------------------|
+| 入口                                 | 返回内容                                                                                       |
+|--------------------------------------|------------------------------------------------------------------------------------------------|
 | `meido://capabilities`               | 当前文件系统模式、root ID、可写 root、限制、格式能力、Schema/Guide 元数据以及 MCP 格式支持边界 |
-| `meido://schemas/{format_id}`        | 编辑 JSON 的精确 Draft 2020-12 结构协议                                      |
-| `meido://guides/{format_id}`         | 字段目录、语义证据、编辑角色、风险、不变量、命令和 value set                 |
-| `meido://skills/editing/{format_id}` | portable Markdown 编辑流程，以及当前文件系统模式对应的写入策略               |
-| `meido.edit_format`                  | 把编辑目标与渲染后的 skill 组合，并内嵌完整 Schema 和 Guide 的 Prompt        |
+| `meido://schemas/{format_id}`        | 编辑 JSON 的精确 Draft 2020-12 结构协议                                                        |
+| `meido://guides/{format_id}`         | 字段目录、语义证据、编辑角色、风险、不变量、命令和 value set                                   |
+| `meido://skills/editing/{format_id}` | portable Markdown 编辑流程，以及当前文件系统模式对应的写入策略                                 |
+| `meido.edit_format`                  | 把编辑目标与渲染后的 skill 组合，并内嵌完整 Schema 和 Guide 的 Prompt                          |
 
 这里的 portable skill 是 MCP `text/markdown` 资源，不是自动安装到 Codex 或 MCP Host 中的插件。只读取 skill 也不能替代
 Schema 与 Guide：skill 定义保留、验证和写入流程，Schema 给出精确 JSON 结构，Guide 给出经审阅的字段语义。`meido.edit_format`
@@ -1240,12 +1240,12 @@ Schema 与 Guide：skill 定义保留、验证和写入流程，Schema 给出精
 
 认证数据按作用范围拆开：
 
-| 范围 | 值或 claim | 含义 |
-|---|---|---|
-| 文件级 `format_verification.level` | `serialization_verified`、`schema_only` | 表示整个文件的序列化契约已知，或目前只有生成出的结构 |
-| 字段 `verification.serialization` | `status: verified`、`authority: ai\|human` | 已核对格式、位置或读写方式，不表示游戏含义已知 |
-| 字段 `verification.source_semantics` | `status: verified`、`authority: ai\|human` | 已对照游戏源码确认用途或消费路径，并包含序列化认证 |
-| 字段 `verification.game_behavior` | `status: verified`、`authority: ai\|human` | 已根据实际游戏运行观察确认行为 |
+| 范围                                 | 值或 claim                                 | 含义                                                 |
+|--------------------------------------|--------------------------------------------|------------------------------------------------------|
+| 文件级 `format_verification.level`   | `serialization_verified`、`schema_only`    | 表示整个文件的序列化契约已知，或目前只有生成出的结构 |
+| 字段 `verification.serialization`    | `status: verified`、`authority: ai\|human` | 已核对格式、位置或读写方式，不表示游戏含义已知       |
+| 字段 `verification.source_semantics` | `status: verified`、`authority: ai\|human` | 已对照游戏源码确认用途或消费路径，并包含序列化认证   |
+| 字段 `verification.game_behavior`    | `status: verified`、`authority: ai\|human` | 已根据实际游戏运行观察确认行为                       |
 
 `schema_only` 不是认证，因此使用 `authority: generated`。字段的空 `verification` 对象表示仅由 Schema
 派生：必须保留其值，不能根据名称猜测行为。`field_coverage` 只是数量汇总，不能提升任何字段。Schema
@@ -1354,10 +1354,10 @@ JSON formatter を使用できます。対応形式であれば、この CLI が
 
 - 一般ユーザーは [GitHub Releases](https://github.com/MeidoPromotionAssociation/MeidoSerialization/releases) からビルド済み
   Windows 実行ファイルをダウンロードできます
-- ソースからのビルドには `go.mod` と同じ Go 1.26.5 以降が必要です
+- ソースからのビルドには `../go.mod` と同じ Go 1.26.5 以降が必要です
 - COM3D2 TEX と画像の相互変換には ImageMagick 7 以降が必要で、`magick` を `PATH` から実行できるようにしてください
 
-以下はすべて PowerShell の例です。`MeidoSerialization.exe` を現在のディレクトリに置いた場合を想定して `.\` を付けています。
+以下はすべて PowerShell の例です。`../MeidoSerialization.exe` を現在のディレクトリに置いた場合を想定して `.\` を付けています。
 `PATH` に追加済みであれば省略できます。空白を含むパスは、パス全体をダブルクォートで囲んでください。
 
 ## 最初に試す操作
@@ -1405,23 +1405,23 @@ notepad .\body.menu.json
 
 主な既定出力名：
 
-| 入力例                  | コマンド        | 既定の出力                                                      |
-|-------------------------|-----------------|-----------------------------------------------------------------|
-| `example.menu`          | `convert2json`  | `example.menu.json`                                             |
-| `example.menu.json`     | `convert2mod`   | `example.menu`                                                  |
-| `texture.tex`           | `convert2image` | `texture.png`                                                   |
-| `image.png`             | `convert2tex`   | `image.tex`                                                     |
-| `Texture2D\my_tex.png`  | `convert2texture2d` | ネイティブ KCES `my_tex.tex`                                |
-| `body.mmesh`            | `convert2gltf`  | `body.glb`                                                      |
-| `dress.model`           | `convert2gltf`  | その `.mmesh` の skeleton・skin・morph を含む `dress.glb`       |
-| `dress.glb`             | `gltf2model`    | `dress.model` と `dress.mmesh`                                  |
-| `voice.audioclip`       | `convert2audio` | シグネチャに応じて `voice.ogg`、`.wav`、または `.fsb`           |
-| `table.nei`             | `convert2csv`   | `table.csv`                                                     |
-| `table.csv`             | `convert2nei`   | `table.nei`                                                     |
-| `example.arc`           | `unpackArc`     | `example.arc_unpacked\`                                         |
-| `example.ct`            | `convert`       | `example.ct.json`                                               |
-| `example.aba`           | `unpackAba`     | `example.aba_unpacked\`                                         |
-| `example.aba`           | `genCt`         | `example.ct`                                                    |
+| 入力例                 | コマンド            | 既定の出力                                                |
+|------------------------|---------------------|-----------------------------------------------------------|
+| `example.menu`         | `convert2json`      | `example.menu.json`                                       |
+| `example.menu.json`    | `convert2mod`       | `example.menu`                                            |
+| `texture.tex`          | `convert2image`     | `texture.png`                                             |
+| `image.png`            | `convert2tex`       | `image.tex`                                               |
+| `Texture2D\my_tex.png` | `convert2texture2d` | ネイティブ KCES `my_tex.tex`                              |
+| `body.mmesh`           | `convert2gltf`      | `body.glb`                                                |
+| `dress.model`          | `convert2gltf`      | その `.mmesh` の skeleton・skin・morph を含む `dress.glb` |
+| `dress.glb`            | `gltf2model`        | `dress.model` と `dress.mmesh`                            |
+| `voice.audioclip`      | `convert2audio`     | シグネチャに応じて `voice.ogg`、`.wav`、または `.fsb`     |
+| `table.nei`            | `convert2csv`       | `table.csv`                                               |
+| `table.csv`            | `convert2nei`       | `table.nei`                                               |
+| `example.arc`          | `unpackArc`         | `example.arc_unpacked\`                                   |
+| `example.ct`           | `convert`           | `example.ct.json`                                         |
+| `example.aba`          | `unpackAba`         | `example.aba_unpacked\`                                   |
+| `example.aba`          | `genCt`             | `example.ct`                                              |
 
 ### ディレクトリの一括変換
 
@@ -1519,11 +1519,11 @@ notepad .\body.menu.json
 Sprite オブジェクト自体はピクセルを保持しないため、`convert2image` は Sprite に対して一方向であり、画像から Sprite への変換コマンドもありません。展開すると
 3 つの Unity オブジェクトは別々のファイルになります。
 
-| ファイル                          | Unity オブジェクト           | 内容                                                |
-|-------------------------------|------------------------|---------------------------------------------------|
-| `Sprite\icon.sprite`          | Sprite（213）            | rect、pivot、border、レンダーデータキー、レンダーメッシュ、物理形状          |
-| `SpriteAtlas\pack.partsatlas` | SpriteAtlas（687078895） | `m_RenderDataMap`、つまり atlas 内での各 sprite の位置        |
-| `Texture2D\sactx-*.texture2d` | Texture2D（28）          | ピクセル                                              |
+| ファイル                      | Unity オブジェクト       | 内容                                                                |
+|-------------------------------|--------------------------|---------------------------------------------------------------------|
+| `Sprite\icon.sprite`          | Sprite（213）            | rect、pivot、border、レンダーデータキー、レンダーメッシュ、物理形状 |
+| `SpriteAtlas\pack.partsatlas` | SpriteAtlas（687078895） | `m_RenderDataMap`、つまり atlas 内での各 sprite の位置              |
+| `Texture2D\sactx-*.texture2d` | Texture2D（28）          | ピクセル                                                            |
 
 Sprite の見た目を変更するには、参照先の Texture2D を編集して再パックしてください。`.sprite` と `.partsatlas`
 はバイト単位でそのまま透過されるため、sprite のメタデータと atlas のマッピングは一切変化しません。
@@ -1846,7 +1846,7 @@ inline 上限を共有し、収まらない結果は blob reference になりま
 
 関連 flags は `--root`、`--restrict-paths`、`--max-blob-mib`、`--max-total-blob-mib`、`--max-blobs`、
 `--blob-ttl`、`--inline-mib`、`--blob-dir`、`--allow-remote` です。inline 上限は 3 MiB を超えられません。完全な仕様は
-[Transport API リファレンス](../docs/transport-api.md)を参照してください。
+[Transport API リファレンス](transport-api.md)を参照してください。
 
 ## MCP stdio サーバー
 
@@ -1911,13 +1911,13 @@ schema が `name` を必須にします。`meido.convert_file` は `target` か�
 
 ### MCP resources、Prompt、portable editing skill
 
-| Entry point                          | 戻り値                                                                                          |
-|--------------------------------------|-------------------------------------------------------------------------------------------------|
+| Entry point                          | 戻り値                                                                                                                       |
+|--------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
 | `meido://capabilities`               | 現在の filesystem mode、root ID、writable root、limit、format capability、Schema/Guide metadata、MCP format support boundary |
-| `meido://schemas/{format_id}`        | 編集 JSON の正確な Draft 2020-12 構造契約                                                       |
-| `meido://guides/{format_id}`         | field inventory、semantic evidence、edit role、risk、invariant、command、value set              |
-| `meido://skills/editing/{format_id}` | portable Markdown 編集 workflow と現在の filesystem write policy                                |
-| `meido.edit_format`                  | objective と rendered skill を結合し、完全な Schema と Guide を埋め込む Prompt                  |
+| `meido://schemas/{format_id}`        | 編集 JSON の正確な Draft 2020-12 構造契約                                                                                    |
+| `meido://guides/{format_id}`         | field inventory、semantic evidence、edit role、risk、invariant、command、value set                                           |
+| `meido://skills/editing/{format_id}` | portable Markdown 編集 workflow と現在の filesystem write policy                                                             |
+| `meido.edit_format`                  | objective と rendered skill を結合し、完全な Schema と Guide を埋め込む Prompt                                               |
 
 portable skill は MCP の `text/markdown` resource であり、Codex skill や MCP Host plugin として
 自動インストールされるものではありません。skill だけを読んでも Schema と Guide の代わりにはなりません。skill は保存・検証・書き込み
@@ -1926,12 +1926,12 @@ Prompt result に skill text、完全な Schema、完全な Guide を含むた�
 
 verification data は scope ごとに分かれています。
 
-| Scope | 値または claim | 意味 |
-|---|---|---|
-| whole-file `format_verification.level` | `serialization_verified`、`schema_only` | ファイルの serialization contract、または生成済み構造だけが既知かを表す |
-| field `verification.serialization` | `status: verified`、`authority: ai\|human` | 形式、位置、read/write behavior を確認済み。ゲーム内意味は含まない |
-| field `verification.source_semantics` | `status: verified`、`authority: ai\|human` | ゲームソースで用途または consumption path を確認済みで、serialization verification を含む |
-| field `verification.game_behavior` | `status: verified`、`authority: ai\|human` | 実際のゲーム実行観察で behavior を確認済み |
+| Scope                                  | 値または claim                             | 意味                                                                                      |
+|----------------------------------------|--------------------------------------------|-------------------------------------------------------------------------------------------|
+| whole-file `format_verification.level` | `serialization_verified`、`schema_only`    | ファイルの serialization contract、または生成済み構造だけが既知かを表す                   |
+| field `verification.serialization`     | `status: verified`、`authority: ai\|human` | 形式、位置、read/write behavior を確認済み。ゲーム内意味は含まない                        |
+| field `verification.source_semantics`  | `status: verified`、`authority: ai\|human` | ゲームソースで用途または consumption path を確認済みで、serialization verification を含む |
+| field `verification.game_behavior`     | `status: verified`、`authority: ai\|human` | 実際のゲーム実行観察で behavior を確認済み                                                |
 
 `schema_only` は認証ではないため `authority: generated` を使用します。field の空の `verification` object は
 Schema 由来だけという意味です。値を保持し、名前から挙動を推測しないでください。`field_coverage` は件数の

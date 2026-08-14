@@ -250,14 +250,14 @@ Streamable HTTP can be added as a separate deployment surface without changing t
 
 ### MCP tools
 
-| Tool                          | Purpose                                                                                                  |
-|-------------------------------|----------------------------------------------------------------------------------------------------------|
-| `meido.detect_file`           | Detect a COM3D2/KCES file and return its format ID, version, and representation.                         |
-| `meido.inspect_file`          | Return a small editing JSON document inline. Larger documents should use `meido.convert_file`.           |
-| `meido.validate_editing_json` | Validate one JSON document against the published Schema, then re-encode it with the native serializer. Inline `editing_json` requires `name`. |
+| Tool                          | Purpose                                                                                                                                                      |
+|-------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `meido.detect_file`           | Detect a COM3D2/KCES file and return its format ID, version, and representation.                                                                             |
+| `meido.inspect_file`          | Return a small editing JSON document inline. Larger documents should use `meido.convert_file`.                                                               |
+| `meido.validate_editing_json` | Validate one JSON document against the published Schema, then re-encode it with the native serializer. Inline `editing_json` requires `name`.                |
 | `meido.convert_file`          | Convert native/editing JSON and install the complete primary/sidecar bundle at the selected destination. `target` decides the required input representation. |
-| `meido.list_archive`          | List exact entries in ARC, CT/VirtualDirectory, ABA, `.asset_bg`, or `.asset_scene`.                     |
-| `meido.extract_archive_entry` | Extract one exact listed entry at the selected destination.                                              |
+| `meido.list_archive`          | List exact entries in ARC, CT/VirtualDirectory, ABA, `.asset_bg`, or `.asset_scene`.                                                                         |
+| `meido.extract_archive_entry` | Extract one exact listed entry at the selected destination.                                                                                                  |
 
 ### MCP resources, Prompt, and portable editing skill
 
@@ -296,12 +296,12 @@ one result; it prepares context but does not modify a file by itself.
 
 Verification is split by scope:
 
-| Scope | Values or claims | Meaning |
-|---|---|---|
-| `format_verification.level` | `serialization_verified`, `schema_only` | Whole-file serialization contract or generated structure only |
-| `verification.serialization` | `status: verified`, `authority: ai\|human` | Field format or read/write behavior, without game meaning |
-| `verification.source_semantics` | `status: verified`, `authority: ai\|human` | Game-source semantics, including serialization verification |
-| `verification.game_behavior` | `status: verified`, `authority: ai\|human` | Actual observed game behavior |
+| Scope                           | Values or claims                           | Meaning                                                       |
+|---------------------------------|--------------------------------------------|---------------------------------------------------------------|
+| `format_verification.level`     | `serialization_verified`, `schema_only`    | Whole-file serialization contract or generated structure only |
+| `verification.serialization`    | `status: verified`, `authority: ai\|human` | Field format or read/write behavior, without game meaning     |
+| `verification.source_semantics` | `status: verified`, `authority: ai\|human` | Game-source semantics, including serialization verification   |
+| `verification.game_behavior`    | `status: verified`, `authority: ai\|human` | Actual observed game behavior                                 |
 
 An empty field `verification` object is the schema-derived baseline, not a certification. Read `field_coverage` as a
 count summary only, and always inspect the exact field before editing it.
@@ -582,14 +582,14 @@ engine。
 
 ### MCP 工具
 
-| 工具                          | 用途                                                                       |
-|-------------------------------|----------------------------------------------------------------------------|
-| `meido.detect_file`           | 检测 COM3D2/KCES 文件，返回 format ID、版本和 representation               |
-| `meido.inspect_file`          | 内联返回较小的 editing JSON；较大文档应使用 `meido.convert_file`           |
-| `meido.validate_editing_json` | 先按公开 Schema 验证一个 JSON 文档，再使用原生 serializer 重新编码；内联 `editing_json` 必须同时提供 `name` |
+| 工具                          | 用途                                                                                                         |
+|-------------------------------|--------------------------------------------------------------------------------------------------------------|
+| `meido.detect_file`           | 检测 COM3D2/KCES 文件，返回 format ID、版本和 representation                                                 |
+| `meido.inspect_file`          | 内联返回较小的 editing JSON；较大文档应使用 `meido.convert_file`                                             |
+| `meido.validate_editing_json` | 先按公开 Schema 验证一个 JSON 文档，再使用原生 serializer 重新编码；内联 `editing_json` 必须同时提供 `name`  |
 | `meido.convert_file`          | 转换原生/editing JSON，并在目标位置安装完整主文件/sidecar bundle；`target` 决定输入必须持有的 representation |
-| `meido.list_archive`          | 精确列出 ARC、CT/VirtualDirectory、ABA、`.asset_bg` 或 `.asset_scene` 条目 |
-| `meido.extract_archive_entry` | 把一个精确列出的条目提取到选定目标                                         |
+| `meido.list_archive`          | 精确列出 ARC、CT/VirtualDirectory、ABA、`.asset_bg` 或 `.asset_scene` 条目                                   |
+| `meido.extract_archive_entry` | 把一个精确列出的条目提取到选定目标                                                                           |
 
 ### MCP 资源、Prompt 与 portable editing skill
 
@@ -622,12 +622,12 @@ Guide 的便捷入口，但 Prompt 只准备上下文，不会自行修改文件
 
 认证按作用范围拆开：
 
-| 范围 | 值或 claim | 含义 |
-|---|---|---|
-| `format_verification.level` | `serialization_verified`、`schema_only` | 整个文件的序列化契约已知，或目前只有生成出的结构 |
-| `verification.serialization` | `status: verified`、`authority: ai\|human` | 字段格式或读写方式，不包含游戏含义 |
-| `verification.source_semantics` | `status: verified`、`authority: ai\|human` | 游戏源码语义，并包含序列化认证 |
-| `verification.game_behavior` | `status: verified`、`authority: ai\|human` | 实际观察到的游戏行为 |
+| 范围                            | 值或 claim                                 | 含义                                             |
+|---------------------------------|--------------------------------------------|--------------------------------------------------|
+| `format_verification.level`     | `serialization_verified`、`schema_only`    | 整个文件的序列化契约已知，或目前只有生成出的结构 |
+| `verification.serialization`    | `status: verified`、`authority: ai\|human` | 字段格式或读写方式，不包含游戏含义               |
+| `verification.source_semantics` | `status: verified`、`authority: ai\|human` | 游戏源码语义，并包含序列化认证                   |
+| `verification.game_behavior`    | `status: verified`、`authority: ai\|human` | 实际观察到的游戏行为                             |
 
 空字段 `verification` 对象是 Schema 派生基线，不是认证。`field_coverage` 只能作为数量汇总读取；
 编辑前始终要检查目标字段自己的 claim。
@@ -933,14 +933,14 @@ stdout には protocol message だけを書き、log は stderr に出力しま�
 
 ### MCP tools
 
-| Tool                          | 用途                                                                                   |
-|-------------------------------|----------------------------------------------------------------------------------------|
-| `meido.detect_file`           | COM3D2/KCES file を detect し、format ID、version、representation を返す               |
-| `meido.inspect_file`          | 小さい editing JSON を inline で返す。大きい document には `meido.convert_file` を使用 |
-| `meido.validate_editing_json` | 一つの JSON document を公開 Schema で検証し、native serializer で再エンコード。inline `editing_json` には `name` が必須 |
+| Tool                          | 用途                                                                                                                                |
+|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
+| `meido.detect_file`           | COM3D2/KCES file を detect し、format ID、version、representation を返す                                                            |
+| `meido.inspect_file`          | 小さい editing JSON を inline で返す。大きい document には `meido.convert_file` を使用                                              |
+| `meido.validate_editing_json` | 一つの JSON document を公開 Schema で検証し、native serializer で再エンコード。inline `editing_json` には `name` が必須             |
 | `meido.convert_file`          | native/editing JSON を変換し、完全な primary/sidecar bundle を destination に install。`target` が input の representation を決める |
-| `meido.list_archive`          | ARC、CT/VirtualDirectory、ABA、`.asset_bg`、`.asset_scene` の正確な entry を一覧表示   |
-| `meido.extract_archive_entry` | 一つの正確な listed entry を選択 destination へ抽出                                    |
+| `meido.list_archive`          | ARC、CT/VirtualDirectory、ABA、`.asset_bg`、`.asset_scene` の正確な entry を一覧表示                                                |
+| `meido.extract_archive_entry` | 一つの正確な listed entry を選択 destination へ抽出                                                                                 |
 
 ### MCP resources、Prompt、portable editing skill
 
@@ -976,12 +976,12 @@ Schema、完全な Guide を一度に取得する便利な entry point ですが
 
 verification は scope ごとに分かれています。
 
-| Scope | 値または claim | 意味 |
-|---|---|---|
-| `format_verification.level` | `serialization_verified`、`schema_only` | whole-file serialization contract、または生成済み構造だけ |
-| `verification.serialization` | `status: verified`、`authority: ai\|human` | field format または read/write behavior。ゲーム内意味は含まない |
-| `verification.source_semantics` | `status: verified`、`authority: ai\|human` | game-source semantics。serialization verification を含む |
-| `verification.game_behavior` | `status: verified`、`authority: ai\|human` | 実際に観察された game behavior |
+| Scope                           | 値または claim                             | 意味                                                            |
+|---------------------------------|--------------------------------------------|-----------------------------------------------------------------|
+| `format_verification.level`     | `serialization_verified`、`schema_only`    | whole-file serialization contract、または生成済み構造だけ       |
+| `verification.serialization`    | `status: verified`、`authority: ai\|human` | field format または read/write behavior。ゲーム内意味は含まない |
+| `verification.source_semantics` | `status: verified`、`authority: ai\|human` | game-source semantics。serialization verification を含む        |
+| `verification.game_behavior`    | `status: verified`、`authority: ai\|human` | 実際に観察された game behavior                                  |
 
 空の field `verification` object は Schema 由来の baseline であり、認証ではありません。`field_coverage` は件数 summary として
 だけ読み、編集前に必ず exact field の claim を確認してください。
