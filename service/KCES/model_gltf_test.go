@@ -15,7 +15,7 @@ import (
 
 func officialModelSample(t *testing.T, bundle string, name string) string {
 	t.Helper()
-	path := filepath.Join("..", "..", "testdata", "aba", bundle+".aba_unpacked", "TextAsset", name+".model")
+	path := filepath.Join("..", "..", "testdata", "KCES", bundle+".aba_unpacked", "TextAsset", name+".model")
 	if _, err := os.Stat(path); err != nil {
 		t.Skipf("sample not available: %v", err)
 	}

@@ -9,9 +9,9 @@ import (
 
 func TestDanceService_DanceObjectData(t *testing.T) {
 	patterns := []string{
-		"../../testdata/bytes/*/maid_data.bytes",
-		"../../testdata/bytes/*/item_data.bytes",
-		"../../testdata/bytes/*/event_data.bytes",
+		"../../testdata/dance bytes/*/maid_data.bytes",
+		"../../testdata/dance bytes/*/item_data.bytes",
+		"../../testdata/dance bytes/*/event_data.bytes",
 	}
 
 	var files []string
@@ -67,7 +67,7 @@ func TestDanceService_DanceObjectData(t *testing.T) {
 }
 
 func TestDanceService_TimelineData(t *testing.T) {
-	files, err := filepath.Glob("../../testdata/bytes/*/timeline_data.bytes")
+	files, err := filepath.Glob("../../testdata/dance bytes/*/timeline_data.bytes")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestDanceService_TimelineData(t *testing.T) {
 func TestDanceService_SniffDanceBytesType(t *testing.T) {
 	s := &DanceService{}
 
-	timelineFiles, _ := filepath.Glob("../../testdata/bytes/*/timeline_data.bytes")
+	timelineFiles, _ := filepath.Glob("../../testdata/dance bytes/*/timeline_data.bytes")
 	for _, f := range timelineFiles {
 		bytesType, err := s.SniffDanceBytesType(f)
 		if err != nil {
@@ -129,7 +129,7 @@ func TestDanceService_SniffDanceBytesType(t *testing.T) {
 		}
 	}
 
-	objectFiles, _ := filepath.Glob("../../testdata/bytes/*/maid_data.bytes")
+	objectFiles, _ := filepath.Glob("../../testdata/dance bytes/*/maid_data.bytes")
 	for _, f := range objectFiles {
 		bytesType, err := s.SniffDanceBytesType(f)
 		if err != nil {

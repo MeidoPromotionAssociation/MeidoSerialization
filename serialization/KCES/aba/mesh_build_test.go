@@ -25,7 +25,7 @@ func TestUnity2022MeshTypeTreeParsesEmbeddedSchema(t *testing.T) {
 }
 
 func TestNewNativeMeshObjectRoundTripsFixtureGeometry(t *testing.T) {
-	fixture := filepath.Join("..", "..", "..", "testdata", "aba", "parts_dlc395_gp003.aba_unpacked", "Mesh", "crc_dress044_shoe.mmesh")
+	fixture := filepath.Join("..", "..", "..", "testdata", "KCES", "parts_dlc395_gp003.aba_unpacked", "Mesh", "crc_dress044_shoe.mmesh")
 	data, err := os.ReadFile(fixture)
 	if err != nil {
 		t.Skipf("fixture not available: %v", err)
@@ -127,7 +127,7 @@ func TestNewNativeMeshObjectRoundTripsFixtureGeometry(t *testing.T) {
 }
 
 func TestNewNativeMeshObjectRoundTripsVariableBoneWeights(t *testing.T) {
-	fixture := filepath.Join("..", "..", "..", "testdata", "aba", "parts_dlc395_gp003.aba_unpacked", "Mesh", "crc_dress044_wear.mmesh")
+	fixture := filepath.Join("..", "..", "..", "testdata", "KCES", "parts_dlc395_gp003.aba_unpacked", "Mesh", "crc_dress044_wear.mmesh")
 	data, err := os.ReadFile(fixture)
 	if err != nil {
 		t.Skipf("fixture not available: %v", err)

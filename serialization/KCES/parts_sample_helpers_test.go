@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 )
 
 func TestKCESPartsSamplesHaveKnownSuffixes(t *testing.T) {
@@ -55,14 +57,7 @@ func partsSamplePathsBySuffix(t *testing.T, suffix string) []string {
 
 func allPartsSamplePaths(t *testing.T) []string {
 	t.Helper()
-	paths, err := filepath.Glob(filepath.Join(partsSampleDir(), "*"))
-	if err != nil {
-		t.Fatalf("glob parts samples: %v", err)
-	}
-	if len(paths) == 0 {
-		t.Skip("no parts samples found in testdata/kces_parts")
-	}
-	return paths
+	return kcesfixtures.PartsSamplePaths(t)
 }
 
 func assertPartsSampleRoundTripDeepEqual[T any](
@@ -95,18 +90,4 @@ func assertPartsSampleRoundTripDeepEqual[T any](
 	if !reflect.DeepEqual(decoded, original) {
 		t.Fatalf("%s changed after decode/encode/decode: got %#v, want %#v", filepath.Base(path), decoded, original)
 	}
-}
-
-func readPartsSample(t *testing.T, name string) []byte {
-	t.Helper()
-	path := filepath.Join(partsSampleDir(), name)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read parts sample %s: %v", path, err)
-	}
-	return data
-}
-
-func partsSampleDir() string {
-	return filepath.Join("..", "..", "testdata", "kces_parts")
 }

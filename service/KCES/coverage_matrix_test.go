@@ -10,7 +10,7 @@ import (
 )
 
 func TestKCESKnownExtensionRoutingMatrix(t *testing.T) {
-	ctPaths, err := filepath.Glob(filepath.Join("..", "..", "testdata", "aba", "*.ct"))
+	ctPaths, err := filepath.Glob(filepath.Join("..", "..", "testdata", "KCES", "*.ct"))
 	if err != nil {
 		t.Fatalf("glob .ct route samples: %v", err)
 	}

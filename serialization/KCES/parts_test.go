@@ -200,13 +200,7 @@ func TestDecodeMenuAssets_ByteEqual(t *testing.T) {
 }
 
 func TestDecodeModel_FromAba(t *testing.T) {
-	paths, err := filepath.Glob(filepath.Join(partsSampleDir(), "*.model"))
-	if err != nil {
-		t.Fatalf("glob models: %v", err)
-	}
-	if len(paths) == 0 {
-		t.Skip("model samples not found")
-	}
+	paths := partsSamplePathsBySuffix(t, ".model")
 
 	for _, path := range paths {
 		t.Run(filepath.Base(path), func(t *testing.T) {

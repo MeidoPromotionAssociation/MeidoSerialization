@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 )
 
 func TestDecodeKCESMisc_FromTestdataSamples(t *testing.T) {
@@ -27,13 +29,7 @@ func TestDecodeKCESMisc_FromTestdataSamples(t *testing.T) {
 
 func groupMiscSamplesByExt(t *testing.T) map[string][]string {
 	t.Helper()
-	paths, err := filepath.Glob(filepath.Join(miscSampleDir(), "*"))
-	if err != nil {
-		t.Fatalf("glob misc samples: %v", err)
-	}
-	if len(paths) == 0 {
-		t.Skip("no misc samples found in testdata/kces_misc")
-	}
+	paths := kcesfixtures.MiscSamplePaths(t)
 
 	pathsByExt := map[string][]string{}
 	for _, path := range paths {
@@ -128,18 +124,4 @@ func assertHitCheckSampleFields(t *testing.T, name string, hitCheck *HitCheck) {
 	if first.SKRT != 0 || first.RL != 1 {
 		t.Fatalf("IK.hitcheck[0] flags got skrt=%d rl=%d, want 0/1", first.SKRT, first.RL)
 	}
-}
-
-func readMiscSample(t *testing.T, name string) []byte {
-	t.Helper()
-	path := filepath.Join(miscSampleDir(), name)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read misc sample %s: %v", path, err)
-	}
-	return data
-}
-
-func miscSampleDir() string {
-	return filepath.Join("..", "..", "testdata", "kces_misc")
 }

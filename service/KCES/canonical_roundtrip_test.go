@@ -2,6 +2,7 @@ package KCES
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"math"
 	"os"
@@ -9,18 +10,18 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"golang.org/x/sync/semaphore"
 )
 
 const canonicalAbaHeavyTestEnv = "KCES_ABA_HEAVY_TESTS"
 
 func TestCanonicalAbaPureDirectoryRoundTrip(t *testing.T) {
-	sample := filepath.Join("..", "..", "testdata", "aba", "parts_personal_om015_gp003.aba")
+	sample := filepath.Join("..", "..", "testdata", "KCES", "parts_personal_om015_gp003.aba")
 	if _, err := os.Stat(sample); err != nil {
 		t.Skipf("sample not available: %v", err)
 	}
@@ -55,7 +56,7 @@ func TestCanonicalAbaAllReadableSamplesPureDirectoryRoundTrip(t *testing.T) {
 		t.Skipf("set %s=1 to round trip every readable KCES ABA sample", canonicalAbaHeavyTestEnv)
 	}
 	const parallelSlots = 10
-	samples, err := filepath.Glob(filepath.Join("..", "..", "testdata", "aba", "*.aba"))
+	samples, err := filepath.Glob(filepath.Join("..", "..", "testdata", "KCES", "*.aba"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,20 +75,7 @@ func TestCanonicalAbaAllReadableSamplesPureDirectoryRoundTrip(t *testing.T) {
 		aba.ClassIDAudioClip:     {},
 		aba.ClassIDMonoBehaviour: {},
 	}
-	slots := make(chan struct{}, parallelSlots)
-	var slotAcquireMu sync.Mutex
-	acquireSlots := func(count int) {
-		slotAcquireMu.Lock()
-		defer slotAcquireMu.Unlock()
-		for slot := 0; slot < count; slot++ {
-			slots <- struct{}{}
-		}
-	}
-	releaseSlots := func(count int) {
-		for slot := 0; slot < count; slot++ {
-			<-slots
-		}
-	}
+	slots := semaphore.NewWeighted(parallelSlots)
 	t.Cleanup(func() {
 		readable := readableCount.Load()
 		encrypted := encryptedCount.Load()
@@ -108,10 +96,12 @@ func TestCanonicalAbaAllReadableSamplesPureDirectoryRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatalf("stat source ABA: %v", err)
 			}
-			slotCount := canonicalRoundTripSlotCount(sampleInfo.Size())
+			slotCount := int64(canonicalRoundTripSlotCount(sampleInfo.Size()))
 			t.Parallel()
-			acquireSlots(slotCount)
-			defer releaseSlots(slotCount)
+			if err := slots.Acquire(context.Background(), slotCount); err != nil {
+				t.Fatalf("acquire round trip slots: %v", err)
+			}
+			defer slots.Release(slotCount)
 
 			_, sourceFile, err := (&AbaService{}).ReadAba(sample)
 			if err != nil {
@@ -186,7 +176,7 @@ func TestCanonicalAbaLegacyVersionFamiliesPureDirectoryRoundTrip(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sample := filepath.Join("..", "..", "testdata", "aba", tt.file)
+			sample := filepath.Join("..", "..", "testdata", "KCES", tt.file)
 			if _, err := os.Stat(sample); err != nil {
 				t.Skipf("sample not available: %v", err)
 			}
@@ -246,7 +236,7 @@ func TestCanonicalAbaKnownVersionSamplesBuildPureDirectoryPlan(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sample := filepath.Join("..", "..", "testdata", "aba", tt.file)
+			sample := filepath.Join("..", "..", "testdata", "KCES", tt.file)
 			if _, err := os.Stat(sample); err != nil {
 				t.Skipf("sample not available: %v", err)
 			}
@@ -289,7 +279,7 @@ func TestCanonicalKCESBuiltInExternalFileIDs(t *testing.T) {
 }
 
 func TestCanonicalAbaSystemRoundTripPreservesMonoBehaviourScriptTypes(t *testing.T) {
-	sample := filepath.Join("..", "..", "testdata", "aba", "system.aba")
+	sample := filepath.Join("..", "..", "testdata", "KCES", "system.aba")
 	if _, err := os.Stat(sample); err != nil {
 		t.Skipf("sample not available: %v", err)
 	}

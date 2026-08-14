@@ -46,7 +46,7 @@ func TestLegacyStrictDetectorDoesNotCallKCESBinaryCSV(t *testing.T) {
 	payloadPath := kcesfixtures.TextAssetPath(t, "partsmeta.aba", "default_hairf.dbconf")
 	hitCheckPath := kcesfixtures.TextAssetPath(t, "system.aba", "IK.hitcheck")
 	for _, path := range []string{
-		filepath.Join("..", "..", "testdata", "aba", "cm3d2_eyes.aba"),
+		filepath.Join("..", "..", "testdata", "KCES", "cm3d2_eyes.aba"),
 		menuAssetsPath,
 		payloadPath,
 		hitCheckPath,
@@ -79,7 +79,7 @@ func TestTryFileTypeDetermineMatchesCOM3D2BeforeKCESFallback(t *testing.T) {
 	modelPath := kcesfixtures.TextAssetPath(t, "cm3d2_megane002.aba", "cm3d2_megane002.model")
 	for _, path := range []string{
 		modelPath,
-		filepath.Join("..", "..", "testdata", "aba", "cm3d2_eyes.aba"),
+		filepath.Join("..", "..", "testdata", "KCES", "cm3d2_eyes.aba"),
 	} {
 		info, matched, err := service.TryFileTypeDetermine(path)
 		if err != nil {

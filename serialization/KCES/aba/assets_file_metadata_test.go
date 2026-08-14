@@ -519,7 +519,7 @@ func TestReadAssetsFileAllReadableKCESSamples(t *testing.T) {
 	if os.Getenv(abaHeavyTestEnv) == "" {
 		t.Skipf("set %s=1 to parse every readable KCES ABA sample", abaHeavyTestEnv)
 	}
-	paths, err := filepath.Glob("../../../testdata/aba/*.aba")
+	paths, err := filepath.Glob("../../../testdata/KCES/*.aba")
 	if err != nil {
 		t.Fatal(err)
 	}

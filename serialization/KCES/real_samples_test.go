@@ -18,12 +18,12 @@ func TestRealKCESPresetSamplesRoundTrip(t *testing.T) {
 	}{
 		{
 			name:    "legacy color layouts",
-			path:    filepath.Join("..", "..", "testdata", "aba", "Preset", "box ex", "pre_muku.preset"),
+			path:    filepath.Join("..", "..", "testdata", "KCES", "Preset", "box ex", "pre_muku.preset"),
 			framing: ct.VirtualDirectoryFramingLegacy,
 		},
 		{
 			name:    "extended container framing",
-			path:    filepath.Join("..", "..", "testdata", "aba", "Preset", "box ex", "pre_crc_streetdevil.preset"),
+			path:    filepath.Join("..", "..", "testdata", "KCES", "Preset", "box ex", "pre_crc_streetdevil.preset"),
 			framing: ct.VirtualDirectoryFramingExtended,
 		},
 	}
@@ -62,7 +62,7 @@ func TestRealKCESPresetSamplesRoundTrip(t *testing.T) {
 }
 
 func TestRealKCESSystemDataRoundTrip(t *testing.T) {
-	path := filepath.Join("..", "..", "testdata", "aba", "system.dat")
+	path := filepath.Join("..", "..", "testdata", "KCES", "system.dat")
 	data := readOptionalKCESRealSample(t, path)
 	decoded, err := DecodeKCESSystemData(data)
 	if err != nil {

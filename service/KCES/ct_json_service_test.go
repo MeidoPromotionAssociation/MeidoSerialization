@@ -192,7 +192,7 @@ func TestCtService_FixedSamplesJSONRoundTrip(t *testing.T) {
 	for _, sample := range samples {
 		sample := sample
 		t.Run(sample.file, func(t *testing.T) {
-			inputPath := filepath.Join("..", "..", "testdata", "aba", sample.file)
+			inputPath := filepath.Join("..", "..", "testdata", "KCES", sample.file)
 			envelope, err := service.ReadCtEnvelope(inputPath)
 			if err != nil {
 				t.Fatalf("ReadCtEnvelope: %v", err)

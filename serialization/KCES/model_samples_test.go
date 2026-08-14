@@ -1,6 +1,7 @@
 package KCES
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -16,7 +17,11 @@ func TestModelSamplesReferenceNativeMMeshAssets(t *testing.T) {
 	for _, path := range partsSamplePathsBySuffix(t, ".model") {
 		path := path
 		t.Run(filepath.Base(path), func(t *testing.T) {
-			model, err := DecodeModel(readPartsSample(t, filepath.Base(path)))
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("read model sample: %v", err)
+			}
+			model, err := DecodeModel(data)
 			if err != nil {
 				t.Fatalf("decode model: %v", err)
 			}

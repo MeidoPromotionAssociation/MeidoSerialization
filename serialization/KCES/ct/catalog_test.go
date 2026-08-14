@@ -7,7 +7,7 @@ import (
 )
 
 func TestDecodeCatalogFromCt(t *testing.T) {
-	files, err := filepath.Glob("../../../testdata/aba/*.ct")
+	files, err := filepath.Glob("../../../testdata/KCES/*.ct")
 	if err != nil {
 		t.Fatal(err)
 	}

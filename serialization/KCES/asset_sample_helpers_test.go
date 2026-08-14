@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 )
 
 func TestKCESAssetSamplesHaveKnownSuffixes(t *testing.T) {
@@ -38,28 +40,7 @@ func assetSamplePathsBySuffix(t *testing.T, suffix string) []string {
 
 func allKCESAssetSamplePaths(t *testing.T) []string {
 	t.Helper()
-	paths, err := filepath.Glob(filepath.Join(kcesAssetSampleDir(), "*"))
-	if err != nil {
-		t.Fatalf("glob asset samples: %v", err)
-	}
-
-	var samples []string
-	for _, path := range paths {
-		name := strings.ToLower(filepath.Base(path))
-		if strings.HasSuffix(name, ".meta.json") || strings.HasSuffix(name, ".typetree.json") {
-			continue
-		}
-		// Historical AbaExtractor CR_MOD_MESH fixtures are external derived
-		// artifacts, not KCES asset samples supported by this package.
-		if strings.HasSuffix(name, ".crmesh") {
-			continue
-		}
-		samples = append(samples, path)
-	}
-	if len(samples) == 0 {
-		t.Skip("no asset samples found in testdata/kces_assets")
-	}
-	return samples
+	return kcesfixtures.AssetSamplePaths(t)
 }
 
 func kcesAssetSampleSuffix(path string) string {
@@ -80,14 +61,4 @@ func readAssetSampleFile(t *testing.T, path string) []byte {
 		t.Fatalf("empty asset sample %s", filepath.Base(path))
 	}
 	return data
-}
-
-func readKCESAssetSample(t *testing.T, name string) []byte {
-	t.Helper()
-	path := filepath.Join(kcesAssetSampleDir(), name)
-	return readAssetSampleFile(t, path)
-}
-
-func kcesAssetSampleDir() string {
-	return filepath.Join("..", "..", "testdata", "kces_assets")
 }

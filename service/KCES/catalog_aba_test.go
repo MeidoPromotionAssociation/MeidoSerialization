@@ -12,7 +12,7 @@ import (
 )
 
 func TestCatalogItemsResolveToAbaAssets(t *testing.T) {
-	ctFiles, err := filepath.Glob(filepath.Join("..", "..", "testdata", "aba", "*.ct"))
+	ctFiles, err := filepath.Glob(filepath.Join("..", "..", "testdata", "KCES", "*.ct"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -20,47 +20,74 @@ func TestCatalogItemsResolveToAbaAssets(t *testing.T) {
 		t.Skip("no .ct samples found")
 	}
 
-	checked := 0
+	type catalogAbaCase struct {
+		name      string
+		catalog   *ct.AssetBundleCatalog
+		resources []string
+	}
+	var cases []catalogAbaCase
 	for _, ctPath := range ctFiles {
-		t.Run(filepath.Base(ctPath), func(t *testing.T) {
-			f, err := os.Open(ctPath)
-			if err != nil {
-				t.Fatalf("open .ct: %v", err)
+		f, err := os.Open(ctPath)
+		if err != nil {
+			t.Fatalf("open .ct: %v", err)
+		}
+		table, err := ct.ReadContentTable(f)
+		f.Close()
+		if err != nil {
+			t.Fatalf("ReadContentTable: %v", err)
+		}
+		catalog, err := ct.DecodeCatalogFromCt(table)
+		if err != nil {
+			t.Fatalf("DecodeCatalogFromCt: %v", err)
+		}
+		if len(catalog.Items) == 0 {
+			t.Fatalf("catalog has no items")
+		}
+		resources := make([]string, len(catalog.ResourceFileNames))
+		missingResource := false
+		for i, resourceName := range catalog.ResourceFileNames {
+			if resourceName == nil {
+				continue
 			}
-			defer f.Close()
+			resourcePath := filepath.Join(filepath.Dir(ctPath), *resourceName)
+			if _, err := os.Stat(resourcePath); err != nil {
+				missingResource = true
+				break
+			}
+			resources[i] = resourcePath
+		}
+		if missingResource {
+			continue
+		}
+		cases = append(cases, catalogAbaCase{
+			name:      filepath.Base(ctPath),
+			catalog:   catalog,
+			resources: resources,
+		})
+	}
+	if len(cases) == 0 {
+		t.Skip("no catalog/resource pairs were available")
+	}
 
-			table, err := ct.ReadContentTable(f)
-			if err != nil {
-				t.Fatalf("ReadContentTable: %v", err)
-			}
-			catalog, err := ct.DecodeCatalogFromCt(table)
-			if err != nil {
-				t.Fatalf("DecodeCatalogFromCt: %v", err)
-			}
-			if len(catalog.Items) == 0 {
-				t.Fatalf("catalog has no items")
-			}
-
-			resourceAssets := make([]map[uint64]int32, len(catalog.ResourceFileNames))
-			for i, resourceName := range catalog.ResourceFileNames {
-				if resourceName == nil {
+	for _, sample := range cases {
+		sample := sample
+		t.Run(sample.name, func(t *testing.T) {
+			resourceAssets := make([]map[uint64]int32, len(sample.resources))
+			for i, resourcePath := range sample.resources {
+				if resourcePath == "" {
 					continue
-				}
-				resourcePath := filepath.Join(filepath.Dir(ctPath), *resourceName)
-				if _, err := os.Stat(resourcePath); err != nil {
-					t.Skipf("resource .aba file %s not available: %v", resourcePath, err)
 				}
 				assets, err := collectAbaAssetTypes(resourcePath)
 				if err != nil {
 					if isEncryptedAbaError(err) {
-						t.Skipf("resource .aba file %s is encrypted and cannot be inspected: %v", *resourceName, err)
+						t.Skipf("resource .aba file %s is encrypted and cannot be inspected: %v", filepath.Base(resourcePath), err)
 					}
-					t.Fatalf("collect assets from %s: %v", *resourceName, err)
+					t.Fatalf("collect assets from %s: %v", filepath.Base(resourcePath), err)
 				}
 				resourceAssets[i] = assets
 			}
 
-			for _, item := range catalog.Items {
+			for _, item := range sample.catalog.Items {
 				if item == nil {
 					continue
 				}
@@ -71,14 +98,10 @@ func TestCatalogItemsResolveToAbaAssets(t *testing.T) {
 					continue
 				}
 				if _, ok := resourceAssets[item.ResourceIndex][item.Hash]; !ok {
-					t.Fatalf("catalog item %q not found in resource %q", testStringValue(item.Name), testStringValue(catalog.ResourceFileNames[item.ResourceIndex]))
+					t.Fatalf("catalog item %q not found in resource %q", testStringValue(item.Name), testStringValue(sample.catalog.ResourceFileNames[item.ResourceIndex]))
 				}
 			}
-			checked++
 		})
-	}
-	if checked == 0 {
-		t.Skip("no catalog/resource pairs were available")
 	}
 }
 

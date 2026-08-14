@@ -77,10 +77,10 @@ var knownIrregularCatalogSamples = map[string]string{
 }
 
 func TestGenerateCtFromAbaMatchesRealCatalogs(t *testing.T) {
-	dir := filepath.Join("..", "..", "testdata", "aba")
+	dir := filepath.Join("..", "..", "testdata", "KCES")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		t.Skipf("testdata/aba unavailable: %v", err)
+		t.Skipf("testdata/KCES unavailable: %v", err)
 	}
 	tested := 0
 	for _, entry := range entries {
@@ -139,10 +139,10 @@ func TestGenerateCtFromAbaMatchesRealCatalogs(t *testing.T) {
 }
 
 func TestGenerateCtFromAbaDefaultOutputPath(t *testing.T) {
-	sourceDir := filepath.Join("..", "..", "testdata", "aba")
+	sourceDir := filepath.Join("..", "..", "testdata", "KCES")
 	sourceEntries, err := os.ReadDir(sourceDir)
 	if err != nil {
-		t.Skipf("testdata/aba unavailable: %v", err)
+		t.Skipf("testdata/KCES unavailable: %v", err)
 	}
 	var sample string
 	for _, entry := range sourceEntries {

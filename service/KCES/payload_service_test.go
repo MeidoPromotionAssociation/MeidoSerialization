@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
 )
 
@@ -336,13 +337,7 @@ func TestPayloadService_FixedSamplesJSONRoundTrip(t *testing.T) {
 
 func fixedPayloadServiceSamplesByExt(t *testing.T) map[string][]string {
 	t.Helper()
-	paths, err := filepath.Glob(filepath.Join("..", "..", "testdata", "kces_payload", "*"))
-	if err != nil {
-		t.Fatalf("glob fixed payload samples: %v", err)
-	}
-	if len(paths) == 0 {
-		t.Skip("no fixed payload samples found")
-	}
+	paths := kcesfixtures.PayloadSamplePaths(t)
 	pathsByExt := map[string][]string{}
 	for _, path := range paths {
 		ext := serializationKCES.NormalizeKCESPayloadExtension(path)

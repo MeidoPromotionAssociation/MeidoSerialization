@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
 )
 
@@ -96,13 +97,7 @@ func TestRawUnityObjectService_FixedSamplesJSONRoundTrip(t *testing.T) {
 
 func rawUnityBytesSamples(t *testing.T) []string {
 	t.Helper()
-	paths, err := filepath.Glob(filepath.Join("..", "..", "testdata", "kces_assets", "*.bytes"))
-	if err != nil {
-		t.Fatalf("glob raw Unity samples: %v", err)
-	}
-	if len(paths) == 0 {
-		t.Skip("no fixed raw Unity .bytes samples found")
-	}
+	paths := kcesfixtures.RawObjectSamplePaths(t)
 	for _, path := range paths {
 		if !IsKCESRawUnityBytesFile(path) {
 			t.Fatalf("fixed .bytes sample was not routed as raw Unity: %s", filepath.Base(path))
@@ -144,7 +139,7 @@ func rawUnitySampleKindFromSuffix(path string) (kind string, classID int32, ok b
 }
 
 func TestRawUnityObjectService_JSONRoundTripPreservesTypeTreeSidecar(t *testing.T) {
-	sourceAba := filepath.Join("..", "..", "testdata", "aba", "parts_personal_om015_gp003.aba")
+	sourceAba := filepath.Join("..", "..", "testdata", "KCES", "parts_personal_om015_gp003.aba")
 	if _, err := os.Stat(sourceAba); err != nil {
 		t.Skipf("sample not found: %v", err)
 	}

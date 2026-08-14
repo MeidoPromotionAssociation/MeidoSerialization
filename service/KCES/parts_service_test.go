@@ -377,13 +377,7 @@ func canonicalizeExpectedParts(value interface{}) (interface{}, error) {
 
 func fixedPartsServiceSamplesByExt(t *testing.T) map[string][]string {
 	t.Helper()
-	paths, err := filepath.Glob(filepath.Join("..", "..", "testdata", "kces_parts", "*"))
-	if err != nil {
-		t.Fatalf("glob fixed parts samples: %v", err)
-	}
-	if len(paths) == 0 {
-		t.Skip("no fixed parts samples found")
-	}
+	paths := kcesfixtures.PartsSamplePaths(t)
 	pathsByExt := map[string][]string{}
 	for _, path := range paths {
 		ext := strings.ToLower(filepath.Ext(path))

@@ -11,7 +11,7 @@ import (
 )
 
 func TestReadContentTable(t *testing.T) {
-	files, err := filepath.Glob("../../../testdata/aba/*.ct")
+	files, err := filepath.Glob("../../../testdata/KCES/*.ct")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestReadContentTable(t *testing.T) {
 }
 
 func TestReadContentTable_AllFiles(t *testing.T) {
-	files, err := filepath.Glob("../../../testdata/aba/*.ct")
+	files, err := filepath.Glob("../../../testdata/KCES/*.ct")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestReadContentTable_AllFiles(t *testing.T) {
 }
 
 func TestWriteContentTable_RoundTrip(t *testing.T) {
-	files, err := filepath.Glob("../../../testdata/aba/*.ct")
+	files, err := filepath.Glob("../../../testdata/KCES/*.ct")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,5 +244,97 @@ func TestWriteContentTableIsDeterministic(t *testing.T) {
 		if !bytes.Equal(next.Bytes(), first.Bytes()) {
 			t.Fatalf("encoding %d changed ContentTable bytes", iteration)
 		}
+	}
+}
+
+func kces2CTTestFiles(t *testing.T) []string {
+	t.Helper()
+	files, err := filepath.Glob("../../../testdata/KCES2/*.ct")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) == 0 {
+		t.Skip("no KCES2 .ct test files found")
+	}
+	return files
+}
+
+func TestReadContentTable_KCES2Samples(t *testing.T) {
+	for _, filePath := range kces2CTTestFiles(t) {
+		t.Run(filepath.Base(filePath), func(t *testing.T) {
+			f, err := os.Open(filePath)
+			if err != nil {
+				t.Fatalf("open failed: %v", err)
+			}
+			defer f.Close()
+
+			table, err := ReadContentTable(f)
+			if err != nil {
+				t.Fatalf("ReadContentTable failed: %v", err)
+			}
+			if table.Version == 0 {
+				t.Error("version is 0")
+			}
+			if len(table.Files) == 0 {
+				t.Error("Files is empty")
+			}
+			for name, vf := range table.Files {
+				raw, err := table.GetFileData(name)
+				if err != nil {
+					t.Errorf("GetFileData(%q) failed: %v", name, err)
+					continue
+				}
+				if int32(len(raw)) != vf.Size {
+					t.Errorf("GetFileData(%q): got %d bytes, want %d", name, len(raw), vf.Size)
+				}
+			}
+		})
+	}
+}
+
+func TestWriteContentTable_KCES2SamplesRoundTrip(t *testing.T) {
+	for _, filePath := range kces2CTTestFiles(t) {
+		t.Run(filepath.Base(filePath), func(t *testing.T) {
+			f, err := os.Open(filePath)
+			if err != nil {
+				t.Fatalf("open failed: %v", err)
+			}
+			defer f.Close()
+
+			table, err := ReadContentTable(f)
+			if err != nil {
+				t.Fatalf("ReadContentTable failed: %v", err)
+			}
+
+			var buf bytes.Buffer
+			if err := WriteContentTable(&buf, table); err != nil {
+				t.Fatalf("WriteContentTable failed: %v", err)
+			}
+			redecoded, err := ReadContentTable(&buf)
+			if err != nil {
+				t.Fatalf("re-read failed: %v", err)
+			}
+			if redecoded.Version != table.Version {
+				t.Errorf("version mismatch: got %d, want %d", redecoded.Version, table.Version)
+			}
+			if len(redecoded.Files) != len(table.Files) {
+				t.Errorf("file count mismatch: got %d, want %d", len(redecoded.Files), len(table.Files))
+			}
+			for name := range table.Files {
+				original, err := table.GetFileData(name)
+				if err != nil {
+					t.Errorf("original GetFileData(%q) failed: %v", name, err)
+					continue
+				}
+				rewritten, err := redecoded.GetFileData(name)
+				if err != nil {
+					t.Errorf("rewritten GetFileData(%q) failed: %v", name, err)
+					continue
+				}
+				if !bytes.Equal(original, rewritten) {
+					t.Errorf("data mismatch for %q: original %d bytes, rewritten %d bytes", name, len(original), len(rewritten))
+				}
+			}
+		})
 	}
 }

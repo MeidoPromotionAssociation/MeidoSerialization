@@ -122,7 +122,7 @@ func TestMaidColliderLargeTruncatedCountUsesPhysicalBounds(t *testing.T) {
 
 func readMaidColliderSamplesFromSystemABA(t *testing.T) map[string][]byte {
 	t.Helper()
-	path := filepath.Join("..", "..", "testdata", "aba", "system.aba")
+	path := filepath.Join("..", "..", "testdata", "KCES", "system.aba")
 	f, err := os.Open(path)
 	if err != nil {
 		t.Skipf("system.aba is unavailable: %v", err)

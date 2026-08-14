@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
@@ -342,12 +343,11 @@ func TestMaterialAssetsLookupWarnings(t *testing.T) {
 }
 
 func TestMaterialAssetsLookupWarningsAcceptOfficialContainers(t *testing.T) {
-	matches, err := filepath.Glob(filepath.Join("..", "..", "testdata", "kces_parts", "*.materialassets"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(matches) == 0 {
-		t.Skip("no official .materialassets fixtures available")
+	matches := make([]string, 0)
+	for _, path := range kcesfixtures.PartsSamplePaths(t) {
+		if strings.EqualFold(filepath.Ext(path), ".materialassets") {
+			matches = append(matches, path)
+		}
 	}
 	for _, path := range matches {
 		data, err := os.ReadFile(path)

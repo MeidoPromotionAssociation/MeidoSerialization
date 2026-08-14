@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -790,48 +788,17 @@ func TestSerializedFileWriter_PreservesUnknownZeroHashTree(t *testing.T) {
 	t.Fatal("no Texture2D type emitted")
 }
 
-func TestSerializedFileWriter_HealsLegacyErrorSampleTexture(t *testing.T) {
-	f, err := os.Open(filepath.Join("..", "..", "..", "testdata", "error", "test.aba"))
-	if os.IsNotExist(err) {
-		t.Skip("no legacy error sample")
+func TestUpgradeZeroHashNativeTypeTreeHealsLegacyTextureTree(t *testing.T) {
+	tree := legacyHandBuiltTexture2DTestTree()
+	if !isLegacyHandBuiltTexture2DTree(&tree) {
+		t.Fatalf("legacy hand-built tree no longer matches signature: nodes=%d hash=%x", len(tree.Nodes), tree.TypeHash)
 	}
-	if err != nil {
-		t.Fatal(err)
+	official := unity2022Texture2DTypeTree()
+	upgraded := upgradeZeroHashNativeTypeTree(&tree)
+	if upgraded.TypeHash == ([16]byte{}) || len(upgraded.Nodes) != len(official.Nodes) {
+		t.Fatalf("legacy tree was not upgraded: nodes=%d hash=%x", len(upgraded.Nodes), upgraded.TypeHash)
 	}
-	defer f.Close()
-	bundle, err := ReadAba(f)
-	if err != nil {
-		t.Fatal(err)
+	if upgraded.TypeHash != official.TypeHash {
+		t.Fatalf("upgraded TypeHash = %x, want official %x", upgraded.TypeHash, official.TypeHash)
 	}
-	for directoryIndex, entry := range bundle.BlockInfo.DirectoryInfos {
-		if !entry.IsSerialized() {
-			continue
-		}
-		directoryIndex := directoryIndex
-		af, err := ReadAssetsFileRange(entry.DecompressedSize, func(offset, size int64) ([]byte, error) {
-			return bundle.GetFileDataRange(int64(directoryIndex), offset, size)
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		for infoIndex := range af.Metadata.AssetInfos {
-			info := &af.Metadata.AssetInfos[infoIndex]
-			if info.TypeId != ClassIDTexture2D {
-				continue
-			}
-			tree, err := af.AssetTypeTree(info)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !isLegacyHandBuiltTexture2DTree(&tree) {
-				t.Fatalf("error-sample texture tree no longer matches the legacy signature: nodes=%d hash=%x", len(tree.Nodes), tree.TypeHash)
-			}
-			upgraded := upgradeZeroHashNativeTypeTree(&tree)
-			if upgraded.TypeHash == ([16]byte{}) || len(upgraded.Nodes) != len(unity2022Texture2DTypeTree().Nodes) {
-				t.Fatalf("legacy sample tree was not upgraded: nodes=%d hash=%x", len(upgraded.Nodes), upgraded.TypeHash)
-			}
-			return
-		}
-	}
-	t.Skip("error sample carries no Texture2D")
 }

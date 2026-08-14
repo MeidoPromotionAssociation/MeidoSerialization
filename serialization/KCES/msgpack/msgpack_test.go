@@ -3,11 +3,10 @@ package msgpack
 import (
 	"bytes"
 	"math/rand"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 	"github.com/pierrec/lz4/v4"
 )
 
@@ -134,14 +133,7 @@ func TestDecodeMsgpackRejectsTopLevelTrailingBytes(t *testing.T) {
 }
 
 func TestDecompressLz4BlockArray_GameMessagePackCSharpSample(t *testing.T) {
-	path := filepath.Join("..", "..", "..", "testdata", "kces_parts", "cm3d2_megane002.materialassets")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			t.Skipf("game sample not present: %v", err)
-		}
-		t.Fatalf("read game sample: %v", err)
-	}
+	data := kcesfixtures.TextAssetBytes(t, "cm3d2_megane002.aba", "cm3d2_megane002.materialassets")
 	if len(data) < 4 || data[0] != 0x92 || data[3] != 98 {
 		t.Fatalf("sample does not have expected array + ext(98) prefix: % x", data[:min(len(data), 8)])
 	}

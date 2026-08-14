@@ -28,8 +28,8 @@ func TestFileTypeServiceRecognizesRealKCESFilesByContent(t *testing.T) {
 		format   string
 		version  int32
 	}{
-		{name: "content_table", path: filepath.Join(testdata, "aba", "cm3d2_eyes.ct"), typeName: "ct", format: COM3D2Service.FormatBinary, version: 1000},
-		{name: "unityfs", path: filepath.Join(testdata, "aba", "cm3d2_eyes.aba"), typeName: "aba", format: COM3D2Service.FormatBinary, version: 7},
+		{name: "content_table", path: filepath.Join(testdata, "KCES", "cm3d2_eyes.ct"), typeName: "ct", format: COM3D2Service.FormatBinary, version: 1000},
+		{name: "unityfs", path: filepath.Join(testdata, "KCES", "cm3d2_eyes.aba"), typeName: "aba", format: COM3D2Service.FormatBinary, version: 7},
 		{name: "model", path: modelPath, typeName: "model", format: COM3D2Service.FormatBinary, version: 1001},
 		{name: "menuassets", path: menuAssetsPath, typeName: "menuassets", format: COM3D2Service.FormatBinary, version: 1000},
 		{name: "dynamic_bone", path: dbConfPath, typeName: "dbconf", format: COM3D2Service.FormatBinary, version: 1000},
@@ -167,7 +167,7 @@ func TestFileTypeServiceStrictlyValidatesJSONEnvelopeContents(t *testing.T) {
 	service := &FileTypeService{}
 	dir := t.TempDir()
 
-	envelope, err := (&CtService{}).ReadCtEnvelope(filepath.Join("..", "..", "testdata", "aba", "cm3d2_eyes.ct"))
+	envelope, err := (&CtService{}).ReadCtEnvelope(filepath.Join("..", "..", "testdata", "KCES", "cm3d2_eyes.ct"))
 	if err != nil {
 		t.Fatal(err)
 	}

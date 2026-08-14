@@ -558,7 +558,7 @@ func TestWriteAbaRejectsZeroProgressWriter(t *testing.T) {
 }
 
 func TestAbaSampleMetadataBounds(t *testing.T) {
-	files, err := filepath.Glob("../../../testdata/aba/*.aba")
+	files, err := filepath.Glob("../../../testdata/KCES/*.aba")
 	if err != nil {
 		t.Fatal(err)
 	}

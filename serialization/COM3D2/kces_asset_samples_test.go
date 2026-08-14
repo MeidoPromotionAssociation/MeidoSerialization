@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 )
 
 func TestKCESExportedNeiSamples(t *testing.T) {
@@ -59,10 +61,7 @@ func TestKCESExportedPskSamples(t *testing.T) {
 
 func kcesExportedAssetSamplePaths(t *testing.T, suffix string) []string {
 	t.Helper()
-	paths, err := filepath.Glob(filepath.Join("..", "..", "testdata", "kces_assets", "*"))
-	if err != nil {
-		t.Fatalf("glob KCES asset samples: %v", err)
-	}
+	paths := kcesfixtures.AssetSamplePaths(t)
 	var matches []string
 	for _, path := range paths {
 		name := strings.ToLower(filepath.Base(path))

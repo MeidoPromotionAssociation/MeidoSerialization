@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
 )
 
 var payloadSamplesWithUnsupportedSparseMaidPropSlots = map[string]struct{}{
@@ -48,13 +50,7 @@ func assertPayloadSampleRejectsSparseMaidPropSlots(t *testing.T, path string) {
 
 func groupPayloadSamplesByExt(t *testing.T) map[string][]string {
 	t.Helper()
-	paths, err := filepath.Glob(filepath.Join(payloadSampleDir(), "*"))
-	if err != nil {
-		t.Fatalf("glob payload samples: %v", err)
-	}
-	if len(paths) == 0 {
-		t.Skip("no payload samples found in testdata/kces_payload")
-	}
+	paths := kcesfixtures.PayloadSamplePaths(t)
 
 	pathsByExt := map[string][]string{}
 	for _, path := range paths {
@@ -211,18 +207,4 @@ func assertIntSliceEqual(t *testing.T, name string, got, want []int32) {
 			t.Fatalf("%s got %v, want %v", name, got, want)
 		}
 	}
-}
-
-func readPayloadSample(t *testing.T, name string) []byte {
-	t.Helper()
-	path := filepath.Join(payloadSampleDir(), name)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read payload sample %s: %v", path, err)
-	}
-	return data
-}
-
-func payloadSampleDir() string {
-	return filepath.Join("..", "..", "testdata", "kces_payload")
 }

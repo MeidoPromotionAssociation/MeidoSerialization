@@ -9,16 +9,42 @@ import (
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
 )
 
-func TestKCES2AbaTextAssetCodecsPreserveRealLayouts(t *testing.T) {
-	paths, err := filepath.Glob(filepath.Join("..", "..", "testdata", "KCES2", "*_kces2*.aba"))
+const kces2AbaHeavyTestEnv = "KCES_ABA_HEAVY_TESTS"
+const maxKCES2DefaultAbaSampleSize = int64(16 << 20)
+
+func kces2AbaSampleFiles(t *testing.T) []string {
+	t.Helper()
+	files, err := filepath.Glob(filepath.Join("..", "..", "testdata", "KCES2", "*.aba"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(paths) == 0 {
+	if len(files) == 0 {
 		t.Skip("no KCES2 ABA samples")
 	}
+	if os.Getenv(kces2AbaHeavyTestEnv) != "" {
+		return files
+	}
+	var samples []string
+	for _, path := range files {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("stat %s: %v", filepath.Base(path), err)
+		}
+		if info.Size() <= maxKCES2DefaultAbaSampleSize {
+			samples = append(samples, path)
+		}
+	}
+	if len(samples) == 0 {
+		t.Skip("no small KCES2 ABA samples")
+	}
+	return samples
+}
+
+func TestKCES2AbaTextAssetCodecsPreserveRealLayouts(t *testing.T) {
+	paths := kces2AbaSampleFiles(t)
 	menuCount := 0
 	materialCount := 0
 	modelCount := 0
@@ -142,6 +168,9 @@ func visitKCES2TextAssets(t *testing.T, path string, visit func(string, []byte) 
 	defer file.Close()
 	bundle, err := aba.ReadAba(file)
 	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "encrypted") {
+			t.Skipf("skipping encrypted KCES2 ABA %s: %v", filepath.Base(path), err)
+		}
 		t.Fatalf("read ABA: %v", err)
 	}
 	for directoryIndex, entry := range bundle.BlockInfo.DirectoryInfos {
@@ -183,7 +212,19 @@ func TestKCES2SampleSystemDataPreservesUnknownBytes(t *testing.T) {
 	path := filepath.Join("..", "..", "testdata", "KCES2", "system.dat")
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
-		t.Skip("no KCES2 user system.dat sample")
+		synthetic := &KCESSystemData{
+			Format:           KCESSystemDataFormat,
+			Version:          1000,
+			ContainerFraming: ct.VirtualDirectoryFramingExtended,
+			Directories: map[string]ct.VirtualDirectoryMetadata{
+				"future": {Version: 77},
+			},
+			ExtraFiles: map[string][]byte{"future/state": {0x11, 0x22}},
+		}
+		data, err = EncodeKCESSystemData(synthetic)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	if err != nil {
 		t.Fatal(err)

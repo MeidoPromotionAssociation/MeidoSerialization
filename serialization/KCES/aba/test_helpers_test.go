@@ -10,7 +10,7 @@ const abaHeavyTestEnv = "KCES_ABA_HEAVY_TESTS"
 
 func smallAbaTestFiles(t *testing.T) []string {
 	t.Helper()
-	files, err := filepath.Glob("../../../testdata/aba/*.aba")
+	files, err := filepath.Glob("../../../testdata/KCES/*.aba")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func smallAbaTestFiles(t *testing.T) []string {
 
 func openAbaSample(t *testing.T, name string) (*Aba, *os.File) {
 	t.Helper()
-	filePath := filepath.Join("..", "..", "..", "testdata", "aba", name)
+	filePath := filepath.Join("..", "..", "..", "testdata", "KCES", name)
 	f, err := os.Open(filePath)
 	if err != nil {
 		t.Skipf("sample .aba not available: %v", err)

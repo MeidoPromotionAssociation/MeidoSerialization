@@ -38,7 +38,7 @@ func TestEncodeMeshGLB(t *testing.T) {
 }
 
 func TestNativeUnityMediaServiceExportsSampleMeshAndSprite(t *testing.T) {
-	sample := filepath.Join("..", "..", "testdata", "aba", "cm3d2_megane002.aba")
+	sample := filepath.Join("..", "..", "testdata", "KCES", "cm3d2_megane002.aba")
 	if _, err := os.Stat(sample); err != nil {
 		t.Skipf("sample not available: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestNativeUnityMediaServiceExportsSpriteViaSiblingAtlas(t *testing.T) {
 	if err := tools.CheckMagick(); err != nil {
 		t.Skipf("ImageMagick unavailable: %v", err)
 	}
-	sample := filepath.Join("..", "..", "testdata", "aba", "parts_personal_om015_gp003.aba")
+	sample := filepath.Join("..", "..", "testdata", "KCES", "parts_personal_om015_gp003.aba")
 	if _, err := os.Stat(sample); err != nil {
 		t.Skipf("sample not available: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestNativeUnityMediaServiceExportsSpriteViaSiblingAtlas(t *testing.T) {
 }
 
 func TestNativeUnityMediaServiceExportsSampleAnimation(t *testing.T) {
-	sample := filepath.Join("..", "..", "testdata", "aba", "motion.aba")
+	sample := filepath.Join("..", "..", "testdata", "KCES", "motion.aba")
 	if _, err := os.Stat(sample); err != nil {
 		t.Skipf("sample not available: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestNativeUnityMediaServiceExportsSampleAnimation(t *testing.T) {
 }
 
 func TestNativeUnityMediaServiceExtractsSampleAudio(t *testing.T) {
-	sample := filepath.Join("..", "..", "testdata", "aba", "sound.aba")
+	sample := filepath.Join("..", "..", "testdata", "KCES", "sound.aba")
 	if _, err := os.Stat(sample); err != nil {
 		t.Skipf("sample not available: %v", err)
 	}

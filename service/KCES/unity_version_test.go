@@ -57,7 +57,7 @@ func TestValidateCanonicalSourceUnityVersionAcceptsKnownAndFutureVersions(t *tes
 }
 
 func TestUnpackAbaAcceptsUnityFS7KCESSample(t *testing.T) {
-	sample := filepath.Join("..", "..", "testdata", "aba", "parts_personal002.aba")
+	sample := filepath.Join("..", "..", "testdata", "KCES", "parts_personal002.aba")
 	if _, err := os.Stat(sample); err != nil {
 		t.Skipf("sample not available: %v", err)
 	}

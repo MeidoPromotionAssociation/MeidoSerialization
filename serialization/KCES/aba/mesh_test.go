@@ -25,7 +25,7 @@ func readMeshFixture(t *testing.T, path string) *MeshGeometry {
 }
 
 func TestDecodeMeshGeometryDecodesSkinnedFixture(t *testing.T) {
-	geometry := readMeshFixture(t, filepath.Join("..", "..", "..", "testdata", "aba", "parts_dlc395_gp003.aba_unpacked", "Mesh", "crc_dress044_shoe.mmesh"))
+	geometry := readMeshFixture(t, filepath.Join("..", "..", "..", "testdata", "KCES", "parts_dlc395_gp003.aba_unpacked", "Mesh", "crc_dress044_shoe.mmesh"))
 	vertexCount := len(geometry.Positions)
 	if vertexCount == 0 {
 		t.Fatal("fixture has no positions")
@@ -51,7 +51,7 @@ func TestDecodeMeshGeometryDecodesSkinnedFixture(t *testing.T) {
 }
 
 func TestDecodeMeshGeometryDecodesVariableBoneWeightFixture(t *testing.T) {
-	geometry := readMeshFixture(t, filepath.Join("..", "..", "..", "testdata", "aba", "parts_dlc395_gp003.aba_unpacked", "Mesh", "crc_dress044_wear.mmesh"))
+	geometry := readMeshFixture(t, filepath.Join("..", "..", "..", "testdata", "KCES", "parts_dlc395_gp003.aba_unpacked", "Mesh", "crc_dress044_wear.mmesh"))
 	maxCount := uint8(0)
 	for _, count := range geometry.SkinCounts {
 		if count > maxCount {
@@ -68,7 +68,7 @@ func TestDecodeMeshGeometryDecodesVariableBoneWeightFixture(t *testing.T) {
 }
 
 func TestDecodeMeshGeometryDecodesReducedSkinChannelFixture(t *testing.T) {
-	geometry := readMeshFixture(t, filepath.Join("..", "..", "..", "testdata", "aba", "parts_dlc580_gp003.aba_unpacked", "Mesh", "crc2_dress311_acchead.mmesh"))
+	geometry := readMeshFixture(t, filepath.Join("..", "..", "..", "testdata", "KCES", "parts_dlc580_gp003.aba_unpacked", "Mesh", "crc2_dress311_acchead.mmesh"))
 	maxCount := uint8(0)
 	for _, count := range geometry.SkinCounts {
 		if count > maxCount {
@@ -112,7 +112,7 @@ func assertRaggedSkinValid(t *testing.T, geometry *MeshGeometry) {
 }
 
 func TestDecodeMeshGeometryDecodesLegacyOriginFixture(t *testing.T) {
-	geometry := readMeshFixture(t, filepath.Join("..", "..", "..", "testdata", "aba", "cm3d2_megane002.aba_unpacked", "Mesh", "cm3d2_megane002.mmesh"))
+	geometry := readMeshFixture(t, filepath.Join("..", "..", "..", "testdata", "KCES", "cm3d2_megane002.aba_unpacked", "Mesh", "cm3d2_megane002.mmesh"))
 	if len(geometry.Positions) == 0 || len(geometry.Primitives) == 0 {
 		t.Fatalf("fixture decoded without geometry: vertices=%d primitives=%d", len(geometry.Positions), len(geometry.Primitives))
 	}

@@ -407,7 +407,7 @@ func TestPersetServiceDirectRoundTrip(t *testing.T) {
 }
 
 func TestExtensionSpecificUnityFSReaders(t *testing.T) {
-	sample := filepath.Join("..", "..", "testdata", "aba", "parts_personal_om015_gp003.aba")
+	sample := filepath.Join("..", "..", "testdata", "KCES", "parts_personal_om015_gp003.aba")
 	data, err := os.ReadFile(sample)
 	if err != nil {
 		t.Skipf("sample not available: %v", err)

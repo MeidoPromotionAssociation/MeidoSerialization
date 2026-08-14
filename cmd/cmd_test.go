@@ -107,8 +107,8 @@ func TestDetermineCommandPrefersCOM3D2AndFallsBackToKCES(t *testing.T) {
 		format string
 		game   string
 	}{
-		{name: "content_table", path: "../testdata/aba/cm3d2_eyes.ct", typeID: "ct", format: "binary", game: "KCES"},
-		{name: "unityfs", path: "../testdata/aba/cm3d2_eyes.aba", typeID: "aba", format: "binary", game: "KCES"},
+		{name: "content_table", path: "../testdata/KCES/cm3d2_eyes.ct", typeID: "ct", format: "binary", game: "KCES"},
+		{name: "unityfs", path: "../testdata/KCES/cm3d2_eyes.aba", typeID: "aba", format: "binary", game: "KCES"},
 		{name: "model", path: modelPath, typeID: "model", format: "binary", game: "KCES"},
 		{name: "menuassets", path: menuAssetsPath, typeID: "menuassets", format: "binary", game: "KCES"},
 		{name: "payload", path: payloadPath, typeID: "dbconf", format: "binary", game: "KCES"},
@@ -488,7 +488,7 @@ func TestKCESRawUnityBytesConvertCommands(t *testing.T) {
 func TestKCESCtConvertCommands(t *testing.T) {
 	tempDir := t.TempDir()
 	inputPath := filepath.Join(tempDir, "cm3d2_megane002.ct")
-	data := mustReadFile(t, filepath.Join("../testdata", "aba", "cm3d2_megane002.ct"))
+	data := mustReadFile(t, filepath.Join("../testdata", "KCES", "cm3d2_megane002.ct"))
 	if err := os.WriteFile(inputPath, data, 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -529,7 +529,7 @@ func TestKCESAutoConvertDirectoryIncludesCtAndRawUnityBytes(t *testing.T) {
 	tempDir := t.TempDir()
 
 	ctPath := filepath.Join(tempDir, "cm3d2_megane002.ct")
-	ctData := mustReadFile(t, filepath.Join("../testdata", "aba", "cm3d2_megane002.ct"))
+	ctData := mustReadFile(t, filepath.Join("../testdata", "KCES", "cm3d2_megane002.ct"))
 	if err := os.WriteFile(ctPath, ctData, 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -561,10 +561,10 @@ func TestKCESAbaCtPackListUnpackCommands(t *testing.T) {
 		tempDir := t.TempDir()
 		abaPath := filepath.Join(tempDir, "system.aba")
 		ctPath := filepath.Join(tempDir, "system.ct")
-		if err := os.WriteFile(abaPath, mustReadFile(t, filepath.Join("../testdata", "aba", "system.aba")), 0644); err != nil {
+		if err := os.WriteFile(abaPath, mustReadFile(t, filepath.Join("../testdata", "KCES", "system.aba")), 0644); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(ctPath, mustReadFile(t, filepath.Join("../testdata", "aba", "system.ct")), 0644); err != nil {
+		if err := os.WriteFile(ctPath, mustReadFile(t, filepath.Join("../testdata", "KCES", "system.ct")), 0644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -625,7 +625,7 @@ func TestKCESAbaCtPackListUnpackCommands(t *testing.T) {
 	})
 
 	t.Run("unpack UnityFS 7 sample", func(t *testing.T) {
-		legacyPath := filepath.Join("../testdata", "aba", "cm3d2_megane002.aba")
+		legacyPath := filepath.Join("../testdata", "KCES", "cm3d2_megane002.aba")
 		outDir := filepath.Join(t.TempDir(), "unityfs7")
 		if _, err := executeCommand(RootCmd, "unpackAba", legacyPath, "-o", outDir); err != nil {
 			t.Fatalf("unpackAba UnityFS 7 failed: %v", err)
