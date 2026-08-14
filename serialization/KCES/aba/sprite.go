@@ -389,6 +389,9 @@ func WriteSpritePNGTo(sprite *SpriteExport, out io.Writer) error {
 		args = append(args, "-size", fmt.Sprintf("%dx%d", sprite.Texture.Width, sprite.Texture.Height), "-depth", "8")
 	}
 	args = append(args, inputFormat+":-")
+	// Unity 贴图载荷自下而上存储，先翻正整张图，spriteCropGeometry 才能把左下原点矩形换算成自上而下的行号
+	// Unity texture payloads are stored bottom-up, so flipping the whole texture upright first lets spriteCropGeometry convert the lower-left-origin rectangle into top-down rows
+	args = append(args, "-flip")
 	if crop != "" {
 		args = append(args, "-crop", crop, "+repage")
 	}
@@ -407,8 +410,8 @@ func WriteSpritePNGTo(sprite *SpriteExport, out io.Writer) error {
 	return nil
 }
 
-// spriteCropGeometry 将 Unity 左下原点矩形转换为 ImageMagick 左上原点裁剪参数
-// spriteCropGeometry converts a Unity lower-left-origin rectangle to ImageMagick upper-left-origin crop geometry
+// spriteCropGeometry 将 Unity 左下原点矩形转换为 ImageMagick 左上原点裁剪参数，调用方需先把自下而上的贴图翻正
+// spriteCropGeometry converts a Unity lower-left-origin rectangle to ImageMagick upper-left-origin crop geometry and expects callers to flip the bottom-up texture upright first
 func spriteCropGeometry(tex *Texture2DData, rect SpriteRect) string {
 	x := int64(math.Round(float64(rect.X)))
 	y := int64(tex.Height) - int64(math.Round(float64(rect.Y+rect.Height)))

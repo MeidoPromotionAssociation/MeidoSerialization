@@ -3,11 +3,13 @@ package aba
 import (
 	"bytes"
 	"encoding/binary"
+	"image/png"
 	"math"
 	"strings"
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
 )
 
 func TestGetTexture2DData_Sample(t *testing.T) {
@@ -192,5 +194,58 @@ func TestInlineTexture2DStreamData(t *testing.T) {
 	}
 	if streamInfo.Offset != 0 || streamInfo.Size != 0 || streamInfo.Path != "" {
 		t.Fatalf("m_StreamData was not cleared: %+v", streamInfo)
+	}
+}
+
+func TestFlipRGBA32RowsIsItsOwnInverse(t *testing.T) {
+	rows := [][]byte{
+		{1, 2, 3, 4, 5, 6, 7, 8},
+		{9, 10, 11, 12, 13, 14, 15, 16},
+		{17, 18, 19, 20, 21, 22, 23, 24},
+	}
+	original := bytes.Join(rows, nil)
+	flipped := FlipRGBA32Rows(2, 3, original)
+	if !bytes.Equal(flipped, bytes.Join([][]byte{rows[2], rows[1], rows[0]}, nil)) {
+		t.Fatalf("FlipRGBA32Rows got %v", flipped)
+	}
+	if !bytes.Equal(FlipRGBA32Rows(2, 3, flipped), original) {
+		t.Fatal("FlipRGBA32Rows is not its own inverse")
+	}
+	// Mismatched dimensions must pass through so the encoder reports the exact size error.
+	if got := FlipRGBA32Rows(4, 3, original); !bytes.Equal(got, original) {
+		t.Fatalf("mismatched dimensions got %v, want the input unchanged", got)
+	}
+}
+
+func TestWriteTexturePNGToFlipsUnityBottomUpRowsUpright(t *testing.T) {
+	if err := tools.CheckMagick(); err != nil {
+		t.Skipf("ImageMagick not available: %v", err)
+	}
+	red := []byte{255, 0, 0, 255}
+	blue := []byte{0, 0, 255, 255}
+	// Unity stores the lower-left origin first, so the bottom row is red and the top row is blue.
+	tex := &Texture2DData{
+		Name:          "orientation.tex",
+		Width:         2,
+		Height:        2,
+		TextureFormat: TextureFormatRGBA32,
+		MipCount:      1,
+		ImageData:     bytes.Join([][]byte{red, red, blue, blue}, nil),
+	}
+	var out bytes.Buffer
+	if err := WriteTexturePNGTo(tex, &out); err != nil {
+		t.Fatalf("WriteTexturePNGTo: %v", err)
+	}
+	decoded, err := png.Decode(bytes.NewReader(out.Bytes()))
+	if err != nil {
+		t.Fatalf("decode PNG: %v", err)
+	}
+	topR, _, topB, _ := decoded.At(0, 0).RGBA()
+	bottomR, _, bottomB, _ := decoded.At(0, 1).RGBA()
+	if topB <= topR {
+		t.Errorf("PNG top row is not blue: r=%d b=%d", topR>>8, topB>>8)
+	}
+	if bottomR <= bottomB {
+		t.Errorf("PNG bottom row is not red: r=%d b=%d", bottomR>>8, bottomB>>8)
 	}
 }

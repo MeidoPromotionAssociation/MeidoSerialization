@@ -1,6 +1,7 @@
 package aba
 
 import (
+	"bytes"
 	"image/png"
 	"math"
 	"os"
@@ -83,4 +84,55 @@ func TestGetSpriteExport_Sample(t *testing.T) {
 		}
 	}
 	t.Fatal("no Sprite found in sample")
+}
+
+func TestWriteSpritePNGToCropsLowerLeftOriginRectFromBottomUpTexture(t *testing.T) {
+	if err := tools.CheckMagick(); err != nil {
+		t.Skipf("ImageMagick not available: %v", err)
+	}
+	green := []byte{0, 255, 0, 255}
+	red := []byte{255, 0, 0, 255}
+	// Unity stores rows bottom-up, so the first two stored rows carry the green 2x2 patch at the lower-left corner.
+	var payload []byte
+	for row := 0; row < 4; row++ {
+		for column := 0; column < 4; column++ {
+			if row < 2 && column < 2 {
+				payload = append(payload, green...)
+				continue
+			}
+			payload = append(payload, red...)
+		}
+	}
+	sprite := &SpriteExport{
+		Name: "lower_left",
+		Texture: &Texture2DData{
+			Name:          "orientation.tex",
+			Width:         4,
+			Height:        4,
+			TextureFormat: TextureFormatRGBA32,
+			MipCount:      1,
+			ImageData:     payload,
+		},
+		Rect: SpriteRect{X: 0, Y: 0, Width: 2, Height: 2},
+	}
+	var out bytes.Buffer
+	if err := WriteSpritePNGTo(sprite, &out); err != nil {
+		t.Fatalf("WriteSpritePNGTo: %v", err)
+	}
+	decoded, err := png.Decode(bytes.NewReader(out.Bytes()))
+	if err != nil {
+		t.Fatalf("decode PNG: %v", err)
+	}
+	bounds := decoded.Bounds()
+	if bounds.Dx() != 2 || bounds.Dy() != 2 {
+		t.Fatalf("cropped sprite is %dx%d, want 2x2", bounds.Dx(), bounds.Dy())
+	}
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			r, g, b, _ := decoded.At(x, y).RGBA()
+			if g <= r || g <= b {
+				t.Fatalf("pixel (%d,%d) is not green: r=%d g=%d b=%d", x, y, r>>8, g>>8, b>>8)
+			}
+		}
+	}
 }

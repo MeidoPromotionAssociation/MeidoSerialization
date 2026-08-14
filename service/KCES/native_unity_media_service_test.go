@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
 )
 
 func writeTestPNG(t *testing.T, path string, width int32, height int32) []byte {
@@ -76,8 +77,12 @@ func TestConvertImageToTexture2DRoundTrip(t *testing.T) {
 	if tex.MipCount != 1 {
 		t.Errorf("mip count got %d, want 1", tex.MipCount)
 	}
-	if !bytes.Equal(tex.ImageData, want) {
-		t.Errorf("image data mismatch: got %v, want %v", tex.ImageData, want)
+	if !bytes.Equal(tex.ImageData, aba.FlipRGBA32Rows(3, 2, want)) {
+		t.Errorf("image data mismatch: got %v, want %v", tex.ImageData, aba.FlipRGBA32Rows(3, 2, want))
+	}
+	// Unity stores textures bottom-up, so the inline payload must be the vertical flip of the PNG row order.
+	if bytes.Equal(tex.ImageData, want) {
+		t.Error("image data kept PNG top-down row order instead of Unity bottom-up order")
 	}
 }
 
@@ -169,5 +174,56 @@ func TestPackDirectoryRecognizesNativeTexture2DOutsideTypeDirectory(t *testing.T
 	}
 	if texType != aba.ClassIDTexture2D {
 		t.Fatalf("native .tex outside Texture2D directory got ClassID %d, want Texture2D", texType)
+	}
+}
+
+func TestConvertImageToTexture2DAndBackPreservesOrientation(t *testing.T) {
+	if err := tools.CheckMagick(); err != nil {
+		t.Skipf("ImageMagick unavailable: %v", err)
+	}
+	tmpDir := t.TempDir()
+	sourcePath := filepath.Join(tmpDir, "orientation.png")
+	source := image.NewNRGBA(image.Rect(0, 0, 2, 2))
+	top := color.NRGBA{B: 255, A: 255}
+	bottom := color.NRGBA{R: 255, A: 255}
+	source.SetNRGBA(0, 0, top)
+	source.SetNRGBA(1, 0, top)
+	source.SetNRGBA(0, 1, bottom)
+	source.SetNRGBA(1, 1, bottom)
+	var encoded bytes.Buffer
+	if err := png.Encode(&encoded, source); err != nil {
+		t.Fatalf("encode PNG: %v", err)
+	}
+	if err := os.WriteFile(sourcePath, encoded.Bytes(), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	service := &NativeUnityMediaService{}
+	texPath := filepath.Join(tmpDir, "orientation.tex")
+	if err := service.ConvertImageToTexture2D(context.Background(), sourcePath, texPath, 1<<20); err != nil {
+		t.Fatalf("ConvertImageToTexture2D: %v", err)
+	}
+	roundTripPath := filepath.Join(tmpDir, "orientation_roundtrip.png")
+	if err := service.ConvertTexture2DToImage(context.Background(), texPath, roundTripPath, "png", 1<<20); err != nil {
+		t.Fatalf("ConvertTexture2DToImage: %v", err)
+	}
+	roundTripData, err := os.ReadFile(roundTripPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := png.Decode(bytes.NewReader(roundTripData))
+	if err != nil {
+		t.Fatalf("decode round-trip PNG: %v", err)
+	}
+	for _, tc := range []struct {
+		x    int
+		y    int
+		want color.NRGBA
+	}{{0, 0, top}, {1, 0, top}, {0, 1, bottom}, {1, 1, bottom}} {
+		r, g, b, a := decoded.At(tc.x, tc.y).RGBA()
+		got := color.NRGBA{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(b >> 8), A: uint8(a >> 8)}
+		if got != tc.want {
+			t.Errorf("pixel (%d,%d) got %+v, want %+v", tc.x, tc.y, got, tc.want)
+		}
 	}
 }

@@ -20,6 +20,9 @@ This command can process a single file or all files in a directory.
 
 Default output format is .png
 
+PNG output is upright. DDS output passes the Unity block payload through unchanged, so it keeps
+Unity's bottom-up row order and appears vertically flipped in DirectX tools.
+
 Use convert2texture2d to convert an edited PNG or JPEG back to a native KCES Texture2D,
 and convert2tex to convert an image to a COM3D2 .tex file.
 

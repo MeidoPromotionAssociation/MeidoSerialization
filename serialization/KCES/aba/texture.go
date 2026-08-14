@@ -388,7 +388,10 @@ func WriteTexturePNGTo(tex *Texture2DData, out io.Writer) error {
 	if isRawMagickInputFormat(inputFormat) {
 		args = append(args, "-size", fmt.Sprintf("%dx%d", tex.Width, tex.Height), "-depth", "8")
 	}
-	args = append(args, inputFormat+":-", "png32:-")
+	args = append(args, inputFormat+":-")
+	// Unity 贴图载荷以左下角为原点自下而上存储，而 DDS 与原始像素输入都按自上而下解释，因此导出前必须垂直翻转才能得到正立图像
+	// Unity texture payloads are stored bottom-up from the lower-left origin while DDS and raw pixel inputs are interpreted top-down, so exporting requires a vertical flip to produce an upright image
+	args = append(args, "-flip", "png32:-")
 	cmd := exec.Command("magick", args...)
 	tools.SetHideWindow(cmd)
 	cmd.Stdin = bytes.NewReader(inputData)
@@ -459,8 +462,31 @@ func argbToRGBA(data []byte) []byte {
 	return out
 }
 
+// FlipRGBA32Rows 在自上而下的图像行序与 Unity 自下而上的贴图行序之间垂直翻转 RGBA32 像素
+// 该变换是自身的逆运算，因此图像转 Texture2D 与 Texture2D 转图像共用同一函数，尺寸与数据长度不一致时原样返回并交由编码器报告具体错误
+// FlipRGBA32Rows vertically flips RGBA32 pixels between top-down image row order and Unity's bottom-up texture row order
+// The transform is its own inverse, so image-to-Texture2D and Texture2D-to-image conversion share this function; mismatched dimensions return the input unchanged and leave the encoder to report the exact error
+func FlipRGBA32Rows(width int64, height int64, rgba []byte) []byte {
+	if width <= 0 || height <= 0 || width > math.MaxInt32 || height > math.MaxInt32 {
+		return rgba
+	}
+	stride := width * 4
+	if height > math.MaxInt64/stride || int64(len(rgba)) != stride*height {
+		return rgba
+	}
+	flipped := make([]byte, len(rgba))
+	for row := int64(0); row < height; row++ {
+		source := row * stride
+		destination := (height - 1 - row) * stride
+		copy(flipped[destination:destination+stride], rgba[source:source+stride])
+	}
+	return flipped
+}
+
 // makeDDS 为压缩纹理载荷补充 DDS 头，已有 DDS 数据则原样返回
+// 块压缩载荷按 Unity 自下而上的原始块顺序透传，因为无损翻转 BC7 与 BC6H 块需要解压重压，导出的 DDS 因此相对 DirectX 约定上下颠倒
 // makeDDS adds a DDS header to compressed texture payloads and returns existing DDS data unchanged
+// Block-compressed payloads pass through in Unity's original bottom-up block order because losslessly flipping BC7 and BC6H blocks would require decompressing and recompressing them, so exported DDS is upside down relative to the DirectX convention
 func makeDDS(tex *Texture2DData) []byte {
 	if len(tex.ImageData) >= 4 && string(tex.ImageData[:4]) == "DDS " {
 		return tex.ImageData

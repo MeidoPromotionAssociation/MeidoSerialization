@@ -28,9 +28,6 @@ const (
 	NeiTextEncodingUTF8 = nei.TextEncodingUTF8
 )
 
-// NeiKey 是默认加密密钥 / NeiKey is the default encryption key
-var NeiKey = nei.Key
-
 // ReadNei 从 r 中读取一个 .nei 文件，并解析为 Nei 结构
 // 单元格编码按内容探测，COM3D2 自带的表格会得到 Shift-JIS
 // neiKey 传入 nil 则使用默认密钥

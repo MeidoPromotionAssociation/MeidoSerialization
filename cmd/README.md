@@ -153,6 +153,7 @@ MeidoSerialization.exe convert2image .\texture.tex
 MeidoSerialization.exe convert2image .\texture.tex --format webp
 
 # Native KCES Texture2D -> PNG or DDS
+# PNG is upright; DDS passes the Unity block payload through unchanged and stays bottom-up
 MeidoSerialization.exe convert2image .\Texture2D\body.tex --format png
 MeidoSerialization.exe convert2image .\Texture2D\body.tex --format dds
 
@@ -172,6 +173,43 @@ MeidoSerialization.exe convert2texture2d .\my_texture.png
 `convert2tex` writes TEX version 1010 unless a valid sibling `.uv.csv` supplies version-1011 atlas rectangles. See
 the [TEX 1011 FAQ](../README.md#about-version-1011-of-the-tex-file). `--forcePng=false` can be used explicitly;
 `--compress` takes precedence.
+
+#### Editing a Sprite
+
+`convert2image` is one-way for Sprite because a Sprite object stores no pixels, and there is no image-to-Sprite
+command. Unpacking splits the three Unity objects into separate files:
+
+| File                          | Unity object           | Contents                                                          |
+|-------------------------------|------------------------|-------------------------------------------------------------------|
+| `Sprite\icon.sprite`          | Sprite (213)           | rect, pivot, border, render-data key, render mesh, physics shape   |
+| `SpriteAtlas\pack.partsatlas` | SpriteAtlas (687078895) | `m_RenderDataMap`, the position of every sprite inside the atlas   |
+| `Texture2D\sactx-*.texture2d` | Texture2D (28)         | the pixels                                                        |
+
+To change how a Sprite looks, edit the Texture2D it resolves to and repack. The `.sprite` and `.partsatlas` files
+are copied through byte for byte, so the sprite metadata and the atlas mapping survive unchanged:
+
+```powershell
+MeidoSerialization.exe unpackAba .\my_mod.aba -o .\aba_files
+MeidoSerialization.exe convert2image .\aba_files\Texture2D\sactx-0-512x512-BC7-pack.partsatlas-05ad4a72.texture2d
+# edit the PNG in place, keeping both the file name and the pixel dimensions
+MeidoSerialization.exe convert2texture2d .\aba_files\Texture2D\sactx-0-512x512-BC7-pack.partsatlas-05ad4a72.png
+MeidoSerialization.exe packAba .\aba_files -o my_mod
+```
+
+Four constraints apply:
+
+- **Keep the file name.** PathIDs are hashed from the canonical file path, so the PPtr from the atlas to its
+  texture resolves by name alone. `convert2texture2d` overwrites an existing `.tex` or `.texture2d` with the same
+  base name for exactly this reason; creating a differently named file breaks the reference.
+- **Keep the pixel dimensions.** Every `textureRect` in the atlas is stored in absolute pixels, so resizing the
+  texture misplaces every sprite packed into it.
+- **An atlas texture is shared.** One atlas commonly backs hundreds or thousands of sprites, so edit only the
+  region belonging to the sprite you want to change.
+- **The format degrades.** `convert2texture2d` always rebuilds inline single-mip RGBA32, so a BC7 atlas grows
+  roughly fourfold and loses its mipmaps.
+
+A Sprite that references a Texture2D directly instead of an atlas follows the same rules, minus the sharing
+concern. The editing PNG can stay in the directory; `packAba` recognizes it as a derived file and skips it.
 
 ### KCES Model, Mesh, AnimationClip, and AudioClip
 
@@ -333,6 +371,9 @@ MeidoSerialization.exe convert2image .\aba_files\Texture2D\my_texture.tex
 MeidoSerialization.exe convert2texture2d .\aba_files\Texture2D\my_texture.png
 MeidoSerialization.exe packAba .\aba_files -o my_mod
 ```
+
+`convert2texture2d` has to keep the original file name and pixel dimensions, and it always rebuilds inline
+single-mip RGBA32. See [Editing a Sprite](#editing-a-sprite) for why, and for how the same route changes a Sprite.
 
 KCES 1.34.5 reads a parts container only from a file named exactly `<aba_name>.menuassets` or
 `<aba_name>.materialassets`, and it compares that name case-sensitively against entries it registered in lowercase.
@@ -793,6 +834,7 @@ notepad .\body.menu.json
 .\MeidoSerialization.exe convert2image .\texture.tex --format webp
 
 # KCES 原生 Texture2D -> PNG 或 DDS
+# PNG 是正立的；DDS 原样透传 Unity 块数据，因此保持自下而上的行序
 .\MeidoSerialization.exe convert2image .\Texture2D\body.tex --format png
 .\MeidoSerialization.exe convert2image .\Texture2D\body.tex --format dds
 
@@ -812,6 +854,36 @@ notepad .\body.menu.json
 `convert2tex` 默认写出 TEX 1010。只有旁边存在有效的 `.uv.csv` 图集矩形信息时，才会写出
 1011。详情见 [TEX 1011 常见问题](../README.md#关于-1011-版本的-tex)。也可以显式使用 `--forcePng=false`；`--compress`
 的优先级更高。
+
+#### 修改 Sprite
+
+Sprite 对象本身不存像素，因此 `convert2image` 对 Sprite 是单向的，也没有图片转 Sprite 的命令。解包后三个 Unity 对象是分开的文件：
+
+| 文件                            | Unity 对象               | 内容                                    |
+|-------------------------------|------------------------|---------------------------------------|
+| `Sprite\icon.sprite`          | Sprite（213）            | rect、pivot、border、渲染数据键、渲染网格、碰撞形状     |
+| `SpriteAtlas\pack.partsatlas` | SpriteAtlas（687078895） | `m_RenderDataMap`，即每个 sprite 在图集中的位置  |
+| `Texture2D\sactx-*.texture2d` | Texture2D（28）          | 像素                                    |
+
+要改变 Sprite 的外观，请修改它所指向的 Texture2D 后重新打包。`.sprite` 与 `.partsatlas` 会按字节原样透传，因此 sprite 元数据和图集映射不会有任何改变：
+
+~~~powershell
+.\MeidoSerialization.exe unpackAba .\my_mod.aba -o .\aba_files
+.\MeidoSerialization.exe convert2image .\aba_files\Texture2D\sactx-0-512x512-BC7-pack.partsatlas-05ad4a72.texture2d
+# 就地修改 PNG，保持文件名和像素尺寸不变
+.\MeidoSerialization.exe convert2texture2d .\aba_files\Texture2D\sactx-0-512x512-BC7-pack.partsatlas-05ad4a72.png
+.\MeidoSerialization.exe packAba .\aba_files -o my_mod
+~~~
+
+有四条限制：
+
+- **不要改文件名。** PathID 由规范文件路径哈希得到，因此图集指向贴图的 PPtr 只认文件名。`convert2texture2d`
+  会覆盖同基名的现有 `.tex` 或 `.texture2d` 正是为此，新建一个不同名的文件会让引用断掉。
+- **不要改像素尺寸。** 图集里每个 `textureRect` 都是绝对像素坐标，改尺寸会让共用该贴图的所有 sprite 全部错位。
+- **图集贴图是共用的。** 一张图集通常承载几百到上千个 sprite，因此只应修改目标 sprite 所占的那块区域。
+- **格式会退化。** `convert2texture2d` 固定重建为内联单 mip RGBA32，因此 BC7 图集体积约增至四倍并丢失 mipmap。
+
+直接引用 Texture2D 而不经过图集的 Sprite 同样适用以上规则，只是不涉及共用问题。用于编辑的 PNG 可以留在目录里，`packAba` 会将其识别为派生文件并跳过。
 
 ### KCES Model、Mesh、AnimationClip 与 AudioClip
 
@@ -959,6 +1031,9 @@ PNG 并编辑，然后转换回原生 Texture2D，这样重新打包时才能带
 .\MeidoSerialization.exe convert2texture2d .\aba_files\Texture2D\my_texture.png
 .\MeidoSerialization.exe packAba .\aba_files -o my_mod
 ~~~
+
+`convert2texture2d` 必须保持原文件名和像素尺寸不变，且固定重建为内联单 mip RGBA32。原因以及如何用同一条路径修改
+Sprite，见[修改 Sprite](#修改-sprite)。
 
 KCES 1.34.5 只从名字恰好为 `<aba名>.menuassets` 或 `<aba名>.materialassets` 的文件读取部件容器，而且这个名字会
 与它按小写登记的条目做区分大小写的比较。因此 `-o` 指定的输出名必须全小写，并与包内的容器文件名一致（也可以
@@ -1418,6 +1493,7 @@ notepad .\body.menu.json
 .\MeidoSerialization.exe convert2image .\texture.tex --format webp
 
 # KCES ネイティブ Texture2D -> PNG または DDS
+# PNG は正立です。DDS は Unity のブロックデータをそのまま透過するため、下から上への行順のままです
 .\MeidoSerialization.exe convert2image .\Texture2D\body.tex --format png
 .\MeidoSerialization.exe convert2image .\Texture2D\body.tex --format dds
 
@@ -1437,6 +1513,43 @@ notepad .\body.menu.json
 `convert2tex` は通常 TEX 1010 を書き出します。有効な隣接 `.uv.csv` に 1011 atlas rectangle がある場合のみ 1011 を生成します。詳細は
 [TEX 1011 FAQ](../README.md#tex-ファイルのバージョン-1011-について)を参照してください。
 `--forcePng=false` も明示的に指定できますが、`--compress` が優先されます。
+
+#### Sprite の編集
+
+Sprite オブジェクト自体はピクセルを保持しないため、`convert2image` は Sprite に対して一方向であり、画像から Sprite への変換コマンドもありません。展開すると
+3 つの Unity オブジェクトは別々のファイルになります。
+
+| ファイル                          | Unity オブジェクト           | 内容                                                |
+|-------------------------------|------------------------|---------------------------------------------------|
+| `Sprite\icon.sprite`          | Sprite（213）            | rect、pivot、border、レンダーデータキー、レンダーメッシュ、物理形状          |
+| `SpriteAtlas\pack.partsatlas` | SpriteAtlas（687078895） | `m_RenderDataMap`、つまり atlas 内での各 sprite の位置        |
+| `Texture2D\sactx-*.texture2d` | Texture2D（28）          | ピクセル                                              |
+
+Sprite の見た目を変更するには、参照先の Texture2D を編集して再パックしてください。`.sprite` と `.partsatlas`
+はバイト単位でそのまま透過されるため、sprite のメタデータと atlas のマッピングは一切変化しません。
+
+~~~powershell
+.\MeidoSerialization.exe unpackAba .\my_mod.aba -o .\aba_files
+.\MeidoSerialization.exe convert2image .\aba_files\Texture2D\sactx-0-512x512-BC7-pack.partsatlas-05ad4a72.texture2d
+# ファイル名とピクセルサイズを保ったまま PNG をその場で編集します
+.\MeidoSerialization.exe convert2texture2d .\aba_files\Texture2D\sactx-0-512x512-BC7-pack.partsatlas-05ad4a72.png
+.\MeidoSerialization.exe packAba .\aba_files -o my_mod
+~~~
+
+制約は 4 点あります。
+
+- **ファイル名を変えないでください。** PathID は正規化されたファイルパスのハッシュであるため、atlas から texture への PPtr
+  はファイル名だけで解決されます。`convert2texture2d` が同じ基本名の既存 `.tex` または `.texture2d`
+  を上書きするのはこのためであり、別名のファイルを作ると参照が壊れます。
+- **ピクセルサイズを変えないでください。** atlas 内の `textureRect` はすべて絶対ピクセル座標のため、リサイズするとその texture
+  を共有するすべての sprite がずれます。
+- **atlas texture は共有されています。** 1 枚の atlas が数百から数千の sprite を担うことが多いため、変更したい sprite
+  が占める領域だけを編集してください。
+- **フォーマットが劣化します。** `convert2texture2d` は常にインライン単一 mip の RGBA32 として再構築するため、BC7 atlas
+  はおよそ 4 倍に膨らみ mipmap を失います。
+
+atlas を経由せず Texture2D を直接参照する Sprite にも同じ規則が当てはまりますが、共有の問題はありません。編集用の PNG
+はディレクトリに残しておいて構いません。`packAba` は派生ファイルとして認識してスキップします。
 
 ### KCES Model、Mesh、AnimationClip、AudioClip
 
@@ -1596,6 +1709,9 @@ NEI テキストは Shift-JIS です。CSV は RFC 4180 形式に近いカンマ
 .\MeidoSerialization.exe convert2texture2d .\aba_files\Texture2D\my_texture.png
 .\MeidoSerialization.exe packAba .\aba_files -o my_mod
 ~~~
+
+`convert2texture2d` は元のファイル名とピクセルサイズを保つ必要があり、常にインライン単一 mip の RGBA32
+として再構築します。その理由と、同じ経路で Sprite を変更する方法は [Sprite の編集](#sprite-の編集)を参照してください。
 
 KCES 1.34.5 は `<aba名>.menuassets` または `<aba名>.materialassets` という名前のファイルからのみパーツ container
 を読み込み、その名前を小文字で登録されたエントリと大文字小文字を区別して比較します。そのため `-o` に渡す出力名は

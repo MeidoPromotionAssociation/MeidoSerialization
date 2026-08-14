@@ -160,9 +160,9 @@ func (w *SerializedFileWriter) AddTextAssetWithLoadNameAndPathID(name string, lo
 	return actualPathID
 }
 
-// AddTexture2D 添加一个 Texture2D 对象，imageData 是 RGBA32 像素数据，width 和 height 是尺寸
+// AddTexture2D 添加一个 Texture2D 对象，imageData 是自上而下行序的 RGBA32 像素数据，width 和 height 是尺寸
 // 返回分配的 PathID
-// AddTexture2D adds a Texture2D with RGBA32 imageData and the supplied width and height
+// AddTexture2D adds a Texture2D with top-down RGBA32 imageData and the supplied width and height
 // It returns the allocated PathID
 func (w *SerializedFileWriter) AddTexture2D(name string, width, height int64, imageData []byte) int64 {
 	return w.AddTexture2DWithLoadName(name, name, width, height, imageData)
@@ -180,10 +180,10 @@ func (w *SerializedFileWriter) AddTexture2DWithLoadName(name string, loadName st
 	return w.AddTexture2DWithLoadNameAndPathID(name, loadName, width, height, imageData, 0)
 }
 
-// AddTexture2DWithLoadNameAndPathID 添加带独立 m_Name、AssetBundle 加载键和首选 PathID 的 Texture2D
-// AddTexture2DWithLoadNameAndPathID adds a generated Texture2D with separate internal m_Name, AssetBundle load key, and preferred PathID
+// AddTexture2DWithLoadNameAndPathID 添加带独立 m_Name、AssetBundle 加载键和首选 PathID 的 Texture2D，imageData 按自上而下行序传入并翻转为 Unity 自下而上行序
+// AddTexture2DWithLoadNameAndPathID adds a generated Texture2D with separate internal m_Name, AssetBundle load key, and preferred PathID, taking imageData in top-down row order and flipping it into Unity's bottom-up row order
 func (w *SerializedFileWriter) AddTexture2DWithLoadNameAndPathID(name string, loadName string, width, height int64, imageData []byte, pathID int64) int64 {
-	data, err := encodeTexture2DData(w.UnityVersion, name, width, height, imageData)
+	data, err := encodeTexture2DData(w.UnityVersion, name, width, height, FlipRGBA32Rows(width, height, imageData))
 	if err != nil {
 		w.setError(fmt.Errorf("encode Texture2D %q: %w", name, err))
 		return 0
