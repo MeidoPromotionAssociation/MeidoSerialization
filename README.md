@@ -15,7 +15,7 @@
 
 MeidoSerialization is a Go serialization and format-conversion toolkit for proprietary file formats used by
 [KISS](https://www.kisskiss.tv) games. It supports legacy [CM3D2](https://www.kisskiss.tv/cm3d2/) and
-[COM3D2](https://com3d2.jp/) formats, as well as the later [KCES](https://kces.jp/) character-editing formats used by
+[COM3D2](https://com3d2.jp/) formats, as well as the later [KCES](https://kces.jp/)/KCES2 character-editing formats used by
 COM3D2.5 and CRC3D3. The same implementation is available through Go packages, a command-line tool, a versioned gRPC
 API, and an MCP stdio server.
 
@@ -31,7 +31,7 @@ Please ask questions or provide feedback in the group instead of sending direct 
 
 ## Features
 
-- Read, validate, and write COM3D2/CM3D2 and KCES data
+- Read, validate, and write COM3D2/CM3D2 and KCES/KCES2 data
 - Convert supported native formats to strict editing JSON and back
 - Detect formats by content and batch-convert individual files or directories
 - List, extract, unpack, and pack COM3D2 ARC and KCES CT/ABA containers
@@ -45,7 +45,7 @@ KCES, gRPC, and MCP support is available in MeidoSerialization v2.0.0 and later.
 
 ## Supported Formats
 
-Compatibility is currently checked against COM3D2 v2.48.0, COM3D2.5 v3.48.0, and KCES 1.34.4.
+Compatibility is currently checked against COM3D2 v2.49.2, COM3D2.5 v3.49.2, and KCES 1.34.5 and KCES2 1.35.1.
 
 Unless stated otherwise, “JSON” below means the strict editing JSON representation shared by the CLI, services, gRPC,
 and MCP.
@@ -70,7 +70,7 @@ and MCP.
 | `.arc`                                                   | Archive            | List, extract, pack, unpack | Encrypted ARC files are not supported                                        |
 | `.save`                                                  | Save data          | Detect only                 | Conversion is not provided                                                   |
 
-### KCES / COM3D2.5
+### KCES / KCES2
 
 | File or extension                                   | Description                                      | Supported operations                   | Notes                                                                                                                                                                                                                                        |
 |-----------------------------------------------------|--------------------------------------------------|----------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -499,7 +499,7 @@ This project is licensed under the BSD-3-Clause License - see the LICENSE file f
 
 MeidoSerialization 是一个使用 Go 编写的序列化与格式转换工具集，专门处理 [KISS](https://www.kisskiss.tv)
 游戏使用的专有文件格式。目前同时支持传统 [CM3D2](https://www.kisskiss.tv/cm3d2/)、
-[COM3D2](https://com3d2.jp/) 格式，以及 COM3D2.5 和 CRC3D3 使用的后续 [KCES](https://kces.jp/) 角色编辑系统格式。同一套实现可以通过
+[COM3D2](https://com3d2.jp/) 格式，以及 COM3D2.5 和 CRC3D3 使用的后续 [KCES](https://kces.jp/)/KCES2 角色编辑系统格式。同一套实现可以通过
 Go 包、命令行工具、版本化 gRPC API 和 MCP stdio 服务器调用。
 
 <br>
@@ -528,7 +528,7 @@ KCES、gRPC、MCP 支持在 MeidoSerialization v2.0.0 版本后可用。
 
 ## 支持的格式
 
-当前兼容性以 COM3D2 v2.48.0 和 COM3D2.5 v3.48.0 以及 KCES 1.34.4 为基准进行检查。
+当前兼容性以 COM3D2 v2.49.2 和 COM3D2.5 v3.49.2 以及 KCES 1.34.5 以及 KCES2 1.35.1 为基准进行检查。
 
 除非另有说明，下表中的“JSON”均指 CLI、service、gRPC 和 MCP 共用的严格 editing JSON 表示。
 
@@ -552,7 +552,7 @@ KCES、gRPC、MCP 支持在 MeidoSerialization v2.0.0 版本后可用。
 | `.arc`                                                   | 归档文件     | 列出、提取、打包、解包 | 不支持加密 ARC                                                        |
 | `.save`                                                  | 存档         | 仅识别                 | 不提供转换功能                                                        |
 
-### KCES / COM3D2.5
+### KCES / KCES2
 
 | 文件或扩展名                               | 内容/描述                        | 支持的操作                        | 备注                                                                                                                                                                |
 |--------------------------------------------|----------------------------------|-----------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -980,7 +980,7 @@ func main() {
 MeidoSerialization は Go で書かれた、[KISS](https://www.kisskiss.tv) ゲームの独自ファイル形式を扱う
 シリアライズ・形式変換ツールセットです。従来の [CM3D2](https://www.kisskiss.tv/cm3d2/) と
 [COM3D2](https://com3d2.jp/) に加え、COM3D2.5 と CRC3D3 で使用される後継の
-[KCES](https://kces.jp/) キャラクター編集システム形式にも対応します。同じ実装を Go package、CLI、versioned gRPC API、MCP
+[KCES](https://kces.jp/)/KCES2 キャラクター編集システム形式にも対応します。同じ実装を Go package、CLI、versioned gRPC API、MCP
 stdio server から利用できます。
 
 <br>
@@ -995,7 +995,7 @@ Discord の [Custom Maid Server](https://discord.gg/custommaid) でも連絡で�
 
 ## 機能
 
-- COM3D2/CM3D2 と KCES data の読み取り、検証、書き出し
+- COM3D2/CM3D2 と KCES/KCES2 data の読み取り、検証、書き出し
 - 対応 native 形式と厳密な editing JSON の双方向変換
 - 内容による形式判定と、単一ファイルまたはディレクトリの一括変換
 - COM3D2 ARC と KCES CT/ABA container の一覧、抽出、unpack、pack
@@ -1009,7 +1009,7 @@ KCES、gRPC、MCP のサポートは MeidoSerialization v2.0.0 以降で利用�
 
 ## 対応形式
 
-互換性は現在 COM3D2 v2.48.0、COM3D2.5 v3.48.0、KCES 1.34.4 を基準に確認しています。
+互換性は現在 COM3D2 v2.49.2、COM3D2.5 v3.49.2、KCES 1.34.5、KCES2 1.35.1 を基準に確認しています。
 
 特記がない限り、以下の「JSON」は CLI、service、gRPC、MCP で共通の厳密な editing JSON を意味します。
 
@@ -1033,7 +1033,7 @@ KCES、gRPC、MCP のサポートは MeidoSerialization v2.0.0 以降で利用�
 | `.arc`                                                   | アーカイブ               | 一覧、抽出、pack、unpack | 暗号化 ARC は非対応                                              |
 | `.save`                                                  | セーブデータ             | 判定のみ                 | 変換機能は提供しない                                             |
 
-### KCES / COM3D2.5
+### KCES / KCES2
 
 | ファイルまたは拡張子                            | 内容                                         | 対応操作                          | 備考                                                                                                                                                                                                                    |
 |-------------------------------------------------|----------------------------------------------|-----------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
