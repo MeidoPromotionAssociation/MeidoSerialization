@@ -84,6 +84,11 @@ MeidoSerialization.exe convert2mod .\body.menu.json
 | `example.aba`          | `unpackAba`         | `example.aba_unpacked\`                                           |
 | `example.aba`          | `genCt`             | `example.ct`                                                      |
 
+`convert2gltf` on a `.mmesh` exports geometry alone. Whenever a `.model` references the mesh, convert that
+`.model` instead: it loads the `.mmesh` automatically and adds the skeleton, bone weights, morph targets, and
+material names that a `.mmesh` does not store. See
+[KCES Model, Mesh, AnimationClip, and AudioClip](#kces-model-mesh-animationclip-and-audioclip).
+
 ### Batch conversion
 
 Pass a directory instead of a file to process matching files recursively:
@@ -226,6 +231,7 @@ MeidoSerialization.exe convert2gltf .\TextAsset\dress.model
 MeidoSerialization.exe gltf2model .\dress.glb -o .\out
 
 # Standalone Mesh or AnimationClip -> binary glTF 2.0 (default)
+# A .mmesh carries geometry alone; convert the .model above whenever one references this mesh
 MeidoSerialization.exe convert2gltf .\Mesh\body.mmesh
 MeidoSerialization.exe convert2gltf .\dance.animationclip.bytes
 
@@ -244,6 +250,12 @@ Model conversion is bidirectional: `convert2gltf` looks up the `.mmesh` next to 
 `Mesh` directory of an unpacked ABA, and `gltf2model` writes an official Unity 2022.3 native Mesh that packs
 straight back into an ABA. A glTF scene without a skin is bound rigidly to its mesh node through a synthesized
 single-bone skin.
+
+Point `convert2gltf` at the `.model`, not at the `.mmesh` it references. A `.mmesh` is the Unity Mesh asset by
+itself, so exporting one directly writes a glTF with no skeleton, no bone weights, no morph targets, no material
+names, and no UV1 through UV7: the bone hierarchy, morph deltas, and material names all live in the `.model`.
+The result is a geometry preview only, and importing it with `gltf2model` produces a model whose synthesized
+single-bone skin the game cannot pose. `convert2gltf` prints a reminder whenever it exports a standalone Mesh.
 
 Blender import tip: in the glTF importer's `Bones & Skin` panel, uncheck `Guess Original Bind Pose` and set
 `Bone Dir` to "Temperance" to get a clean octahedral skeleton. KCES bind poses are baked against a body-scaled
@@ -765,6 +777,10 @@ notepad .\body.menu.json
 | `example.aba`          | `unpackAba`         | `example.aba_unpacked\`                         |
 | `example.aba`          | `genCt`             | `example.ct`                                    |
 
+对 `.mmesh` 使用 `convert2gltf` 只会导出几何体。只要有 `.model` 引用了该网格，就应该转换那个 `.model`：它会自动找到
+`.mmesh`，并补上 `.mmesh` 本身不保存的骨架、蒙皮权重、变形目标和材质名。详见
+[KCES Model、Mesh、AnimationClip 与 AudioClip](#kces-modelmeshanimationclip-与-audioclip)。
+
 ### 批量转换目录
 
 把目录而不是单个文件传给命令，就会递归处理其中匹配的文件：
@@ -898,6 +914,7 @@ Sprite 对象本身不存像素，因此 `convert2image` 对 Sprite 是单向的
 .\MeidoSerialization.exe gltf2model .\dress.glb -o .\out
 
 # 独立 Mesh 或 AnimationClip -> 二进制 glTF 2.0（默认）
+# .mmesh 只包含几何体；只要有上面那样的 .model 引用它，就应该转换 .model
 .\MeidoSerialization.exe convert2gltf .\Mesh\body.mmesh
 .\MeidoSerialization.exe convert2gltf .\dance.animationclip.bytes
 
@@ -915,6 +932,12 @@ Sprite 对象本身不存像素，因此 `convert2image` 对 Sprite 是单向的
 Model 转换是双向的：`convert2gltf` 会在 `.model` 同目录或 ABA 解包目录的同级 `Mesh`
 目录中查找 `.mmesh`；`gltf2model` 写出官方 Unity 2022.3 原生 Mesh，可直接重新打包进 ABA。
 不带蒙皮的 glTF 场景会合成单骨骼蒙皮，把网格刚性绑定到其挂载节点。
+
+请把 `convert2gltf` 指向 `.model`，而不是它引用的 `.mmesh`。`.mmesh` 只是 Unity 的 Mesh
+资源本身，直接转换它得到的 glTF 没有骨架、没有蒙皮权重、没有变形目标、没有材质名，也没有 UV1 到
+UV7——骨骼层级、morph 差分和材质名都保存在 `.model` 里。这样的文件只能当作几何体预览，再用
+`gltf2model` 导回只会得到一个合成单骨骼蒙皮、游戏无法驱动的模型。导出独立 Mesh 时 `convert2gltf`
+会打印一条提示。
 
 Blender 导入提示：在 glTF 导入器的 `Bones & Skin` 面板中，取消勾选 `Guess Original Bind Pose`（猜测原始绑定姿态），
 并把 `Bone Dir` 设为 "Temperance"，即可得到干净的八面锥骨架。KCES 的 bindpose 是在带体型缩放的骨架下烘焙的，
@@ -1423,6 +1446,11 @@ notepad .\body.menu.json
 | `example.aba`          | `unpackAba`         | `example.aba_unpacked\`                                   |
 | `example.aba`          | `genCt`             | `example.ct`                                              |
 
+`.mmesh` に対する `convert2gltf` は geometry だけを出力します。その mesh を参照する `.model` がある場合は、そちらを変換してください。`.model`
+なら `.mmesh` を自動的に読み込み、`.mmesh` 自体には保存されていない skeleton、bone weight、morph target、material
+名を含めて出力します。詳細は
+[KCES Model、Mesh、AnimationClip、AudioClip](#kces-modelmeshanimationclipaudioclip) を参照してください。
+
 ### ディレクトリの一括変換
 
 ファイルの代わりにディレクトリを渡すと、一致するファイルを再帰的に処理します。
@@ -1565,6 +1593,7 @@ atlas を経由せず Texture2D を直接参照する Sprite にも同じ規則�
 .\MeidoSerialization.exe gltf2model .\dress.glb -o .\out
 
 # 単独の Mesh または AnimationClip -> binary glTF 2.0（既定）
+# .mmesh は geometry のみです。この mesh を参照する .model がある場合は上の .model を変換してください
 .\MeidoSerialization.exe convert2gltf .\Mesh\body.mmesh
 .\MeidoSerialization.exe convert2gltf .\dance.animationclip.bytes
 
@@ -1582,6 +1611,12 @@ atlas を経由せず Texture2D を直接参照する Sprite にも同じ規則�
 Model 変換は双方向です。`convert2gltf` は `.model` と同じディレクトリ、または展開済み ABA の隣接 `Mesh`
 ディレクトリから `.mmesh` を探します。`gltf2model` は公式 Unity 2022.3 ネイティブ Mesh を書き出し、そのまま ABA
 に再パックできます。skin のない glTF シーンは単一ボーンの skin を合成してメッシュノードに剛体バインドされます。
+
+`convert2gltf` には `.mmesh` ではなく `.model` を渡してください。`.mmesh` は Unity の Mesh
+アセット単体なので、直接変換した glTF には skeleton、bone weight、morph target、material 名、UV1〜UV7
+が含まれません。ボーン階層、morph 差分、material 名はいずれも `.model` にあるためです。得られるのは geometry
+プレビューにすぎず、それを `gltf2model` で読み戻しても、単一ボーンの skin が合成されたゲームで動かせないモデルにしかなりません。単独 Mesh
+を出力すると `convert2gltf` は注意書きを表示します。
 
 Blender インポートのヒント：glTF インポーターの `Bones & Skin` パネルで `Guess Original Bind Pose`
 のチェックを外し、`Bone Dir` を "Temperance" にすると、きれいな八面体スケルトンになります。KCES の bindpose

@@ -792,7 +792,7 @@ func cliOnlyOperations() []map[string]any {
 		{
 			"game": "KCES", "file_type": "mesh", "native_suffixes": []string{".mmesh"},
 			"cli_commands": []string{"convert2gltf", "gltf2model"},
-			"detail":       "MCP converts kces.model to editing JSON, while the geometry lives in the .mmesh companion that has no MCP format. Exporting a Model with its Mesh to glTF and importing glTF back to .model and .mmesh are command line only.",
+			"detail":       "MCP converts kces.model to editing JSON, while the geometry lives in the .mmesh companion that has no MCP format. Exporting a Model with its Mesh to glTF and importing glTF back to .model and .mmesh are command line only. Run convert2gltf on the .model rather than on the .mmesh it references: the .model input locates the .mmesh through meshFileName and exports the skeleton, bone weights, morph targets, and material names, while a .mmesh on its own exports geometry alone and gltf2model can only reimport that file with a synthesized single-bone skin.",
 		},
 		{
 			"game": "KCES", "file_type": "animation_clip", "native_suffixes": []string{".anm"},

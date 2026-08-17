@@ -228,10 +228,12 @@ MeidoSerialization.exe unpackAba .\example.aba -o .\unpacked
 
 # Export supported raw Unity objects
 MeidoSerialization.exe convert2image .\texture.texture2d.bytes
+# A .mmesh on its own exports geometry only; convert the .model below for a complete model
 MeidoSerialization.exe convert2gltf .\mesh.mmesh --format glb
 MeidoSerialization.exe convert2audio .\voice.audioclip.bytes
 
 # Convert a KCES model to and from glTF (skeleton, skin, morphs, and material names included)
+# convert2gltf finds the .mmesh through meshFileName, so always feed it the .model, not the .mmesh
 MeidoSerialization.exe convert2gltf .\TextAsset\dress.model
 MeidoSerialization.exe gltf2model .\dress.glb -o .\out
 ```

@@ -159,7 +159,9 @@ MeidoSerialization.exe genCt .\example.aba
 
 # Export standalone native Unity objects
 MeidoSerialization.exe convert2image .\Texture2D\texture.tex
+# The .model input loads its .mmesh and exports the skeleton, skin, morphs, and material names
 MeidoSerialization.exe convert2gltf .\TextAsset\dress.model
+# A .mmesh on its own exports geometry only, with no skeleton
 MeidoSerialization.exe convert2gltf .\Mesh\mesh.mmesh --format glb
 MeidoSerialization.exe gltf2model .\dress.glb -o .\out
 MeidoSerialization.exe convert2audio .\AudioClip\voice.audioclip
@@ -635,7 +637,9 @@ MeidoSerialization.exe genCt .\example.aba
 
 # 导出独立的原生 Unity 对象
 MeidoSerialization.exe convert2image .\Texture2D\texture.tex
+# 传入 .model 会自动加载其 .mmesh，导出骨架、蒙皮、morph 和材质名
 MeidoSerialization.exe convert2gltf .\TextAsset\dress.model
+# 单独转换 .mmesh 只会得到几何体，没有骨架
 MeidoSerialization.exe convert2gltf .\Mesh\mesh.mmesh --format glb
 MeidoSerialization.exe gltf2model .\dress.glb -o .\out
 MeidoSerialization.exe convert2audio .\AudioClip\voice.audioclip
@@ -1121,7 +1125,9 @@ MeidoSerialization.exe genCt .\example.aba
 
 # 単体 native Unity object を出力
 MeidoSerialization.exe convert2image .\Texture2D\texture.tex
+# .model を渡すと .mmesh を自動的に読み込み、skeleton・skin・morph・material 名を出力します
 MeidoSerialization.exe convert2gltf .\TextAsset\dress.model
+# .mmesh 単体では geometry だけが出力され、skeleton は含まれません
 MeidoSerialization.exe convert2gltf .\Mesh\mesh.mmesh --format glb
 MeidoSerialization.exe gltf2model .\dress.glb -o .\out
 MeidoSerialization.exe convert2audio .\AudioClip\voice.audioclip

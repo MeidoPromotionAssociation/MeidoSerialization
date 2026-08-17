@@ -58,7 +58,7 @@ func (s *ModelService) ConvertModelToGLTF(ctx context.Context, inputPath string,
 		return fmt.Errorf("decode Model %q: %w", inputPath, err)
 	}
 	if model == nil {
-		return fmt.Errorf("Model %q is null", inputPath)
+		return fmt.Errorf("model %q is null", inputPath)
 	}
 	meshPath, err := locateModelMeshFile(inputPath, model)
 	if err != nil {
@@ -85,7 +85,7 @@ func (s *ModelService) ConvertModelToGLTF(ctx context.Context, inputPath string,
 		format = strings.TrimPrefix(strings.ToLower(filepath.Ext(outputPath)), ".")
 	}
 	if format != "gltf" && format != "glb" {
-		return fmt.Errorf("Model glTF output format %q is unsupported; use gltf or glb", format)
+		return fmt.Errorf("model glTF output format %q is unsupported; use gltf or glb", format)
 	}
 	var output bytes.Buffer
 	encoder := gltf.NewEncoder(&output)
@@ -100,7 +100,7 @@ func (s *ModelService) ConvertModelToGLTF(ctx context.Context, inputPath string,
 // locateModelMeshFile finds the .mmesh referenced by meshFileName in the model directory and the unpacked aba directory layout
 func locateModelMeshFile(modelPath string, model *serializationKCES.Model) (string, error) {
 	if model.MeshFileName == nil || *model.MeshFileName == "" {
-		return "", fmt.Errorf("Model %q has no meshFileName", modelPath)
+		return "", fmt.Errorf("model %q has no meshFileName", modelPath)
 	}
 	directory := filepath.Dir(modelPath)
 	candidates := []string{
