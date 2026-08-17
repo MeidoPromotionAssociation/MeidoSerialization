@@ -52,6 +52,21 @@ import (
 //	[Key(30)] skirt_phys                 int
 //	[Key(31)] hairMake                   HairMake
 
+// 游戏样本中实际出现过的 indexed-array 宽度都是上表的前缀，Key 编号不因宽度变化而移位，只是尾部 Key 缺席
+// 区间内未采到样本的宽度不予声明，因为无法核实其槽位语义
+// Every indexed-array width actually observed in game samples is a prefix of the table above, with key numbers never shifting between widths and only trailing keys being absent
+// Widths inside the range without a sample are left undeclared because their slot semantics cannot be verified
+//
+//	宽度 / width  占用槽位 / slots  末尾 Key / last key
+//	21            [Key(0)]~[Key(20)]  defineFirst
+//	22            [Key(0)]~[Key(21)]  partsVer
+//	26            [Key(0)]~[Key(25)]  attribute
+//	27            [Key(0)]~[Key(26)]  hideInEdit
+//	28            [Key(0)]~[Key(27)]  toeLockSlotId
+//	30            [Key(0)]~[Key(29)]  isHarayureAvailable
+//	31            [Key(0)]~[Key(30)]  skirt_phys
+//	32            [Key(0)]~[Key(31)]  hairMake（KCES2 / KCES2 only）
+
 // Menu 表示 Parts.Menu 的菜单数据
 // 对应 C# Parts.Menu，继承自 AMessagePackSerializationVersionControlIntKey
 // MessagePack indexed array 在 KCES 中包含 Key(0) 至 Key(30)，KCES2 在 Key(31) 追加 HairMake，Key(24) 在 C# 中没有成员
@@ -59,39 +74,39 @@ import (
 // It matches C# Parts.Menu derived from AMessagePackSerializationVersionControlIntKey
 // Its MessagePack indexed array contains Key(0) through Key(30) in KCES and appends HairMake at Key(31) in KCES2, with no C# member at Key(24)
 type Menu struct {
-	_struct                    struct{}                   `codec:",toarray" kces:"nil=24;widths=21,22,27,28,31,32"` // 强制按数组编码并声明游戏已知历史宽度与固定 nil Key / Forces array encoding and declares known game widths plus the fixed nil key
-	Version                    int32                      `json:"version"`                                          // 存储的版本；当前游戏 FixVersion 为 1005 / Stored version; current-game FixVersion is 1005
-	GUID                       uint64                     `json:"guid"`                                             // 来源 GUID 字符串的大小写无关 FNV-1a 64 位哈希，写入默认重算，来源为 HairMake.ExportedGUID 或缺少该来源时新生成的 UUID v4，可显式保留 / Case-insensitive FNV-1a 64-bit hash of the source GUID string, recalculated by default during encoding from HairMake.ExportedGUID or from a freshly generated UUID v4 when that source is absent, and explicitly preservable
-	ID                         uint64                     `json:"id"`                                               // Menu 文件名的大小写无关 FNV-1a 64 位哈希，写入默认重算且可显式保留 / Case-insensitive FNV-1a 64-bit hash of the menu filename, recalculated by default during encoding and explicitly preservable
-	FileName                   *string                    `json:"fileName"`                                         // 可空菜单文件名，如 xxx.menu / Nullable menu file name such as xxx.menu
-	ItemName                   *string                    `json:"itemName"`                                         // 可空物品显示名称 / Nullable display name of the item
-	IconFileName               *string                    `json:"iconFileName"`                                     // 可空图标文件名 / Nullable icon file name
-	InfoText                   *string                    `json:"infoText"`                                         // 可空说明文本 / Nullable description text
-	Priority                   int32                      `json:"priority"`                                         // 优先级 / Priority
-	ParentID                   uint64                     `json:"parentId"`                                         // 父菜单 ID，0 表示无父级 / Parent menu ID, zero means no parent
-	IsMan                      bool                       `json:"isMan"`                                            // 是否为男性用 / Whether this menu is for male characters
-	IsDiff                     bool                       `json:"isDiff"`                                           // 是否为差分 / Whether this menu is a variation
-	IsDelete                   bool                       `json:"isDelete"`                                         // 是否为删除项 / Whether this menu removes an item
-	Commands                   []*Command                 `json:"commandList"`                                      // 可空命令对象数组 / Array of nullable command objects
-	CategoryText               *string                    `json:"categoryText"`                                     // 可空分类文本，通常为 MPN 枚举名 / Nullable category text, usually an MPN enum name
-	ColorSetText               *string                    `json:"colorSetText"`                                     // 可空颜色集文本，通常为 MPN 枚举名 / Nullable color-set text, usually an MPN enum name
-	DefineTagNames             uint64                     `json:"defineTagNames"`                                   // DEFINE 标志位 / DEFINE flag bits
-	PreMulTexDatas             map[uint64]*PreMulTexDatas `json:"preMulTexDatas"`                                   // 可空预乘纹理数据对象表 / Map of nullable pre-multiplied texture data objects
-	ColvariFileNameExp         *string                    `json:"colvariFileNameExp"`                               // 可空颜色变体文件名表达式 / Nullable color-variant file-name expression
-	ColvariInfo                *Colvari                   `json:"colvariInfo"`                                      // 颜色变体信息 / Color-variant information
-	SrcFileHashCRC32           uint32                     `json:"srcFileHashCRC32"`                                 // 源文件 CRC32 哈希 / Source-file CRC32 hash
-	DefineFirst                uint64                     `json:"defineFirst"`                                      // 首要 DEFINE 标志位 / Primary DEFINE flag bits
-	PartsVer                   *TupleStringInt            `json:"partsVer"`                                         // 部件版本元组 / Parts version tuple
-	IsRecommendMan             bool                       `json:"isRecommendMan"`                                   // 是否推荐男性使用 / Whether male use is recommended
-	TargetBodyType             int32                      `json:"targetBodyType"`                                   // 目标体型枚举，0=None, 1=Woman, 2=Man / Target body-type enum, 0=None, 1=Woman, 2=Man
-	Attribute                  uint64                     `json:"attribute"`                                        // 属性标志位 / Attribute flag bits
-	HideInEdit                 bool                       `json:"hideInEdit"`                                       // 是否在编辑界面隐藏 / Whether hidden in edit mode
-	ToeLockSlotId              *string                    `json:"toeLockSlotId"`                                    // 可空脚趾锁定槽位 ID / Nullable toe-lock slot ID
-	ExportModelFormTextureName *string                    `json:"exportModelFormTextureName"`                       // 可空导出模型纹理名 / Nullable exported model texture name
-	IsHarayureAvailable        int32                      `json:"isHarayureAvailable"`                              // 腹揺れ可用性枚举，0=None, 1=Available, 2=Disable / Belly-jiggle availability enum, 0=None, 1=Available, 2=Disable
-	SkirtPhys                  int32                      `json:"skirt_phys"`                                       // 裙子物理类型 / Skirt physics type
-	HairMake                   *HairMake                  `json:"hairMake"`                                         // KCES2 HairMake 导出信息 / KCES2 HairMake export information
-	IndexedArrayWidth          int32                      `codec:"-" json:"indexedArrayWidth,omitempty"`            // 解码时记录的线格式数组宽度，并非游戏成员 / Wire array width recorded during decoding, not a game member
+	_struct                    struct{}                   `codec:",toarray" kces:"nil=24;widths=21,22,26,27,28,30,31,32"` // 强制按数组编码并声明游戏已知历史宽度与固定 nil Key / Forces array encoding and declares known game widths plus the fixed nil key
+	Version                    int32                      `json:"version"`                                                // 存储的版本；当前游戏 FixVersion 为 1005 / Stored version; current-game FixVersion is 1005
+	GUID                       uint64                     `json:"guid"`                                                   // 来源 GUID 字符串的大小写无关 FNV-1a 64 位哈希，写入默认重算，来源为 HairMake.ExportedGUID 或缺少该来源时新生成的 UUID v4，可显式保留 / Case-insensitive FNV-1a 64-bit hash of the source GUID string, recalculated by default during encoding from HairMake.ExportedGUID or from a freshly generated UUID v4 when that source is absent, and explicitly preservable
+	ID                         uint64                     `json:"id"`                                                     // Menu 文件名的大小写无关 FNV-1a 64 位哈希，写入默认重算且可显式保留 / Case-insensitive FNV-1a 64-bit hash of the menu filename, recalculated by default during encoding and explicitly preservable
+	FileName                   *string                    `json:"fileName"`                                               // 可空菜单文件名，如 xxx.menu / Nullable menu file name such as xxx.menu
+	ItemName                   *string                    `json:"itemName"`                                               // 可空物品显示名称 / Nullable display name of the item
+	IconFileName               *string                    `json:"iconFileName"`                                           // 可空图标文件名 / Nullable icon file name
+	InfoText                   *string                    `json:"infoText"`                                               // 可空说明文本 / Nullable description text
+	Priority                   int32                      `json:"priority"`                                               // 优先级 / Priority
+	ParentID                   uint64                     `json:"parentId"`                                               // 父菜单 ID，0 表示无父级 / Parent menu ID, zero means no parent
+	IsMan                      bool                       `json:"isMan"`                                                  // 是否为男性用 / Whether this menu is for male characters
+	IsDiff                     bool                       `json:"isDiff"`                                                 // 是否为差分 / Whether this menu is a variation
+	IsDelete                   bool                       `json:"isDelete"`                                               // 是否为删除项 / Whether this menu removes an item
+	Commands                   []*Command                 `json:"commandList"`                                            // 可空命令对象数组 / Array of nullable command objects
+	CategoryText               *string                    `json:"categoryText"`                                           // 可空分类文本，通常为 MPN 枚举名 / Nullable category text, usually an MPN enum name
+	ColorSetText               *string                    `json:"colorSetText"`                                           // 可空颜色集文本，通常为 MPN 枚举名 / Nullable color-set text, usually an MPN enum name
+	DefineTagNames             uint64                     `json:"defineTagNames"`                                         // DEFINE 标志位 / DEFINE flag bits
+	PreMulTexDatas             map[uint64]*PreMulTexDatas `json:"preMulTexDatas"`                                         // 可空预乘纹理数据对象表 / Map of nullable pre-multiplied texture data objects
+	ColvariFileNameExp         *string                    `json:"colvariFileNameExp"`                                     // 可空颜色变体文件名表达式 / Nullable color-variant file-name expression
+	ColvariInfo                *Colvari                   `json:"colvariInfo"`                                            // 颜色变体信息 / Color-variant information
+	SrcFileHashCRC32           uint32                     `json:"srcFileHashCRC32"`                                       // 源文件 CRC32 哈希 / Source-file CRC32 hash
+	DefineFirst                uint64                     `json:"defineFirst"`                                            // 首要 DEFINE 标志位 / Primary DEFINE flag bits
+	PartsVer                   *TupleStringInt            `json:"partsVer"`                                               // 部件版本元组 / Parts version tuple
+	IsRecommendMan             bool                       `json:"isRecommendMan"`                                         // 是否推荐男性使用 / Whether male use is recommended
+	TargetBodyType             int32                      `json:"targetBodyType"`                                         // 目标体型枚举，0=None, 1=Woman, 2=Man / Target body-type enum, 0=None, 1=Woman, 2=Man
+	Attribute                  uint64                     `json:"attribute"`                                              // 属性标志位 / Attribute flag bits
+	HideInEdit                 bool                       `json:"hideInEdit"`                                             // 是否在编辑界面隐藏 / Whether hidden in edit mode
+	ToeLockSlotId              *string                    `json:"toeLockSlotId"`                                          // 可空脚趾锁定槽位 ID / Nullable toe-lock slot ID
+	ExportModelFormTextureName *string                    `json:"exportModelFormTextureName"`                             // 可空导出模型纹理名 / Nullable exported model texture name
+	IsHarayureAvailable        int32                      `json:"isHarayureAvailable"`                                    // 腹揺れ可用性枚举，0=None, 1=Available, 2=Disable / Belly-jiggle availability enum, 0=None, 1=Available, 2=Disable
+	SkirtPhys                  int32                      `json:"skirt_phys"`                                             // 裙子物理类型 / Skirt physics type
+	HairMake                   *HairMake                  `json:"hairMake"`                                               // KCES2 HairMake 导出信息 / KCES2 HairMake export information
+	IndexedArrayWidth          int32                      `codec:"-" json:"indexedArrayWidth,omitempty"`                  // 解码时记录的线格式数组宽度，并非游戏成员 / Wire array width recorded during decoding, not a game member
 }
 
 // HairMake 表示 KCES2 Menu 中的 HairMake 导出信息 / HairMake represents HairMake export information embedded in a KCES2 Menu

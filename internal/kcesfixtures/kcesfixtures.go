@@ -110,13 +110,19 @@ type textAssetSpec struct {
 }
 
 // PartsSamplePaths 从已知部件 ABA 中提取 menuassets、materialassets、model 和 pmatassets 样本
+// menuassets 样本覆盖游戏中出现过的多种 Menu indexed-array 宽度，包括 21、22、26、30、31 和 32
 // PartsSamplePaths extracts menuassets, materialassets, model, and pmatassets samples from known parts ABAs
+// The menuassets samples cover several Menu indexed-array widths seen in the game, including 21, 22, 26, 30, 31, and 32
 func PartsSamplePaths(t TB) []string {
 	t.Helper()
 	return textAssetPathsForSpecs(t, "parts", []textAssetSpec{
 		{"cm3d2_megane002.aba", "cm3d2_megane002.menuassets"},
 		{"cm3d2_eyes.aba", "cm3d2_eyes.menuassets"},
 		{"parts_personal002.aba", "parts_personal002.menuassets"},
+		{"parts.aba", "parts.menuassets"},
+		{"parts_2.aba", "parts_2.menuassets"},
+		{"parts_dlc437hair_gp003.aba", "parts_dlc437hair_gp003.menuassets"},
+		{"parts_cas097_gp003.aba", "parts_cas097_gp003.menuassets"},
 		{"cm3d2_megane002.aba", "cm3d2_megane002.materialassets"},
 		{"parts_personal002.aba", "parts_personal002.materialassets"},
 		{"crc_nt008_accha001.aba", "crc_nt008_accha009.materialassets"},
