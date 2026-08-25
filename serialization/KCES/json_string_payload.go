@@ -4,65 +4,53 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"unicode/utf8"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
 )
 
-// 多个新版物理配置扩展名共用的 MessagePack JSON 字符串模型
-// MessagePack JSON-string model shared by multiple newer physics configuration extensions
+// 多个新版物理配置扩展名共用的 MessagePack JSON 字符串模型，字符串内容是 MagicaCloth2 的
+// ClothSerializeData Unity JSON 文档
+// MessagePack JSON-string model shared by multiple newer physics configuration extensions, whose
+// string content is the MagicaCloth2 ClothSerializeData Unity JSON document
 
 // decodeJSONStringMessagePack 解码扩展名声明的原生 MessagePack JSON 字符串载荷
 // decodeJSONStringMessagePack decodes the native MessagePack JSON-string payload declared by an extension
-func decodeJSONStringMessagePack(data []byte, descriptor kcesPayloadDescriptor) (*KCESPayloadEnvelope, error) {
+func decodeJSONStringMessagePack(data []byte, descriptor kcesPayloadDescriptor) (*MagicaClothSerializeData, error) {
 	var text *string
 	if err := decodeKCESMessagePackRoot(data, descriptor, &text); err != nil {
 		return nil, fmt.Errorf("decode JSON string payload: %w", err)
 	}
-	envelope := newKCESMessagePackEnvelope(descriptor)
 	if text == nil {
-		return envelope, nil
+		return nil, nil
 	}
-	if !json.Valid([]byte(*text)) {
-		return nil, fmt.Errorf("decode JSON string payload: inner Magica JSON is invalid")
+	// 根为 JSON null 表示 MessagePack 的 nil 字符串，因此内层字面量 null 无法无损表达，只能拒绝
+	// A JSON null root already represents the nil MessagePack string, so an inner literal null cannot round-trip and is rejected
+	if bytes.Equal(bytes.TrimSpace([]byte(*text)), []byte("null")) {
+		return nil, fmt.Errorf("decode inner MagicaCloth ClothSerializeData JSON: the stored string is the literal null, which is not a ClothSerializeData document")
 	}
-	var compact bytes.Buffer
-	if err := json.Compact(&compact, []byte(*text)); err != nil {
-		return nil, fmt.Errorf("compact inner Magica JSON: %w", err)
+	var document MagicaClothSerializeData
+	if err := decodeKCESJSONStrict([]byte(*text), &document); err != nil {
+		return nil, fmt.Errorf("decode inner MagicaCloth ClothSerializeData JSON: %w", err)
 	}
-	envelope.JSON = append(json.RawMessage(nil), compact.Bytes()...)
-	return envelope, nil
+	return &document, nil
 }
 
 // encodeJSONStringMessagePack 编码扩展名声明的原生 MessagePack JSON 字符串载荷
 // encodeJSONStringMessagePack encodes the native MessagePack JSON-string payload declared by an extension
-func encodeJSONStringMessagePack(env *KCESPayloadEnvelope, descriptor kcesPayloadDescriptor) ([]byte, error) {
+func encodeJSONStringMessagePack(value *MagicaClothSerializeData, descriptor kcesPayloadDescriptor) ([]byte, error) {
 	var data []byte
 	var err error
-	if env.JSON == nil {
+	if value == nil {
 		data, err = msgpack.EncodeMsgpack(nil)
 	} else {
-		text, selectErr := editableMessagePackJSONString(env)
-		if selectErr != nil {
-			return nil, selectErr
+		text, marshalErr := json.Marshal(value)
+		if marshalErr != nil {
+			return nil, fmt.Errorf("encode inner MagicaCloth ClothSerializeData JSON: %w", marshalErr)
 		}
-		data, err = msgpack.EncodeMsgpack(text)
+		data, err = msgpack.EncodeMsgpack(string(text))
 	}
 	if err != nil {
 		return nil, fmt.Errorf("encode JSON string payload: %w", err)
 	}
 	return encodeKCESMessagePackRoot(data, descriptor)
-}
-
-// editableMessagePackJSONString 将 MessagePack 字符串载荷中的 JSON 语义内容规范化为紧凑字符串
-// editableMessagePackJSONString normalizes semantic JSON content from a MessagePack string payload into a compact string
-func editableMessagePackJSONString(env *KCESPayloadEnvelope) (string, error) {
-	if !utf8.Valid(env.JSON) {
-		return "", fmt.Errorf("json payload is not valid UTF-8")
-	}
-	var compactJSON bytes.Buffer
-	if err := json.Compact(&compactJSON, env.JSON); err != nil {
-		return "", fmt.Errorf("json payload is invalid: %w", err)
-	}
-	return compactJSON.String(), nil
 }

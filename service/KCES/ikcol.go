@@ -14,7 +14,7 @@ type IKColService struct{}
 
 // ReadIKColFile 读取并解码 .ikcol 文件
 // ReadIKColFile reads and decodes a .ikcol file
-func (s *IKColService) ReadIKColFile(path string) (*serializationKCES.KCESPayloadEnvelope, error) {
+func (s *IKColService) ReadIKColFile(path string) (*serializationKCES.IKColliderPackage, error) {
 	if serializationKCES.NormalizeKCESPayloadExtension(path) != serializationKCES.KCESIKColExtension {
 		return nil, fmt.Errorf("not a .ikcol file: %s", path)
 	}
@@ -31,12 +31,9 @@ func (s *IKColService) ReadIKColFile(path string) (*serializationKCES.KCESPayloa
 
 // WriteIKColFile 编码并写入 .ikcol 文件
 // WriteIKColFile encodes and writes a .ikcol file
-func (s *IKColService) WriteIKColFile(path string, value *serializationKCES.KCESPayloadEnvelope) error {
+func (s *IKColService) WriteIKColFile(path string, value *serializationKCES.IKColliderPackage) error {
 	if serializationKCES.NormalizeKCESPayloadExtension(path) != serializationKCES.KCESIKColExtension {
 		return fmt.Errorf("not a .ikcol output path: %s", path)
-	}
-	if value == nil || serializationKCES.NormalizeKCESPayloadExtension(value.Extension) != serializationKCES.KCESIKColExtension {
-		return fmt.Errorf(".ikcol output requires a .ikcol KCES payload envelope")
 	}
 	encoded, err := serializationKCES.EncodeIKCol(value)
 	if err != nil {
@@ -79,20 +76,11 @@ func (s *IKColService) ConvertJsonToIKCol(ctx context.Context, inputPath string,
 	if err != nil {
 		return fmt.Errorf("read .ikcol JSON %q: %w", inputPath, err)
 	}
-	var value serializationKCES.KCESPayloadEnvelope
+	var value *serializationKCES.IKColliderPackage
 	if err := decodeStrictJSON(trimJSONUTF8BOM(data), &value, "KCES .ikcol JSON"); err != nil {
 		return fmt.Errorf("parse .ikcol JSON: %w", err)
 	}
-	if value.Format != serializationKCES.PayloadFormatKCESMessagePack && value.Format != serializationKCES.PayloadFormatKCESExportCM {
-		return fmt.Errorf("unsupported .ikcol JSON format %q", value.Format)
-	}
-	actual := serializationKCES.NormalizeKCESPayloadExtension(value.Extension)
-	if actual == "" {
-		value.Extension = serializationKCES.KCESIKColExtension
-	} else if actual != serializationKCES.KCESIKColExtension {
-		return fmt.Errorf("KCES payload envelope extension %q does not match file extension %q", actual, serializationKCES.KCESIKColExtension)
-	}
-	encoded, err := serializationKCES.EncodeIKCol(&value)
+	encoded, err := serializationKCES.EncodeIKCol(value)
 	if err != nil {
 		return fmt.Errorf("encode .ikcol file: %w", err)
 	}

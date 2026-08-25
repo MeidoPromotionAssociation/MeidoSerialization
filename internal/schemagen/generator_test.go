@@ -135,6 +135,10 @@ func TestGeneratedFloat32SchemasEnforceFiniteRange(t *testing.T) {
 
 func TestGeneratedKCESPayloadSchemasRejectRemovedRawFields(t *testing.T) {
 	schema := compileGeneratedSchema(t, "kces.dbconf")
+	descriptor, ok := serializationKCES.DescribeKCESPayload(".dbconf")
+	if !ok {
+		t.Fatal("missing .dbconf descriptor")
+	}
 	for _, test := range []struct {
 		name  string
 		value any
@@ -144,12 +148,7 @@ func TestGeneratedKCESPayloadSchemasRejectRemovedRawFields(t *testing.T) {
 		{name: "null value", value: nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			descriptor, ok := serializationKCES.DescribeKCESPayload(".dbconf")
-			if !ok {
-				t.Fatal("missing .dbconf descriptor")
-			}
-			envelope := nativeNilPayloadEnvelope(descriptor)
-			instance := jsonObject(t, envelope)
+			instance := jsonObject(t, nativePayloadRoot(descriptor))
 			instance["msgpackTrailingData"] = test.value
 			assertSchemaValidation(t, schema, instance, false)
 		})
@@ -174,16 +173,15 @@ func TestGeneratedLimbColliderSchemaRequiresMaidPropCollider(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			envelope := nativePayloadEnvelope(descriptor)
-			instance := jsonObject(t, envelope)
-			items := instance["limbColliderPackage"].(map[string]any)["items"].([]any)
+			instance := jsonObject(t, nativePayloadRoot(descriptor))
+			items := instance["items"].([]any)
 			items[0].(map[string]any)["collider"] = jsonObject(t, test.collider)
 			assertSchemaValidation(t, schema, instance, test.valid)
 		})
 	}
 }
 
-func TestGeneratedKCESPayloadSchemasBindDescriptorTuplesAndRoots(t *testing.T) {
+func TestGeneratedKCESPayloadSchemasBindDeclaredRootsAndRejectRemovedEnvelope(t *testing.T) {
 	for _, extension := range payloadDescriptorExtensions() {
 		descriptor, ok := serializationKCES.DescribeKCESPayload(extension)
 		if !ok {
@@ -192,64 +190,34 @@ func TestGeneratedKCESPayloadSchemasBindDescriptorTuplesAndRoots(t *testing.T) {
 		formatID := "kces." + strings.TrimPrefix(extension, ".")
 		t.Run(formatID, func(t *testing.T) {
 			schema := compileGeneratedSchema(t, formatID)
-			native := nativePayloadEnvelope(descriptor)
+			native := nativePayloadRoot(descriptor)
 			assertSchemaValidation(t, schema, jsonObject(t, native), true)
-			assertSchemaValidation(t, schema, jsonObject(t, nativeNilPayloadEnvelope(descriptor)), true)
+			// 根为 JSON null 表示 MessagePack 根值为 nil
+			// A JSON null root represents a nil MessagePack root value
+			assertSchemaValidation(t, schema, nil, true)
 
-			for _, mismatch := range []struct {
-				name     string
-				property string
-				value    any
-			}{
-				{name: "format", property: "format", value: "wrong-format"},
-				{name: "storage", property: "storageVariant", value: "wrong-storage"},
-				{name: "kind", property: "kind", value: "wrong-kind"},
+			// 编辑封套连同 ExportCM 变体一起移除，封套的判别字段和分支根现在都只是未知属性
+			// The editing envelope was removed together with the ExportCM variants, so its discriminator
+			// fields and branch roots are now merely unknown properties
+			for _, property := range []string{
+				"format", "extension", "storageVariant", "kind",
+				"msgpackRootNil", "dynamicBoneStatus", "colliderPackage",
+				"limbColliderPackage", "ikColliderPackage", "clothParams", "json",
 			} {
-				t.Run("reject "+mismatch.name, func(t *testing.T) {
+				property := property
+				t.Run("reject removed envelope property "+property, func(t *testing.T) {
 					instance := jsonObject(t, native)
-					instance[mismatch.property] = mismatch.value
+					instance[property] = nil
 					assertSchemaValidation(t, schema, instance, false)
 				})
 			}
 
-			t.Run("reject missing active root", func(t *testing.T) {
+			t.Run("reject removed ExportCM sidecar tuple", func(t *testing.T) {
 				instance := jsonObject(t, native)
-				if descriptor.Kind == serializationKCES.PayloadKindJSONString {
-					delete(instance, "text")
-					delete(instance, "json")
-				} else {
-					delete(instance, nativePayloadRootField(descriptor.Kind))
-				}
+				instance["format"] = "kces-exportcm-sidecar"
+				instance["storageVariant"] = "exportcm-unity-json"
 				assertSchemaValidation(t, schema, instance, false)
 			})
-
-			t.Run("reject explicit null inactive root", func(t *testing.T) {
-				instance := jsonObject(t, native)
-				instance[inactivePayloadRootField(descriptor.Kind)] = nil
-				assertSchemaValidation(t, schema, instance, false)
-			})
-
-			t.Run("reject nil root conflict", func(t *testing.T) {
-				instance := jsonObject(t, native)
-				instance["msgpackRootNil"] = true
-				assertSchemaValidation(t, schema, instance, false)
-			})
-
-			if descriptor.ExportCMKind != "" {
-				exportEnvelope := &serializationKCES.KCESPayloadEnvelope{
-					Format:         serializationKCES.PayloadFormatKCESExportCM,
-					Extension:      descriptor.Extension,
-					StorageVariant: descriptor.ExportCMStorageVariant,
-					Kind:           descriptor.ExportCMKind,
-					JSON:           json.RawMessage(`{"ok":true}`),
-				}
-				assertSchemaValidation(t, schema, jsonObject(t, exportEnvelope), true)
-				t.Run("reject ExportCM native field", func(t *testing.T) {
-					instance := jsonObject(t, exportEnvelope)
-					instance["dynamicBoneStatus"] = nil
-					assertSchemaValidation(t, schema, instance, false)
-				})
-			}
 		})
 	}
 }
@@ -319,18 +287,7 @@ func TestGeneratedSchemasAcceptRootEditingJSON(t *testing.T) {
 			rootType = rootType.Elem()
 		}
 		root := reflect.New(rootType)
-		if root.Elem().Type() == typeOf[serializationKCES.KCESPayloadEnvelope]() {
-			extension := "." + strings.TrimPrefix(spec.id, "kces.")
-			descriptor, ok := serializationKCES.DescribeKCESPayload(extension)
-			if !ok {
-				t.Fatalf("%s: no payload descriptor", spec.id)
-			}
-			envelope := root.Interface().(*serializationKCES.KCESPayloadEnvelope)
-			envelope.Format = serializationKCES.PayloadFormatKCESMessagePack
-			envelope.Extension = descriptor.Extension
-			envelope.StorageVariant = serializationKCES.PayloadStorageInt32LZ4MessagePack
-			envelope.Kind = descriptor.Kind
-		} else if root.Elem().Type() == typeOf[KCESService.CtEnvelope]() {
+		if root.Elem().Type() == typeOf[KCESService.CtEnvelope]() {
 			envelope := root.Interface().(*KCESService.CtEnvelope)
 			envelope.Catalog.Kind = serializationKCESCT.CatalogKindAssetBundle
 		} else if root.Elem().Type() == typeOf[serializationKCES.KCESExportNameMap]() {
@@ -595,7 +552,7 @@ func TestGeneratedIntegerWidthsMatchWireTypes(t *testing.T) {
 	}{
 		{
 			name: "collider package version", formatID: "kces.dbcol",
-			path: []string{"$defs", definitionName(typeOf[serializationKCES.ColliderPackage]()), "properties", "version"},
+			path: []string{"properties", "version"},
 			bits: "32", signed: true, minimum: "-2147483648", maximum: "2147483647",
 		},
 		{
@@ -854,49 +811,28 @@ func payloadDescriptorExtensions() []string {
 	}
 }
 
-func nativePayloadEnvelope(descriptor serializationKCES.KCESPayloadDescriptor) *serializationKCES.KCESPayloadEnvelope {
-	envelope := &serializationKCES.KCESPayloadEnvelope{
-		Format:         serializationKCES.PayloadFormatKCESMessagePack,
-		Extension:      descriptor.Extension,
-		StorageVariant: serializationKCES.PayloadStorageInt32LZ4MessagePack,
-		Kind:           descriptor.Kind,
-	}
+// nativePayloadRoot 返回一个载荷扩展名声明的编辑 JSON 根对象
+// nativePayloadRoot returns the editing JSON root object declared by one payload extension
+func nativePayloadRoot(descriptor serializationKCES.KCESPayloadDescriptor) any {
 	switch descriptor.Kind {
 	case serializationKCES.PayloadKindDynamicBoneStatus:
-		envelope.DynamicBone = serializationKCES.NewDynamicBoneStatus()
+		return serializationKCES.NewDynamicBoneStatus()
 	case serializationKCES.PayloadKindColliderPackage:
-		envelope.ColliderPackage = &serializationKCES.ColliderPackage{Version: 1000}
+		return &serializationKCES.ColliderPackage{Version: 1000}
 	case serializationKCES.PayloadKindLimbCollider:
-		envelope.LimbCollider = &serializationKCES.LimbColliderPackage{
+		return &serializationKCES.LimbColliderPackage{
 			Version: 1000,
 			Items: []*serializationKCES.LimbColliderItem{{
 				Version: 1000, Collider: serializationKCES.NewColliderMaidProp(),
 			}},
 		}
 	case serializationKCES.PayloadKindIKCollider:
-		envelope.IKCollider = &serializationKCES.IKColliderPackage{Version: 1000}
+		return &serializationKCES.IKColliderPackage{Version: 1000}
 	case serializationKCES.PayloadKindClothParams:
-		envelope.ClothParams = serializationKCES.NewClothParams()
+		return serializationKCES.NewClothParams()
 	case serializationKCES.PayloadKindJSONString:
-		envelope.JSON = json.RawMessage(`{}`)
+		return &serializationKCES.MagicaClothSerializeData{}
 	default:
 		panic("unsupported native payload kind " + descriptor.Kind)
 	}
-	return envelope
-}
-
-func nativeNilPayloadEnvelope(descriptor serializationKCES.KCESPayloadDescriptor) *serializationKCES.KCESPayloadEnvelope {
-	return &serializationKCES.KCESPayloadEnvelope{
-		Format:         serializationKCES.PayloadFormatKCESMessagePack,
-		Extension:      descriptor.Extension,
-		StorageVariant: serializationKCES.PayloadStorageInt32LZ4MessagePack,
-		Kind:           descriptor.Kind,
-	}
-}
-
-func inactivePayloadRootField(kind string) string {
-	if kind == serializationKCES.PayloadKindDynamicBoneStatus {
-		return "colliderPackage"
-	}
-	return "dynamicBoneStatus"
 }

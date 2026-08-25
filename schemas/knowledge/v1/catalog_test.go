@@ -210,8 +210,8 @@ func TestRepresentativeReviewedFields(t *testing.T) {
 		verification string
 	}{
 		{formatID: "com3d2.menu", path: "/Commands", verification: "source_semantics"},
-		{formatID: "kces.dbconf", path: "/dynamicBoneStatus", verification: "source_semantics"},
-		{formatID: "kces.dbcol", path: "/colliderPackage", verification: "source_semantics"},
+		{formatID: "kces.dbconf", path: "/version", verification: "source_semantics"},
+		{formatID: "kces.dbcol", path: "/colliders", verification: "source_semantics"},
 		{formatID: "kces.bytes", path: "/dataBase64", verification: "serialization"},
 	}
 	for _, test := range tests {
@@ -250,9 +250,9 @@ func TestRepresentativeReviewedFieldPatterns(t *testing.T) {
 		verification string
 	}{
 		{formatID: "com3d2.menu", path: "/Commands/*/Command", verification: "source_semantics"},
-		{formatID: "kces.dbconf", path: "/dynamicBoneStatus/{version,damping,elasticity,stiffness,inert,radius}", verification: "source_semantics"},
-		{formatID: "kces.dbcol", path: "/colliderPackage/colliders/*/{type,collider}", verification: "serialization"},
-		{formatID: "kces.dsbconf", path: "/clothParams/{radius,mass,gravity,drag,maxVelocity,worldMoveInfluence,worldRotationInfluence,clampPositionLength,clampRotationAngle,structDistanceStiffness,bendDistanceStiffness,nearDistanceLength,nearDistanceStiffness,restoreRotation,triangleBend,volumeStretchStiffness,volumeShearStiffness,penetrationConnectDistance,penetrationDistance,penetrationRadius,springDirectionAtten,springDistanceAtten}", verification: "serialization"},
+		{formatID: "kces.dbconf", path: "/{version,damping,elasticity,stiffness,inert,radius}", verification: "source_semantics"},
+		{formatID: "kces.dbcol", path: "/colliders/*/{type,collider}", verification: "serialization"},
+		{formatID: "kces.dsbconf", path: "/{radius,mass,gravity,drag,maxVelocity,worldMoveInfluence,worldRotationInfluence,clampPositionLength,clampRotationAngle,structDistanceStiffness,bendDistanceStiffness,nearDistanceLength,nearDistanceStiffness,restoreRotation,triangleBend,volumeStretchStiffness,volumeShearStiffness,penetrationConnectDistance,penetrationDistance,penetrationRadius,springDirectionAtten,springDistanceAtten}", verification: "serialization"},
 	}
 	for _, test := range tests {
 		document, found, err := knowledgev1.Lookup(test.formatID)

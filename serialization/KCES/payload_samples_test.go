@@ -1,7 +1,6 @@
 package KCES
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -74,13 +73,13 @@ func assertPayloadSampleRoundTripDeepEqual(t *testing.T, path string) {
 	if err != nil {
 		t.Fatalf("read payload sample %s: %v", path, err)
 	}
-	env, err := DecodeKCESPayload(data, name)
+	value, err := DecodeKCESPayload(data, name)
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload: %v", err)
 	}
-	assertPayloadEnvelopeStrict(t, env, name)
+	assertPayloadRootStrict(t, value, name)
 
-	encoded, err := EncodeKCESPayload(env)
+	encoded, err := EncodeKCESPayload(value, name)
 	if err != nil {
 		t.Fatalf("EncodeKCESPayload: %v", err)
 	}
@@ -88,56 +87,52 @@ func assertPayloadSampleRoundTripDeepEqual(t *testing.T, path string) {
 	if err != nil {
 		t.Fatalf("re-decode %s: %v", name, err)
 	}
-	if !reflect.DeepEqual(decoded, env) {
-		t.Fatalf("%s changed after decode/encode/decode: got %#v, want %#v", name, decoded, env)
+	if !reflect.DeepEqual(decoded, value) {
+		t.Fatalf("%s changed after decode/encode/decode: got %#v, want %#v", name, decoded, value)
 	}
 }
 
-func assertPayloadEnvelopeStrict(t *testing.T, env *KCESPayloadEnvelope, name string) {
+func assertPayloadRootStrict(t *testing.T, value any, name string) {
 	t.Helper()
 	ext := NormalizeKCESPayloadExtension(name)
-	if env.Format != PayloadFormatKCESMessagePack {
-		t.Fatalf("format got %q, want %q", env.Format, PayloadFormatKCESMessagePack)
-	}
-	if env.Extension != ext {
-		t.Fatalf("extension got %q, want %q", env.Extension, ext)
-	}
-	wantKind := payloadKindForExtension(ext)
-	if env.Kind != wantKind {
-		t.Fatalf("kind got %q, want %q", env.Kind, wantKind)
-	}
-	switch wantKind {
+	switch payloadKindForExtension(ext) {
 	case PayloadKindDynamicBoneStatus:
-		if env.DynamicBone == nil || env.DynamicBone.Version == 0 {
-			t.Fatalf("missing dynamicBoneStatus: %+v", env)
+		status, ok := value.(*DynamicBoneStatus)
+		if !ok || status == nil || status.Version == 0 {
+			t.Fatalf("missing DynamicBoneStatus root: %#v", value)
 		}
 	case PayloadKindJSONString:
-		if len(env.JSON) == 0 {
-			t.Fatalf("missing JSON string payload: %+v", env)
+		document, ok := value.(*MagicaClothSerializeData)
+		if !ok || document == nil {
+			t.Fatalf("missing MagicaCloth ClothSerializeData root: %#v", value)
 		}
-		if !json.Valid(env.JSON) {
-			t.Fatalf("JSON string field is invalid: %s", env.JSON)
+		if document.ClothType == nil {
+			t.Fatalf("MagicaCloth ClothSerializeData is missing clothType: %#v", document)
 		}
 	case PayloadKindColliderPackage:
-		if env.ColliderPackage == nil || env.ColliderPackage.Version == 0 || len(env.ColliderPackage.Colliders) == 0 {
-			t.Fatalf("missing colliderPackage: %+v", env)
+		pkg, ok := value.(*ColliderPackage)
+		if !ok || pkg == nil || pkg.Version == 0 || len(pkg.Colliders) == 0 {
+			t.Fatalf("missing ColliderPackage root: %#v", value)
 		}
-		assertColliderPackageSampleFields(t, name, env.ColliderPackage)
+		assertColliderPackageSampleFields(t, name, pkg)
 	case PayloadKindLimbCollider:
-		if env.LimbCollider == nil || env.LimbCollider.Version == 0 || len(env.LimbCollider.Items) == 0 {
-			t.Fatalf("missing limbColliderPackage: %+v", env)
+		pkg, ok := value.(*LimbColliderPackage)
+		if !ok || pkg == nil || pkg.Version == 0 || len(pkg.Items) == 0 {
+			t.Fatalf("missing LimbColliderPackage root: %#v", value)
 		}
-		assertLimbColliderSampleFields(t, name, env.LimbCollider)
+		assertLimbColliderSampleFields(t, name, pkg)
 	case PayloadKindIKCollider:
-		if env.IKCollider == nil || env.IKCollider.Version == 0 || len(env.IKCollider.Groups) == 0 {
-			t.Fatalf("missing ikColliderPackage: %+v", env)
+		pkg, ok := value.(*IKColliderPackage)
+		if !ok || pkg == nil || pkg.Version == 0 || len(pkg.Groups) == 0 {
+			t.Fatalf("missing IKColliderPackage root: %#v", value)
 		}
 	case PayloadKindClothParams:
-		if env.ClothParams == nil {
-			t.Fatalf("missing clothParams: %+v", env)
+		params, ok := value.(*ClothParams)
+		if !ok || params == nil {
+			t.Fatalf("missing ClothParams root: %#v", value)
 		}
 	default:
-		t.Fatalf("unsupported payload kind %q", wantKind)
+		t.Fatalf("unsupported payload extension %q", ext)
 	}
 }
 

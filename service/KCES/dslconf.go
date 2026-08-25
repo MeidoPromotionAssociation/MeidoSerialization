@@ -14,7 +14,7 @@ type DSLConfService struct{}
 
 // ReadDSLConfFile 读取并解码 .dslconf 文件
 // ReadDSLConfFile reads and decodes a .dslconf file
-func (s *DSLConfService) ReadDSLConfFile(path string) (*serializationKCES.KCESPayloadEnvelope, error) {
+func (s *DSLConfService) ReadDSLConfFile(path string) (*serializationKCES.ClothParams, error) {
 	if serializationKCES.NormalizeKCESPayloadExtension(path) != serializationKCES.KCESDSLConfExtension {
 		return nil, fmt.Errorf("not a .dslconf file: %s", path)
 	}
@@ -31,12 +31,9 @@ func (s *DSLConfService) ReadDSLConfFile(path string) (*serializationKCES.KCESPa
 
 // WriteDSLConfFile 编码并写入 .dslconf 文件
 // WriteDSLConfFile encodes and writes a .dslconf file
-func (s *DSLConfService) WriteDSLConfFile(path string, value *serializationKCES.KCESPayloadEnvelope) error {
+func (s *DSLConfService) WriteDSLConfFile(path string, value *serializationKCES.ClothParams) error {
 	if serializationKCES.NormalizeKCESPayloadExtension(path) != serializationKCES.KCESDSLConfExtension {
 		return fmt.Errorf("not a .dslconf output path: %s", path)
-	}
-	if value == nil || serializationKCES.NormalizeKCESPayloadExtension(value.Extension) != serializationKCES.KCESDSLConfExtension {
-		return fmt.Errorf(".dslconf output requires a .dslconf KCES payload envelope")
 	}
 	encoded, err := serializationKCES.EncodeDSLConf(value)
 	if err != nil {
@@ -79,20 +76,11 @@ func (s *DSLConfService) ConvertJsonToDSLConf(ctx context.Context, inputPath str
 	if err != nil {
 		return fmt.Errorf("read .dslconf JSON %q: %w", inputPath, err)
 	}
-	var value serializationKCES.KCESPayloadEnvelope
+	var value *serializationKCES.ClothParams
 	if err := decodeStrictJSON(trimJSONUTF8BOM(data), &value, "KCES .dslconf JSON"); err != nil {
 		return fmt.Errorf("parse .dslconf JSON: %w", err)
 	}
-	if value.Format != serializationKCES.PayloadFormatKCESMessagePack && value.Format != serializationKCES.PayloadFormatKCESExportCM {
-		return fmt.Errorf("unsupported .dslconf JSON format %q", value.Format)
-	}
-	actual := serializationKCES.NormalizeKCESPayloadExtension(value.Extension)
-	if actual == "" {
-		value.Extension = serializationKCES.KCESDSLConfExtension
-	} else if actual != serializationKCES.KCESDSLConfExtension {
-		return fmt.Errorf("KCES payload envelope extension %q does not match file extension %q", actual, serializationKCES.KCESDSLConfExtension)
-	}
-	encoded, err := serializationKCES.EncodeDSLConf(&value)
+	encoded, err := serializationKCES.EncodeDSLConf(value)
 	if err != nil {
 		return fmt.Errorf("encode .dslconf file: %w", err)
 	}

@@ -24,14 +24,7 @@ func DecodeClothParamsFile(data []byte, extension string) (*ClothParams, error) 
 	default:
 		return nil, fmt.Errorf("unsupported ClothParams extension %q: expected %s or %s", extension, KCESDSBConfExtension, KCESDSLConfExtension)
 	}
-	env, err := decodeClothParamsMessagePack(data, descriptor)
-	if err != nil {
-		return nil, err
-	}
-	if env.ClothParams == nil {
-		return nil, nil
-	}
-	return env.ClothParams, nil
+	return decodeClothParamsMessagePack(data, descriptor)
 }
 
 // EncodeClothParamsFile 编码使用 ClothParams 线格式的 .dsbconf 或 .dslconf 文件，空扩展名默认使用 .dsbconf
@@ -43,22 +36,15 @@ func EncodeClothParamsFile(params *ClothParams, extension string) ([]byte, error
 	} else if ext != KCESDSBConfExtension && ext != KCESDSLConfExtension {
 		return nil, fmt.Errorf("unsupported ClothParams extension %q: expected %s or %s", extension, KCESDSBConfExtension, KCESDSLConfExtension)
 	}
-	env := &KCESPayloadEnvelope{
-		Format:         PayloadFormatKCESMessagePack,
-		Extension:      ext,
-		StorageVariant: PayloadStorageInt32LZ4MessagePack,
-		Kind:           PayloadKindClothParams,
-		ClothParams:    params,
-	}
 	if ext == KCESDSLConfExtension {
-		return encodeClothParamsMessagePack(env, dslconfPayloadDescriptor)
+		return encodeClothParamsMessagePack(params, dslconfPayloadDescriptor)
 	}
-	return encodeClothParamsMessagePack(env, dsbconfPayloadDescriptor)
+	return encodeClothParamsMessagePack(params, dsbconfPayloadDescriptor)
 }
 
 // decodeClothParamsMessagePack 解码扩展名声明的原生 ClothParams MessagePack 载荷
 // decodeClothParamsMessagePack decodes the native ClothParams MessagePack payload declared by an extension
-func decodeClothParamsMessagePack(data []byte, descriptor kcesPayloadDescriptor) (*KCESPayloadEnvelope, error) {
+func decodeClothParamsMessagePack(data []byte, descriptor kcesPayloadDescriptor) (*ClothParams, error) {
 	var value *ClothParams
 	if err := decodeKCESMessagePackRoot(data, descriptor, &value); err != nil {
 		return nil, fmt.Errorf("decode ClothParams: %w", err)
@@ -68,23 +54,21 @@ func decodeClothParamsMessagePack(data []byte, descriptor kcesPayloadDescriptor)
 			return nil, fmt.Errorf("validate decoded ClothParams: %w", err)
 		}
 	}
-	envelope := newKCESMessagePackEnvelope(descriptor)
-	envelope.ClothParams = value
-	return envelope, nil
+	return value, nil
 }
 
 // encodeClothParamsMessagePack 编码扩展名声明的原生 ClothParams MessagePack 载荷
 // encodeClothParamsMessagePack encodes the native ClothParams MessagePack payload declared by an extension
-func encodeClothParamsMessagePack(env *KCESPayloadEnvelope, descriptor kcesPayloadDescriptor) ([]byte, error) {
+func encodeClothParamsMessagePack(value *ClothParams, descriptor kcesPayloadDescriptor) ([]byte, error) {
 	var data []byte
 	var err error
-	if env.ClothParams == nil {
+	if value == nil {
 		data, err = msgpack.EncodeMsgpack(nil)
 	} else {
-		if err := validateClothParamsForEncoding(env.ClothParams); err != nil {
+		if err := validateClothParamsForEncoding(value); err != nil {
 			return nil, err
 		}
-		data, err = msgpack.EncodeIndexedMsgpack(env.ClothParams)
+		data, err = msgpack.EncodeIndexedMsgpack(value)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("encode ClothParams: %w", err)

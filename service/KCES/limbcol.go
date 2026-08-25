@@ -14,7 +14,7 @@ type LimbColService struct{}
 
 // ReadLimbColFile 读取并解码 .limbcol 文件
 // ReadLimbColFile reads and decodes a .limbcol file
-func (s *LimbColService) ReadLimbColFile(path string) (*serializationKCES.KCESPayloadEnvelope, error) {
+func (s *LimbColService) ReadLimbColFile(path string) (*serializationKCES.LimbColliderPackage, error) {
 	if serializationKCES.NormalizeKCESPayloadExtension(path) != serializationKCES.KCESLimbColExtension {
 		return nil, fmt.Errorf("not a .limbcol file: %s", path)
 	}
@@ -31,12 +31,9 @@ func (s *LimbColService) ReadLimbColFile(path string) (*serializationKCES.KCESPa
 
 // WriteLimbColFile 编码并写入 .limbcol 文件
 // WriteLimbColFile encodes and writes a .limbcol file
-func (s *LimbColService) WriteLimbColFile(path string, value *serializationKCES.KCESPayloadEnvelope) error {
+func (s *LimbColService) WriteLimbColFile(path string, value *serializationKCES.LimbColliderPackage) error {
 	if serializationKCES.NormalizeKCESPayloadExtension(path) != serializationKCES.KCESLimbColExtension {
 		return fmt.Errorf("not a .limbcol output path: %s", path)
-	}
-	if value == nil || serializationKCES.NormalizeKCESPayloadExtension(value.Extension) != serializationKCES.KCESLimbColExtension {
-		return fmt.Errorf(".limbcol output requires a .limbcol KCES payload envelope")
 	}
 	encoded, err := serializationKCES.EncodeLimbCol(value)
 	if err != nil {
@@ -79,20 +76,11 @@ func (s *LimbColService) ConvertJsonToLimbCol(ctx context.Context, inputPath str
 	if err != nil {
 		return fmt.Errorf("read .limbcol JSON %q: %w", inputPath, err)
 	}
-	var value serializationKCES.KCESPayloadEnvelope
+	var value *serializationKCES.LimbColliderPackage
 	if err := decodeStrictJSON(trimJSONUTF8BOM(data), &value, "KCES .limbcol JSON"); err != nil {
 		return fmt.Errorf("parse .limbcol JSON: %w", err)
 	}
-	if value.Format != serializationKCES.PayloadFormatKCESMessagePack && value.Format != serializationKCES.PayloadFormatKCESExportCM {
-		return fmt.Errorf("unsupported .limbcol JSON format %q", value.Format)
-	}
-	actual := serializationKCES.NormalizeKCESPayloadExtension(value.Extension)
-	if actual == "" {
-		value.Extension = serializationKCES.KCESLimbColExtension
-	} else if actual != serializationKCES.KCESLimbColExtension {
-		return fmt.Errorf("KCES payload envelope extension %q does not match file extension %q", actual, serializationKCES.KCESLimbColExtension)
-	}
-	encoded, err := serializationKCES.EncodeLimbCol(&value)
+	encoded, err := serializationKCES.EncodeLimbCol(value)
 	if err != nil {
 		return fmt.Errorf("encode .limbcol file: %w", err)
 	}

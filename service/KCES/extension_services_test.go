@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
@@ -80,8 +81,8 @@ func TestIndependentPayloadServicesRoundTrip(t *testing.T) {
 			inputPath := filepath.Join(dir, "input"+test.extension)
 			jsonPath := inputPath + ".json"
 			outputPath := filepath.Join(dir, "output"+test.extension)
-			envelope := independentPayloadEnvelope(t, test.extension)
-			wire, err := serializationKCES.EncodeKCESPayload(envelope)
+			root := independentPayloadRoot(t, test.extension)
+			wire, err := serializationKCES.EncodeKCESPayload(root, test.extension)
 			if err != nil {
 				t.Fatalf("EncodeKCESPayload: %v", err)
 			}
@@ -91,12 +92,11 @@ func TestIndependentPayloadServicesRoundTrip(t *testing.T) {
 			if err := test.toJSON(inputPath, jsonPath); err != nil {
 				t.Fatalf("convert to JSON: %v", err)
 			}
-			var editing serializationKCES.KCESPayloadEnvelope
-			if err := json.Unmarshal(mustReadServiceTestFile(t, jsonPath), &editing); err != nil {
+			// 编辑 JSON 的根就是载荷对象本身，所以它必须能被解码回同一个根类型
+			// The editing JSON root is the payload object itself, so it must decode back into the same root type
+			editing := independentPayloadRoot(t, test.extension)
+			if err := json.Unmarshal(mustReadServiceTestFile(t, jsonPath), editing); err != nil {
 				t.Fatalf("decode editing JSON: %v", err)
-			}
-			if editing.Extension != test.extension {
-				t.Fatalf("editing extension = %q", editing.Extension)
 			}
 			if err := test.toNative(jsonPath, outputPath); err != nil {
 				t.Fatalf("convert to native: %v", err)
@@ -105,8 +105,8 @@ func TestIndependentPayloadServicesRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatalf("DecodeKCESPayload: %v", err)
 			}
-			if decoded.Extension != test.extension || decoded.Kind != envelope.Kind {
-				t.Fatalf("decoded envelope = %+v", decoded)
+			if reflect.TypeOf(decoded) != reflect.TypeOf(root) {
+				t.Fatalf("decoded payload root type = %T, want %T", decoded, root)
 			}
 		})
 	}
@@ -344,35 +344,32 @@ func TestIndependentSharedDataServicesRoundTrip(t *testing.T) {
 	})
 }
 
-func independentPayloadEnvelope(t *testing.T, extension string) *serializationKCES.KCESPayloadEnvelope {
+// independentPayloadRoot 为一个载荷扩展名构造该扩展名声明的载荷根对象
+// independentPayloadRoot builds the payload root object declared by one payload extension
+func independentPayloadRoot(t *testing.T, extension string) any {
 	t.Helper()
 	descriptor, ok := serializationKCES.DescribeKCESPayload(extension)
 	if !ok {
 		t.Fatalf("missing payload descriptor for %s", extension)
 	}
-	value := &serializationKCES.KCESPayloadEnvelope{
-		Format:         serializationKCES.PayloadFormatKCESMessagePack,
-		Extension:      descriptor.Extension,
-		StorageVariant: serializationKCES.PayloadStorageInt32LZ4MessagePack,
-		Kind:           descriptor.Kind,
-	}
 	switch descriptor.Kind {
 	case serializationKCES.PayloadKindDynamicBoneStatus:
-		value.DynamicBone = serializationKCES.NewDynamicBoneStatus()
+		return serializationKCES.NewDynamicBoneStatus()
 	case serializationKCES.PayloadKindJSONString:
-		value.JSON = json.RawMessage(`{"version":1000}`)
+		clothType := int32(1)
+		return &serializationKCES.MagicaClothSerializeData{ClothType: &clothType}
 	case serializationKCES.PayloadKindColliderPackage:
-		value.ColliderPackage = &serializationKCES.ColliderPackage{Version: 1000, Colliders: []*serializationKCES.ColliderRef{}, LimbEnableList: []*serializationKCES.ColliderState{}}
+		return &serializationKCES.ColliderPackage{Version: 1000, Colliders: []*serializationKCES.ColliderRef{}, LimbEnableList: []*serializationKCES.ColliderState{}}
 	case serializationKCES.PayloadKindLimbCollider:
-		value.LimbCollider = &serializationKCES.LimbColliderPackage{Version: 1000, Items: []*serializationKCES.LimbColliderItem{}}
+		return &serializationKCES.LimbColliderPackage{Version: 1000, Items: []*serializationKCES.LimbColliderItem{}}
 	case serializationKCES.PayloadKindIKCollider:
-		value.IKCollider = &serializationKCES.IKColliderPackage{Version: 1000, Groups: []*serializationKCES.IKColliderGroup{}}
+		return &serializationKCES.IKColliderPackage{Version: 1000, Groups: []*serializationKCES.IKColliderGroup{}}
 	case serializationKCES.PayloadKindClothParams:
-		value.ClothParams = serializationKCES.NewClothParams()
+		return serializationKCES.NewClothParams()
 	default:
 		t.Fatalf("unsupported native payload kind %q", descriptor.Kind)
+		return nil
 	}
-	return value
 }
 
 func TestPersetServiceDirectRoundTrip(t *testing.T) {

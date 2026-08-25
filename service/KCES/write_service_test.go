@@ -147,7 +147,7 @@ func TestKCESDirectWritersMatchNativeEncoders(t *testing.T) {
 		{
 			name:     "payload",
 			fileName: "direct.dbconf",
-			expected: mustEncode(serializationKCES.EncodeKCESPayload(payload)),
+			expected: mustEncode(serializationKCES.EncodeKCESPayload(payload, ".dbconf")),
 			write: func(path string) error {
 				return (&PayloadService{}).WritePayloadFile(path, payload)
 			},

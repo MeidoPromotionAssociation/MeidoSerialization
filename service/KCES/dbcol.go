@@ -14,7 +14,7 @@ type DBColService struct{}
 
 // ReadDBColFile 读取并解码 .dbcol 文件
 // ReadDBColFile reads and decodes a .dbcol file
-func (s *DBColService) ReadDBColFile(path string) (*serializationKCES.KCESPayloadEnvelope, error) {
+func (s *DBColService) ReadDBColFile(path string) (*serializationKCES.ColliderPackage, error) {
 	if serializationKCES.NormalizeKCESPayloadExtension(path) != serializationKCES.KCESDBColExtension {
 		return nil, fmt.Errorf("not a .dbcol file: %s", path)
 	}
@@ -31,12 +31,9 @@ func (s *DBColService) ReadDBColFile(path string) (*serializationKCES.KCESPayloa
 
 // WriteDBColFile 编码并写入 .dbcol 文件
 // WriteDBColFile encodes and writes a .dbcol file
-func (s *DBColService) WriteDBColFile(path string, value *serializationKCES.KCESPayloadEnvelope) error {
+func (s *DBColService) WriteDBColFile(path string, value *serializationKCES.ColliderPackage) error {
 	if serializationKCES.NormalizeKCESPayloadExtension(path) != serializationKCES.KCESDBColExtension {
 		return fmt.Errorf("not a .dbcol output path: %s", path)
-	}
-	if value == nil || serializationKCES.NormalizeKCESPayloadExtension(value.Extension) != serializationKCES.KCESDBColExtension {
-		return fmt.Errorf(".dbcol output requires a .dbcol KCES payload envelope")
 	}
 	encoded, err := serializationKCES.EncodeDBCol(value)
 	if err != nil {
@@ -79,20 +76,11 @@ func (s *DBColService) ConvertJsonToDBCol(ctx context.Context, inputPath string,
 	if err != nil {
 		return fmt.Errorf("read .dbcol JSON %q: %w", inputPath, err)
 	}
-	var value serializationKCES.KCESPayloadEnvelope
+	var value *serializationKCES.ColliderPackage
 	if err := decodeStrictJSON(trimJSONUTF8BOM(data), &value, "KCES .dbcol JSON"); err != nil {
 		return fmt.Errorf("parse .dbcol JSON: %w", err)
 	}
-	if value.Format != serializationKCES.PayloadFormatKCESMessagePack && value.Format != serializationKCES.PayloadFormatKCESExportCM {
-		return fmt.Errorf("unsupported .dbcol JSON format %q", value.Format)
-	}
-	actual := serializationKCES.NormalizeKCESPayloadExtension(value.Extension)
-	if actual == "" {
-		value.Extension = serializationKCES.KCESDBColExtension
-	} else if actual != serializationKCES.KCESDBColExtension {
-		return fmt.Errorf("KCES payload envelope extension %q does not match file extension %q", actual, serializationKCES.KCESDBColExtension)
-	}
-	encoded, err := serializationKCES.EncodeDBCol(&value)
+	encoded, err := serializationKCES.EncodeDBCol(value)
 	if err != nil {
 		return fmt.Errorf("encode .dbcol file: %w", err)
 	}

@@ -834,7 +834,7 @@ func decodeColliderJSONStrict(data []byte, out any) error {
 
 // decodeColliderPackageMessagePack 解码扩展名声明的原生 ColliderPackage MessagePack 载荷
 // decodeColliderPackageMessagePack decodes the native ColliderPackage MessagePack payload declared by an extension
-func decodeColliderPackageMessagePack(data []byte, descriptor kcesPayloadDescriptor) (*KCESPayloadEnvelope, error) {
+func decodeColliderPackageMessagePack(data []byte, descriptor kcesPayloadDescriptor) (*ColliderPackage, error) {
 	var value *ColliderPackage
 	if err := decodeKCESMessagePackRoot(data, descriptor, &value); err != nil {
 		return nil, fmt.Errorf("decode ColliderPackage msgpack: %w", err)
@@ -844,23 +844,21 @@ func decodeColliderPackageMessagePack(data []byte, descriptor kcesPayloadDescrip
 			return nil, fmt.Errorf("validate decoded ColliderPackage: %w", err)
 		}
 	}
-	envelope := newKCESMessagePackEnvelope(descriptor)
-	envelope.ColliderPackage = value
-	return envelope, nil
+	return value, nil
 }
 
 // encodeColliderPackageMessagePack 编码扩展名声明的原生 ColliderPackage MessagePack 载荷
 // encodeColliderPackageMessagePack encodes the native ColliderPackage MessagePack payload declared by an extension
-func encodeColliderPackageMessagePack(env *KCESPayloadEnvelope, descriptor kcesPayloadDescriptor) ([]byte, error) {
+func encodeColliderPackageMessagePack(value *ColliderPackage, descriptor kcesPayloadDescriptor) ([]byte, error) {
 	var data []byte
 	var err error
-	if env.ColliderPackage == nil {
+	if value == nil {
 		data, err = msgpack.EncodeMsgpack(nil)
 	} else {
-		if err := validateColliderPackageForEncoding(env.ColliderPackage); err != nil {
+		if err := validateColliderPackageForEncoding(value); err != nil {
 			return nil, err
 		}
-		data, err = msgpack.EncodeIndexedMsgpack(normalizeColliderPackageForEncoding(env.ColliderPackage))
+		data, err = msgpack.EncodeIndexedMsgpack(normalizeColliderPackageForEncoding(value))
 	}
 	if err != nil {
 		return nil, fmt.Errorf("encode ColliderPackage msgpack: %w", err)
@@ -870,7 +868,7 @@ func encodeColliderPackageMessagePack(env *KCESPayloadEnvelope, descriptor kcesP
 
 // decodeLimbColliderMessagePack 解码扩展名声明的原生 LimbColliderPackage MessagePack 载荷
 // decodeLimbColliderMessagePack decodes the native LimbColliderPackage MessagePack payload declared by an extension
-func decodeLimbColliderMessagePack(data []byte, descriptor kcesPayloadDescriptor) (*KCESPayloadEnvelope, error) {
+func decodeLimbColliderMessagePack(data []byte, descriptor kcesPayloadDescriptor) (*LimbColliderPackage, error) {
 	var value *LimbColliderPackage
 	if err := decodeKCESMessagePackRoot(data, descriptor, &value); err != nil {
 		return nil, fmt.Errorf("decode LimbColliderPackage msgpack: %w", err)
@@ -880,23 +878,21 @@ func decodeLimbColliderMessagePack(data []byte, descriptor kcesPayloadDescriptor
 			return nil, fmt.Errorf("validate decoded LimbColliderPackage: %w", err)
 		}
 	}
-	envelope := newKCESMessagePackEnvelope(descriptor)
-	envelope.LimbCollider = value
-	return envelope, nil
+	return value, nil
 }
 
 // encodeLimbColliderMessagePack 编码扩展名声明的原生 LimbColliderPackage MessagePack 载荷
 // encodeLimbColliderMessagePack encodes the native LimbColliderPackage MessagePack payload declared by an extension
-func encodeLimbColliderMessagePack(env *KCESPayloadEnvelope, descriptor kcesPayloadDescriptor) ([]byte, error) {
+func encodeLimbColliderMessagePack(value *LimbColliderPackage, descriptor kcesPayloadDescriptor) ([]byte, error) {
 	var data []byte
 	var err error
-	if env.LimbCollider == nil {
+	if value == nil {
 		data, err = msgpack.EncodeMsgpack(nil)
 	} else {
-		if err := validateLimbColliderPackageForEncoding(env.LimbCollider); err != nil {
+		if err := validateLimbColliderPackageForEncoding(value); err != nil {
 			return nil, err
 		}
-		data, err = msgpack.EncodeIndexedMsgpack(normalizeLimbColliderPackageForEncoding(env.LimbCollider))
+		data, err = msgpack.EncodeIndexedMsgpack(normalizeLimbColliderPackageForEncoding(value))
 	}
 	if err != nil {
 		return nil, fmt.Errorf("encode LimbColliderPackage msgpack: %w", err)
@@ -906,7 +902,7 @@ func encodeLimbColliderMessagePack(env *KCESPayloadEnvelope, descriptor kcesPayl
 
 // decodeIKColliderMessagePack 解码扩展名声明的原生 IKColliderPackage MessagePack 载荷
 // decodeIKColliderMessagePack decodes the native IKColliderPackage MessagePack payload declared by an extension
-func decodeIKColliderMessagePack(data []byte, descriptor kcesPayloadDescriptor) (*KCESPayloadEnvelope, error) {
+func decodeIKColliderMessagePack(data []byte, descriptor kcesPayloadDescriptor) (*IKColliderPackage, error) {
 	var value *IKColliderPackage
 	if err := decodeKCESMessagePackRoot(data, descriptor, &value); err != nil {
 		return nil, fmt.Errorf("decode IKColliderPackage msgpack: %w", err)
@@ -916,23 +912,21 @@ func decodeIKColliderMessagePack(data []byte, descriptor kcesPayloadDescriptor) 
 			return nil, fmt.Errorf("validate decoded IKColliderPackage: %w", err)
 		}
 	}
-	envelope := newKCESMessagePackEnvelope(descriptor)
-	envelope.IKCollider = value
-	return envelope, nil
+	return value, nil
 }
 
 // encodeIKColliderMessagePack 编码扩展名声明的原生 IKColliderPackage MessagePack 载荷
 // encodeIKColliderMessagePack encodes the native IKColliderPackage MessagePack payload declared by an extension
-func encodeIKColliderMessagePack(env *KCESPayloadEnvelope, descriptor kcesPayloadDescriptor) ([]byte, error) {
+func encodeIKColliderMessagePack(value *IKColliderPackage, descriptor kcesPayloadDescriptor) ([]byte, error) {
 	var data []byte
 	var err error
-	if env.IKCollider == nil {
+	if value == nil {
 		data, err = msgpack.EncodeMsgpack(nil)
 	} else {
-		if err := validateIKColliderPackageForEncoding(env.IKCollider); err != nil {
+		if err := validateIKColliderPackageForEncoding(value); err != nil {
 			return nil, err
 		}
-		data, err = msgpack.EncodeIndexedMsgpack(normalizeIKColliderPackageForEncoding(env.IKCollider))
+		data, err = msgpack.EncodeIndexedMsgpack(normalizeIKColliderPackageForEncoding(value))
 	}
 	if err != nil {
 		return nil, fmt.Errorf("encode IKColliderPackage msgpack: %w", err)

@@ -393,14 +393,6 @@ func serializationField(path, title, description, gameUsage, editRole, editGuida
 	}
 }
 
-// serializationFieldFrom 将共享实现证据绑定到可重复使用的序列化字段构造函数
-// serializationFieldFrom binds shared implementation evidence to a reusable serialization-field constructor
-func serializationFieldFrom(evidence ...Source) func(string, string, string, string, string, string, string) Field {
-	return func(path, title, description, gameUsage, editRole, editGuidance, risk string) Field {
-		return serializationField(path, title, description, gameUsage, editRole, editGuidance, risk, evidence...)
-	}
-}
-
 // pattern 构建根据所给证据自动推导独立认证 claim 的动态字段模式
 // pattern builds a dynamic field pattern with independent verification claims derived from the supplied evidence
 func pattern(path, title, description, gameUsage, editRole, editGuidance string, evidence ...Source) FieldPattern {

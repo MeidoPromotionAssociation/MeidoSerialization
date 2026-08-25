@@ -298,19 +298,13 @@ func TestEngineRejectsEditingJSONOutsidePublishedSchema(t *testing.T) {
 }
 
 func TestEngineRejectsColliderObjectThatDoesNotMatchDiscriminator(t *testing.T) {
-	valid, err := json.Marshal(&serializationKCES.KCESPayloadEnvelope{
-		Format:         serializationKCES.PayloadFormatKCESMessagePack,
-		Extension:      ".dbcol",
-		StorageVariant: serializationKCES.PayloadStorageInt32LZ4MessagePack,
-		Kind:           serializationKCES.PayloadKindColliderPackage,
-		ColliderPackage: &serializationKCES.ColliderPackage{
-			Version: 1000,
-			Colliders: []*serializationKCES.ColliderRef{{
-				Type:     serializationKCES.ColliderTypeCapsule,
-				Collider: serializationKCES.NewColliderCapsule(),
-			}},
-			LimbEnableList: []*serializationKCES.ColliderState{{Version: 1000, LimbType: 0, IsEnable: true}},
-		},
+	valid, err := json.Marshal(&serializationKCES.ColliderPackage{
+		Version: 1000,
+		Colliders: []*serializationKCES.ColliderRef{{
+			Type:     serializationKCES.ColliderTypeCapsule,
+			Collider: serializationKCES.NewColliderCapsule(),
+		}},
+		LimbEnableList: []*serializationKCES.ColliderState{{Version: 1000, LimbType: 0, IsEnable: true}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -320,15 +314,14 @@ func TestEngineRejectsColliderObjectThatDoesNotMatchDiscriminator(t *testing.T) 
 		t.Fatalf("valid capsule editing JSON rejected: %v", err)
 	}
 
-	var envelope map[string]any
-	if err := json.Unmarshal(valid, &envelope); err != nil {
+	var colliderPackage map[string]any
+	if err := json.Unmarshal(valid, &colliderPackage); err != nil {
 		t.Fatal(err)
 	}
-	colliderPackage := envelope["colliderPackage"].(map[string]any)
 	colliders := colliderPackage["colliders"].([]any)
 	collider := colliders[0].(map[string]any)
 	collider["type"] = float64(serializationKCES.ColliderTypePlane)
-	mismatched, err := json.Marshal(envelope)
+	mismatched, err := json.Marshal(colliderPackage)
 	if err != nil {
 		t.Fatal(err)
 	}

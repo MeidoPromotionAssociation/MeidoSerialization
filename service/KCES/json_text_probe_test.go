@@ -176,12 +176,22 @@ func TestFileTypeServiceRejectsUnknownFieldsInKCESOnlyEditingJSON(t *testing.T) 
 	}
 }
 
-func TestKCESPayloadEditingJSONRejectsFilenameExtensionMismatch(t *testing.T) {
-	data := []byte(`{"format":"kces-msgpack-lz4","extension":".db2conf","storageVariant":"int32-length-lz4-messagepack","kind":"msgpack-json-string","json":{}}`)
-	if _, err := decodeKCESPayloadEditingJSON(data, ".dbconf"); err == nil || !strings.Contains(err.Error(), "does not match") {
-		t.Fatalf("mismatched payload extension error = %v", err)
+func TestKCESPayloadEditingJSONBindsRootTypeToFileName(t *testing.T) {
+	// 编辑封套已移除，目标格式完全由文件名决定，因此载荷根必须与文件名声明的载荷类型一致
+	// The editing envelope was removed and the destination format is decided entirely by the file name,
+	// so the payload root must match the payload type that file name declares
+	magica := []byte(`{"clothType":1}`)
+	if _, err := decodeKCESPayloadEditingJSON(magica, ".db2conf"); err != nil {
+		t.Fatalf("MagicaCloth2 root on .db2conf: %v", err)
 	}
-	if _, err := decodeKCESPayloadEditingJSON(data, ".db2conf"); err != nil {
-		t.Fatalf("matching payload extension: %v", err)
+	if _, err := decodeKCESPayloadEditingJSON(magica, ".dbconf"); err == nil ||
+		!strings.Contains(err.Error(), "clothType") {
+		t.Fatalf("MagicaCloth2 root on .dbconf error = %v, want unknown-field rejection", err)
+	}
+
+	envelope := []byte(`{"format":"kces-msgpack-lz4","extension":".db2conf","storageVariant":"int32-length-lz4-messagepack","kind":"msgpack-json-string","json":{}}`)
+	if _, err := decodeKCESPayloadEditingJSON(envelope, ".db2conf"); err == nil ||
+		!strings.Contains(err.Error(), "unknown field") {
+		t.Fatalf("removed editing envelope error = %v, want unknown-field rejection", err)
 	}
 }

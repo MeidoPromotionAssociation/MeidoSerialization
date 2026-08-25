@@ -314,28 +314,28 @@ func TestColliderEncodingValidationRejectsInvalidObjectsWithoutPanic(t *testing.
 	var typedNilSphere *ColliderSphere
 	tests := []struct {
 		name    string
-		env     *KCESPayloadEnvelope
+		pkg     *ColliderPackage
 		wantErr string
 	}{
 		{
 			name: "typed nil collider",
-			env: &KCESPayloadEnvelope{Format: PayloadFormatKCESMessagePack, Extension: ".dbcol", StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindColliderPackage, ColliderPackage: &ColliderPackage{
+			pkg: &ColliderPackage{
 				Colliders: []*ColliderRef{{Type: ColliderTypeSphere, Collider: typedNilSphere}},
-			}},
+			},
 			wantErr: "is nil (*ColliderSphere)",
 		},
 		{
 			name: "union tag mismatch",
-			env: &KCESPayloadEnvelope{Format: PayloadFormatKCESMessagePack, Extension: ".dbcol", StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindColliderPackage, ColliderPackage: &ColliderPackage{
+			pkg: &ColliderPackage{
 				Colliders: []*ColliderRef{{Type: ColliderTypePlane, Collider: &ColliderCapsule{}}},
-			}},
+			},
 			wantErr: "concrete type requires 1",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := EncodeKCESPayload(tc.env)
+			_, err := EncodeKCESPayload(tc.pkg, ".dbcol")
 			if err == nil {
 				t.Fatal("expected validation error")
 			}
@@ -363,11 +363,11 @@ func TestLimbColliderDecodeRequiresDeclaredMaidPropWidth(t *testing.T) {
 			[]interface{}{int64(limbColliderItemFixVersion), int64(0), colliderMaidPropIndexedTestValue(colliderStatusFixVersion)},
 		},
 	}
-	envelope, err := DecodeKCESPayload(lengthPrefixedIndexedTestValue(t, full), ".limbcol")
+	root, err := DecodeKCESPayload(lengthPrefixedIndexedTestValue(t, full), ".limbcol")
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload full MaidProp: %v", err)
 	}
-	if envelope.LimbCollider.Items[0].Collider == nil {
+	if root.(*LimbColliderPackage).Items[0].Collider == nil {
 		t.Fatal("full NativeMaidPropColliderStatus decoded as nil")
 	}
 
@@ -382,93 +382,82 @@ func TestLimbColliderDecodeRequiresDeclaredMaidPropWidth(t *testing.T) {
 
 func TestColliderEncodingPreservesZeroVersions(t *testing.T) {
 	t.Run("generic package", func(t *testing.T) {
-		env := &KCESPayloadEnvelope{
-			Format: PayloadFormatKCESMessagePack, Extension: ".dbcol",
-			StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindColliderPackage,
-			ColliderPackage: &ColliderPackage{
-				Colliders:      []*ColliderRef{{Type: ColliderTypePlane, Collider: &ColliderPlane{}}},
-				LimbEnableList: []*ColliderState{{LimbType: 1, IsEnable: true}},
-			},
+		pkg := &ColliderPackage{
+			Colliders:      []*ColliderRef{{Type: ColliderTypePlane, Collider: &ColliderPlane{}}},
+			LimbEnableList: []*ColliderState{{LimbType: 1, IsEnable: true}},
 		}
-		encoded, err := EncodeKCESPayload(env)
+		encoded, err := EncodeKCESPayload(pkg, ".dbcol")
 		if err != nil {
 			t.Fatalf("EncodeKCESPayload: %v", err)
 		}
-		decoded, err := DecodeKCESPayload(encoded, ".dbcol")
+		root, err := DecodeKCESPayload(encoded, ".dbcol")
 		if err != nil {
 			t.Fatalf("DecodeKCESPayload: %v", err)
 		}
-		plane, ok := decoded.ColliderPackage.Colliders[0].Collider.(*ColliderPlane)
+		decoded := root.(*ColliderPackage)
+		plane, ok := decoded.Colliders[0].Collider.(*ColliderPlane)
 		if !ok {
-			t.Fatalf("decoded collider type = %T", decoded.ColliderPackage.Colliders[0].Collider)
+			t.Fatalf("decoded collider type = %T", decoded.Colliders[0].Collider)
 		}
-		if decoded.ColliderPackage.Version != 0 || plane.Version != 0 ||
-			decoded.ColliderPackage.LimbEnableList[0].Version != 0 {
+		if decoded.Version != 0 || plane.Version != 0 || decoded.LimbEnableList[0].Version != 0 {
 			t.Fatalf("versions changed: package=%d collider=%d state=%d",
-				decoded.ColliderPackage.Version, plane.Version, decoded.ColliderPackage.LimbEnableList[0].Version)
+				decoded.Version, plane.Version, decoded.LimbEnableList[0].Version)
 		}
-		if env.ColliderPackage.Version != 0 || env.ColliderPackage.Colliders[0].Collider.(*ColliderPlane).Version != 0 ||
-			env.ColliderPackage.LimbEnableList[0].Version != 0 {
-			t.Fatalf("EncodeKCESPayload mutated generic collider input: %+v", env.ColliderPackage)
+		if pkg.Version != 0 || pkg.Colliders[0].Collider.(*ColliderPlane).Version != 0 ||
+			pkg.LimbEnableList[0].Version != 0 {
+			t.Fatalf("EncodeKCESPayload mutated generic collider input: %+v", pkg)
 		}
 	})
 
 	t.Run("limb package", func(t *testing.T) {
-		env := &KCESPayloadEnvelope{
-			Format: PayloadFormatKCESMessagePack, Extension: ".limbcol",
-			StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindLimbCollider,
-			LimbCollider: &LimbColliderPackage{
-				Items: []*LimbColliderItem{{Collider: &ColliderMaidProp{}}},
-			},
+		pkg := &LimbColliderPackage{
+			Items: []*LimbColliderItem{{Collider: &ColliderMaidProp{}}},
 		}
-		encoded, err := EncodeKCESPayload(env)
+		encoded, err := EncodeKCESPayload(pkg, ".limbcol")
 		if err != nil {
 			t.Fatalf("EncodeKCESPayload: %v", err)
 		}
-		decoded, err := DecodeKCESPayload(encoded, ".limbcol")
+		root, err := DecodeKCESPayload(encoded, ".limbcol")
 		if err != nil {
 			t.Fatalf("DecodeKCESPayload: %v", err)
 		}
-		maidProp := decoded.LimbCollider.Items[0].Collider
-		if decoded.LimbCollider.Version != 0 || decoded.LimbCollider.Items[0].Version != 0 || maidProp.Version != 0 {
+		decoded := root.(*LimbColliderPackage)
+		maidProp := decoded.Items[0].Collider
+		if decoded.Version != 0 || decoded.Items[0].Version != 0 || maidProp.Version != 0 {
 			t.Fatalf("versions changed: package=%d item=%d collider=%d",
-				decoded.LimbCollider.Version, decoded.LimbCollider.Items[0].Version, maidProp.Version)
+				decoded.Version, decoded.Items[0].Version, maidProp.Version)
 		}
-		if env.LimbCollider.Version != 0 || env.LimbCollider.Items[0].Version != 0 ||
-			env.LimbCollider.Items[0].Collider.Version != 0 {
-			t.Fatalf("EncodeKCESPayload mutated limb collider input: %+v", env.LimbCollider)
+		if pkg.Version != 0 || pkg.Items[0].Version != 0 || pkg.Items[0].Collider.Version != 0 {
+			t.Fatalf("EncodeKCESPayload mutated limb collider input: %+v", pkg)
 		}
 	})
 
 	t.Run("IK package", func(t *testing.T) {
-		env := &KCESPayloadEnvelope{
-			Format: PayloadFormatKCESMessagePack, Extension: ".ikcol",
-			StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindIKCollider,
-			IKCollider: &IKColliderPackage{
-				Groups: []*IKColliderGroup{{
-					Colliders: []*ColliderRef{{Type: ColliderTypeSphere, Collider: &ColliderSphere{}}},
-				}},
-			},
+		pkg := &IKColliderPackage{
+			Groups: []*IKColliderGroup{{
+				Colliders: []*ColliderRef{{Type: ColliderTypeSphere, Collider: &ColliderSphere{}}},
+			}},
 		}
-		encoded, err := EncodeKCESPayload(env)
+		encoded, err := EncodeKCESPayload(pkg, ".ikcol")
 		if err != nil {
 			t.Fatalf("EncodeKCESPayload: %v", err)
 		}
-		decoded, err := DecodeKCESPayload(encoded, ".ikcol")
+		root, err := DecodeKCESPayload(encoded, ".ikcol")
 		if err != nil {
 			t.Fatalf("DecodeKCESPayload: %v", err)
 		}
-		sphere, ok := decoded.IKCollider.Groups[0].Colliders[0].Collider.(*ColliderSphere)
+		decoded := root.(*IKColliderPackage)
+		sphere, ok := decoded.Groups[0].Colliders[0].Collider.(*ColliderSphere)
 		if !ok {
-			t.Fatalf("decoded collider type = %T", decoded.IKCollider.Groups[0].Colliders[0].Collider)
+			t.Fatalf("decoded collider type = %T", decoded.Groups[0].Colliders[0].Collider)
 		}
-		if decoded.IKCollider.Version != 0 || decoded.IKCollider.Groups[0].Version != 0 || sphere.Version != 0 {
+		if decoded.Version != 0 || decoded.Groups[0].Version != 0 || sphere.Version != 0 {
 			t.Fatalf("versions changed: package=%d group=%d collider=%d",
-				decoded.IKCollider.Version, decoded.IKCollider.Groups[0].Version, sphere.Version)
+				decoded.Version, decoded.Groups[0].Version, sphere.Version)
 		}
-		if env.IKCollider.Version != 0 || env.IKCollider.Groups[0].Version != 0 ||
-			env.IKCollider.Groups[0].Colliders[0].Collider.(*ColliderSphere).Version != 0 {
-			t.Fatalf("EncodeKCESPayload mutated IK collider input: %+v", env.IKCollider)
+		if pkg.Version != 0 || pkg.Groups[0].Version != 0 ||
+			pkg.Groups[0].Colliders[0].Collider.(*ColliderSphere).Version != 0 {
+			t.Fatalf("EncodeKCESPayload mutated IK collider input: %+v", pkg)
 		}
 	})
 }
@@ -483,23 +472,19 @@ func TestMaidPropEncodingPreservesMPNFields(t *testing.T) {
 		StartRadiusMpnNameList: []*string{protocolTestString("stale-start")},
 		EndRadiusMpnNameList:   []*string{protocolTestString("stale-end")},
 	}
-	env := &KCESPayloadEnvelope{
-		Format: PayloadFormatKCESMessagePack, Extension: ".limbcol",
-		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindLimbCollider,
-		LimbCollider: &LimbColliderPackage{
-			Items: []*LimbColliderItem{{Collider: maidProp}},
-		},
+	pkg := &LimbColliderPackage{
+		Items: []*LimbColliderItem{{Collider: maidProp}},
 	}
 
-	encoded, err := EncodeKCESPayload(env)
+	encoded, err := EncodeKCESPayload(pkg, ".limbcol")
 	if err != nil {
 		t.Fatalf("EncodeKCESPayload: %v", err)
 	}
-	decoded, err := DecodeKCESPayload(encoded, ".limbcol")
+	root, err := DecodeKCESPayload(encoded, ".limbcol")
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload: %v", err)
 	}
-	got := decoded.LimbCollider.Items[0].Collider
+	got := root.(*LimbColliderPackage).Items[0].Collider
 	if got.Version != 1002 {
 		t.Fatalf("decoded version = %d, want 1002", got.Version)
 	}

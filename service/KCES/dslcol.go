@@ -14,7 +14,7 @@ type DSLColService struct{}
 
 // ReadDSLColFile 读取并解码 .dslcol 文件
 // ReadDSLColFile reads and decodes a .dslcol file
-func (s *DSLColService) ReadDSLColFile(path string) (*serializationKCES.KCESPayloadEnvelope, error) {
+func (s *DSLColService) ReadDSLColFile(path string) (*serializationKCES.ColliderPackage, error) {
 	if serializationKCES.NormalizeKCESPayloadExtension(path) != serializationKCES.KCESDSLColExtension {
 		return nil, fmt.Errorf("not a .dslcol file: %s", path)
 	}
@@ -31,12 +31,9 @@ func (s *DSLColService) ReadDSLColFile(path string) (*serializationKCES.KCESPayl
 
 // WriteDSLColFile 编码并写入 .dslcol 文件
 // WriteDSLColFile encodes and writes a .dslcol file
-func (s *DSLColService) WriteDSLColFile(path string, value *serializationKCES.KCESPayloadEnvelope) error {
+func (s *DSLColService) WriteDSLColFile(path string, value *serializationKCES.ColliderPackage) error {
 	if serializationKCES.NormalizeKCESPayloadExtension(path) != serializationKCES.KCESDSLColExtension {
 		return fmt.Errorf("not a .dslcol output path: %s", path)
-	}
-	if value == nil || serializationKCES.NormalizeKCESPayloadExtension(value.Extension) != serializationKCES.KCESDSLColExtension {
-		return fmt.Errorf(".dslcol output requires a .dslcol KCES payload envelope")
 	}
 	encoded, err := serializationKCES.EncodeDSLCol(value)
 	if err != nil {
@@ -79,20 +76,11 @@ func (s *DSLColService) ConvertJsonToDSLCol(ctx context.Context, inputPath strin
 	if err != nil {
 		return fmt.Errorf("read .dslcol JSON %q: %w", inputPath, err)
 	}
-	var value serializationKCES.KCESPayloadEnvelope
+	var value *serializationKCES.ColliderPackage
 	if err := decodeStrictJSON(trimJSONUTF8BOM(data), &value, "KCES .dslcol JSON"); err != nil {
 		return fmt.Errorf("parse .dslcol JSON: %w", err)
 	}
-	if value.Format != serializationKCES.PayloadFormatKCESMessagePack && value.Format != serializationKCES.PayloadFormatKCESExportCM {
-		return fmt.Errorf("unsupported .dslcol JSON format %q", value.Format)
-	}
-	actual := serializationKCES.NormalizeKCESPayloadExtension(value.Extension)
-	if actual == "" {
-		value.Extension = serializationKCES.KCESDSLColExtension
-	} else if actual != serializationKCES.KCESDSLColExtension {
-		return fmt.Errorf("KCES payload envelope extension %q does not match file extension %q", actual, serializationKCES.KCESDSLColExtension)
-	}
-	encoded, err := serializationKCES.EncodeDSLCol(&value)
+	encoded, err := serializationKCES.EncodeDSLCol(value)
 	if err != nil {
 		return fmt.Errorf("encode .dslcol file: %w", err)
 	}

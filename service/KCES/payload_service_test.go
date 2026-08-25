@@ -40,15 +40,15 @@ func TestPayloadService_DynamicBoneJSONRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var env serializationKCES.KCESPayloadEnvelope
-	if err := json.Unmarshal(jsonData, &env); err != nil {
+	var status serializationKCES.DynamicBoneStatus
+	if err := json.Unmarshal(jsonData, &status); err != nil {
 		t.Fatalf("parse json output: %v", err)
 	}
-	if env.Kind != serializationKCES.PayloadKindDynamicBoneStatus || env.DynamicBone == nil {
-		t.Fatalf("unexpected payload envelope: %+v", env)
+	if status.Version != 1000 || status.Elasticity != 0.25 {
+		t.Fatalf("unexpected payload root: %+v", status)
 	}
-	env.DynamicBone.Damping = 0.75
-	edited, err := json.MarshalIndent(&env, "", "  ")
+	status.Damping = 0.75
+	edited, err := json.MarshalIndent(&status, "", "  ")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,18 +72,17 @@ func TestPayloadService_DynamicBoneJSONRoundTrip(t *testing.T) {
 	}
 }
 
-func TestPayloadService_ExportCMJSONVariantsRoundTrip(t *testing.T) {
+func TestPayloadService_RejectsExportCMJSONVariants(t *testing.T) {
 	dynamicJSON := []byte(`{"version":1000,"damping":0.6,"DampingKeyFrames":[],"elasticity":0.1,"ElasticityKeyFrames":[],"stiffness":0.1,"StiffnessKeyFrames":[],"inert":0,"InertKeyFrames":[],"radius":0,"RadiusKeyFrames":[],"endLength":0,"endOffset":{"x":0,"y":0,"z":0},"gravity":{"x":0,"y":-0.05,"z":0},"force":{"x":0,"y":0,"z":0},"freezeAxis":0}`)
 	colliderJSON := []byte(`{"version":1000,"StatusJsonStrList":[],"limbEnableList":[]}`)
 	tests := []struct {
-		name        string
-		extension   string
-		wire        []byte
-		wantStorage string
+		name      string
+		extension string
+		wire      []byte
 	}{
-		{name: "dbconf", extension: ".dbconf", wire: dynamicJSON, wantStorage: serializationKCES.PayloadStorageExportCMUnityJSON},
-		{name: "dbcol", extension: ".dbcol", wire: colliderJSON, wantStorage: serializationKCES.PayloadStorageExportCMUnityJSON},
-		{name: "dslcol", extension: ".dslcol", wire: appendServiceDotNetString(nil, colliderJSON), wantStorage: serializationKCES.PayloadStorageExportCMDotNetStringJSON},
+		{name: "dbconf", extension: ".dbconf", wire: dynamicJSON},
+		{name: "dbcol", extension: ".dbcol", wire: colliderJSON},
+		{name: "dslcol", extension: ".dslcol", wire: appendServiceDotNetString(nil, colliderJSON)},
 	}
 
 	for _, test := range tests {
@@ -92,28 +91,20 @@ func TestPayloadService_ExportCMJSONVariantsRoundTrip(t *testing.T) {
 			dir := t.TempDir()
 			input := filepath.Join(dir, "input"+test.extension)
 			jsonPath := input + ".json"
-			output := filepath.Join(dir, "output"+test.extension)
 			if err := os.WriteFile(input, test.wire, 0644); err != nil {
 				t.Fatal(err)
 			}
 
 			service := &PayloadService{}
-			if err := service.ConvertPayloadToJson(TestConversionContext, input, jsonPath, TestConversionMaxOutput); err != nil {
-				t.Fatalf("ConvertPayloadToJson() error = %v", err)
+			err := service.ConvertPayloadToJson(TestConversionContext, input, jsonPath, TestConversionMaxOutput)
+			if err == nil {
+				t.Fatal("ConvertPayloadToJson() accepted an ExportCM sidecar")
 			}
-			var envelope serializationKCES.KCESPayloadEnvelope
-			if err := json.Unmarshal(mustReadServiceTestFile(t, jsonPath), &envelope); err != nil {
-				t.Fatalf("unmarshal editing JSON: %v", err)
+			if !strings.Contains(err.Error(), "ExportCM") {
+				t.Fatalf("ConvertPayloadToJson() error = %v, want the ExportCM sidecar explanation", err)
 			}
-			if envelope.Format != serializationKCES.PayloadFormatKCESExportCM || envelope.StorageVariant != test.wantStorage {
-				t.Fatalf("editing envelope format/storage = %q/%q", envelope.Format, envelope.StorageVariant)
-			}
-
-			if err := service.ConvertJsonToPayload(TestConversionContext, jsonPath, output, TestConversionMaxOutput); err != nil {
-				t.Fatalf("ConvertJsonToPayload() error = %v", err)
-			}
-			if got := mustReadServiceTestFile(t, output); !reflect.DeepEqual(got, test.wire) {
-				t.Fatalf("service round trip changed ExportCM wire:\n got  %x\n want %x", got, test.wire)
+			if _, statErr := os.Stat(jsonPath); statErr == nil {
+				t.Fatal("ConvertPayloadToJson() wrote editing JSON for a rejected ExportCM sidecar")
 			}
 		})
 	}
@@ -135,31 +126,25 @@ func TestPayloadService_ColliderPackageRoundTrip(t *testing.T) {
 	jsonPath := inputPath + ".json"
 	outputPath := filepath.Join(tmpDir, "out.dbcol")
 
-	env := &serializationKCES.KCESPayloadEnvelope{
-		Format:         serializationKCES.PayloadFormatKCESMessagePack,
-		Extension:      ".dbcol",
-		StorageVariant: serializationKCES.PayloadStorageInt32LZ4MessagePack,
-		Kind:           serializationKCES.PayloadKindColliderPackage,
-		ColliderPackage: &serializationKCES.ColliderPackage{
-			Version: 1000,
-			Colliders: []*serializationKCES.ColliderRef{{
-				Type: 2,
-				Collider: &serializationKCES.ColliderSphere{
-					ColliderObject: serializationKCES.ColliderObject{
-						Version:       1000,
-						ParentName:    testStringPointer("Bip01 Neck"),
-						SelfName:      testStringPointer("Collider"),
-						LocalRotation: serializationKCES.Vector4{W: 1},
-						LocalScale:    serializationKCES.Vector3{X: 1, Y: 1, Z: 1},
-						Bound:         serializationKCES.ColliderBoundOutside,
-					},
-					Radius: 0.05,
+	pkg := &serializationKCES.ColliderPackage{
+		Version: 1000,
+		Colliders: []*serializationKCES.ColliderRef{{
+			Type: 2,
+			Collider: &serializationKCES.ColliderSphere{
+				ColliderObject: serializationKCES.ColliderObject{
+					Version:       1000,
+					ParentName:    testStringPointer("Bip01 Neck"),
+					SelfName:      testStringPointer("Collider"),
+					LocalRotation: serializationKCES.Vector4{W: 1},
+					LocalScale:    serializationKCES.Vector3{X: 1, Y: 1, Z: 1},
+					Bound:         serializationKCES.ColliderBoundOutside,
 				},
-			}},
-			LimbEnableList: []*serializationKCES.ColliderState{{Version: 1000, LimbType: 0, IsEnable: true}},
-		},
+				Radius: 0.05,
+			},
+		}},
+		LimbEnableList: []*serializationKCES.ColliderState{{Version: 1000, LimbType: 0, IsEnable: true}},
 	}
-	encoded, err := serializationKCES.EncodeKCESPayload(env)
+	encoded, err := serializationKCES.EncodeKCESPayload(pkg, ".dbcol")
 	if err != nil {
 		t.Fatalf("EncodeKCESPayload: %v", err)
 	}
@@ -175,15 +160,12 @@ func TestPayloadService_ColliderPackageRoundTrip(t *testing.T) {
 	if !strings.Contains(string(jsonBytes), `"limbEnableList"`) || strings.Contains(string(jsonBytes), `"states"`) {
 		t.Fatalf("collider JSON should use limbEnableList, got %s", string(jsonBytes))
 	}
-	var decodedJSON serializationKCES.KCESPayloadEnvelope
+	var decodedJSON serializationKCES.ColliderPackage
 	if err := json.Unmarshal(jsonBytes, &decodedJSON); err != nil {
 		t.Fatalf("unmarshal payload json: %v", err)
 	}
-	if decodedJSON.Kind != serializationKCES.PayloadKindColliderPackage || decodedJSON.ColliderPackage == nil {
-		t.Fatalf("unexpected JSON envelope: %+v", decodedJSON)
-	}
-	if len(decodedJSON.ColliderPackage.LimbEnableList) != 1 {
-		t.Fatalf("limb enable list not populated from JSON: %+v", decodedJSON.ColliderPackage)
+	if len(decodedJSON.LimbEnableList) != 1 {
+		t.Fatalf("limb enable list not populated from JSON: %+v", decodedJSON)
 	}
 
 	if err := service.ConvertJsonToPayload(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
@@ -193,9 +175,13 @@ func TestPayloadService_ColliderPackageRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload output: %v", err)
 	}
-	c0, ok := roundTrip.ColliderPackage.Colliders[0].Collider.(*serializationKCES.ColliderSphere)
+	roundTripPackage, ok := roundTrip.(*serializationKCES.ColliderPackage)
+	if !ok || roundTripPackage == nil {
+		t.Fatalf("unexpected round-trip payload root: %#v", roundTrip)
+	}
+	c0, ok := roundTripPackage.Colliders[0].Collider.(*serializationKCES.ColliderSphere)
 	if !ok || c0 == nil || testStringValue(c0.ParentName) != "Bip01 Neck" {
-		t.Fatalf("unexpected round-trip collider package: %+v", roundTrip)
+		t.Fatalf("unexpected round-trip collider package: %+v", roundTripPackage)
 	}
 }
 
@@ -214,43 +200,37 @@ func testPayloadServiceClothParamsRoundTrip(t *testing.T, ext string) {
 	jsonPath := inputPath + ".json"
 	outputPath := filepath.Join(tmpDir, "out"+ext)
 
-	env := &serializationKCES.KCESPayloadEnvelope{
-		Format:         serializationKCES.PayloadFormatKCESMessagePack,
-		Extension:      ext,
-		StorageVariant: serializationKCES.PayloadStorageInt32LZ4MessagePack,
-		Kind:           serializationKCES.PayloadKindClothParams,
-		ClothParams: &serializationKCES.ClothParams{
-			Radius:                         &serializationKCES.BezierParam{StartValue: 0.02, EndValue: 0.04, UseEndValue: true},
-			Mass:                           &serializationKCES.BezierParam{StartValue: 1, EndValue: 1},
-			UseGravity:                     true,
-			Gravity:                        &serializationKCES.BezierParam{StartValue: -9.8, EndValue: -9.8},
-			UseDrag:                        true,
-			Drag:                           &serializationKCES.BezierParam{StartValue: 0.02, EndValue: 0.02, UseEndValue: true},
-			UseMaxVelocity:                 true,
-			MaxVelocity:                    &serializationKCES.BezierParam{StartValue: 3, EndValue: 3},
-			WorldMoveInfluence:             &serializationKCES.BezierParam{StartValue: 0.5, EndValue: 0.5},
-			WorldRotationInfluence:         &serializationKCES.BezierParam{StartValue: 0.5, EndValue: 0.5},
-			DisableDistance:                20,
-			DisableFadeDistance:            5,
-			UseClampDistanceRatio:          true,
-			ClampDistanceMinRatio:          0.7,
-			ClampDistanceMaxRatio:          1.1,
-			UsePenetration:                 true,
-			PenetrationMode:                serializationKCES.ClothPenetrationModeColliderPenetration,
-			PenetrationAxis:                serializationKCES.ClothPenetrationAxisInverseZ,
-			PenetrationConnectDistance:     &serializationKCES.BezierParam{StartValue: 0.2, EndValue: 0.3, UseEndValue: true},
-			PenetrationDistance:            &serializationKCES.BezierParam{StartValue: 0.1, EndValue: 0.2, UseEndValue: true},
-			PenetrationRadius:              &serializationKCES.BezierParam{StartValue: 0.3, EndValue: 1, UseEndValue: true},
-			UseLineAvarageRotation:         true,
-			GravityDirection:               serializationKCES.Vector3{Y: 1},
-			MaxMoveSpeed:                   10,
-			MaxRotationSpeed:               360,
-			ResetStabilizationTime:         0.1,
-			ClampRotationVelocityLimit:     1,
-			ClampRotationVelocityInfluence: 0.2,
-		},
+	params := &serializationKCES.ClothParams{
+		Radius:                         &serializationKCES.BezierParam{StartValue: 0.02, EndValue: 0.04, UseEndValue: true},
+		Mass:                           &serializationKCES.BezierParam{StartValue: 1, EndValue: 1},
+		UseGravity:                     true,
+		Gravity:                        &serializationKCES.BezierParam{StartValue: -9.8, EndValue: -9.8},
+		UseDrag:                        true,
+		Drag:                           &serializationKCES.BezierParam{StartValue: 0.02, EndValue: 0.02, UseEndValue: true},
+		UseMaxVelocity:                 true,
+		MaxVelocity:                    &serializationKCES.BezierParam{StartValue: 3, EndValue: 3},
+		WorldMoveInfluence:             &serializationKCES.BezierParam{StartValue: 0.5, EndValue: 0.5},
+		WorldRotationInfluence:         &serializationKCES.BezierParam{StartValue: 0.5, EndValue: 0.5},
+		DisableDistance:                20,
+		DisableFadeDistance:            5,
+		UseClampDistanceRatio:          true,
+		ClampDistanceMinRatio:          0.7,
+		ClampDistanceMaxRatio:          1.1,
+		UsePenetration:                 true,
+		PenetrationMode:                serializationKCES.ClothPenetrationModeColliderPenetration,
+		PenetrationAxis:                serializationKCES.ClothPenetrationAxisInverseZ,
+		PenetrationConnectDistance:     &serializationKCES.BezierParam{StartValue: 0.2, EndValue: 0.3, UseEndValue: true},
+		PenetrationDistance:            &serializationKCES.BezierParam{StartValue: 0.1, EndValue: 0.2, UseEndValue: true},
+		PenetrationRadius:              &serializationKCES.BezierParam{StartValue: 0.3, EndValue: 1, UseEndValue: true},
+		UseLineAvarageRotation:         true,
+		GravityDirection:               serializationKCES.Vector3{Y: 1},
+		MaxMoveSpeed:                   10,
+		MaxRotationSpeed:               360,
+		ResetStabilizationTime:         0.1,
+		ClampRotationVelocityLimit:     1,
+		ClampRotationVelocityInfluence: 0.2,
 	}
-	encoded, err := serializationKCES.EncodeKCESPayload(env)
+	encoded, err := serializationKCES.EncodeKCESPayload(params, ext)
 	if err != nil {
 		t.Fatalf("EncodeKCESPayload: %v", err)
 	}
@@ -262,14 +242,14 @@ func testPayloadServiceClothParamsRoundTrip(t *testing.T, ext string) {
 	if err := service.ConvertPayloadToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertPayloadToJson: %v", err)
 	}
-	var decodedJSON serializationKCES.KCESPayloadEnvelope
+	var decodedJSON serializationKCES.ClothParams
 	if err := json.Unmarshal(mustReadServiceTestFile(t, jsonPath), &decodedJSON); err != nil {
 		t.Fatalf("unmarshal payload json: %v", err)
 	}
-	if decodedJSON.Kind != serializationKCES.PayloadKindClothParams || decodedJSON.ClothParams == nil {
-		t.Fatalf("unexpected JSON envelope: %+v", decodedJSON)
+	if !decodedJSON.UsePenetration {
+		t.Fatalf("unexpected JSON payload root: %+v", decodedJSON)
 	}
-	decodedJSON.ClothParams.UsePenetration = false
+	decodedJSON.UsePenetration = false
 	edited, err := json.MarshalIndent(&decodedJSON, "", "  ")
 	if err != nil {
 		t.Fatal(err)
@@ -285,8 +265,9 @@ func testPayloadServiceClothParamsRoundTrip(t *testing.T, ext string) {
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload output: %v", err)
 	}
-	if roundTrip.ClothParams == nil || roundTrip.ClothParams.UsePenetration {
-		t.Fatalf("unexpected round-trip cloth params: %+v", roundTrip)
+	roundTripParams, ok := roundTrip.(*serializationKCES.ClothParams)
+	if !ok || roundTripParams == nil || roundTripParams.UsePenetration {
+		t.Fatalf("unexpected round-trip cloth params: %#v", roundTrip)
 	}
 }
 

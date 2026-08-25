@@ -204,111 +204,18 @@ func formatSpecs() []spec {
 		{id: "kces.preset", root: typeOf[serializationKCES.ExpandedKCESPreset]()},
 		{id: "kces.ct", root: typeOf[KCESService.CtEnvelope]()},
 		{id: "kces.virtualdirectory", root: typeOf[KCESService.CtEnvelope]()},
-		{id: "kces.dbconf", root: typeOf[serializationKCES.KCESPayloadEnvelope](), customize: payloadEnvelopeCustomizer(".dbconf")},
-		{id: "kces.dbcol", root: typeOf[serializationKCES.KCESPayloadEnvelope](), customize: payloadEnvelopeCustomizer(".dbcol")},
-		{id: "kces.db2conf", root: typeOf[serializationKCES.KCESPayloadEnvelope](), customize: payloadEnvelopeCustomizer(".db2conf")},
-		{id: "kces.dsbconf", root: typeOf[serializationKCES.KCESPayloadEnvelope](), customize: payloadEnvelopeCustomizer(".dsbconf")},
-		{id: "kces.dsb2conf", root: typeOf[serializationKCES.KCESPayloadEnvelope](), customize: payloadEnvelopeCustomizer(".dsb2conf")},
-		{id: "kces.dslconf", root: typeOf[serializationKCES.KCESPayloadEnvelope](), customize: payloadEnvelopeCustomizer(".dslconf")},
-		{id: "kces.dsl2conf", root: typeOf[serializationKCES.KCESPayloadEnvelope](), customize: payloadEnvelopeCustomizer(".dsl2conf")},
-		{id: "kces.dslcol", root: typeOf[serializationKCES.KCESPayloadEnvelope](), customize: payloadEnvelopeCustomizer(".dslcol")},
-		{id: "kces.ikcol", root: typeOf[serializationKCES.KCESPayloadEnvelope](), customize: payloadEnvelopeCustomizer(".ikcol")},
-		{id: "kces.ikcol.bytes", root: typeOf[serializationKCES.KCESPayloadEnvelope](), customize: payloadEnvelopeCustomizer(".ikcol.bytes")},
-		{id: "kces.limbcol", root: typeOf[serializationKCES.KCESPayloadEnvelope](), customize: payloadEnvelopeCustomizer(".limbcol")},
+		{id: "kces.dbconf", root: typeOf[*serializationKCES.DynamicBoneStatus]()},
+		{id: "kces.dbcol", root: typeOf[*serializationKCES.ColliderPackage]()},
+		{id: "kces.db2conf", root: typeOf[*serializationKCES.MagicaClothSerializeData]()},
+		{id: "kces.dsbconf", root: typeOf[*serializationKCES.ClothParams]()},
+		{id: "kces.dsb2conf", root: typeOf[*serializationKCES.MagicaClothSerializeData]()},
+		{id: "kces.dslconf", root: typeOf[*serializationKCES.ClothParams]()},
+		{id: "kces.dsl2conf", root: typeOf[*serializationKCES.MagicaClothSerializeData]()},
+		{id: "kces.dslcol", root: typeOf[*serializationKCES.ColliderPackage]()},
+		{id: "kces.ikcol", root: typeOf[*serializationKCES.IKColliderPackage]()},
+		{id: "kces.ikcol.bytes", root: typeOf[*serializationKCES.IKColliderPackage]()},
+		{id: "kces.limbcol", root: typeOf[*serializationKCES.LimbColliderPackage]()},
 	}
-}
-
-func payloadEnvelopeCustomizer(extension string) func(*jsonschema.Schema) error {
-	return func(root *jsonschema.Schema) error {
-		descriptor, ok := serializationKCES.DescribeKCESPayload(extension)
-		if !ok {
-			return fmt.Errorf("no KCES payload descriptor for %q", extension)
-		}
-		if err := markerCustomizer("extension", descriptor.Extension)(root); err != nil {
-			return err
-		}
-
-		branches := []*jsonschema.Schema{
-			payloadNativeBranch(descriptor),
-		}
-		if descriptor.ExportCMKind != "" {
-			branches = append(branches, payloadExportCMBranch(descriptor))
-		}
-		root.OneOf = branches
-		return nil
-	}
-}
-
-func payloadNativeBranch(descriptor serializationKCES.KCESPayloadDescriptor) *jsonschema.Schema {
-	branch := payloadTupleBranch(
-		descriptor.Extension,
-		serializationKCES.PayloadFormatKCESMessagePack,
-		serializationKCES.PayloadStorageInt32LZ4MessagePack,
-		descriptor.Kind,
-	)
-	allRoots := payloadRootFieldNames()
-	active := nativePayloadRootField(descriptor.Kind)
-	if descriptor.Kind == serializationKCES.PayloadKindJSONString {
-		active = "json"
-	}
-	branch.Required = append(branch.Required, active)
-	forbidden := make([]string, 0, len(allRoots)+2)
-	for _, name := range allRoots {
-		if name != active {
-			forbidden = append(forbidden, name)
-		}
-	}
-	branch.AllOf = forbidProperties(forbidden...)
-	return branch
-}
-
-func payloadExportCMBranch(descriptor serializationKCES.KCESPayloadDescriptor) *jsonschema.Schema {
-	branch := payloadTupleBranch(
-		descriptor.Extension,
-		serializationKCES.PayloadFormatKCESExportCM,
-		descriptor.ExportCMStorageVariant,
-		descriptor.ExportCMKind,
-	)
-	branch.Required = append(branch.Required, "json")
-	forbidden := []string{
-		"dynamicBoneStatus", "colliderPackage", "limbColliderPackage", "ikColliderPackage", "clothParams",
-	}
-	branch.AllOf = forbidProperties(forbidden...)
-	return branch
-}
-
-func payloadTupleBranch(extension, format, storage, kind string) *jsonschema.Schema {
-	return &jsonschema.Schema{
-		Type: "object",
-		Properties: map[string]*jsonschema.Schema{
-			"format":         {Type: "string", Const: anyPtr(format)},
-			"extension":      {Type: "string", Const: anyPtr(extension)},
-			"storageVariant": {Type: "string", Const: anyPtr(storage)},
-			"kind":           {Type: "string", Const: anyPtr(kind)},
-		},
-		Required: []string{"format", "extension", "storageVariant", "kind"},
-	}
-}
-
-func nativePayloadRootField(kind string) string {
-	switch kind {
-	case serializationKCES.PayloadKindDynamicBoneStatus:
-		return "dynamicBoneStatus"
-	case serializationKCES.PayloadKindColliderPackage:
-		return "colliderPackage"
-	case serializationKCES.PayloadKindLimbCollider:
-		return "limbColliderPackage"
-	case serializationKCES.PayloadKindIKCollider:
-		return "ikColliderPackage"
-	case serializationKCES.PayloadKindClothParams:
-		return "clothParams"
-	default:
-		return ""
-	}
-}
-
-func payloadRootFieldNames() []string {
-	return []string{"dynamicBoneStatus", "colliderPackage", "limbColliderPackage", "ikColliderPackage", "clothParams", "json"}
 }
 
 func forbidProperties(names ...string) []*jsonschema.Schema {

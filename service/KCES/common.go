@@ -227,11 +227,7 @@ func (s *FileTypeService) TryFileTypeDetermine(path string) (info COM3D2Service.
 		info.FileType = strings.TrimPrefix(payloadExt, ".")
 		info.StorageFormat = COM3D2Service.FormatBinary
 		info.Game = COM3D2Service.GameKCES
-		if envelope.Format == serializationKCES.PayloadFormatKCESExportCM {
-			info.Signature = envelope.Format
-		} else {
-			info.Signature = kcesMessagePackSignature
-		}
+		info.Signature = kcesMessagePackSignature
 		if version := kcesPayloadVersion(envelope); version != 0 {
 			assignKCESVersion(&info, version)
 		}
@@ -552,27 +548,6 @@ func probeKCESJSON(path string, data []byte, info COM3D2Service.FileInfo) (COM3D
 		info.Signature = serializationKCES.KCESPresetFormat
 		assignKCESVersion(&info, preset.ContainerVersion)
 		return info, true, nil
-	case serializationKCES.PayloadFormatKCESMessagePack, serializationKCES.PayloadFormatKCESExportCM:
-		var envelope serializationKCES.KCESPayloadEnvelope
-		if err := decodeStrictJSON(data, &envelope, "KCES payload JSON"); err != nil {
-			return info, true, fmt.Errorf("validate KCES payload JSON %q: %w", path, err)
-		}
-		if envelope.Extension == "" {
-			envelope.Extension = serializationKCES.NormalizeKCESPayloadExtension(strings.TrimSuffix(path, filepath.Ext(path)))
-		}
-		if _, err := serializationKCES.EncodeKCESPayload(&envelope); err != nil {
-			return info, true, fmt.Errorf("validate KCES payload JSON %q: %w", path, err)
-		}
-		payloadExt := serializationKCES.NormalizeKCESPayloadExtension(envelope.Extension)
-		if payloadExt == "" {
-			return info, true, fmt.Errorf("validate KCES payload JSON %q: unsupported extension %q", path, envelope.Extension)
-		}
-		info.FileType = strings.TrimPrefix(payloadExt, ".")
-		info.Signature = envelope.Format
-		if version := kcesPayloadVersion(&envelope); version != 0 {
-			assignKCESVersion(&info, version)
-		}
-		return info, true, nil
 	case serializationKCES.MaidColliderFormat:
 		var value serializationKCES.MaidColliderFile
 		if err := decodeStrictJSON(data, &value, "KCES maid collider JSON"); err != nil {
@@ -669,15 +644,15 @@ func probeKCESOnlyEditingJSONByPath(path string, data []byte, info COM3D2Service
 	}
 
 	if payloadExt := serializationKCES.NormalizeKCESPayloadExtension(basePath); payloadExt != "" {
-		envelope, err := decodeKCESPayloadEditingJSON(data, payloadExt)
+		value, err := decodeKCESPayloadEditingJSON(data, payloadExt)
 		if err != nil {
 			return info, true, fmt.Errorf("validate KCES payload JSON %q: %w", path, err)
 		}
 		info.FileType = strings.TrimPrefix(payloadExt, ".")
 		info.StorageFormat = COM3D2Service.FormatJSON
 		info.Game = COM3D2Service.GameKCES
-		info.Signature = envelope.Format
-		if version := kcesPayloadVersion(envelope); version != 0 {
+		info.Signature = kcesMessagePackSignature
+		if version := kcesPayloadVersion(value); version != 0 {
 			assignKCESVersion(&info, version)
 		}
 		return info, true, nil
@@ -839,23 +814,26 @@ func kcesPartsVersion(value interface{}) int32 {
 	return 0
 }
 
-// kcesPayloadVersion 从 KCES 载荷封套中提取当前 typed payload 的固定宽度版本号
-// kcesPayloadVersion extracts the fixed-width version from the active typed payload in a KCES envelope
-func kcesPayloadVersion(envelope *serializationKCES.KCESPayloadEnvelope) int32 {
-	if envelope == nil {
-		return 0
-	}
-	if envelope.DynamicBone != nil {
-		return envelope.DynamicBone.Version
-	}
-	if envelope.ColliderPackage != nil {
-		return envelope.ColliderPackage.Version
-	}
-	if envelope.LimbCollider != nil {
-		return envelope.LimbCollider.Version
-	}
-	if envelope.IKCollider != nil {
-		return envelope.IKCollider.Version
+// kcesPayloadVersion 从 KCES 载荷根对象中提取固定宽度版本号，未携带版本的载荷返回 0
+// kcesPayloadVersion extracts the fixed-width version from a KCES payload root object and returns 0 for payloads that carry none
+func kcesPayloadVersion(value any) int32 {
+	switch typed := value.(type) {
+	case *serializationKCES.DynamicBoneStatus:
+		if typed != nil {
+			return typed.Version
+		}
+	case *serializationKCES.ColliderPackage:
+		if typed != nil {
+			return typed.Version
+		}
+	case *serializationKCES.LimbColliderPackage:
+		if typed != nil {
+			return typed.Version
+		}
+	case *serializationKCES.IKColliderPackage:
+		if typed != nil {
+			return typed.Version
+		}
 	}
 	return 0
 }

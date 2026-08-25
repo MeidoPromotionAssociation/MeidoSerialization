@@ -41,7 +41,7 @@ func TestPublicDecodersRejectCLRInt32Overflow(t *testing.T) {
 }
 
 func TestPayloadDecoderRejectsCLRInt32Overflow(t *testing.T) {
-	validWire, err := EncodeKCESPayload(newDynamicBoneInt32Envelope())
+	validWire, err := EncodeKCESPayload(NewDynamicBoneStatus(), ".dbconf")
 	if err != nil {
 		t.Fatalf("EncodeKCESPayload fixture: %v", err)
 	}

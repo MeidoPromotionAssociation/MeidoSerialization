@@ -262,17 +262,11 @@ func TestColliderJSONExplicitZeroOverridesCSharpDefaults(t *testing.T) {
 }
 
 func TestJSONZeroValuesSurvivePublicPayloadEncodeDecode(t *testing.T) {
-	var dynamicEnvelope KCESPayloadEnvelope
-	if err := json.Unmarshal([]byte(`{
-		"format":"kces-msgpack-lz4",
-		"extension":".dbconf",
-		"storageVariant":"int32-length-lz4-messagepack",
-		"kind":"dynamic-bone-status",
-		"dynamicBoneStatus":{}
-	}`), &dynamicEnvelope); err != nil {
+	var status DynamicBoneStatus
+	if err := json.Unmarshal([]byte(`{}`), &status); err != nil {
 		t.Fatal(err)
 	}
-	encoded, err := EncodeKCESPayload(&dynamicEnvelope)
+	encoded, err := EncodeKCESPayload(&status, ".dbconf")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,23 +274,18 @@ func TestJSONZeroValuesSurvivePublicPayloadEncodeDecode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if decoded.DynamicBone == nil || decoded.DynamicBone.Version != 0 || decoded.DynamicBone.Damping != 0 || decoded.DynamicBone.Gravity != (Vector3{}) {
-		t.Fatalf("dynamic-bone zero values changed in public round trip: %+v", decoded.DynamicBone)
+	decodedStatus, ok := decoded.(*DynamicBoneStatus)
+	if !ok || decodedStatus == nil || decodedStatus.Version != 0 || decodedStatus.Damping != 0 || decodedStatus.Gravity != (Vector3{}) {
+		t.Fatalf("dynamic-bone zero values changed in public round trip: %#v", decoded)
 	}
 
-	var colliderEnvelope KCESPayloadEnvelope
+	var pkg ColliderPackage
 	if err := json.Unmarshal([]byte(`{
-		"format":"kces-msgpack-lz4",
-		"extension":".dbcol",
-		"storageVariant":"int32-length-lz4-messagepack",
-		"kind":"collider-package",
-		"colliderPackage":{
-			"colliders":[{"type":1,"collider":{}}]
-		}
-	}`), &colliderEnvelope); err != nil {
+		"colliders":[{"type":1,"collider":{}}]
+	}`), &pkg); err != nil {
 		t.Fatal(err)
 	}
-	encoded, err = EncodeKCESPayload(&colliderEnvelope)
+	encoded, err = EncodeKCESPayload(&pkg, ".dbcol")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -304,7 +293,7 @@ func TestJSONZeroValuesSurvivePublicPayloadEncodeDecode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	capsule := decoded.ColliderPackage.Colliders[0].Collider.(*ColliderCapsule)
+	capsule := decoded.(*ColliderPackage).Colliders[0].Collider.(*ColliderCapsule)
 	if capsule.Version != 0 || capsule.LocalRotation != (Vector4{}) || capsule.LocalScale != (Vector3{}) || capsule.StartRadius != 0 || capsule.EndRadius != 0 {
 		t.Fatalf("collider zero values changed in public round trip: %+v", capsule)
 	}

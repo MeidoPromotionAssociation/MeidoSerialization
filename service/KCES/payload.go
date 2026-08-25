@@ -3,6 +3,7 @@ package KCES
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -97,60 +98,69 @@ func (s *PayloadService) ConvertJsonToPayload(ctx context.Context, inputPath str
 
 // WritePayloadFile 根据目标扩展名调用对应的独立载荷 service
 // WritePayloadFile dispatches to the independent payload service selected by the destination extension
-func (s *PayloadService) WritePayloadFile(path string, value *serializationKCES.KCESPayloadEnvelope) error {
-	switch serializationKCES.NormalizeKCESPayloadExtension(path) {
-	case serializationKCES.KCESDBConfExtension:
-		return (&DBConfService{}).WriteDBConfFile(path, value)
-	case serializationKCES.KCESDBColExtension:
-		return (&DBColService{}).WriteDBColFile(path, value)
-	case serializationKCES.KCESDB2ConfExtension:
-		return (&DB2ConfService{}).WriteDB2ConfFile(path, value)
-	case serializationKCES.KCESDSBConfExtension:
-		return (&DSBConfService{}).WriteDSBConfFile(path, value)
-	case serializationKCES.KCESDSB2ConfExtension:
-		return (&DSB2ConfService{}).WriteDSB2ConfFile(path, value)
-	case serializationKCES.KCESDSLConfExtension:
-		return (&DSLConfService{}).WriteDSLConfFile(path, value)
-	case serializationKCES.KCESDSL2ConfExtension:
-		return (&DSL2ConfService{}).WriteDSL2ConfFile(path, value)
-	case serializationKCES.KCESDSLColExtension:
-		return (&DSLColService{}).WriteDSLColFile(path, value)
-	case serializationKCES.KCESIKColExtension:
-		return (&IKColService{}).WriteIKColFile(path, value)
-	case serializationKCES.KCESIKColBytesExtension:
-		return (&IKColBytesService{}).WriteIKColBytesFile(path, value)
-	case serializationKCES.KCESLimbColExtension:
-		return (&LimbColService{}).WriteLimbColFile(path, value)
-	default:
-		return fmt.Errorf("unsupported KCES payload output path %q", path)
+func (s *PayloadService) WritePayloadFile(path string, value any) error {
+	encoded, err := serializationKCES.EncodeKCESPayload(value, path)
+	if err != nil {
+		return err
 	}
+	if err := os.WriteFile(path, encoded, 0644); err != nil {
+		return fmt.Errorf("write KCES payload file %q: %w", path, err)
+	}
+	return nil
 }
 
-// decodeKCESPayloadEditingJSON 严格解码并校验 KCES 载荷编辑封套
-// decodeKCESPayloadEditingJSON strictly decodes and validates a KCES payload editing envelope
-func decodeKCESPayloadEditingJSON(data []byte, expectedExtension string) (*serializationKCES.KCESPayloadEnvelope, error) {
-	var envelope serializationKCES.KCESPayloadEnvelope
-	if err := decodeStrictJSON(data, &envelope, "KCES payload JSON"); err != nil {
+// decodeKCESPayloadEditingJSON 严格解码指定扩展名的 KCES 载荷编辑 JSON 并校验其可写回
+// decodeKCESPayloadEditingJSON strictly decodes KCES payload editing JSON for one extension and validates that it can be encoded back
+func decodeKCESPayloadEditingJSON(data []byte, expectedExtension string) (any, error) {
+	extension := serializationKCES.NormalizeKCESPayloadExtension(expectedExtension)
+	if extension == "" {
+		return nil, fmt.Errorf("unsupported or missing KCES payload extension %q", expectedExtension)
+	}
+	value, err := decodeKCESPayloadRootJSON(data, extension)
+	if err != nil {
 		return nil, err
 	}
-	if envelope.Format != serializationKCES.PayloadFormatKCESMessagePack && envelope.Format != serializationKCES.PayloadFormatKCESExportCM {
-		return nil, fmt.Errorf("unsupported KCES payload JSON format %q", envelope.Format)
-	}
-	expected := serializationKCES.NormalizeKCESPayloadExtension(expectedExtension)
-	actual := serializationKCES.NormalizeKCESPayloadExtension(envelope.Extension)
-	if actual == "" {
-		actual = expected
-		envelope.Extension = expected
-	}
-	if actual == "" {
-		return nil, fmt.Errorf("unsupported or missing KCES payload extension %q", envelope.Extension)
-	}
-	if expected != "" && actual != expected {
-		return nil, fmt.Errorf("KCES payload envelope extension %q does not match file extension %q", actual, expected)
-	}
-	envelope.Extension = actual
-	if _, err := serializationKCES.EncodeKCESPayload(&envelope); err != nil {
+	if _, err := serializationKCES.EncodeKCESPayload(value, extension); err != nil {
 		return nil, err
 	}
-	return &envelope, nil
+	return value, nil
+}
+
+// decodeKCESPayloadRootJSON 按扩展名声明的载荷类型严格解码编辑 JSON 根
+// decodeKCESPayloadRootJSON strictly decodes an editing JSON root into the payload type declared by an extension
+func decodeKCESPayloadRootJSON(data []byte, extension string) (any, error) {
+	descriptor, ok := serializationKCES.DescribeKCESPayload(extension)
+	if !ok {
+		return nil, fmt.Errorf("unsupported KCES payload extension %q", extension)
+	}
+	label := "KCES " + descriptor.Extension + " JSON"
+	trimmed := trimJSONUTF8BOM(data)
+	switch descriptor.Kind {
+	case serializationKCES.PayloadKindDynamicBoneStatus:
+		var value *serializationKCES.DynamicBoneStatus
+		err := decodeStrictJSON(trimmed, &value, label)
+		return value, err
+	case serializationKCES.PayloadKindColliderPackage:
+		var value *serializationKCES.ColliderPackage
+		err := decodeStrictJSON(trimmed, &value, label)
+		return value, err
+	case serializationKCES.PayloadKindLimbCollider:
+		var value *serializationKCES.LimbColliderPackage
+		err := decodeStrictJSON(trimmed, &value, label)
+		return value, err
+	case serializationKCES.PayloadKindIKCollider:
+		var value *serializationKCES.IKColliderPackage
+		err := decodeStrictJSON(trimmed, &value, label)
+		return value, err
+	case serializationKCES.PayloadKindClothParams:
+		var value *serializationKCES.ClothParams
+		err := decodeStrictJSON(trimmed, &value, label)
+		return value, err
+	case serializationKCES.PayloadKindJSONString:
+		var value *serializationKCES.MagicaClothSerializeData
+		err := decodeStrictJSON(trimmed, &value, label)
+		return value, err
+	default:
+		return nil, fmt.Errorf("unsupported KCES payload kind %q for extension %q", descriptor.Kind, descriptor.Extension)
+	}
 }

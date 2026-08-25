@@ -9,22 +9,18 @@ import (
 
 // .dbconf
 // DynamicBone 的旧版参数文件，文件先写入 Int32 压缩数据长度，再写入 LZ4 Block Array 压缩的
-// DynamicBoneStatus MessagePack indexed-array，当前对象版本为 1000，ExportCM 也会使用同一扩展名
-// 写出直接 UTF-8 Unity JSON
+// DynamicBoneStatus MessagePack indexed-array，当前对象版本为 1000
 //
 // .dbconf
 // Legacy DynamicBone parameter file storing an Int32 compressed-data length followed by an
 // LZ4 Block Array-compressed DynamicBoneStatus MessagePack indexed array, with current object version 1000
-// ExportCM also writes direct UTF-8 Unity JSON with this extension
 
 const KCESDBConfExtension = ".dbconf"
 
 var dbconfPayloadDescriptor = kcesPayloadDescriptor{
-	Extension:              KCESDBConfExtension,
-	Kind:                   PayloadKindDynamicBoneStatus,
-	LengthPrefixed:         true,
-	ExportCMKind:           PayloadKindExportCMDynamicBoneJSON,
-	ExportCMStorageVariant: PayloadStorageExportCMUnityJSON,
+	Extension:      KCESDBConfExtension,
+	Kind:           PayloadKindDynamicBoneStatus,
+	LengthPrefixed: true,
 }
 
 // DynamicBoneStatus 对应游戏按 Key(0) 至 Key(15) 写入的 DynamicBoneStatus indexed-array / DynamicBoneStatus corresponds to the game's DynamicBoneStatus indexed array stored at Key(0) through Key(15)
@@ -107,15 +103,9 @@ func (s *DynamicBoneStatus) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// DecodeDBConf 解码 .dbconf 的原生 DynamicBoneStatus 或 ExportCM Unity JSON 线格式并拒绝歧义输入
-// DecodeDBConf decodes the native DynamicBoneStatus or ExportCM Unity JSON wire format of a .dbconf file and rejects ambiguous input
-func DecodeDBConf(data []byte) (*KCESPayloadEnvelope, error) {
-	return decodeKCESPayloadVariants(data, dbconfPayloadDescriptor, decodeDBConfMessagePack)
-}
-
-// decodeDBConfMessagePack 解码 .dbconf 的长度前缀 LZ4 MessagePack DynamicBoneStatus 载荷
-// decodeDBConfMessagePack decodes the length-prefixed LZ4 MessagePack DynamicBoneStatus payload of a .dbconf file
-func decodeDBConfMessagePack(data []byte) (*KCESPayloadEnvelope, error) {
+// DecodeDBConf 解码 .dbconf 的长度前缀 LZ4 MessagePack DynamicBoneStatus 载荷
+// DecodeDBConf decodes the length-prefixed LZ4 MessagePack DynamicBoneStatus payload of a .dbconf file
+func DecodeDBConf(data []byte) (*DynamicBoneStatus, error) {
 	var status *DynamicBoneStatus
 	if err := decodeKCESMessagePackRoot(data, dbconfPayloadDescriptor, &status); err != nil {
 		return nil, fmt.Errorf("decode DynamicBoneStatus: %w", err)
@@ -125,60 +115,44 @@ func decodeDBConfMessagePack(data []byte) (*KCESPayloadEnvelope, error) {
 			return nil, fmt.Errorf("validate decoded DynamicBoneStatus: %w", err)
 		}
 	}
-	envelope := newKCESMessagePackEnvelope(dbconfPayloadDescriptor)
-	envelope.DynamicBone = status
-	return envelope, nil
+	return status, nil
 }
 
-// EncodeDBConf 按封套声明的原生 KCES 或 ExportCM 存储变体编码 .dbconf 载荷
-// EncodeDBConf encodes a .dbconf payload using the native KCES or ExportCM storage variant declared by the envelope
-func EncodeDBConf(env *KCESPayloadEnvelope) ([]byte, error) {
-	return encodeKCESPayloadVariant(env, dbconfPayloadDescriptor, encodeDBConfMessagePack)
+// EncodeDBConf 编码 .dbconf 的长度前缀 LZ4 MessagePack DynamicBoneStatus 载荷
+// EncodeDBConf encodes the length-prefixed LZ4 MessagePack DynamicBoneStatus payload of a .dbconf file
+func EncodeDBConf(status *DynamicBoneStatus) ([]byte, error) {
+	return encodeDynamicBoneStatusMessagePack(status, dbconfPayloadDescriptor)
 }
 
-// encodeDBConfMessagePack 编码 .dbconf 的长度前缀 LZ4 MessagePack DynamicBoneStatus 载荷
-// encodeDBConfMessagePack encodes the length-prefixed LZ4 MessagePack DynamicBoneStatus payload of a .dbconf file
-func encodeDBConfMessagePack(env *KCESPayloadEnvelope) ([]byte, error) {
+// encodeDynamicBoneStatusMessagePack 编码扩展名声明的原生 DynamicBoneStatus MessagePack 载荷
+// encodeDynamicBoneStatusMessagePack encodes the native DynamicBoneStatus MessagePack payload declared by an extension
+func encodeDynamicBoneStatusMessagePack(status *DynamicBoneStatus, descriptor kcesPayloadDescriptor) ([]byte, error) {
 	var data []byte
 	var err error
-	if env.DynamicBone == nil {
+	if status == nil {
 		data, err = msgpack.EncodeMsgpack(nil)
 	} else {
-		if err := validateDynamicBoneStatusForEncoding(env.DynamicBone); err != nil {
+		if err := validateDynamicBoneStatusForEncoding(status); err != nil {
 			return nil, err
 		}
-		data, err = msgpack.EncodeIndexedMsgpack(normalizeDynamicBoneStatusForEncoding(env.DynamicBone))
+		data, err = msgpack.EncodeIndexedMsgpack(normalizeDynamicBoneStatusForEncoding(status))
 	}
 	if err != nil {
 		return nil, fmt.Errorf("encode DynamicBoneStatus: %w", err)
 	}
-	return encodeKCESMessagePackRoot(data, dbconfPayloadDescriptor)
+	return encodeKCESMessagePackRoot(data, descriptor)
 }
 
 // DecodeDynamicBoneStatusFile 解码 .dbconf 中的 DynamicBoneStatus 载荷
 // DecodeDynamicBoneStatusFile decodes the DynamicBoneStatus payload in a .dbconf file
 func DecodeDynamicBoneStatusFile(data []byte) (*DynamicBoneStatus, error) {
-	env, err := decodeDBConfMessagePack(data)
-	if err != nil {
-		return nil, err
-	}
-	if env.DynamicBone == nil {
-		return nil, nil
-	}
-	return env.DynamicBone, nil
+	return DecodeDBConf(data)
 }
 
 // EncodeDynamicBoneStatusFile 将 DynamicBoneStatus 编码为带长度前缀的 .dbconf 载荷
 // EncodeDynamicBoneStatusFile encodes DynamicBoneStatus as a length-prefixed .dbconf payload
 func EncodeDynamicBoneStatusFile(status *DynamicBoneStatus) ([]byte, error) {
-	env := &KCESPayloadEnvelope{
-		Format:         PayloadFormatKCESMessagePack,
-		Extension:      KCESDBConfExtension,
-		StorageVariant: PayloadStorageInt32LZ4MessagePack,
-		Kind:           PayloadKindDynamicBoneStatus,
-		DynamicBone:    status,
-	}
-	return EncodeDBConf(env)
+	return EncodeDBConf(status)
 }
 
 // validateDynamicBoneStatusForEncoding 验证由 MessagePack Int32 保存的字段范围

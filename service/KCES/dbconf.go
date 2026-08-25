@@ -14,7 +14,7 @@ type DBConfService struct{}
 
 // ReadDBConfFile 读取并解码 .dbconf 文件
 // ReadDBConfFile reads and decodes a .dbconf file
-func (s *DBConfService) ReadDBConfFile(path string) (*serializationKCES.KCESPayloadEnvelope, error) {
+func (s *DBConfService) ReadDBConfFile(path string) (*serializationKCES.DynamicBoneStatus, error) {
 	if serializationKCES.NormalizeKCESPayloadExtension(path) != serializationKCES.KCESDBConfExtension {
 		return nil, fmt.Errorf("not a .dbconf file: %s", path)
 	}
@@ -31,12 +31,9 @@ func (s *DBConfService) ReadDBConfFile(path string) (*serializationKCES.KCESPayl
 
 // WriteDBConfFile 编码并写入 .dbconf 文件
 // WriteDBConfFile encodes and writes a .dbconf file
-func (s *DBConfService) WriteDBConfFile(path string, value *serializationKCES.KCESPayloadEnvelope) error {
+func (s *DBConfService) WriteDBConfFile(path string, value *serializationKCES.DynamicBoneStatus) error {
 	if serializationKCES.NormalizeKCESPayloadExtension(path) != serializationKCES.KCESDBConfExtension {
 		return fmt.Errorf("not a .dbconf output path: %s", path)
-	}
-	if value == nil || serializationKCES.NormalizeKCESPayloadExtension(value.Extension) != serializationKCES.KCESDBConfExtension {
-		return fmt.Errorf(".dbconf output requires a .dbconf KCES payload envelope")
 	}
 	encoded, err := serializationKCES.EncodeDBConf(value)
 	if err != nil {
@@ -79,20 +76,11 @@ func (s *DBConfService) ConvertJsonToDBConf(ctx context.Context, inputPath strin
 	if err != nil {
 		return fmt.Errorf("read .dbconf JSON %q: %w", inputPath, err)
 	}
-	var value serializationKCES.KCESPayloadEnvelope
+	var value *serializationKCES.DynamicBoneStatus
 	if err := decodeStrictJSON(trimJSONUTF8BOM(data), &value, "KCES .dbconf JSON"); err != nil {
 		return fmt.Errorf("parse .dbconf JSON: %w", err)
 	}
-	if value.Format != serializationKCES.PayloadFormatKCESMessagePack && value.Format != serializationKCES.PayloadFormatKCESExportCM {
-		return fmt.Errorf("unsupported .dbconf JSON format %q", value.Format)
-	}
-	actual := serializationKCES.NormalizeKCESPayloadExtension(value.Extension)
-	if actual == "" {
-		value.Extension = serializationKCES.KCESDBConfExtension
-	} else if actual != serializationKCES.KCESDBConfExtension {
-		return fmt.Errorf("KCES payload envelope extension %q does not match file extension %q", actual, serializationKCES.KCESDBConfExtension)
-	}
-	encoded, err := serializationKCES.EncodeDBConf(&value)
+	encoded, err := serializationKCES.EncodeDBConf(value)
 	if err != nil {
 		return fmt.Errorf("encode .dbconf file: %w", err)
 	}

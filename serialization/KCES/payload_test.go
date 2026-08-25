@@ -43,20 +43,20 @@ func TestRecognizedKCESPayloadRoundTripsTypedNilRoot(t *testing.T) {
 			if err != nil {
 				t.Fatalf("compress nil payload root: %v", err)
 			}
-			envelope, err := DecodeKCESPayload(AddLengthPrefix(compressed), extension)
+			value, err := DecodeKCESPayload(AddLengthPrefix(compressed), extension)
 			if err != nil {
 				t.Fatalf("DecodeKCESPayload rejected typed nil root: %v", err)
 			}
-			if !payloadActiveRootIsNil(envelope) {
-				t.Fatalf("typed nil root became populated: %+v", envelope)
+			if !payloadRootIsNil(value) {
+				t.Fatalf("typed nil root became populated: %+v", value)
 			}
-			reencoded, err := EncodeKCESPayload(envelope)
+			reencoded, err := EncodeKCESPayload(value, extension)
 			if err != nil {
 				t.Fatalf("EncodeKCESPayload rejected typed nil root: %v", err)
 			}
 			roundTrip, err := DecodeKCESPayload(reencoded, extension)
-			if err != nil || !payloadActiveRootIsNil(roundTrip) {
-				t.Fatalf("typed nil root round trip: envelope=%+v error=%v", roundTrip, err)
+			if err != nil || !payloadRootIsNil(roundTrip) {
+				t.Fatalf("typed nil root round trip: root=%+v error=%v", roundTrip, err)
 			}
 
 			compressed, err = msgpack.CompressLz4BlockArray([]byte{0xc0, 0xc0})
@@ -123,14 +123,10 @@ func TestDynamicBoneStatusEncodingDoesNotMutateInput(t *testing.T) {
 }
 
 func TestJSONStringPayloadRoundTrip(t *testing.T) {
-	env := &KCESPayloadEnvelope{
-		Format:         PayloadFormatKCESMessagePack,
-		Extension:      ".db2conf",
-		StorageVariant: PayloadStorageInt32LZ4MessagePack,
-		Kind:           PayloadKindJSONString,
-		JSON:           json.RawMessage(`{"clothType":1,"rootRotation":0.5}`),
-	}
-	encoded, err := EncodeKCESPayload(env)
+	clothType := int32(1)
+	rootRotation := float32(0.5)
+	document := &MagicaClothSerializeData{ClothType: &clothType, RootRotation: &rootRotation}
+	encoded, err := EncodeKCESPayload(document, ".db2conf")
 	if err != nil {
 		t.Fatalf("EncodeKCESPayload: %v", err)
 	}
@@ -138,16 +134,13 @@ func TestJSONStringPayloadRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload: %v", err)
 	}
-	if decoded.Kind != PayloadKindJSONString {
-		t.Fatalf("unexpected decoded JSON string payload: %+v", decoded)
-	}
-	if !bytes.Equal(decoded.JSON, []byte(`{"clothType":1,"rootRotation":0.5}`)) {
-		t.Fatalf("unexpected compact json: %s", decoded.JSON)
+	if !reflect.DeepEqual(decoded, document) {
+		t.Fatalf("unexpected decoded ClothSerializeData:\n got  %#v\n want %#v", decoded, document)
 	}
 }
 
-func TestJSONStringPayloadPreservesOnlyJSONSemantics(t *testing.T) {
-	original := "{\r\n  \"clothType\" : 1,\r\n  \"future\" : [ 1, 2 ]\r\n}\r\n"
+func TestJSONStringPayloadKeepsOnlyModeledMembers(t *testing.T) {
+	original := "{\r\n  \"clothType\" : 1,\r\n  \"rootRotation\" : 0.5\r\n}\r\n"
 	msgpackData, err := msgpack.EncodeMsgpack(original)
 	if err != nil {
 		t.Fatal(err)
@@ -158,31 +151,34 @@ func TestJSONStringPayloadPreservesOnlyJSONSemantics(t *testing.T) {
 	}
 	wire := AddLengthPrefix(compressed)
 
-	envelope, err := DecodeKCESPayload(wire, ".db2conf")
+	decoded, err := DecodeKCESPayload(wire, ".db2conf")
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload() error = %v", err)
 	}
-	if !bytes.Equal(envelope.JSON, []byte(`{"clothType":1,"future":[1,2]}`)) {
-		t.Fatalf("decoded JSON = %s", envelope.JSON)
+	document, ok := decoded.(*MagicaClothSerializeData)
+	if !ok || document == nil || document.ClothType == nil || *document.ClothType != 1 ||
+		document.RootRotation == nil || *document.RootRotation != 0.5 {
+		t.Fatalf("decoded ClothSerializeData = %#v", decoded)
 	}
 
-	unchanged, err := EncodeKCESPayload(envelope)
+	normalized, err := EncodeKCESPayload(document, ".db2conf")
 	if err != nil {
-		t.Fatalf("EncodeKCESPayload(unchanged) error = %v", err)
+		t.Fatalf("EncodeKCESPayload(normalized) error = %v", err)
 	}
-	if bytes.Equal(unchanged, wire) {
-		t.Fatal("JSON string unexpectedly retained formatting-only source bytes")
+	if bytes.Equal(normalized, wire) {
+		t.Fatal("ClothSerializeData unexpectedly retained formatting-only source bytes")
 	}
-	unchangedEnvelope, err := DecodeKCESPayload(unchanged, ".db2conf")
+	renormalized, err := DecodeKCESPayload(normalized, ".db2conf")
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload(normalized) error = %v", err)
 	}
-	if !bytes.Equal(unchangedEnvelope.JSON, envelope.JSON) {
-		t.Fatalf("normalized JSON semantics changed: got %s, want %s", unchangedEnvelope.JSON, envelope.JSON)
+	if !reflect.DeepEqual(renormalized, document) {
+		t.Fatalf("normalized ClothSerializeData changed: got %#v, want %#v", renormalized, document)
 	}
 
-	envelope.JSON = json.RawMessage(` { "clothType" : 2, "future" : null } `)
-	edited, err := EncodeKCESPayload(envelope)
+	editedType := int32(2)
+	document.ClothType = &editedType
+	edited, err := EncodeKCESPayload(document, ".db2conf")
 	if err != nil {
 		t.Fatalf("EncodeKCESPayload(edited) error = %v", err)
 	}
@@ -190,27 +186,39 @@ func TestJSONStringPayloadPreservesOnlyJSONSemantics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload(edited) error = %v", err)
 	}
-	if !bytes.Equal(redecoded.JSON, []byte(`{"clothType":2,"future":null}`)) {
-		t.Fatalf("edited JSON = %s", redecoded.JSON)
+	editedDocument, ok := redecoded.(*MagicaClothSerializeData)
+	if !ok || editedDocument == nil || editedDocument.ClothType == nil || *editedDocument.ClothType != 2 {
+		t.Fatalf("edited ClothSerializeData = %#v", redecoded)
 	}
 }
 
-func TestJSONStringPayloadCanExplicitlyStoreJSONNull(t *testing.T) {
-	envelope := &KCESPayloadEnvelope{
-		Format: PayloadFormatKCESMessagePack, Extension: ".dsl2conf",
-		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindJSONString,
-		JSON: json.RawMessage(`null`),
-	}
-	wire, err := EncodeKCESPayload(envelope)
+func TestJSONStringPayloadRejectsUnknownInnerMembers(t *testing.T) {
+	msgpackData, err := msgpack.EncodeMsgpack(`{"clothType":1,"newMagicaField":3}`)
 	if err != nil {
-		t.Fatalf("EncodeKCESPayload() error = %v", err)
+		t.Fatal(err)
 	}
-	decoded, err := DecodeKCESPayload(wire, ".dsl2conf")
+	compressed, err := msgpack.CompressLz4BlockArray(msgpackData)
 	if err != nil {
-		t.Fatalf("DecodeKCESPayload() error = %v", err)
+		t.Fatal(err)
 	}
-	if !bytes.Equal(decoded.JSON, []byte("null")) {
-		t.Fatalf("decoded null payload JSON = %s", decoded.JSON)
+	if _, err := DecodeKCESPayload(AddLengthPrefix(compressed), ".db2conf"); err == nil ||
+		!strings.Contains(err.Error(), "newMagicaField") {
+		t.Fatalf("DecodeKCESPayload() error = %v, want unknown inner member rejection", err)
+	}
+}
+
+func TestJSONStringPayloadRejectsLiteralNullDocument(t *testing.T) {
+	msgpackData, err := msgpack.EncodeMsgpack(`null`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compressed, err := msgpack.CompressLz4BlockArray(msgpackData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DecodeKCESPayload(AddLengthPrefix(compressed), ".dsl2conf"); err == nil ||
+		!strings.Contains(err.Error(), "literal null") {
+		t.Fatalf("DecodeKCESPayload() error = %v, want literal null rejection", err)
 	}
 }
 
@@ -233,15 +241,6 @@ func TestRecognizedMessagePackPayloadRejectsTrailingBytes(t *testing.T) {
 }
 
 func TestJSONStringPayloadRejectsInvalidInnerJSON(t *testing.T) {
-	env := &KCESPayloadEnvelope{
-		Format: PayloadFormatKCESMessagePack, Extension: ".db2conf",
-		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindJSONString,
-		JSON: json.RawMessage(`{not-json}`),
-	}
-	if _, err := EncodeKCESPayload(env); err == nil || !strings.Contains(strings.ToLower(err.Error()), "invalid") {
-		t.Fatalf("EncodeKCESPayload error = %v, want invalid inner JSON rejection", err)
-	}
-
 	msgpackData, err := msgpack.EncodeMsgpack(`{not-json}`)
 	if err != nil {
 		t.Fatal(err)
@@ -250,7 +249,8 @@ func TestJSONStringPayloadRejectsInvalidInnerJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := DecodeKCESPayload(AddLengthPrefix(compressed), ".db2conf"); err == nil || !strings.Contains(err.Error(), "Magica JSON") {
+	if _, err := DecodeKCESPayload(AddLengthPrefix(compressed), ".db2conf"); err == nil ||
+		!strings.Contains(err.Error(), "ClothSerializeData") {
 		t.Fatalf("DecodeKCESPayload error = %v, want invalid inner JSON rejection", err)
 	}
 }
@@ -347,48 +347,43 @@ func TestClothParamsPayloadRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload: %v", err)
 	}
-	if decoded.Kind != PayloadKindClothParams || decoded.ClothParams == nil {
-		t.Fatalf("unexpected decoded cloth params: %+v", decoded)
+	decodedParams, ok := decoded.(*ClothParams)
+	if !ok || decodedParams == nil {
+		t.Fatalf("unexpected decoded cloth params: %#v", decoded)
 	}
-	if decoded.ClothParams.PenetrationMode != ClothPenetrationModeColliderPenetration {
-		t.Fatalf("penetration mode got %d", decoded.ClothParams.PenetrationMode)
+	if decodedParams.PenetrationMode != ClothPenetrationModeColliderPenetration {
+		t.Fatalf("penetration mode got %d", decodedParams.PenetrationMode)
 	}
 }
 
 func TestColliderPackagePayloadRoundTrip(t *testing.T) {
 	height0 := float32(0.333)
-	env := &KCESPayloadEnvelope{
-		Format:         PayloadFormatKCESMessagePack,
-		Extension:      ".dbcol",
-		StorageVariant: PayloadStorageInt32LZ4MessagePack,
-		Kind:           PayloadKindColliderPackage,
-		ColliderPackage: &ColliderPackage{
-			Version: 1000,
-			Colliders: []*ColliderRef{
-				{
-					Type: 1,
-					Collider: &ColliderCapsule{
-						ColliderObject: ColliderObject{
-							Version:       1000,
-							ParentName:    payloadTestString("Bip01 Head"),
-							SelfName:      payloadTestString("Collider"),
-							LocalPosition: Vector3{X: 1},
-							LocalRotation: Vector4{W: 1},
-							LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
-							Center:        Vector3{Y: 0.5},
-							Bound:         ColliderBoundOutside,
-						},
-						Direction:   VectorTypeY,
-						StartRadius: 0.1,
-						EndRadius:   0.1,
-						Height:      0.2,
+	pkg := &ColliderPackage{
+		Version: 1000,
+		Colliders: []*ColliderRef{
+			{
+				Type: 1,
+				Collider: &ColliderCapsule{
+					ColliderObject: ColliderObject{
+						Version:       1000,
+						ParentName:    payloadTestString("Bip01 Head"),
+						SelfName:      payloadTestString("Collider"),
+						LocalPosition: Vector3{X: 1},
+						LocalRotation: Vector4{W: 1},
+						LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
+						Center:        Vector3{Y: 0.5},
+						Bound:         ColliderBoundOutside,
 					},
+					Direction:   VectorTypeY,
+					StartRadius: 0.1,
+					EndRadius:   0.1,
+					Height:      0.2,
 				},
 			},
-			LimbEnableList: []*ColliderState{{Version: 1000, LimbType: 0, IsEnable: true}},
 		},
+		LimbEnableList: []*ColliderState{{Version: 1000, LimbType: 0, IsEnable: true}},
 	}
-	encoded, err := EncodeKCESPayload(env)
+	encoded, err := EncodeKCESPayload(pkg, ".dbcol")
 	if err != nil {
 		t.Fatalf("EncodeKCESPayload: %v", err)
 	}
@@ -396,35 +391,36 @@ func TestColliderPackagePayloadRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload: %v", err)
 	}
-	if decoded.Kind != PayloadKindColliderPackage || decoded.ColliderPackage == nil {
-		t.Fatalf("unexpected decoded collider package: %+v", decoded)
+	decodedPackage, ok := decoded.(*ColliderPackage)
+	if !ok || decodedPackage == nil {
+		t.Fatalf("unexpected decoded collider package: %#v", decoded)
 	}
-	collider, ok := decoded.ColliderPackage.Colliders[0].Collider.(*ColliderCapsule)
+	collider, ok := decodedPackage.Colliders[0].Collider.(*ColliderCapsule)
 	if !ok {
-		t.Fatalf("unexpected collider type: %T", decoded.ColliderPackage.Colliders[0].Collider)
+		t.Fatalf("unexpected collider type: %T", decodedPackage.Colliders[0].Collider)
 	}
 	if collider.ParentName == nil || *collider.ParentName != "Bip01 Head" {
-		t.Fatalf("unexpected collider: %+v", decoded.ColliderPackage.Colliders[0])
+		t.Fatalf("unexpected collider: %+v", decodedPackage.Colliders[0])
 	}
 
-	jsonData, err := json.Marshal(decoded)
+	jsonData, err := json.Marshal(decodedPackage)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
 	if !strings.Contains(string(jsonData), `"limbEnableList"`) || strings.Contains(string(jsonData), `"states"`) {
 		t.Fatalf("collider package JSON should use limbEnableList, got %s", string(jsonData))
 	}
-	var fromJSON KCESPayloadEnvelope
+	var fromJSON ColliderPackage
 	if err := json.Unmarshal(jsonData, &fromJSON); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if len(fromJSON.ColliderPackage.LimbEnableList) != 1 {
-		t.Fatalf("limb enable list was not preserved after JSON round-trip: %+v", fromJSON.ColliderPackage)
+	if len(fromJSON.LimbEnableList) != 1 {
+		t.Fatalf("limb enable list was not preserved after JSON round-trip: %+v", fromJSON)
 	}
-	if fromCollider, ok := fromJSON.ColliderPackage.Colliders[0].Collider.(*ColliderCapsule); ok {
+	if fromCollider, ok := fromJSON.Colliders[0].Collider.(*ColliderCapsule); ok {
 		fromCollider.Height = height0
 	} else {
-		t.Fatalf("unexpected collider type: %T", fromJSON.ColliderPackage.Colliders[0].Collider)
+		t.Fatalf("unexpected collider type: %T", fromJSON.Colliders[0].Collider)
 	}
 
 	legacyJSON := []byte(`{"version":1000,"colliders":[],"states":[{"version":1000,"index":7,"enabled":true}]}`)
@@ -432,8 +428,8 @@ func TestColliderPackagePayloadRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(legacyJSON, &legacy); err == nil {
 		t.Fatalf("legacy states JSON should be rejected: %+v", legacy)
 	}
-	if _, err := EncodeKCESPayload(&fromJSON); err != nil {
-		t.Fatalf("EncodeKCESPayload from JSON envelope: %v", err)
+	if _, err := EncodeKCESPayload(&fromJSON, ".dbcol"); err != nil {
+		t.Fatalf("EncodeKCESPayload from JSON root: %v", err)
 	}
 }
 
@@ -459,19 +455,23 @@ func TestColliderPayloadPreservesCLRNonFiniteSingleConversions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	envelope, err := DecodeKCESPayload(AddLengthPrefix(compressed), ".dbcol")
+	root, err := DecodeKCESPayload(AddLengthPrefix(compressed), ".dbcol")
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload: %v", err)
 	}
-	decoded, ok := envelope.ColliderPackage.Colliders[0].Collider.(*ColliderCapsule)
+	pkg, ok := root.(*ColliderPackage)
+	if !ok || pkg == nil {
+		t.Fatalf("decoded payload root = %#v", root)
+	}
+	decoded, ok := pkg.Colliders[0].Collider.(*ColliderCapsule)
 	if !ok {
-		t.Fatalf("decoded collider type = %T", envelope.ColliderPackage.Colliders[0].Collider)
+		t.Fatalf("decoded collider type = %T", pkg.Colliders[0].Collider)
 	}
 	if !math.IsInf(float64(decoded.StartRadius), 1) || !math.IsNaN(float64(decoded.EndRadius)) || !math.IsInf(float64(decoded.Height), -1) {
 		t.Fatalf("non-finite conversions changed: start=%v end=%v height=%v", decoded.StartRadius, decoded.EndRadius, decoded.Height)
 	}
 
-	reencoded, err := EncodeKCESPayload(envelope)
+	reencoded, err := EncodeKCESPayload(pkg, ".dbcol")
 	if err != nil {
 		t.Fatalf("EncodeKCESPayload: %v", err)
 	}
@@ -479,7 +479,7 @@ func TestColliderPayloadPreservesCLRNonFiniteSingleConversions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload(re-encoded): %v", err)
 	}
-	againCollider := again.ColliderPackage.Colliders[0].Collider.(*ColliderCapsule)
+	againCollider := again.(*ColliderPackage).Colliders[0].Collider.(*ColliderCapsule)
 	if !math.IsInf(float64(againCollider.StartRadius), 1) || !math.IsNaN(float64(againCollider.EndRadius)) || !math.IsInf(float64(againCollider.Height), -1) {
 		t.Fatalf("non-finite values changed after re-encode: %+v", againCollider)
 	}
@@ -487,81 +487,72 @@ func TestColliderPayloadPreservesCLRNonFiniteSingleConversions(t *testing.T) {
 
 func TestGroupedColliderPayloadRoundTrip(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		env  *KCESPayloadEnvelope
+		name      string
+		extension string
+		root      any
 	}{
 		{
-			name: "limbcol",
-			env: &KCESPayloadEnvelope{
-				Format:         PayloadFormatKCESMessagePack,
-				Extension:      ".limbcol",
-				StorageVariant: PayloadStorageInt32LZ4MessagePack,
-				Kind:           PayloadKindLimbCollider,
-				LimbCollider: &LimbColliderPackage{
+			name:      "limbcol",
+			extension: ".limbcol",
+			root: &LimbColliderPackage{
+				Version: 1000,
+				Items: []*LimbColliderItem{{
 					Version: 1000,
-					Items: []*LimbColliderItem{{
-						Version: 1000,
-						Target:  0,
-						Collider: &ColliderMaidProp{
-							ColliderObject: ColliderObject{
-								Version:       1002,
-								ParentName:    payloadTestString("Bip01 L UpperArm"),
-								SelfName:      payloadTestString("Arm"),
-								LocalRotation: Vector4{W: 1},
-								LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
-								Bound:         ColliderBoundOutside,
-							},
-							Direction:   VectorTypeX,
-							StartRadius: 0.1,
-							EndRadius:   0.05,
-							Height:      0.2,
+					Target:  0,
+					Collider: &ColliderMaidProp{
+						ColliderObject: ColliderObject{
+							Version:       1002,
+							ParentName:    payloadTestString("Bip01 L UpperArm"),
+							SelfName:      payloadTestString("Arm"),
+							LocalRotation: Vector4{W: 1},
+							LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
+							Bound:         ColliderBoundOutside,
 						},
-					}},
-				},
+						Direction:   VectorTypeX,
+						StartRadius: 0.1,
+						EndRadius:   0.05,
+						Height:      0.2,
+					},
+				}},
 			},
 		},
 		{
-			name: "ikcol",
-			env: &KCESPayloadEnvelope{
-				Format:         PayloadFormatKCESMessagePack,
-				Extension:      ".ikcol",
-				StorageVariant: PayloadStorageInt32LZ4MessagePack,
-				Kind:           PayloadKindIKCollider,
-				IKCollider: &IKColliderPackage{
+			name:      "ikcol",
+			extension: ".ikcol",
+			root: &IKColliderPackage{
+				Version: 1000,
+				Groups: []*IKColliderGroup{{
 					Version: 1000,
-					Groups: []*IKColliderGroup{{
-						Version: 1000,
-						Target:  1,
-						Colliders: []*ColliderRef{{
-							Type: 2,
-							Collider: &ColliderSphere{
-								ColliderObject: ColliderObject{
-									Version:       1000,
-									ParentName:    payloadTestString("Bip01 R Hand"),
-									SelfName:      payloadTestString("ColliderObject"),
-									LocalRotation: Vector4{W: 1},
-									LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
-									Bound:         ColliderBoundInside,
-								},
-								Radius: 0.02,
+					Target:  1,
+					Colliders: []*ColliderRef{{
+						Type: 2,
+						Collider: &ColliderSphere{
+							ColliderObject: ColliderObject{
+								Version:       1000,
+								ParentName:    payloadTestString("Bip01 R Hand"),
+								SelfName:      payloadTestString("ColliderObject"),
+								LocalRotation: Vector4{W: 1},
+								LocalScale:    Vector3{X: 1, Y: 1, Z: 1},
+								Bound:         ColliderBoundInside,
 							},
-						}},
+							Radius: 0.02,
+						},
 					}},
-				},
+				}},
 			},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			encoded, err := EncodeKCESPayload(tc.env)
+			encoded, err := EncodeKCESPayload(tc.root, tc.extension)
 			if err != nil {
 				t.Fatalf("EncodeKCESPayload: %v", err)
 			}
-			decoded, err := DecodeKCESPayload(encoded, tc.env.Extension)
+			decoded, err := DecodeKCESPayload(encoded, tc.extension)
 			if err != nil {
 				t.Fatalf("DecodeKCESPayload: %v", err)
 			}
-			if decoded.Kind != tc.env.Kind {
-				t.Fatalf("kind got %q, want %q", decoded.Kind, tc.env.Kind)
+			if !reflect.DeepEqual(decoded, tc.root) {
+				t.Fatalf("round trip changed the payload root:\n got  %#v\n want %#v", decoded, tc.root)
 			}
 		})
 	}
@@ -579,14 +570,10 @@ func TestColliderMaidPropVersionEncodingLayout(t *testing.T) {
 		StartRadiusMpnNameList: []*string{payloadTestString("start")},
 		EndRadiusMpnNameList:   []*string{payloadTestString("end")},
 	}
-	envelope := &KCESPayloadEnvelope{
-		Format: PayloadFormatKCESMessagePack, Extension: ".limbcol",
-		StorageVariant: PayloadStorageInt32LZ4MessagePack, Kind: PayloadKindLimbCollider,
-		LimbCollider: &LimbColliderPackage{Items: []*LimbColliderItem{{
-			Collider: value,
-		}}},
-	}
-	wire, err := EncodeKCESPayload(envelope)
+	pkg := &LimbColliderPackage{Items: []*LimbColliderItem{{
+		Collider: value,
+	}}}
+	wire, err := EncodeKCESPayload(pkg, ".limbcol")
 	if err != nil {
 		t.Fatalf("EncodeKCESPayload: %v", err)
 	}
@@ -604,7 +591,7 @@ func TestColliderMaidPropVersionEncodingLayout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeKCESPayload: %v", err)
 	}
-	got := decoded.LimbCollider.Items[0].Collider
+	got := decoded.(*LimbColliderPackage).Items[0].Collider
 	if got.Version != 1001 || !reflect.DeepEqual(got.CenterMpnNameList, value.CenterMpnNameList) ||
 		!reflect.DeepEqual(got.StartRadiusMpnNameList, value.StartRadiusMpnNameList) ||
 		!reflect.DeepEqual(got.EndRadiusMpnNameList, value.EndRadiusMpnNameList) {
@@ -645,18 +632,16 @@ func TestNormalizeKCESJSONTextExtension(t *testing.T) {
 
 func TestKCESPayloadDescriptorsCoverExtensions(t *testing.T) {
 	expected := map[string]struct {
-		kind          string
-		exportKind    string
-		exportStorage string
+		kind string
 	}{
-		KCESDBConfExtension:     {kind: PayloadKindDynamicBoneStatus, exportKind: PayloadKindExportCMDynamicBoneJSON, exportStorage: PayloadStorageExportCMUnityJSON},
-		KCESDBColExtension:      {kind: PayloadKindColliderPackage, exportKind: PayloadKindExportCMColliderJSON, exportStorage: PayloadStorageExportCMUnityJSON},
+		KCESDBConfExtension:     {kind: PayloadKindDynamicBoneStatus},
+		KCESDBColExtension:      {kind: PayloadKindColliderPackage},
 		KCESDB2ConfExtension:    {kind: PayloadKindJSONString},
 		KCESDSBConfExtension:    {kind: PayloadKindClothParams},
 		KCESDSB2ConfExtension:   {kind: PayloadKindJSONString},
 		KCESDSLConfExtension:    {kind: PayloadKindClothParams},
 		KCESDSL2ConfExtension:   {kind: PayloadKindJSONString},
-		KCESDSLColExtension:     {kind: PayloadKindColliderPackage, exportKind: PayloadKindExportCMColliderJSON, exportStorage: PayloadStorageExportCMDotNetStringJSON},
+		KCESDSLColExtension:     {kind: PayloadKindColliderPackage},
 		KCESIKColExtension:      {kind: PayloadKindIKCollider},
 		KCESIKColBytesExtension: {kind: PayloadKindIKCollider},
 		KCESLimbColExtension:    {kind: PayloadKindLimbCollider},
@@ -673,168 +658,92 @@ func TestKCESPayloadDescriptorsCoverExtensions(t *testing.T) {
 		if descriptor.Extension != extension || descriptor.Kind != want.kind || !descriptor.LengthPrefixed {
 			t.Errorf("descriptor %s = %+v, want kind=%q and lengthPrefixed=true", extension, descriptor, want.kind)
 		}
-		if descriptor.ExportCMKind != want.exportKind || descriptor.ExportCMStorageVariant != want.exportStorage {
-			t.Errorf("descriptor %s ExportCM = %q/%q, want %q/%q", extension, descriptor.ExportCMKind, descriptor.ExportCMStorageVariant, want.exportKind, want.exportStorage)
-		}
 		if got := NormalizeKCESPayloadExtension("folder/sample" + extension); got != extension {
 			t.Errorf("NormalizeKCESPayloadExtension(%s) = %q", extension, got)
 		}
 	}
 }
 
-func TestEncodeKCESPayloadRejectsDescriptorContractViolations(t *testing.T) {
+// payloadKindsForRootTypeChecks 列出全部原生载荷类型，用于验证扩展名只接受自己声明的根类型
+// payloadKindsForRootTypeChecks lists every native payload kind, used to verify each extension only accepts the root type it declares
+var payloadKindsForRootTypeChecks = []string{
+	PayloadKindDynamicBoneStatus,
+	PayloadKindColliderPackage,
+	PayloadKindLimbCollider,
+	PayloadKindIKCollider,
+	PayloadKindClothParams,
+	PayloadKindJSONString,
+}
+
+func TestEncodeKCESPayloadEnforcesExtensionRootTypeContract(t *testing.T) {
 	for _, descriptor := range kcesPayloadDescriptors {
 		descriptor := descriptor
 		t.Run(strings.TrimPrefix(descriptor.Extension, "."), func(t *testing.T) {
-			if _, err := EncodeKCESPayload(newDescriptorNativeEnvelope(descriptor)); err != nil {
-				t.Fatalf("valid native tuple: %v", err)
+			if _, err := EncodeKCESPayload(newPayloadRootForKind(descriptor.Kind), descriptor.Extension); err != nil {
+				t.Fatalf("declared payload root was rejected: %v", err)
 			}
 
-			for _, mismatch := range []struct {
-				name   string
-				mutate func(*KCESPayloadEnvelope)
-			}{
-				{name: "format", mutate: func(env *KCESPayloadEnvelope) { env.Format = PayloadFormatKCESExportCM }},
-				{name: "storage", mutate: func(env *KCESPayloadEnvelope) { env.StorageVariant = "wrong-storage" }},
-				{name: "kind", mutate: func(env *KCESPayloadEnvelope) { env.Kind = "wrong-kind" }},
-			} {
-				t.Run("tuple "+mismatch.name, func(t *testing.T) {
-					envelope := newDescriptorNativeEnvelope(descriptor)
-					mismatch.mutate(envelope)
-					assertPayloadEncodeRejected(t, envelope)
-				})
-			}
-
-			t.Run("typed null active root", func(t *testing.T) {
-				envelope := newDescriptorNativeEnvelope(descriptor)
-				clearDescriptorActiveRoot(envelope, descriptor.Kind)
-				wire, err := EncodeKCESPayload(envelope)
+			t.Run("nil root", func(t *testing.T) {
+				wire, err := EncodeKCESPayload(nil, descriptor.Extension)
 				if err != nil {
-					t.Fatalf("EncodeKCESPayload rejected typed null active root: %v", err)
+					t.Fatalf("EncodeKCESPayload rejected a nil payload root: %v", err)
 				}
 				decoded, err := DecodeKCESPayload(wire, descriptor.Extension)
-				if err != nil || !payloadActiveRootIsNil(decoded) {
-					t.Fatalf("typed null active root round trip: envelope=%+v error=%v", decoded, err)
+				if err != nil || !payloadRootIsNil(decoded) {
+					t.Fatalf("nil payload root round trip: root=%+v error=%v", decoded, err)
 				}
 			})
 
-			t.Run("inactive typed root", func(t *testing.T) {
-				envelope := newDescriptorNativeEnvelope(descriptor)
-				setDescriptorInactiveTypedRoot(envelope, descriptor.Kind)
-				assertPayloadEncodeRejected(t, envelope)
-			})
-
-			if descriptor.Kind != PayloadKindJSONString {
-				t.Run("inactive json", func(t *testing.T) {
-					envelope := newDescriptorNativeEnvelope(descriptor)
-					envelope.JSON = json.RawMessage(`{}`)
-					assertPayloadEncodeRejected(t, envelope)
-				})
-			}
-
-			if descriptor.ExportCMKind != "" {
-				exportEnvelope := newDescriptorExportCMEnvelope(descriptor)
-				if _, err := EncodeKCESPayload(exportEnvelope); err != nil {
-					t.Fatalf("valid ExportCM tuple: %v", err)
+			for _, kind := range payloadKindsForRootTypeChecks {
+				if kind == descriptor.Kind {
+					continue
 				}
-				t.Run("ExportCM native typed root", func(t *testing.T) {
-					envelope := newDescriptorExportCMEnvelope(descriptor)
-					envelope.DynamicBone = NewDynamicBoneStatus()
-					assertPayloadEncodeRejected(t, envelope)
+				kind := kind
+				t.Run("foreign root "+kind, func(t *testing.T) {
+					if _, err := EncodeKCESPayload(newPayloadRootForKind(kind), descriptor.Extension); err == nil {
+						t.Fatalf("EncodeKCESPayload accepted a %s root", kind)
+					}
 				})
 			}
+
+			t.Run("foreign root type", func(t *testing.T) {
+				if _, err := EncodeKCESPayload(map[string]any{}, descriptor.Extension); err == nil {
+					t.Fatal("EncodeKCESPayload accepted a root type no extension declares")
+				}
+			})
 		})
 	}
 }
 
-func newDescriptorNativeEnvelope(descriptor kcesPayloadDescriptor) *KCESPayloadEnvelope {
-	envelope := &KCESPayloadEnvelope{
-		Format:         PayloadFormatKCESMessagePack,
-		Extension:      descriptor.Extension,
-		StorageVariant: PayloadStorageInt32LZ4MessagePack,
-		Kind:           descriptor.Kind,
-	}
-	switch descriptor.Kind {
-	case PayloadKindDynamicBoneStatus:
-		envelope.DynamicBone = NewDynamicBoneStatus()
-	case PayloadKindColliderPackage:
-		envelope.ColliderPackage = &ColliderPackage{Version: 1000}
-	case PayloadKindLimbCollider:
-		envelope.LimbCollider = &LimbColliderPackage{Version: 1000}
-	case PayloadKindIKCollider:
-		envelope.IKCollider = &IKColliderPackage{Version: 1000}
-	case PayloadKindClothParams:
-		envelope.ClothParams = NewClothParams()
-	case PayloadKindJSONString:
-		envelope.JSON = json.RawMessage(`{}`)
-	default:
-		panic("unsupported native payload kind " + descriptor.Kind)
-	}
-	return envelope
-}
-
-func newDescriptorExportCMEnvelope(descriptor kcesPayloadDescriptor) *KCESPayloadEnvelope {
-	return &KCESPayloadEnvelope{
-		Format:         PayloadFormatKCESExportCM,
-		Extension:      descriptor.Extension,
-		StorageVariant: descriptor.ExportCMStorageVariant,
-		Kind:           descriptor.ExportCMKind,
-		JSON:           json.RawMessage(`{"ok":true}`),
-	}
-}
-
-func clearDescriptorActiveRoot(envelope *KCESPayloadEnvelope, kind string) {
+// newPayloadRootForKind 为一个原生载荷类型创建可编码的最小根对象
+// newPayloadRootForKind creates a minimal encodable root object for one native payload kind
+func newPayloadRootForKind(kind string) any {
 	switch kind {
 	case PayloadKindDynamicBoneStatus:
-		envelope.DynamicBone = nil
+		return NewDynamicBoneStatus()
 	case PayloadKindColliderPackage:
-		envelope.ColliderPackage = nil
+		return &ColliderPackage{Version: 1000}
 	case PayloadKindLimbCollider:
-		envelope.LimbCollider = nil
+		return &LimbColliderPackage{Version: 1000}
 	case PayloadKindIKCollider:
-		envelope.IKCollider = nil
+		return &IKColliderPackage{Version: 1000}
 	case PayloadKindClothParams:
-		envelope.ClothParams = nil
+		return NewClothParams()
 	case PayloadKindJSONString:
-		envelope.JSON = nil
-	}
-}
-
-func payloadActiveRootIsNil(envelope *KCESPayloadEnvelope) bool {
-	if envelope == nil {
-		return false
-	}
-	switch envelope.Kind {
-	case PayloadKindDynamicBoneStatus:
-		return envelope.DynamicBone == nil
-	case PayloadKindColliderPackage:
-		return envelope.ColliderPackage == nil
-	case PayloadKindLimbCollider:
-		return envelope.LimbCollider == nil
-	case PayloadKindIKCollider:
-		return envelope.IKCollider == nil
-	case PayloadKindClothParams:
-		return envelope.ClothParams == nil
-	case PayloadKindJSONString:
-		return envelope.JSON == nil
+		return &MagicaClothSerializeData{}
 	default:
-		return false
+		panic("unsupported native payload kind " + kind)
 	}
 }
 
-func setDescriptorInactiveTypedRoot(envelope *KCESPayloadEnvelope, activeKind string) {
-	if activeKind == PayloadKindDynamicBoneStatus {
-		envelope.ColliderPackage = &ColliderPackage{}
-		return
+// payloadRootIsNil 判断载荷根是否为 nil 或类型化 nil 指针，两者都表示 MessagePack 根值为 nil
+// payloadRootIsNil reports whether a payload root is nil or a typed nil pointer, both of which represent a nil MessagePack root value
+func payloadRootIsNil(value any) bool {
+	if value == nil {
+		return true
 	}
-	envelope.DynamicBone = NewDynamicBoneStatus()
-}
-
-func assertPayloadEncodeRejected(t *testing.T, envelope *KCESPayloadEnvelope) {
-	t.Helper()
-	if _, err := EncodeKCESPayload(envelope); err == nil {
-		t.Fatalf("EncodeKCESPayload unexpectedly accepted %+v", envelope)
-	}
+	reflected := reflect.ValueOf(value)
+	return reflected.Kind() == reflect.Ptr && reflected.IsNil()
 }
 
 func payloadTestString(value string) *string { return &value }
@@ -860,14 +769,9 @@ func TestKCESJSONTextDescriptorsCoverExtensions(t *testing.T) {
 }
 
 func TestKCESMessagePackPayloadRejectsExtensionKindMismatch(t *testing.T) {
-	envelope := &KCESPayloadEnvelope{
-		Format:         PayloadFormatKCESMessagePack,
-		Extension:      KCESDBConfExtension,
-		StorageVariant: PayloadStorageInt32LZ4MessagePack,
-		Kind:           PayloadKindClothParams,
-		ClothParams:    NewClothParams(),
-	}
-	if _, err := EncodeKCESPayload(envelope); err == nil || !strings.Contains(err.Error(), "requires kind") {
+	_, err := EncodeKCESPayload(NewClothParams(), KCESDBConfExtension)
+	if err == nil || !strings.Contains(err.Error(), "requires payload kind") ||
+		!strings.Contains(err.Error(), PayloadKindDynamicBoneStatus) {
 		t.Fatalf("EncodeKCESPayload mismatch error = %v, want extension/kind rejection", err)
 	}
 }

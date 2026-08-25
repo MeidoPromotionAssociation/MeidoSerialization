@@ -15,26 +15,14 @@ var dsb2confPayloadDescriptor = kcesPayloadDescriptor{
 	LengthPrefixed: true,
 }
 
-// DecodeDSB2Conf 解码 .dsb2conf 的长度前缀 LZ4 MessagePack JSON 字符串载荷
-// DecodeDSB2Conf decodes the length-prefixed LZ4 MessagePack JSON-string payload of a .dsb2conf file
-func DecodeDSB2Conf(data []byte) (*KCESPayloadEnvelope, error) {
-	return decodeKCESPayloadVariants(data, dsb2confPayloadDescriptor, decodeDSB2ConfMessagePack)
-}
-
-// decodeDSB2ConfMessagePack 解码 .dsb2conf 的原生 MessagePack JSON 字符串载荷
-// decodeDSB2ConfMessagePack decodes the native MessagePack JSON-string payload of a .dsb2conf file
-func decodeDSB2ConfMessagePack(data []byte) (*KCESPayloadEnvelope, error) {
+// DecodeDSB2Conf 解码 .dsb2conf 的长度前缀 LZ4 MessagePack MagicaCloth ClothSerializeData 载荷
+// DecodeDSB2Conf decodes the length-prefixed LZ4 MessagePack MagicaCloth ClothSerializeData payload of a .dsb2conf file
+func DecodeDSB2Conf(data []byte) (*MagicaClothSerializeData, error) {
 	return decodeJSONStringMessagePack(data, dsb2confPayloadDescriptor)
 }
 
-// EncodeDSB2Conf 编码 .dsb2conf 的长度前缀 LZ4 MessagePack JSON 字符串载荷
-// EncodeDSB2Conf encodes the length-prefixed LZ4 MessagePack JSON-string payload of a .dsb2conf file
-func EncodeDSB2Conf(env *KCESPayloadEnvelope) ([]byte, error) {
-	return encodeKCESPayloadVariant(env, dsb2confPayloadDescriptor, encodeDSB2ConfMessagePack)
-}
-
-// encodeDSB2ConfMessagePack 编码 .dsb2conf 的原生 MessagePack JSON 字符串载荷
-// encodeDSB2ConfMessagePack encodes the native MessagePack JSON-string payload of a .dsb2conf file
-func encodeDSB2ConfMessagePack(env *KCESPayloadEnvelope) ([]byte, error) {
-	return encodeJSONStringMessagePack(env, dsb2confPayloadDescriptor)
+// EncodeDSB2Conf 编码 .dsb2conf 的长度前缀 LZ4 MessagePack MagicaCloth ClothSerializeData 载荷
+// EncodeDSB2Conf encodes the length-prefixed LZ4 MessagePack MagicaCloth ClothSerializeData payload of a .dsb2conf file
+func EncodeDSB2Conf(value *MagicaClothSerializeData) ([]byte, error) {
+	return encodeJSONStringMessagePack(value, dsb2confPayloadDescriptor)
 }
