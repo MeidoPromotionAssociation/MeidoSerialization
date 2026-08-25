@@ -1,85 +1,42 @@
 {
   "$id": "urn:meido-serialization:editing-json:v1:kces.undressdat",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "additionalProperties": false,
   "description": "Lossless editing JSON contract for kces.undressdat.",
-  "properties": {
-    "extension": {
-      "const": ".undressdat",
-      "description": "The fixed extension marker .undressdat.",
-      "title": "Resource extension",
-      "type": "string",
-      "x-meido-edit-guidance": "Keep the exact value .undressdat.",
-      "x-meido-edit-role": "format_marker",
-      "x-meido-game-usage": "The dispatcher uses it to route the TextAsset to the undress-data resource family.",
-      "x-meido-risk": "critical",
-      "x-meido-source-evidence": [
-        {
-          "game_version": "KCES 1.34.4",
-          "kind": "game_source",
-          "line_end": 156,
-          "line_start": 143,
-          "observation": "The game resource layer obtains the resource bytes from the selected file source. No resource-specific undress JSON consumer is established here, so this repository validates one complete JSON value and exposes its semantic content.",
-          "path": "KCES 1.34.4/WfSystem.FileSystem/GameResource.cs",
-          "symbol": "GameResource.LoadBinary"
-        }
-      ],
-      "x-meido-verification": {
-        "serialization": {
-          "authority": "ai",
-          "status": "verified"
-        },
-        "source_semantics": {
-          "authority": "ai",
-          "status": "verified"
-        }
-      }
-    },
-    "json": {
-      "description": "The parsed JSON document carried by the resource.",
-      "title": "Undress JSON value",
-      "x-meido-edit-guidance": "Edit only fields confirmed for the exact target resource and preserve unknown members.",
-      "x-meido-edit-role": "opaque_domain_data",
-      "x-meido-game-usage": "The game-side consumer determines which entries control undress behavior; no universal field contract is established here.",
-      "x-meido-risk": "critical",
-      "x-meido-source-evidence": [
-        {
-          "game_version": "KCES 1.34.4",
-          "kind": "game_source",
-          "line_end": 156,
-          "line_start": 143,
-          "observation": "The game resource layer obtains the resource bytes from the selected file source. No resource-specific undress JSON consumer is established here, so this repository validates one complete JSON value and exposes its semantic content.",
-          "path": "KCES 1.34.4/WfSystem.FileSystem/GameResource.cs",
-          "symbol": "GameResource.LoadBinary"
-        }
-      ],
-      "x-meido-verification": {
-        "serialization": {
-          "authority": "ai",
-          "status": "verified"
-        },
-        "source_semantics": {
-          "authority": "ai",
-          "status": "verified"
-        }
-      }
-    }
-  },
-  "required": [
-    "extension",
-    "json"
-  ],
   "title": "kces.undressdat editing JSON",
-  "type": "object",
+  "x-meido-edit-guidance": "Edit only fields confirmed for the exact target resource and preserve unknown members.",
+  "x-meido-edit-role": "opaque_domain_data",
   "x-meido-format-id": "kces.undressdat",
   "x-meido-format-verification": {
     "authority": "ai",
     "level": "serialization_verified",
-    "notes": "The whole-file serialization boundary, extension dispatch, and semantic JSON envelope were checked. Resource-specific members without source_semantics claims remain semantically unknown, and source formatting is intentionally normalized."
+    "notes": "The whole-file serialization boundary, extension dispatch, and semantic JSON boundary were checked. Resource-specific members without source_semantics claims remain semantically unknown, and source formatting is intentionally normalized."
   },
+  "x-meido-game-usage": "The game-side consumer determines which entries control undress behavior; no universal field contract is established here.",
   "x-meido-native-suffixes": [
     ".undressdat"
   ],
   "x-meido-representation": "editing_json",
-  "x-meido-schema-version": "1.0.0"
+  "x-meido-risk": "critical",
+  "x-meido-schema-version": "1.0.0",
+  "x-meido-source-evidence": [
+    {
+      "game_version": "KCES 1.34.4",
+      "kind": "game_source",
+      "line_end": 156,
+      "line_start": 143,
+      "observation": "The game resource layer obtains the resource bytes from the selected file source. No resource-specific undress JSON consumer is established here, so this repository validates one complete JSON value and exposes its semantic content.",
+      "path": "KCES 1.34.4/WfSystem.FileSystem/GameResource.cs",
+      "symbol": "GameResource.LoadBinary"
+    }
+  ],
+  "x-meido-verification": {
+    "serialization": {
+      "authority": "ai",
+      "status": "verified"
+    },
+    "source_semantics": {
+      "authority": "ai",
+      "status": "verified"
+    }
+  }
 }

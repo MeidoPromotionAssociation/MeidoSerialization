@@ -70,12 +70,12 @@ func TestMiscService_JSONTextRoundTrip(t *testing.T) {
 	if err := service.ConvertMiscToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertMiscToJson: %v", err)
 	}
-	var envelope serializationKCES.KCESJSONText
-	if err := json.Unmarshal(mustReadTestFile(t, jsonPath), &envelope); err != nil {
-		t.Fatalf("unmarshal envelope: %v", err)
+	var document json.RawMessage
+	if err := json.Unmarshal(mustReadTestFile(t, jsonPath), &document); err != nil {
+		t.Fatalf("unmarshal editing document: %v", err)
 	}
-	if envelope.Extension != ".undressdat" || len(envelope.JSON) == 0 {
-		t.Fatalf("unexpected envelope: %+v", envelope)
+	if len(document) == 0 {
+		t.Fatalf("unexpected editing document: %s", document)
 	}
 
 	if err := service.ConvertJsonToMisc(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
@@ -85,8 +85,8 @@ func TestMiscService_JSONTextRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeKCESJSONText output: %v", err)
 	}
-	if string(decoded.JSON) != `{"editVer":13,"items":["a","b"]}` {
-		t.Fatalf("unexpected JSON payload: %s", decoded.JSON)
+	if string(decoded) != `{"editVer":13,"items":["a","b"]}` {
+		t.Fatalf("unexpected JSON document: %s", decoded)
 	}
 }
 
@@ -108,19 +108,19 @@ func TestMiscService_NSONRoundTrip(t *testing.T) {
 	if err := service.ConvertMiscToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertMiscToJson: %v", err)
 	}
-	var envelope serializationKCES.KCESJSONText
-	if err := json.Unmarshal(mustReadTestFile(t, jsonPath), &envelope); err != nil {
-		t.Fatalf("unmarshal envelope: %v", err)
+	var document json.RawMessage
+	if err := json.Unmarshal(mustReadTestFile(t, jsonPath), &document); err != nil {
+		t.Fatalf("unmarshal editing document: %v", err)
 	}
-	var gotPayload, wantPayload interface{}
-	if err := json.Unmarshal(envelope.JSON, &gotPayload); err != nil {
-		t.Fatalf("unmarshal envelope payload: %v", err)
+	var gotDocument, wantDocument interface{}
+	if err := json.Unmarshal(document, &gotDocument); err != nil {
+		t.Fatalf("unmarshal editing document body: %v", err)
 	}
-	if err := json.Unmarshal(input, &wantPayload); err != nil {
+	if err := json.Unmarshal(input, &wantDocument); err != nil {
 		t.Fatal(err)
 	}
-	if envelope.Extension != ".nson" || !reflect.DeepEqual(gotPayload, wantPayload) {
-		t.Fatalf("unexpected NSON envelope: extension=%q json=%s", envelope.Extension, envelope.JSON)
+	if !reflect.DeepEqual(gotDocument, wantDocument) {
+		t.Fatalf("unexpected NSON editing document: %s", document)
 	}
 
 	if err := service.ConvertJsonToMisc(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
@@ -130,8 +130,8 @@ func TestMiscService_NSONRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeKCESJSONText output: %v", err)
 	}
-	if string(decoded.JSON) != string(input) {
-		t.Fatalf("unexpected NSON payload: %s", decoded.JSON)
+	if string(decoded) != string(input) {
+		t.Fatalf("unexpected NSON document: %s", decoded)
 	}
 }
 

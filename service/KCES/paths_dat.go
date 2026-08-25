@@ -30,13 +30,11 @@ func IsKCESPathsJSONFile(path string) bool {
 	if err != nil {
 		return false
 	}
-	var header struct {
-		Format string `json:"format"`
-	}
-	if err := json.Unmarshal(trimJSONUTF8BOM(data), &header); err != nil {
+	var value serializationKCES.KCESPathsFile
+	if err := decodeStrictJSON(trimJSONUTF8BOM(data), &value, "KCES paths.dat JSON"); err != nil {
 		return false
 	}
-	return header.Format == serializationKCES.KCESPathsFormat
+	return value.Signature == serializationKCES.KCESPathsSignature
 }
 
 // ReadPathsFile 读取并解码 paths.dat 文件
@@ -88,9 +86,6 @@ func (s *PathsService) ConvertJSONToPaths(ctx context.Context, inputPath, output
 	var value serializationKCES.KCESPathsFile
 	if err := decodeStrictJSON(data, &value, "KCES paths.dat JSON"); err != nil {
 		return fmt.Errorf("parse paths.dat JSON: %w", err)
-	}
-	if value.Format != serializationKCES.KCESPathsFormat {
-		return fmt.Errorf("unsupported paths.dat JSON format %q", value.Format)
 	}
 	if value.Signature != serializationKCES.KCESPathsSignature {
 		return fmt.Errorf("invalid paths.dat JSON signature %q", value.Signature)

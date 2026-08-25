@@ -55,36 +55,6 @@
         }
       }
     },
-    "format": {
-      "description": "The marker for the normalized filename-map representation.",
-      "title": "Editing format marker",
-      "type": "string",
-      "x-meido-edit-guidance": "Keep kces-export-name-map.",
-      "x-meido-edit-role": "editing_metadata",
-      "x-meido-game-usage": "This is an editing-layer value; native JsonUtility stores version and serializeData instead.",
-      "x-meido-risk": "low",
-      "x-meido-source-evidence": [
-        {
-          "game_version": "KCES 1.34.4",
-          "kind": "game_source",
-          "line_end": 132,
-          "line_start": 20,
-          "observation": "The exporter loads export_map.enm, stores a lower-case internal-name to file-name dictionary, and serializes the dictionary as a nested JSON string in serializeData.",
-          "path": "KCES 1.34.4/Assembly-CSharp/ExportCMUtility/ExportFileNameMap.cs",
-          "symbol": "ExportFileNameMap.LoadExportNameMap/Add/GetFileName/GetInternalName"
-        }
-      ],
-      "x-meido-verification": {
-        "serialization": {
-          "authority": "ai",
-          "status": "verified"
-        },
-        "source_semantics": {
-          "authority": "ai",
-          "status": "verified"
-        }
-      }
-    },
     "version": {
       "description": "The JsonUtility FixVersion value, normally 1000.",
       "maximum": 2147483647,
@@ -121,7 +91,6 @@
     }
   },
   "required": [
-    "format",
     "version",
     "entries"
   ],

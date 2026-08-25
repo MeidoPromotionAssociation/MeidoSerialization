@@ -16,7 +16,6 @@ import (
 // The layout is a BinaryWriter string signature, Int32 version, Int32 count, and that many strings, with current version 1000
 
 const (
-	KCESPathsFormat    = "kces-auto-paths"
 	KCESPathsSignature = "CM3D2_PATHS"
 	kcesPathsVersion   = int32(1000)
 )
@@ -24,7 +23,6 @@ const (
 // KCESPathsFile 表示 NativeFileManager.ReadAutoPathFile 读取的 paths.dat 路径列表，依次包含 .NET 字符串签名、Int32 版本、Int32 数量和对应数量的 .NET 字符串
 // KCESPathsFile represents the paths.dat list consumed by NativeFileManager.ReadAutoPathFile, containing a .NET string signature, Int32 version, Int32 count, and that many .NET strings
 type KCESPathsFile struct {
-	Format    string   `json:"format"`    // JSON 表示格式标识 / JSON representation format identifier
 	Signature string   `json:"signature"` // 文件签名 CM3D2_PATHS / File signature CM3D2_PATHS
 	Version   int32    `json:"version"`   // 路径列表格式版本 / Path-list format version
 	Paths     []string `json:"paths"`     // 原生资源搜索路径 / Native resource search paths
@@ -64,7 +62,6 @@ func DecodeKCESPaths(data []byte) (*KCESPathsFile, error) {
 		paths = append(paths, path)
 	}
 	result := &KCESPathsFile{
-		Format:    KCESPathsFormat,
 		Signature: signature,
 		Version:   version,
 		Paths:     paths,
@@ -80,9 +77,6 @@ func DecodeKCESPaths(data []byte) (*KCESPathsFile, error) {
 func EncodeKCESPaths(value *KCESPathsFile) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil paths.dat value")
-	}
-	if value.Format != "" && value.Format != KCESPathsFormat {
-		return nil, fmt.Errorf("unsupported paths.dat JSON format %q", value.Format)
 	}
 	signature := value.Signature
 	version := value.Version
@@ -113,7 +107,6 @@ func EncodeKCESPaths(value *KCESPathsFile) ([]byte, error) {
 // NewKCESPathsFile creates a new path list with the current signature and version
 func NewKCESPathsFile() *KCESPathsFile {
 	return &KCESPathsFile{
-		Format:    KCESPathsFormat,
 		Signature: KCESPathsSignature,
 		Version:   kcesPathsVersion,
 	}

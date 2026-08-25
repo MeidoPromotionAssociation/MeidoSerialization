@@ -408,32 +408,30 @@ func probeKCESJSON(path string, data []byte, info COM3D2Service.FileInfo) (COM3D
 	// candidate with a useful validation error instead of falling through to
 	// legacy CSV/JSON heuristics
 	if serializationKCES.IsKCESJSONTextExtension(ext) && !strings.HasSuffix(lowerPath, ".json") {
-		value, err := serializationKCES.DecodeKCESJSONText(data, ext)
-		if err != nil {
+		if _, err := serializationKCES.DecodeKCESJSONText(data, ext); err != nil {
 			return info, true, err
 		}
 		info.StorageFormat = COM3D2Service.FormatJSON
 		info.Game = COM3D2Service.GameKCES
-		info.FileType = strings.TrimPrefix(value.Extension, ".")
+		info.FileType = strings.TrimPrefix(serializationKCES.NormalizeKCESJSONTextExtension(ext), ".")
 		info.Signature = "KCES_JSON_TEXT"
 		return info, true, nil
 	}
 
-	// Editing envelopes for the JSON-backed resources have no format marker;
-	// the authoritative marker is their KCES-only double extension. Handle the
-	// candidate before json.Valid so a truncated/invalid envelope cannot fall
+	// The editing JSON of the JSON-backed resources is the resource document
+	// itself, so the only marker is their KCES-only double extension. Handle the
+	// candidate before json.Valid so a truncated or invalid document cannot fall
 	// through to the legacy COM3D2 JSON or CSV probes
 	if strings.HasSuffix(lowerPath, ".json") {
 		basePath := strings.TrimSuffix(path, filepath.Ext(path))
 		jsonTextExt := serializationKCES.NormalizeKCESJSONTextExtension(basePath)
 		if jsonTextExt != "" {
-			value, err := decodeKCESJSONTextEditingJSON(data, jsonTextExt)
-			if err != nil {
-				return info, true, fmt.Errorf("validate KCES JSON-text envelope %q: %w", path, err)
+			if _, err := decodeKCESJSONTextEditingJSON(data, jsonTextExt); err != nil {
+				return info, true, fmt.Errorf("validate KCES JSON-text document %q: %w", path, err)
 			}
 			info.StorageFormat = COM3D2Service.FormatJSON
 			info.Game = COM3D2Service.GameKCES
-			info.FileType = strings.TrimPrefix(value.Extension, ".")
+			info.FileType = strings.TrimPrefix(jsonTextExt, ".")
 			info.Signature = "KCES_JSON_TEXT"
 			return info, true, nil
 		}
@@ -463,63 +461,6 @@ func probeKCESJSON(path string, data []byte, info COM3D2Service.FileInfo) (COM3D
 	}
 
 	switch header.Format {
-	case serializationKCES.KCESBridgeSessionFormat:
-		value, err := decodeKCESBridgeSessionEditingJSON(data)
-		if err != nil {
-			return info, true, fmt.Errorf("validate KCES bridge session JSON %q: %w", path, err)
-		}
-		info.FileType = "bridge_session"
-		info.Signature = serializationKCES.KCESBridgeSessionFormat
-		assignKCESVersion(&info, value.ContainerVersion)
-		return info, true, nil
-	case serializationKCES.KCESGP03BridgeFormat:
-		value, err := decodeGP03BridgeEditingJSON(data)
-		if err != nil {
-			return info, true, fmt.Errorf("validate KCES GP03 bridge JSON %q: %w", path, err)
-		}
-		info.FileType = "brd"
-		info.Signature = serializationKCES.KCESGP03BridgeFormat
-		info.Version = value.Version
-		return info, true, nil
-	case serializationKCES.KCESExportNameMapFormat:
-		value, err := serializationKCES.DecodeKCESExportNameMapJSON(data)
-		if err != nil {
-			return info, true, fmt.Errorf("validate KCES export name map JSON %q: %w", path, err)
-		}
-		info.FileType = "enm"
-		info.Signature = serializationKCES.KCESExportNameMapFormat
-		info.Version = value.Version
-		return info, true, nil
-	case serializationKCES.KCESSavedAttachFormat:
-		value, err := decodeSavedAttachEditingJSON(data)
-		if err != nil {
-			return info, true, fmt.Errorf("validate KCES saved-attach JSON %q: %w", path, err)
-		}
-		info.FileType = "sad"
-		info.Signature = serializationKCES.KCESSavedAttachFormat
-		info.Version = value.Version
-		return info, true, nil
-	case serializationKCES.KCESPathsFormat:
-		var value serializationKCES.KCESPathsFile
-		if err := decodeStrictJSON(data, &value, "KCES paths.dat JSON"); err != nil {
-			return info, true, fmt.Errorf("validate KCES paths.dat JSON %q: %w", path, err)
-		}
-		if _, err := serializationKCES.EncodeKCESPaths(&value); err != nil {
-			return info, true, fmt.Errorf("validate KCES paths.dat JSON %q: %w", path, err)
-		}
-		info.FileType = "paths"
-		info.Signature = value.Signature
-		info.Version = value.Version
-		return info, true, nil
-	case serializationKCES.KCESSystemDataFormat:
-		value, err := decodeKCESSystemDataEditingJSON(data)
-		if err != nil {
-			return info, true, fmt.Errorf("validate KCES system.dat JSON %q: %w", path, err)
-		}
-		info.FileType = "system"
-		info.Signature = serializationKCES.KCESSystemDataFormat
-		assignKCESVersion(&info, value.Version)
-		return info, true, nil
 	case CtEnvelopeFormat:
 		var envelope CtEnvelope
 		if err := decodeStrictJSON(data, &envelope, "KCES content-table JSON"); err != nil {
@@ -535,29 +476,6 @@ func probeKCESJSON(path string, data []byte, info COM3D2Service.FileInfo) (COM3D
 		info.FileType = "ct"
 		info.Signature = CtEnvelopeFormat
 		assignKCESVersion(&info, envelope.Version)
-		return info, true, nil
-	case serializationKCES.KCESPresetFormat:
-		var preset serializationKCES.ExpandedKCESPreset
-		if err := decodeStrictJSON(data, &preset, "KCES preset JSON"); err != nil {
-			return info, true, fmt.Errorf("validate KCES preset JSON %q: %w", path, err)
-		}
-		if _, err := serializationKCES.EncodeExpandedKCESPreset(&preset); err != nil {
-			return info, true, fmt.Errorf("validate KCES preset JSON %q: %w", path, err)
-		}
-		info.FileType = "preset"
-		info.Signature = serializationKCES.KCESPresetFormat
-		assignKCESVersion(&info, preset.ContainerVersion)
-		return info, true, nil
-	case serializationKCES.MaidColliderFormat:
-		var value serializationKCES.MaidColliderFile
-		if err := decodeStrictJSON(data, &value, "KCES maid collider JSON"); err != nil {
-			return info, true, fmt.Errorf("validate KCES maid collider JSON %q: %w", path, err)
-		}
-		if _, err := serializationKCES.EncodeMaidCollider(&value); err != nil {
-			return info, true, fmt.Errorf("validate KCES maid collider JSON %q: %w", path, err)
-		}
-		info.FileType = "maid_collider"
-		info.Signature = serializationKCES.MaidColliderFormat
 		return info, true, nil
 	case RawUnityObjectFormat:
 		var envelope RawUnityObjectEnvelope
@@ -681,9 +599,6 @@ func probeKCESOnlyEditingJSONByPath(path string, data []byte, info COM3D2Service
 		if err := decodeStrictJSON(data, &value, "KCES paths.dat JSON"); err != nil {
 			return info, true, fmt.Errorf("validate KCES paths.dat JSON %q: %w", path, err)
 		}
-		if value.Format != serializationKCES.KCESPathsFormat {
-			return info, true, fmt.Errorf("validate KCES paths.dat JSON %q: unsupported format %q", path, value.Format)
-		}
 		if _, err := serializationKCES.EncodeKCESPaths(&value); err != nil {
 			return info, true, fmt.Errorf("validate KCES paths.dat JSON %q: %w", path, err)
 		}
@@ -700,9 +615,6 @@ func probeKCESOnlyEditingJSONByPath(path string, data []byte, info COM3D2Service
 		if err := decodeStrictJSON(data, &value, "KCES maid collider JSON"); err != nil {
 			return info, true, fmt.Errorf("validate KCES maid collider JSON %q: %w", path, err)
 		}
-		if value.Format != serializationKCES.MaidColliderFormat {
-			return info, true, fmt.Errorf("validate KCES maid collider JSON %q: unsupported format %q", path, value.Format)
-		}
 		if _, err := serializationKCES.EncodeMaidCollider(&value); err != nil {
 			return info, true, fmt.Errorf("validate KCES maid collider JSON %q: %w", path, err)
 		}
@@ -710,6 +622,77 @@ func probeKCESOnlyEditingJSONByPath(path string, data []byte, info COM3D2Service
 		info.StorageFormat = COM3D2Service.FormatJSON
 		info.Game = COM3D2Service.GameKCES
 		info.Signature = serializationKCES.MaidColliderFormat
+		return info, true, nil
+	}
+
+	if strings.EqualFold(kcesBridgeSessionPathBase(basePath), "bridge_session.vd") {
+		value, err := decodeKCESBridgeSessionEditingJSON(data)
+		if err != nil {
+			return info, true, fmt.Errorf("validate KCES bridge session JSON %q: %w", path, err)
+		}
+		info.FileType = "bridge_session"
+		info.StorageFormat = COM3D2Service.FormatJSON
+		info.Game = COM3D2Service.GameKCES
+		info.Signature = serializationKCES.KCESBridgeSessionFormat
+		assignKCESVersion(&info, value.ContainerVersion)
+		return info, true, nil
+	}
+
+	if innerExt == ".brd" {
+		value, err := decodeGP03BridgeEditingJSON(data)
+		if err != nil {
+			return info, true, fmt.Errorf("validate KCES GP03 bridge JSON %q: %w", path, err)
+		}
+		info.FileType = "brd"
+		info.StorageFormat = COM3D2Service.FormatJSON
+		info.Game = COM3D2Service.GameKCES
+		info.Signature = serializationKCES.KCESGP03BridgeFormat
+		info.Version = value.Version
+		return info, true, nil
+	}
+
+	if innerExt == ".enm" {
+		value, err := serializationKCES.DecodeKCESExportNameMapJSON(data)
+		if err != nil {
+			return info, true, fmt.Errorf("validate KCES export name map JSON %q: %w", path, err)
+		}
+		info.FileType = "enm"
+		info.StorageFormat = COM3D2Service.FormatJSON
+		info.Game = COM3D2Service.GameKCES
+		info.Signature = serializationKCES.KCESExportNameMapFormat
+		info.Version = value.Version
+		return info, true, nil
+	}
+
+	if innerExt == ".sad" {
+		value, err := decodeSavedAttachEditingJSON(data)
+		if err != nil {
+			return info, true, fmt.Errorf("validate KCES saved-attach JSON %q: %w", path, err)
+		}
+		info.FileType = "sad"
+		info.StorageFormat = COM3D2Service.FormatJSON
+		info.Game = COM3D2Service.GameKCES
+		info.Signature = serializationKCES.KCESSavedAttachFormat
+		info.Version = value.Version
+		return info, true, nil
+	}
+
+	// .preset 与旧版 CM3D2_PRESET 共用扩展名，因此只有带 KCES 独有根成员的文档才按 KCES 预设处理
+	// .preset shares its extension with legacy CM3D2_PRESET, so only a document carrying the KCES-only
+	// root members is handled as a KCES preset
+	if (innerExt == serializationKCES.KCESPresetExtension || innerExt == serializationKCES.KCESPersetExtension) && hasKCESPresetEditingJSONRoot(data) {
+		var preset serializationKCES.ExpandedKCESPreset
+		if err := decodeStrictJSON(data, &preset, "KCES preset JSON"); err != nil {
+			return info, true, fmt.Errorf("validate KCES preset JSON %q: %w", path, err)
+		}
+		if _, err := serializationKCES.EncodeExpandedKCESPreset(&preset); err != nil {
+			return info, true, fmt.Errorf("validate KCES preset JSON %q: %w", path, err)
+		}
+		info.FileType = "preset"
+		info.StorageFormat = COM3D2Service.FormatJSON
+		info.Game = COM3D2Service.GameKCES
+		info.Signature = serializationKCES.KCESPresetFormat
+		assignKCESVersion(&info, preset.ContainerVersion)
 		return info, true, nil
 	}
 

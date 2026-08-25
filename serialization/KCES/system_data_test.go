@@ -28,7 +28,6 @@ func TestKCESSystemDataRoundTripAllKnownEditDataAndOpaqueFiles(t *testing.T) {
 		gradColors[key] = key
 	}
 	value := &KCESSystemData{
-		Format:           KCESSystemDataFormat,
 		Version:          1000,
 		ContainerFraming: ct.VirtualDirectoryFramingExtended,
 		Directories: map[string]ct.VirtualDirectoryMetadata{
@@ -189,7 +188,6 @@ func TestDecodeKCESSystemDataRejectsMalformedKnownPayload(t *testing.T) {
 
 func TestKCESSystemDataPreservesRootNilReferencePayloads(t *testing.T) {
 	value := &KCESSystemData{
-		Format:  KCESSystemDataFormat,
 		Version: 1000,
 		EditData: []KCESEditDataFile{
 			{Path: "EditData/GradSv1", Kind: KCESEditDataGradPoints},
@@ -237,7 +235,6 @@ func TestKCESSystemDataPreservesStoredVersion(t *testing.T) {
 
 func TestKCESSystemDataPreservesVirtualDirectoryVersionFields(t *testing.T) {
 	value := &KCESSystemData{
-		Format:  KCESSystemDataFormat,
 		Version: -17,
 		Directories: map[string]ct.VirtualDirectoryMetadata{
 			"future": {Version: 77},
@@ -280,9 +277,6 @@ func TestEncodeKCESSystemDataValidation(t *testing.T) {
 	validPalette := &PaletteColorSaveData{Color: validColors}
 	tests := map[string]*KCESSystemData{
 		"nil": nil,
-		"wrong format": {
-			Format: "future-system-format",
-		},
 		"unknown typed path": {
 			EditData: []KCESEditDataFile{{Path: "EditData/future", Kind: KCESEditDataPaletteColor, PaletteColor: validPalette}},
 		},

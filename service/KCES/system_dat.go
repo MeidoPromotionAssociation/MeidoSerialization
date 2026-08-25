@@ -30,13 +30,10 @@ func IsKCESSystemDataJSONFile(path string) bool {
 	if err != nil {
 		return false
 	}
-	var header struct {
-		Format string `json:"format"`
-	}
-	if err := json.Unmarshal(trimJSONUTF8BOM(data), &header); err != nil {
+	if _, err := decodeKCESSystemDataEditingJSON(trimJSONUTF8BOM(data)); err != nil {
 		return false
 	}
-	return header.Format == serializationKCES.KCESSystemDataFormat
+	return true
 }
 
 // ReadSystemDataFile 读取并解码 KCES system.dat 文件
@@ -102,9 +99,6 @@ func decodeKCESSystemDataEditingJSON(data []byte) (*serializationKCES.KCESSystem
 	var value serializationKCES.KCESSystemData
 	if err := decodeStrictJSON(data, &value, "KCES system.dat JSON"); err != nil {
 		return nil, err
-	}
-	if value.Format != serializationKCES.KCESSystemDataFormat {
-		return nil, fmt.Errorf("unsupported KCES system.dat JSON format %q", value.Format)
 	}
 	if _, err := serializationKCES.EncodeKCESSystemData(&value); err != nil {
 		return nil, err

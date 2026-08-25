@@ -27,7 +27,7 @@ func IsKCESUndressPartsDataJSONFile(path string) bool {
 
 // ReadUndressPartsDataFile 读取并解码 .undresspdat 文件
 // ReadUndressPartsDataFile reads and decodes a .undresspdat file
-func (s *UndressPartsDataService) ReadUndressPartsDataFile(path string) (*serializationKCES.KCESJSONText, error) {
+func (s *UndressPartsDataService) ReadUndressPartsDataFile(path string) (json.RawMessage, error) {
 	if serializationKCES.NormalizeKCESJSONTextExtension(path) != serializationKCES.KCESUndressPartsDataExtension {
 		return nil, fmt.Errorf("not a .undresspdat file: %s", path)
 	}
@@ -44,14 +44,11 @@ func (s *UndressPartsDataService) ReadUndressPartsDataFile(path string) (*serial
 
 // WriteUndressPartsDataFile 编码并写入 .undresspdat 文件
 // WriteUndressPartsDataFile encodes and writes a .undresspdat file
-func (s *UndressPartsDataService) WriteUndressPartsDataFile(path string, value *serializationKCES.KCESJSONText) error {
+func (s *UndressPartsDataService) WriteUndressPartsDataFile(path string, value json.RawMessage) error {
 	if serializationKCES.NormalizeKCESJSONTextExtension(path) != serializationKCES.KCESUndressPartsDataExtension {
 		return fmt.Errorf("not a .undresspdat output path: %s", path)
 	}
-	if value == nil || serializationKCES.NormalizeKCESJSONTextExtension(value.Extension) != serializationKCES.KCESUndressPartsDataExtension {
-		return fmt.Errorf(".undresspdat output requires a .undresspdat KCES JSON-text value")
-	}
-	encoded, err := serializationKCES.EncodeKCESJSONText(value)
+	encoded, err := serializationKCES.EncodeKCESJSONText(value, serializationKCES.KCESUndressPartsDataExtension)
 	if err != nil {
 		return fmt.Errorf("encode .undresspdat file: %w", err)
 	}
@@ -92,17 +89,11 @@ func (s *UndressPartsDataService) ConvertJsonToUndressPartsData(ctx context.Cont
 	if err != nil {
 		return fmt.Errorf("read .undresspdat JSON %q: %w", inputPath, err)
 	}
-	var value serializationKCES.KCESJSONText
+	var value json.RawMessage
 	if err := decodeStrictJSON(trimJSONUTF8BOM(data), &value, "KCES .undresspdat JSON"); err != nil {
 		return fmt.Errorf("parse .undresspdat JSON: %w", err)
 	}
-	actual := serializationKCES.NormalizeKCESJSONTextExtension(value.Extension)
-	if actual == "" {
-		value.Extension = serializationKCES.KCESUndressPartsDataExtension
-	} else if actual != serializationKCES.KCESUndressPartsDataExtension {
-		return fmt.Errorf("KCES JSON-text envelope extension %q does not match file extension %q", actual, serializationKCES.KCESUndressPartsDataExtension)
-	}
-	encoded, err := serializationKCES.EncodeKCESJSONText(&value)
+	encoded, err := serializationKCES.EncodeKCESJSONText(value, serializationKCES.KCESUndressPartsDataExtension)
 	if err != nil {
 		return fmt.Errorf("encode .undresspdat file: %w", err)
 	}

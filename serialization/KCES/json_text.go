@@ -37,16 +37,16 @@ var kcesJSONTextDescriptorByExtension = func() map[string]kcesJSONTextDescriptor
 	return result
 }()
 
-// KCESJSONText 表示 KCES 明文 JSON 资源的封套
-// KCESJSONText represents an envelope for KCES plain JSON resources
-type KCESJSONText struct {
-	Extension string          `json:"extension"` // 原始扩展名，如 .undressdat / Original extension such as .undressdat
-	JSON      json.RawMessage `json:"json"`      // 规范化后的 JSON 内容 / Normalized JSON content
-}
+// 这些扩展名的原生文件本身就是 JSON 文本，编辑 JSON 的根就是该文档本身，没有额外封套：
+// 目标格式完全由文件名决定，而本库不为这些资源声明任何领域结构
+//
+// The native file of these extensions is already JSON text, so the editing JSON root is that document
+// itself with no surrounding envelope: the destination format is determined entirely by the file name,
+// and this library declares no domain structure for these resources
 
 // DecodeKCESJSONText 校验并解码受支持扩展名的明文 JSON，仅保留 JSON 语义内容
 // DecodeKCESJSONText validates and decodes plain JSON for a supported extension while retaining only its semantic JSON content
-func DecodeKCESJSONText(data []byte, extension string) (*KCESJSONText, error) {
+func DecodeKCESJSONText(data []byte, extension string) (json.RawMessage, error) {
 	ext := NormalizeKCESJSONTextExtension(extension)
 	if ext == "" {
 		return nil, fmt.Errorf("unsupported KCES JSON text extension %q", extension)
@@ -62,31 +62,25 @@ func DecodeKCESJSONText(data []byte, extension string) (*KCESJSONText, error) {
 		return nil, fmt.Errorf("compact %s JSON: %w", ext, err)
 	}
 
-	return &KCESJSONText{
-		Extension: ext,
-		JSON:      append(json.RawMessage(nil), compact.Bytes()...),
-	}, nil
+	return append(json.RawMessage(nil), compact.Bytes()...), nil
 }
 
 // EncodeKCESJSONText 将 JSON 语义内容写为稳定缩进的 UTF-8 JSON
 // EncodeKCESJSONText writes semantic JSON content as stably indented UTF-8 JSON
-func EncodeKCESJSONText(value *KCESJSONText) ([]byte, error) {
-	if value == nil {
-		return nil, fmt.Errorf("nil KCES JSON text")
-	}
-	ext := NormalizeKCESJSONTextExtension(value.Extension)
+func EncodeKCESJSONText(value json.RawMessage, extension string) ([]byte, error) {
+	ext := NormalizeKCESJSONTextExtension(extension)
 	if ext == "" {
-		return nil, fmt.Errorf("unsupported KCES JSON text extension %q", value.Extension)
+		return nil, fmt.Errorf("unsupported KCES JSON text extension %q", extension)
 	}
-	if len(bytes.TrimSpace(value.JSON)) == 0 {
-		return nil, fmt.Errorf("%s JSON payload is empty", ext)
+	if len(bytes.TrimSpace(value)) == 0 {
+		return nil, fmt.Errorf("%s JSON document is empty", ext)
 	}
-	if !json.Valid(value.JSON) {
-		return nil, fmt.Errorf("%s JSON payload is invalid", ext)
+	if !json.Valid(value) {
+		return nil, fmt.Errorf("%s JSON document is invalid", ext)
 	}
 	var compactJSON bytes.Buffer
-	if err := json.Compact(&compactJSON, value.JSON); err != nil {
-		return nil, fmt.Errorf("compact %s JSON payload: %w", ext, err)
+	if err := json.Compact(&compactJSON, value); err != nil {
+		return nil, fmt.Errorf("compact %s JSON document: %w", ext, err)
 	}
 	var indented bytes.Buffer
 	if err := json.Indent(&indented, compactJSON.Bytes(), "", "  "); err != nil {

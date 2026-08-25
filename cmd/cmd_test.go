@@ -839,8 +839,8 @@ func TestKCESMiscConvertCommands(t *testing.T) {
 		if err != nil {
 			t.Fatalf("converted nson is invalid: %v", err)
 		}
-		if string(value.JSON) != `{"version":1000,"_ids":[1,2,3]}` {
-			t.Fatalf("unexpected nson payload: %s", value.JSON)
+		if string(value) != `{"version":1000,"_ids":[1,2,3]}` {
+			t.Fatalf("unexpected nson document: %s", value)
 		}
 	})
 }

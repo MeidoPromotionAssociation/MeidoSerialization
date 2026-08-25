@@ -16,8 +16,8 @@ func IsKCESExportNameMapFile(path string) bool {
 	return !strings.HasSuffix(strings.ToLower(path), ".json") && strings.EqualFold(filepath.Ext(path), ".enm")
 }
 
-// IsKCESExportNameMapJSONFile 完整校验带格式标记的 .enm 编辑文档，而不只信任 format 字段
-// IsKCESExportNameMapJSONFile fully validates a marker-based .enm editing document instead of trusting only its format field
+// IsKCESExportNameMapJSONFile 通过 .enm.json 双扩展名识别并完整校验 .enm 编辑文档
+// IsKCESExportNameMapJSONFile recognizes an .enm editing document by its .enm.json double extension and fully validates it
 func IsKCESExportNameMapJSONFile(path string) bool {
 	if !strings.HasSuffix(strings.ToLower(path), ".enm.json") {
 		return false

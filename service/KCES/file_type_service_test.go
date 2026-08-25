@@ -211,16 +211,6 @@ func TestFileTypeServiceAcceptsUTF8BOMAndLongJSONWhitespace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Marshal does not call the binary encoder, so set the marker explicitly.
-	var object map[string]interface{}
-	if err := json.Unmarshal(data, &object); err != nil {
-		t.Fatal(err)
-	}
-	object["format"] = serializationKCES.KCESPresetFormat
-	data, err = json.Marshal(object)
-	if err != nil {
-		t.Fatal(err)
-	}
 	prefixed := append([]byte{0xef, 0xbb, 0xbf}, []byte(" \r\n\t")...)
 	prefixed = append(prefixed, make([]byte, 5000)...)
 	for i := 7; i < len(prefixed); i++ {

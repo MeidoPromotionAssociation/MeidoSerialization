@@ -2,6 +2,7 @@ package KCES
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -90,9 +91,9 @@ func (s *MiscService) WriteMiscFile(path string, value any) error {
 		}
 		return (&HitCheckService{}).WriteHitCheckFile(path, hitCheck)
 	}
-	jsonText, ok := value.(*serializationKCES.KCESJSONText)
+	jsonText, ok := value.(json.RawMessage)
 	if !ok {
-		return fmt.Errorf("%s output requires *KCES.KCESJSONText, got %T", extension, value)
+		return fmt.Errorf("%s output requires a json.RawMessage document, got %T", extension, value)
 	}
 	switch extension {
 	case serializationKCES.KCESUndressDataExtension:

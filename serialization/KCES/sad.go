@@ -26,8 +26,8 @@ const (
 	// SavedAttachRecordVersion 写在每条当前 SavedAttachData 记录的空可空字符串哨兵之后
 	// SavedAttachRecordVersion is emitted inside every current SavedAttachData record after an empty nullable-string sentinel
 	SavedAttachRecordVersion int32 = 2001
-	// KCESSavedAttachFormat 标识可编辑 JSON 表示
-	// KCESSavedAttachFormat identifies the editable JSON representation
+	// KCESSavedAttachFormat 是文件类型探测报告的格式标签，不再作为编辑 JSON 的字段写出
+	// KCESSavedAttachFormat is the format label reported by file-type detection and is no longer written as an editing JSON field
 	KCESSavedAttachFormat = "kces-saved-attach"
 
 	// 最短的可读隐式 v2000 记录占 36 字节，包含单字符部件名和空枚举字符串载荷
@@ -38,7 +38,6 @@ const (
 // SavedAttachFile 表示一个导出的 KCES/GP03 .sad 文件
 // SavedAttachFile represents one exported KCES/GP03 .sad file
 type SavedAttachFile struct {
-	Format    string            `json:"format"`    // JSON 表示格式标识 / JSON representation format identifier
 	Signature string            `json:"signature"` // 文件签名 SAVED_ATTACH_DATA / File signature SAVED_ATTACH_DATA
 	Version   int32             `json:"version"`   // 外层文件版本 / Outer file version
 	Items     []SavedAttachData `json:"items"`     // 部件附着记录 / Part-attachment records
@@ -117,7 +116,6 @@ func DecodeSavedAttach(data []byte) (*SavedAttachFile, error) {
 		items = append(items, item)
 	}
 	result := &SavedAttachFile{
-		Format:    KCESSavedAttachFormat,
 		Signature: signature,
 		Version:   version,
 		Items:     items,
@@ -217,9 +215,6 @@ func EncodeSavedAttach(value *SavedAttachFile) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil saved-attach file")
 	}
-	if value.Format != "" && value.Format != KCESSavedAttachFormat {
-		return nil, fmt.Errorf("unsupported saved-attach JSON format %q", value.Format)
-	}
 	signature := value.Signature
 	if signature != SavedAttachSignature {
 		return nil, fmt.Errorf("invalid saved-attach signature %q", signature)
@@ -256,7 +251,6 @@ func EncodeSavedAttach(value *SavedAttachFile) ([]byte, error) {
 // NewSavedAttachFile creates the current outer header while callers still select a supported record version of 2000 or 2001
 func NewSavedAttachFile() *SavedAttachFile {
 	return &SavedAttachFile{
-		Format:    KCESSavedAttachFormat,
 		Signature: SavedAttachSignature,
 		Version:   SavedAttachFileVersion,
 	}

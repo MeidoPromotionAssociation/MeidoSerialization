@@ -17,8 +17,8 @@ import (
 // The current version is 1000 and the inner dictionary is stored as a nested JSON string in serializeData
 
 const (
-	// KCESExportNameMapFormat 标识可编辑 JSON 表示，原生 export_map.enm 也是 JSON，但使用 Unity JsonUtility 的 version 和 serializeData 封套而不是此标记
-	// KCESExportNameMapFormat identifies the editable JSON representation, while native export_map.enm is also JSON but uses Unity JsonUtility's version and serializeData wrapper instead of this marker
+	// KCESExportNameMapFormat 是文件类型探测报告的格式标签，不再作为编辑 JSON 的字段写出
+	// KCESExportNameMapFormat is the format label reported by file-type detection and is no longer written as an editing JSON field
 	KCESExportNameMapFormat = "kces-export-name-map"
 
 	// KCESExportNameMapSignature 用于探测没有自身二进制魔数的原生 JsonUtility 文档
@@ -33,7 +33,6 @@ const (
 // KCESExportNameMap 是 export_map.enm 的稳定强类型编辑表示
 // KCESExportNameMap is the stable typed editing representation of export_map.enm
 type KCESExportNameMap struct {
-	Format  string                   `json:"format"`  // JSON 表示格式标识 / JSON representation format identifier
 	Version int32                    `json:"version"` // ExportFileNameMap 对象版本 / ExportFileNameMap object version
 	Entries []KCESExportNameMapEntry `json:"entries"` // 按原生字典序列化顺序保存的映射条目 / Mapping entries in native dictionary serialization order
 }
@@ -62,7 +61,6 @@ type kcesExportNameMapDictionaryOutput struct {
 // kcesExportNameMapEditing 表示严格解析可编辑 JSON 时使用的可空字段
 // kcesExportNameMapEditing represents nullable fields used while strictly parsing editable JSON
 type kcesExportNameMapEditing struct {
-	Format  *string                           `json:"format"`  // 可空格式标识 / Nullable format identifier
 	Version *int32                            `json:"version"` // 可空对象版本 / Nullable object version
 	Entries *[]*kcesExportNameMapEditingEntry `json:"entries"` // 可空条目列表与条目 / Nullable entry list and entries
 }
@@ -136,7 +134,7 @@ func DecodeKCESExportNameMap(data []byte) (*KCESExportNameMap, error) {
 		}
 		entries[index] = KCESExportNameMapEntry{InternalName: *keys[index], FileName: *values[index]}
 	}
-	return canonicalKCESExportNameMap(&KCESExportNameMap{Format: KCESExportNameMapFormat, Version: *outer.Version, Entries: entries})
+	return canonicalKCESExportNameMap(&KCESExportNameMap{Version: *outer.Version, Entries: entries})
 }
 
 // EncodeKCESExportNameMap 写出原生 Unity JsonUtility 封套，嵌套键值保留提供的顺序和拼写，并采用 ScourtExtensionsDictionary.FromJson 读取的布局
@@ -144,9 +142,6 @@ func DecodeKCESExportNameMap(data []byte) (*KCESExportNameMap, error) {
 func EncodeKCESExportNameMap(value *KCESExportNameMap) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil export name map")
-	}
-	if value.Format != "" && value.Format != KCESExportNameMapFormat {
-		return nil, fmt.Errorf("unsupported export name map JSON format %q", value.Format)
 	}
 	canonical, err := canonicalKCESExportNameMap(value)
 	if err != nil {
@@ -180,12 +175,6 @@ func DecodeKCESExportNameMapJSON(data []byte) (*KCESExportNameMap, error) {
 	if err := decodeKCESExportNameMapJSONValue(data, &editing, "export name map editing JSON", true); err != nil {
 		return nil, err
 	}
-	if editing.Format == nil {
-		return nil, fmt.Errorf("export name map editing JSON format is missing or null")
-	}
-	if *editing.Format != KCESExportNameMapFormat {
-		return nil, fmt.Errorf("unsupported export name map JSON format %q", *editing.Format)
-	}
 	if editing.Version == nil {
 		return nil, fmt.Errorf("export name map editing JSON version is missing or null")
 	}
@@ -208,7 +197,6 @@ func DecodeKCESExportNameMapJSON(data []byte) (*KCESExportNameMap, error) {
 	}
 
 	return canonicalKCESExportNameMap(&KCESExportNameMap{
-		Format:  *editing.Format,
 		Version: *editing.Version,
 		Entries: entries,
 	})
@@ -234,9 +222,6 @@ func canonicalKCESExportNameMap(value *KCESExportNameMap) (*KCESExportNameMap, e
 	if value == nil {
 		return nil, fmt.Errorf("nil export name map")
 	}
-	if value.Format != "" && value.Format != KCESExportNameMapFormat {
-		return nil, fmt.Errorf("unsupported export name map JSON format %q", value.Format)
-	}
 	if value.Version != KCESExportNameMapVersion {
 		return nil, fmt.Errorf("unsupported export name map version %d", value.Version)
 	}
@@ -257,7 +242,6 @@ func canonicalKCESExportNameMap(value *KCESExportNameMap) (*KCESExportNameMap, e
 		entries[i] = entry
 	}
 	return &KCESExportNameMap{
-		Format:  KCESExportNameMapFormat,
 		Version: value.Version,
 		Entries: entries,
 	}, nil

@@ -61,53 +61,52 @@ func TestFileTypeServiceKeepsMalformedKCESOnlyEditingJSONAsCandidate(t *testing.
 	}
 }
 
-func TestKCESJSONTextEditingEnvelopeStrictValidation(t *testing.T) {
-	valid := []byte(`{"extension":".nson","json":{"version":1000}}`)
+func TestKCESJSONTextEditingDocumentStrictValidation(t *testing.T) {
+	valid := []byte(`{"version":1000}`)
 	value, err := decodeKCESJSONTextEditingJSON(valid, ".nson")
 	if err != nil {
-		t.Fatalf("valid envelope: %v", err)
+		t.Fatalf("valid document: %v", err)
 	}
-	if value.Extension != ".nson" || string(value.JSON) != `{"version":1000}` {
-		t.Fatalf("unexpected decoded envelope: %+v", value)
+	if string(value) != `{"version":1000}` {
+		t.Fatalf("unexpected decoded document: %s", value)
 	}
 
 	for name, data := range map[string][]byte{
-		"invalid UTF-8":        append([]byte(`{"extension":".nson","json":"`), 0xff, '"', '}'),
-		"unknown field":        []byte(`{"extension":".nson","json":{},"future":1}`),
-		"second JSON value":    []byte(`{"extension":".nson","json":{}} {}`),
-		"missing payload":      []byte(`{"extension":".nson"}`),
-		"mismatched extension": []byte(`{"extension":".undressdat","json":{}}`),
+		"invalid UTF-8":     append([]byte(`{"version":"`), 0xff, '"', '}'),
+		"second JSON value": []byte(`{"version":1000} {}`),
+		"empty document":    []byte("  "),
+		"trailing garbage":  []byte(`{"version":1000} oops`),
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := decodeKCESJSONTextEditingJSON(data, ".nson"); err == nil {
-				t.Fatalf("accepted invalid envelope %q", data)
+				t.Fatalf("accepted invalid document %q", data)
 			}
 		})
 	}
 
+	// 编辑封套已移除，根就是资源自身的 JSON 文档，所以任何合法 JSON 值都可以是根
+	// The editing envelope was removed and the root is the resource's own JSON document, so any valid JSON value can be the root
 	for name, data := range map[string][]byte{
-		"missing extension defaults": []byte(`{"json":null}`),
-		"empty extension defaults":   []byte(`{"extension":"","json":[]}`),
-		"BOM":                        append([]byte{0xef, 0xbb, 0xbf}, valid...),
+		"object": []byte(`{"version":1000}`),
+		"array":  []byte(`[1,2,3]`),
+		"null":   []byte(`null`),
+		"BOM":    append([]byte{0xef, 0xbb, 0xbf}, valid...),
 	} {
 		t.Run(name, func(t *testing.T) {
-			value, err := decodeKCESJSONTextEditingJSON(data, ".nson")
-			if err != nil {
+			if _, err := decodeKCESJSONTextEditingJSON(trimJSONUTF8BOM(data), ".nson"); err != nil {
 				t.Fatalf("decode: %v", err)
-			}
-			if value.Extension != ".nson" {
-				t.Fatalf("extension = %q", value.Extension)
 			}
 		})
 	}
 }
 
-func TestFileTypeServiceStrictlyValidatesJSONTextEditingEnvelope(t *testing.T) {
+func TestFileTypeServiceStrictlyValidatesJSONTextEditingDocument(t *testing.T) {
 	service := &FileTypeService{}
 	for name, data := range map[string][]byte{
-		"unknown":  []byte(`{"extension":".nson","json":{},"future":1}`),
-		"mismatch": []byte(`{"extension":".undressdat","json":{}}`),
-		"trailing": []byte(`{"extension":".nson","json":{}} []`),
+		"trailing value":   []byte(`{"ok":true} []`),
+		"truncated":        []byte(`{"ok":`),
+		"empty":            []byte("   "),
+		"trailing garbage": []byte(`{"ok":true} oops`),
 	} {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "probe.nson.JSON")
@@ -121,8 +120,10 @@ func TestFileTypeServiceStrictlyValidatesJSONTextEditingEnvelope(t *testing.T) {
 		})
 	}
 
+	// 目标扩展名完全由文件名决定，编辑 JSON 的根就是资源文档本身
+	// The destination extension is decided entirely by the file name and the editing JSON root is the resource document itself
 	path := filepath.Join(t.TempDir(), "probe.nson.JSON")
-	valid := append([]byte{0xef, 0xbb, 0xbf}, []byte(`{"extension":".NSON","json":{"ok":true}}`)...)
+	valid := append([]byte{0xef, 0xbb, 0xbf}, []byte(`{"ok":true}`)...)
 	if err := os.WriteFile(path, valid, 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -138,14 +139,6 @@ func TestFileTypeServiceStrictlyValidatesJSONTextEditingEnvelope(t *testing.T) {
 	if got := bytes.TrimSpace(mustReadTestFile(t, out)); !bytes.Equal(got, []byte("{\n  \"ok\": true\n}")) {
 		t.Fatalf("unexpected native output: %q", got)
 	}
-
-	bad := bytes.Replace(valid, []byte(`.NSON`), []byte(`.undressdat`), 1)
-	if err := os.WriteFile(path, bad, 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := (&MiscService{}).ConvertJsonToMisc(TestConversionContext, path, out, TestConversionMaxOutput); err == nil || !strings.Contains(err.Error(), "does not match") {
-		t.Fatalf("service accepted mismatched extension: %v", err)
-	}
 }
 
 func TestFileTypeServiceRejectsUnknownFieldsInKCESOnlyEditingJSON(t *testing.T) {
@@ -153,9 +146,9 @@ func TestFileTypeServiceRejectsUnknownFieldsInKCESOnlyEditingJSON(t *testing.T) 
 		"bad.menuassets.json":      `{"assetArray":[],"future":1}`,
 		"bad.db2conf.json":         `{"format":"kces-msgpack-lz4","extension":".db2conf","storageVariant":"int32-length-lz4-messagepack","kind":"msgpack-json-string","json":{},"future":1}`,
 		"bad.hitcheck.json":        `{"signature":"HitCheck","entries":[],"future":1}`,
-		"paths.dat.json":           `{"format":"kces-auto-paths","signature":"CM3D2_PATHS","version":1000,"paths":["system"],"future":1}`,
-		"system.dat.json":          `{"format":"kces-system-data","version":1000,"future":1}`,
-		"maid_collider.bytes.json": `{"format":"kces-maid-capsule-colliders","colliders":[],"future":1}`,
+		"paths.dat.json":           `{"signature":"CM3D2_PATHS","version":1000,"paths":["system"],"future":1}`,
+		"system.dat.json":          `{"version":1000,"future":1}`,
+		"maid_collider.bytes.json": `{"colliders":[],"future":1}`,
 		"bad.ct.json":              `{"format":"kces-content-table","future":1}`,
 		"bad.texture2d.bytes.json": `{"format":"kces-unity-raw-object","dataBase64":"AQ==","future":1}`,
 	}

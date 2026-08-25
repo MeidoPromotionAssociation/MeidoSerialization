@@ -21,7 +21,7 @@ func TestKCESExportNameMapSourceCompatibleNativeRoundTrip(t *testing.T) {
 		{InternalName: "GP03_EXPORT_HAIR.MENU", FileName: "0.MENU"},
 		{InternalName: "gp03_export_body.mate", FileName: "1.MATE"},
 	}
-	if decoded.Format != KCESExportNameMapFormat || decoded.Version != KCESExportNameMapVersion || !reflect.DeepEqual(decoded.Entries, want) {
+	if decoded.Version != KCESExportNameMapVersion || !reflect.DeepEqual(decoded.Entries, want) {
 		t.Fatalf("decoded = %+v, want entries %+v", decoded, want)
 	}
 
@@ -50,7 +50,6 @@ func TestKCESExportNameMapSourceCompatibleNativeRoundTrip(t *testing.T) {
 
 func TestKCESExportNameMapEncodePreservesWithoutMutatingCaller(t *testing.T) {
 	value := &KCESExportNameMap{
-		Format:  KCESExportNameMapFormat,
 		Version: KCESExportNameMapVersion,
 		Entries: []KCESExportNameMapEntry{
 			{InternalName: "ZETA.MENU", FileName: "9.MENU"},
@@ -58,7 +57,6 @@ func TestKCESExportNameMapEncodePreservesWithoutMutatingCaller(t *testing.T) {
 		},
 	}
 	before := &KCESExportNameMap{
-		Format:  value.Format,
 		Version: value.Version,
 		Entries: append([]KCESExportNameMapEntry(nil), value.Entries...),
 	}
@@ -128,7 +126,7 @@ func TestKCESExportNameMapRejectsUnknownJSONFields(t *testing.T) {
 
 func TestKCESExportNameMapEditingJSONIsStrictAndDeterministic(t *testing.T) {
 	editing := []byte("\xef\xbb\xbf" + `{
-  "format":"kces-export-name-map",
+  
   "version":1000,
   "entries":[
     {"internalName":"Zeta.Menu","fileName":"9.Menu"},
@@ -161,16 +159,15 @@ func TestKCESExportNameMapEditingJSONIsStrictAndDeterministic(t *testing.T) {
 
 	invalid := map[string]string{
 		"null root":          `null`,
-		"missing format":     `{"version":1000,"entries":[]}`,
 		"wrong format":       `{"format":"wrong","version":1000,"entries":[]}`,
-		"missing version":    `{"format":"kces-export-name-map","entries":[]}`,
-		"version null":       `{"format":"kces-export-name-map","version":null,"entries":[]}`,
-		"version overflow":   `{"format":"kces-export-name-map","version":2147483648,"entries":[]}`,
-		"null entry":         `{"format":"kces-export-name-map","version":1000,"entries":[null]}`,
-		"null internal":      `{"format":"kces-export-name-map","version":1000,"entries":[{"internalName":null,"fileName":"a"}]}`,
-		"null filename":      `{"format":"kces-export-name-map","version":1000,"entries":[{"internalName":"a","fileName":null}]}`,
-		"duplicate internal": `{"format":"kces-export-name-map","version":1000,"entries":[{"internalName":"a","fileName":"0"},{"internalName":"a","fileName":"1"}]}`,
-		"trailing":           `{"format":"kces-export-name-map","version":1000,"entries":[]} []`,
+		"missing version":    `{"entries":[]}`,
+		"version null":       `{"version":null,"entries":[]}`,
+		"version overflow":   `{"version":2147483648,"entries":[]}`,
+		"null entry":         `{"version":1000,"entries":[null]}`,
+		"null internal":      `{"version":1000,"entries":[{"internalName":null,"fileName":"a"}]}`,
+		"null filename":      `{"version":1000,"entries":[{"internalName":"a","fileName":null}]}`,
+		"duplicate internal": `{"version":1000,"entries":[{"internalName":"a","fileName":"0"},{"internalName":"a","fileName":"1"}]}`,
+		"trailing":           `{"version":1000,"entries":[]} []`,
 	}
 	for name, data := range invalid {
 		t.Run(name, func(t *testing.T) {
@@ -183,7 +180,6 @@ func TestKCESExportNameMapEditingJSONIsStrictAndDeterministic(t *testing.T) {
 
 func TestKCESExportNameMapEncodersRejectDuplicateInternalNames(t *testing.T) {
 	value := &KCESExportNameMap{
-		Format:  KCESExportNameMapFormat,
 		Version: KCESExportNameMapVersion,
 		Entries: []KCESExportNameMapEntry{
 			{InternalName: "a", FileName: "0"},
@@ -215,7 +211,7 @@ func TestKCESExportNameMapPreservesNilEntryList(t *testing.T) {
 			return err
 		},
 		"editing": func() error {
-			_, err := EncodeKCESExportNameMapJSON(&KCESExportNameMap{Format: KCESExportNameMapFormat, Version: KCESExportNameMapVersion})
+			_, err := EncodeKCESExportNameMapJSON(&KCESExportNameMap{Version: KCESExportNameMapVersion})
 			return err
 		},
 	} {

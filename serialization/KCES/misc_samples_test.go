@@ -84,13 +84,10 @@ func assertMiscSampleRoundTripDeepEqual(t *testing.T, path string) {
 		if err != nil {
 			t.Fatalf("DecodeKCESJSONText: %v", err)
 		}
-		if value.Extension != NormalizeKCESJSONTextExtension(name) {
-			t.Fatalf("extension got %q, want %q", value.Extension, NormalizeKCESJSONTextExtension(name))
+		if len(value) == 0 {
+			t.Fatalf("missing JSON document")
 		}
-		if len(value.JSON) == 0 {
-			t.Fatalf("missing JSON payload")
-		}
-		encoded, err := EncodeKCESJSONText(value)
+		encoded, err := EncodeKCESJSONText(value, name)
 		if err != nil {
 			t.Fatalf("EncodeKCESJSONText: %v", err)
 		}

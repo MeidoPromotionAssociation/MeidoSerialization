@@ -26,8 +26,8 @@ const (
 	// GP03BridgeCOM3D2Version 由 COM3D2_5 Maid.ExportBridgeGP03 为反向 COM3D2 到 KCES 传输写出，该版本的旧预设块必须为空
 	// GP03BridgeCOM3D2Version is emitted by COM3D2_5 Maid.ExportBridgeGP03 for reverse COM3D2-to-KCES transfer and requires an empty legacy-preset block
 	GP03BridgeCOM3D2Version int32 = 2000
-	// KCESGP03BridgeFormat 标识可编辑 JSON 表示
-	// KCESGP03BridgeFormat identifies the editable JSON representation
+	// KCESGP03BridgeFormat 是文件类型探测报告的格式标签，不再作为编辑 JSON 的字段写出
+	// KCESGP03BridgeFormat is the format label reported by file-type detection and is no longer written as an editing JSON field
 	KCESGP03BridgeFormat = "kces-gp03-bridge"
 )
 

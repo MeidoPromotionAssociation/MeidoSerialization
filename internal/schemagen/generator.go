@@ -197,9 +197,9 @@ func formatSpecs() []spec {
 		{id: "kces.pmatassets", root: typeOf[*serializationKCES.PriorityMaterialAssets]()},
 		{id: "kces.model", root: typeOf[*serializationKCES.Model]()},
 		{id: "kces.hitcheck", root: typeOf[serializationKCES.HitCheck]()},
-		{id: "kces.undressdat", root: typeOf[serializationKCES.KCESJSONText](), customize: markerCustomizer("extension", ".undressdat")},
-		{id: "kces.undresspdat", root: typeOf[serializationKCES.KCESJSONText](), customize: markerCustomizer("extension", ".undresspdat")},
-		{id: "kces.nson", root: typeOf[serializationKCES.KCESJSONText](), customize: markerCustomizer("extension", ".nson")},
+		{id: "kces.undressdat", root: typeOf[json.RawMessage]()},
+		{id: "kces.undresspdat", root: typeOf[json.RawMessage]()},
+		{id: "kces.nson", root: typeOf[json.RawMessage]()},
 		{id: "kces.bytes", root: typeOf[KCESService.RawUnityObjectEnvelope]()},
 		{id: "kces.preset", root: typeOf[serializationKCES.ExpandedKCESPreset]()},
 		{id: "kces.ct", root: typeOf[KCESService.CtEnvelope]()},
@@ -224,19 +224,6 @@ func forbidProperties(names ...string) []*jsonschema.Schema {
 		result = append(result, &jsonschema.Schema{Not: &jsonschema.Schema{Required: []string{name}}})
 	}
 	return result
-}
-
-func markerCustomizer(property, value string) func(*jsonschema.Schema) error {
-	return func(root *jsonschema.Schema) error {
-		if root.Properties == nil || root.Properties[property] == nil {
-			return fmt.Errorf("required marker property %q is missing", property)
-		}
-		field := root.Properties[property]
-		field.Type = "string"
-		field.Types = nil
-		field.Const = anyPtr(value)
-		return nil
-	}
 }
 
 func anyPtr(value any) *any { return &value }

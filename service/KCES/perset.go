@@ -43,13 +43,7 @@ func IsKCESPersetJSONFile(path string) bool {
 	if err != nil {
 		return false
 	}
-	var header struct {
-		Format string `json:"format"`
-	}
-	if err := json.Unmarshal(trimJSONUTF8BOM(data), &header); err != nil {
-		return false
-	}
-	return header.Format == serializationKCES.KCESPresetFormat
+	return hasKCESPresetEditingJSONRoot(data)
 }
 
 // ReadPersetFile 直接读取并完整展开 KCES .perset 文件中的已知内部块
@@ -123,9 +117,6 @@ func (s *PersetService) ConvertJsonToPerset(ctx context.Context, inputPath strin
 	var value serializationKCES.ExpandedKCESPreset
 	if err := decodeStrictJSON(data, &value, "KCES .perset JSON"); err != nil {
 		return fmt.Errorf("parse KCES .perset JSON: %w", err)
-	}
-	if value.Format != serializationKCES.KCESPresetFormat {
-		return fmt.Errorf("unsupported KCES .perset JSON format %q", value.Format)
 	}
 	encoded, err := serializationKCES.EncodeExpandedKCESPreset(&value)
 	if err != nil {

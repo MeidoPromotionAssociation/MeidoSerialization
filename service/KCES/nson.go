@@ -27,7 +27,7 @@ func IsKCESNSONJSONFile(path string) bool {
 
 // ReadNSONFile 读取并解码 .nson 文件
 // ReadNSONFile reads and decodes a .nson file
-func (s *NSONService) ReadNSONFile(path string) (*serializationKCES.KCESJSONText, error) {
+func (s *NSONService) ReadNSONFile(path string) (json.RawMessage, error) {
 	if serializationKCES.NormalizeKCESJSONTextExtension(path) != serializationKCES.KCESNSONExtension {
 		return nil, fmt.Errorf("not a .nson file: %s", path)
 	}
@@ -44,14 +44,11 @@ func (s *NSONService) ReadNSONFile(path string) (*serializationKCES.KCESJSONText
 
 // WriteNSONFile 编码并写入 .nson 文件
 // WriteNSONFile encodes and writes a .nson file
-func (s *NSONService) WriteNSONFile(path string, value *serializationKCES.KCESJSONText) error {
+func (s *NSONService) WriteNSONFile(path string, value json.RawMessage) error {
 	if serializationKCES.NormalizeKCESJSONTextExtension(path) != serializationKCES.KCESNSONExtension {
 		return fmt.Errorf("not a .nson output path: %s", path)
 	}
-	if value == nil || serializationKCES.NormalizeKCESJSONTextExtension(value.Extension) != serializationKCES.KCESNSONExtension {
-		return fmt.Errorf(".nson output requires a .nson KCES JSON-text value")
-	}
-	encoded, err := serializationKCES.EncodeKCESJSONText(value)
+	encoded, err := serializationKCES.EncodeKCESJSONText(value, serializationKCES.KCESNSONExtension)
 	if err != nil {
 		return fmt.Errorf("encode .nson file: %w", err)
 	}
@@ -92,17 +89,11 @@ func (s *NSONService) ConvertJsonToNSON(ctx context.Context, inputPath string, o
 	if err != nil {
 		return fmt.Errorf("read .nson JSON %q: %w", inputPath, err)
 	}
-	var value serializationKCES.KCESJSONText
+	var value json.RawMessage
 	if err := decodeStrictJSON(trimJSONUTF8BOM(data), &value, "KCES .nson JSON"); err != nil {
 		return fmt.Errorf("parse .nson JSON: %w", err)
 	}
-	actual := serializationKCES.NormalizeKCESJSONTextExtension(value.Extension)
-	if actual == "" {
-		value.Extension = serializationKCES.KCESNSONExtension
-	} else if actual != serializationKCES.KCESNSONExtension {
-		return fmt.Errorf("KCES JSON-text envelope extension %q does not match file extension %q", actual, serializationKCES.KCESNSONExtension)
-	}
-	encoded, err := serializationKCES.EncodeKCESJSONText(&value)
+	encoded, err := serializationKCES.EncodeKCESJSONText(value, serializationKCES.KCESNSONExtension)
 	if err != nil {
 		return fmt.Errorf("encode .nson file: %w", err)
 	}

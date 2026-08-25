@@ -110,7 +110,7 @@ func decodeKCESBridgeSessionEditingJSON(data []byte) (*serializationKCES.KCESBri
 	if err := json.Unmarshal(trimJSONUTF8BOM(data), &fields); err != nil {
 		return nil, err
 	}
-	for _, name := range []string{"format", "containerVersion", "sessionData"} {
+	for _, name := range []string{"containerVersion", "sessionData"} {
 		if _, found := fields[name]; !found {
 			return nil, fmt.Errorf("%s is required", name)
 		}
@@ -126,12 +126,6 @@ func decodeKCESBridgeSessionEditingJSON(data []byte) (*serializationKCES.KCESBri
 		if _, found := sessionFields[name]; !found {
 			return nil, fmt.Errorf("sessionData.%s is required", name)
 		}
-	}
-	if value.Format == "" {
-		return nil, fmt.Errorf("format is missing or null")
-	}
-	if value.Format != serializationKCES.KCESBridgeSessionFormat {
-		return nil, fmt.Errorf("unsupported KCES bridge session JSON format %q", value.Format)
 	}
 	if _, err := serializationKCES.EncodeKCESBridgeSession(&value); err != nil {
 		return nil, err

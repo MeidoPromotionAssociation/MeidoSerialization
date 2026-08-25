@@ -13,7 +13,6 @@ import (
 
 // ExpandedKCESPreset 是 KCES VirtualDirectory 预设的完整解码编辑表示，三个 MaidPresetCore 字节串只以实际游戏结构表示 / ExpandedKCESPreset is the fully decoded editing representation of a KCES VirtualDirectory preset whose three MaidPresetCore byte strings are represented only by actual game structures
 type ExpandedKCESPreset struct {
-	Format               string                                 `json:"format"`                         // JSON 表示格式标识 / JSON representation format identifier
 	ContainerVersion     int32                                  `json:"containerVersion"`               // VirtualDirectory 容器版本 / VirtualDirectory container version
 	ContainerFraming     ct.VirtualDirectoryFraming             `json:"containerFraming,omitempty"`     // VirtualDirectory MessagePack 目录的外层尾部封装 / Outer footer frame around the VirtualDirectory MessagePack directory
 	ContainerDirectories map[string]ct.VirtualDirectoryMetadata `json:"containerDirectories,omitempty"` // 虚拟目录的真实版本字段 / Real version fields of virtual directories
@@ -64,7 +63,7 @@ func (value *ExpandedKCESPreset) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &fields); err != nil {
 		return err
 	}
-	for _, name := range []string{"format", "containerVersion", "thumbnail", "maidData"} {
+	for _, name := range []string{"containerVersion", "thumbnail", "maidData"} {
 		if _, ok := fields[name]; !ok {
 			return fmt.Errorf("%s is required", name)
 		}
@@ -93,7 +92,6 @@ func ExpandKCESPreset(preset *KCESPreset) (*ExpandedKCESPreset, error) {
 	}
 
 	expanded := &ExpandedKCESPreset{
-		Format:               preset.Format,
 		ContainerVersion:     preset.ContainerVersion,
 		ContainerFraming:     preset.ContainerFraming,
 		ContainerDirectories: preset.ContainerDirectories,
@@ -169,7 +167,6 @@ func CollapseExpandedKCESPreset(value *ExpandedKCESPreset) (*KCESPreset, error) 
 	}
 
 	return &KCESPreset{
-		Format:               value.Format,
 		ContainerVersion:     value.ContainerVersion,
 		ContainerFraming:     value.ContainerFraming,
 		ContainerDirectories: value.ContainerDirectories,

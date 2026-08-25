@@ -27,7 +27,7 @@ func IsKCESUndressDataJSONFile(path string) bool {
 
 // ReadUndressDataFile 读取并解码 .undressdat 文件
 // ReadUndressDataFile reads and decodes a .undressdat file
-func (s *UndressDataService) ReadUndressDataFile(path string) (*serializationKCES.KCESJSONText, error) {
+func (s *UndressDataService) ReadUndressDataFile(path string) (json.RawMessage, error) {
 	if serializationKCES.NormalizeKCESJSONTextExtension(path) != serializationKCES.KCESUndressDataExtension {
 		return nil, fmt.Errorf("not a .undressdat file: %s", path)
 	}
@@ -44,14 +44,11 @@ func (s *UndressDataService) ReadUndressDataFile(path string) (*serializationKCE
 
 // WriteUndressDataFile 编码并写入 .undressdat 文件
 // WriteUndressDataFile encodes and writes a .undressdat file
-func (s *UndressDataService) WriteUndressDataFile(path string, value *serializationKCES.KCESJSONText) error {
+func (s *UndressDataService) WriteUndressDataFile(path string, value json.RawMessage) error {
 	if serializationKCES.NormalizeKCESJSONTextExtension(path) != serializationKCES.KCESUndressDataExtension {
 		return fmt.Errorf("not a .undressdat output path: %s", path)
 	}
-	if value == nil || serializationKCES.NormalizeKCESJSONTextExtension(value.Extension) != serializationKCES.KCESUndressDataExtension {
-		return fmt.Errorf(".undressdat output requires a .undressdat KCES JSON-text value")
-	}
-	encoded, err := serializationKCES.EncodeKCESJSONText(value)
+	encoded, err := serializationKCES.EncodeKCESJSONText(value, serializationKCES.KCESUndressDataExtension)
 	if err != nil {
 		return fmt.Errorf("encode .undressdat file: %w", err)
 	}
@@ -92,17 +89,11 @@ func (s *UndressDataService) ConvertJsonToUndressData(ctx context.Context, input
 	if err != nil {
 		return fmt.Errorf("read .undressdat JSON %q: %w", inputPath, err)
 	}
-	var value serializationKCES.KCESJSONText
+	var value json.RawMessage
 	if err := decodeStrictJSON(trimJSONUTF8BOM(data), &value, "KCES .undressdat JSON"); err != nil {
 		return fmt.Errorf("parse .undressdat JSON: %w", err)
 	}
-	actual := serializationKCES.NormalizeKCESJSONTextExtension(value.Extension)
-	if actual == "" {
-		value.Extension = serializationKCES.KCESUndressDataExtension
-	} else if actual != serializationKCES.KCESUndressDataExtension {
-		return fmt.Errorf("KCES JSON-text envelope extension %q does not match file extension %q", actual, serializationKCES.KCESUndressDataExtension)
-	}
-	encoded, err := serializationKCES.EncodeKCESJSONText(&value)
+	encoded, err := serializationKCES.EncodeKCESJSONText(value, serializationKCES.KCESUndressDataExtension)
 	if err != nil {
 		return fmt.Errorf("encode .undressdat file: %w", err)
 	}

@@ -18,7 +18,6 @@ func kcesContainerProfiles() map[string]Guide {
 		"MaidPreset and VirtualDirectory were reviewed in KCES 1.34.4. The outer file contract is verified and propData, colorData, and bodyData use their dedicated typed inner codecs.",
 		[]Source{presetSource, vdSource},
 		[]Field{
-			field("/format", "Editing format marker", "The marker for the KCES VirtualDirectory preset envelope.", "It identifies the current KCES preset representation and distinguishes it from legacy COM3D2_PRESET.", "editing_metadata", "Keep kces-virtual-directory-preset.", "critical"),
 			field("/containerVersion", "Preset container version", "The outer VirtualDirectory version, normally 1000.", "VirtualDirectory serializes the preset using this version and its corresponding indexed metadata layout.", "version_marker", "Preserve the source value; use 1000 for a new current KCES preset.", "critical"),
 			field("/thumbnail", "Preset thumbnail", "PNG thumbnail bytes stored in the thumbnail virtual file.", "MaidPreset decodes these bytes for the preset browser preview; they do not directly change character state.", "binary_asset", "Keep valid PNG data or preserve the original thumbnail when editing character blocks.", "medium"),
 			field("/maidData", "Maid preset core", "The typed maiddata object containing versioned property, color, and body structures.", "MaidPreset hands the corresponding encoded blocks to Maid's property, multi-color, and body deserializers when applying a preset.", "runtime_configuration", "Keep the core version and all three typed structures from the same source preset generation.", "critical"),
@@ -93,7 +92,6 @@ func kcesContainerProfiles() map[string]Guide {
 		"ApplicationSystemDataManager, the VirtualDirectory implementation, and the KCES EditData path dispatch were reviewed in KCES 1.34.4.",
 		[]Source{systemSource, editDataSource, vdSource},
 		[]Field{
-			field("/format", "Editing format marker", "The marker for the normalized system.dat envelope.", "It identifies the JSON representation and is not a native VirtualDirectory field.", "editing_metadata", "Keep kces-system-data.", "low"),
 			field("/version", "System container version", "The outer VirtualDirectory version, normally 1000.", "ApplicationSystemDataManager loads and saves system.dat through VirtualDirectory using this version.", "version_marker", "Preserve the source value; use 1000 for a new current container.", "critical"),
 			field("/directories", "System directories", "The actual child-directory version map in system.dat.", "VirtualDirectory recreates the EditData and other child directories from these records.", "runtime_container", "Preserve directory names and versions required by typed and extra files.", "high"),
 			field("/editData", "Typed EditData files", "Recognized files under the EditData virtual directory, each carrying a path, kind discriminator, and one typed payload.", "ApplicationSystemDataManager and SceneEdit read these files to restore editor UI, palette, gradation, and color-preset state.", "runtime_configuration", "Keep path and kind synchronized and edit each union member with its matching schema.", "critical"),

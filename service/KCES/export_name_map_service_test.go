@@ -104,7 +104,7 @@ func TestExportNameMapRoutingRejectsMalformedNativeAndNullEntries(t *testing.T) 
 	}
 
 	nilJSON := filepath.Join(dir, "renamed.enm.json")
-	if err := os.WriteFile(nilJSON, []byte(`{"format":"kces-export-name-map","version":1000,"entries":null}`), 0644); err != nil {
+	if err := os.WriteFile(nilJSON, []byte(`{"version":1000,"entries":null}`), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if IsKCESExportNameMapJSONFile(nilJSON) {

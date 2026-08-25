@@ -20,8 +20,8 @@ import (
 const (
 	KCESPresetExtension = ".preset"
 
-	// KCESPresetFormat 用于区分基于 VirtualDirectory 的 KCES 预设 JSON 表示与使用同一 .preset 扩展名的旧版 CM3D2_PRESET 表示
-	// KCESPresetFormat distinguishes the VirtualDirectory-based KCES preset JSON representation from the legacy CM3D2_PRESET representation using the same .preset extension
+	// KCESPresetFormat 是文件类型探测报告的格式标签，不再作为编辑 JSON 的字段写出
+	// KCESPresetFormat is the format label reported by file-type detection and is no longer written as an editing JSON field
 	KCESPresetFormat = "kces-virtual-directory-preset"
 
 	kcesPresetContainerVersion int32 = 1000
@@ -44,7 +44,6 @@ const (
 // KCESPreset represents the KCES VirtualDirectory preset used only by the binary envelope layer
 // Editing JSON services use ExpandedKCESPreset and do not expose raw bytes for the three known inner blocks
 type KCESPreset struct {
-	Format               string                                 `json:"format"`                         // JSON 表示格式标识 / JSON representation format identifier
 	ContainerVersion     int32                                  `json:"containerVersion"`               // VirtualDirectory 容器版本 / VirtualDirectory container version
 	ContainerFraming     ct.VirtualDirectoryFraming             `json:"containerFraming,omitempty"`     // VirtualDirectory MessagePack 目录的外层尾部封装 / Outer footer frame around the VirtualDirectory MessagePack directory
 	ContainerDirectories map[string]ct.VirtualDirectoryMetadata `json:"containerDirectories,omitempty"` // 虚拟目录的真实版本字段 / Real version fields of virtual directories
@@ -141,7 +140,6 @@ func DecodeKCESPreset(data []byte) (*KCESPreset, error) {
 	}
 
 	preset := &KCESPreset{
-		Format:               KCESPresetFormat,
 		ContainerVersion:     table.Version,
 		ContainerFraming:     table.Framing,
 		ContainerDirectories: table.GetVirtualDirectoryMetadata(),
@@ -186,9 +184,6 @@ func DecodeKCESPreset(data []byte) (*KCESPreset, error) {
 func EncodeKCESPreset(preset *KCESPreset) ([]byte, error) {
 	if preset == nil {
 		return nil, fmt.Errorf("nil KCES preset")
-	}
-	if preset.Format != "" && preset.Format != KCESPresetFormat {
-		return nil, fmt.Errorf("unsupported KCES preset format %q", preset.Format)
 	}
 	if preset.MaidData == nil {
 		return nil, fmt.Errorf("KCES preset maidData is required")
@@ -302,7 +297,6 @@ func NewKCESPreset() (*KCESPreset, error) {
 		return nil, err
 	}
 	return &KCESPreset{
-		Format:           KCESPresetFormat,
 		ContainerVersion: kcesPresetContainerVersion,
 		MaidData:         core,
 		Meta: &KCESPresetMeta{
@@ -320,7 +314,6 @@ func NewKCES2Preset() (*KCESPreset, error) {
 		return nil, err
 	}
 	return &KCESPreset{
-		Format:           KCESPresetFormat,
 		ContainerVersion: kcesPresetContainerVersion,
 		MaidData:         core,
 		Meta: &KCESPresetMeta{

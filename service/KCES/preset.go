@@ -44,13 +44,22 @@ func IsKCESPresetJSONFile(path string) bool {
 	if err != nil {
 		return false
 	}
-	var header struct {
-		Format string `json:"format"`
-	}
-	if err := json.Unmarshal(trimJSONUTF8BOM(data), &header); err != nil {
+	return hasKCESPresetEditingJSONRoot(data)
+}
+
+// hasKCESPresetEditingJSONRoot 通过 KCES 独有的 maidData 成员区分 KCES 预设编辑 JSON 与旧版 CM3D2_PRESET 编辑 JSON
+// 两者共用 .preset 扩展名，而旧版根使用 PascalCase 的 Signature/PresetPropertyList 成员
+// hasKCESPresetEditingJSONRoot distinguishes KCES preset editing JSON from legacy CM3D2_PRESET editing JSON
+// through the KCES-only maidData member, since both share the .preset extension while the legacy root uses
+// PascalCase Signature and PresetPropertyList members
+func hasKCESPresetEditingJSONRoot(data []byte) bool {
+	var root map[string]json.RawMessage
+	if err := json.Unmarshal(trimJSONUTF8BOM(data), &root); err != nil {
 		return false
 	}
-	return header.Format == serializationKCES.KCESPresetFormat
+	_, hasMaidData := root["maidData"]
+	_, hasContainerVersion := root["containerVersion"]
+	return hasMaidData && hasContainerVersion
 }
 
 // ReadPresetFile 读取并完整展开 KCES 预设中的三个已知内部块
@@ -117,9 +126,6 @@ func (s *PresetService) ConvertJsonToPreset(ctx context.Context, inputPath strin
 	var preset serializationKCES.ExpandedKCESPreset
 	if err := decodeStrictJSON(data, &preset, "KCES preset JSON"); err != nil {
 		return fmt.Errorf("parse KCES preset JSON: %w", err)
-	}
-	if preset.Format != serializationKCES.KCESPresetFormat {
-		return fmt.Errorf("unsupported KCES preset JSON format %q", preset.Format)
 	}
 	encoded, err := serializationKCES.EncodeExpandedKCESPreset(&preset)
 	if err != nil {

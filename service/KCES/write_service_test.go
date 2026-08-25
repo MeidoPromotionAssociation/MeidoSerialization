@@ -3,6 +3,7 @@ package KCES
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -40,18 +41,15 @@ func TestKCESDirectWritersMatchNativeEncoders(t *testing.T) {
 	}
 
 	bridge := &GP03BridgeEditing{
-		Format:    serializationKCES.KCESGP03BridgeFormat,
 		Signature: serializationKCES.GP03BridgeSignature,
 		Version:   serializationKCES.GP03BridgeVersion,
 		GUID:      "direct-writer",
 	}
 	bridgeSession := serializationKCES.NewKCESBridgeSession("direct-writer")
 	maidCollider := &serializationKCES.MaidColliderFile{
-		Format:    serializationKCES.MaidColliderFormat,
 		Colliders: []serializationKCES.MaidCapsuleCollider{},
 	}
 	exportNameMap := &serializationKCES.KCESExportNameMap{
-		Format:  serializationKCES.KCESExportNameMapFormat,
 		Version: serializationKCES.KCESExportNameMapVersion,
 		Entries: []serializationKCES.KCESExportNameMapEntry{},
 	}
@@ -66,10 +64,7 @@ func TestKCESDirectWritersMatchNativeEncoders(t *testing.T) {
 	model := &serializationKCES.Model{}
 	hitCheck := serializationKCES.NewHitCheck()
 	hitCheck.Entries = []serializationKCES.HitCheckEntry{}
-	jsonText := &serializationKCES.KCESJSONText{
-		Extension: ".nson",
-		JSON:      []byte(`{"version":1000,"ids":[1,2]}`),
-	}
+	jsonText := json.RawMessage(`{"version":1000,"ids":[1,2]}`)
 	psk := &serializationCOM3D2.Psk{Signature: "CM3D21_PSK", Version: 217}
 	var expectedPsk bytes.Buffer
 	if err := psk.Dump(&expectedPsk); err != nil {
@@ -219,7 +214,7 @@ func TestKCESDirectWritersMatchNativeEncoders(t *testing.T) {
 		{
 			name:     "JSON text",
 			fileName: "direct.nson",
-			expected: mustEncode(serializationKCES.EncodeKCESJSONText(jsonText)),
+			expected: mustEncode(serializationKCES.EncodeKCESJSONText(jsonText, ".nson")),
 			write: func(path string) error {
 				return (&MiscService{}).WriteMiscFile(path, jsonText)
 			},
@@ -336,11 +331,9 @@ func TestWriteRawUnityObjectFileWritesNativeDataAndSidecars(t *testing.T) {
 
 func TestKCESDirectWritersValidateBeforeCreatingOutput(t *testing.T) {
 	dir := t.TempDir()
-	invalidPaths := serializationKCES.NewKCESPathsFile()
-	invalidPaths.Format = "invalid"
 	pathsOutput := filepath.Join(dir, "paths.dat")
-	if err := (&PathsService{}).WritePathsFile(pathsOutput, invalidPaths); err == nil {
-		t.Fatal("WritePathsFile accepted an invalid format")
+	if err := (&PathsService{}).WritePathsFile(pathsOutput, nil); err == nil {
+		t.Fatal("WritePathsFile accepted a nil value")
 	}
 	if _, err := os.Stat(pathsOutput); !os.IsNotExist(err) {
 		t.Fatalf("invalid paths output exists or stat failed unexpectedly: %v", err)

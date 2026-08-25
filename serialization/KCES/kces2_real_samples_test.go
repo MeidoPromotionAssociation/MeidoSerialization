@@ -213,7 +213,6 @@ func TestKCES2SampleSystemDataPreservesUnknownBytes(t *testing.T) {
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		synthetic := &KCESSystemData{
-			Format:           KCESSystemDataFormat,
 			Version:          1000,
 			ContainerFraming: ct.VirtualDirectoryFramingExtended,
 			Directories: map[string]ct.VirtualDirectoryMetadata{

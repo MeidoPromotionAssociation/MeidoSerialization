@@ -4,36 +4,6 @@
   "additionalProperties": false,
   "description": "Lossless editing JSON contract for kces.paths.",
   "properties": {
-    "format": {
-      "description": "The marker for the paths.dat editing envelope.",
-      "title": "Editing format marker",
-      "type": "string",
-      "x-meido-edit-guidance": "Keep kces-auto-paths.",
-      "x-meido-edit-role": "editing_metadata",
-      "x-meido-game-usage": "It identifies the JSON representation and is not a native field.",
-      "x-meido-risk": "low",
-      "x-meido-source-evidence": [
-        {
-          "game_version": "KCES 1.34.4",
-          "kind": "game_source",
-          "line_end": 685,
-          "line_start": 656,
-          "observation": "NativeFileManager reads paths.dat to obtain additional resource search paths before creating compatible catalogs.",
-          "path": "KCES 1.34.4/WfSystem.FileSystem/ResourceManagement/NativeFileManager.cs",
-          "symbol": "NativeFileManager.ReadAutoPathFile"
-        }
-      ],
-      "x-meido-verification": {
-        "serialization": {
-          "authority": "ai",
-          "status": "verified"
-        },
-        "source_semantics": {
-          "authority": "ai",
-          "status": "verified"
-        }
-      }
-    },
     "paths": {
       "description": "Ordered resource directories or archive-related paths added to catalog discovery.",
       "items": {
@@ -136,7 +106,6 @@
     }
   },
   "required": [
-    "format",
     "signature",
     "version",
     "paths"

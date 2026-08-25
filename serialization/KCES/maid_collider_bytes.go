@@ -15,6 +15,8 @@ import (
 // KCES system-resource lists of maid capsule colliders imported by Unity as same-named TextAssets
 // The payload is signatureless BinaryWriter data storing an Int32 count followed by a bone path and six fixed-width numeric fields per entry
 
+// MaidColliderFormat 是文件类型探测报告的格式标签，不再作为编辑 JSON 的字段写出
+// MaidColliderFormat is the format label reported by file-type detection and is no longer written as an editing JSON field
 const MaidColliderFormat = "kces-maid-capsule-colliders"
 
 const (
@@ -28,7 +30,6 @@ const (
 // MaidColliderFile represents the custom BinaryReader payload consumed by MaidColliderCollect
 // In the System AssetBundle these TextAssets are named maid_collider and maid_collider_touch, while source resource names additionally use .bytes
 type MaidColliderFile struct {
-	Format    string                `json:"format"`    // JSON 表示格式标识 / JSON representation format identifier
 	Colliders []MaidCapsuleCollider `json:"colliders"` // 胶囊碰撞体列表 / Capsule-collider list
 }
 
@@ -64,7 +65,6 @@ func DecodeMaidCollider(data []byte) (*MaidColliderFile, error) {
 	}
 
 	result := &MaidColliderFile{
-		Format:    MaidColliderFormat,
 		Colliders: makeKCESCountedSliceForAppend[MaidCapsuleCollider](uint64(count)),
 	}
 	for i := int32(0); i < count; i++ {
@@ -104,9 +104,6 @@ func DecodeMaidCollider(data []byte) (*MaidColliderFile, error) {
 func EncodeMaidCollider(value *MaidColliderFile) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil maid collider payload")
-	}
-	if value.Format != "" && value.Format != MaidColliderFormat {
-		return nil, fmt.Errorf("unsupported maid collider format %q", value.Format)
 	}
 	if uint64(len(value.Colliders)) > uint64(math.MaxInt32) {
 		return nil, fmt.Errorf("maid collider count %d exceeds Int32", len(value.Colliders))

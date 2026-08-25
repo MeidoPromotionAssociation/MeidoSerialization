@@ -61,7 +61,7 @@ func TestKCESPresetGameLayoutRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DecodeKCESPreset: %v", err)
 	}
-	if decoded.Format != KCESPresetFormat || decoded.ContainerVersion != 777 {
+	if decoded.ContainerVersion != 777 {
 		t.Fatalf("decoded header = %+v", decoded)
 	}
 	if decoded.MaidData.Version != 778 || decoded.Meta == nil || decoded.Meta.Version != 779 {

@@ -40,7 +40,7 @@ func TestGP03BridgeServiceJSONRoundTripAndFileTypeProbe(t *testing.T) {
 	if err := json.Unmarshal(mustReadTestFile(t, jsonPath), &envelope); err != nil {
 		t.Fatalf("unmarshal bridge JSON: %v", err)
 	}
-	if envelope.Format != serializationKCES.KCESGP03BridgeFormat || envelope.Signature != serializationKCES.GP03BridgeSignature || envelope.Version != serializationKCES.GP03BridgeVersion {
+	if envelope.Signature != serializationKCES.GP03BridgeSignature || envelope.Version != serializationKCES.GP03BridgeVersion {
 		t.Fatalf("unexpected bridge JSON envelope: %+v", envelope)
 	}
 	if envelope.LegacyPreset == nil || envelope.CurrentPreset == nil {
@@ -134,7 +134,7 @@ func TestGP03BridgeServiceStrictJSONAndRouting(t *testing.T) {
 		"unknown":      unknown,
 		"trailing":     trailing,
 		"invalid utf8": {'{', '"', 'x', '"', ':', '"', 0xff, '"', '}'},
-		"null guid":    []byte(`{"format":"kces-gp03-bridge","signature":"GP03_BRIDGE","version":2001,"guid":null,"legacyPreset":null,"currentPreset":null}`),
+		"null guid":    []byte(`{"signature":"GP03_BRIDGE","version":2001,"guid":null,"legacyPreset":null,"currentPreset":null}`),
 	} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -153,7 +153,7 @@ func TestGP03BridgeServiceStrictJSONAndRouting(t *testing.T) {
 	}
 	for name, body := range map[string][]byte{
 		"missing typed preset field": missing,
-		"raw base64 preset":          []byte(`{"format":"kces-gp03-bridge","signature":"GP03_BRIDGE","version":2001,"guid":"g","legacyPreset":"AA==","currentPreset":null}`),
+		"raw base64 preset":          []byte(`{"signature":"GP03_BRIDGE","version":2001,"guid":"g","legacyPreset":"AA==","currentPreset":null}`),
 	} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()

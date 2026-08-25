@@ -62,7 +62,7 @@ func TestSavedAttachServiceJSONRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(mustReadTestFile(t, jsonPath), &envelope); err != nil {
 		t.Fatalf("unmarshal editing JSON: %v", err)
 	}
-	if envelope.Format != serializationKCES.KCESSavedAttachFormat || envelope.Signature != serializationKCES.SavedAttachSignature {
+	if envelope.Signature != serializationKCES.SavedAttachSignature {
 		t.Fatalf("unexpected editing envelope: %+v", envelope)
 	}
 	for _, path := range []string{inputPath, jsonPath} {
@@ -141,12 +141,12 @@ func TestSavedAttachServiceStrictJSONAndRouting(t *testing.T) {
 	}
 	for name, body := range map[string]string{
 		"missing envelope":    `{}`,
-		"empty format":        `{"format":"","signature":"SAVED_ATTACH_DATA","version":2000,"items":[]}`,
-		"empty signature":     `{"format":"kces-saved-attach","signature":"","version":2000,"items":[]}`,
-		"unknown":             `{"format":"kces-saved-attach","signature":"SAVED_ATTACH_DATA","version":2000,"items":[],"future":1}`,
-		"trailing":            `{"format":"kces-saved-attach","signature":"SAVED_ATTACH_DATA","version":2000,"items":[]} {}`,
-		"null record version": `{"format":"kces-saved-attach","signature":"SAVED_ATTACH_DATA","version":2000,"items":[{"version":null}]}`,
-		"unsupported version": `{"format":"kces-saved-attach","signature":"SAVED_ATTACH_DATA","version":0,"items":[]}`,
+		"removed format tag":  `{"format":"kces-saved-attach","signature":"SAVED_ATTACH_DATA","version":2000,"items":[]}`,
+		"empty signature":     `{"signature":"","version":2000,"items":[]}`,
+		"unknown":             `{"signature":"SAVED_ATTACH_DATA","version":2000,"items":[],"future":1}`,
+		"trailing":            `{"signature":"SAVED_ATTACH_DATA","version":2000,"items":[]} {}`,
+		"null record version": `{"signature":"SAVED_ATTACH_DATA","version":2000,"items":[{"version":null}]}`,
+		"unsupported version": `{"signature":"SAVED_ATTACH_DATA","version":0,"items":[]}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -172,7 +172,7 @@ func TestSavedAttachServiceStrictJSONAndRouting(t *testing.T) {
 	}{
 		{
 			name: "opaque slot IDs",
-			body: `{"format":"kces-saved-attach","signature":"SAVED_ATTACH_DATA","version":2000,"items":[{"version":2001,"mySlotId":"acchat","targetSlotId":"future_Slot"}]}`,
+			body: `{"signature":"SAVED_ATTACH_DATA","version":2000,"items":[{"version":2001,"mySlotId":"acchat","targetSlotId":"future_Slot"}]}`,
 			check: func(t *testing.T, value *serializationKCES.SavedAttachFile) {
 				if len(value.Items) != 1 || value.Items[0].MySlotID != "acchat" || value.Items[0].TargetSlotID != "future_Slot" {
 					t.Fatalf("opaque slot IDs changed: %+v", value.Items)
@@ -181,11 +181,11 @@ func TestSavedAttachServiceStrictJSONAndRouting(t *testing.T) {
 		},
 		{
 			name: "missing items",
-			body: `{"format":"kces-saved-attach","signature":"SAVED_ATTACH_DATA","version":2000}`,
+			body: `{"signature":"SAVED_ATTACH_DATA","version":2000}`,
 		},
 		{
 			name: "null items",
-			body: `{"format":"kces-saved-attach","signature":"SAVED_ATTACH_DATA","version":2000,"items":null}`,
+			body: `{"signature":"SAVED_ATTACH_DATA","version":2000,"items":null}`,
 		},
 	}
 	for _, test := range accepted {
@@ -213,7 +213,7 @@ func TestSavedAttachServiceStrictJSONAndRouting(t *testing.T) {
 		dir := t.TempDir()
 		inputPath := filepath.Join(dir, "bad.sad.json")
 		outputPath := filepath.Join(dir, "bad.sad")
-		body := []byte(`{"format":"kces-saved-attach","signature":"SAVED_ATTACH_DATA","version":2000,"items":[{"version":2001,"partName":"`)
+		body := []byte(`{"signature":"SAVED_ATTACH_DATA","version":2000,"items":[{"version":2001,"partName":"`)
 		body = append(body, 0xff)
 		body = append(body, []byte(`","enabled":false,"myRid":0,"mySlotId":"body","targetRid":0,"targetSlotId":"body","targetSlotNo":0,"targetAttachPointName":null,"targetVertexCount":0,"targetVertexIndex":0,"newAttachVertexIndices":null,"prs2":null,"prs3":null,"boneAttachedHierarchy":null,"boneAttachEdited":false}]}`)...)
 		if err := os.WriteFile(inputPath, body, 0644); err != nil {

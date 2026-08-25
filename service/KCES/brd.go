@@ -15,7 +15,6 @@ import (
 
 // GP03BridgeEditing 表示 .brd 的完整 typed editing JSON，空长度块以 null 表示 / GP03BridgeEditing represents the fully typed editing JSON for .brd, with zero-length blocks represented as null
 type GP03BridgeEditing struct {
-	Format        string                                `json:"format"`        // JSON 表示格式标识 / JSON representation format identifier
 	Signature     string                                `json:"signature"`     // 文件签名 GP03_BRIDGE / File signature GP03_BRIDGE
 	Version       int32                                 `json:"version"`       // 外层桥接版本 2000 或 2001 / Outer bridge version 2000 or 2001
 	GUID          string                                `json:"guid"`          // 传输角色的 GUID / GUID of the transferred character
@@ -107,7 +106,6 @@ func decodeGP03Bridge(data []byte) (*GP03BridgeEditing, error) {
 		return nil, err
 	}
 	value := &GP03BridgeEditing{
-		Format:    serializationKCES.KCESGP03BridgeFormat,
 		Signature: wire.Signature,
 		Version:   wire.Version,
 		GUID:      wire.GUID,
@@ -142,9 +140,6 @@ func encodeGP03BridgeEditing(value *GP03BridgeEditing) ([]byte, error) {
 func collapseGP03BridgeEditing(value *GP03BridgeEditing) (*serializationKCES.GP03BridgeFile, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil GP03 bridge editing value")
-	}
-	if value.Format != serializationKCES.KCESGP03BridgeFormat {
-		return nil, fmt.Errorf("unsupported GP03 bridge JSON format %q", value.Format)
 	}
 	if value.Signature != serializationKCES.GP03BridgeSignature {
 		return nil, fmt.Errorf("invalid GP03 bridge signature %q", value.Signature)
@@ -190,7 +185,7 @@ func decodeGP03BridgeEditingJSON(data []byte) (*GP03BridgeEditing, error) {
 	if err := json.Unmarshal(data, &fields); err != nil {
 		return nil, err
 	}
-	for _, name := range []string{"format", "signature", "version", "guid", "legacyPreset", "currentPreset"} {
+	for _, name := range []string{"signature", "version", "guid", "legacyPreset", "currentPreset"} {
 		if _, found := fields[name]; !found {
 			return nil, fmt.Errorf("%s is required", name)
 		}

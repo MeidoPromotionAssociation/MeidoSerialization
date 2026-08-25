@@ -12,7 +12,6 @@ import (
 func TestKCESBridgeSessionTypedRoundTrip(t *testing.T) {
 	sessionID := "会话-A"
 	value := &KCESBridgeSession{
-		Format:           KCESBridgeSessionFormat,
 		ContainerVersion: -7,
 		ContainerFraming: ct.VirtualDirectoryFramingExtended,
 		ContainerDirectories: map[string]ct.VirtualDirectoryMetadata{
@@ -148,10 +147,9 @@ func TestEncodeKCESBridgeSessionValidation(t *testing.T) {
 		value *KCESBridgeSession
 	}{
 		{name: "nil"},
-		{name: "wrong format", value: &KCESBridgeSession{Format: "future", SessionData: valid.SessionData}},
-		{name: "invalid UTF-8", value: &KCESBridgeSession{Format: KCESBridgeSessionFormat, SessionData: KCESBridgeSessionData{SessionID: invalidUTF8}}},
-		{name: "reserved extra", value: &KCESBridgeSession{Format: KCESBridgeSessionFormat, SessionData: valid.SessionData, ExtraFiles: map[string][]byte{"session_id": {1}}}},
-		{name: "unsafe extra path", value: &KCESBridgeSession{Format: KCESBridgeSessionFormat, SessionData: valid.SessionData, ExtraFiles: map[string][]byte{"../escape": {1}}}},
+		{name: "invalid UTF-8", value: &KCESBridgeSession{SessionData: KCESBridgeSessionData{SessionID: invalidUTF8}}},
+		{name: "reserved extra", value: &KCESBridgeSession{SessionData: valid.SessionData, ExtraFiles: map[string][]byte{"session_id": {1}}}},
+		{name: "unsafe extra path", value: &KCESBridgeSession{SessionData: valid.SessionData, ExtraFiles: map[string][]byte{"../escape": {1}}}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

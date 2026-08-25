@@ -33,7 +33,7 @@ func TestMaidColliderRealSystemABASamples(t *testing.T) {
 			if err != nil {
 				t.Fatalf("DecodeMaidCollider: %v", err)
 			}
-			if decoded.Format != MaidColliderFormat || len(decoded.Colliders) == 0 {
+			if len(decoded.Colliders) == 0 {
 				t.Fatalf("incomplete decoded sample: %+v", decoded)
 			}
 			t.Logf("parsed %d capsule colliders", len(decoded.Colliders))

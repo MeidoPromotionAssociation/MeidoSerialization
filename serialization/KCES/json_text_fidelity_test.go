@@ -13,10 +13,10 @@ func TestKCESJSONTextKeepsOnlyJSONSemantics(t *testing.T) {
 		if err != nil {
 			t.Fatalf("DecodeKCESJSONText(%s) error = %v", extension, err)
 		}
-		if !bytes.Equal(value.JSON, []byte(`{"version":-7,"future":[1,2]}`)) {
-			t.Fatalf("decoded %s JSON = %s", extension, value.JSON)
+		if !bytes.Equal(value, []byte(`{"version":-7,"future":[1,2]}`)) {
+			t.Fatalf("decoded %s JSON = %s", extension, value)
 		}
-		encoded, err := EncodeKCESJSONText(value)
+		encoded, err := EncodeKCESJSONText(value, extension)
 		if err != nil {
 			t.Fatalf("EncodeKCESJSONText(%s) error = %v", extension, err)
 		}
@@ -24,8 +24,7 @@ func TestKCESJSONTextKeepsOnlyJSONSemantics(t *testing.T) {
 			t.Fatalf("%s was not normalized: %x", extension, encoded)
 		}
 
-		value.JSON = json.RawMessage(` { "edited" : true } `)
-		edited, err := EncodeKCESJSONText(value)
+		edited, err := EncodeKCESJSONText(json.RawMessage(` { "edited" : true } `), extension)
 		if err != nil || !json.Valid(edited) {
 			t.Fatalf("edited %s JSON = %x, %v", extension, edited, err)
 		}

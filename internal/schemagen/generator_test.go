@@ -293,6 +293,9 @@ func TestGeneratedSchemasAcceptRootEditingJSON(t *testing.T) {
 		} else if root.Elem().Type() == typeOf[serializationKCES.KCESExportNameMap]() {
 			nameMap := root.Interface().(*serializationKCES.KCESExportNameMap)
 			nameMap.Entries = []serializationKCES.KCESExportNameMapEntry{}
+		} else if root.Elem().Kind() != reflect.Struct {
+			// 不建模任何字段的根（编辑 JSON 就是资源自身的 JSON 文档）没有可预设的字段
+			// A root that models no fields, where the editing JSON is the resource's own JSON document, has nothing to preset
 		} else if extension := root.Elem().FieldByName("Extension"); extension.IsValid() && extension.CanSet() && extension.Kind() == reflect.String && strings.HasPrefix(spec.id, "kces.") {
 			extension.SetString("." + strings.TrimPrefix(spec.id, "kces."))
 		}
@@ -385,7 +388,6 @@ func TestGeneratedKCESEditingSchemasRejectNullEntriesAndEmptyExtensionKeys(t *te
 	t.Run("kces.enm entries", func(t *testing.T) {
 		schema := compileGeneratedSchema(t, "kces.enm")
 		valid := map[string]any{
-			"format":  serializationKCES.KCESExportNameMapFormat,
 			"version": float64(serializationKCES.KCESExportNameMapVersion),
 			"entries": []any{},
 		}

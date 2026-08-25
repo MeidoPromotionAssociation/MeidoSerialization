@@ -17,7 +17,6 @@ import (
 func TestBridgeSessionServiceStrictJSONRoundTripAndUInt64(t *testing.T) {
 	sessionID := "session-日本語"
 	value := &serializationKCES.KCESBridgeSession{
-		Format:           serializationKCES.KCESBridgeSessionFormat,
 		ContainerVersion: serializationKCES.KCESBridgeSessionContainerVersion,
 		SessionData: serializationKCES.KCESBridgeSessionData{
 			Version:         serializationKCES.KCESBridgeSessionDataVersion,
@@ -77,7 +76,6 @@ func TestBridgeSessionServiceStrictJSONRoundTripAndUInt64(t *testing.T) {
 func TestBridgeSessionServiceAcceptsBOMAndRejectsLooseJSON(t *testing.T) {
 	sessionID := "x"
 	valid := &serializationKCES.KCESBridgeSession{
-		Format:           serializationKCES.KCESBridgeSessionFormat,
 		ContainerVersion: serializationKCES.KCESBridgeSessionContainerVersion,
 		SessionData: serializationKCES.KCESBridgeSessionData{
 			Version:         serializationKCES.KCESBridgeSessionDataVersion,
@@ -111,18 +109,16 @@ func TestBridgeSessionServiceAcceptsBOMAndRejectsLooseJSON(t *testing.T) {
 		"invalid UTF-8":          append(append([]byte(nil), validJSON...), 0xff),
 		"unknown root field":     mutate(validJSON, `,"unknown":1`),
 		"trailing JSON value":    append(append([]byte(nil), validJSON...), []byte(" {}")...),
-		"missing format":         []byte(`{"containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[]}}`),
-		"null format":            []byte(`{"format":null,"containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[]}}`),
-		"wrong format":           []byte(`{"format":"future","containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[]}}`),
-		"unknown nested field":   []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[],"unknown":1}}`),
-		"rounded UInt64":         []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[18446744073709551616]}}`),
-		"sessionId raw fallback": []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[]},"sessionIdFileData":"eA=="}`),
-		"null sessionData":       []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":null}`),
-		"null sessionId":         []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"sessionId":null,"hideMenuFileIds":[]}}`),
-		"missing container":      []byte(`{"format":"kces-bridge-session","sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[]}}`),
-		"missing data version":   []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"sessionId":"x","hideMenuFileIds":[]}}`),
-		"missing sessionId":      []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"hideMenuFileIds":[]}}`),
-		"missing IDs":            []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"sessionId":"x"}}`),
+		"removed format tag":     []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[]}}`),
+		"unknown nested field":   []byte(`{"containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[],"unknown":1}}`),
+		"rounded UInt64":         []byte(`{"containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[18446744073709551616]}}`),
+		"sessionId raw fallback": []byte(`{"containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[]},"sessionIdFileData":"eA=="}`),
+		"null sessionData":       []byte(`{"containerVersion":1000,"sessionData":null}`),
+		"null sessionId":         []byte(`{"containerVersion":1000,"sessionData":{"version":0,"sessionId":null,"hideMenuFileIds":[]}}`),
+		"missing container":      []byte(`{"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":[]}}`),
+		"missing data version":   []byte(`{"containerVersion":1000,"sessionData":{"sessionId":"x","hideMenuFileIds":[]}}`),
+		"missing sessionId":      []byte(`{"containerVersion":1000,"sessionData":{"version":0,"hideMenuFileIds":[]}}`),
+		"missing IDs":            []byte(`{"containerVersion":1000,"sessionData":{"version":0,"sessionId":"x"}}`),
 	}
 	for name, data := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -141,7 +137,7 @@ func TestBridgeSessionServiceAcceptsBOMAndRejectsLooseJSON(t *testing.T) {
 	}
 
 	accepted := map[string][]byte{
-		"null IDs": []byte(`{"format":"kces-bridge-session","containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":null}}`),
+		"null IDs": []byte(`{"containerVersion":1000,"sessionData":{"version":0,"sessionId":"x","hideMenuFileIds":null}}`),
 	}
 	for name, data := range accepted {
 		t.Run("representable "+name, func(t *testing.T) {
@@ -204,7 +200,6 @@ func TestBridgeSessionServiceFilePredicates(t *testing.T) {
 func TestFileTypeServiceRecognizesBridgeSessionByPathContentAndJSONMarker(t *testing.T) {
 	sessionID := "route-session"
 	value := &serializationKCES.KCESBridgeSession{
-		Format:           serializationKCES.KCESBridgeSessionFormat,
 		ContainerVersion: serializationKCES.KCESBridgeSessionContainerVersion,
 		SessionData: serializationKCES.KCESBridgeSessionData{
 			Version:         serializationKCES.KCESBridgeSessionDataVersion,
@@ -242,18 +237,28 @@ func TestFileTypeServiceRecognizesBridgeSessionByPathContentAndJSONMarker(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"bridge_session.vd.json", "renamed.json"} {
-		path := filepath.Join(dir, name)
-		if err := os.WriteFile(path, jsonData, 0644); err != nil {
-			t.Fatal(err)
-		}
-		info, matched, err := service.TryFileTypeDetermine(path)
-		if err != nil || !matched {
-			t.Fatalf("JSON probe %q: matched=%v info=%+v err=%v", name, matched, info, err)
-		}
-		if info.FileType != "bridge_session" || info.StorageFormat != COM3D2Service.FormatJSON || info.Game != COM3D2Service.GameKCES || info.Signature != serializationKCES.KCESBridgeSessionFormat || info.Version != 1000 {
-			t.Fatalf("JSON probe %q info = %+v", name, info)
-		}
+	recognizedPath := filepath.Join(dir, "bridge_session.vd.json")
+	if err := os.WriteFile(recognizedPath, jsonData, 0644); err != nil {
+		t.Fatal(err)
+	}
+	info, matched, err := service.TryFileTypeDetermine(recognizedPath)
+	if err != nil || !matched {
+		t.Fatalf("JSON probe: matched=%v info=%+v err=%v", matched, info, err)
+	}
+	if info.FileType != "bridge_session" || info.StorageFormat != COM3D2Service.FormatJSON || info.Game != COM3D2Service.GameKCES || info.Signature != serializationKCES.KCESBridgeSessionFormat || info.Version != 1000 {
+		t.Fatalf("JSON probe info = %+v", info)
+	}
+
+	// 编辑 JSON 的格式标记已移除，唯一的标识是 bridge_session.vd.json 双扩展名，
+	// 因此改名后的文件不再被识别为 bridge session
+	// The editing format marker was removed and the only marker is the bridge_session.vd.json double
+	// extension, so a renamed file is no longer recognized as a bridge session
+	renamedPath := filepath.Join(dir, "renamed.json")
+	if err := os.WriteFile(renamedPath, jsonData, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if info, matched, err := service.TryFileTypeDetermine(renamedPath); matched && info.FileType == "bridge_session" {
+		t.Fatalf("renamed bridge session editing JSON was still recognized: info=%+v err=%v", info, err)
 	}
 }
 
@@ -262,7 +267,7 @@ func TestFileTypeServiceBridgeSessionCandidatesAndOtherVirtualDirectories(t *tes
 	service := &FileTypeService{}
 	for name, data := range map[string][]byte{
 		"bridge_session.vd":      []byte("not a VirtualDirectory"),
-		"bridge_session.vd.json": []byte(`{"format":"kces-bridge-session"`),
+		"bridge_session.vd.json": []byte(`{"containerVersion":1000`),
 	} {
 		path := filepath.Join(dir, name)
 		if err := os.WriteFile(path, data, 0644); err != nil {

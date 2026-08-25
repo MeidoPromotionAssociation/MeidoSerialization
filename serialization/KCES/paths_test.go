@@ -100,9 +100,6 @@ func TestKCESPathsRejectsMalformedWireAndJSONValues(t *testing.T) {
 			t.Fatalf("invalid-UTF8 round trip=%x error=%v want=%x", reencoded, err, wire)
 		}
 	})
-	if _, err := EncodeKCESPaths(&KCESPathsFile{Format: "wrong", Paths: []string{"x"}}); err == nil {
-		t.Fatal("wrong editing format unexpectedly encoded")
-	}
 	for _, raw := range []*KCESPathsFile{
 		{Signature: "wrong", Version: -7, Paths: []string{"", "has\x00nul"}},
 	} {

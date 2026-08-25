@@ -103,40 +103,9 @@
           "status": "verified"
         }
       }
-    },
-    "format": {
-      "description": "The marker for the normalized maid-collider list.",
-      "title": "Editing format marker",
-      "type": "string",
-      "x-meido-edit-guidance": "Keep kces-maid-capsule-colliders.",
-      "x-meido-edit-role": "editing_metadata",
-      "x-meido-game-usage": "It identifies the editing representation; the native payload has no signature or format string.",
-      "x-meido-risk": "low",
-      "x-meido-source-evidence": [
-        {
-          "game_version": "KCES 1.34.4",
-          "kind": "game_source",
-          "line_end": 223,
-          "line_start": 144,
-          "observation": "The system resources maid_collider.bytes and maid_collider_touch.bytes contain a count, bone path, center, direction, height, and radius for each capsule collider.",
-          "path": "KCES 1.34.4/Assembly-CSharp/MaidColliderCollect.cs",
-          "symbol": "MaidColliderCollect.Read/ReadCapsuleCollider"
-        }
-      ],
-      "x-meido-verification": {
-        "serialization": {
-          "authority": "ai",
-          "status": "verified"
-        },
-        "source_semantics": {
-          "authority": "ai",
-          "status": "verified"
-        }
-      }
     }
   },
   "required": [
-    "format",
     "colliders"
   ],
   "title": "kces.maid_collider editing JSON",

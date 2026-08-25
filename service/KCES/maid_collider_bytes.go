@@ -37,13 +37,8 @@ func IsKCESMaidColliderJSONFile(path string) bool {
 	if err != nil {
 		return false
 	}
-	var header struct {
-		Format string `json:"format"`
-	}
-	if err := json.Unmarshal(trimJSONUTF8BOM(data), &header); err != nil {
-		return false
-	}
-	return header.Format == serializationKCES.MaidColliderFormat
+	var value serializationKCES.MaidColliderFile
+	return decodeStrictJSON(trimJSONUTF8BOM(data), &value, "KCES maid collider JSON") == nil
 }
 
 // isMaidColliderBaseName 判断文件名是否为游戏使用的女仆碰撞体固定名称
@@ -103,9 +98,6 @@ func (s *MaidColliderService) ConvertJSONToMaidCollider(ctx context.Context, inp
 	var value serializationKCES.MaidColliderFile
 	if err := decodeStrictJSON(data, &value, "KCES maid collider JSON"); err != nil {
 		return fmt.Errorf("parse KCES maid collider JSON: %w", err)
-	}
-	if value.Format != serializationKCES.MaidColliderFormat {
-		return fmt.Errorf("unsupported KCES maid collider JSON format %q", value.Format)
 	}
 	encoded, err := serializationKCES.EncodeMaidCollider(&value)
 	if err != nil {

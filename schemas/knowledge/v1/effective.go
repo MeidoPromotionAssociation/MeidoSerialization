@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+// documentRootJSONPath 表示编辑 JSON 文档根本身的字段路径，仅用于不建模任何字段的模式
+// documentRootJSONPath is the field path of the editing JSON document root itself, used only by schemas that model no fields
+const documentRootJSONPath = "/"
+
 // Resolve 将编辑模式字段清单与可选源码审核 profile 合并为有效指南文档
 // Resolve merges an editing-schema field inventory with an optional source-reviewed profile into an effective guide document
 func Resolve(formatID, schemaID string, schemaJSON []byte) (Document, error) {
@@ -140,6 +144,12 @@ func validateProfileFields(guide Guide, schema map[string]any) error {
 func collectSchemaFields(schema map[string]any) []Field {
 	fields := make(map[string]Field)
 	walkSchema(schema, schema, "", "#", make(map[string]bool), fields)
+	// 模式不声明任何字段时（编辑 JSON 的根就是一份不建模的文档），文档根本身是唯一可标注节点
+	// When a schema declares no fields at all, because the editing JSON root is an unmodeled document,
+	// the document root itself is the only annotatable node
+	if len(fields) == 0 {
+		fields[documentRootJSONPath] = genericField(documentRootJSONPath, "#", "document root", schema)
+	}
 	result := make([]Field, 0, len(fields))
 	for _, field := range fields {
 		result = append(result, field)

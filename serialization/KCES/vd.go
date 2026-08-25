@@ -19,8 +19,8 @@ import (
 // The current outer-container version is 1000 and session_data is an uncompressed MessagePack indexed object
 
 const (
-	// KCESBridgeSessionFormat 标识 CRCEdit.EditBridgeSessionData 的 bridge_session.vd 容器所用的库内可编辑表示
-	// KCESBridgeSessionFormat identifies the library editing representation of the CRCEdit.EditBridgeSessionData bridge_session.vd container
+	// KCESBridgeSessionFormat 是文件类型探测报告的格式标签，不再作为编辑 JSON 的字段写出
+	// KCESBridgeSessionFormat is the format label reported by file-type detection and is no longer written as an editing JSON field
 	KCESBridgeSessionFormat = "kces-bridge-session"
 
 	// 以下是显式构造函数使用的当前版本，解码器不会注入这些值
@@ -34,7 +34,6 @@ const (
 
 // KCESBridgeSession 表示写入 bridge_session.vd 的完整 VirtualDirectory，两个已知文件公开为专用字段，其余独立虚拟文件原样保留 / KCESBridgeSession represents the complete VirtualDirectory written to bridge_session.vd, exposing its two known files as dedicated fields while retaining other independent virtual files verbatim
 type KCESBridgeSession struct {
-	Format               string                                 `json:"format"`                         // 库的可编辑表示标识，不写入游戏文件 / Library editing-representation identifier, not written to the game file
 	ContainerVersion     int32                                  `json:"containerVersion"`               // 外层 VirtualDirectory 对象版本 / Outer VirtualDirectory object version
 	ContainerFraming     ct.VirtualDirectoryFraming             `json:"containerFraming,omitempty"`     // VirtualDirectory MessagePack 目录的外层尾部封装 / Outer footer frame around the VirtualDirectory MessagePack directory
 	ContainerDirectories map[string]ct.VirtualDirectoryMetadata `json:"containerDirectories,omitempty"` // 各虚拟目录的真实版本字段 / Real version fields of each virtual directory
@@ -53,7 +52,6 @@ type KCESBridgeSessionData struct {
 // NewKCESBridgeSession explicitly creates a current-format object while decoders neither call it nor inject these defaults
 func NewKCESBridgeSession(sessionID string) *KCESBridgeSession {
 	return &KCESBridgeSession{
-		Format:           KCESBridgeSessionFormat,
 		ContainerVersion: KCESBridgeSessionContainerVersion,
 		SessionData: KCESBridgeSessionData{
 			Version:         KCESBridgeSessionDataVersion,
@@ -102,7 +100,6 @@ func DecodeKCESBridgeSession(data []byte) (*KCESBridgeSession, error) {
 		return nil, fmt.Errorf("virtual file %q does not match session_data.sessionId", kcesBridgeSessionIDFile)
 	}
 	result := &KCESBridgeSession{
-		Format:               KCESBridgeSessionFormat,
 		ContainerVersion:     table.Version,
 		ContainerFraming:     table.Framing,
 		ContainerDirectories: table.GetVirtualDirectoryMetadata(),
@@ -129,9 +126,6 @@ func DecodeKCESBridgeSession(data []byte) (*KCESBridgeSession, error) {
 func EncodeKCESBridgeSession(value *KCESBridgeSession) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil KCES bridge session")
-	}
-	if value.Format != "" && value.Format != KCESBridgeSessionFormat {
-		return nil, fmt.Errorf("unsupported KCES bridge session format %q", value.Format)
 	}
 	rawSessionData, err := encodeKCESBridgeSessionData(&value.SessionData)
 	if err != nil {

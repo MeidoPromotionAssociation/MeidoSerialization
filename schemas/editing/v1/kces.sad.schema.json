@@ -216,54 +216,6 @@
   "additionalProperties": false,
   "description": "Lossless editing JSON contract for kces.sad.",
   "properties": {
-    "format": {
-      "description": "The marker for the normalized saved-attachment envelope.",
-      "title": "Editing format marker",
-      "type": "string",
-      "x-meido-edit-guidance": "Keep kces-saved-attach.",
-      "x-meido-edit-role": "editing_metadata",
-      "x-meido-game-usage": "It identifies the editing JSON and is not written to the native BinaryWriter stream.",
-      "x-meido-risk": "low",
-      "x-meido-source-evidence": [
-        {
-          "game_version": "KCES 1.34.4",
-          "kind": "game_source",
-          "line_end": 1151,
-          "line_start": 1101,
-          "observation": "ExportCM writes SAVED_ATTACH_DATA version 2000, filters records by slot, serializes each SavedAttachData record, and writes the .sad payload.",
-          "path": "KCES 1.34.4/Assembly-CSharp/ExportCM.cs",
-          "symbol": "ExportCM.ExportAttachData"
-        },
-        {
-          "game_version": "KCES 1.34.4",
-          "kind": "game_source",
-          "line_end": 126,
-          "line_start": 41,
-          "observation": "SavedAttachData records source and target RID/slot identities, optional vertex attachment data, two position-rotation-scale values, and an attached-bone hierarchy; version 2001 adds TargetSlotNo after the explicit marker.",
-          "path": "KCES 1.34.4/Assembly-CSharp/SavedAttachData.cs",
-          "symbol": "SavedAttachData.Serialize/Deserialize"
-        },
-        {
-          "game_version": "COM3D2_5 3.48.0",
-          "kind": "game_source",
-          "line_end": 1344,
-          "line_start": 1313,
-          "observation": "The GP03 importer checks SAVED_ATTACH_DATA, reads the item count, deserializes each record, and appends it to the target body skin's saved-attachment list.",
-          "path": "COM3D2_5 3.48.0/Assembly-CSharp/ImportCM.cs",
-          "symbol": "ImportCM.ImportSavedAttachDataGP03"
-        }
-      ],
-      "x-meido-verification": {
-        "serialization": {
-          "authority": "ai",
-          "status": "verified"
-        },
-        "source_semantics": {
-          "authority": "ai",
-          "status": "verified"
-        }
-      }
-    },
     "items": {
       "description": "Ordered records describing a source part, target slot, optional vertex attachment, transforms, and attached-bone hierarchy.",
       "items": {
@@ -420,7 +372,6 @@
     }
   },
   "required": [
-    "format",
     "signature",
     "version",
     "items"

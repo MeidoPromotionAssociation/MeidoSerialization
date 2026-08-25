@@ -117,7 +117,7 @@ func TestSavedAttachCurrentRoundTripPreservesVersionsAndDoesNotMutate(t *testing
 	if err != nil {
 		t.Fatalf("DecodeSavedAttach: %v", err)
 	}
-	if decoded.Format != KCESSavedAttachFormat || decoded.Signature != SavedAttachSignature || decoded.Version != SavedAttachFileVersion {
+	if decoded.Signature != SavedAttachSignature || decoded.Version != SavedAttachFileVersion {
 		t.Fatalf("unexpected envelope: %+v", decoded)
 	}
 	if len(decoded.Items) != 2 || decoded.Items[0].Version != SavedAttachRecordVersion || decoded.Items[1].Version != SavedAttachRecordVersion {
@@ -299,10 +299,6 @@ func TestSavedAttachRejectsMalformedAndGameIncompatibleData(t *testing.T) {
 		if err != nil || decoded.Items[0].Version != 2000 || !reflect.DeepEqual(decoded.Items[0].PartName, partName) {
 			t.Fatalf("explicitly versioned legacy round-trip: decoded=%+v err=%v", decoded, err)
 		}
-	}
-	wrongFormat := &SavedAttachFile{Format: "future", Items: []SavedAttachData{}}
-	if _, err := EncodeSavedAttach(wrongFormat); err == nil || !strings.Contains(err.Error(), "format") {
-		t.Fatalf("wrong format error=%v", err)
 	}
 	invalidUTF8 := string([]byte{0xff})
 	badText := &SavedAttachFile{Signature: SavedAttachSignature, Version: SavedAttachFileVersion, Items: []SavedAttachData{{Version: SavedAttachRecordVersion, PartName: &invalidUTF8, MySlotID: "body", TargetSlotID: "body"}}}

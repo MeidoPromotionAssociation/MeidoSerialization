@@ -85,7 +85,7 @@ func TestKCESPresetJSONAlwaysUsesExpandedTypedBlocks(t *testing.T) {
 		t.Fatalf("typed preset JSON did not rebuild all binary blocks: %+v", decoded.MaidData)
 	}
 
-	rawFallback := []byte(`{"format":"kces-virtual-directory-preset","containerVersion":1000,"thumbnail":null,"maidData":{"version":1000,"propData":"AA==","colorData":"AA==","bodyData":"AA=="}}`)
+	rawFallback := []byte(`{"containerVersion":1000,"thumbnail":null,"maidData":{"version":1000,"propData":"AA==","colorData":"AA==","bodyData":"AA=="}}`)
 	if err := json.Unmarshal(rawFallback, &decoded); err == nil || !strings.Contains(err.Error(), "cannot unmarshal") && !strings.Contains(err.Error(), "unknown field") {
 		t.Fatalf("raw preset Base64 fallback error = %v", err)
 	}
@@ -126,8 +126,8 @@ func TestExpandedKCESPresetPreservesNilInnerBlock(t *testing.T) {
 
 func TestExpandedKCESPresetJSONRequiresNonNullMaidData(t *testing.T) {
 	for _, data := range []string{
-		`{"format":"kces-virtual-directory-preset","containerVersion":1000,"thumbnail":null}`,
-		`{"format":"kces-virtual-directory-preset","containerVersion":1000,"thumbnail":null,"maidData":null}`,
+		`{"containerVersion":1000,"thumbnail":null}`,
+		`{"containerVersion":1000,"thumbnail":null,"maidData":null}`,
 	} {
 		var value ExpandedKCESPreset
 		if err := json.Unmarshal([]byte(data), &value); err == nil {
@@ -138,10 +138,10 @@ func TestExpandedKCESPresetJSONRequiresNonNullMaidData(t *testing.T) {
 
 func TestExpandedKCESPresetJSONRequiresEveryMaidDataField(t *testing.T) {
 	invalid := []string{
-		`{"format":"kces-virtual-directory-preset","containerVersion":1000,"thumbnail":null,"maidData":{"propData":null,"colorData":null,"bodyData":null}}`,
-		`{"format":"kces-virtual-directory-preset","containerVersion":1000,"thumbnail":null,"maidData":{"version":1000,"colorData":null,"bodyData":null}}`,
-		`{"format":"kces-virtual-directory-preset","containerVersion":1000,"thumbnail":null,"maidData":{"version":1000,"propData":null,"bodyData":null}}`,
-		`{"format":"kces-virtual-directory-preset","containerVersion":1000,"thumbnail":null,"maidData":{"version":1000,"propData":null,"colorData":null}}`,
+		`{"containerVersion":1000,"thumbnail":null,"maidData":{"propData":null,"colorData":null,"bodyData":null}}`,
+		`{"containerVersion":1000,"thumbnail":null,"maidData":{"version":1000,"colorData":null,"bodyData":null}}`,
+		`{"containerVersion":1000,"thumbnail":null,"maidData":{"version":1000,"propData":null,"bodyData":null}}`,
+		`{"containerVersion":1000,"thumbnail":null,"maidData":{"version":1000,"propData":null,"colorData":null}}`,
 	}
 	for _, data := range invalid {
 		var value ExpandedKCESPreset
@@ -150,7 +150,7 @@ func TestExpandedKCESPresetJSONRequiresEveryMaidDataField(t *testing.T) {
 		}
 	}
 
-	valid := `{"format":"kces-virtual-directory-preset","containerVersion":1000,"thumbnail":null,"maidData":{"version":1000,"propData":null,"colorData":null,"bodyData":null}}`
+	valid := `{"containerVersion":1000,"thumbnail":null,"maidData":{"version":1000,"propData":null,"colorData":null,"bodyData":null}}`
 	var value ExpandedKCESPreset
 	if err := json.Unmarshal([]byte(valid), &value); err != nil {
 		t.Fatalf("explicit nullable maidData fields were rejected: %v", err)

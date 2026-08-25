@@ -1234,9 +1234,6 @@
             "object"
           ]
         },
-        "format": {
-          "type": "string"
-        },
         "maidData": {
           "$ref": "#/$defs/KCES_ExpandedKCESPresetCore"
         },
@@ -1260,7 +1257,6 @@
         }
       },
       "required": [
-        "format",
         "containerVersion",
         "thumbnail",
         "maidData"

@@ -20,6 +20,8 @@ import (
 // KCES and KCES2 user system-data container using VirtualDirectory to store UI, palette, gradation, and favourite-state virtual files below EditData
 // The outer layer uses KCES VirtualDirectory versioning, known virtual files use their MessagePack schemas, and only independent virtual files matching no known path are preserved byte-for-byte
 
+// KCESSystemDataFormat 是文件类型探测报告的格式标签，不再作为编辑 JSON 的字段写出
+// KCESSystemDataFormat is the format label reported by file-type detection and is no longer written as an editing JSON field
 const KCESSystemDataFormat = "kces-system-data"
 
 // KCESEditDataKind 标识游戏根据 system.dat 虚拟路径选择的已知 EditData 载荷模式
@@ -50,7 +52,6 @@ const (
 // KCESSystemData is the semantic view of the system.dat VirtualDirectory
 // Known EditData payloads are typed while only independent virtual files matching no known path are retained byte-for-byte in ExtraFiles, and a parse failure at a known path must return an error
 type KCESSystemData struct {
-	Format           string                                 `json:"format"`                     // 库的可编辑表示标识，不写入游戏文件 / Library editing-representation identifier, not written to the game file
 	Version          int32                                  `json:"version"`                    // VirtualDirectory 对象版本 / VirtualDirectory object version
 	ContainerFraming ct.VirtualDirectoryFraming             `json:"containerFraming,omitempty"` // VirtualDirectory MessagePack 目录的外层尾部封装 / Outer footer frame around the VirtualDirectory MessagePack directory
 	Directories      map[string]ct.VirtualDirectoryMetadata `json:"directories,omitempty"`      // 各虚拟目录的真实版本字段 / Real version fields of each virtual directory
@@ -69,7 +70,7 @@ func (value *KCESSystemData) UnmarshalJSON(data []byte) error {
 	if err := decodeKCESJSONStrict(data, &decoded); err != nil {
 		return err
 	}
-	if err := strictjson.RequireObjectFields(data, "systemData", "format", "version"); err != nil {
+	if err := strictjson.RequireObjectFields(data, "systemData", "version"); err != nil {
 		return err
 	}
 	*value = KCESSystemData(decoded)
@@ -329,7 +330,6 @@ func DecodeKCESSystemData(data []byte) (*KCESSystemData, error) {
 		return nil, fmt.Errorf("decode KCES system.dat VirtualDirectory: %w", err)
 	}
 	result := &KCESSystemData{
-		Format:           KCESSystemDataFormat,
 		Version:          table.Version,
 		ContainerFraming: table.Framing,
 		Directories:      table.GetVirtualDirectoryMetadata(),
@@ -380,9 +380,6 @@ func DecodeKCESSystemData(data []byte) (*KCESSystemData, error) {
 func EncodeKCESSystemData(value *KCESSystemData) ([]byte, error) {
 	if value == nil {
 		return nil, fmt.Errorf("nil KCES system.dat")
-	}
-	if value.Format != "" && value.Format != KCESSystemDataFormat {
-		return nil, fmt.Errorf("unsupported KCES system.dat JSON format %q", value.Format)
 	}
 	table := &ct.ContentTable{
 		Version:     value.Version,
@@ -478,7 +475,6 @@ func EncodeKCESSystemData(value *KCESSystemData) ([]byte, error) {
 // NewKCESSystemData creates empty system data explicitly using the current VirtualDirectory version 1000
 func NewKCESSystemData() *KCESSystemData {
 	return &KCESSystemData{
-		Format:  KCESSystemDataFormat,
 		Version: 1000,
 	}
 }

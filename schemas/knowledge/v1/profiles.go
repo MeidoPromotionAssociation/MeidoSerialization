@@ -55,6 +55,9 @@ func finalizeProfile(formatID string, guide Guide) Guide {
 	validateSources(formatID, "guide", guide.Sources)
 	for index := range guide.Fields {
 		field := &guide.Fields[index]
+		if field.SchemaPointer == "" && field.JSONPath == documentRootJSONPath {
+			field.SchemaPointer = "#"
+		}
 		if field.SchemaPointer == "" && strings.Count(field.JSONPath, "/") == 1 {
 			field.SchemaPointer = "#/properties/" + escapeJSONPointer(strings.TrimPrefix(field.JSONPath, "/"))
 		}

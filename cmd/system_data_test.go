@@ -16,7 +16,6 @@ func TestKCESSystemDataConvertCommandsAndFilters(t *testing.T) {
 		colors[i] = i
 	}
 	want := &serializationKCES.KCESSystemData{
-		Format:      serializationKCES.KCESSystemDataFormat,
 		Version:     1000,
 		Directories: map[string]ct.VirtualDirectoryMetadata{"EditData": {Version: 1000}},
 		EditData: []serializationKCES.KCESEditDataFile{{
@@ -79,7 +78,7 @@ func TestKCESSystemDataConvertCommandsAndFilters(t *testing.T) {
 
 func TestKCESSystemDataMalformedEditingJSONReturnsValidationError(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "system.dat.JSON")
-	data := []byte(`{"format":"kces-system-data","version":1000,"future":1}`)
+	data := []byte(`{"version":1000,"future":1}`)
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		t.Fatal(err)
 	}

@@ -16,7 +16,6 @@ type SavedAttachService struct{}
 
 // savedAttachEditingJSON 使用指针字段区分 .sad 编辑 JSON 中的缺失值和显式零值 / savedAttachEditingJSON uses pointer fields to distinguish missing values from explicit zero values in .sad editing JSON
 type savedAttachEditingJSON struct {
-	Format    *string                              `json:"format"`
 	Signature *string                              `json:"signature"`
 	Version   *int32                               `json:"version"`
 	Items     *[]serializationKCES.SavedAttachData `json:"items"`
@@ -102,17 +101,11 @@ func decodeSavedAttachEditingJSON(data []byte) (*serializationKCES.SavedAttachFi
 	if err := decodeStrictJSON(data, &editing, "saved-attach JSON"); err != nil {
 		return nil, err
 	}
-	if editing.Format == nil {
-		return nil, fmt.Errorf("format is missing or null")
-	}
 	if editing.Signature == nil {
 		return nil, fmt.Errorf("signature is missing or null")
 	}
 	if editing.Version == nil {
 		return nil, fmt.Errorf("version is missing or null")
-	}
-	if *editing.Format != serializationKCES.KCESSavedAttachFormat {
-		return nil, fmt.Errorf("unsupported saved-attach JSON format %q", *editing.Format)
 	}
 	if *editing.Signature != serializationKCES.SavedAttachSignature {
 		return nil, fmt.Errorf("invalid saved-attach signature %q", *editing.Signature)
@@ -122,7 +115,6 @@ func decodeSavedAttachEditingJSON(data []byte) (*serializationKCES.SavedAttachFi
 		items = *editing.Items
 	}
 	value := serializationKCES.SavedAttachFile{
-		Format:    *editing.Format,
 		Signature: *editing.Signature,
 		Version:   *editing.Version,
 		Items:     items,
