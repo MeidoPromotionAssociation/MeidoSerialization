@@ -166,21 +166,35 @@ func (object *NativeUnityObject) DecodeMeshGeometry() (*MeshGeometry, error) {
 	}
 	weightsActive := meshChannelActive(channels, meshChannelBlendWeight)
 	indicesActive := meshChannelActive(channels, meshChannelBlendIndices)
-	if weightsActive != indicesActive {
-		return nil, fmt.Errorf("Mesh has only one of the blend-weight and blend-index channels")
+	if weightsActive && !indicesActive {
+		return nil, fmt.Errorf("Mesh has a blend-weight channel but no blend-index channel")
 	}
-	if weightsActive {
-		// Unity 的 Skin Weights 精简设置会把蒙皮通道压缩为每顶点一或两个影响，因此接受一到四维并在缺少的分量处补零
-		// The Unity Skin Weights reduction setting compresses skin channels to one or two influences per vertex, so accept one to four dimensions and pad the missing components with zeros
-		weightDimension := channels[meshChannelBlendWeight].Dimension
-		if weightDimension != channels[meshChannelBlendIndices].Dimension {
-			return nil, fmt.Errorf("Mesh skin channels carry %d weights but %d indices per vertex", weightDimension, channels[meshChannelBlendIndices].Dimension)
+	if indicesActive {
+		indexDimension := channels[meshChannelBlendIndices].Dimension
+		var fixedWeights [][4]float32
+		if weightsActive {
+			// Unity 的 Skin Weights 精简设置会把蒙皮通道压缩为每顶点一或两个影响，因此接受一到四维并在缺少的分量处补零
+			// The Unity Skin Weights reduction setting compresses skin channels to one or two influences per vertex, so accept one to four dimensions and pad the missing components with zeros
+			weightDimension := channels[meshChannelBlendWeight].Dimension
+			if weightDimension != indexDimension {
+				return nil, fmt.Errorf("Mesh skin channels carry %d weights but %d indices per vertex", weightDimension, indexDimension)
+			}
+			weights, err := decodeMeshFloatChannel(vertexBytes, object.BigEndian, vertexCount, channels[meshChannelBlendWeight], streamOffsets, streamStrides)
+			if err != nil {
+				return nil, fmt.Errorf("decode Mesh bone weights: %w", err)
+			}
+			fixedWeights = meshFloat4PaddedValues(weights, weightDimension)
+		} else {
+			// 每顶点只绑定一根骨骼时权重必然是一，官方网格因此整个省掉权重通道，只留下一维骨骼索引
+			// A vertex bound to exactly one bone necessarily carries weight one, so official meshes omit the weight channel entirely and keep only the one-dimensional bone index
+			if indexDimension != 1 {
+				return nil, fmt.Errorf("Mesh carries %d blend indices per vertex but no blend weights", indexDimension)
+			}
+			fixedWeights = make([][4]float32, vertexCount)
+			for vertexIndex := range fixedWeights {
+				fixedWeights[vertexIndex][0] = 1
+			}
 		}
-		weights, err := decodeMeshFloatChannel(vertexBytes, object.BigEndian, vertexCount, channels[meshChannelBlendWeight], streamOffsets, streamStrides)
-		if err != nil {
-			return nil, fmt.Errorf("decode Mesh bone weights: %w", err)
-		}
-		fixedWeights := meshFloat4PaddedValues(weights, weightDimension)
 		fixedIndices, err := decodeMeshUintChannel(vertexBytes, object.BigEndian, vertexCount, channels[meshChannelBlendIndices], streamOffsets, streamStrides)
 		if err != nil {
 			return nil, fmt.Errorf("decode Mesh bone indices: %w", err)
@@ -510,6 +524,14 @@ func meshVertexStreams(vertexCount uint32, channels []meshVertexChannel, dataSiz
 		if stride == 0 {
 			return nil, nil, fmt.Errorf("Mesh vertex stream %d is empty", streamIndex)
 		}
+		// 只有流与流之间需要十六字节对齐，最后一个流末尾的补齐不写入 m_DataSize
+		// Only the gaps between streams are aligned to sixteen bytes, and the padding after the last stream is not written into m_DataSize
+		if streamIndex != 0 {
+			if offset > math.MaxUint64-15 {
+				return nil, nil, fmt.Errorf("Mesh vertex stream alignment overflows UInt64")
+			}
+			offset = (offset + 15) &^ uint64(15)
+		}
 		offsets[streamIndex] = offset
 		streamSize := uint64(vertexCount) * stride
 		if uint64(vertexCount) != 0 && streamSize/uint64(vertexCount) != stride {
@@ -519,10 +541,6 @@ func meshVertexStreams(vertexCount uint32, channels []meshVertexChannel, dataSiz
 			return nil, nil, fmt.Errorf("Mesh vertex stream offsets overflow UInt64")
 		}
 		offset += streamSize
-		if offset > math.MaxUint64-15 {
-			return nil, nil, fmt.Errorf("Mesh vertex stream alignment overflows UInt64")
-		}
-		offset = (offset + 15) &^ uint64(15)
 	}
 	if offset > dataSize {
 		return nil, nil, fmt.Errorf("Mesh vertex streams require %d bytes but m_DataSize contains %d", offset, dataSize)

@@ -226,3 +226,78 @@ func TestNewNativeMeshObjectRejectsInvalidGeometry(t *testing.T) {
 		})
 	}
 }
+
+func TestNewNativeMeshObjectWritesCompactSingleBoneSkin(t *testing.T) {
+	// 每顶点单骨骼的蒙皮要写回官方的紧凑布局：没有权重通道，索引一维，尾部不补齐
+	// A skin with one bone per vertex must be written back in the official compact layout: no weight channel, a one-dimensional index, and no trailing padding
+	fixture := filepath.Join("..", "..", "..", "testdata", "KCES", "parts_dlc562_gp003.aba_unpacked", "Mesh", "crc2_dress283_shoe_heel.mmesh")
+	data, err := os.ReadFile(fixture)
+	if err != nil {
+		t.Skipf("fixture not available: %v", err)
+	}
+	object, err := ReadMMesh(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalRoot, err := object.DecodeValue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalBytes, ok := originalRoot.FieldPath("m_VertexData", "m_DataSize").Bytes()
+	if !ok {
+		t.Fatal("fixture has no inline vertex data")
+	}
+	original, err := object.DecodeMeshGeometry()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rebuilt, err := NewNativeMeshObject(original.Name, original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := WriteMMesh(rebuilt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reread, err := ReadMMesh(encoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rebuiltRoot, err := reread.DecodeValue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	channels := rebuiltRoot.FieldPath("m_VertexData", "m_Channels")
+	if channels == nil || len(channels.Children) != 14 {
+		t.Fatalf("rebuilt Mesh has %v channel descriptors", channels)
+	}
+	if dimension, _ := meshUnsignedField(channels.Children[meshChannelBlendWeight], "dimension"); dimension != 0 {
+		t.Fatalf("rebuilt Mesh writes %d blend weights per vertex instead of omitting the channel", dimension)
+	}
+	dimension, _ := meshUnsignedField(channels.Children[meshChannelBlendIndices], "dimension")
+	format, _ := meshUnsignedField(channels.Children[meshChannelBlendIndices], "format")
+	if dimension != 1 || format != 10 {
+		t.Fatalf("rebuilt blend indices are %d components of format %d, want one UInt32", dimension, format)
+	}
+	rebuiltBytes, ok := rebuiltRoot.FieldPath("m_VertexData", "m_DataSize").Bytes()
+	if !ok {
+		t.Fatal("rebuilt Mesh has no inline vertex data")
+	}
+	if len(rebuiltBytes) != len(originalBytes) {
+		t.Fatalf("rebuilt vertex data is %d bytes, want the official %d", len(rebuiltBytes), len(originalBytes))
+	}
+
+	decoded, err := reread.DecodeMeshGeometry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(decoded.SkinIndices) != len(original.SkinIndices) {
+		t.Fatalf("rebuilt skin holds %d influences, want %d", len(decoded.SkinIndices), len(original.SkinIndices))
+	}
+	for entry := range original.SkinIndices {
+		if decoded.SkinIndices[entry] != original.SkinIndices[entry] || decoded.SkinWeights[entry] != original.SkinWeights[entry] {
+			t.Fatalf("skin entry %d = %d/%f, want %d/%f", entry, decoded.SkinIndices[entry], decoded.SkinWeights[entry], original.SkinIndices[entry], original.SkinWeights[entry])
+		}
+	}
+}

@@ -468,10 +468,11 @@ type meshBuildChannel struct {
 
 // meshFixedSkin 保存从变长蒙皮换算出的每顶点前四影响 / meshFixedSkin stores the per-vertex top-four influences converted from ragged skin data
 type meshFixedSkin struct {
-	Weights16 [][4]uint16  // 重归一化的 UNorm16 权重 / Renormalized UNorm16 weights
-	Weights   [][4]float32 // 原始浮点权重 / Raw floating-point weights
-	Indices   [][4]uint32  // 骨骼索引 / Bone indices
-	Variable  bool         // 是否需要变长权重表 / Whether the variable weight table is required
+	Weights16  [][4]uint16  // 重归一化的 UNorm16 权重 / Renormalized UNorm16 weights
+	Weights    [][4]float32 // 原始浮点权重 / Raw floating-point weights
+	Indices    [][4]uint32  // 骨骼索引 / Bone indices
+	Variable   bool         // 是否需要变长权重表 / Whether the variable weight table is required
+	SingleBone bool         // 每顶点是否都只有一个权重恰为一的影响 / Whether every vertex has exactly one influence whose weight is exactly one
 }
 
 // buildMeshFixedSkin 将变长蒙皮排序后取前四影响，超过四影响时重归一化为总和恰为 65535 的 UNorm16
@@ -484,10 +485,16 @@ func buildMeshFixedSkin(geometry *MeshGeometry) (*meshFixedSkin, error) {
 		Indices:   make([][4]uint32, vertexCount),
 	}
 	cursor := int64(0)
+	singleBone := vertexCount != 0
 	for vertexIndex := int64(0); vertexIndex < vertexCount; vertexIndex++ {
 		count := int64(geometry.SkinCounts[vertexIndex])
 		if count > 4 {
 			fixed.Variable = true
+		}
+		// 只有每顶点都是单个权重恰为一的影响时才能写成官方的紧凑单骨骼布局
+		// Only a skin whose every vertex has one influence with weight exactly one can be written in the official compact single-bone layout
+		if count != 1 || geometry.SkinWeights[cursor] != 1 {
+			singleBone = false
 		}
 		type influence struct {
 			weight float32
@@ -530,6 +537,7 @@ func buildMeshFixedSkin(geometry *MeshGeometry) (*meshFixedSkin, error) {
 			}
 		}
 	}
+	fixed.SingleBone = singleBone
 	return fixed, nil
 }
 
@@ -582,6 +590,12 @@ func buildMeshChannels(geometry *MeshGeometry, skin *meshFixedSkin) []meshBuildC
 			channels = append(channels, meshBuildChannel{Slot: meshChannelBlendIndices, Stream: skinStream, Format: 8, Dimension: 4, ComponentSize: 2, Put: func(vertexIndex int64, componentIndex int64, out []byte) {
 				binary.LittleEndian.PutUint16(out, uint16(skin.Indices[vertexIndex][componentIndex]))
 			}})
+		} else if skin.SingleBone {
+			// 每顶点只绑定一根骨骼时官方网格省掉权重通道，只写一维 UInt32 骨骼索引
+			// Official meshes bound to one bone per vertex omit the weight channel and write only a one-dimensional UInt32 bone index
+			channels = append(channels, meshBuildChannel{Slot: meshChannelBlendIndices, Stream: skinStream, Format: 10, Dimension: 1, ComponentSize: 4, Put: func(vertexIndex int64, componentIndex int64, out []byte) {
+				binary.LittleEndian.PutUint32(out, skin.Indices[vertexIndex][componentIndex])
+			}})
 		} else {
 			channels = append(channels, meshBuildChannel{Slot: meshChannelBlendWeight, Stream: skinStream, Format: 0, Dimension: 4, ComponentSize: 4, Put: putFloat4(skin.Weights)})
 			channels = append(channels, meshBuildChannel{Slot: meshChannelBlendIndices, Stream: skinStream, Format: 10, Dimension: 4, ComponentSize: 4, Put: func(vertexIndex int64, componentIndex int64, out []byte) {
@@ -623,9 +637,13 @@ func fillMeshVertexData(tree *TypeTreeType, root *TypeTreeValue, geometry *MeshG
 	streamOffsets := make([]int64, streamCount)
 	var totalSize int64
 	for streamIndex := int64(0); streamIndex < streamCount; streamIndex++ {
+		// 官方网格只在流与流之间补齐到十六字节，最后一个流末尾不补齐，m_DataSize 正好停在顶点数据末尾
+		// Official meshes pad to sixteen bytes only between streams and leave the last stream unpadded, so m_DataSize stops exactly at the end of the vertex data
+		if streamIndex != 0 {
+			totalSize = (totalSize + 15) &^ int64(15)
+		}
 		streamOffsets[streamIndex] = totalSize
 		totalSize += vertexCount * strides[streamIndex]
-		totalSize = (totalSize + 15) &^ int64(15)
 	}
 
 	buffer := make([]byte, totalSize)
