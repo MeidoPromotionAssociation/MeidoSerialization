@@ -79,24 +79,39 @@ func assertMiscSampleRoundTripDeepEqual(t *testing.T, path string) {
 		if !reflect.DeepEqual(decoded, hitCheck) {
 			t.Fatalf("%s changed after decode/encode/decode: got %#v, want %#v", name, decoded, hitCheck)
 		}
-	case ".undressdat", ".undresspdat":
-		value, err := DecodeKCESJSONText(data, name)
+	case ".undressdat":
+		value, err := DecodeKCESUndressData(data)
 		if err != nil {
-			t.Fatalf("DecodeKCESJSONText: %v", err)
+			t.Fatalf("DecodeKCESUndressData: %v", err)
 		}
-		if len(value) == 0 {
-			t.Fatalf("missing JSON document")
-		}
-		encoded, err := EncodeKCESJSONText(value, name)
+		assertUndressDataSampleFields(t, name, value)
+		encoded, err := EncodeKCESUndressData(value)
 		if err != nil {
-			t.Fatalf("EncodeKCESJSONText: %v", err)
+			t.Fatalf("EncodeKCESUndressData: %v", err)
 		}
-		decoded, err := DecodeKCESJSONText(encoded, name)
+		decoded, err := DecodeKCESUndressData(encoded)
 		if err != nil {
-			t.Fatalf("re-decode JSON text: %v", err)
+			t.Fatalf("re-decode .undressdat: %v", err)
 		}
 		if !reflect.DeepEqual(decoded, value) {
-			t.Fatalf("%s changed after decode/encode/decode: got %#v, want %#v", name, decoded, value)
+			t.Fatalf("%s changed after decode/encode/decode", name)
+		}
+	case ".undresspdat":
+		value, err := DecodeKCESUndressPartsData(data)
+		if err != nil {
+			t.Fatalf("DecodeKCESUndressPartsData: %v", err)
+		}
+		assertUndressPartsDataSampleFields(t, name, value)
+		encoded, err := EncodeKCESUndressPartsData(value)
+		if err != nil {
+			t.Fatalf("EncodeKCESUndressPartsData: %v", err)
+		}
+		decoded, err := DecodeKCESUndressPartsData(encoded)
+		if err != nil {
+			t.Fatalf("re-decode .undresspdat: %v", err)
+		}
+		if !reflect.DeepEqual(decoded, value) {
+			t.Fatalf("%s changed after decode/encode/decode", name)
 		}
 	default:
 		t.Fatalf("unexpected misc sample %q", name)

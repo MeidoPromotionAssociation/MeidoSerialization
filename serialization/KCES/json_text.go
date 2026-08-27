@@ -18,8 +18,6 @@ type kcesJSONTextDescriptor struct {
 }
 
 var kcesJSONTextDescriptors = [...]kcesJSONTextDescriptor{
-	undressdatJSONTextDescriptor,
-	undresspdatJSONTextDescriptor,
 	nsonJSONTextDescriptor,
 }
 
@@ -40,9 +38,15 @@ var kcesJSONTextDescriptorByExtension = func() map[string]kcesJSONTextDescriptor
 // 这些扩展名的原生文件本身就是 JSON 文本，编辑 JSON 的根就是该文档本身，没有额外封套：
 // 目标格式完全由文件名决定，而本库不为这些资源声明任何领域结构
 //
+// 原生文件同样是 JSON 文本、但本库已经建模了完整领域结构的扩展名不在这里注册，
+// 见 unity_json_document.go
+//
 // The native file of these extensions is already JSON text, so the editing JSON root is that document
 // itself with no surrounding envelope: the destination format is determined entirely by the file name,
 // and this library declares no domain structure for these resources
+//
+// Extensions whose native file is also JSON text but whose full domain structure this library does
+// model are not registered here; see unity_json_document.go
 
 // DecodeKCESJSONText 校验并解码受支持扩展名的明文 JSON，仅保留 JSON 语义内容
 // DecodeKCESJSONText validates and decodes plain JSON for a supported extension while retaining only its semantic JSON content

@@ -65,7 +65,8 @@ func (s *FileTypeService) TryFileTypeDetermine(path string) (info COM3D2Service.
 	// these before binary signatures so .undressdat is not handed to the legacy
 	// JSON detector, which only understands capitalized COM3D2 headers
 	trimmedHeader := bytes.TrimSpace(bytes.TrimPrefix(header, []byte{0xef, 0xbb, 0xbf}))
-	if strings.HasSuffix(lowerPath, ".json") || serializationKCES.IsKCESJSONTextExtension(ext) || IsKCESExportNameMapFile(path) ||
+	if strings.HasSuffix(lowerPath, ".json") || serializationKCES.IsKCESJSONTextExtension(ext) ||
+		serializationKCES.IsKCESUnityJSONDocumentExtension(ext) || IsKCESExportNameMapFile(path) ||
 		bytes.HasPrefix(trimmedHeader, []byte{'{'}) || bytes.HasPrefix(trimmedHeader, []byte{'['}) {
 		data, readErr := os.ReadFile(path)
 		if readErr != nil {
@@ -403,10 +404,25 @@ func probeKCESJSON(path string, data []byte, info COM3D2Service.FileInfo) (COM3D
 		return info, true, nil
 	}
 
-	// Native .undressdat/.undresspdat/.nson files are themselves JSON. Their
-	// extensions are KCES-specific, so malformed JSON remains a matched KCES
-	// candidate with a useful validation error instead of falling through to
-	// legacy CSV/JSON heuristics
+	// Native .undressdat/.undresspdat files are Unity JsonUtility documents whose
+	// domain structure this library models. Their extensions are KCES-specific, so
+	// a document that does not match the model remains a matched KCES candidate
+	// with a useful validation error instead of falling through to legacy
+	// CSV/JSON heuristics
+	if unityJSONExt := serializationKCES.NormalizeKCESUnityJSONDocumentExtension(ext); unityJSONExt != "" && !strings.HasSuffix(lowerPath, ".json") {
+		if err := validateKCESUnityJSONDocument(data, unityJSONExt); err != nil {
+			return info, true, fmt.Errorf("validate KCES Unity JSON document %q: %w", path, err)
+		}
+		info.StorageFormat = COM3D2Service.FormatJSON
+		info.Game = COM3D2Service.GameKCES
+		info.FileType = strings.TrimPrefix(unityJSONExt, ".")
+		info.Signature = "KCES_UNITY_JSON"
+		return info, true, nil
+	}
+
+	// Native .nson files are themselves JSON. Their extension is KCES-specific, so
+	// malformed JSON remains a matched KCES candidate with a useful validation
+	// error instead of falling through to legacy CSV/JSON heuristics
 	if serializationKCES.IsKCESJSONTextExtension(ext) && !strings.HasSuffix(lowerPath, ".json") {
 		if _, err := serializationKCES.DecodeKCESJSONText(data, ext); err != nil {
 			return info, true, err
@@ -424,6 +440,16 @@ func probeKCESJSON(path string, data []byte, info COM3D2Service.FileInfo) (COM3D
 	// through to the legacy COM3D2 JSON or CSV probes
 	if strings.HasSuffix(lowerPath, ".json") {
 		basePath := strings.TrimSuffix(path, filepath.Ext(path))
+		if unityJSONExt := serializationKCES.NormalizeKCESUnityJSONDocumentExtension(basePath); unityJSONExt != "" {
+			if err := validateKCESUnityJSONDocument(data, unityJSONExt); err != nil {
+				return info, true, fmt.Errorf("validate KCES Unity JSON document %q: %w", path, err)
+			}
+			info.StorageFormat = COM3D2Service.FormatJSON
+			info.Game = COM3D2Service.GameKCES
+			info.FileType = strings.TrimPrefix(unityJSONExt, ".")
+			info.Signature = "KCES_UNITY_JSON"
+			return info, true, nil
+		}
 		jsonTextExt := serializationKCES.NormalizeKCESJSONTextExtension(basePath)
 		if jsonTextExt != "" {
 			if _, err := decodeKCESJSONTextEditingJSON(data, jsonTextExt); err != nil {

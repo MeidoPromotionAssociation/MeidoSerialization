@@ -84,23 +84,30 @@ func (s *MiscService) ReadMiscFile(path string) (any, error) {
 // WriteMiscFile dispatches to the independent miscellaneous service selected by the destination extension
 func (s *MiscService) WriteMiscFile(path string, value any) error {
 	extension := strings.ToLower(filepath.Ext(path))
-	if extension == hitCheckExtension {
+	switch extension {
+	case hitCheckExtension:
 		hitCheck, ok := value.(*serializationKCES.HitCheck)
 		if !ok {
 			return fmt.Errorf(".hitcheck output requires *KCES.HitCheck, got %T", value)
 		}
 		return (&HitCheckService{}).WriteHitCheckFile(path, hitCheck)
-	}
-	jsonText, ok := value.(json.RawMessage)
-	if !ok {
-		return fmt.Errorf("%s output requires a json.RawMessage document, got %T", extension, value)
-	}
-	switch extension {
 	case serializationKCES.KCESUndressDataExtension:
-		return (&UndressDataService{}).WriteUndressDataFile(path, jsonText)
+		archive, ok := value.(*serializationKCES.UndressArchiveTarget)
+		if !ok {
+			return fmt.Errorf(".undressdat output requires *KCES.UndressArchiveTarget, got %T", value)
+		}
+		return (&UndressDataService{}).WriteUndressDataFile(path, archive)
 	case serializationKCES.KCESUndressPartsDataExtension:
-		return (&UndressPartsDataService{}).WriteUndressPartsDataFile(path, jsonText)
+		precompute, ok := value.(*serializationKCES.UndressPrecomputeTarget)
+		if !ok {
+			return fmt.Errorf(".undresspdat output requires *KCES.UndressPrecomputeTarget, got %T", value)
+		}
+		return (&UndressPartsDataService{}).WriteUndressPartsDataFile(path, precompute)
 	case serializationKCES.KCESNSONExtension:
+		jsonText, ok := value.(json.RawMessage)
+		if !ok {
+			return fmt.Errorf("%s output requires a json.RawMessage document, got %T", extension, value)
+		}
 		return (&NSONService{}).WriteNSONFile(path, jsonText)
 	default:
 		return fmt.Errorf("unsupported KCES misc output type: %s", extension)
@@ -113,7 +120,9 @@ func encodeMiscJSON(extension string, data []byte) ([]byte, error) {
 	switch strings.ToLower(extension) {
 	case hitCheckExtension:
 		return encodeHitCheckJSON(data)
-	case serializationKCES.KCESUndressDataExtension, serializationKCES.KCESUndressPartsDataExtension, serializationKCES.KCESNSONExtension:
+	case serializationKCES.KCESUndressDataExtension, serializationKCES.KCESUndressPartsDataExtension:
+		return encodeKCESUnityJSONDocumentJSON(data, extension)
+	case serializationKCES.KCESNSONExtension:
 		return encodeKCESJSONTextJSON(data, extension)
 	default:
 		return nil, fmt.Errorf("unsupported KCES misc JSON type: %s", extension)

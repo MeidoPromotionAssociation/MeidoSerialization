@@ -157,8 +157,8 @@ func TestStrictFileTypeFilterIncludesKCESModelAndNativeJSON(t *testing.T) {
 		t.Fatal("strict model filter accepted menuassets")
 	}
 
-	// A native .undressdat is JSON text on the wire, but it is not an editing
-	// .json envelope. The non-.json selector must still include it.
+	// A native .undressdat is a Unity JsonUtility document on the wire, but it is
+	// not an editing .json envelope. The non-.json selector must still include it.
 	fileType = "undressdat"
 	if !fileTypeFilter(nativeJSONPath) {
 		t.Fatal("strict undressdat filter rejected native JSON-text payload")
@@ -791,7 +791,7 @@ func TestKCESMiscConvertCommands(t *testing.T) {
 	t.Run("undressdat", func(t *testing.T) {
 		tempDir := t.TempDir()
 		inputPath := filepath.Join(tempDir, "sample.undressdat")
-		if err := os.WriteFile(inputPath, []byte(`{"editVer":13,"items":["a"]}`), 0644); err != nil {
+		if err := os.WriteFile(inputPath, []byte(`{"format":"1.2.2","editVer":13,"dataGroup":[{"label":"Group_0000","layer":0,"indices":[7,11]}]}`), 0644); err != nil {
 			t.Fatal(err)
 		}
 
@@ -809,7 +809,7 @@ func TestKCESMiscConvertCommands(t *testing.T) {
 		if _, err := executeCommand(RootCmd, "convert", jsonPath); err != nil {
 			t.Fatalf("auto convert undressdat JSON failed: %v", err)
 		}
-		if _, err := serializationKCES.DecodeKCESJSONText(mustReadFile(t, inputPath), ".undressdat"); err != nil {
+		if _, err := serializationKCES.DecodeKCESUndressData(mustReadFile(t, inputPath)); err != nil {
 			t.Fatalf("converted undressdat is invalid: %v", err)
 		}
 	})

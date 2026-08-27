@@ -89,6 +89,10 @@ MeidoSerialization.exe convert2mod .\body.menu.json
 material names that a `.mmesh` does not store. See
 [KCES Model, Mesh, AnimationClip, and AudioClip](#kces-model-mesh-animationclip-and-audioclip).
 
+A `.undressdat` and the `.undresspdat` of the same name are one unit: the game reads both and aborts the whole
+undress setup when either is missing, so the garment loads without any peel behavior at all. Converting or
+packing one half alone prints a reminder.
+
 ### Batch conversion
 
 Pass a directory instead of a file to process matching files recursively:
@@ -781,6 +785,9 @@ notepad .\body.menu.json
 `.mmesh`，并补上 `.mmesh` 本身不保存的骨架、蒙皮权重、变形目标和材质名。详见
 [KCES Model、Mesh、AnimationClip 与 AudioClip](#kces-modelmeshanimationclip-与-audioclip)。
 
+`.undressdat` 和同名的 `.undresspdat` 是一个整体：游戏会同时读取两个文件，任一缺失就中止整套脱衣设置，因此该内衣
+加载后完全没有扒开效果。只转换或只打包其中一半时会给出提示。
+
 ### 批量转换目录
 
 把目录而不是单个文件传给命令，就会递归处理其中匹配的文件：
@@ -1450,6 +1457,10 @@ notepad .\body.menu.json
 なら `.mmesh` を自動的に読み込み、`.mmesh` 自体には保存されていない skeleton、bone weight、morph target、material
 名を含めて出力します。詳細は
 [KCES Model、Mesh、AnimationClip、AudioClip](#kces-modelmeshanimationclipaudioclip) を参照してください。
+
+`.undressdat` と同名の `.undresspdat` は一組で扱ってください。ゲームは両方を読み込み、どちらかが欠けると
+めくり設定全体を中断するため、その下着はめくり動作が一切ない状態で読み込まれます。片方だけを変換または
+pack した場合は注意が表示されます。
 
 ### ディレクトリの一括変換
 

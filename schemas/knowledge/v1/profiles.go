@@ -14,6 +14,7 @@ func buildReviewedProfiles() map[string]Guide {
 	profiles := make(map[string]Guide)
 	registerProfiles(profiles, com3d2Profiles())
 	registerProfiles(profiles, kcesProfiles())
+	registerProfiles(profiles, kcesUndressProfiles())
 	registerProfiles(profiles, kcesContainerProfiles())
 	registerProfiles(profiles, kcesPayloadProfiles())
 	return profiles

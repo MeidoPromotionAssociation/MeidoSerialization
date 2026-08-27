@@ -65,6 +65,15 @@ func TestKCESDirectWritersMatchNativeEncoders(t *testing.T) {
 	hitCheck := serializationKCES.NewHitCheck()
 	hitCheck.Entries = []serializationKCES.HitCheckEntry{}
 	jsonText := json.RawMessage(`{"version":1000,"ids":[1,2]}`)
+	undressData := &serializationKCES.UndressArchiveTarget{
+		Format:    writeServiceTestString("1.2.2"),
+		DataGroup: &[]serializationKCES.UndressGroup{{Label: writeServiceTestString("Group_0000"), Indices: &[]int32{7, 11}}},
+	}
+	undressPartsData := &serializationKCES.UndressPrecomputeTarget{
+		OneGroupLooker: &serializationKCES.UndressGroupLooker{
+			Targets: &[]serializationKCES.UndressGroupKey{{Lyr: writeServiceTestInt32(0), Lbl: writeServiceTestString("Group_0000")}},
+		},
+	}
 	psk := &serializationCOM3D2.Psk{Signature: "CM3D21_PSK", Version: 217}
 	var expectedPsk bytes.Buffer
 	if err := psk.Dump(&expectedPsk); err != nil {
@@ -220,6 +229,22 @@ func TestKCESDirectWritersMatchNativeEncoders(t *testing.T) {
 			},
 		},
 		{
+			name:     "undress data",
+			fileName: "direct.undressdat",
+			expected: mustEncode(serializationKCES.EncodeKCESUndressData(undressData)),
+			write: func(path string) error {
+				return (&MiscService{}).WriteMiscFile(path, undressData)
+			},
+		},
+		{
+			name:     "undress parts data",
+			fileName: "direct.undresspdat",
+			expected: mustEncode(serializationKCES.EncodeKCESUndressPartsData(undressPartsData)),
+			write: func(path string) error {
+				return (&MiscService{}).WriteMiscFile(path, undressPartsData)
+			},
+		},
+		{
 			name:     "shared psk",
 			fileName: "direct.psk",
 			expected: expectedPsk.Bytes(),
@@ -347,3 +372,11 @@ func TestKCESDirectWritersValidateBeforeCreatingOutput(t *testing.T) {
 		t.Fatalf("mismatched parts output exists or stat failed unexpectedly: %v", err)
 	}
 }
+
+// writeServiceTestString 返回指向给定字符串的指针，供 Unity JsonUtility 文档的可选成员使用
+// writeServiceTestString returns a pointer to the given string for the optional members of Unity JsonUtility documents
+func writeServiceTestString(value string) *string { return &value }
+
+// writeServiceTestInt32 返回指向给定整数的指针，供 Unity JsonUtility 文档的可选成员使用
+// writeServiceTestInt32 returns a pointer to the given integer for the optional members of Unity JsonUtility documents
+func writeServiceTestInt32(value int32) *int32 { return &value }

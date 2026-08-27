@@ -431,6 +431,7 @@ func convertToJson(path string) error {
 			return fmt.Errorf("failed to convert %s to KCES misc JSON: %w", path, err)
 		}
 		fmt.Printf("Converted %s to %s\n", path, outputPath)
+		printMissingUndressPairWarning(path)
 		return nil
 	}
 	if KCESService.IsKCESRawUnityBytesFile(path) {
@@ -601,6 +602,7 @@ func convertToMod(path string) error {
 			return fmt.Errorf("failed to convert %s to KCES misc payload: %w", path, err)
 		}
 		fmt.Printf("Converted %s to %s\n", path, outputPath)
+		printMissingUndressPairWarning(outputPath)
 		return nil
 	}
 	rawUnityBase := trimLastExtension(path)
@@ -1201,5 +1203,15 @@ func fileTypeFilter(path string) bool {
 			return innerExt == ft
 		}
 		return false
+	}
+}
+
+// printMissingUndressPairWarning 在 .undressdat 或 .undresspdat 缺少配对文件时向 stderr 打印一次提示
+// 两个文件缺一个游戏就完全不加载脱衣设置，因此这属于转换成功但结果不可用的情况，只提示不报错
+// printMissingUndressPairWarning prints one hint to stderr when a .undressdat or .undresspdat has no paired file
+// The game loads no undress setup at all when either file is missing, so this is a successful conversion with an unusable result and stays a hint rather than an error
+func printMissingUndressPairWarning(nativePath string) {
+	if warning := KCESService.MissingUndressPairWarning(nativePath); warning != "" {
+		fmt.Fprintln(os.Stderr, "warning: "+warning)
 	}
 }

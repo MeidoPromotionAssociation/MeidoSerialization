@@ -241,7 +241,7 @@ func TestIndependentMiscServicesRoundTrip(t *testing.T) {
 		{
 			name:      "undressdat",
 			extension: serializationKCES.KCESUndressDataExtension,
-			wire:      []byte(`{"editVer":13,"items":["a"]}`),
+			wire:      []byte(`{"format":"1.2.2","editVer":13,"layers":[{"label":"","fixMode":1,"autoSortMode":3,"useMode":10}],"dataGroup":[{"label":"Group_0000","layer":0,"weights":[],"vertices":[],"exFixeds":[],"indices":[7,11]}],"commonPeelInfo":{"fixedPullLength":1.0}}`),
 			toJSON: func(inputPath string, outputPath string) error {
 				return (&UndressDataService{}).ConvertUndressDataToJson(TestConversionContext, inputPath, outputPath, TestConversionMaxOutput)
 			},
@@ -256,7 +256,7 @@ func TestIndependentMiscServicesRoundTrip(t *testing.T) {
 		{
 			name:      "undresspdat",
 			extension: serializationKCES.KCESUndressPartsDataExtension,
-			wire:      []byte(`{"editVer":13,"parts":["body"]}`),
+			wire:      []byte(`{"editVer":13,"OneGroupLooker":{"Targets":[{"lyr":0,"lbl":"Group_0000"}]},"WidthMeasurerValidPixelThreshold":0.99,"meshReduction":{"d":[{"v":{"index":0},"dat":{"p":{"idcs":[],"idx":489},"s":{"idcs":[148],"idx":0}}}]},"widthMeasurer":{"d":[]}}`),
 			toJSON: func(inputPath string, outputPath string) error {
 				return (&UndressPartsDataService{}).ConvertUndressPartsDataToJson(TestConversionContext, inputPath, outputPath, TestConversionMaxOutput)
 			},

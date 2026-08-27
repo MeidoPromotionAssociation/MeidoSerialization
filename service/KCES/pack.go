@@ -121,7 +121,32 @@ func packGameLoadWarnings(manifest ModManifest, dirPath string) []string {
 			warnings = append(warnings, warning)
 		}
 	}
+	warnings = append(warnings, undressPairWarnings(manifest)...)
 	return append(warnings, materialAssetsLookupWarnings(manifest, dirPath)...)
+}
+
+// undressPairWarnings 对包内只有一半的 .undressdat / .undresspdat 配对返回提示文本
+// undressPairWarnings returns hints for .undressdat / .undresspdat pairs the package only carries half of
+func undressPairWarnings(manifest ModManifest) []string {
+	present := make(map[string]struct{}, len(manifest.Assets))
+	for _, asset := range manifest.Assets {
+		present[strings.ToLower(asset.Name)] = struct{}{}
+	}
+	var warnings []string
+	for _, asset := range manifest.Assets {
+		pairExtension := UndressPairExtension(asset.Name)
+		if pairExtension == "" {
+			continue
+		}
+		// 提示里保留资源原有的大小写，查找时才统一转小写
+		// The hint keeps the asset's original casing and only the lookup is lowercased
+		pairName := strings.TrimSuffix(asset.Name, filepath.Ext(asset.Name)) + pairExtension
+		if _, paired := present[strings.ToLower(pairName)]; paired {
+			continue
+		}
+		warnings = append(warnings, undressPairWarningText(asset.Name, pairName))
+	}
+	return warnings
 }
 
 // packNameCaseWarning 在打包名称含有大写字母时返回提示文本

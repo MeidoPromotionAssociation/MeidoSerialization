@@ -8,7 +8,7 @@ import (
 
 func TestKCESJSONTextKeepsOnlyJSONSemantics(t *testing.T) {
 	original := append([]byte{0xef, 0xbb, 0xbf}, []byte("{\r\n  \"version\" : -7,\r\n  \"future\" : [ 1, 2 ]\r\n}\r\n")...)
-	for _, extension := range []string{".undressdat", ".undresspdat", ".nson"} {
+	for _, extension := range []string{".nson"} {
 		value, err := DecodeKCESJSONText(original, extension)
 		if err != nil {
 			t.Fatalf("DecodeKCESJSONText(%s) error = %v", extension, err)

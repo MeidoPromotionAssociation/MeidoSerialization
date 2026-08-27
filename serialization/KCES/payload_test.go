@@ -616,16 +616,35 @@ func TestNormalizeKCESPayloadExtension(t *testing.T) {
 }
 
 func TestNormalizeKCESJSONTextExtension(t *testing.T) {
+	// .undressdat 与 .undresspdat 的原生文件同样是 JSON 文本，但它们的领域结构已被建模，
+	// 因此不在自由形式 JSON-text 注册表里
+	// The native .undressdat and .undresspdat files are JSON text as well, but their domain
+	// structure is modeled, so they are not in the free-form JSON-text registry
 	tests := map[string]string{
-		"crc2_Underwear.undressdat":  ".undressdat",
-		"crc2_Underwear.undresspdat": ".undresspdat",
 		"dance_enabled_list.NSON":    ".nson",
+		"crc2_Underwear.undressdat":  "",
+		"crc2_Underwear.undresspdat": "",
 		"Uwagi.hitcheck":             "",
 		"default_hairf.db2conf":      "",
 	}
 	for input, want := range tests {
 		if got := NormalizeKCESJSONTextExtension(input); got != want {
 			t.Fatalf("NormalizeKCESJSONTextExtension(%q)=%q, want %q", input, got, want)
+		}
+	}
+}
+
+func TestNormalizeKCESUnityJSONDocumentExtension(t *testing.T) {
+	tests := map[string]string{
+		"crc2_Underwear.undressdat":  ".undressdat",
+		"crc2_Underwear.UNDRESSPDAT": ".undresspdat",
+		"dance_enabled_list.nson":    "",
+		"Uwagi.hitcheck":             "",
+		"default_hairf.db2conf":      "",
+	}
+	for input, want := range tests {
+		if got := NormalizeKCESUnityJSONDocumentExtension(input); got != want {
+			t.Fatalf("NormalizeKCESUnityJSONDocumentExtension(%q)=%q, want %q", input, got, want)
 		}
 	}
 }
@@ -750,8 +769,6 @@ func payloadTestString(value string) *string { return &value }
 
 func TestKCESJSONTextDescriptorsCoverExtensions(t *testing.T) {
 	expected := []string{
-		KCESUndressDataExtension,
-		KCESUndressPartsDataExtension,
 		KCESNSONExtension,
 	}
 	if len(kcesJSONTextDescriptorByExtension) != len(expected) {

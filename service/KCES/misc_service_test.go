@@ -55,13 +55,17 @@ func TestMiscService_HitCheckRoundTrip(t *testing.T) {
 	}
 }
 
-func TestMiscService_JSONTextRoundTrip(t *testing.T) {
+func TestMiscService_UndressDataRoundTrip(t *testing.T) {
 	tmpDir := t.TempDir()
 	inputPath := filepath.Join(tmpDir, "sample.undressdat")
 	jsonPath := inputPath + ".json"
 	outputPath := filepath.Join(tmpDir, "out.undressdat")
 
-	input := []byte("{\n  \"editVer\": 13,\n  \"items\": [\"a\", \"b\"]\n}\n")
+	// WearSetuper 用 JsonUtility.FromJson<ArchiveTarget> 读取 .undressdat，因此这里保留真实的
+	// 游戏侧成员名，包括必须与缺失区分开的空数组
+	// WearSetuper reads .undressdat with JsonUtility.FromJson<ArchiveTarget>, so keep the real
+	// game-side member names here, including the empty arrays that must stay distinct from absent ones
+	input := []byte("{\n    \"format\": \"1.2.2\",\n    \"editVer\": 13,\n    \"dataGroup\": [\n        {\n            \"label\": \"Group_0000\",\n            \"layer\": 0,\n            \"weights\": [],\n            \"indices\": [7, 11]\n        }\n    ]\n}\n")
 	if err := os.WriteFile(inputPath, input, 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -70,23 +74,21 @@ func TestMiscService_JSONTextRoundTrip(t *testing.T) {
 	if err := service.ConvertMiscToJson(TestConversionContext, inputPath, jsonPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertMiscToJson: %v", err)
 	}
-	var document json.RawMessage
-	if err := json.Unmarshal(mustReadTestFile(t, jsonPath), &document); err != nil {
-		t.Fatalf("unmarshal editing document: %v", err)
+	editing, err := serializationKCES.DecodeKCESUndressData(mustReadTestFile(t, jsonPath))
+	if err != nil {
+		t.Fatalf("decode editing document: %v", err)
 	}
-	if len(document) == 0 {
-		t.Fatalf("unexpected editing document: %s", document)
+	if editing.Format == nil || *editing.Format != "1.2.2" || editing.DataGroup == nil || len(*editing.DataGroup) != 1 {
+		t.Fatalf("unexpected editing document: %+v", editing)
 	}
 
 	if err := service.ConvertJsonToMisc(TestConversionContext, jsonPath, outputPath, TestConversionMaxOutput); err != nil {
 		t.Fatalf("ConvertJsonToMisc: %v", err)
 	}
-	decoded, err := serializationKCES.DecodeKCESJSONText(mustReadTestFile(t, outputPath), ".undressdat")
-	if err != nil {
-		t.Fatalf("DecodeKCESJSONText output: %v", err)
-	}
-	if string(decoded) != `{"editVer":13,"items":["a","b"]}` {
-		t.Fatalf("unexpected JSON document: %s", decoded)
+	// 编辑 JSON 的根就是资源文档本身，因此原生输出与输入的成员集合完全一致
+	// The editing JSON root is the resource document itself, so the native output carries exactly the input member set
+	if got := string(mustReadTestFile(t, outputPath)); got != "{\n    \"format\": \"1.2.2\",\n    \"editVer\": 13,\n    \"dataGroup\": [\n        {\n            \"label\": \"Group_0000\",\n            \"weights\": [],\n            \"layer\": 0,\n            \"indices\": [\n                7,\n                11\n            ]\n        }\n    ]\n}" {
+		t.Fatalf("unexpected native output: %q", got)
 	}
 }
 

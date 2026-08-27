@@ -1,42 +1,492 @@
 {
+  "$defs": {
+    "KCES_UndressDegeneracyIndices": {
+      "additionalProperties": false,
+      "properties": {
+        "idcs": {
+          "items": {
+            "maximum": 2147483647,
+            "minimum": -2147483648,
+            "type": "integer",
+            "x-meido-integer-bits": 32,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "idx": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressGroupKey": {
+      "additionalProperties": false,
+      "properties": {
+        "lbl": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "lyr": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressGroupLooker": {
+      "additionalProperties": false,
+      "properties": {
+        "Targets": {
+          "items": {
+            "$ref": "#/$defs/KCES_UndressGroupKey"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressGroupRef": {
+      "additionalProperties": false,
+      "properties": {
+        "index": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressMeshReduction": {
+      "additionalProperties": false,
+      "properties": {
+        "p": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_UndressDegeneracyIndices"
+            }
+          ]
+        },
+        "s": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_UndressDegeneracyIndices"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressMeshReductionEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "dat": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_UndressMeshReduction"
+            }
+          ]
+        },
+        "v": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_UndressGroupRef"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressMeshReductionTable": {
+      "additionalProperties": false,
+      "properties": {
+        "d": {
+          "items": {
+            "$ref": "#/$defs/KCES_UndressMeshReductionEntry"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressWidthMeasurer": {
+      "additionalProperties": false,
+      "properties": {
+        "hvp": {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
+        "info": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_UndressWidthMeasurerRail"
+            }
+          ]
+        },
+        "infoR": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_UndressWidthMeasurerRail"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressWidthMeasurerEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "dat": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_UndressWidthMeasurer"
+            }
+          ]
+        },
+        "v": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_UndressGroupRef"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressWidthMeasurerRail": {
+      "additionalProperties": false,
+      "properties": {
+        "mIdx": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "vIdx": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "vPer": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": [
+            "null",
+            "number"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressWidthMeasurerTable": {
+      "additionalProperties": false,
+      "properties": {
+        "d": {
+          "items": {
+            "$ref": "#/$defs/KCES_UndressWidthMeasurerEntry"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
   "$id": "urn:meido-serialization:editing-json:v1:kces.undresspdat",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
   "description": "Lossless editing JSON contract for kces.undresspdat.",
+  "properties": {
+    "OneGroupLooker": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/KCES_UndressGroupLooker"
+        }
+      ],
+      "description": "The baked table of group keys whose subscript is the index every other member of this file uses to name a group.",
+      "title": "Group index table",
+      "x-meido-edit-guidance": "Never reorder or delete entries: the subscript is the identity used by meshReduction and widthMeasurer. Rebuild the whole table from the paired .undressdat instead.",
+      "x-meido-edit-role": "resource_identity",
+      "x-meido-game-usage": "RestoreDictionary matches each key's lyr and lbl against the layer and label of the paired .undressdat dataGroup, and GetValue resolves a cached index through this table.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 126,
+          "line_start": 24,
+          "observation": "PrecomputeTarget declares exactly five [SerializeField] members, and InjectMeshReduction and InjectWidthMeasurer resolve each cached entry through OneGroupLooker before injecting it into the matching OneGroup, logging a missing-group error and skipping the entry when the lookup fails.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/PrecomputeTarget.cs",
+          "symbol": "PrecomputeTarget"
+        },
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 73,
+          "line_start": 12,
+          "observation": "BakeDictionary writes the group keys into Targets so that each key sits at its own index, GetValue resolves a cached index through Targets, and RestoreDictionary rebuilds the runtime dictionary by matching each key's lyr and lbl against the layer and label of the paired ArchiveTarget dataGroup.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/OneGroupLooker.cs",
+          "symbol": "OneGroupLooker"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    },
+    "WidthMeasurerValidPixelThreshold": {
+      "description": "The valid-pixel threshold the width measurer used while baking this cache.",
+      "maximum": 3.4028234663852886e+38,
+      "minimum": -3.4028234663852886e+38,
+      "title": "Width measurer pixel threshold",
+      "type": [
+        "null",
+        "number"
+      ],
+      "x-meido-edit-guidance": "This is the only member of this file that is a tunable rather than a derived index; changing it without rebaking makes the cached measurements inconsistent with the threshold they were produced under.",
+      "x-meido-edit-role": "runtime_parameters",
+      "x-meido-game-usage": "The width measurement pass compares against this threshold when deciding whether a measured rail is valid.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 126,
+          "line_start": 24,
+          "observation": "PrecomputeTarget declares exactly five [SerializeField] members, and InjectMeshReduction and InjectWidthMeasurer resolve each cached entry through OneGroupLooker before injecting it into the matching OneGroup, logging a missing-group error and skipping the entry when the lookup fails.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/PrecomputeTarget.cs",
+          "symbol": "PrecomputeTarget"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    },
+    "editVer": {
+      "description": "The version of the KCES2 undress editor that baked this cache.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "title": "Editor build version",
+      "type": [
+        "null",
+        "integer"
+      ],
+      "x-meido-edit-guidance": "Preserve the source value and keep it equal to the editVer of the paired .undressdat.",
+      "x-meido-edit-role": "provenance_metadata",
+      "x-meido-game-usage": "The runtime loader does not branch on this member; the paired .undressdat carries its own copy of the same counter.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
+      "x-meido-risk": "medium",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 126,
+          "line_start": 24,
+          "observation": "PrecomputeTarget declares exactly five [SerializeField] members, and InjectMeshReduction and InjectWidthMeasurer resolve each cached entry through OneGroupLooker before injecting it into the matching OneGroup, logging a missing-group error and skipping the entry when the lookup fails.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/PrecomputeTarget.cs",
+          "symbol": "PrecomputeTarget"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    },
+    "meshReduction": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/KCES_UndressMeshReductionTable"
+        }
+      ],
+      "description": "The per-group vertex degeneracy targets applied before and after peeling.",
+      "title": "Vertex degeneracy cache",
+      "x-meido-edit-guidance": "Rebake it from the paired .undressdat rather than editing indices by hand; every index here refers to concrete mesh vertices.",
+      "x-meido-edit-role": "precomputed_cache",
+      "x-meido-game-usage": "InjectMeshReduction resolves each entry to its group and installs the two target sets, and the peel pass then moves every listed vertex onto its target vertex to weld the mesh.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 126,
+          "line_start": 24,
+          "observation": "PrecomputeTarget declares exactly five [SerializeField] members, and InjectMeshReduction and InjectWidthMeasurer resolve each cached entry through OneGroupLooker before injecting it into the matching OneGroup, logging a missing-group error and skipping the entry when the lookup fails.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/PrecomputeTarget.cs",
+          "symbol": "PrecomputeTarget"
+        },
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 170,
+          "line_start": 136,
+          "observation": "DegeneracyTargetIndices.Exec moves every vertex listed in idcs onto the position of the idx vertex and returns immediately when idcs is null, which welds the mesh at that location.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/VPeelTransPatchCompressor.cs",
+          "symbol": "VPeelTransPatchCompressor.DegeneracyTargetIndices"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    },
+    "widthMeasurer": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/KCES_UndressWidthMeasurerTable"
+        }
+      ],
+      "description": "The per-group forward and reverse peel rail measurements.",
+      "title": "Width measurement cache",
+      "x-meido-edit-guidance": "Rebake it from the paired .undressdat rather than editing measurements by hand.",
+      "x-meido-edit-role": "precomputed_cache",
+      "x-meido-game-usage": "InjectWidthMeasurer resolves each entry to its group and restores its valid flag and both rail measurements.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 126,
+          "line_start": 24,
+          "observation": "PrecomputeTarget declares exactly five [SerializeField] members, and InjectMeshReduction and InjectWidthMeasurer resolve each cached entry through OneGroupLooker before injecting it into the matching OneGroup, logging a missing-group error and skipping the entry when the lookup fails.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/PrecomputeTarget.cs",
+          "symbol": "PrecomputeTarget"
+        },
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 58,
+          "line_start": 5,
+          "observation": "WidthMeasurerDto captures hasValidWidthMeasurer plus the forward and reverse peel rail measurements of one group, and ReductionInfo stores the rail vertex ordinal, the normalized progress at that vertex, and the corresponding mesh vertex index.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/WidthMeasurerDto.cs",
+          "symbol": "WidthMeasurerDto"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    }
+  },
   "title": "kces.undresspdat editing JSON",
-  "x-meido-edit-guidance": "Edit only fields confirmed for the exact target resource and preserve unknown members.",
-  "x-meido-edit-role": "opaque_domain_data",
+  "type": [
+    "null",
+    "object"
+  ],
   "x-meido-format-id": "kces.undresspdat",
   "x-meido-format-verification": {
     "authority": "ai",
     "level": "serialization_verified",
-    "notes": "The whole-file serialization boundary, extension dispatch, and semantic JSON boundary were checked. Resource-specific members without source_semantics claims remain semantically unknown, and source formatting is intentionally normalized."
+    "notes": "The loader entry point, the complete set of serialized members, and the way each cached entry is resolved back to a group of the paired .undressdat were reviewed in KCES2 1.35.1. Every value in this file is derived from the paired .undressdat rather than authored independently."
   },
-  "x-meido-game-usage": "The game-side consumer determines which entries control part removal or restoration.",
   "x-meido-native-suffixes": [
     ".undresspdat"
   ],
   "x-meido-representation": "editing_json",
-  "x-meido-risk": "critical",
-  "x-meido-schema-version": "1.0.0",
-  "x-meido-source-evidence": [
-    {
-      "game_version": "KCES 1.34.4",
-      "kind": "game_source",
-      "line_end": 156,
-      "line_start": 143,
-      "observation": "The game resource layer obtains the resource bytes from the selected file source. No resource-specific undress JSON consumer is established here, so this repository validates one complete JSON value and exposes its semantic content.",
-      "path": "KCES 1.34.4/WfSystem.FileSystem/GameResource.cs",
-      "symbol": "GameResource.LoadBinary"
-    }
-  ],
-  "x-meido-verification": {
-    "serialization": {
-      "authority": "ai",
-      "status": "verified"
-    },
-    "source_semantics": {
-      "authority": "ai",
-      "status": "verified"
-    }
-  }
+  "x-meido-schema-version": "1.0.0"
 }

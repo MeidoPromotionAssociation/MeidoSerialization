@@ -1,42 +1,1167 @@
 {
+  "$defs": {
+    "KCES_UndressCommonPeelInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "fixedPullLength": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": [
+            "null",
+            "number"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressExFixed": {
+      "additionalProperties": false,
+      "properties": {
+        "fromIndex": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "toIndex": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "exFixeds": {
+          "items": {
+            "$ref": "#/$defs/KCES_UndressExFixed"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "floatGuideLine0": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "floatGuideLine1": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "floatMode": {
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": false
+        },
+        "indices": {
+          "items": {
+            "maximum": 2147483647,
+            "minimum": -2147483648,
+            "type": "integer",
+            "x-meido-integer-bits": 32,
+            "x-meido-integer-signed": true
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "isFloat": {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
+        "isFloatGuide": {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
+        "isInactive": {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
+        "isOverPeel": {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
+        "isPaste": {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
+        "isSolid": {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
+        "isToForce": {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
+        "label": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "layer": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "pasteGuideLine0": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "pasteGuideLine1": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "solidPriority": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "vCategory": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "vertices": {
+          "items": {
+            "$ref": "#/$defs/KCES_Vector3"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "weights": {
+          "items": {
+            "maximum": 3.4028234663852886e+38,
+            "minimum": -3.4028234663852886e+38,
+            "type": "number"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressHPeelSelectLimit": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "value": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressLayer": {
+      "additionalProperties": false,
+      "properties": {
+        "autoSortMode": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "fixMode": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "label": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "useMode": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressPeelLimitRange": {
+      "additionalProperties": false,
+      "properties": {
+        "begin": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": [
+            "null",
+            "number"
+          ]
+        },
+        "end": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": [
+            "null",
+            "number"
+          ]
+        },
+        "valid": {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressPeelLimits": {
+      "additionalProperties": false,
+      "properties": {
+        "format_version": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "hPeelSelectLimits": {
+          "items": {
+            "$ref": "#/$defs/KCES_UndressHPeelSelectLimit"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "heads": {
+          "items": {
+            "maximum": 3.4028234663852886e+38,
+            "minimum": -3.4028234663852886e+38,
+            "type": "number"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "manualLimitPac": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_UndressPeelLimitRange"
+            }
+          ]
+        },
+        "tails": {
+          "items": {
+            "maximum": 3.4028234663852886e+38,
+            "minimum": -3.4028234663852886e+38,
+            "type": "number"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "thrs": {
+          "items": {
+            "$ref": "#/$defs/KCES_UndressPeelThreshold"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressPeelThreshold": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "thr": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": [
+            "null",
+            "number"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressSubMeshSlideSub": {
+      "additionalProperties": false,
+      "properties": {
+        "sub1": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "sub2": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "sub3": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        }
+      },
+      "type": "object"
+    },
+    "KCES_UndressVPeelExInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "backAdjustLength": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": [
+            "null",
+            "number"
+          ]
+        },
+        "frontAdjustLength": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": [
+            "null",
+            "number"
+          ]
+        },
+        "retensionDepthBackPar": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": [
+            "null",
+            "number"
+          ]
+        },
+        "retensionDepthFrontPar": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": [
+            "null",
+            "number"
+          ]
+        },
+        "retensionWidthPar": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": [
+            "null",
+            "number"
+          ]
+        },
+        "vPeelFoldingCorrectWidth": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": [
+            "null",
+            "number"
+          ]
+        },
+        "vPeelFoldingWidth": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": [
+            "null",
+            "number"
+          ]
+        },
+        "vPeelVerticalFoldingWidthBack": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": [
+            "null",
+            "number"
+          ]
+        },
+        "vPeelVerticalFoldingWidthFront": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": [
+            "null",
+            "number"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "KCES_Vector3": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "y": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        },
+        "z": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "z"
+      ],
+      "type": "object"
+    }
+  },
   "$id": "urn:meido-serialization:editing-json:v1:kces.undressdat",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
   "description": "Lossless editing JSON contract for kces.undressdat.",
+  "properties": {
+    "commonPeelInfo": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/KCES_UndressCommonPeelInfo"
+        }
+      ],
+      "description": "The parameters shared by every peel mode.",
+      "title": "Shared peel parameters",
+      "x-meido-edit-guidance": "Change fixedPullLength in millimeters and keep it positive.",
+      "x-meido-edit-role": "runtime_parameters",
+      "x-meido-game-usage": "The peel units divide fixedPullLength by 1000 before use, so it is stored in millimeters.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 674,
+          "line_start": 635,
+          "observation": "ArchiveTarget declares exactly fourteen [SerializeField] members, which are the fourteen members Unity JsonUtility reads and writes for a .undressdat file.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTarget.cs",
+          "symbol": "ArchiveTarget serialized members"
+        },
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 769,
+          "line_start": 744,
+          "observation": "CommonPeelInfo stores fixedPullLength, and the FixedPullLength accessor divides it by 1000, so the stored number is millimeters.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTarget.cs",
+          "symbol": "ArchiveTarget.CommonPeelInfo"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    },
+    "dataGroup": {
+      "description": "The ordered list of pullable vertex groups; each group is one ring of mesh vertices plus the flags controlling how it deforms.",
+      "items": {
+        "$ref": "#/$defs/KCES_UndressGroup"
+      },
+      "title": "Vertex groups",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-edit-guidance": "Treat the label and layer pair of every group as an identity shared with the paired .undresspdat; renaming, adding, deleting, or reordering groups invalidates that cache.",
+      "x-meido-edit-role": "runtime_collection",
+      "x-meido-game-usage": "The peel units read each group's indices as a pull rail, and the paired .undresspdat resolves its cached data back to these groups by matching layer and label.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 674,
+          "line_start": 635,
+          "observation": "ArchiveTarget declares exactly fourteen [SerializeField] members, which are the fourteen members Unity JsonUtility reads and writes for a .undressdat file.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTarget.cs",
+          "symbol": "ArchiveTarget serialized members"
+        },
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 779,
+          "line_start": 701,
+          "observation": "OneGroup stores one pullable ring of vertices: its label, behavior flags, guide-line labels, per-vertex weights and positions, owning layer, edge category, float mode, additional fixed vertex pairs, and the mesh vertex indices of the ring.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/OneGroup.cs",
+          "symbol": "OneGroup serialized members"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    },
+    "editVer": {
+      "description": "The version of the KCES2 undress editor that wrote the file.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "title": "Editor build version",
+      "type": [
+        "null",
+        "integer"
+      ],
+      "x-meido-edit-guidance": "Preserve the source value and keep it equal to the editVer of the paired .undresspdat.",
+      "x-meido-edit-role": "provenance_metadata",
+      "x-meido-game-usage": "The runtime loader does not branch on this member; the paired .undresspdat carries its own copy of the same counter.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
+      "x-meido-risk": "medium",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 674,
+          "line_start": 635,
+          "observation": "ArchiveTarget declares exactly fourteen [SerializeField] members, which are the fourteen members Unity JsonUtility reads and writes for a .undressdat file.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTarget.cs",
+          "symbol": "ArchiveTarget serialized members"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    },
+    "fbxName": {
+      "description": "The FBX name of the garment this setup applies to.",
+      "title": "Target FBX name",
+      "type": [
+        "null",
+        "string"
+      ],
+      "x-meido-edit-guidance": "Keep it equal to the garment resource name that loads this file.",
+      "x-meido-edit-role": "resource_reference",
+      "x-meido-game-usage": "WearSetuper overwrites this member with the loaded garment resource name when setupDataType is None.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 674,
+          "line_start": 635,
+          "observation": "ArchiveTarget declares exactly fourteen [SerializeField] members, which are the fourteen members Unity JsonUtility reads and writes for a .undressdat file.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTarget.cs",
+          "symbol": "ArchiveTarget serialized members"
+        },
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 22,
+          "line_start": 13,
+          "observation": "WearSetuper loads \u003cgarment\u003e.undressdat and \u003cgarment\u003e.undresspdat through GameResource.LoadBinary, aborts the whole undress setup when either is missing or empty, and parses them with JsonUtility.FromJson\u003cArchiveTarget\u003e and JsonUtility.FromJson\u003cPrecomputeTarget\u003e.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/WearSetuper.cs",
+          "symbol": "WearSetuper.UpdateShortsSetup"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    },
+    "format": {
+      "description": "The dotted version string of the setup data itself, such as 1.2.2.",
+      "title": "Data format version",
+      "type": [
+        "null",
+        "string"
+      ],
+      "x-meido-edit-guidance": "Keep a dotted string with at least three numeric components. Lowering it makes the game replay migrations that rewrite group labels and add or delete layers, and an empty or one-component value makes the version comparison read past the end of its array.",
+      "x-meido-edit-role": "format_version",
+      "x-meido-game-usage": "ArchiveTargetFormatter splits this string on '.' and indexes three numeric components, then runs every migration newer than the stored version and overwrites the member with the migrated version.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 674,
+          "line_start": 635,
+          "observation": "ArchiveTarget declares exactly fourteen [SerializeField] members, which are the fourteen members Unity JsonUtility reads and writes for a .undressdat file.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTarget.cs",
+          "symbol": "ArchiveTarget serialized members"
+        },
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 133,
+          "line_start": 28,
+          "observation": "The constructor splits format on '.' and indexes three numeric components, and Exec runs the 1.0.1 through 1.2.2 migrations, which rewrite group labels, clone and delete layers, clear group indices, and finally set format to the migrated version.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTargetFormatter.cs",
+          "symbol": "ArchiveTargetFormatter"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    },
+    "hPeelLimits": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/KCES_UndressPeelLimits"
+        }
+      ],
+      "description": "The limit set for horizontal peeling: per-step progress bounds, per-group thresholds, a manual override range, and per-group participation switches.",
+      "title": "Horizontal peel limits",
+      "x-meido-edit-guidance": "Keep each head no greater than the tail of the same step, and keep every label used here present in dataGroup.",
+      "x-meido-edit-role": "runtime_parameters",
+      "x-meido-game-usage": "The rail filter resolves the per-group thresholds and the tail bounds, the deflection component drops groups switched off here, and the exec parameters honor the manual range when it is valid.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 674,
+          "line_start": 635,
+          "observation": "ArchiveTarget declares exactly fourteen [SerializeField] members, which are the fourteen members Unity JsonUtility reads and writes for a .undressdat file.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTarget.cs",
+          "symbol": "ArchiveTarget serialized members"
+        },
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 1056,
+          "line_start": 802,
+          "observation": "PeelLimits stores the per-step head and tail progress bounds, the per-group thresholds, the manual limit range, and the per-group horizontal-peel switches; FixHead and FixTail keep each head no greater than the tail of the same step, and CheckVer migrates format_version 0 to 1 to 2 while rewriting the thrs values in place.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTarget.cs",
+          "symbol": "ArchiveTarget.PeelLimits"
+        },
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 100,
+          "line_start": 82,
+          "observation": "The horizontal peel rail filter resolves each thrs entry by group label and then overrides the trailing rail limits from the tails array.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/HPeelPeelRailFilterCompo.cs",
+          "symbol": "HPeelPeelRailFilterCompo.ExecHPeel"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    },
+    "layers": {
+      "description": "The ordered list of peel channels, each declaring one peel direction plus its sort and lock behavior.",
+      "items": {
+        "$ref": "#/$defs/KCES_UndressLayer"
+      },
+      "title": "Peel channels",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-edit-guidance": "Never reorder or delete entries without renumbering every dataGroup layer that names them; the position, not the label, selects the channel. Keep at least the 15 entries the game pads to so no channel silently shifts.",
+      "x-meido-edit-role": "runtime_collection",
+      "x-meido-game-usage": "The peel components select the groups of a channel by comparing each group's layer number against the channel position, and PickupAnyLayer looks a channel up by useMode. Validate pads this list to MyConstants.MAXLayerCount, that is 15 entries, while loading.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 674,
+          "line_start": 635,
+          "observation": "ArchiveTarget declares exactly fourteen [SerializeField] members, which are the fourteen members Unity JsonUtility reads and writes for a .undressdat file.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTarget.cs",
+          "symbol": "ArchiveTarget serialized members"
+        },
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 43,
+          "line_start": 5,
+          "observation": "OneLayer stores the label, FixMode, AutoSortMode, and UseMode of one peel channel, and IsUniqueGroup and IsUnlock derive channel behavior from useMode and fixMode.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/OneLayer.cs",
+          "symbol": "OneLayer"
+        },
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 228,
+          "line_start": 218,
+          "observation": "Groups whose layer is 100 plus a sub-mesh ordinal are resolved as sub-mesh anchor groups, matching the MyEnum.LayerCategory range that starts at SUB_MESH_1 = 100, while ArchiveTarget.Validate pads the layers list to the MyConstants.MAXLayerCount of 15 channels.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ReadyPeelCompo.cs",
+          "symbol": "ReadyPeelCompo sub-mesh layer lookup"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    },
+    "meshRelPath": {
+      "description": "The relative path of the garment mesh this setup was authored against.",
+      "title": "Mesh relative path",
+      "type": [
+        "null",
+        "string"
+      ],
+      "x-meido-edit-guidance": "Keep it aligned with the real garment mesh; the bra and pants substrings affect category inference for files whose setupDataType is None.",
+      "x-meido-edit-role": "resource_reference",
+      "x-meido-game-usage": "ArchiveTargetFormatter.MakePeelMCategory searches this string for bra and pants to infer the peel category when setupDataType is None.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 674,
+          "line_start": 635,
+          "observation": "ArchiveTarget declares exactly fourteen [SerializeField] members, which are the fourteen members Unity JsonUtility reads and writes for a .undressdat file.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTarget.cs",
+          "symbol": "ArchiveTarget serialized members"
+        },
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 133,
+          "line_start": 28,
+          "observation": "The constructor splits format on '.' and indexes three numeric components, and Exec runs the 1.0.1 through 1.2.2 migrations, which rewrite group labels, clone and delete layers, clear group indices, and finally set format to the migrated version.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTargetFormatter.cs",
+          "symbol": "ArchiveTargetFormatter"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    },
+    "peelCategory": {
+      "description": "The MyEnum.PeelCategory value classifying the garment as bra, shorts, other, or body.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "title": "Peel category",
+      "type": [
+        "null",
+        "integer"
+      ],
+      "x-meido-edit-guidance": "Use a value from the reviewed PeelCategory set and keep it consistent with setupDataType and meshRelPath.",
+      "x-meido-edit-role": "runtime_enum",
+      "x-meido-game-usage": "WearSetuper registers the garment in the character's wear list under this category, so it selects which slot the garment occupies.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 674,
+          "line_start": 635,
+          "observation": "ArchiveTarget declares exactly fourteen [SerializeField] members, which are the fourteen members Unity JsonUtility reads and writes for a .undressdat file.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTarget.cs",
+          "symbol": "ArchiveTarget serialized members"
+        },
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 22,
+          "line_start": 13,
+          "observation": "WearSetuper loads \u003cgarment\u003e.undressdat and \u003cgarment\u003e.undresspdat through GameResource.LoadBinary, aborts the whole undress setup when either is missing or empty, and parses them with JsonUtility.FromJson\u003cArchiveTarget\u003e and JsonUtility.FromJson\u003cPrecomputeTarget\u003e.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/WearSetuper.cs",
+          "symbol": "WearSetuper.UpdateShortsSetup"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    },
+    "setupDataType": {
+      "description": "The eSeupDataType value selecting whether the file describes a body, pants, or bra setup.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "title": "Setup data kind",
+      "type": [
+        "null",
+        "integer"
+      ],
+      "x-meido-edit-guidance": "Use a value from the reviewed eSeupDataType set and keep it consistent with peelCategory and the garment the file belongs to.",
+      "x-meido-edit-role": "runtime_enum",
+      "x-meido-game-usage": "WearSetuper treats None as Pants and backfills fbxName, while ArchiveTargetFormatter maps this value onto the peel category during the 1.0.1 migration.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 674,
+          "line_start": 635,
+          "observation": "ArchiveTarget declares exactly fourteen [SerializeField] members, which are the fourteen members Unity JsonUtility reads and writes for a .undressdat file.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTarget.cs",
+          "symbol": "ArchiveTarget serialized members"
+        },
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 22,
+          "line_start": 13,
+          "observation": "WearSetuper loads \u003cgarment\u003e.undressdat and \u003cgarment\u003e.undresspdat through GameResource.LoadBinary, aborts the whole undress setup when either is missing or empty, and parses them with JsonUtility.FromJson\u003cArchiveTarget\u003e and JsonUtility.FromJson\u003cPrecomputeTarget\u003e.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/WearSetuper.cs",
+          "symbol": "WearSetuper.UpdateShortsSetup"
+        },
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 133,
+          "line_start": 28,
+          "observation": "The constructor splits format on '.' and indexes three numeric components, and Exec runs the 1.0.1 through 1.2.2 migrations, which rewrite group labels, clone and delete layers, clear group indices, and finally set format to the migrated version.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTargetFormatter.cs",
+          "symbol": "ArchiveTargetFormatter"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    },
+    "subMeshRootVertexIndices": {
+      "description": "The root vertex index of each sub-mesh of the garment.",
+      "items": {
+        "maximum": 2147483647,
+        "minimum": -2147483648,
+        "type": "integer",
+        "x-meido-integer-bits": 32,
+        "x-meido-integer-signed": true
+      },
+      "title": "Sub-mesh root vertices",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-edit-guidance": "Only use vertex indices that exist in the target mesh; these are precomputed mesh references rather than tunable values.",
+      "x-meido-edit-role": "mesh_index_data",
+      "x-meido-game-usage": "The sub-mesh fixer resolves these vertices while setting up sliding sub-meshes.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 674,
+          "line_start": 635,
+          "observation": "ArchiveTarget declares exactly fourteen [SerializeField] members, which are the fourteen members Unity JsonUtility reads and writes for a .undressdat file.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTarget.cs",
+          "symbol": "ArchiveTarget serialized members"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    },
+    "subMeshRootVertexSubIndices": {
+      "description": "Additional slide vertex indices for each sub-mesh root vertex, where all-negative components mark an unused entry.",
+      "items": {
+        "$ref": "#/$defs/KCES_UndressSubMeshSlideSub"
+      },
+      "title": "Sub-mesh root sub-indices",
+      "type": [
+        "null",
+        "array"
+      ],
+      "x-meido-edit-guidance": "Keep this list aligned element by element with subMeshRootVertexIndices and use -1 for unused components.",
+      "x-meido-edit-role": "mesh_index_data",
+      "x-meido-game-usage": "SubMeshSlideSub.IsInvalid treats an entry with all three components negative as unset.",
+      "x-meido-risk": "critical",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 674,
+          "line_start": 635,
+          "observation": "ArchiveTarget declares exactly fourteen [SerializeField] members, which are the fourteen members Unity JsonUtility reads and writes for a .undressdat file.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTarget.cs",
+          "symbol": "ArchiveTarget serialized members"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    },
+    "tempIndex": {
+      "description": "The counter the editor uses when it allocates the next group label.",
+      "maximum": 2147483647,
+      "minimum": -2147483648,
+      "title": "Group label counter",
+      "type": [
+        "null",
+        "integer"
+      ],
+      "x-meido-edit-guidance": "Preserve the source value; lowering it makes the editor generate labels that collide with existing groups.",
+      "x-meido-edit-role": "editor_metadata",
+      "x-meido-game-usage": "MyConstants.getLayerGroupLabelName derives the next new label from this counter in the editor; the runtime peel path does not read it.",
+      "x-meido-integer-bits": 32,
+      "x-meido-integer-signed": true,
+      "x-meido-risk": "low",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 674,
+          "line_start": 635,
+          "observation": "ArchiveTarget declares exactly fourteen [SerializeField] members, which are the fourteen members Unity JsonUtility reads and writes for a .undressdat file.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTarget.cs",
+          "symbol": "ArchiveTarget serialized members"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    },
+    "vPeelExInfo": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/KCES_UndressVPeelExInfo"
+        }
+      ],
+      "description": "Nine numeric parameters controlling vertical peel adjustment, edge bite-in, and folding width.",
+      "title": "Vertical peel parameters",
+      "x-meido-edit-guidance": "Respect the stored units: the retension members are percentages, the folding members are millimeters, and the two adjustLength members are already in Unity units.",
+      "x-meido-edit-role": "runtime_parameters",
+      "x-meido-game-usage": "The vertical peel units read these numbers through accessors that divide the retension members by 100 and the folding members by 1000.",
+      "x-meido-risk": "high",
+      "x-meido-source-evidence": [
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 674,
+          "line_start": 635,
+          "observation": "ArchiveTarget declares exactly fourteen [SerializeField] members, which are the fourteen members Unity JsonUtility reads and writes for a .undressdat file.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTarget.cs",
+          "symbol": "ArchiveTarget serialized members"
+        },
+        {
+          "game_version": "KCES2 1.35.1",
+          "kind": "game_source",
+          "line_end": 1281,
+          "line_start": 1135,
+          "observation": "VPeelExInfo property accessors fix the stored units: the three retension members are divided by 100 as percentages, vPeelFoldingWidth, vPeelFoldingCorrectWidth, vPeelVerticalFoldingWidthFront, and vPeelVerticalFoldingWidthBack are divided by 1000 as millimeters, and frontAdjustLength and backAdjustLength are used without conversion.",
+          "path": "KCES2 1.35.1/Assembly-CSharp/UndressCore/ArchiveTarget.cs",
+          "symbol": "ArchiveTarget.VPeelExInfo"
+        }
+      ],
+      "x-meido-verification": {
+        "serialization": {
+          "authority": "ai",
+          "status": "verified"
+        },
+        "source_semantics": {
+          "authority": "ai",
+          "status": "verified"
+        }
+      }
+    }
+  },
   "title": "kces.undressdat editing JSON",
-  "x-meido-edit-guidance": "Edit only fields confirmed for the exact target resource and preserve unknown members.",
-  "x-meido-edit-role": "opaque_domain_data",
+  "type": [
+    "null",
+    "object"
+  ],
   "x-meido-format-id": "kces.undressdat",
   "x-meido-format-verification": {
     "authority": "ai",
     "level": "serialization_verified",
-    "notes": "The whole-file serialization boundary, extension dispatch, and semantic JSON boundary were checked. Resource-specific members without source_semantics claims remain semantically unknown, and source formatting is intentionally normalized."
+    "notes": "The loader entry point, the complete set of serialized members, and the unit conventions of the numeric parameters were reviewed in KCES2 1.35.1. Every member is optional because JsonUtility leaves missing members at their defaults, and enum-typed members keep the stored integer because the game's own migrations retain obsolete values."
   },
-  "x-meido-game-usage": "The game-side consumer determines which entries control undress behavior; no universal field contract is established here.",
   "x-meido-native-suffixes": [
     ".undressdat"
   ],
   "x-meido-representation": "editing_json",
-  "x-meido-risk": "critical",
-  "x-meido-schema-version": "1.0.0",
-  "x-meido-source-evidence": [
-    {
-      "game_version": "KCES 1.34.4",
-      "kind": "game_source",
-      "line_end": 156,
-      "line_start": 143,
-      "observation": "The game resource layer obtains the resource bytes from the selected file source. No resource-specific undress JSON consumer is established here, so this repository validates one complete JSON value and exposes its semantic content.",
-      "path": "KCES 1.34.4/WfSystem.FileSystem/GameResource.cs",
-      "symbol": "GameResource.LoadBinary"
-    }
-  ],
-  "x-meido-verification": {
-    "serialization": {
-      "authority": "ai",
-      "status": "verified"
-    },
-    "source_semantics": {
-      "authority": "ai",
-      "status": "verified"
-    }
-  }
+  "x-meido-schema-version": "1.0.0"
 }

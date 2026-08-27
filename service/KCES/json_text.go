@@ -11,10 +11,6 @@ import (
 // WriteJSONTextFile preserves the direct KCES plain-JSON resource writer on the aggregate service
 func (s *MiscService) WriteJSONTextFile(path string, value json.RawMessage) error {
 	switch serializationKCES.NormalizeKCESJSONTextExtension(path) {
-	case serializationKCES.KCESUndressDataExtension:
-		return (&UndressDataService{}).WriteUndressDataFile(path, value)
-	case serializationKCES.KCESUndressPartsDataExtension:
-		return (&UndressPartsDataService{}).WriteUndressPartsDataFile(path, value)
 	case serializationKCES.KCESNSONExtension:
 		return (&NSONService{}).WriteNSONFile(path, value)
 	default:

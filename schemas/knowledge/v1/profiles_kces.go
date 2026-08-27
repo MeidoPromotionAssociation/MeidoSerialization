@@ -240,29 +240,6 @@ func kcesProfiles() map[string]Guide {
 	)
 	nson.FieldPatterns = []FieldPattern{pattern("/*", "Resource-specific JSON member", "A member of the arbitrary JSON document consumed by a particular KCES subsystem.", "The consuming subsystem, not CsvManager, defines the meaning of this member.", "schema_dependent", "Require a source or sample for the exact resource before changing it.", jsonSource)}
 
-	undressSource := source("KCES 1.34.4", "KCES 1.34.4/WfSystem.FileSystem/GameResource.cs", "GameResource.LoadBinary", 143, 156, "The game resource layer obtains the resource bytes from the selected file source. No resource-specific undress JSON consumer is established here, so this repository validates one complete JSON value and exposes its semantic content.")
-	field = fieldFrom(undressSource)
-	undressdat := guide(
-		"KCES .undressdat guide",
-		"A plain JSON TextAsset describing undress behavior for the KCES resource system.",
-		FormatVerificationSerializationVerified,
-		"The whole-file serialization boundary, extension dispatch, and semantic JSON boundary were checked. Resource-specific members without source_semantics claims remain semantically unknown, and source formatting is intentionally normalized.",
-		[]Source{undressSource},
-		[]Field{
-			field("/", "Undress JSON document", "The whole parsed JSON document carried by the resource, which is the editing JSON root itself.", "The game-side consumer determines which entries control undress behavior; no universal field contract is established here.", "opaque_domain_data", "Edit only fields confirmed for the exact target resource and preserve unknown members.", "critical"),
-		},
-	)
-	undresspdat := guide(
-		"KCES .undresspdat guide",
-		"A plain JSON TextAsset describing undress-part behavior for the KCES resource system.",
-		FormatVerificationSerializationVerified,
-		"The whole-file serialization boundary, extension dispatch, and semantic JSON boundary were checked. Resource-specific members without source_semantics claims remain semantically unknown, and source formatting is intentionally normalized.",
-		[]Source{undressSource},
-		[]Field{
-			field("/", "Undress-part JSON document", "The whole parsed JSON document carried by the resource, which is the editing JSON root itself.", "The game-side consumer determines which entries control part removal or restoration.", "opaque_domain_data", "Edit only fields confirmed for the exact target resource and preserve unknown members.", "critical"),
-		},
-	)
-
 	bytesSource := implementationSource("KCES 1.34.4", "service/KCES/raw_unity_service.go", "RawUnityObjectService", 17, 178, "The .bytes editing envelope preserves raw Unity serialized object bytes and sidecar metadata such as ClassID, PathID, load name, Unity versions, and optional TypeTree previews; the game-specific object schema is not inferred from arbitrary bytes.")
 	field = fieldFrom(bytesSource)
 	bytesGuide := guide(
@@ -304,8 +281,6 @@ func kcesProfiles() map[string]Guide {
 		"kces.model":          model,
 		"kces.hitcheck":       hit,
 		"kces.nson":           nson,
-		"kces.undressdat":     undressdat,
-		"kces.undresspdat":    undresspdat,
 		"kces.bytes":          bytesGuide,
 	}
 }
