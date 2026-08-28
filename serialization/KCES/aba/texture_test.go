@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/tools"
 )
 
 func TestGetTexture2DData_Sample(t *testing.T) {

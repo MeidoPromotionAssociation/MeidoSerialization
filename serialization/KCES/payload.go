@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/strictjson"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/internal/strictjson"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/msgpack"
 )
 
 // KCES 物理与碰撞扩展名的调度层，各扩展名的线格式描述由对应文件声明

@@ -12,9 +12,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
-	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
-	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/aba"
+	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/COM3D2"
+	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/KCES"
 )
 
 // ArchiveEntry 描述归档中可列出和提取的单个条目 / ArchiveEntry describes one listable and extractable entry in an archive

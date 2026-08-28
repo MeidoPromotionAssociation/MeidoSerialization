@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/cmd"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/cmd"
 )
 
 func main() {

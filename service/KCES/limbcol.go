@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // LimbColService 专门处理 .limbcol 文件 / LimbColService handles .limbcol files

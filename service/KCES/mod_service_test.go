@@ -12,9 +12,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/internal/kcesfixtures"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/aba"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/ct"
 )
 
 func TestPackModManifest_Integration(t *testing.T) {

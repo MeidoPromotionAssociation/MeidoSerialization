@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	editingv1 "github.com/MeidoPromotionAssociation/MeidoSerialization/schemas/editing/v1"
+	editingv1 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/schemas/editing/v1"
 )
 
 // SchemaDocument 表示某个已注册格式的版本化编辑 JSON 契约 / SchemaDocument represents the versioned editing JSON contract for one registered format

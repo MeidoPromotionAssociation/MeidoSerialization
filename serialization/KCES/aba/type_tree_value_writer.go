@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio"
 )
 
 // EncodeAssetValue 按资源对应的 TypeTree 和对象字节序重新编码已解码值

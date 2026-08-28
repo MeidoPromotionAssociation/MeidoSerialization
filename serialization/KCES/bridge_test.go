@@ -9,7 +9,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio/stream"
 )
 
 func TestGP03BridgeGameLayoutRoundTrip(t *testing.T) {

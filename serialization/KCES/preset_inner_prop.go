@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio/stream"
 )
 
 // .preset 内 GP03_MPROP_LIST 和 GP03_MPROP 属性块的详细读写与校验实现

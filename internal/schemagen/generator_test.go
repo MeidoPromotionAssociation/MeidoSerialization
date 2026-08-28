@@ -11,11 +11,11 @@ import (
 	"testing"
 	"unicode"
 
-	editingv1 "github.com/MeidoPromotionAssociation/MeidoSerialization/schemas/editing/v1"
-	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
-	serializationKCESCT "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
-	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
+	editingv1 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/schemas/editing/v1"
+	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/COM3D2"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
+	serializationKCESCT "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/ct"
+	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/KCES"
 	"github.com/google/jsonschema-go/jsonschema"
 	strictschema "github.com/santhosh-tekuri/jsonschema/v6"
 )

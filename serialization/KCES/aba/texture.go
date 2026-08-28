@@ -11,7 +11,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/tools"
 )
 
 const (

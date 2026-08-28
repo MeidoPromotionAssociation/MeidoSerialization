@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2/arc"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/COM3D2/arc"
 )
 
 type ArcService struct{}

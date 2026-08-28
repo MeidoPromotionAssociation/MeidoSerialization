@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/application"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/application"
 )
 
 func TestTransportCommandsAreRegistered(t *testing.T) {

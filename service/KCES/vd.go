@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // BridgeSessionService 在 CRCEdit 的 bridge_session.vd 与严格编辑 JSON 封套之间转换 / BridgeSessionService converts between CRCEdit bridge_session.vd files and strict editing JSON envelopes

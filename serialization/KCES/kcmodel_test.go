@@ -3,7 +3,7 @@ package KCES
 import (
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/ct"
 )
 
 func TestKCModelPreservesHistoricalWidth(t *testing.T) {

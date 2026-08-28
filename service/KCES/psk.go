@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
+	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/COM3D2"
 )
 
 const pskExtension = ".psk"

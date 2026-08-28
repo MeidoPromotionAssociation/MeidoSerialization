@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/COM3D2"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio/stream"
 )
 
 // PresetService 专门处理 .preset 文件的读写

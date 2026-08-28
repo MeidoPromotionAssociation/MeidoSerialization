@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	knowledgev1 "github.com/MeidoPromotionAssociation/MeidoSerialization/schemas/knowledge/v1"
+	knowledgev1 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/schemas/knowledge/v1"
 )
 
 // GuideDocument 表示某个已注册格式的版本化编辑指南文档 / GuideDocument represents a versioned editing guide document for one registered format

@@ -5,7 +5,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/application"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/application"
 )
 
 // configuredRoots 根据只读根目录参数创建受限根目录集合

@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio"
 	"github.com/pierrec/lz4/v4"
 )
 

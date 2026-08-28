@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // PersetService 专门处理 KCES 早期使用且 wire 布局与 .preset 完全相同的 .perset 文件 / PersetService handles the historical KCES .perset files whose wire layout is identical to .preset

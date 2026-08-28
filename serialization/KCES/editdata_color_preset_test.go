@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/msgpack"
 )
 
 const colorPresetTestGUID = "12345678-1234-4abc-8def-1234567890ab"

@@ -9,7 +9,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/aba"
 )
 
 // nativeUnityDirectoryAsset 保存一个按规范 PathID 索引的独立对象视图 / nativeUnityDirectoryAsset stores a standalone object view indexed by its canonical PathID

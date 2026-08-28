@@ -8,8 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/application"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/transport/mcpserver"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/application"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/transport/mcpserver"
 	"github.com/spf13/cobra"
 )
 

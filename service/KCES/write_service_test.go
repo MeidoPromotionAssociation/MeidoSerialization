@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/COM3D2"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/ct"
 )
 
 func TestKCESDirectWritersMatchNativeEncoders(t *testing.T) {

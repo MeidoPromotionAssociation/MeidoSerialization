@@ -10,9 +10,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/strictjson"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/internal/strictjson"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/msgpack"
 )
 
 const CtEnvelopeFormat = "kces-content-table"

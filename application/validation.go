@@ -9,7 +9,7 @@ import (
 	"io"
 	"os"
 
-	editingv1 "github.com/MeidoPromotionAssociation/MeidoSerialization/schemas/editing/v1"
+	editingv1 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/schemas/editing/v1"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 

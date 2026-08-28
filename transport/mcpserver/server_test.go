@@ -17,9 +17,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/application"
-	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/application"
+	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/COM3D2"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/ct"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

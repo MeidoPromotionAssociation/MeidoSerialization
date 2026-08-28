@@ -8,9 +8,9 @@ import (
 	"reflect"
 	"strings"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/aba"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/ct"
 )
 
 // PackService 提供将纯资源目录打包为 KCES ABA 和 CT 的服务 / PackService packs a plain resource directory into KCES ABA and CT files

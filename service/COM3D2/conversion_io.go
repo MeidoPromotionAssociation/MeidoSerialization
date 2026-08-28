@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/conversionio"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/internal/conversionio"
 )
 
 func checkConversionContext(ctx context.Context) error {

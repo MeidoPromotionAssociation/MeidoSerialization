@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // SystemDataService 转换基于 VirtualDirectory 的 system.dat，并以 typed JSON 展开已知 EditData 且以 base64 保留未知文件 / SystemDataService converts VirtualDirectory-based system.dat files while exposing known EditData as typed JSON and preserving unknown files as base64

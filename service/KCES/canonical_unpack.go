@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/aba"
 )
 
 // canonicalUnpackAsset 是纯目录解包阶段收集的对象计划 / canonicalUnpackAsset is an object plan collected before pure-directory extraction

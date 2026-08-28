@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
+	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/KCES"
 )
 
 var listAbaCmd = &cobra.Command{

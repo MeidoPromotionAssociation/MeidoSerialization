@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
-	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/aba"
+	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/KCES"
 )
 
 // writeTestMMesh 在 dir 中写出一个只有几何体的最小 .mmesh

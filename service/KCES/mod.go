@@ -19,9 +19,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/aba"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/ct"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/msgpack"
 )
 
 // ModManifest 描述一次 KCES MOD 打包的内部输入，由纯目录扫描自动构建 / ModManifest describes the internal input of one KCES MOD packing run and is built automatically by pure-directory scanning

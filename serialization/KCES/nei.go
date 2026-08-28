@@ -3,7 +3,7 @@ package KCES
 import (
 	"io"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/common/nei"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/common/nei"
 )
 
 // KCES .nei

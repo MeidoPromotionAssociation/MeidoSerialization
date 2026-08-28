@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio/stream"
 )
 
 const (

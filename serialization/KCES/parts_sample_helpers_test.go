@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/internal/kcesfixtures"
 )
 
 func TestKCESPartsSamplesHaveKnownSuffixes(t *testing.T) {

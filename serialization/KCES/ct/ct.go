@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/msgpack"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio"
 	"github.com/ugorji/go/codec"
 )
 

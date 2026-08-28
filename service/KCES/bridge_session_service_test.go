@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/ct"
-	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/ct"
+	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/COM3D2"
 )
 
 func TestBridgeSessionServiceStrictJSONRoundTripAndUInt64(t *testing.T) {

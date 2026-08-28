@@ -9,7 +9,7 @@ import (
 	"sort"
 	"unicode/utf16"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio/stream"
 )
 
 // makeCountedSliceForAppend 按线格式计数创建受限的初始切片容量，避免损坏计数触发巨额预分配

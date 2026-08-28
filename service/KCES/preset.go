@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // PresetService 专门处理 KCES 引入的 .preset VirtualDirectory 格式，旧 CM3D2_PRESET 继续由 service/COM3D2 处理 / PresetService handles the KCES .preset VirtualDirectory format while legacy CM3D2_PRESET files remain in service/COM3D2

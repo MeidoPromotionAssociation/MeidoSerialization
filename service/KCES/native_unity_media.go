@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/aba"
 )
 
 // NativeUnityMediaService 提供独立 Unity 媒体对象到通用查看格式的转换 / NativeUnityMediaService converts standalone Unity media objects to common viewing formats

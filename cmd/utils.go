@@ -9,12 +9,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/application"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2/arc"
-	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/service/COM3D2"
-	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/application"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/COM3D2"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/COM3D2/arc"
+	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/COM3D2"
+	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/KCES"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/tools"
 )
 
 // isDirectory 判断给定路径当前是否指向目录

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // DBColService 专门处理 .dbcol 文件 / DBColService handles .dbcol files

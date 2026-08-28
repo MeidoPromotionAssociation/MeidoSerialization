@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // KCMenuService 专门处理 KCES2 导出的单个 .kcmenu 文件 / KCMenuService handles individual .kcmenu files exported by KCES2

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // SavedAttachService 在 KCES GP03 SAVED_ATTACH_DATA .sad 文件与带格式标记的编辑 JSON 之间转换 / SavedAttachService converts between KCES GP03 SAVED_ATTACH_DATA .sad files and marker-based editing JSON

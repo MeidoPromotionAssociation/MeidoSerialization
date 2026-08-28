@@ -3,7 +3,7 @@ package COM3D2
 import (
 	"io"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/common/nei"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/common/nei"
 )
 
 // COM3D2 .nei

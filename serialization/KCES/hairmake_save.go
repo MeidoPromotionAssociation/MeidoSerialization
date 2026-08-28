@@ -3,7 +3,7 @@ package KCES
 import (
 	"fmt"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/msgpack"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/msgpack"
 )
 
 // HairMakeSaveExtension 是 HairMake 继续编辑存档文件扩展名

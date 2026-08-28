@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio"
 )
 
 func TestReadAssetsFileSupportsMetadataVersions12Through22(t *testing.T) {

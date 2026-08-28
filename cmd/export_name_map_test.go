@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 func TestKCESExportNameMapCommandRoutes(t *testing.T) {

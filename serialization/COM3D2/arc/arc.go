@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"sort"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio/stream"
 )
 
 // .arc 文件主要由三个部分组成：文件头 (Header)、数据区 (Data Area) 和元数据区 (Metadata)

@@ -12,9 +12,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	serializationv1 "github.com/MeidoPromotionAssociation/MeidoSerialization/api/gen/go/meido/serialization/v1"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/application"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/blobstore"
+	serializationv1 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/api/gen/go/meido/serialization/v1"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/application"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/internal/blobstore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

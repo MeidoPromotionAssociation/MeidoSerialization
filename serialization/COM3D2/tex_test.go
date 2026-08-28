@@ -12,7 +12,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/tools"
 )
 
 func TestTex(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/strictjson"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/internal/strictjson"
 )
 
 // trimJSONUTF8BOM 删除 editing JSON 开头可选的 UTF-8 BOM

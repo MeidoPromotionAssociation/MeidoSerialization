@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/application"
-	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/application"
+	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/KCES"
 	"github.com/spf13/cobra"
 )
 

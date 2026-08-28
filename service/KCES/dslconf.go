@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // DSLConfService 专门处理 .dslconf 文件 / DSLConfService handles .dslconf files

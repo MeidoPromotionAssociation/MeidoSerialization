@@ -3,8 +3,8 @@ package COM3D2
 import (
 	"fmt"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/common/nei"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio/stream"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/common/nei"
 )
 
 const (

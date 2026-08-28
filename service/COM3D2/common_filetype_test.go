@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/internal/kcesfixtures"
 )
 
 func TestStrictFileTypeCSVDetectionRequiresValidTextAndStructure(t *testing.T) {

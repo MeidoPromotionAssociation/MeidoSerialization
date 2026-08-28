@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/schemagen"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/internal/schemagen"
 )
 
 func main() {

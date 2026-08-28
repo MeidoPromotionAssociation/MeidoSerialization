@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	knowledgev1 "github.com/MeidoPromotionAssociation/MeidoSerialization/schemas/knowledge/v1"
+	knowledgev1 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/schemas/knowledge/v1"
 	"github.com/google/jsonschema-go/jsonschema"
 )
 

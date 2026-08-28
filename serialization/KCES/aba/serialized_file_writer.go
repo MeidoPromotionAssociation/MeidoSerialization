@@ -9,7 +9,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio"
 )
 
 // SerializedFileWriter 生成包含 TextAsset、Texture2D、原始对象和 AssetBundle 容器的 Unity SerializedFile v22 / SerializedFileWriter generates Unity SerializedFile v22 data containing TextAsset, Texture2D, raw objects, and an AssetBundle container

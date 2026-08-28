@@ -7,8 +7,8 @@ import (
 	"testing"
 	"unicode"
 
-	editingv1 "github.com/MeidoPromotionAssociation/MeidoSerialization/schemas/editing/v1"
-	knowledgev1 "github.com/MeidoPromotionAssociation/MeidoSerialization/schemas/knowledge/v1"
+	editingv1 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/schemas/editing/v1"
+	knowledgev1 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/schemas/knowledge/v1"
 )
 
 func TestResolveGuidesForEveryEditingSchema(t *testing.T) {

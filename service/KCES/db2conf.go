@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // DB2ConfService 专门处理 .db2conf 文件 / DB2ConfService handles .db2conf files

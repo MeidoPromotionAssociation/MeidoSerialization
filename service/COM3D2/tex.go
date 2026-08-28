@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/COM3D2"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/tools"
 	"github.com/emmansun/base64" // use faster base64 implementation
 )
 

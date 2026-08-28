@@ -6,7 +6,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio/stream"
 )
 
 // .sad (SAVED_ATTACH_DATA)

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/strictjson"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/internal/strictjson"
 )
 
 // KCES 中原生文件本身就是 Unity JsonUtility 明文 JSON 文档的扩展名共用的编解码约定

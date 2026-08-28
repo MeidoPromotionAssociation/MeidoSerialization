@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // NSONService 专门处理 .nson 文件 / NSONService handles .nson files

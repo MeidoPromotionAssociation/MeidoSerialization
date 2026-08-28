@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"unicode/utf8"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/strictjson"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/internal/strictjson"
 )
 
 // .enm (export_map.enm)

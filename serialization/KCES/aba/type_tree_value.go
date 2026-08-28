@@ -6,7 +6,7 @@ import (
 	"io"
 	"math"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio"
 )
 
 // TypeTreeValue 是根据内嵌 TypeTree 解码且仅暴露 KCES 所需导航 API 的 Unity 序列化值 / TypeTreeValue is a Unity serialized value decoded from an embedded TypeTree with only the navigation API needed by KCES

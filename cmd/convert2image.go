@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/service/KCES"
+	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/KCES"
 	"github.com/spf13/cobra"
 )
 

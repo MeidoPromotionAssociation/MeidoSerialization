@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/COM3D2"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // GP03BridgeEditing 表示 .brd 的完整 typed editing JSON，空长度块以 null 表示 / GP03BridgeEditing represents the fully typed editing JSON for .brd, with zero-length blocks represented as null

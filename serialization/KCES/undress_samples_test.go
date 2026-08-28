@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/kcesfixtures"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/internal/kcesfixtures"
 )
 
 // assertUndressDataSampleFields 校验已知 .undressdat 样本的实测成员值

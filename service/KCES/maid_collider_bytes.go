@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // MaidColliderService 专门处理 maid_collider.bytes 与 maid_collider_touch.bytes 文件 / MaidColliderService handles maid_collider.bytes and maid_collider_touch.bytes files

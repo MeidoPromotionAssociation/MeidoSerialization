@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // UndressPartsDataService 专门处理 .undresspdat 文件 / UndressPartsDataService handles .undresspdat files

@@ -6,7 +6,7 @@ import (
 	"math"
 	"unicode/utf8"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio/stream"
 )
 
 // .preset 的 maiddata 内部 BinaryWriter 模型，定义属性列表、颜色数据和身体数据的签名、版本及结构

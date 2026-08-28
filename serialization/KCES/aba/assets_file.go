@@ -7,7 +7,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio"
 )
 
 // .assets 与 Unity SerializedFile

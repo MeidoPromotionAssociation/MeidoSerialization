@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // PartsService 为旧调用方提供所有 KCES 部件载荷的兼容分派入口 / PartsService provides compatibility dispatch for all KCES parts payloads

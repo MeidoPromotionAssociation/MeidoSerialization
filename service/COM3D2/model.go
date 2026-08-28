@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/COM3D2"
 )
 
 // ModelService 专门处理 .model 文件的读写

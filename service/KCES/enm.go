@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // IsKCESExportNameMapFile 判断路径是否为原生 export_map.enm 风格的 Unity JsonUtility 文档，并允许内容探测继续校验已改名的 .enm 副本

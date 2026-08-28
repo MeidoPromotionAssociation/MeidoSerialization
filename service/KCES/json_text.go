@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // WriteJSONTextFile 为聚合 service 保留 KCES 明文 JSON 资源直接写入 API

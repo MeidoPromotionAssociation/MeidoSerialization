@@ -14,8 +14,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/application"
-	knowledgev1 "github.com/MeidoPromotionAssociation/MeidoSerialization/schemas/knowledge/v1"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/application"
+	knowledgev1 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/schemas/knowledge/v1"
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )

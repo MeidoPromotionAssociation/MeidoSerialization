@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/aba"
 )
 
 // AbaService 提供 ABA 文件的读取、列出和纯目录提取操作 / AbaService provides reading, listing, and pure-directory extraction for ABA files

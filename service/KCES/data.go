@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/COM3D2"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // DataService 为旧调用方提供 KCES 与 COM3D2 共用格式的兼容分派入口 / DataService provides compatibility dispatch for formats shared by KCES and COM3D2

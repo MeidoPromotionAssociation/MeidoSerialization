@@ -3,7 +3,7 @@ package aba
 import (
 	"fmt"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio"
 )
 
 // AssetBundleContainerEntry 表示 Unity AssetBundle 对象中的一个 m_Container 记录

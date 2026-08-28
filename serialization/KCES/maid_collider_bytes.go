@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio/stream"
 )
 
 // maid_collider.bytes 与 maid_collider_touch.bytes

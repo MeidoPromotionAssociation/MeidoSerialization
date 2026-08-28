@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio"
 )
 
 // paths.dat (CM3D2_PATHS)

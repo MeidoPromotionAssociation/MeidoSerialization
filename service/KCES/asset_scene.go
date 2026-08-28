@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES/aba"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/aba"
 )
 
 // AssetSceneService 专门处理 KCES 场景资源使用的 .asset_scene UnityFS 文件 / AssetSceneService handles .asset_scene UnityFS files used by KCES scene resources

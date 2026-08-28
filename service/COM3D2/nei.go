@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/tools"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/COM3D2"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/tools"
 )
 
 // NeiService 专门处理 .nei 文件的读写

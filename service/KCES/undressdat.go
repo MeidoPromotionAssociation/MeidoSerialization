@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
+	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
 )
 
 // UndressDataService 专门处理 .undressdat 文件 / UndressDataService handles .undressdat files

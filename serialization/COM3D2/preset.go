@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"io"
 
-	kces "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/KCES"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/binaryio/stream"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/utilities"
+	kces "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/binaryio/stream"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/utilities"
 )
 
 // CM3D2_PRESET

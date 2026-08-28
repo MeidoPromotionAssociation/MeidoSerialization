@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/serialization/COM3D2"
+	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/COM3D2"
 	"github.com/google/jsonschema-go/jsonschema"
 )
 

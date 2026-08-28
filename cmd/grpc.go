@@ -12,9 +12,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/application"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/internal/blobstore"
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/transport/grpcserver"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/application"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/internal/blobstore"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/transport/grpcserver"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"

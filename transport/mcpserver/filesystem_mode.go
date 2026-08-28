@@ -3,7 +3,7 @@ package mcpserver
 import (
 	"fmt"
 
-	"github.com/MeidoPromotionAssociation/MeidoSerialization/application"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/application"
 )
 
 // FilesystemMode 控制 MCP 工具公开受限根目录路径还是直接文件系统路径 / FilesystemMode controls whether MCP tools expose confined root paths or direct filesystem paths
