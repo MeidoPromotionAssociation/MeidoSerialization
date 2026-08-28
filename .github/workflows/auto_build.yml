@@ -32,7 +32,7 @@ jobs:
           VERSION="$(git describe --tags --abbrev=0 2>/dev/null || echo dev)"
           COMMIT="${GITHUB_SHA:0:8}"
           BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-          LDFLAGS="-s -w -X github.com/MeidoPromotionAssociation/MeidoSerialization/cmd.buildVersion=${VERSION} -X github.com/MeidoPromotionAssociation/MeidoSerialization/cmd.buildCommit=${COMMIT} -X github.com/MeidoPromotionAssociation/MeidoSerialization/cmd.buildDate=${BUILD_DATE}"
+          LDFLAGS="-s -w -X github.com/MeidoPromotionAssociation/MeidoSerialization/v2/cmd.buildVersion=${VERSION} -X github.com/MeidoPromotionAssociation/MeidoSerialization/v2/cmd.buildCommit=${COMMIT} -X github.com/MeidoPromotionAssociation/MeidoSerialization/v2/cmd.buildDate=${BUILD_DATE}"
           GOOS=linux go build -trimpath -ldflags="${LDFLAGS}" -o dist/MeidoSerialization_linux_amd64 .
           GOOS=windows go build -trimpath -ldflags="${LDFLAGS}" -o dist/MeidoSerialization.exe .
 
