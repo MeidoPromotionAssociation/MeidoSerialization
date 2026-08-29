@@ -111,6 +111,34 @@
             "string"
           ]
         },
+        "reserved13": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": [
+            "null",
+            "integer"
+          ],
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
+        },
+        "reserved14": {
+          "maximum": 3.4028234663852886e+38,
+          "minimum": -3.4028234663852886e+38,
+          "type": [
+            "null",
+            "number"
+          ]
+        },
+        "reserved15": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/KCES_Vector3"
+            }
+          ]
+        },
         "selfName": {
           "type": [
             "null",
@@ -169,6 +197,9 @@
         "startRadius",
         "endRadius",
         "height",
+        "reserved13",
+        "reserved14",
+        "reserved15",
         "centerMpnList",
         "centerRateMax",
         "startRadiusMpnList",

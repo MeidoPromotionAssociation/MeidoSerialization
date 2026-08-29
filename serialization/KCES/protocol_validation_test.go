@@ -569,6 +569,70 @@ func TestMaidPropDecodeDoesNotMigrateVersionOrMPNRepresentations(t *testing.T) {
 	}
 }
 
+func TestMaidPropReservedKeysPreserveOlderWriterResidue(t *testing.T) {
+	// Key(13) 至 Key(15) 在当前 C# 类型中没有成员，游戏解码时直接 Skip，本库按官方文件里出现过的线格式类型逐值保留
+	// Key(13) through Key(15) have no member in the current C# type and the game simply skips them while decoding, so this library preserves each value according to the wire types seen in official files
+	raw := colliderMaidPropIndexedTestValue(colliderMaidPropFixVersion)
+	raw[13] = int64(7)
+	raw[14] = float32(0.1)
+	raw[15] = []interface{}{float32(1), float32(2), float32(3)}
+	wire, err := msgpack.EncodeMsgpack(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got ColliderMaidProp
+	if err := msgpack.DecodeMsgpack(wire, &got); err != nil {
+		t.Fatalf("decode reserved MaidProp keys: %v", err)
+	}
+	if got.Reserved13 == nil || *got.Reserved13 != 7 {
+		t.Fatalf("reserved13 = %v, want 7", got.Reserved13)
+	}
+	if got.Reserved14 == nil || *got.Reserved14 != 0.1 {
+		t.Fatalf("reserved14 = %v, want 0.1", got.Reserved14)
+	}
+	if want := (Vector3{X: 1, Y: 2, Z: 3}); got.Reserved15 == nil || *got.Reserved15 != want {
+		t.Fatalf("reserved15 = %v, want %v", got.Reserved15, want)
+	}
+
+	reencoded, err := msgpack.EncodeIndexedMsgpack(&got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var again ColliderMaidProp
+	if err := msgpack.DecodeMsgpack(reencoded, &again); err != nil {
+		t.Fatalf("re-decode reserved MaidProp keys: %v", err)
+	}
+	if !reflect.DeepEqual(again, got) {
+		t.Fatalf("reserved keys changed after re-encoding: %+v", again)
+	}
+
+	// 只接受官方文件里核实过的类型，其他类型一律拒绝，本库不为无法核实语义的槽位保留任意值
+	// Only the types verified in official files are accepted and every other type is rejected, because this library keeps no arbitrary value in a slot whose semantics cannot be verified
+	unsupported := []struct {
+		name  string
+		slot  int
+		value interface{}
+	}{
+		{"string at Key(13)", 13, "7"},
+		{"array at Key(14)", 14, []interface{}{float32(0.1)}},
+		{"scalar at Key(15)", 15, float32(1)},
+	}
+	for _, test := range unsupported {
+		t.Run(test.name, func(t *testing.T) {
+			malformed := colliderMaidPropIndexedTestValue(colliderMaidPropFixVersion)
+			malformed[test.slot] = test.value
+			data, err := msgpack.EncodeMsgpack(malformed)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var result ColliderMaidProp
+			if err := msgpack.DecodeMsgpack(data, &result); err == nil {
+				t.Fatalf("slot %d accepted %#v", test.slot, test.value)
+			}
+		})
+	}
+}
+
 func TestMaidPropDecodeAcceptsNilListsAndOpaqueNames(t *testing.T) {
 	base := &ColliderMaidProp{
 		ColliderObject: ColliderObject{

@@ -133,12 +133,15 @@ func PartsSamplePaths(t TB) []string {
 }
 
 // PayloadSamplePaths 从已知数据 ABA 中提取常用 KCES payload 样本
+// default_acckami_col.dbcol 覆盖 Key(13) 至 Key(15) 仍留有旧写入器残留值的 NativeMaidPropColliderStatus 布局
 // PayloadSamplePaths extracts common KCES payload samples from known data ABAs
+// default_acckami_col.dbcol covers the NativeMaidPropColliderStatus layout that still holds earlier-writer residue at Key(13) through Key(15)
 func PayloadSamplePaths(t TB) []string {
 	t.Helper()
 	return textAssetPathsForSpecs(t, "payload", []textAssetSpec{
 		{"partsmeta.aba", "default_hairf.dbconf"},
 		{"partsmeta.aba", "default_bra_col.dbcol"},
+		{"partsmeta.aba", "default_acckami_col.dbcol"},
 		{"partsmeta.aba", "default_hairf.db2conf"},
 		{"partsmeta.aba", "default_skirt.dsbconf"},
 		{"partsmeta.aba", "default_skirt.dsb2conf"},

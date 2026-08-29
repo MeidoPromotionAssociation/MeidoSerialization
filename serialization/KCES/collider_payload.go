@@ -191,15 +191,26 @@ type ColliderSphere struct {
 func (*ColliderSphere) toColliderType() int32 { return ColliderTypeSphere }
 
 // ColliderMaidProp 对应游戏 NativeMaidPropColliderStatus
+// 当前 C# 类型只声明 Key(0) 至 Key(12) 与 Key(16) 至 Key(24)，Key(13) 至 Key(15) 没有成员
+// MessagePack-CSharp 的 int-key 解码按数组下标 switch 并对没有成员的下标调用 Skip，因此这三个槽位的任何值都不会让游戏失败，也不会被游戏使用
+// 官方 partsmeta.aba 里有 8 个 .dbcol 的 32 个 version 1001 碰撞体在这三个槽位留有更早写入器的值，依次是一个整数、一个 Single 和一个 Vector3
+// 下面三个字段按线格式类型逐值保留该残留，本库不推断其原始成员名，因为当前游戏程序集里已没有可核实的声明
 // ColliderMaidProp corresponds to the game's NativeMaidPropColliderStatus
+// The current C# type declares only Key(0) through Key(12) and Key(16) through Key(24), leaving Key(13) through Key(15) without members
+// MessagePack-CSharp int-key decoding switches on the array index and calls Skip for indices without a member, so no value in these three slots can fail the game and none of them is used by the game
+// Thirty-two version 1001 colliders across eight .dbcol files in the official partsmeta.aba still hold values written by an earlier writer in these slots: one integer, one Single, and one Vector3
+// The three fields below preserve that residue value by value according to its wire type, and this library does not infer the original member names because the current game assemblies no longer carry a declaration to verify against
 type ColliderMaidProp struct {
-	_struct                struct{}          `codec:",toarray" kces:"nil=13,14,15;widths=22,25"` // 强制按数组编码并接受枚举列表版及名称列表版布局 / Forces array encoding and accepts enum-list and name-list layouts
+	_struct                struct{}          `codec:",toarray" kces:"widths=22,25"` // 强制按数组编码并接受枚举列表版及名称列表版布局 / Forces array encoding and accepts enum-list and name-list layouts
 	ColliderObject         `codec:",inline"` // NativeCapsuleColliderStatus 与基类字段 / NativeCapsuleColliderStatus and base fields
 	Direction              int32             `json:"direction"`              // 胶囊主轴方向 / Capsule axis direction
 	IsDirectionInverse     bool              `json:"isDirectionInverse"`     // 方向反转 / Direction reversed
 	StartRadius            float32           `json:"startRadius"`            // 起点半径 / Start radius
 	EndRadius              float32           `json:"endRadius"`              // 终点半径 / End radius
 	Height                 float32           `json:"height"`                 // 长度 / Height
+	Reserved13             *int32            `json:"reserved13"`             // Key(13) 在当前 C# 中无成员，旧官方文件在此保存一个被游戏跳过的整数 / Key(13) has no member in the current C# type and older official files store one integer that the game skips
+	Reserved14             *float32          `json:"reserved14"`             // Key(14) 在当前 C# 中无成员，旧官方文件在此保存一个被游戏跳过的 Single / Key(14) has no member in the current C# type and older official files store one Single that the game skips
+	Reserved15             *Vector3          `json:"reserved15"`             // Key(15) 在当前 C# 中无成员，旧官方文件在此保存一个被游戏跳过的 Vector3 / Key(15) has no member in the current C# type and older official files store one Vector3 that the game skips
 	CenterMpnList          []int32           `json:"centerMpnList"`          // 中心MPN枚举列表，对应 C# List<MPN> / Center MPN enum list, matching C# List<MPN>
 	CenterRateMax          Vector3           `json:"centerRateMax"`          // 中心最大比率 / Max center rate
 	StartRadiusMpnList     []int32           `json:"startRadiusMpnList"`     // 起点半径MPN枚举列表 / Start-radius MPN enum list

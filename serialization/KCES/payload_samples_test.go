@@ -4,16 +4,10 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/internal/kcesfixtures"
 )
-
-var payloadSamplesWithUnsupportedSparseMaidPropSlots = map[string]struct{}{
-	"default_accmimi_col.dbcol": {},
-	"default_yure_col.dbcol":    {},
-}
 
 func TestDecodeKCESPayload_FromTestdataSamples(t *testing.T) {
 	pathsByExt := groupPayloadSamplesByExt(t)
@@ -24,26 +18,10 @@ func TestDecodeKCESPayload_FromTestdataSamples(t *testing.T) {
 			for _, path := range paths {
 				path := path
 				t.Run(filepath.Base(path), func(t *testing.T) {
-					if _, unsupported := payloadSamplesWithUnsupportedSparseMaidPropSlots[filepath.Base(path)]; unsupported {
-						assertPayloadSampleRejectsSparseMaidPropSlots(t, path)
-						return
-					}
 					assertPayloadSampleRoundTripDeepEqual(t, path)
 				})
 			}
 		})
-	}
-}
-
-func assertPayloadSampleRejectsSparseMaidPropSlots(t *testing.T, path string) {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read payload sample %s: %v", path, err)
-	}
-	_, err = DecodeKCESPayload(data, filepath.Base(path))
-	if err == nil || !strings.Contains(err.Error(), "sparse slot 13 must be nil") {
-		t.Fatalf("DecodeKCESPayload() error = %v, want non-nil undeclared MaidProp slot rejection", err)
 	}
 }
 
@@ -138,7 +116,7 @@ func assertPayloadRootStrict(t *testing.T, value any, name string) {
 
 func assertColliderPackageSampleFields(t *testing.T, name string, pkg *ColliderPackage) {
 	t.Helper()
-	if name != "default_accmimi_col.dbcol" {
+	if name != "default_acckami_col.dbcol" {
 		return
 	}
 	if len(pkg.Colliders) != 12 || len(pkg.LimbEnableList) != 8 {
@@ -155,6 +133,17 @@ func assertColliderPackageSampleFields(t *testing.T, name string, pkg *ColliderP
 		assertIntSliceEqual(t, name+" centerMpnList", maidProp.CenterMpnList, []int32{7})
 		assertIntSliceEqual(t, name+" startRadiusMpnList", maidProp.StartRadiusMpnList, []int32{7})
 		assertIntSliceEqual(t, name+" endRadiusMpnList", maidProp.EndRadiusMpnList, []int32{7})
+		// Key(13) 至 Key(15) 在当前 C# 类型中没有成员，游戏解码时跳过，本库按线格式类型逐值保留
+		// Key(13) through Key(15) have no member in the current C# type and the game skips them while decoding, so this library preserves each value according to its wire type
+		if maidProp.Reserved13 == nil || *maidProp.Reserved13 != 7 {
+			t.Fatalf("%s reserved13 got %v, want the stored 7", name, maidProp.Reserved13)
+		}
+		if maidProp.Reserved14 == nil {
+			t.Fatalf("%s reserved14 is absent, want a stored Single", name)
+		}
+		if maidProp.Reserved15 == nil || *maidProp.Reserved15 != (Vector3{}) {
+			t.Fatalf("%s reserved15 got %v, want the stored zero Vector3", name, maidProp.Reserved15)
+		}
 		return
 	}
 	t.Fatalf("%s did not contain a MaidProp collider", name)
