@@ -148,7 +148,7 @@ func typeTreeJSONValue(v *aba.TypeTreeValue) *TypeTreeJSONValue {
 	if b, ok := v.Value.([]byte); ok {
 		out.Bytes = typeTreeJSONBytes(b)
 	} else if v.Value != nil {
-		out.Value = v.Value
+		out.Value = typeTreeJSONScalar(v.Value)
 	}
 	if len(v.Children) > 0 {
 		out.Children = make([]*TypeTreeJSONValue, 0, len(v.Children))
@@ -188,7 +188,7 @@ func editableTypeTreeJSONValue(value *aba.TypeTreeValue) *TypeTreeJSONValue {
 				out.Value = value.Value
 			}
 		default:
-			out.Value = value.Value
+			out.Value = typeTreeJSONScalar(value.Value)
 		}
 	}
 	if len(value.Children) != 0 {
@@ -198,6 +198,41 @@ func editableTypeTreeJSONValue(value *aba.TypeTreeValue) *TypeTreeJSONValue {
 		}
 	}
 	return out
+}
+
+// typeTreeJSONScalar 将 TypeTree 标量转换为 encoding/json 可表示的值
+// JSON 没有非有限数字面量，而 Unity 的空 MinMaxAABB 会把 m_Min 写成正无穷、m_Max 写成负无穷，官方 Mesh 的 m_BonesAABB 就存在这种取值
+// 因此非有限浮点改用 C# 不变文化的写法输出，Go 的 strconv.ParseFloat 也接受同样的写法
+// typeTreeJSONScalar converts a TypeTree scalar into a value that encoding/json can represent
+// JSON has no literal for non-finite numbers while an empty Unity MinMaxAABB writes positive infinity into m_Min and negative infinity into m_Max, which is exactly what m_BonesAABB holds in official Mesh objects
+// Non-finite floating values are therefore written in the C# invariant-culture spelling, which Go's strconv.ParseFloat accepts as well
+func typeTreeJSONScalar(value interface{}) interface{} {
+	switch typed := value.(type) {
+	case float32:
+		if number := float64(typed); math.IsInf(number, 0) || math.IsNaN(number) {
+			return formatNonFiniteFloat(number)
+		}
+	case float64:
+		if math.IsInf(typed, 0) || math.IsNaN(typed) {
+			return formatNonFiniteFloat(typed)
+		}
+	}
+	return value
+}
+
+// formatNonFiniteFloat 按 C# 不变文化写法输出非有限浮点
+// NaN 只保留静默 NaN 语义而不保留有效载荷位，官方数据里没有出现过带载荷的 NaN
+// formatNonFiniteFloat writes a non-finite floating value in the C# invariant-culture spelling
+// NaN keeps only quiet-NaN semantics and not its payload bits, and no NaN with a payload appears in official data
+func formatNonFiniteFloat(value float64) string {
+	switch {
+	case math.IsNaN(value):
+		return "NaN"
+	case value > 0:
+		return "Infinity"
+	default:
+		return "-Infinity"
+	}
 }
 
 // editableTypeTreeValueFromJSON 将可编辑 JSON 节点恢复为 TypeTreeValue，并忽略非语义摘要字段
@@ -265,14 +300,19 @@ func editableTypeTreeScalarFromJSON(typeName string, value interface{}) (interfa
 		return editableJSONUnsignedInteger(value, math.MaxUint64)
 	case "float":
 		number, err := editableJSONFloat64(value)
-		if err != nil || math.IsNaN(number) || math.IsInf(number, 0) || number < -math.MaxFloat32 || number > math.MaxFloat32 {
+		if err != nil {
+			return nil, fmt.Errorf("value %v is not a number: %w", value, err)
+		}
+		// 非有限值按 Unity 的空 MinMaxAABB 语义原样保留，只有超出 Float32 范围的有限值才是无效输入
+		// Non-finite values are preserved as they carry Unity's empty MinMaxAABB semantics, and only a finite value outside the Float32 range is invalid input
+		if !math.IsNaN(number) && !math.IsInf(number, 0) && (number < -math.MaxFloat32 || number > math.MaxFloat32) {
 			return nil, fmt.Errorf("value %v is outside Float32 range", value)
 		}
 		return float32(number), nil
 	case "double":
 		number, err := editableJSONFloat64(value)
-		if err != nil || math.IsNaN(number) || math.IsInf(number, 0) {
-			return nil, fmt.Errorf("value %v is not a finite Float64", value)
+		if err != nil {
+			return nil, fmt.Errorf("value %v is not a number: %w", value, err)
 		}
 		return number, nil
 	default:
@@ -342,10 +382,12 @@ func editableJSONUnsignedInteger(value interface{}, maximum uint64) (uint64, err
 	return number, nil
 }
 
-// editableJSONFloat64 将 JSON 数字恢复为 Float64
-// editableJSONFloat64 restores a JSON number as a Float64
+// editableJSONFloat64 将 JSON 数字或十进制字符串恢复为 Float64，字符串写法同时承载 Infinity、-Infinity 与 NaN
+// editableJSONFloat64 restores a JSON number or decimal string as a Float64, with the string form also carrying Infinity, -Infinity, and NaN
 func editableJSONFloat64(value interface{}) (float64, error) {
 	switch typed := value.(type) {
+	case string:
+		return strconv.ParseFloat(typed, 64)
 	case json.Number:
 		return strconv.ParseFloat(string(typed), 64)
 	case float64:

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -540,6 +541,134 @@ func TestEditableTypeTreeJSONDoesNotValidateDigestFields(t *testing.T) {
 	}
 	if data, ok := restored.Value.([]byte); !ok || !bytes.Equal(data, source) {
 		t.Fatalf("restored bytes differ from editable data")
+	}
+}
+
+// TestEditableTypeTreeJSONRoundTripsNonFiniteFloats 校验空 MinMaxAABB 用到的正负无穷与 NaN 能写入编辑 JSON 并原样恢复
+// TestEditableTypeTreeJSONRoundTripsNonFiniteFloats verifies that the infinities and NaN used by an empty MinMaxAABB survive editing JSON unchanged
+func TestEditableTypeTreeJSONRoundTripsNonFiniteFloats(t *testing.T) {
+	source := &aba.TypeTreeValue{
+		TypeName: "MinMaxAABB",
+		Name:     "data",
+		Children: []*aba.TypeTreeValue{
+			{TypeName: "float", Name: "singlePositive", Value: float32(math.Inf(1))},
+			{TypeName: "float", Name: "singleNegative", Value: float32(math.Inf(-1))},
+			{TypeName: "float", Name: "singleNotANumber", Value: float32(math.NaN())},
+			{TypeName: "float", Name: "singleFinite", Value: float32(1.5)},
+			{TypeName: "double", Name: "doublePositive", Value: math.Inf(1)},
+			{TypeName: "double", Name: "doubleNotANumber", Value: math.NaN()},
+		},
+	}
+	data, err := json.Marshal(editableTypeTreeJSONValue(source))
+	if err != nil {
+		t.Fatalf("marshal non-finite TypeTree floats: %v", err)
+	}
+	for _, want := range []string{`"Infinity"`, `"-Infinity"`, `"NaN"`, `1.5`} {
+		if !strings.Contains(string(data), want) {
+			t.Fatalf("editing JSON %s does not contain %s", data, want)
+		}
+	}
+
+	var document TypeTreeJSONValue
+	if err := json.Unmarshal(data, &document); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := editableTypeTreeValueFromJSON(&document)
+	if err != nil {
+		t.Fatalf("restore non-finite TypeTree floats: %v", err)
+	}
+	if len(restored.Children) != len(source.Children) {
+		t.Fatalf("restored %d children, want %d", len(restored.Children), len(source.Children))
+	}
+	for index, child := range source.Children {
+		got := restored.Children[index]
+		if got.TypeName != child.TypeName || got.Name != child.Name {
+			t.Fatalf("child[%d] is %s %s, want %s %s", index, got.TypeName, got.Name, child.TypeName, child.Name)
+		}
+		if !sameFloatBits(child.Value, got.Value) {
+			t.Fatalf("child[%d] %s restored as %#v, want %#v", index, child.Name, got.Value, child.Value)
+		}
+	}
+}
+
+// TestEditableTypeTreeJSONRejectsUnrepresentableFloats 校验超出 Float32 范围的有限值和非数字文本仍被拒绝
+// TestEditableTypeTreeJSONRejectsUnrepresentableFloats verifies that finite values outside the Float32 range and non-numeric text are still rejected
+func TestEditableTypeTreeJSONRejectsUnrepresentableFloats(t *testing.T) {
+	tests := []struct {
+		name     string
+		typeName string
+		value    interface{}
+	}{
+		{name: "finite double above Float32", typeName: "float", value: math.MaxFloat64},
+		{name: "finite double below Float32", typeName: "float", value: -math.MaxFloat64},
+		{name: "non-numeric text as Float32", typeName: "float", value: "very large"},
+		{name: "non-numeric text as Float64", typeName: "double", value: "very large"},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := editableTypeTreeScalarFromJSON(test.typeName, test.value); err == nil {
+				t.Fatalf("%s %#v was accepted", test.typeName, test.value)
+			}
+		})
+	}
+}
+
+// TestNativeUnityObjectRoundTripsOfficialMeshWithEmptyBonesAABB 校验官方 Mesh 的空 m_BonesAABB 哨兵值能互转且原生字节不变
+// Unity 把没有蒙皮顶点的骨骼 AABB 初始化为 m_Min 正无穷、m_Max 负无穷，JSON 没有对应的数字面量
+// TestNativeUnityObjectRoundTripsOfficialMeshWithEmptyBonesAABB verifies that the empty m_BonesAABB sentinel of an official Mesh round trips and leaves the native bytes unchanged
+// Unity initializes the AABB of a bone without skinned vertices to positive infinity in m_Min and negative infinity in m_Max, and JSON has no matching number literal
+func TestNativeUnityObjectRoundTripsOfficialMeshWithEmptyBonesAABB(t *testing.T) {
+	sample := filepath.Join("..", "..", "testdata", "KCES", "nt008_team_star_glass.aba")
+	if _, err := os.Stat(sample); err != nil {
+		t.Skipf("sample not available: %v", err)
+	}
+	root := filepath.Join(t.TempDir(), "unpacked")
+	if err := (&AbaService{}).UnpackAba(sample, root); err != nil {
+		t.Fatalf("unpack sample ABA: %v", err)
+	}
+	meshPath := filepath.Join(root, "Mesh", "nt008_team_star_glass.mmesh")
+	before, err := os.ReadFile(meshPath)
+	if err != nil {
+		t.Fatalf("read unpacked Mesh: %v", err)
+	}
+
+	service := &RawUnityObjectService{}
+	jsonPath := meshPath + ".json"
+	if err := service.ConvertRawUnityObjectToJson(TestConversionContext, meshPath, jsonPath, TestConversionMaxOutput); err != nil {
+		t.Fatalf("ConvertRawUnityObjectToJson: %v", err)
+	}
+	document, err := os.ReadFile(jsonPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(document), `"Infinity"`) || !strings.Contains(string(document), `"-Infinity"`) {
+		t.Fatal("official Mesh editing JSON does not carry the empty MinMaxAABB sentinel")
+	}
+	if err := service.ConvertJsonToRawUnityObject(TestConversionContext, jsonPath, meshPath, TestConversionMaxOutput); err != nil {
+		t.Fatalf("ConvertJsonToRawUnityObject: %v", err)
+	}
+	after, err := os.ReadFile(meshPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatalf("round trip changed the native Mesh: %d bytes became %d bytes", len(before), len(after))
+	}
+}
+
+// sameFloatBits 按 IEEE 位模式比较浮点值，使 NaN 与自身相等
+// sameFloatBits compares floating values by IEEE bit pattern so that NaN equals itself
+func sameFloatBits(want interface{}, got interface{}) bool {
+	switch typed := want.(type) {
+	case float32:
+		other, ok := got.(float32)
+		return ok && math.Float32bits(typed) == math.Float32bits(other)
+	case float64:
+		other, ok := got.(float64)
+		return ok && math.Float64bits(typed) == math.Float64bits(other)
+	default:
+		return reflect.DeepEqual(want, got)
 	}
 }
 

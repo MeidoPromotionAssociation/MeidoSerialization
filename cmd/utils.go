@@ -153,6 +153,22 @@ func isModFile(path string) bool {
 	}
 }
 
+// isConvertibleNativeFile 判断路径是否为 convert2json 在目录模式下会转成编辑 JSON 的原生文件
+// isConvertibleNativeFile reports whether a path names a native file that convert2json turns into editing JSON in directory mode
+func isConvertibleNativeFile(path string) bool {
+	return isModFile(path) || KCESService.IsKCESPartsFile(path) || KCESService.IsKCESPayloadFile(path) ||
+		KCESService.IsKCESMiscFile(path) || KCESService.IsKCESDataFile(path) ||
+		KCESService.IsKCESRawUnityBytesFile(path) || KCESService.IsKCESCtFile(path)
+}
+
+// isConvertibleEditingJSONFile 判断路径是否为 convert2mod 在目录模式下会转回原生格式的编辑 JSON
+// isConvertibleEditingJSONFile reports whether a path names editing JSON that convert2mod turns back into a native file in directory mode
+func isConvertibleEditingJSONFile(path string) bool {
+	return isModJsonFile(path) || KCESService.IsKCESPartsJSONFile(path) || KCESService.IsKCESPayloadJSONFile(path) ||
+		KCESService.IsKCESMiscJSONFile(path) || KCESService.IsKCESDataJSONFile(path) ||
+		KCESService.IsKCESRawUnityBytesJSONFile(path) || KCESService.IsKCESCtJSONFile(path)
+}
+
 // isJsonFile 不区分大小写地判断路径是否以 JSON 后缀结尾
 // isJsonFile reports case-insensitively whether a path ends with a JSON suffix
 func isJsonFile(path string) bool {

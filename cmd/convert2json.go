@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
-	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/KCES"
 )
 
 // convert2jsonCmd represents the convert2json command
@@ -31,7 +29,7 @@ Examples:
 		if isDirectory(path) {
 			fmt.Printf("Processing directory: %s\n", path)
 			return processDirectoryConcurrent(path, convertToJson, func(p string) bool {
-				return fileTypeFilter(p) && (isModFile(p) || KCESService.IsKCESPartsFile(p) || KCESService.IsKCESPayloadFile(p) || KCESService.IsKCESMiscFile(p) || KCESService.IsKCESDataFile(p) || KCESService.IsKCESRawUnityBytesFile(p) || KCESService.IsKCESCtFile(p))
+				return fileTypeFilter(p) && isConvertibleNativeFile(p)
 			})
 		}
 
