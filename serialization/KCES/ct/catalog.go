@@ -19,43 +19,64 @@ const (
 	CatalogKindVirtualAsset CatalogKind = "virtualAsset"
 )
 
+// AssetBundleCatalog 的两种线格式宽度都出现在游戏样本中，且与存储的版本一一对应
+// 版本 1000 只有 [Key(0)] 到 [Key(11)]，版本 1001 追加 [Key(12)] resourceFileBuildAssetBundleNames 和 [Key(13)] contentHash
+// Key 编号不因宽度变化而移位，只是尾部 Key 缺席，MessagePack-CSharp 读取旧宽度时把缺席成员留为构造默认值
+// Both AssetBundleCatalog wire widths appear in game samples and correspond one to one with the stored version
+// Version 1000 has only [Key(0)] through [Key(11)] while version 1001 appends [Key(12)] resourceFileBuildAssetBundleNames and [Key(13)] contentHash
+// Key numbers never shift between widths and only trailing keys are absent, and MessagePack-CSharp leaves absent members at their constructor defaults when it reads the older width
+const (
+	// assetBundleCatalogLegacyWidth 是版本 1000 AssetBundleCatalog 的槽位数 / assetBundleCatalogLegacyWidth is the slot count of a version 1000 AssetBundleCatalog
+	assetBundleCatalogLegacyWidth int32 = 12
+	// assetBundleCatalogCurrentWidth 是版本 1001 AssetBundleCatalog 的槽位数，也是当前游戏 FixVersion 写出的宽度 / assetBundleCatalogCurrentWidth is the slot count of a version 1001 AssetBundleCatalog and the width written by the current game FixVersion
+	assetBundleCatalogCurrentWidth int32 = 14
+	// virtualAssetCatalogWidth 是 VirtualAssetCatalog 唯一的槽位数 / virtualAssetCatalogWidth is the sole slot count of VirtualAssetCatalog
+	virtualAssetCatalogWidth int32 = 10
+)
+
 // AssetBundleCatalog 表示游戏的 AssetBundleCatalog 或 VirtualAssetCatalog
-// Kind 明确选择固定十二槽 AssetBundle 布局或固定十槽 VirtualAsset 布局
+// Kind 明确选择 AssetBundle 布局或固定十槽 VirtualAsset 布局，IndexedArrayWidth 在 AssetBundle 布局内选择具体宽度
 // AssetBundleCatalog represents the game's AssetBundleCatalog or VirtualAssetCatalog
-// Kind explicitly selects the fixed twelve-slot AssetBundle layout or fixed ten-slot VirtualAsset layout
+// Kind explicitly selects the AssetBundle layout or the fixed ten-slot VirtualAsset layout, and IndexedArrayWidth selects the concrete width inside the AssetBundle layout
 type AssetBundleCatalog struct {
-	Kind              CatalogKind           `json:"kind"`                        // 具体 catalog 类型 / Concrete catalog type
-	Version           int32                 `json:"version"`                     // 序列化版本 / Serialization version
-	CatalogType       CatalogType           `json:"catalogType"`                 // 资源分类标志位 / Resource-category flags
-	PackageType       CatalogPackageType    `json:"packageType"`                 // catalog 包类型 / Catalog package type
-	Priority          int32                 `json:"priority"`                    // catalog 排序优先级 / Catalog ordering priority
-	Name              *string               `json:"name"`                        // catalog 名称 / Catalog name
-	SubName           *string               `json:"subName"`                     // catalog 子名称 / Catalog sub-name
-	Hash              uint64                `json:"hash"`                        // catalog 哈希 / Catalog hash
-	CreateTime        int64                 `json:"createTime"`                  // 创建时间 / Creation time
-	IsEncrypted       bool                  `json:"isEncrypted,omitempty"`       // AssetBundle 是否加密 / Whether AssetBundles are encrypted
-	ResourceFileNames []*string             `json:"resourceFileNames,omitempty"` // AssetBundle 资源文件名 / AssetBundle resource file names
-	ExtensionList     []*string             `json:"extensionList"`               // 扩展名虚拟文件列表 / Extension-name virtual-file list
-	Items             []*CatalogItem        `json:"items,omitempty"`             // AssetBundle catalog 条目 / AssetBundle catalog items
-	VirtualItems      []*VirtualCatalogItem `json:"virtualItems,omitempty"`      // VirtualAsset catalog 条目 / VirtualAsset catalog items
+	Kind                              CatalogKind           `json:"kind"`                                        // 具体 catalog 类型 / Concrete catalog type
+	Version                           int32                 `json:"version"`                                     // 序列化版本 / Serialization version
+	CatalogType                       CatalogType           `json:"catalogType"`                                 // 资源分类标志位 / Resource-category flags
+	PackageType                       CatalogPackageType    `json:"packageType"`                                 // catalog 包类型 / Catalog package type
+	Priority                          int32                 `json:"priority"`                                    // catalog 排序优先级 / Catalog ordering priority
+	Name                              *string               `json:"name"`                                        // catalog 名称 / Catalog name
+	SubName                           *string               `json:"subName"`                                     // catalog 子名称 / Catalog sub-name
+	Hash                              uint64                `json:"hash"`                                        // catalog 哈希 / Catalog hash
+	CreateTime                        int64                 `json:"createTime"`                                  // 创建时间 / Creation time
+	IsEncrypted                       bool                  `json:"isEncrypted,omitempty"`                       // AssetBundle 是否加密 / Whether AssetBundles are encrypted
+	ResourceFileNames                 []*string             `json:"resourceFileNames,omitempty"`                 // AssetBundle 资源文件名 / AssetBundle resource file names
+	ExtensionList                     []*string             `json:"extensionList"`                               // 扩展名虚拟文件列表 / Extension-name virtual-file list
+	Items                             []*CatalogItem        `json:"items,omitempty"`                             // AssetBundle catalog 条目 / AssetBundle catalog items
+	VirtualItems                      []*VirtualCatalogItem `json:"virtualItems,omitempty"`                      // VirtualAsset catalog 条目 / VirtualAsset catalog items
+	ResourceFileBuildAssetBundleNames []*string             `json:"resourceFileBuildAssetBundleNames,omitempty"` // 版本 1001 起与 ResourceFileNames 同序的构建期 AssetBundle 名，用于跨 catalog 共享同一个已加载 AssetBundle / Build-time AssetBundle names added in version 1001, positionally paired with ResourceFileNames and used to share one loaded AssetBundle across catalogs
+	ContentHash                       *string               `json:"contentHash,omitempty"`                       // 版本 1001 起记录的 catalog 内容哈希，游戏样本中为 64 位十六进制字符串 / Catalog content hash added in version 1001, a 64-character hexadecimal string in game samples
+	IndexedArrayWidth                 int32                 `json:"indexedArrayWidth,omitempty"`                 // 解码时记录的线格式数组宽度，并非游戏成员 / Wire array width recorded during decoding, not a game member
 }
 
 // assetBundleCatalogJSON 以原始 JSON 值区分 catalog union 分支字段缺失与显式 null / assetBundleCatalogJSON distinguishes missing catalog union fields from explicit null by retaining each branch-specific JSON value
 type assetBundleCatalogJSON struct {
-	Kind              CatalogKind        `json:"kind"`                        // 具体 catalog 类型 / Concrete catalog type
-	Version           int32              `json:"version"`                     // 序列化版本 / Serialization version
-	CatalogType       CatalogType        `json:"catalogType"`                 // 资源分类标志位 / Resource-category flags
-	PackageType       CatalogPackageType `json:"packageType"`                 // catalog 包类型 / Catalog package type
-	Priority          int32              `json:"priority"`                    // catalog 排序优先级 / Catalog ordering priority
-	Name              *string            `json:"name"`                        // catalog 名称 / Catalog name
-	SubName           *string            `json:"subName"`                     // catalog 子名称 / Catalog sub-name
-	Hash              uint64             `json:"hash"`                        // catalog 哈希 / Catalog hash
-	CreateTime        int64              `json:"createTime"`                  // 创建时间 / Creation time
-	ExtensionList     []*string          `json:"extensionList"`               // 扩展名虚拟文件列表 / Extension-name virtual-file list
-	IsEncrypted       json.RawMessage    `json:"isEncrypted,omitempty"`       // AssetBundle 加密分支字段 / AssetBundle encryption branch field
-	ResourceFileNames json.RawMessage    `json:"resourceFileNames,omitempty"` // AssetBundle 资源文件名分支字段 / AssetBundle resource-name branch field
-	Items             json.RawMessage    `json:"items,omitempty"`             // AssetBundle 条目分支字段 / AssetBundle item branch field
-	VirtualItems      json.RawMessage    `json:"virtualItems,omitempty"`      // VirtualAsset 条目分支字段 / VirtualAsset item branch field
+	Kind                              CatalogKind        `json:"kind"`                                        // 具体 catalog 类型 / Concrete catalog type
+	Version                           int32              `json:"version"`                                     // 序列化版本 / Serialization version
+	CatalogType                       CatalogType        `json:"catalogType"`                                 // 资源分类标志位 / Resource-category flags
+	PackageType                       CatalogPackageType `json:"packageType"`                                 // catalog 包类型 / Catalog package type
+	Priority                          int32              `json:"priority"`                                    // catalog 排序优先级 / Catalog ordering priority
+	Name                              *string            `json:"name"`                                        // catalog 名称 / Catalog name
+	SubName                           *string            `json:"subName"`                                     // catalog 子名称 / Catalog sub-name
+	Hash                              uint64             `json:"hash"`                                        // catalog 哈希 / Catalog hash
+	CreateTime                        int64              `json:"createTime"`                                  // 创建时间 / Creation time
+	ExtensionList                     []*string          `json:"extensionList"`                               // 扩展名虚拟文件列表 / Extension-name virtual-file list
+	IsEncrypted                       json.RawMessage    `json:"isEncrypted,omitempty"`                       // AssetBundle 加密分支字段 / AssetBundle encryption branch field
+	ResourceFileNames                 json.RawMessage    `json:"resourceFileNames,omitempty"`                 // AssetBundle 资源文件名分支字段 / AssetBundle resource-name branch field
+	Items                             json.RawMessage    `json:"items,omitempty"`                             // AssetBundle 条目分支字段 / AssetBundle item branch field
+	VirtualItems                      json.RawMessage    `json:"virtualItems,omitempty"`                      // VirtualAsset 条目分支字段 / VirtualAsset item branch field
+	ResourceFileBuildAssetBundleNames json.RawMessage    `json:"resourceFileBuildAssetBundleNames,omitempty"` // AssetBundle 构建期 AssetBundle 名分支字段 / AssetBundle build-time bundle-name branch field
+	ContentHash                       json.RawMessage    `json:"contentHash,omitempty"`                       // AssetBundle 内容哈希分支字段 / AssetBundle content-hash branch field
+	IndexedArrayWidth                 int32              `json:"indexedArrayWidth,omitempty"`                 // 解码时记录的线格式数组宽度，并非游戏成员 / Wire array width recorded during decoding, not a game member
 }
 
 // MarshalJSON 仅写出 Kind 对应 catalog 布局的真实字段并让活动可空切片显式成为 JSON null
@@ -65,16 +86,17 @@ func (cat AssetBundleCatalog) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 	raw := assetBundleCatalogJSON{
-		Kind:          cat.Kind,
-		Version:       cat.Version,
-		CatalogType:   cat.CatalogType,
-		PackageType:   cat.PackageType,
-		Priority:      cat.Priority,
-		Name:          cat.Name,
-		SubName:       cat.SubName,
-		Hash:          cat.Hash,
-		CreateTime:    cat.CreateTime,
-		ExtensionList: cat.ExtensionList,
+		Kind:              cat.Kind,
+		Version:           cat.Version,
+		CatalogType:       cat.CatalogType,
+		PackageType:       cat.PackageType,
+		Priority:          cat.Priority,
+		Name:              cat.Name,
+		SubName:           cat.SubName,
+		Hash:              cat.Hash,
+		CreateTime:        cat.CreateTime,
+		ExtensionList:     cat.ExtensionList,
+		IndexedArrayWidth: cat.IndexedArrayWidth,
 	}
 	var err error
 	switch cat.Kind {
@@ -85,6 +107,12 @@ func (cat AssetBundleCatalog) MarshalJSON() ([]byte, error) {
 		}
 		if err == nil {
 			raw.Items, err = json.Marshal(cat.Items)
+		}
+		if err == nil {
+			raw.ResourceFileBuildAssetBundleNames, err = json.Marshal(cat.ResourceFileBuildAssetBundleNames)
+		}
+		if err == nil {
+			raw.ContentHash, err = json.Marshal(cat.ContentHash)
 		}
 	case CatalogKindVirtualAsset:
 		raw.VirtualItems, err = json.Marshal(cat.VirtualItems)
@@ -111,16 +139,17 @@ func (cat *AssetBundleCatalog) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	value := AssetBundleCatalog{
-		Kind:          raw.Kind,
-		Version:       raw.Version,
-		CatalogType:   raw.CatalogType,
-		PackageType:   raw.PackageType,
-		Priority:      raw.Priority,
-		Name:          raw.Name,
-		SubName:       raw.SubName,
-		Hash:          raw.Hash,
-		CreateTime:    raw.CreateTime,
-		ExtensionList: raw.ExtensionList,
+		Kind:              raw.Kind,
+		Version:           raw.Version,
+		CatalogType:       raw.CatalogType,
+		PackageType:       raw.PackageType,
+		Priority:          raw.Priority,
+		Name:              raw.Name,
+		SubName:           raw.SubName,
+		Hash:              raw.Hash,
+		CreateTime:        raw.CreateTime,
+		ExtensionList:     raw.ExtensionList,
+		IndexedArrayWidth: raw.IndexedArrayWidth,
 	}
 	var err error
 	switch raw.Kind {
@@ -130,6 +159,12 @@ func (cat *AssetBundleCatalog) UnmarshalJSON(data []byte) error {
 		}
 		if err == nil {
 			err = decodeCatalogJSONStrict(raw.Items, &value.Items)
+		}
+		if err == nil {
+			err = decodeCatalogJSONStrict(raw.ResourceFileBuildAssetBundleNames, &value.ResourceFileBuildAssetBundleNames)
+		}
+		if err == nil {
+			err = decodeCatalogJSONStrict(raw.ContentHash, &value.ContentHash)
 		}
 	case CatalogKindVirtualAsset:
 		err = decodeCatalogJSONStrict(raw.VirtualItems, &value.VirtualItems)
@@ -147,7 +182,9 @@ func (cat *AssetBundleCatalog) UnmarshalJSON(data []byte) error {
 }
 
 // validateCatalogJSONRootPresence 检查活动 catalog 分支字段完整存在并拒绝非活动字段，包括显式 null 或 false
+// 版本 1001 才存在的两个 AssetBundle 尾部字段可以缺席，缺席与显式 null 表达同一个状态，因此只在非活动分支拒绝它们
 // validateCatalogJSONRootPresence requires every active catalog branch field and rejects inactive fields including explicit null or false
+// The two trailing AssetBundle fields that exist only from version 1001 may be absent because absence and explicit null express the same state, so they are only rejected on the inactive branch
 func validateCatalogJSONRootPresence(raw *assetBundleCatalogJSON) error {
 	require := func(name string, data json.RawMessage) error {
 		if len(data) == 0 {
@@ -187,6 +224,8 @@ func validateCatalogJSONRootPresence(raw *assetBundleCatalogJSON) error {
 			{name: "isEncrypted", data: raw.IsEncrypted},
 			{name: "resourceFileNames", data: raw.ResourceFileNames},
 			{name: "items", data: raw.Items},
+			{name: "resourceFileBuildAssetBundleNames", data: raw.ResourceFileBuildAssetBundleNames},
+			{name: "contentHash", data: raw.ContentHash},
 		} {
 			if err := reject(field.name, field.data); err != nil {
 				return err
@@ -391,31 +430,49 @@ const (
 	PackageTypeExtraPatch  CatalogPackageType = 5
 )
 
-// assetBundleCatalogWire 表示游戏 AssetBundleCatalog 的固定十二槽线格式 / assetBundleCatalogWire represents the game's fixed twelve-slot AssetBundleCatalog wire layout
+// assetBundleCatalogWire 表示游戏 AssetBundleCatalog 的固定十二槽或十四槽线格式 / assetBundleCatalogWire represents the game's fixed twelve-slot or fourteen-slot AssetBundleCatalog wire layout
 type assetBundleCatalogWire struct {
-	_struct           struct{}           `codec:",toarray"` // 强制按数组编码 / Forces array encoding
-	Version           int32              // 序列化版本 / Serialization version
-	CatalogType       CatalogType        // 资源分类标志位 / Resource-category flags
-	PackageType       CatalogPackageType // catalog 包类型 / Catalog package type
-	Priority          int32              // catalog 排序优先级 / Catalog ordering priority
-	Name              *string            // catalog 名称 / Catalog name
-	SubName           *string            // catalog 子名称 / Catalog sub-name
-	Hash              uint64             // catalog 哈希 / Catalog hash
-	CreateTime        int64              // 创建时间 / Creation time
-	IsEncrypted       bool               // AssetBundle 是否加密 / Whether AssetBundles are encrypted
-	ResourceFileNames []*string          // AssetBundle 资源文件名 / AssetBundle resource file names
-	ExtensionList     []*string          // 扩展名虚拟文件列表 / Extension-name virtual-file list
-	Items             []*CatalogItem     // AssetBundle catalog 条目 / AssetBundle catalog items
+	_struct                           struct{}           `codec:",toarray" kces:"widths=12,14"` // 强制按数组编码并接受版本 1000 与版本 1001 布局 / Forces array encoding and accepts the version 1000 and version 1001 layouts
+	Version                           int32              // 序列化版本 / Serialization version
+	CatalogType                       CatalogType        // 资源分类标志位 / Resource-category flags
+	PackageType                       CatalogPackageType // catalog 包类型 / Catalog package type
+	Priority                          int32              // catalog 排序优先级 / Catalog ordering priority
+	Name                              *string            // catalog 名称 / Catalog name
+	SubName                           *string            // catalog 子名称 / Catalog sub-name
+	Hash                              uint64             // catalog 哈希 / Catalog hash
+	CreateTime                        int64              // 创建时间 / Creation time
+	IsEncrypted                       bool               // AssetBundle 是否加密 / Whether AssetBundles are encrypted
+	ResourceFileNames                 []*string          // AssetBundle 资源文件名 / AssetBundle resource file names
+	ExtensionList                     []*string          // 扩展名虚拟文件列表 / Extension-name virtual-file list
+	Items                             []*CatalogItem     // AssetBundle catalog 条目 / AssetBundle catalog items
+	ResourceFileBuildAssetBundleNames []*string          // 与 ResourceFileNames 同序的构建期 AssetBundle 名 / Build-time AssetBundle names positionally paired with ResourceFileNames
+	ContentHash                       *string            // catalog 内容哈希 / Catalog content hash
+	IndexedArrayWidth                 int32              `codec:"-"` // 解码时记录的线格式数组宽度，并非游戏成员 / Wire array width recorded during decoding, not a game member
 }
 
-// CodecEncodeSelf 按固定十二槽布局编码 AssetBundleCatalog 线格式
-// CodecEncodeSelf encodes the AssetBundleCatalog wire value using its fixed twelve-slot layout
+// MessagePackIndexedObjectWidth 返回 AssetBundleCatalog 应写出的 indexed-array 宽度
+// MessagePackIndexedObjectWidth returns the indexed-array width that AssetBundleCatalog should emit
+func (v *assetBundleCatalogWire) MessagePackIndexedObjectWidth() int32 {
+	if v.IndexedArrayWidth == 0 {
+		return assetBundleCatalogLegacyWidth
+	}
+	return v.IndexedArrayWidth
+}
+
+// SetMessagePackIndexedObjectWidth 设置 AssetBundleCatalog 应写出的 indexed-array 宽度
+// SetMessagePackIndexedObjectWidth sets the indexed-array width that AssetBundleCatalog should emit
+func (v *assetBundleCatalogWire) SetMessagePackIndexedObjectWidth(width int32) {
+	v.IndexedArrayWidth = width
+}
+
+// CodecEncodeSelf 按记录的固定槽位布局编码 AssetBundleCatalog 线格式
+// CodecEncodeSelf encodes the AssetBundleCatalog wire value using its recorded fixed slot layout
 func (v assetBundleCatalogWire) CodecEncodeSelf(e *codec.Encoder) {
 	msgpack.EncodeIndexedObjectSelf(e, &v)
 }
 
-// CodecDecodeSelf 按固定十二槽布局解码 AssetBundleCatalog 线格式
-// CodecDecodeSelf decodes the AssetBundleCatalog wire value using its fixed twelve-slot layout
+// CodecDecodeSelf 按游戏已知的固定槽位布局解码 AssetBundleCatalog 线格式
+// CodecDecodeSelf decodes the AssetBundleCatalog wire value using the fixed slot layouts known from the game
 func (v *assetBundleCatalogWire) CodecDecodeSelf(d *codec.Decoder) {
 	msgpack.DecodeIndexedObjectSelf(d, v)
 }
@@ -477,42 +534,45 @@ func decodeCatalog(data []byte, forcedKind CatalogKind) (*AssetBundleCatalog, er
 	}
 	kind := forcedKind
 	if kind == "" {
-		switch len(fields) {
-		case 12:
+		switch int32(len(fields)) {
+		case assetBundleCatalogLegacyWidth, assetBundleCatalogCurrentWidth:
 			kind = CatalogKindAssetBundle
-		case 10:
+		case virtualAssetCatalogWidth:
 			kind = CatalogKindVirtualAsset
 		default:
-			return nil, fmt.Errorf("unsupported catalog indexed-array width %d, expected 12 or 10", len(fields))
+			return nil, fmt.Errorf("unsupported catalog indexed-array width %d, expected %d or %d for an AssetBundleCatalog or %d for a VirtualAssetCatalog", len(fields), assetBundleCatalogLegacyWidth, assetBundleCatalogCurrentWidth, virtualAssetCatalogWidth)
 		}
 	}
 	switch kind {
 	case CatalogKindAssetBundle:
-		if len(fields) != 12 {
-			return nil, fmt.Errorf("unsupported AssetBundleCatalog indexed-array width %d, expected 12", len(fields))
+		if int32(len(fields)) != assetBundleCatalogLegacyWidth && int32(len(fields)) != assetBundleCatalogCurrentWidth {
+			return nil, fmt.Errorf("unsupported AssetBundleCatalog indexed-array width %d, expected %d or %d", len(fields), assetBundleCatalogLegacyWidth, assetBundleCatalogCurrentWidth)
 		}
 		var wire assetBundleCatalogWire
 		if err := msgpack.DecodeMsgpack(data, &wire); err != nil {
 			return nil, fmt.Errorf("decode AssetBundleCatalog: %w", err)
 		}
 		return &AssetBundleCatalog{
-			Kind:              kind,
-			Version:           wire.Version,
-			CatalogType:       wire.CatalogType,
-			PackageType:       wire.PackageType,
-			Priority:          wire.Priority,
-			Name:              wire.Name,
-			SubName:           wire.SubName,
-			Hash:              wire.Hash,
-			CreateTime:        wire.CreateTime,
-			IsEncrypted:       wire.IsEncrypted,
-			ResourceFileNames: wire.ResourceFileNames,
-			ExtensionList:     wire.ExtensionList,
-			Items:             wire.Items,
+			Kind:                              kind,
+			Version:                           wire.Version,
+			CatalogType:                       wire.CatalogType,
+			PackageType:                       wire.PackageType,
+			Priority:                          wire.Priority,
+			Name:                              wire.Name,
+			SubName:                           wire.SubName,
+			Hash:                              wire.Hash,
+			CreateTime:                        wire.CreateTime,
+			IsEncrypted:                       wire.IsEncrypted,
+			ResourceFileNames:                 wire.ResourceFileNames,
+			ExtensionList:                     wire.ExtensionList,
+			Items:                             wire.Items,
+			ResourceFileBuildAssetBundleNames: wire.ResourceFileBuildAssetBundleNames,
+			ContentHash:                       wire.ContentHash,
+			IndexedArrayWidth:                 wire.IndexedArrayWidth,
 		}, nil
 	case CatalogKindVirtualAsset:
-		if len(fields) != 10 {
-			return nil, fmt.Errorf("unsupported VirtualAssetCatalog indexed-array width %d, expected 10", len(fields))
+		if int32(len(fields)) != virtualAssetCatalogWidth {
+			return nil, fmt.Errorf("unsupported VirtualAssetCatalog indexed-array width %d, expected %d", len(fields), virtualAssetCatalogWidth)
 		}
 		var wire virtualAssetCatalogWire
 		if err := msgpack.DecodeMsgpack(data, &wire); err != nil {
@@ -568,18 +628,21 @@ func EncodeCatalog(cat *AssetBundleCatalog) ([]byte, error) {
 	switch cat.Kind {
 	case CatalogKindAssetBundle:
 		return msgpack.EncodeIndexedMsgpack(&assetBundleCatalogWire{
-			Version:           cat.Version,
-			CatalogType:       cat.CatalogType,
-			PackageType:       cat.PackageType,
-			Priority:          cat.Priority,
-			Name:              cat.Name,
-			SubName:           cat.SubName,
-			Hash:              cat.Hash,
-			CreateTime:        cat.CreateTime,
-			IsEncrypted:       cat.IsEncrypted,
-			ResourceFileNames: cat.ResourceFileNames,
-			ExtensionList:     cat.ExtensionList,
-			Items:             cat.Items,
+			Version:                           cat.Version,
+			CatalogType:                       cat.CatalogType,
+			PackageType:                       cat.PackageType,
+			Priority:                          cat.Priority,
+			Name:                              cat.Name,
+			SubName:                           cat.SubName,
+			Hash:                              cat.Hash,
+			CreateTime:                        cat.CreateTime,
+			IsEncrypted:                       cat.IsEncrypted,
+			ResourceFileNames:                 cat.ResourceFileNames,
+			ExtensionList:                     cat.ExtensionList,
+			Items:                             cat.Items,
+			ResourceFileBuildAssetBundleNames: cat.ResourceFileBuildAssetBundleNames,
+			ContentHash:                       cat.ContentHash,
+			IndexedArrayWidth:                 cat.IndexedArrayWidth,
 		})
 	case CatalogKindVirtualAsset:
 		return msgpack.EncodeIndexedMsgpack(&virtualAssetCatalogWire{
@@ -680,6 +743,15 @@ func ValidateCatalog(cat *AssetBundleCatalog) error {
 		if err := validateOptionalUTF8Strings(cat.ResourceFileNames, "catalog.resourceFileNames"); err != nil {
 			return err
 		}
+		if err := validateOptionalUTF8Strings(cat.ResourceFileBuildAssetBundleNames, "catalog.resourceFileBuildAssetBundleNames"); err != nil {
+			return err
+		}
+		if err := validateOptionalUTF8String(cat.ContentHash, "catalog.contentHash"); err != nil {
+			return err
+		}
+		if err := validateAssetBundleCatalogWidth(cat); err != nil {
+			return err
+		}
 		for index, item := range cat.Items {
 			if item == nil {
 				continue
@@ -689,8 +761,12 @@ func ValidateCatalog(cat *AssetBundleCatalog) error {
 			}
 		}
 	case CatalogKindVirtualAsset:
-		if cat.IsEncrypted || cat.ResourceFileNames != nil || cat.Items != nil {
+		if cat.IsEncrypted || cat.ResourceFileNames != nil || cat.Items != nil ||
+			cat.ResourceFileBuildAssetBundleNames != nil || cat.ContentHash != nil {
 			return fmt.Errorf("virtualAsset catalog cannot contain AssetBundle-only fields")
+		}
+		if cat.IndexedArrayWidth != 0 && cat.IndexedArrayWidth != virtualAssetCatalogWidth {
+			return fmt.Errorf("catalog.indexedArrayWidth %d is not the VirtualAssetCatalog width %d", cat.IndexedArrayWidth, virtualAssetCatalogWidth)
 		}
 		for index, item := range cat.VirtualItems {
 			if item == nil {
@@ -705,6 +781,25 @@ func ValidateCatalog(cat *AssetBundleCatalog) error {
 		}
 	}
 	return nil
+}
+
+// validateAssetBundleCatalogWidth 校验记录的 AssetBundle 宽度属于游戏已知布局，并要求版本 1000 宽度不携带版本 1001 才存在的尾部字段
+// validateAssetBundleCatalogWidth validates that the recorded AssetBundle width is a layout known from the game and requires the version 1000 width to carry none of the trailing fields introduced in version 1001
+func validateAssetBundleCatalogWidth(cat *AssetBundleCatalog) error {
+	switch cat.IndexedArrayWidth {
+	case 0, assetBundleCatalogLegacyWidth:
+		if cat.ResourceFileBuildAssetBundleNames != nil {
+			return fmt.Errorf("catalog.resourceFileBuildAssetBundleNames requires indexedArrayWidth %d", assetBundleCatalogCurrentWidth)
+		}
+		if cat.ContentHash != nil {
+			return fmt.Errorf("catalog.contentHash requires indexedArrayWidth %d", assetBundleCatalogCurrentWidth)
+		}
+		return nil
+	case assetBundleCatalogCurrentWidth:
+		return nil
+	default:
+		return fmt.Errorf("catalog.indexedArrayWidth %d is not an AssetBundleCatalog width known from the game, expected %d or %d", cat.IndexedArrayWidth, assetBundleCatalogLegacyWidth, assetBundleCatalogCurrentWidth)
+	}
 }
 
 // ValidateExtensionNameList 校验 ExtensionNameList 的 UTF-8 字符串字段

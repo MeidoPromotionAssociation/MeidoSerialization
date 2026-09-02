@@ -69,6 +69,20 @@
                   "items"
                 ]
               }
+            },
+            {
+              "not": {
+                "required": [
+                  "resourceFileBuildAssetBundleNames"
+                ]
+              }
+            },
+            {
+              "not": {
+                "required": [
+                  "contentHash"
+                ]
+              }
             }
           ],
           "properties": {
@@ -91,6 +105,12 @@
           "type": "integer",
           "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
+        },
+        "contentHash": {
+          "type": [
+            "null",
+            "string"
+          ]
         },
         "createTime": {
           "maximum": 9223372036854775807,
@@ -117,6 +137,13 @@
           "type": "integer",
           "x-meido-integer-bits": 64,
           "x-meido-integer-signed": false
+        },
+        "indexedArrayWidth": {
+          "maximum": 2147483647,
+          "minimum": -2147483648,
+          "type": "integer",
+          "x-meido-integer-bits": 32,
+          "x-meido-integer-signed": true
         },
         "isEncrypted": {
           "type": "boolean"
@@ -159,6 +186,18 @@
           "type": "integer",
           "x-meido-integer-bits": 32,
           "x-meido-integer-signed": true
+        },
+        "resourceFileBuildAssetBundleNames": {
+          "items": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type": [
+            "null",
+            "array"
+          ]
         },
         "resourceFileNames": {
           "items": {

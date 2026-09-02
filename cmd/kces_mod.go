@@ -53,6 +53,15 @@ func inspectKcesCatalog(path string) error {
 	fmt.Printf("  IsEncrypted:       %v\n", cat.IsEncrypted)
 	fmt.Printf("  ResourceFileNames: %v\n", cat.ResourceFileNames)
 	fmt.Printf("  ExtensionList:     %v\n", cat.ExtensionList)
+	if cat.IndexedArrayWidth != 0 {
+		fmt.Printf("  IndexedArrayWidth: %d\n", cat.IndexedArrayWidth)
+	}
+	if cat.ResourceFileBuildAssetBundleNames != nil {
+		fmt.Printf("  BuildBundleNames:  %v\n", cat.ResourceFileBuildAssetBundleNames)
+	}
+	if cat.ContentHash != nil {
+		fmt.Printf("  ContentHash:       %q\n", *cat.ContentHash)
+	}
 
 	fmt.Printf("\n=== Items (%d) ===\n", len(cat.Items))
 	for i, item := range cat.Items {

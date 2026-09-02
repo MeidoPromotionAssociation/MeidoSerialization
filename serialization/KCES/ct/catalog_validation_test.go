@@ -30,6 +30,7 @@ func TestEncodeCatalog_PreservesGameLookupValues(t *testing.T) {
 			ResourceFileNames: []*string{&resourceName},
 			ExtensionList:     []*string{&extension},
 			Items:             []*CatalogItem{&first, &second},
+			IndexedArrayWidth: assetBundleCatalogLegacyWidth,
 		}
 	}
 

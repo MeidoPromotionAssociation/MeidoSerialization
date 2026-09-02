@@ -322,8 +322,10 @@ func customizeKCESEditDataFileSchema(schema *jsonschema.Schema) {
 	}
 }
 
-// customizeKCESCatalogSchema 将 catalog Kind 与游戏定义的十二槽或十槽 JSON 字段集合绑定
-// customizeKCESCatalogSchema binds catalog Kind to the JSON field set of the game-defined twelve-slot or ten-slot layout
+// customizeKCESCatalogSchema 将 catalog Kind 与游戏定义的 AssetBundle 或十槽 VirtualAsset JSON 字段集合绑定
+// 版本 1001 才存在的两个 AssetBundle 尾部字段可以缺席，因此只在 VirtualAsset 分支禁止它们
+// customizeKCESCatalogSchema binds catalog Kind to the JSON field set of the game-defined AssetBundle or ten-slot VirtualAsset layout
+// The two trailing AssetBundle fields that exist only from version 1001 may be absent, so they are only forbidden on the VirtualAsset branch
 func customizeKCESCatalogSchema(schema *jsonschema.Schema) {
 	schema.OneOf = []*jsonschema.Schema{
 		{
@@ -340,7 +342,7 @@ func customizeKCESCatalogSchema(schema *jsonschema.Schema) {
 				"kind": {Type: "string", Const: anyPtr(string(serializationKCESCT.CatalogKindVirtualAsset))},
 			},
 			Required: []string{"kind", "virtualItems"},
-			AllOf:    forbidProperties("isEncrypted", "resourceFileNames", "items"),
+			AllOf:    forbidProperties("isEncrypted", "resourceFileNames", "items", "resourceFileBuildAssetBundleNames", "contentHash"),
 		},
 	}
 }
