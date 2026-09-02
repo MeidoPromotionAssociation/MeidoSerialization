@@ -1,0 +1,150 @@
+name: Release
+
+on:
+  push:
+    tags: [ "v*" ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "要发布的 tag，必须已存在于仓库中（例如 v2.3.0）"
+        required: true
+        type: string
+
+# 默认不给 GITHUB_TOKEN 任何权限，由各 job 单独声明自己需要的最小权限
+# GITHUB_TOKEN gets no permission by default, each job declares the minimum it needs
+permissions: {}
+
+# 同一个 tag 只允许一个发布流程在跑，避免 push 和手动触发同时创建 release
+# Only one release run per tag, so a push and a manual dispatch cannot create the release twice
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  # 编译阶段只有读权限，即使某个依赖或 action 被污染也改不了仓库内容
+  # The build stage is read-only, so a compromised dependency or action cannot write anything back
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+          # 不把 token 存进 .git/config，编译过程中的代码就读不到它
+          # Keep the token out of .git/config, so code running during the build cannot read it
+          persist-credentials: false
+
+      - name: Resolve Release Metadata
+        id: meta
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          TAG="${INPUT_TAG:-$REF_NAME}"
+          if ! git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "::error::tag ${TAG} does not exist in this repository"
+            exit 1
+          fi
+          # 带连字符的版本号（v2.3.0-rc1 等）视为预发布
+          # A version containing a hyphen (such as v2.3.0-rc1) is treated as a prerelease
+          if [[ "${TAG}" == *-* ]]; then
+            PRERELEASE=true
+          else
+            PRERELEASE=false
+          fi
+          {
+            echo "tag=${TAG}"
+            echo "prerelease=${PRERELEASE}"
+            echo "commit=$(git rev-parse "${TAG}^{commit}" | cut -c1-8)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Build Binaries
+        env:
+          CGO_ENABLED: 0
+          GOARCH: amd64
+          TAG: ${{ steps.meta.outputs.tag }}
+          COMMIT: ${{ steps.meta.outputs.commit }}
+        run: |
+          mkdir -p dist
+          BUILD_DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          MODULE="github.com/MeidoPromotionAssociation/MeidoSerialization/v2"
+          LDFLAGS="-s -w -X ${MODULE}/cmd.buildVersion=${TAG} -X ${MODULE}/cmd.buildCommit=${COMMIT} -X ${MODULE}/cmd.buildDate=${BUILD_DATE}"
+          GOOS=linux go build -trimpath -ldflags="${LDFLAGS}" -o dist/MeidoSerialization_linux_amd64 .
+          GOOS=windows go build -trimpath -ldflags="${LDFLAGS}" -o dist/MeidoSerialization.exe .
+
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-binaries
+          path: dist/
+          retention-days: 1
+          if-no-files-found: error
+
+  # 只有这个 job 拿到写权限，它不编译任何东西，只生成正文并调用 gh 发布
+  # Only this job holds write access, it builds nothing and merely renders the body and calls gh
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.build.outputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download Binaries
+        uses: actions/download-artifact@v7
+        with:
+          name: release-binaries
+          path: dist
+
+      - name: Generate Release Notes
+        env:
+          TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          python3 .github/scripts/release_notes.py \
+            --tag "${TAG}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --template .github/release-template.md \
+            --output release-notes.md
+
+      - name: Publish Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.build.outputs.tag }}
+          PRERELEASE: ${{ needs.build.outputs.prerelease }}
+        run: |
+          ASSETS=(dist/MeidoSerialization_linux_amd64 dist/MeidoSerialization.exe)
+          # release 已存在时更新它，便于手动重跑同一个 tag
+          # Update the release when it already exists, so the same tag can be re-run manually
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release edit "${TAG}" \
+              --title "MeidoSerialization CLI ${TAG}" \
+              --notes-file release-notes.md \
+              --prerelease="${PRERELEASE}"
+            gh release upload "${TAG}" "${ASSETS[@]}" --clobber
+          else
+            gh release create "${TAG}" \
+              --verify-tag \
+              --title "MeidoSerialization CLI ${TAG}" \
+              --notes-file release-notes.md \
+              --prerelease="${PRERELEASE}" \
+              "${ASSETS[@]}"
+          fi
