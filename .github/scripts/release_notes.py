@@ -32,6 +32,10 @@ RECORD_SEP = "\x1e"
 # square brackets would break the link syntax
 LINK_TEXT_ESCAPE = re.compile(r"([\[\]])")
 
+# 从远端地址里取出 owner/repo，同时兼容 ssh 和 https 两种写法
+# Extract owner/repo from the remote URL, accepting both the ssh and the https form
+REMOTE_PATTERN = re.compile(r"[:/]([^/:]+/[^/]+?)(?:\.git)?$")
+
 
 def git(*args: str) -> str:
     """执行 git 命令并返回去除首尾空白的标准输出，失败时返回空字符串
@@ -48,6 +52,17 @@ def git(*args: str) -> str:
     if result.returncode != 0:
         return ""
     return result.stdout.strip()
+
+
+def resolve_repo() -> str:
+    """从 origin 远端地址推导 owner/repo，推导不出来时返回空字符串
+
+    Derive owner/repo from the origin remote URL, returning an empty string when it cannot be found
+    """
+    match = REMOTE_PATTERN.search(git("config", "--get", "remote.origin.url"))
+    if not match:
+        return ""
+    return match.group(1)
 
 
 def resolve_prev_tag(tag: str) -> str:
@@ -100,10 +115,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag", required=True, help="本次发布的 tag / tag being released")
     parser.add_argument("--prev-tag", default="", help="上一个 tag，留空则自动推导 / previous tag, auto-detected when empty")
-    parser.add_argument("--repo", default="MeidoPromotionAssociation/MeidoSerialization", help="owner/repo")
+    parser.add_argument("--repo", default="", help="owner/repo，留空则从 origin 推导 / owner/repo, derived from origin when empty")
     parser.add_argument("--template", default=".github/scripts/release-template.md", help="模板路径 / template path")
     parser.add_argument("--output", default="", help="输出文件，留空则写到标准输出 / output file, stdout when empty")
     args = parser.parse_args()
+
+    repo = args.repo or resolve_repo()
+    if not repo:
+        print("cannot determine owner/repo from origin, pass --repo explicitly", file=sys.stderr)
+        return 1
 
     prev_tag = args.prev_tag or resolve_prev_tag(args.tag)
 
@@ -116,8 +136,8 @@ def main() -> int:
 
     body = template
     for placeholder, value in (
-        ("{{CHANGES}}", build_changes(args.repo, args.tag, prev_tag)),
-        ("{{COMPARE_URL}}", build_compare_url(args.repo, args.tag, prev_tag)),
+        ("{{CHANGES}}", build_changes(repo, args.tag, prev_tag)),
+        ("{{COMPARE_URL}}", build_compare_url(repo, args.tag, prev_tag)),
         ("{{PREV_TAG}}", prev_tag),
         ("{{TAG}}", args.tag),
     ):
