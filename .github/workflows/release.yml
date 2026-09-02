@@ -102,10 +102,18 @@ jobs:
       contents: write
 
     steps:
+      # 这里故意不指定 ref，用触发 workflow 的那个 ref，保证脚本和模板与 workflow 定义同源
+      # push tag 触发时取自 tag，手动补发旧 tag 时取自默认分支（旧 tag 上可能还没有这些文件）
+      # The ref is intentionally left out so the scripts and template come from the same ref as the
+      # workflow definition itself, the tag on a tag push, or the default branch when manually
+      # re-releasing an old tag that does not carry these files yet
+      #
+      # 提交列表来自 fetch-depth: 0 拉下来的完整历史和 tag，与检出哪个 ref 无关
+      # The commit list comes from the full history and tags fetched by fetch-depth: 0,
+      # which does not depend on the checked out ref
       - name: Checkout Code
         uses: actions/checkout@v7
         with:
-          ref: ${{ needs.build.outputs.tag }}
           fetch-depth: 0
           persist-credentials: false
 
