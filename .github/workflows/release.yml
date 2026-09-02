@@ -130,7 +130,7 @@ jobs:
           python3 .github/scripts/release_notes.py \
             --tag "${TAG}" \
             --repo "${GITHUB_REPOSITORY}" \
-            --template .github/release-template.md \
+            --template .github/scripts/release-template.md \
             --output release-notes.md
 
       - name: Publish Release
