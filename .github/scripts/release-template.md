@@ -28,7 +28,7 @@ Please ensure you have read the [CLI instructions](https://github.com/MeidoPromo
 # Downloads
 
 - `MeidoSerialization_linux_amd64` for Linux (amd64)
-- `../../MeidoSerialization.exe` for Windows (amd64)
+- `MeidoSerialization.exe` for Windows (amd64)
 
 
 # What's Changed
@@ -74,7 +74,7 @@ https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/docs/a
 # 下载
 
 - `MeidoSerialization_linux_amd64` 对应 Linux 系统 amd64 架构
-- `../../MeidoSerialization.exe` 对应 Windows 系统 amd64 架构
+- `MeidoSerialization.exe` 对应 Windows 系统 amd64 架构
 
 
 # 更改
@@ -121,7 +121,7 @@ https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/docs/a
 # ダウンロード
 
 - `MeidoSerialization_linux_amd64` は Linux システムの amd64 アーキテクチャに対応しています。
-- `../../MeidoSerialization.exe` は Windows システムの amd64 アーキテクチャに対応しています。
+- `MeidoSerialization.exe` は Windows システムの amd64 アーキテクチャに対応しています。
 
 # 変更点
 
