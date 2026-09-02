@@ -250,53 +250,64 @@ MeidoSerialization.exe convert2gltf .\unpacked
 MeidoSerialization.exe convert2audio .\unpacked
 ```
 
-Model conversion is bidirectional: `convert2gltf` looks up the `.mmesh` next to the `.model` or in the sibling
-`Mesh` directory of an unpacked ABA, and `gltf2model` writes an official Unity 2022.3 native Mesh that packs
-straight back into an ABA. A glTF scene without a skin is bound rigidly to its mesh node through a synthesized
-single-bone skin.
+Model conversion is bidirectional:
 
-Point `convert2gltf` at the `.model`, not at the `.mmesh` it references. A `.mmesh` is the Unity Mesh asset by
-itself, so exporting one directly writes a glTF with no skeleton, no bone weights, no morph targets, no material
-names, and no UV1 through UV7: the bone hierarchy, morph deltas, and material names all live in the `.model`.
-The result is a geometry preview only, and importing it with `gltf2model` produces a model whose synthesized
-single-bone skin the game cannot pose. `convert2gltf` prints a reminder whenever it exports a standalone Mesh.
+convert2gltf searches for .mmesh in the same directory as .model or in a Mesh folder located in the parent directory.
 
-Blender import tip: in the glTF importer's `Bones & Skin` panel, uncheck `Guess Original Bind Pose` and set
-`Bone Dir` to "Temperance" to get a clean octahedral skeleton. KCES bind poses are baked against a body-scaled
-skeleton and intentionally differ from the node rest pose, and Blender's guess drops the scale component while
-reconstructing it, which derails the whole armature of clothing models where nearly every node is a joint.
-With the default settings every joint also displays as a small icosphere by design; accessories with few joints
-import the rest of the skeleton as plain-axis empties instead. Keep the default "Blender" `Bone Dir` only when
-the most accurate re-export round trip through `gltf2model` matters more than the viewport display.
+gltf2model outputs official Unity 2022.3 native meshes, which can be directly repacked into ABA.
 
-Material appearance is intentionally not converted in either direction. KCES materials are entries packed inside
-the bundle's `.materialassets` container, each carrying a virtual file name such as `crc_dress044_shoe.mate` along
-with game-specific shader parameters and texture references that have no glTF equivalent, so `convert2gltf`
-exports each sub-mesh material as a name-only placeholder, and `gltf2model` ignores every glTF PBR parameter and
-texture and stores only each material's name in the Model. At runtime the game appends `.mate` to an extensionless
-name, hashes it ignoring case, and looks it up among the registered `.materialassets` entries; a name that matches
-nothing logs `CreateMaterial not found material` and leaves that sub-mesh invisible. Therefore name every glTF
-material after the target material entry (for example `crc_dress044_shoe`), and author the entry itself through
-the existing `.materialassets` JSON workflow.
+<br>
+Please run convert2gltf on .model files, NOT on .mmesh files.
 
-In Blender the material slots follow the SubMesh order, and the face-to-slot assignment is what defines the
-SubMesh split: faces assigned to another slot become their own SubMesh with that slot's material name on export.
-Renaming a slot is how a sub-mesh is re-bound to a different material entry. One caveat: the glb written by
-`convert2gltf` also carries a copy of the material name list in its `kcesModel` document extras, and `gltf2model`
-prefers that copy for a lossless round trip. Blender drops the document-level extras on re-export by default, so
-after editing in Blender the material slot names take effect — and every material must then be named, because an
-unnamed material is rejected.
+An .mmesh file is just the Unity Mesh asset itself. Converting it directly results in a glTF with no skeleton/armature, no skinning weights, no morph targets (blend shapes), no material names, and no UV1 through UV7.
 
-Texture coordinates map positionally: the Blender UV Maps list is exported in order as `TEXCOORD_0` through
-`TEXCOORD_7`, matching Unity UV0 through UV7, and layer names are ignored. The main texture always samples UV0,
-the first layer. What any further UV set means is decided by the shader named in the `.mate` entry, so keep the
-layer count and order unchanged when editing an official mesh. The V-axis flip between glTF and Unity is applied
-automatically in both directions. For a viewport preview, convert the unpacked `Texture2D` assets to images with
-`convert2image` and wire them into Base Color — preview nodes are never exported back; change real game textures
-with `convert2texture2d`, and material parameters through the `.materialassets` JSON.
+Bone hierarchy, morph deltas, and material names are all stored inside the .model file.
 
-Animation export supports explicit rotation, position, scale, and Euler curves with Transform paths. Audio export
-recognizes OGG, WAV, and FSB5 signatures and chooses the corresponding suffix; it does not transcode audio.
+Running convert2gltf on an .mmesh file produces a single-bone skinned mesh intended strictly for preview purposes.
+
+Running convert2gltf on an .mmesh file will print a warning message reminding you to run the conversion on the .model file instead.
+
+<br>
+Blender Import Tips:
+
+In the glTF importer's Bones & Skin panel, you must uncheck Guess Original Bind Pose and set Bone Dir to "Temperance" or "Best Guess" to obtain an octahedral skeleton.
+
+Only keep Bone Dir set to "Blender" if round-trip accuracy (re-exporting via gltf2model) is more important than viewport display (e.g., when you do not need to edit bones). This yields the most accurate data, intentionally displaying each joint as a small faceted sphere/stub; for accessories with very few joints, the remaining nodes in the skeleton will be imported as plain axis empties.
+
+Unchecking Guess Original Bind Pose is mandatory because KCES's bindpose is baked under an armature with body scaling, which differs from the node rest pose. Blender discards the scale component when inferring the bind pose, causing the entire skeleton to break/distort (since nearly every node in clothing models serves as a joint).
+
+<br>
+Regarding Materials:
+
+Unlike COM3D2, KCES models do not store full material data. A .model file only contains material filenames (e.g., xxx.mate). These .mate files are packed inside .materialassets containers, where each entry carries a virtual filename such as crc_dress044_shoe.mate, along with game-specific shader parameters and texture references.
+
+convert2gltf exports only a named placeholder material for each submesh. To edit actual material properties, edit the corresponding .mate file inside .materialassets.
+
+Please note: The absence of exported material data does NOT mean UVs are missing—UVs are preserved normally. In Blender, material slots correspond to the order of SubMeshes. The assignment of faces to material slots determines how SubMeshes are split: assigning faces to a different material slot will output them as an independent SubMesh bearing that slot's material name upon export.
+
+Texture coordinates correspond by position: Blender's UV Maps list is exported sequentially as TEXCOORD_0 through TEXCOORD_7, mapping directly to Unity's UV0 through UV7. The names of the UV layers do not matter.
+
+The main texture always samples the first layer (UV0). The usage of remaining UV sets is determined by the shader specified in the corresponding .mate file. When modifying official models, please keep the total count and order of UV layers unchanged.
+
+The V-axis flipping between glTF and Unity is handled automatically in both directions. If you want to preview textures in Blender, use convert2image to convert extracted Texture2D assets into image files and connect them to the Base Color of your Blender shaders. These preview nodes will not be exported back into the .glb file.
+
+To actually modify game textures, use convert2texture2d; to modify material parameters, work with .materialassets.
+
+In summary: concrete shader, color, or texture data in Blender are ignored during export, but UVs, material order, and material names ARE used.
+
+Note on a specific detail:
+
+The .glb file generated by convert2gltf keeps a backup copy of the material name list in the kcesModel section of the file's extras. For lossless round-tripping, gltf2model gives priority to this copy.
+
+However, Blender discards document-level extras by default upon re-export. Therefore, after editing in Blender, export relies on the material slot names instead. At this stage, every material must be named—unnamed/anonymous materials will be rejected.
+
+<br>
+Essentially, the conversion between glb and model + mmesh is strictly a format mapping based on specifications. I cannot guarantee the consequences of editing, and creating a model from scratch is likely not supported (untested). Detailed model editing will require dedicated Blender plugins (which is beyond my control).
+
+<br>
+Animation export supports explicit rotation, position, scale, and Euler curves with Transform paths.
+
+Audio export selects file extensions based on OGG, WAV, or FSB5 data signatures. It only extracts existing raw encoded data without transcoding the audio.
 
 ### NEI and CSV
 
@@ -936,44 +947,70 @@ Sprite 对象本身不存像素，因此 `convert2image` 对 Sprite 是单向的
 .\MeidoSerialization.exe convert2audio .\unpacked
 ~~~
 
-Model 转换是双向的：`convert2gltf` 会在 `.model` 同目录或 ABA 解包目录的同级 `Mesh`
-目录中查找 `.mmesh`；`gltf2model` 写出官方 Unity 2022.3 原生 Mesh，可直接重新打包进 ABA。
-不带蒙皮的 glTF 场景会合成单骨骼蒙皮，把网格刚性绑定到其挂载节点。
+Model 转换是双向的：
 
-请把 `convert2gltf` 指向 `.model`，而不是它引用的 `.mmesh`。`.mmesh` 只是 Unity 的 Mesh
-资源本身，直接转换它得到的 glTF 没有骨架、没有蒙皮权重、没有变形目标、没有材质名，也没有 UV1 到
-UV7——骨骼层级、morph 差分和材质名都保存在 `.model` 里。这样的文件只能当作几何体预览，再用
-`gltf2model` 导回只会得到一个合成单骨骼蒙皮、游戏无法驱动的模型。导出独立 Mesh 时 `convert2gltf`
-会打印一条提示。
+`convert2gltf` 会在 `.model` 同目录或上层目录的 `Mesh`文件夹中查找 `.mmesh`；
 
-Blender 导入提示：在 glTF 导入器的 `Bones & Skin` 面板中，取消勾选 `Guess Original Bind Pose`（猜测原始绑定姿态），
-并把 `Bone Dir` 设为 "Temperance"，即可得到干净的八面锥骨架。KCES 的 bindpose 是在带体型缩放的骨架下烘焙的，
-与节点 rest 姿态本就不同，而 Blender 反推绑定姿态时会丢弃缩放分量——服装模型几乎每个节点都是关节，
-整个骨架会因此错乱。默认设置下每个关节还会刻意显示为小棱角球；关节很少的配饰则把骨架其余节点导入为十字轴
-empty。只有当经 `gltf2model` 再导出的往返精度比视口显示更重要时，才保留默认的 "Blender" `Bone Dir`。
+`gltf2model` 写出官方 Unity 2022.3 原生 Mesh，可直接重新打包进 ABA。
 
-材质外观在两个方向上都刻意不转换。KCES 材质是打包在资源包 `.materialassets` 容器中的条目，每个条目带有形如
-`crc_dress044_shoe.mate` 的虚拟文件名，以及游戏专有的着色器参数和贴图引用，在 glTF 中没有对应物，因此
-`convert2gltf` 只为每个子网格导出一个仅有名字的占位材质，`gltf2model` 会忽略 glTF 的全部 PBR
-参数和贴图，只把每个材质的名字写入 Model。游戏运行时会给无扩展名的名字补上 `.mate`，做忽略大小写的哈希后在已注册的
-`.materialassets` 条目中查找；名字对不上会输出 `CreateMaterial not found material`
-错误日志，对应子网格渲染缺失。因此每个 glTF 材质都要按目标材质条目命名（例如
-`crc_dress044_shoe`），材质条目本体请通过现有的 `.materialassets` JSON 流程制作。
+<br>
 
-在 Blender 中，材质槽按 SubMesh 顺序排列，面到材质槽的分配就是 SubMesh 的拆分依据：把面指给另一个材质槽，
-导出后它们就成为带该槽材质名的独立 SubMesh。给材质槽改名即可把子网格重新绑定到别的材质条目。注意一个细节：
-`convert2gltf` 写出的 glb 还在文档 extras 的 `kcesModel` 中保存了一份材质名列表副本，`gltf2model`
-为保证无损往返会优先使用这份副本；而 Blender 重新导出时默认会丢弃文档级 extras，因此经 Blender
-编辑后以材质槽名字为准——此时每个材质都必须命名，匿名材质会被拒绝。
+请对 `.model` 使用 `convert2gltf` ，而不是对 `.mmesh` 使用。
 
-纹理坐标按位置对应：Blender 的 UV Maps 列表按顺序导出为 `TEXCOORD_0` 到 `TEXCOORD_7`，对应 Unity 的 UV0 到
-UV7，层的名字无关紧要。主纹理永远采样第一层 UV0。其余 UV 组的用途由 `.mate` 条目指定的着色器决定，改造官方
-mesh 时请保持 UV 层的数量和顺序不变。glTF 与 Unity 之间的 V 轴翻转在两个方向都会自动处理。想在视口中预览贴图，
-可用 `convert2image` 把解包出的 `Texture2D` 转成图片接到 Base Color 上——预览节点不会被导出回游戏；真正修改
-游戏贴图用 `convert2texture2d`，修改材质参数走 `.materialassets` JSON。
+`.mmesh` 只是 Unity 的 Mesh 资源本身，直接转换它得到的 glTF 没有骨架、没有蒙皮权重、没有变形目标、没有材质名，也没有 UV1 到 UV7；
 
-动画导出支持带 Transform 路径的显式旋转、位置、缩放和欧拉曲线。音频导出根据 OGG、WAV 或 FSB5
-数据签名选择后缀，只提取现有编码数据，不会把音频转成另一种编码。
+骨骼层级、morph 差分和材质名都保存在 `.model` 里。
+
+如果对 .mmesh 使用 `convert2gltf` 会得到一个单骨骼蒙皮，只能用作预览用途。
+
+对 `.mmesh` 使用 `convert2gltf` 会打印一条提示，提示你应该对 model 使用转换。
+
+<br>
+
+Blender 导入提示：
+
+在 glTF 导入器的 `Bones & Skin` 面板中，必须取消勾选 `Guess Original Bind Pose`（猜测原始绑定姿态），并把 `Bone Dir` 设为 "Temperance"（平衡） 或 "Best Guess"（最佳猜测），即可得到八面锥骨架。
+
+只有当经 `gltf2model` 再导出的往返精度比视口显示更重要时（如果您不需要编辑骨骼），保留 `Bone Dir` 为 "Blender"，可以得到最准确的数据，此时每个关节刻意显示为小棱角球；关节很少的配饰则把骨架其余节点导入为十字轴 empty。
+
+必须取消勾选 `Guess Original Bind Pose` 是因为 KCES 的 bindpose 是在带体型缩放的骨架下烘焙的，与节点静止姿态不同，而 Blender 反推绑定姿态时会丢弃缩放分量（服装模型几乎每个节点都是关节），整个骨架会因此错乱。
+
+<br>
+
+关于材质：
+
+KCES 的 model 不像 COM3D2 一样含有材质数据，它只包含 material 文件名（xxx.mate），而 .mate 则打包在`.materialassets` 容器中，每个条目带有形如 
+`crc_dress044_shoe.mate` 的虚拟文件名，以及游戏专有的着色器参数和贴图引用。
+
+`convert2gltf` 只为每个子网格导出一个仅有名字的占位材质。要编辑材质的具体数据请编辑对应的 `.materialassets` 中的 `.mate`。
+
+请注意：不带材质不代表不带 UV，UV 是可以正常指定的，在 Blender 中，材质槽按 SubMesh 顺序排列，面到材质槽的分配就是 SubMesh 的拆分依据：把面指给另一个材质槽，导出后它们就成为带该槽材质名的独立 SubMesh。
+
+纹理坐标按位置对应：Blender 的 UV Maps 列表按顺序导出为 `TEXCOORD_0` 到 `TEXCOORD_7`，对应 Unity 的 UV0 到 UV7，层的名字无关紧要。
+
+主纹理永远采样第一层 UV0。其余 UV 组的用途由对应 `.mate` 指定的着色器决定，改造官方模型时请保持 UV 层的数量和顺序不变。
+
+glTF 与 Unity 之间的 V 轴翻转在两个方向都会自动处理。想在 Blender 中预览贴图，可用 `convert2image` 把解包出的 `Texture2D` 转成图片接到 Blender 着色器的 Base Color 上，预览节点不会被导出回 glb；
+
+真正修改游戏贴图用 `convert2texture2d`，修改材质参数走 `.materialassets`。
+
+也就是说材质的具体着色器、颜色、贴图等数据是没有用的，但是 UV、材质顺序、材质命名 是有用的。
+
+注意一个细节：
+
+`convert2gltf` 写出的 glb 还在文件 extras 部分的 `kcesModel` 中保存了一份材质名列表副本，`gltf2model` 为保证无损往返会优先使用这份副本；
+
+而 Blender 重新导出时默认会丢弃文档级 extras，因此经 Blender 编辑后以材质槽名字为准，此时每个材质都必须命名，匿名材质会被拒绝。
+
+<br>
+
+本质上 glb 到 model + mmesh 的互转只是按照格式定义进行的原样转换，我无法确定编辑后会导致什么后果，大概率也无法从零新建一个（未测试），详细的模型编辑还需要等待专用 Blender 插件出现（我对此无能为力）。
+
+<br>
+
+动画导出支持带 Transform 路径的显式旋转、位置、缩放和欧拉曲线。
+
+音频导出根据 OGG、WAV 或 FSB5 数据签名选择后缀，只提取现有编码数据，不会把音频转成另一种编码。
 
 ### NEI 与 CSV
 
@@ -1619,52 +1656,64 @@ atlas を経由せず Texture2D を直接参照する Sprite にも同じ規則�
 .\MeidoSerialization.exe convert2audio .\unpacked
 ~~~
 
-Model 変換は双方向です。`convert2gltf` は `.model` と同じディレクトリ、または展開済み ABA の隣接 `Mesh`
-ディレクトリから `.mmesh` を探します。`gltf2model` は公式 Unity 2022.3 ネイティブ Mesh を書き出し、そのまま ABA
-に再パックできます。skin のない glTF シーンは単一ボーンの skin を合成してメッシュノードに剛体バインドされます。
+モデル変換は双方向です：
 
-`convert2gltf` には `.mmesh` ではなく `.model` を渡してください。`.mmesh` は Unity の Mesh
-アセット単体なので、直接変換した glTF には skeleton、bone weight、morph target、material 名、UV1〜UV7
-が含まれません。ボーン階層、morph 差分、material 名はいずれも `.model` にあるためです。得られるのは geometry
-プレビューにすぎず、それを `gltf2model` で読み戻しても、単一ボーンの skin が合成されたゲームで動かせないモデルにしかなりません。単独 Mesh
-を出力すると `convert2gltf` は注意書きを表示します。
+convert2gltf は、.model と同じディレクトリ、またはその親ディレクトリにある Mesh フォルダ内から .mmesh を検索します。
 
-Blender インポートのヒント：glTF インポーターの `Bones & Skin` パネルで `Guess Original Bind Pose`
-のチェックを外し、`Bone Dir` を "Temperance" にすると、きれいな八面体スケルトンになります。KCES の bindpose
-は体型スケール込みのスケルトンでベイクされておりノードの rest ポーズと一致しません。Blender
-の推測はスケール成分を捨てて再構築するため、ほぼ全ノードがジョイントである衣装モデルではスケルトン全体が崩れます。
-既定設定では各ジョイントが仕様として小さな ico 球で表示され、ジョイントの少ないアクセサリーでは残りのノードが
-十字軸の empty として読み込まれます。`gltf2model` での再出力精度を表示より優先する場合のみ、既定の "Blender"
-`Bone Dir` を維持してください。
+gltf2model は公式の Unity 2022.3 ネイティブ Mesh を書き出し、そのまま ABA に再パックできます。
 
-マテリアルの見た目は双方向とも意図的に変換しません。KCES マテリアルはバンドルの `.materialassets`
-コンテナにパックされたエントリで、`crc_dress044_shoe.mate` のような仮想ファイル名と、glTF
-に対応物のないゲーム固有のシェーダーパラメーターおよびテクスチャ参照を持ちます。`convert2gltf`
-は各サブメッシュに名前だけのプレースホルダーマテリアルを出力し、`gltf2model` は glTF の PBR
-パラメーターとテクスチャをすべて無視して各マテリアルの名前のみを Model に書き込みます。ゲームは実行時、拡張子のない名前に
-`.mate` を補い、大文字小文字を無視したハッシュで登録済みの `.materialassets`
-エントリを検索します。一致しない名前は `CreateMaterial not found material`
-エラーになり、そのサブメッシュは表示されません。したがって各 glTF マテリアルには対象マテリアルエントリの名前（例：
-`crc_dress044_shoe`）を付け、エントリ本体は既存の `.materialassets` JSON ワークフローで作成してください。
+<br>
+convert2gltf は .mmesh ではなく、.model に対して使用してください。
 
-Blender ではマテリアルスロットが SubMesh 順に並び、面とスロットの割り当てが SubMesh 分割の基準になります。
-別のスロットに割り当てた面はエクスポート時にそのスロットのマテリアル名を持つ独立した SubMesh になります。
-スロット名の変更がサブメッシュを別のマテリアルエントリへ結び付け直す操作です。注意点として、`convert2gltf`
-が書き出す glb はドキュメント extras の `kcesModel` にもマテリアル名リストの複製を保持し、`gltf2model`
-はロスレス往復のためにその複製を優先します。Blender は再エクスポート時に既定でドキュメントレベルの extras
-を破棄するため、Blender で編集した後はマテリアルスロット名が有効になります。その際はすべてのマテリアルに
-名前が必要で、無名のマテリアルは拒否されます。
+.mmesh は Unity の Mesh リソース単体であり、直接変換して得られる glTF にはスケルトン（ボーン）、スキンウェイト、シェイプキー（モーフ）、マテリアル名、および UV1 〜 UV7 が含まれません。
 
-テクスチャ座標は位置で対応します。Blender の UV Maps リストは順番どおり `TEXCOORD_0` から `TEXCOORD_7`
-としてエクスポートされ、Unity の UV0 から UV7 に対応し、レイヤー名は無視されます。メインテクスチャは常に先頭レイヤーの
-UV0 をサンプリングします。それ以外の UV セットの用途は `.mate` エントリが指すシェーダーが決めるため、公式 mesh
-を改造するときはレイヤーの数と順序を変えないでください。glTF と Unity の間の V 軸反転は双方向とも自動処理されます。
-ビューポートでプレビューするには、展開した `Texture2D` を `convert2image` で画像化して Base Color
-につないでください。プレビュー用ノードがゲームへ書き戻されることはありません。実際のゲームテクスチャの変更は
-`convert2texture2d`、マテリアルパラメーターの変更は `.materialassets` JSON で行います。
+ボーンの階層構造、モーフの差分データ、マテリアル名はすべて .model 内に保存されています。
 
-アニメーション出力は Transform パスを持つ明示的な回転、位置、スケール、Euler curve に対応します。音声出力は OGG、WAV、FSB5
-シグネチャから拡張子を選びます。音声のトランスコードは行いません。
+.mmesh に対して convert2gltf を使用すると、単一ボーンのスキンメッシュが出力されますが、これはプレビュー用途専用です。
+
+.mmesh に対して convert2gltf を実行すると、代わりに model に対して変換を行うよう促す警告メッセージが表示されます。
+
+<br>
+Blender インポート時の注意事項：
+
+glTF インポーターの Bones & Skin（ボーンとスキン）パネルで、必ず Guess Original Bind Pose（元のバインドポーズを推測）のチェックを外し、Bone Dir（ボーン方向）を "Temperance" または "Best Guess" に設定してください。これにより八面体ボーン（Octahedral）が得られます。
+
+gltf2model で再エクスポートした際の精度（ボーンを編集する必要がない場合）がビューポートでの表示よりも重要な場合のみ、Bone Dir を "Blender" のままにしてください。これにより最も正確なデータが得られ、各関節は意図的に小さな多面体球として表示されます。また、関節の少ないアクセサリ等の場合、スケルトンの残りのノードは十字軸のエンプティ（Empty）としてインポートされます。
+
+Guess Original Bind Pose のチェックを外す必要があるのは、KCES のバインドポーズが体型スケールが適用されたスケルトン下でベイクされており、ノードの静止姿勢（レストポーズ）とは異なるためです。Blender がバインドポーズを逆算する際にスケール成分を破棄してしまうため（衣装モデルではほぼすべてのノードが関節として機能します）、チェックが入ったままだとスケルトン全体が崩れてしまいます。
+
+<br>
+マテリアルについて：
+
+KCES の .model は COM3D2 とは異なりマテリアルデータ自体を含んでおらず、マテリアルファイル名（xxx.mate）のみが含まれています。.mate ファイルは .materialassets コンテナ内にアーカイブされており、各エントリには crc_dress044_shoe.mate のような仮想ファイル名と、ゲーム固有のシェーダーパラメータおよびテクスチャ参照が含まれています。
+
+convert2gltf は各サブメッシュに対して名前のみのダミー（プレースホルダー）マテリアルを出力します。マテリアルの詳細なデータを編集する場合は、対応する .materialassets 内の .mate を編集してください。
+
+ご注意：マテリアルデータが含まれないことは、UV が含まれないことを意味するわけではありません。UV は通常通り指定可能です。Blender では、マテリアルスロットが SubMesh の順序に対応しており、面をどのマテリアルスロットに割り当てるかが SubMesh 分割の基準となります。面を別のマテリアルスロットに割り当ててエクスポートすると、そのスロットのマテリアル名を持つ独立した SubMesh になります。
+
+テクスチャ座標は位置によって対応付けられます。Blender の UV Maps リストの順序に従って TEXCOORD_0 〜 TEXCOORD_7 としてエクスポートされ、Unity の UV0 〜 UV7 に対応します。レイヤーの名前自体は関係ありません。
+
+メインテクスチャは常に最初のレイヤー（UV0）をサンプリングします。その他の UV グループの用途は、対応する .mate で指定されたシェーダーによって決まります。公式モデルを改造する際は、UV レイヤーの数と順序を変更しないようにしてください。
+
+glTF と Unity 間の V 軸の反転は、両方向で自動的に処理されます。Blender 上でテクスチャをプレビューしたい場合は、convert2image を使用して解凍した Texture2D を画像ファイルに変換し、Blender シェーダーの Base Color（ベースカラー）に接続してください。プレビュー用のノードが .glb に再エクスポートされることはありません。
+
+ゲーム内のテクスチャを実際に変更する場合は convert2texture2d を使用し、マテリアルパラメータを変更する場合は .materialassets を編集します。
+
+つまり、Blender 側のマテリアルの具体的なシェーダー、カラー、テクスチャなどのデータは無効ですが、UV、マテリアルの順序、マテリアルの命名 は意味を持ちます。
+
+以下の詳細にも注意してください：
+
+convert2gltf が書き出す .glb ファイルの extras セクションにある kcesModel には、マテリアル名リストのコピーが保存されています。gltf2model は完全な相互変換を保証するため、このコピーを優先して使用します。
+
+しかし、Blender が再エクスポートを行う際、デフォルトではドキュメントレベルの extras が破棄されます。そのため、Blender で編集した後はマテリアルスロットの名前が基準となります。この時、すべてのマテリアルに名前が設定されている必要があり、名前のないマテリアルは拒否されます。
+
+<br>
+本質的に .glb と .model + .mmesh の間の相互変換は、フォーマット定義に従ったそのままの変換に過ぎません。編集後にどのような結果になるかは保証できず、ゼロから新しいモデルを作成することも恐らく不可能です（未検証）。詳細なモデル編集には専用の Blender プラグインの登場を待つ必要があります（これについては対応できません）。
+
+<br>
+アニメーションのエクスポートは、Transform パスを含む明示的な回転、位置、スケール、およびオイラー曲線をサポートしています。
+
+オーディオのエクスポートは、OGG、WAV、または FSB5 のデータシグネチャに基づいて拡張子を選択し、既存のエンコードデータを抽出するだけであり、別のエンコードへの変換は行いません。
 
 ### NEI と CSV
 
