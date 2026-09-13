@@ -141,6 +141,9 @@ func kcesProfiles() map[string]Guide {
 		pattern("/assetArray/*/commandList/*", "Compiled menu command", "A typed command and positional argument list inside one Parts.Menu record.", "The menu manager and maid editor execute or interpret these commands to change character parts.", "runtime_program", "Preserve command order and edit arguments only with the command's source contract in hand.", menuAssetSource),
 	}
 	menuAssets.Rules = []Rule{{ID: "menu-id-coherence", AppliesTo: []string{"/assetArray/*/{fileName,id,guid,parentId,commandList}"}, Severity: "error", Summary: "Menu identity fields and commands form one runtime record.", Details: "Changing a file name can change its FNV lookup ID and parent relationship. Update all references and preserve the command stream order.", Evidence: []Source{menuAssetSource}}}
+	menuAssets.Commands = kces2MenuCommands()
+	menuAssets.ValueSets = kces2MenuValueSets()
+	menuAssets.Sources = appendValueSetSources(menuAssets.Sources, menuAssets.ValueSets)
 
 	field = fieldFrom(assetSource, materialAssetSource)
 	materialAssets := guide(

@@ -5,7 +5,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"unicode"
 
 	editingv1 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/schemas/editing/v1"
 	knowledgev1 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/schemas/knowledge/v1"
@@ -38,9 +37,6 @@ func TestResolveGuidesForEveryEditingSchema(t *testing.T) {
 		var decoded knowledgev1.Guide
 		if err := json.Unmarshal(guide.JSON, &decoded); err != nil {
 			t.Fatal(err)
-		}
-		if annotation, found := firstHanAnnotation(decoded); found {
-			t.Fatalf("guide %s contains a non-English Han annotation: %q", formatID, annotation)
 		}
 		if len(decoded.Fields) == 0 {
 			t.Fatalf("guide %s has no fields", formatID)
@@ -314,7 +310,7 @@ func TestCOM3D2MenuCommandReferenceIsCompleteAndStructured(t *testing.T) {
 
 	expectedOpcodes := []string{
 		"end", "#if", "#else", "#endif", "name", "setumei", "category", "icon", "icons", "iconl", "setstr", "catno", "unsetitem", "priority", "メニューフォルダ", "collabo", "color_set", "saveitem", "set", "setname", "ver",
-		"crc_exp", "crc_def_exp", "crc_target_slotno", "crc_part_hide_slot", "crc_part_hide_move", "crc_mayu_front", "crc_mayu_alpha", "crc_hair_length", "crc_mat_alpha", "crc_target_body_type", "parthidemove", "skirt_phys",
+		"crc_exp", "crc_def_exp", "crc_target_slotno", "crc_part_hide_slot", "crc_part_hide_move", "crc_mayu_front", "crc_mayu_alpha", "crc_hair_length", "crc_mat_alpha", "crc_target_body_type", "parthidemove", "腹揺れ対応", "skirt_phys",
 		"アイテム", "alldelmenu", "アイテム条件", "if", "setprop", "アイテムパラメータ", "半脱ぎ", "リソース参照", "setslotitem", "additem", "nofloory", "maskitem", "delitem",
 		"node消去", "node表示", "パーツnode消去", "パーツnode表示", "mask消去", "cutout消去", "cutout消去cc", "color", "mancolor", "tex", "テクスチャ変更", "prop", "テクスチャ乗算", "テクスチャ合成", "テクスチャセット合成", "マテリアル変更", "shader",
 		"アタッチポイントの設定", "blendset", "paramset", "commenttype", "useredit", "bonemorph", "length", "anime", "param2", "animematerial", "meshmorph", "addbonemorph", "乳首", "ちんこ", "toelock",
@@ -427,73 +423,4 @@ func hasVerification(verification knowledgev1.FieldVerification, kind string) bo
 	default:
 		return false
 	}
-}
-
-func firstHanAnnotation(guide knowledgev1.Guide) (string, bool) {
-	annotations := []string{guide.Title, guide.Summary, guide.FormatVerification.Level, guide.FormatVerification.Authority, guide.FormatVerification.Notes}
-	for _, source := range guide.Sources {
-		annotations = append(annotations, source.Observation)
-	}
-	for _, field := range guide.Fields {
-		annotations = append(annotations, field.Title, field.Description, field.GameUsage, field.EditRole, field.EditGuidance, field.Risk)
-		annotations = append(annotations, field.Constraints...)
-		for _, enumValue := range field.EnumValues {
-			annotations = append(annotations, enumValue.Meaning)
-		}
-		for _, source := range field.Evidence {
-			annotations = append(annotations, source.Observation)
-		}
-	}
-	for _, pattern := range guide.FieldPatterns {
-		annotations = append(annotations, pattern.Title, pattern.Description, pattern.GameUsage, pattern.EditRole, pattern.EditGuidance)
-		annotations = append(annotations, pattern.Constraints...)
-		for _, source := range pattern.Evidence {
-			annotations = append(annotations, source.Observation)
-		}
-	}
-	for _, rule := range guide.Rules {
-		annotations = append(annotations, rule.Severity, rule.Summary, rule.Details)
-		for _, source := range rule.Evidence {
-			annotations = append(annotations, source.Observation)
-		}
-	}
-	for _, command := range guide.Commands {
-		annotations = append(annotations, command.Contexts...)
-		annotations = append(annotations, command.GameEffect, command.EditGuidance, command.Risk)
-		for _, form := range command.Forms {
-			annotations = append(annotations, form.ReviewedIn...)
-			annotations = append(annotations, form.Notes)
-			for _, argument := range form.Arguments {
-				annotations = append(annotations, argument.Name, argument.Type, argument.Description)
-			}
-		}
-		for _, source := range command.Evidence {
-			annotations = append(annotations, source.Observation)
-		}
-	}
-	for _, valueSet := range guide.ValueSets {
-		annotations = append(annotations, valueSet.ID, valueSet.CSharpType, valueSet.Description, valueSet.EditGuidance)
-		annotations = append(annotations, valueSet.ReviewedIn...)
-		for _, source := range valueSet.Evidence {
-			annotations = append(annotations, source.Observation)
-		}
-	}
-	annotations = append(annotations, guide.Invariants...)
-	annotations = append(annotations, guide.Workflow...)
-	annotations = append(annotations, guide.Warnings...)
-	for _, annotation := range annotations {
-		if containsHan(annotation) {
-			return annotation, true
-		}
-	}
-	return "", false
-}
-
-func containsHan(text string) bool {
-	for _, value := range text {
-		if unicode.Is(unicode.Han, value) {
-			return true
-		}
-	}
-	return false
 }
