@@ -303,6 +303,18 @@ func TestIsKCESPartsJSONFileAcceptsNullableModelRoot(t *testing.T) {
 	}
 }
 
+// A trimmed model JSON may carry only meshFileName, so the detection must match
+// the serialized key rather than rely on transData being present.
+func TestIsKCESPartsJSONFileAcceptsModelWithOnlyMeshFileName(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "meshonly.model.json")
+	if err := os.WriteFile(path, []byte(`{"version":1001,"meshFileName":"crc2_test.mmesh"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if !IsKCESPartsJSONFile(path) {
+		t.Fatal("KCES model JSON carrying only meshFileName was not detected")
+	}
+}
+
 // A Menu without HairMake.ExportedGUID gets a fresh random GUID on every
 // encode, so both sides carry unequal non-zero GUIDs that must be checked
 // for regeneration and then cleared before the layout comparison.

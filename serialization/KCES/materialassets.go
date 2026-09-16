@@ -31,8 +31,8 @@ type Material struct {
 	ColorProps        []*ColorProp   `json:"colorProps"`                            // 可空颜色属性对象数组 / Array of nullable color-property objects
 	VectorProps       []*VectorProp  `json:"vectorProps"`                           // 可空向量属性对象数组 / Array of nullable vector-property objects
 	FloatProps        []*FloatProp   `json:"floatProps"`                            // 可空浮点属性对象数组 / Array of nullable float-property objects
-	KeywordProps      []*KeywordProp `json:"keywordProps"`                          // 可空着色器关键字属性对象数组 / Array of nullable shader-keyword property objects
-	RenderQueue       int32          `json:"renderQueue"`                           // Unity 渲染队列 / Unity render queue
+	KeywordProps      []*KeywordProp `json:"keywordProps"`                          // 可空着色器关键字属性对象数组 KCES2 新增 / Array of nullable shader-keyword property objects
+	RenderQueue       int32          `json:"renderQueue"`                           // Unity 渲染队列 KCES2 新增  / Unity render queue
 	IndexedArrayWidth int32          `codec:"-" json:"indexedArrayWidth,omitempty"` // 解码时记录的线格式数组宽度，并非游戏成员 / Wire array width recorded during decoding, not a game member
 }
 

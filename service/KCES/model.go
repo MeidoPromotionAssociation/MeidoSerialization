@@ -49,7 +49,7 @@ func IsKCESModelJSONFile(path string) bool {
 	if err := json.Unmarshal(data, &object); err != nil {
 		return false
 	}
-	_, hasMeshFileName := object["meshfileName"]
+	_, hasMeshFileName := object["meshFileName"]
 	_, hasTransData := object["transData"]
 	return hasMeshFileName || hasTransData
 }
