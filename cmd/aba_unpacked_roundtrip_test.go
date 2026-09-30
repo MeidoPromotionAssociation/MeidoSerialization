@@ -19,20 +19,27 @@ import (
 // abaUnpackedRoundTripEnv gates the exhaustive unpacked round-trip test
 const abaUnpackedRoundTripEnv = "KCES_ABA_HEAVY_TESTS"
 
-// abaUnpackedRoundTripWorkerLimit caps concurrency because each worker holds two editing JSON documents at once
-const abaUnpackedRoundTripWorkerLimit = 4
+// abaUnpackedRoundTripSampleDirs lists the sample directories the exhaustive round trip covers
+var abaUnpackedRoundTripSampleDirs = []string{"KCES", "KCES2"}
 
-// TestKCESUnpackedAbaFilesEditingJSONRoundTrip unpacks every ABA in testdata and runs each routable unpacked file
-// through native -> editing JSON -> native -> editing JSON, requiring both editing JSON documents to agree.
+// abaUnpackedRoundTripWorkerLimit caps concurrency because each worker holds two editing JSON documents at once
+const abaUnpackedRoundTripWorkerLimit = 32
+
+// TestKCESUnpackedAbaFilesEditingJSONRoundTrip unpacks every ABA under testdata/KCES and testdata/KCES2 and runs each
+// routable unpacked file through native -> editing JSON -> native -> editing JSON, requiring both editing JSON
+// documents to agree.
 // The criterion is editing JSON equality rather than native byte equality because some formats pad out to a newer
 // indexed-array width or switch to the shortest integer encoding when re-encoded, and neither changes what the game reads.
 // Menu.guid is the one tolerated difference because encoding recalculates it from a fresh UUID v4, and view-only
 // native Unity objects are only required to have their editing JSON rejected on the way back.
+//
+// The pass is exhaustive over gigabytes of samples, unpacking to several gigabytes at a time, so it only finishes with
+// -timeout 0; the 10m default aborts it partway through and reports the sample that was in flight as a timeout panic.
 func TestKCESUnpackedAbaFilesEditingJSONRoundTrip(t *testing.T) {
 	if os.Getenv(abaUnpackedRoundTripEnv) == "" {
-		t.Skipf("set %s=1 to convert every unpacked KCES ABA file in both directions", abaUnpackedRoundTripEnv)
+		t.Skipf("set %s=1 to convert every unpacked KCES and KCES2 ABA file in both directions (run with -timeout 0)", abaUnpackedRoundTripEnv)
 	}
-	samples, err := filepath.Glob(filepath.Join("..", "testdata", "KCES", "*.aba"))
+	samples, err := abaUnpackedRoundTripSamples()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,11 +49,13 @@ func TestKCESUnpackedAbaFilesEditingJSONRoundTrip(t *testing.T) {
 	sort.Strings(samples)
 	resetConversionFlags(t)
 	discardConversionProgress(t)
+	t.Logf("round tripping %d ABA samples from %s; the exhaustive pass reads, rewrites and unpacks gigabytes of data and needs -timeout 0",
+		len(samples), strings.Join(abaUnpackedRoundTripSampleDirs, ", "))
 
 	tally := &unpackedRoundTripTally{}
 	for _, sample := range samples {
 		sample := sample
-		t.Run(filepath.Base(sample), func(t *testing.T) {
+		t.Run(abaUnpackedRoundTripSampleName(sample), func(t *testing.T) {
 			root := filepath.Join(t.TempDir(), "unpacked")
 			if err := (&KCESService.AbaService{}).UnpackAba(sample, root); err != nil {
 				if strings.Contains(strings.ToLower(err.Error()), "encrypted") {
@@ -66,6 +75,25 @@ func TestKCESUnpackedAbaFilesEditingJSONRoundTrip(t *testing.T) {
 		})
 	}
 	tally.report(t)
+}
+
+// abaUnpackedRoundTripSamples collects every ABA of the covered sample directories
+func abaUnpackedRoundTripSamples() ([]string, error) {
+	var samples []string
+	for _, dir := range abaUnpackedRoundTripSampleDirs {
+		matched, err := filepath.Glob(filepath.Join("..", "testdata", dir, "*.aba"))
+		if err != nil {
+			return nil, err
+		}
+		samples = append(samples, matched...)
+	}
+	return samples, nil
+}
+
+// abaUnpackedRoundTripSampleName names a subtest after its sample directory and file, because KCES and KCES2 share
+// file names such as parts.aba that would otherwise collapse into a single subtest name
+func abaUnpackedRoundTripSampleName(sample string) string {
+	return filepath.Base(filepath.Dir(sample)) + "/" + filepath.Base(sample)
 }
 
 // roundTripUnpackedFiles round trips every file in a pure directory with a fixed worker pool
