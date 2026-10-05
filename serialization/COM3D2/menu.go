@@ -148,9 +148,6 @@ func ReadMenu(r io.Reader) (*Menu, error) {
 			if err != nil {
 				return nil, fmt.Errorf("read command failed: %w", err)
 			}
-			if first == "" {
-				return nil, fmt.Errorf("menu command name is empty")
-			}
 			cmd.Command = first
 			if ac > 1 {
 				cmd.Args = make([]string, 0, ac-1)
@@ -163,6 +160,20 @@ func ReadMenu(r io.Reader) (*Menu, error) {
 				}
 			}
 		}
+
+		// 官方编译器会为源码中的空行（例如 `""`）写出命令名为空的记录（ArgCount=1 + 空字符串），
+		// 官方 Menu.ProcScriptBin 会忽略这类记录：既不执行也不报错。
+		// 为兼容真实游戏文件，这里跳过整条记录（其参数已在上方读完，不会打乱流位置），
+		// 写出仍然拒绝空命令名。
+		// The official compiler emits records with an empty command name (ArgCount=1 + empty
+		// string) for blank source lines such as `""`, and the official Menu.ProcScriptBin
+		// ignores them without executing or failing. Skip such records for compatibility with
+		// real game files (their arguments are already consumed above, so the stream position
+		// stays correct); the writer's CalculateBodySize still rejects an empty command name.
+		if cmd.Command == "" {
+			continue
+		}
+
 		m.Commands = append(m.Commands, cmd)
 	}
 
