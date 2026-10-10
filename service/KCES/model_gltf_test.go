@@ -305,6 +305,127 @@ func TestConvertGLTFToModelSynthesizesSingleBoneSkin(t *testing.T) {
 	}
 }
 
+func TestConvertGLTFToModelZeroFillsMissingMorphDeltas(t *testing.T) {
+	document := gltf.NewDocument()
+	positions := modeler.WritePosition(document, [][3]float32{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}})
+	indices := modeler.WriteIndices(document, []uint32{0, 1, 2})
+	document.Materials = append(document.Materials, &gltf.Material{Name: "static_mat"})
+	// 只带 POSITION 的变形目标，模拟 Blender 重新导出后丢失 shape key 法线与切线的情况
+	// A POSITION-only morph target, mirroring a Blender re-export that drops shape key normals and tangents
+	target := gltf.PrimitiveAttributes{
+		gltf.POSITION: modeler.WriteAccessor(document, gltf.TargetArrayBuffer, [][3]float32{{0, 0, 0}, {0, 0.5, 0}, {0, 0, 0}}),
+	}
+	// 全零的变形目标，模拟被清零的 shape key，此时没有任何顶点差分
+	// An all-zero morph target, mirroring a cleared shape key that carries no vertex delta at all
+	emptyTarget := gltf.PrimitiveAttributes{
+		gltf.POSITION: modeler.WriteAccessor(document, gltf.TargetArrayBuffer, [][3]float32{{0, 0, 0}, {0, 0, 0}, {0, 0, 0}}),
+	}
+	document.Meshes = []*gltf.Mesh{{
+		Name: "static",
+		Primitives: []*gltf.Primitive{{
+			Attributes: gltf.PrimitiveAttributes{gltf.POSITION: positions},
+			Indices:    gltf.Index(indices),
+			Material:   gltf.Index(0),
+			Targets:    []gltf.PrimitiveAttributes{target, emptyTarget},
+		}},
+		Extras: map[string]interface{}{"targetNames": []string{"hara", "noop"}},
+	}}
+	document.Nodes = []*gltf.Node{{Name: "static_root", Mesh: gltf.Index(0)}}
+	document.Scenes[0].Nodes = []int{0}
+	inputPath := filepath.Join(t.TempDir(), "Morphy.gltf")
+	if err := gltf.Save(document, inputPath); err != nil {
+		t.Fatal(err)
+	}
+
+	outputDir := t.TempDir()
+	if err := (&ModelService{}).ConvertGLTFToModel(context.Background(), inputPath, outputDir, TestConversionMaxOutput); err != nil {
+		t.Fatal(err)
+	}
+	model, _ := decodeModelAndMesh(t, filepath.Join(outputDir, "morphy.model"))
+	if len(model.Morphs) != 2 {
+		t.Fatalf("morph count %d", len(model.Morphs))
+	}
+	assertMorphArraysFullLength(t, model.Morphs[0])
+	// 空 morph 也必须写成空数组而不是 nil，否则游戏读取 v_index 时会空引用崩溃
+	// An empty morph must still be written as empty arrays rather than nil, or the game null-references v_index while loading it
+	empty := model.Morphs[1]
+	if empty.Name == nil || *empty.Name != "noop" {
+		t.Fatalf("empty morph name %v", empty.Name)
+	}
+	if empty.VIndex == nil || empty.Vert == nil || empty.Norm == nil || empty.Tan == nil {
+		t.Fatalf("empty morph has nil arrays: v_index=%v vert=%v norm=%v tan=%v",
+			empty.VIndex == nil, empty.Vert == nil, empty.Norm == nil, empty.Tan == nil)
+	}
+}
+
+func TestConvertGLTFToModelKeepsMorphArraysFullLengthAfterBlenderLikeStrip(t *testing.T) {
+	modelPath := officialModelSample(t, "parts_bv002", "crc2_dress083_skrt")
+	service := &ModelService{}
+	exportedPath := filepath.Join(t.TempDir(), "crc2_dress083_skrt.glb")
+	if err := service.ConvertModelToGLTF(context.Background(), modelPath, exportedPath, "glb", TestConversionMaxOutput); err != nil {
+		t.Fatal(err)
+	}
+	document, err := gltf.Open(exportedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 抹掉基础网格切线与全部变形目标的法线、切线，等价于一次 Blender 往返
+	// Strip the base-mesh tangents and every morph target's normals and tangents, equivalent to one Blender round trip
+	for _, mesh := range document.Meshes {
+		for _, primitive := range mesh.Primitives {
+			delete(primitive.Attributes, gltf.TANGENT)
+			for _, target := range primitive.Targets {
+				delete(target, gltf.NORMAL)
+				delete(target, gltf.TANGENT)
+			}
+		}
+	}
+	strippedPath := filepath.Join(t.TempDir(), "crc2_dress083_skrt_stripped.glb")
+	if err := gltf.Save(document, strippedPath); err != nil {
+		t.Fatal(err)
+	}
+
+	outputDir := t.TempDir()
+	if err := service.ConvertGLTFToModel(context.Background(), strippedPath, outputDir, TestConversionMaxOutput); err != nil {
+		t.Fatal(err)
+	}
+	rebuilt, _ := decodeModelAndMesh(t, filepath.Join(outputDir, "crc2_dress083_skrt.model"))
+	if len(rebuilt.Morphs) == 0 {
+		t.Fatal("stripped round trip produced no morphs")
+	}
+	for morphIndex, morph := range rebuilt.Morphs {
+		if morph == nil {
+			t.Fatalf("morph %d is null", morphIndex)
+		}
+		assertMorphArraysFullLength(t, morph)
+	}
+}
+
+func assertMorphArraysFullLength(t *testing.T, morph *serializationKCES.BlendData) {
+	t.Helper()
+	name := ""
+	if morph.Name != nil {
+		name = *morph.Name
+	}
+	count := len(morph.VIndex)
+	if count == 0 {
+		t.Fatalf("morph %q has no vertex deltas", name)
+	}
+	// 游戏 TMorphSkin.FixBlendValues 会按 v_index 直接索引 vert、norm，并在网格带切线时索引 tan
+	// 任何为 nil 或短于 v_index 的数组都会让游戏抛出 NullReferenceException 或 IndexOutOfRangeException
+	// The game's TMorphSkin.FixBlendValues indexes vert and norm directly by v_index and indexes tan when the mesh carries tangents
+	// Any array that is nil or shorter than v_index makes the game throw NullReferenceException or IndexOutOfRangeException
+	for label, length := range map[string]int{
+		"vert": len(morph.Vert),
+		"norm": len(morph.Norm),
+		"tan":  len(morph.Tan),
+	} {
+		if length != count {
+			t.Fatalf("morph %q %s length %d, want %d", name, label, length, count)
+		}
+	}
+}
+
 func TestConvertGLTFToModelRejectsUnnamedMaterial(t *testing.T) {
 	document := gltf.NewDocument()
 	positions := modeler.WritePosition(document, [][3]float32{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}})

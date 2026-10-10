@@ -732,7 +732,17 @@ func decodeGLTFMorphTargets(document *gltf.Document, mesh *gltf.Mesh, geometry *
 		}
 
 		name := targetNames[targetIndex]
-		blend := &serializationKCES.BlendData{Name: &name}
+		// 从空数组起步而不是 nil：游戏的 AddMoprhData 与 FixBlendValues 会直接访问这四个数组
+		// 即使是没有任何差分的变形目标，也必须写出空数组而非 nil，否则游戏会空引用崩溃
+		// Start from empty rather than nil arrays: the game's AddMoprhData and FixBlendValues access all four directly
+		// Even a morph target without any delta must be written as empty arrays rather than nil or the game null-references them
+		blend := &serializationKCES.BlendData{
+			Name:   &name,
+			VIndex: []int32{},
+			Vert:   []serializationKCES.Vector3{},
+			Norm:   []serializationKCES.Vector3{},
+			Tan:    []serializationKCES.Vector4{},
+		}
 		for vertexIndex := int64(0); vertexIndex < vertexCount; vertexIndex++ {
 			position := deltaPositions[vertexIndex]
 			var normal, tangent [3]float32
@@ -747,12 +757,12 @@ func decodeGLTFMorphTargets(document *gltf.Document, mesh *gltf.Mesh, geometry *
 			}
 			blend.VIndex = append(blend.VIndex, int32(vertexIndex))
 			blend.Vert = append(blend.Vert, serializationKCES.Vector3{X: -position[0], Y: position[1], Z: position[2]})
-			if deltaNormals != nil {
-				blend.Norm = append(blend.Norm, serializationKCES.Vector3{X: -normal[0], Y: normal[1], Z: normal[2]})
-			}
-			if deltaTangents != nil {
-				blend.Tan = append(blend.Tan, serializationKCES.Vector4{X: -tangent[0], Y: tangent[1], Z: tangent[2], W: 0})
-			}
+			// 游戏按 v_index 无条件读取 norm，网格带切线时还会读取 tan
+			// 因此源变形目标缺少 NORMAL 或 TANGENT 时必须补零，让长度与 v_index 一致
+			// The game reads norm for every v_index unconditionally and also reads tan whenever the mesh carries tangents
+			// So a missing NORMAL or TANGENT must be zero-filled to match v_index
+			blend.Norm = append(blend.Norm, serializationKCES.Vector3{X: -normal[0], Y: normal[1], Z: normal[2]})
+			blend.Tan = append(blend.Tan, serializationKCES.Vector4{X: -tangent[0], Y: tangent[1], Z: tangent[2], W: 0})
 		}
 		morphs[targetIndex] = blend
 	}

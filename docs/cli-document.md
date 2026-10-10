@@ -277,6 +277,13 @@ Only keep Bone Dir set to "Blender" if round-trip accuracy (re-exporting via glt
 Unchecking Guess Original Bind Pose is mandatory because KCES's bindpose is baked under an armature with body scaling, which differs from the node rest pose. Blender discards the scale component when inferring the bind pose, causing the entire skeleton to break/distort (since nearly every node in clothing models serves as a joint).
 
 <br>
+Blender Export Tips:
+
+Blender's glTF exporter does not export shape key (morph target) tangents by default, and it drops the mesh TANGENT attribute entirely unless you enable it. To keep morph normals and tangents through the round trip, enable "Tangents" and "Shape Key Tangents" and keep "Shape Key Normals" checked in the Data panel.
+
+A glb that lost its morph normals or tangents still converts and still loads: gltf2model zero-fills the missing deltas so the arrays stay as long as v_index, which is what the game's TMorphSkin.FixBlendValues requires. Those zero deltas mean the morph no longer adjusts normals or tangents, so enable the options above when you care about shading.
+
+<br>
 Regarding Materials:
 
 Unlike COM3D2, KCES models do not store full material data. A .model file only contains material filenames (e.g., xxx.mate). These .mate files are packed inside .materialassets containers, where each entry carries a virtual filename such as crc_dress044_shoe.mate, along with game-specific shader parameters and texture references.
@@ -974,6 +981,14 @@ Blender 导入提示：
 只有当经 `gltf2model` 再导出的往返精度比视口显示更重要时（如果您不需要编辑骨骼），保留 `Bone Dir` 为 "Blender"，可以得到最准确的数据，此时每个关节刻意显示为小棱角球；关节很少的配饰则把骨架其余节点导入为十字轴 empty。
 
 必须取消勾选 `Guess Original Bind Pose` 是因为 KCES 的 bindpose 是在带体型缩放的骨架下烘焙的，与节点静止姿态不同，而 Blender 反推绑定姿态时会丢弃缩放分量（服装模型几乎每个节点都是关节），整个骨架会因此错乱。
+
+<br>
+
+Blender 导出提示：
+
+Blender 的 glTF 导出器默认不导出形态键（morph target）切线，并且除非手动开启，否则会整个丢弃网格的 TANGENT 属性。想让 morph 的法线和切线在往返中保留，请在 `Data` 面板中勾选 `Tangents`（切线）与 `Shape Key Tangents`（形态键切线），并保持 `Shape Key Normals`（形态键法线）勾选。
+
+丢失了 morph 法线或切线的 glb 依然可以转换、也能被游戏正常加载：`gltf2model` 会把缺失的差分补零，使数组长度与 `v_index` 保持一致，这正是游戏的 `TMorphSkin.FixBlendValues` 所要求的。这些零差分意味着该 morph 不再影响法线与切线，因此在意光照表现时请开启上面的选项。
 
 <br>
 
@@ -1681,6 +1696,13 @@ glTF インポーターの Bones & Skin（ボーンとスキン）パネルで�
 gltf2model で再エクスポートした際の精度（ボーンを編集する必要がない場合）がビューポートでの表示よりも重要な場合のみ、Bone Dir を "Blender" のままにしてください。これにより最も正確なデータが得られ、各関節は意図的に小さな多面体球として表示されます。また、関節の少ないアクセサリ等の場合、スケルトンの残りのノードは十字軸のエンプティ（Empty）としてインポートされます。
 
 Guess Original Bind Pose のチェックを外す必要があるのは、KCES のバインドポーズが体型スケールが適用されたスケルトン下でベイクされており、ノードの静止姿勢（レストポーズ）とは異なるためです。Blender がバインドポーズを逆算する際にスケール成分を破棄してしまうため（衣装モデルではほぼすべてのノードが関節として機能します）、チェックが入ったままだとスケルトン全体が崩れてしまいます。
+
+<br>
+Blender エクスポート時の注意事項：
+
+Blender の glTF エクスポーターは既定でシェイプキー（モーフターゲット）のタンジェントを出力せず、手動で有効にしない限りメッシュの TANGENT 属性自体も破棄します。モーフの法線とタンジェントを往復で保持したい場合は、Data パネルで Tangents（タンジェント）と Shape Key Tangents（シェイプキーのタンジェント）を有効にし、Shape Key Normals（シェイプキーの法線）のチェックを入れたままにしてください。
+
+モーフの法線やタンジェントが失われた glb でも変換と読み込みは可能です。gltf2model は欠落した差分を 0 で補い、配列長を v_index と揃えます。これはゲームの TMorphSkin.FixBlendValues が要求する形です。ただし 0 の差分になるためそのモーフは法線とタンジェントを動かさなくなります。シェーディングを重視する場合は上記のオプションを有効にしてください。
 
 <br>
 マテリアルについて：
