@@ -65,7 +65,7 @@ and MCP.
 | `timeline_data.bytes`                                    | Dance timeline     | Native ↔ JSON               | Transport format ID: `com3d2.timeline`                                       |
 | `maid_data.bytes`, `item_data.bytes`, `event_data.bytes` | Dance object data  | Native ↔ JSON               | Format ID: `com3d2.object_data`; subtype is detected from content            |
 | `.tex`                                                   | Texture            | TEX ↔ image                 | Version 1000 is read-only; writes use 1010 or 1011 and support DXT1/DXT5     |
-| `.nei`                                                   | Encrypted CSV      | NEI ↔ CSV                   | Shared with KCES; native text uses Shift-JIS and CSV I/O uses UTF-8 with BOM |
+| `.nei`                                                   | Encrypted CSV      | NEI ↔ CSV                   | Shared with KCES; COM3D2 reads cells as Shift-JIS, KCES reads them as UTF-8  |
 | `.arc`                                                   | Archive            | List, extract, pack, unpack | Encrypted ARC files are not supported                                        |
 | `.save`                                                  | Save data          | Detect only                 | Conversion is not provided                                                   |
 
@@ -468,8 +468,10 @@ If you encounter the following error, it's because you're using characters that 
 encoding. .nei files use Shift-JIS encoding internally, and we can't do anything about it. Please remove the unsupported
 characters.
 
-- `failed to write to .neiData file: failed to encode string: encoding: rune not supported by encoding.`
-- `failed to write to .nei file: failed to encode string: encoding: rune not supported by encoding.`
+- `failed to write to .nei file: failed to encode string at row=<row> col=<col> value="<text>": encoding: rune not supported by encoding.`
+
+This limit belongs to the COM3D2 table itself rather than to the converter. KCES reads `.nei` cells as UTF-8, so
+`convert2nei --encoding utf-8` writes a KCES table that is free of the limit and can hold any character.
 
 KCES's internal encoding differs from COM3D2; it uses UTF-8 encoding internally, so it should be able to use all versions of the code.
 
@@ -561,7 +563,7 @@ KCES、gRPC、MCP 支持在 MeidoSerialization v2.0.0 版本后可用。
 | `timeline_data.bytes`                                    | 舞蹈时间线   | 原生格式 ↔ JSON        | 传输 API 中的格式 ID 为 `com3d2.timeline`                             |
 | `maid_data.bytes`、`item_data.bytes`、`event_data.bytes` | 舞蹈对象数据 | 原生格式 ↔ JSON        | 传输 API 中的格式 ID 为 `com3d2.object_data`，按内容识别子类型        |
 | `.tex`                                                   | 纹理         | TEX ↔ 图片             | 版本 1000 只读；写出使用 1010 或 1011，并支持 DXT1/DXT5               |
-| `.nei`                                                   | 加密 CSV     | NEI ↔ CSV              | 与 KCES 共用；原生文本使用 Shift-JIS，CSV 输入输出使用带 BOM 的 UTF-8 |
+| `.nei`                                                   | 加密 CSV     | NEI ↔ CSV              | 与 KCES 共用；COM3D2 按 Shift-JIS 读取，KCES 按 UTF-8 读取            |
 | `.arc`                                                   | 归档文件     | 列出、提取、打包、解包 | 不支持加密 ARC                                                        |
 | `.save`                                                  | 存档         | 仅识别                 | 不提供转换功能                                                        |
 
@@ -956,8 +958,10 @@ func main() {
 
 如果您遇到下面的错误，这是因为您使用了 Shift-JIS 编码不支持的字符。 .nei 文件内部使用 Shift-JIS 编码，我们对此无能为力。请删除不支持的字符。
 
-- `failed to write to .neiData file: failed to encode string: encoding: rune not supported by encoding.`
-- `failed to write to .nei file: failed to encode string: encoding: rune not supported by encoding.`
+- `failed to write to .nei file: failed to encode string at row=<row> col=<col> value="<text>": encoding: rune not supported by encoding.`
+
+这个限制来自 COM3D2 读取的表格本身，而不是转换器。KCES 按 UTF-8 读取 `.nei` 单元格，因此
+`convert2nei --encoding utf-8` 写出的 KCES 表格不受该限制，可以保存任意字符。
 
 KCES 的内部编码与 COM3D2 不同，内部使用 UTF-8 编码，因此应该可以使用所有字符。
 
@@ -1056,7 +1060,7 @@ KCES、gRPC、MCP のサポートは MeidoSerialization v2.0.0 以降で利用�
 | `timeline_data.bytes`                                    | ダンスタイムライン       | native ↔ JSON            | transport format ID は `com3d2.timeline`                         |
 | `maid_data.bytes`、`item_data.bytes`、`event_data.bytes` | ダンスオブジェクトデータ | native ↔ JSON            | format ID は `com3d2.object_data`。内容から subtype を判定       |
 | `.tex`                                                   | テクスチャ               | TEX ↔ 画像               | version 1000 は read-only。書き出しは 1010/1011、DXT1/DXT5 対応  |
-| `.nei`                                                   | 暗号化 CSV               | NEI ↔ CSV                | KCES と共有。native text は Shift-JIS、CSV I/O は BOM 付き UTF-8 |
+| `.nei`                                                   | 暗号化 CSV               | NEI ↔ CSV                | KCES と共有。COM3D2 は Shift-JIS、KCES は UTF-8 で読み込み       |
 | `.arc`                                                   | アーカイブ               | 一覧、抽出、pack、unpack | 暗号化 ARC は非対応                                              |
 | `.save`                                                  | セーブデータ             | 判定のみ                 | 変換機能は提供しない                                             |
 
@@ -1452,8 +1456,11 @@ func main() {
 以下のエラーが発生した場合、Shift-JIS エンコーディングでサポートされていない文字を使用しています。 .nei ファイルは内部的に
 Shift-JIS エンコーディングを使用しており、これについては対処できません。サポートされていない文字を削除してください。
 
-- `failed to write to .neiData file: failed to encode string: encoding: rune not supported by encoding.`
-- `failed to write to .nei file: failed to encode string: encoding: rune not supported by encoding.`
+- `failed to write to .nei file: failed to encode string at row=<row> col=<col> value="<text>": encoding: rune not supported by encoding.`
+
+この制限はコンバーターではなく、COM3D2 が読み込む表そのものに由来します。KCES は `.nei`
+のセルを UTF-8 として読み込むため、`convert2nei --encoding utf-8` で書き出した KCES
+用の表はこの制限を受けず、任意の文字を保存できます。
 
 KCES の内部エンコーディングは COM3D2 と異なり、内部的に UTF-8 を使用しているため、すべての文字を使用できるはずです。
 

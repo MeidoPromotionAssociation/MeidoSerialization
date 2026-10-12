@@ -321,10 +321,22 @@ Audio export selects file extensions based on OGG, WAV, or FSB5 data signatures.
 ```powershell
 MeidoSerialization.exe convert2csv .\table.nei
 MeidoSerialization.exe convert2nei .\table.csv
+MeidoSerialization.exe convert2nei .\table.csv --encoding utf-8
 ```
 
-NEI text is Shift-JIS. CSV files are read and written as RFC 4180-style comma-separated UTF-8 with BOM. A character that
-cannot be encoded in Shift-JIS causes `convert2nei` to fail instead of silently replacing it.
+NEI cell text comes in two encodings and the container carries no marker for either one, so the game that reads the
+table decides: COM3D2 reads cells as Shift-JIS (CP932) while KCES reads them as UTF-8. `convert2csv` detects the
+encoding from the cell bytes, so tables from both games are decoded correctly, but the CSV keeps no trace of which game
+it came from. `convert2nei` therefore takes `--encoding` and defaults to `shift-jis`; pass `--encoding utf-8` for a table
+meant for KCES, otherwise Japanese text shows up as garbage in-game.
+
+`--encoding` accepts `shift-jis`, `sjis`, `cp932`, and `com3d2` for Shift-JIS, and `utf-8` and `kces` for UTF-8.
+
+An ASCII-only table carries no encoding evidence and is reported as Shift-JIS when read. This is harmless, because the
+two encodings produce identical bytes for ASCII.
+
+CSV files are read and written as RFC 4180 comma-separated UTF-8 with BOM. A character that cannot be encoded in
+the selected encoding causes `convert2nei` to fail instead of silently replacing it.
 
 ## Archive commands
 
@@ -1032,10 +1044,20 @@ glTF 与 Unity 之间的 V 轴翻转在两个方向都会自动处理。想在 B
 ~~~powershell
 .\MeidoSerialization.exe convert2csv .\table.nei
 .\MeidoSerialization.exe convert2nei .\table.csv
+.\MeidoSerialization.exe convert2nei .\table.csv --encoding utf-8
 ~~~
 
-NEI 文本使用 Shift-JIS。CSV 按类似 RFC 4180 的逗号分隔格式读写，编码为带 BOM 的 UTF-8。如果 CSV 中的字符无法编码为
-Shift-JIS，`convert2nei` 会直接报错，不会静默替换成错误字符。
+NEI 的单元格文本有两种编码，容器本身不携带任何标记，取决于读取该表的游戏：COM3D2 按 Shift-JIS（CP932）解码，KCES
+按 UTF-8 解码。`convert2csv` 会按单元格字节内容探测编码，两种游戏的表都能正确解码，但 CSV 里不会留下它来自哪个游戏的
+痕迹。因此 `convert2nei` 提供 `--encoding` 参数，默认 `shift-jis`；如果这张表是给 KCES 用的，需要传 `--encoding utf-8`，
+否则游戏里会显示乱码。
+
+`--encoding` 接受 `shift-jis`、`sjis`、`cp932`、`com3d2` 表示 Shift-JIS，`utf-8`、`kces` 表示 UTF-8。
+
+纯 ASCII 的表格不携带任何编码证据，读取时按 Shift-JIS 报告。这没有影响，因为两种编码对 ASCII 产生的字节完全相同。
+
+CSV 按 RFC 4180 的逗号分隔格式读写，编码为带 BOM 的 UTF-8。如果字符无法按所选编码编码，`convert2nei`
+会直接报错，不会静默替换成错误字符。
 
 ## 归档命令
 
@@ -1742,11 +1764,22 @@ convert2gltf が書き出す .glb ファイルの extras セクションにあ�
 ~~~powershell
 .\MeidoSerialization.exe convert2csv .\table.nei
 .\MeidoSerialization.exe convert2nei .\table.csv
+.\MeidoSerialization.exe convert2nei .\table.csv --encoding utf-8
 ~~~
 
-NEI テキストは Shift-JIS です。CSV は RFC 4180 形式に近いカンマ区切りで、BOM 付き UTF-8 として読み書きされます。Shift-JIS
-で表現できない文字がある場合、`convert2nei`
-は黙って置換せずエラーにします。
+NEI のセルテキストには 2 種類のエンコーディングがあり、コンテナ自体はどちらであるかを示す情報を持ちません。したがって
+その表を読むゲームが基準となり、COM3D2 は Shift-JIS（CP932）として、KCES は UTF-8 としてセルをデコードします。
+`convert2csv` はセルのバイト内容からエンコーディングを判定するため、どちらのゲームの表も正しくデコードできますが、CSV
+には元のゲームの痕跡が残りません。そのため `convert2nei` には `--encoding` オプションがあり、既定値は `shift-jis` です。
+KCES 用の表を作る場合は `--encoding utf-8` を指定してください。指定を誤るとゲーム内で文字化けします。
+
+`--encoding` は `shift-jis`、`sjis`、`cp932`、`com3d2` を Shift-JIS として、`utf-8`、`kces` を UTF-8 として受け付けます。
+
+ASCII のみの表はエンコーディングの手がかりを持たないため、読み込み時は Shift-JIS として報告されます。ASCII では両者の
+バイト列が同一なので影響はありません。
+
+CSV は RFC 4180 形式いカンマ区切りで、BOM 付き UTF-8 として読み書きされます。選択したエンコーディングで表現できない
+文字がある場合、`convert2nei` は黙って置換せずエラーにします。
 
 ## アーカイブコマンド
 
