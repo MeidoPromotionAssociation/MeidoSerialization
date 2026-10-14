@@ -39,6 +39,10 @@ Please ensure you have read the [CLI instructions](https://github.com/MeidoPromo
 
 Versions 2.0.0 and 2.2.0 contain numerous incompatible changes; please refer to the version information.
 
+Version 2.4.0 renames the option that selects the output format of `convert2nei`. `--encoding` becomes `--format`, and its values become the game that will read the table: `auto`, `com3d2`, or `kces`. The old `--encoding shift-jis` and `--encoding utf-8` spellings are now rejected with an error, so update any script that still uses them. The generic `convert` command takes the same `--format` option.
+
+Version 2.4.0 also makes a batch directory conversion exit with a non-zero status when any file fails, where earlier versions always exited 0. Review any script that relied on a zero exit code.
+
 <br>
 <br>
 <br>
@@ -85,6 +89,10 @@ https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/docs/a
 
 v2.0.0 以及 v2.2.0 含有大量不兼容更改，请查看该版本信息
 
+v2.4.0 更改了 `convert2nei` 选择输出格式的参数：`--encoding` 改名为 `--format`，取值改为读取该表的游戏，即 `auto`、`com3d2`、`kces`。旧的 `--encoding shift-jis` 与 `--encoding utf-8` 写法现在会直接报错，请更新仍在使用的脚本。泛用 `convert` 命令接受同样的 `--format` 参数。
+
+v2.4.0 还使目录批处理在任意文件失败时以非零状态退出，而以前的版本始终返回 0。请检查依赖零退出码的脚本。
+
 
 <br>
 <br>
@@ -130,6 +138,10 @@ https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/docs/a
 # 破壊的変更
 
 バージョン2.0.0と2.2.0には、互換性のない変更点が多数含まれています。バージョン情報をご確認ください。
+
+バージョン2.4.0では、`convert2nei` で出力形式を選択するオプションが変更されました。`--encoding` は `--format` になり、値はその表を読み込むゲーム、つまり `auto`、`com3d2`、`kces` になりました。従来の `--encoding shift-jis` と `--encoding utf-8` の書き方はエラーになるため、これらを使用しているスクリプトを更新してください。汎用 `convert` コマンドも同じ `--format` オプションを受け付けます。
+
+バージョン2.4.0では、ディレクトリの一括変換でいずれかのファイルが失敗した場合に非ゼロのステータスで終了するようになりました。以前のバージョンは常に 0 で終了していました。終了コード 0 に依存しているスクリプトを確認してください。
 
 
 <br>

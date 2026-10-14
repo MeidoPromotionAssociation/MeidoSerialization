@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 
@@ -34,25 +35,35 @@ func processFile(path string, processor func(string) error) error {
 }
 
 // processDirectory 递归处理目录中通过筛选的文件并打印单文件错误后继续
+// 全部文件处理完后返回汇总错误，使调用方能从退出码感知失败，而不是把失败当成成功
 // processDirectory recursively processes filtered files and continues after printing individual file errors
+// It returns an aggregate error once every file has been processed so the caller can observe failures through the exit code instead of treating them as success
 func processDirectory(dirPath string, processor func(string) error, filter func(string) bool) error {
-	return filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+	var failures []string
+	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if !info.IsDir() && filter(path) {
-			if err := processor(path); err != nil {
-				fmt.Printf("Error processing file %s: %v\n", path, err)
-				// Continue processing other files even if one fails
-				return nil
+			if processErr := processor(path); processErr != nil {
+				fmt.Printf("Error processing file %s: %v\n", path, processErr)
+				// 继续处理其余文件，最后统一报告失败
+				// Continue processing other files and report the failures at the end
+				failures = append(failures, path)
 			}
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	return summarizeProcessFailures(dirPath, failures)
 }
 
 // processDirectoryConcurrent 使用固定工作协程池并发处理目录中通过筛选的文件
+// 与串行版本一样在结束后返回汇总错误
 // processDirectoryConcurrent processes filtered directory files concurrently with a fixed worker pool
+// Like the serial version it returns an aggregate error once the work is done
 func processDirectoryConcurrent(dirPath string, processor func(string) error, filter func(string) bool) error {
 	fmt.Printf("Concurrent processing folder %s\n", dirPath)
 
@@ -83,6 +94,8 @@ func processDirectoryConcurrent(dirPath string, processor func(string) error, fi
 
 	pathsCh := make(chan string, workerCount*2)
 	var wg sync.WaitGroup
+	var failureMutex sync.Mutex
+	var failures []string
 
 	// Start workers
 	for i := 0; i < workerCount; i++ {
@@ -90,9 +103,11 @@ func processDirectoryConcurrent(dirPath string, processor func(string) error, fi
 		go func() {
 			defer wg.Done()
 			for p := range pathsCh {
-				if err := processor(p); err != nil {
-					fmt.Printf("Error processing file %s: %v\n", p, err)
-					// continue other files
+				if processErr := processor(p); processErr != nil {
+					fmt.Printf("Error processing file %s: %v\n", p, processErr)
+					failureMutex.Lock()
+					failures = append(failures, p)
+					failureMutex.Unlock()
 				}
 			}
 		}()
@@ -105,7 +120,22 @@ func processDirectoryConcurrent(dirPath string, processor func(string) error, fi
 	close(pathsCh)
 
 	wg.Wait()
-	return nil
+
+	// 让报告顺序稳定，便于对比日志
+	// Keep the report order stable so logs stay comparable
+	sort.Strings(failures)
+	return summarizeProcessFailures(dirPath, failures)
+}
+
+// summarizeProcessFailures 将目录处理中失败的文件汇总成一个错误
+// 单文件错误已经逐个打印，这里只返回错误交给命令层输出，避免重复
+// summarizeProcessFailures aggregates the files that failed during directory processing into one error
+// Per-file errors are already printed one by one, so this only returns the error for the command layer to report and avoids duplication
+func summarizeProcessFailures(dirPath string, failures []string) error {
+	if len(failures) == 0 {
+		return nil
+	}
+	return fmt.Errorf("failed to process %d file(s) under %s", len(failures), dirPath)
 }
 
 // isModFile 判断路径是否匹配受支持的 COM3D2 或 KCES 原生 MOD 数据文件
@@ -167,6 +197,25 @@ func isConvertibleEditingJSONFile(path string) bool {
 	return isModJsonFile(path) || KCESService.IsKCESPartsJSONFile(path) || KCESService.IsKCESPayloadJSONFile(path) ||
 		KCESService.IsKCESMiscJSONFile(path) || KCESService.IsKCESDataJSONFile(path) ||
 		KCESService.IsKCESRawUnityBytesJSONFile(path) || KCESService.IsKCESCtJSONFile(path)
+}
+
+// isAutoConvertibleFile 判断路径是否为 convert 自动命令能处理的原生文件或通用格式
+// 目录遍历用它做筛选，与 convertFile 的分派保持一致，避免目录模式漏掉单文件模式已经支持的类型
+// 图片一项只做后缀预筛，因此目录模式比单文件模式窄，单文件由 isImageFile 兜底，目录可用 --type image 穷举
+// isAutoConvertibleFile reports whether a path is a native file or common format the automatic convert command can handle
+// Directory traversal filters with it and it stays aligned with convertFile's dispatch so directory mode cannot miss a type that single-file mode already supports
+// The image entry is only a suffix pre-filter, so directory mode is narrower than single-file mode, where isImageFile backs it up and where --type image makes a directory exhaustive
+func isAutoConvertibleFile(path string) bool {
+	if isJsonFile(path) {
+		return isModJsonFile(path) || isBytesJsonFile(path) || KCESService.IsKCESPartsJSONFile(path) ||
+			KCESService.IsKCESPayloadJSONFile(path) || KCESService.IsKCESMiscJSONFile(path) ||
+			KCESService.IsKCESDataJSONFile(path) || KCESService.IsKCESCtJSONFile(path) ||
+			KCESService.IsKCESSystemDataJSONFile(path)
+	}
+	return isModFile(path) || KCESService.IsKCESPartsFile(path) || KCESService.IsKCESPayloadFile(path) ||
+		KCESService.IsKCESMiscFile(path) || KCESService.IsKCESDataFile(path) ||
+		isBytesFile(path) || isTexFile(path) || isNativeUnityImageFile(path) ||
+		isImageCandidateFile(path) || isNeiFile(path) || isCsvFile(path) || isArcFile(path)
 }
 
 // isJsonFile 不区分大小写地判断路径是否以 JSON 后缀结尾
@@ -315,9 +364,54 @@ func isTexFile(path string) bool {
 }
 
 // isImageFile 判断路径是否使用工具层支持的图像类型
+// 该判断会调用 ImageMagick 的 identify，目录遍历为每个文件启动一次外部进程代价过高，因此过滤器改用 isImageCandidateFile 预筛
 // isImageFile reports whether a path uses an image type supported by the tools layer
+// The check invokes ImageMagick's identify and starting an external process once per file is too costly for directory traversal, so filters pre-screen with isImageCandidateFile instead
 func isImageFile(path string) bool {
 	return tools.IsSupportedImageType(path) == nil
+}
+
+// isImageCandidateFile 仅按后缀判断路径是否可能是受支持的图像，用于目录遍历筛选
+// 该判断不启动任何外部进程，因此可以安全地放进目录过滤器，而单文件路径上 isImageFile 会再兜一次底
+// 后缀表覆盖常见位图与矢量图，但有意不含 PDF、PostScript、EPS、AI、WMF 这类文档格式：它们在目录扫描里会把文档变成 TEX，属于噪声
+// 后缀表之外的真实图像格式仍可用单文件方式转换，或对目录显式加 --type image
+// isImageCandidateFile reports whether a path may be a supported image based on its suffix alone, for directory traversal filtering
+// It starts no external process so it is safe inside a directory filter, while isImageFile backs it up on the single-file path
+// The suffix table covers common raster and vector images and deliberately omits document formats such as PDF, PostScript, EPS, AI, and WMF, because a directory scan would turn documents into TEX noise
+// A real image format outside the table can still be converted as a single file, or by passing an explicit --type image for a directory
+func isImageCandidateFile(path string) bool {
+	switch strings.ToLower(filepath.Ext(path)) {
+	// 常见位图与摄影格式
+	// Common raster and photography formats
+	case ".png", ".apng", ".jpg", ".jpeg", ".jpe", ".jfif", ".jif", ".gif", ".bmp", ".dib",
+		".tga", ".targa", ".icb", ".vda", ".tif", ".tiff", ".webp", ".avif", ".heic", ".heif",
+		".dds", ".psd", ".psb", ".pcx", ".xpm", ".xbm", ".xcf", ".ico", ".cur", ".qoi", ".jxl",
+		".jp2", ".j2c", ".j2k", ".jpc", ".jng", ".exr", ".hdr", ".pict", ".sgi",
+		".rgb", ".rgba", ".bgr", ".bgra", ".yuv", ".ycbcr", ".uyvy", ".cin", ".dpx", ".dcm",
+		".fits", ".fit", ".ras", ".sun", ".viff", ".wbmp", ".wpg", ".xwd", ".xv", ".six", ".sixel",
+		".tim", ".tm2", ".palm", ".pcd", ".rla", ".rle", ".sct", ".sfw", ".vips", ".ipl",
+		".matte", ".miff", ".mpc", ".flif", ".farbfeld", ".x3f", ".avs", ".jbig", ".jbg",
+		".pnm", ".ppm", ".pgm", ".pbm", ".pam", ".pfm", ".pgx", ".phm", ".bw", ".mono", ".gray", ".graya":
+		return true
+	// 矢量图，ImageMagick 会先栅格化再写出
+	// Vector images, which ImageMagick rasterizes before writing
+	case ".svg", ".svgz", ".msvg", ".rsvg":
+		return true
+	default:
+		return false
+	}
+}
+
+// isImageTypeFilter 判断全局类型参数是否显式要求只处理图片
+// isImageTypeFilter reports whether the global type flag explicitly asks for images only
+func isImageTypeFilter() bool {
+	return strings.EqualFold(strings.TrimPrefix(strings.TrimSpace(fileType), "."), "image")
+}
+
+// isNativeUnityImageFile 判断路径是否为带内嵌 TypeTree 的 KCES 原生 Texture2D 或 Sprite 主文件
+// isNativeUnityImageFile reports whether a path names a native KCES Texture2D or Sprite primary file with an embedded TypeTree
+func isNativeUnityImageFile(path string) bool {
+	return KCESService.IsKCESNativeTexture2DFile(path) || KCESService.IsKCESNativeSpriteFile(path)
 }
 
 // isArcFile 不区分大小写地判断路径是否以 ARC 后缀结尾
@@ -719,10 +813,12 @@ func convertToImage(path string, format string) error {
 }
 
 // convertToTex 将受支持图像转换为 COM3D2 TEX 并应用所选载荷压缩策略
+// 图像支持情况依赖 ImageMagick，这里把失败原因直接带出来，便于区分格式不支持与 ImageMagick 缺失
 // convertToTex converts a supported image to COM3D2 TEX using the selected payload compression policy
+// Image support depends on ImageMagick and the failure reason is surfaced directly so an unsupported format can be told apart from a missing ImageMagick
 func convertToTex(path string, compress bool, forcePng bool) error {
-	if !isImageFile(path) {
-		return fmt.Errorf("not a supported image file: %s", path)
+	if err := tools.IsSupportedImageType(path); err != nil {
+		return fmt.Errorf("cannot convert %s as an image: %w", path, err)
 	}
 
 	if compress {
@@ -739,6 +835,43 @@ func convertToTex(path string, compress bool, forcePng bool) error {
 	}
 	fmt.Printf("Converted %s to %s\n", path, outputPath)
 	return nil
+}
+
+// existingNativeTexture2DPaths 返回与图像同目录同基名的全部现有 KCES 原生 Texture2D 路径
+// existingNativeTexture2DPaths returns every existing native KCES Texture2D sharing the image's directory and base name
+func existingNativeTexture2DPaths(imagePath string) []string {
+	base := trimLastExtension(imagePath)
+	var found []string
+	for _, extension := range []string{".tex", ".texture2d"} {
+		candidate := base + extension
+		if KCESService.IsKCESNativeTexture2DFile(candidate) {
+			found = append(found, candidate)
+		}
+	}
+	return found
+}
+
+// convertImageToMatchingTex 按同目录同基名的现有文件决定重建 KCES 原生 Texture2D 还是写出 COM3D2 TEX
+// .tex 这一个后缀同时对应 COM3D2 的 TEX 和 KCES 的原生 Texture2D，从图像回写时无法只靠后缀判断，因此沿用即将被覆盖的那个文件的格式
+// 只有 PNG 和 JPEG 能重建为原生 Texture2D，其余图像格式一律按 COM3D2 格式写出，重建原生 Texture2D 不需要 ImageMagick
+// 同一基名可能同时存在 .tex 与 .texture2d 两个原生 Texture2D，此时把图像写进每一个，否则后遍历到的那个会把另一个的内容回退掉
+// convertImageToMatchingTex picks between rebuilding a native KCES Texture2D and writing a COM3D2 TEX from the existing same-named sibling
+// The single .tex suffix covers both the COM3D2 TEX and the native KCES Texture2D, so a write from an image cannot be decided by suffix alone and reuses the format of the file it is about to overwrite
+// Only PNG and JPEG can be rebuilt as a native Texture2D and every other image format is written as COM3D2 TEX, while rebuilding a native Texture2D needs no ImageMagick
+// One base name may hold both a .tex and a .texture2d native Texture2D, so the image is written into each of them, otherwise whichever is walked later rolls the other back
+func convertImageToMatchingTex(path string) error {
+	if isRGBA32DecodableImageFile(path) {
+		targets := existingNativeTexture2DPaths(path)
+		if len(targets) > 0 {
+			for _, target := range targets {
+				if err := convertImageToNativeTexture2DAt(path, target); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}
+	return convertToTex(path, false, true)
 }
 
 // determineGameFileType 依次使用精确 COM3D2 探测、KCES 探测和旧式启发规则识别文件
@@ -821,7 +954,7 @@ func convertToCsv(path string) error {
 	}
 
 	service := &COM3D2Service.NeiService{}
-	outputPath := strings.TrimSuffix(path, ".nei") + ".csv"
+	outputPath := trimLastExtension(path) + ".csv"
 	if err := service.NeiFileToCSVFile(path, outputPath); err != nil {
 		return fmt.Errorf("failed to convert %s to CSV: %w", path, err)
 	}
@@ -831,14 +964,17 @@ func convertToCsv(path string) error {
 }
 
 // convertToNei 将 UTF-8 CSV 表格转换为相邻的加密 NEI 文件，单元格按 encoding 编码
+// encoding 为空表示自动，沿用即将被覆盖的同名 .nei 的编码
 // convertToNei converts a UTF-8 CSV table to an adjacent encrypted NEI file, writing cells in encoding
+// An empty encoding means automatic and reuses the encoding of the same-named .nei that is about to be overwritten
 func convertToNei(path string, encoding COM3D2.NeiTextEncoding) error {
 	if !isCsvFile(path) {
 		return fmt.Errorf("not a CSV file: %s", path)
 	}
 
 	service := &COM3D2Service.NeiService{}
-	outputPath := strings.TrimSuffix(path, ".csv") + ".nei"
+	outputPath := trimLastExtension(path) + ".nei"
+	encoding = resolveNeiTextEncoding(outputPath, encoding)
 	if err := service.CSVFileToNeiFileWithEncoding(path, outputPath, encoding); err != nil {
 		return fmt.Errorf("failed to convert %s to NEI: %w", path, err)
 	}
@@ -847,16 +983,49 @@ func convertToNei(path string, encoding COM3D2.NeiTextEncoding) error {
 	return nil
 }
 
-// parseNeiTextEncoding 将命令行编码名称解析为 NEI 单元格编码
-// parseNeiTextEncoding parses a command-line encoding name into a NEI cell encoding
-func parseNeiTextEncoding(name string) (COM3D2.NeiTextEncoding, error) {
+// resolveNeiTextEncoding 解析写出 NEI 时要使用的单元格编码，空值表示自动
+// COM3D2 与 KCES 的 .nei 共用容器结构，唯一差异是单元格文本的编码，而 CSV 里不携带来源信息，因此只能由外部决定
+// 自动模式沿用即将被覆盖的同名 .nei 的编码，该文件不存在或无法读取时回落到 COM3D2 的 Shift-JIS
+// 纯 ASCII 表格的两种编码字节完全相同，探测得到 Shift-JIS 不影响游戏读取
+// resolveNeiTextEncoding resolves the cell encoding to write an NEI with, where an empty value means automatic
+// The COM3D2 and KCES .nei share a container structure and differ only in the encoding of cell text, and a CSV carries no trace of its origin, so the choice has to come from outside the file
+// Automatic mode reuses the encoding of the same-named .nei that is about to be overwritten and falls back to COM3D2's Shift-JIS when that file is absent or unreadable
+// The two encodings produce identical bytes for ASCII, so detecting Shift-JIS on an ASCII-only table does not affect how the game reads it
+func resolveNeiTextEncoding(outputPath string, encoding COM3D2.NeiTextEncoding) COM3D2.NeiTextEncoding {
+	if encoding != "" {
+		return encoding
+	}
+	if _, err := os.Stat(outputPath); err != nil {
+		return COM3D2.NeiTextEncodingShiftJIS
+	}
+
+	existing, err := (&COM3D2Service.NeiService{}).ReadNeiFile(outputPath)
+	if err != nil {
+		fmt.Printf("Cannot detect the cell encoding of %s, writing Shift-JIS: %v\n", outputPath, err)
+		return COM3D2.NeiTextEncodingShiftJIS
+	}
+	if existing.TextEncoding == "" {
+		return COM3D2.NeiTextEncodingShiftJIS
+	}
+
+	fmt.Printf("Reusing the %s cell encoding of the existing %s\n", existing.TextEncoding, outputPath)
+	return existing.TextEncoding
+}
+
+// parseNeiOutputFormat 将命令行的输出格式名称解析为 NEI 单元格编码，空值与 auto 表示自动
+// 命令行按「这张表给哪个游戏读」来命名，因此取值是游戏名，转换到单元格编码是本层唯一的映射点
+// parseNeiOutputFormat parses a command-line output format name into a NEI cell encoding, where an empty value and auto mean automatic
+// The command line names the game that will read the table, so the accepted values are game names and this is the single place mapping them onto a cell encoding
+func parseNeiOutputFormat(name string) (COM3D2.NeiTextEncoding, error) {
 	switch strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(name, "_", ""), "-", "")) {
-	case "shiftjis", "sjis", "cp932", "com3d2":
+	case "", "auto":
+		return "", nil
+	case "com3d2":
 		return COM3D2.NeiTextEncodingShiftJIS, nil
-	case "utf8", "kces":
+	case "kces":
 		return COM3D2.NeiTextEncodingUTF8, nil
 	default:
-		return "", fmt.Errorf("unknown NEI text encoding %q, expected shift-jis or utf-8", name)
+		return "", fmt.Errorf("unknown NEI output format %q, expected auto, com3d2 or kces", name)
 	}
 }
 
@@ -1050,15 +1219,21 @@ func convertJsonToBytes(path string, outputPath string) error {
 }
 
 // convertFile 根据文件类型自动选择原生与通用格式之间的转换方向
+// encoding 为空表示自动决定 CSV 转 NEI 时的单元格编码
 // convertFile automatically selects the conversion direction between native and common formats from the file type
-func convertFile(path string) error {
+// An empty encoding lets the CSV-to-NEI direction decide the cell encoding automatically
+func convertFile(path string, encoding COM3D2.NeiTextEncoding) error {
 	if !fileTypeFilter(path) {
-		fmt.Printf("Skip file %s Because, filetype not match", path)
+		fmt.Printf("Skip file %s because the file type does not match the filter\n", path)
 		return nil // silent skip
 	}
 
-	// If it's a JSON file, convert to MOD
-	if isJsonFile(path) && (isModJsonFile(path) || isBytesJsonFile(path) || KCESService.IsKCESPartsJSONFile(path) || KCESService.IsKCESPayloadJSONFile(path) || KCESService.IsKCESMiscJSONFile(path) || KCESService.IsKCESDataJSONFile(path) || KCESService.IsKCESCtJSONFile(path) || KCESService.IsKCESSystemDataJSONFile(path)) {
+	// 编辑 JSON 转回原生格式
+	// Editing JSON goes back to the native format
+	if isJsonFile(path) {
+		if !isAutoConvertibleFile(path) {
+			return fmt.Errorf("unsupported file type for conversion: %s", path)
+		}
 		return convertToMod(path)
 	}
 
@@ -1072,14 +1247,26 @@ func convertFile(path string) error {
 		return convertToJson(path)
 	}
 
-	// If it's a TEX file, convert to image
-	if isTexFile(path) {
+	// TEX、原生 Texture2D 与 Sprite 转图片
+	// TEX, native Texture2D, and Sprite go to an image
+	if isTexFile(path) || isNativeUnityImageFile(path) {
 		return convertToImage(path, "png")
 	}
 
-	// If it's an image file, convert to TEX
+	// 图片按同名的原生文件决定回写格式
+	// 后缀表只是目录遍历用的廉价预筛，且比 ImageMagick 宽：候选后缀但不是图像的文件按「不是图像」跳过，不算失败
+	// 后缀表之外的格式由 ImageMagick 兜底，单文件路径必须能转换
+	// An image is written back in the format of its same-named native sibling
+	// The suffix table is only a cheap pre-filter for directory traversal and is wider than ImageMagick, so a candidate suffix that is not an image is skipped as not being an image rather than counted as a failure
+	// Formats outside the table fall back to ImageMagick, which the single-file path has to convert
+	if isImageCandidateFile(path) {
+		if !isImageFile(path) {
+			return nil
+		}
+		return convertImageToMatchingTex(path)
+	}
 	if isImageFile(path) {
-		return convertToTex(path, false, true)
+		return convertImageToMatchingTex(path)
 	}
 
 	// If it's a NEI file, convert to CSV
@@ -1089,7 +1276,7 @@ func convertFile(path string) error {
 
 	// If it's a CSV file, convert to NEI
 	if isCsvFile(path) {
-		return convertToNei(path, COM3D2.NeiTextEncodingShiftJIS)
+		return convertToNei(path, encoding)
 	}
 
 	// If it's an ARC file, unpack it

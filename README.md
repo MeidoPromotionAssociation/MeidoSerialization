@@ -471,7 +471,9 @@ characters.
 - `failed to write to .nei file: failed to encode string at row=<row> col=<col> value="<text>": encoding: rune not supported by encoding.`
 
 This limit belongs to the COM3D2 table itself rather than to the converter. KCES reads `.nei` cells as UTF-8, so
-`convert2nei --encoding utf-8` writes a KCES table that is free of the limit and can hold any character.
+`convert2nei --format kces` writes a KCES table that is free of the limit and can hold any character. By default
+`--format auto` reuses the format of the `.nei` being overwritten, so a KCES table keeps its format across a CSV
+round trip.
 
 KCES's internal encoding differs from COM3D2; it uses UTF-8 encoding internally, so it should be able to use all versions of the code.
 
@@ -961,7 +963,8 @@ func main() {
 - `failed to write to .nei file: failed to encode string at row=<row> col=<col> value="<text>": encoding: rune not supported by encoding.`
 
 这个限制来自 COM3D2 读取的表格本身，而不是转换器。KCES 按 UTF-8 读取 `.nei` 单元格，因此
-`convert2nei --encoding utf-8` 写出的 KCES 表格不受该限制，可以保存任意字符。
+`convert2nei --format kces` 写出的 KCES 表格不受该限制，可以保存任意字符。默认的 `--format auto`
+会沿用即将被覆盖的那个 `.nei` 的格式，因此 KCES 表格经 CSV 往返后仍保持原有编码。
 
 KCES 的内部编码与 COM3D2 不同，内部使用 UTF-8 编码，因此应该可以使用所有字符。
 
@@ -1459,8 +1462,9 @@ Shift-JIS エンコーディングを使用しており、これについては�
 - `failed to write to .nei file: failed to encode string at row=<row> col=<col> value="<text>": encoding: rune not supported by encoding.`
 
 この制限はコンバーターではなく、COM3D2 が読み込む表そのものに由来します。KCES は `.nei`
-のセルを UTF-8 として読み込むため、`convert2nei --encoding utf-8` で書き出した KCES
-用の表はこの制限を受けず、任意の文字を保存できます。
+のセルを UTF-8 として読み込むため、`convert2nei --format kces` で書き出した KCES
+用の表はこの制限を受けず、任意の文字を保存できます。既定の `--format auto`
+は上書きしようとしている `.nei` の形式を引き継ぐため、KCES の表は CSV を往復してもエンコーディングを保ちます。
 
 KCES の内部エンコーディングは COM3D2 と異なり、内部的に UTF-8 を使用しているため、すべての文字を使用できるはずです。
 

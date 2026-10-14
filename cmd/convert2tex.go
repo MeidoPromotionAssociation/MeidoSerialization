@@ -36,8 +36,12 @@ Examples:
 
 		if isDirectory(path) {
 			fmt.Printf("Processing directory: %s\n", path)
+			// 只按后缀预筛，避免在遍历中对每个文件都启动一次 ImageMagick
+			// 真正受支持的格式仍由 convertToTex 中的 tools.IsSupportedImageType 裁定
+			// Pre-filter by suffix alone so the traversal does not start ImageMagick once per file
+			// The formats that are actually supported are still decided by tools.IsSupportedImageType inside convertToTex
 			return processDirectory(path, processor, func(p string) bool {
-				return fileTypeFilter(p) && isImageFile(p)
+				return fileTypeFilter(p) && isImageCandidateFile(p)
 			})
 		}
 

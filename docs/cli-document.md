@@ -112,8 +112,21 @@ MeidoSerialization.exe determine --strict .\mods
 ```
 
 Most dedicated directory commands use a worker pool. A bad file is printed as an error while the remaining files
-continue, so review the complete console output after a batch operation. The generic `convert` command processes
-directories sequentially and is more convenient for mixed input, but slower than the dedicated commands.
+continue, and the command exits non-zero once the batch is done, so a failed batch cannot pass as a successful one.
+The generic `convert` command processes directories sequentially and is more convenient for mixed input, but slower
+than the dedicated commands.
+
+A directory holding a native file next to the image or CSV derived from it is expected to have both overwritten, which
+is the point of a bidirectional command: `convert` writes each file back in the format of the file it replaces, so a
+`.png` and a `.tex` sharing a base name converge into one consistent set instead of destroying each other, and every
+native Texture2D sharing that base name receives the same content. The same holds for `.nei` and `.csv`, and for
+`.menu` and `.menu.json`. The one that sorts first supplies the content, so if the two have drifted apart, the changes
+on the other side are lost. Keep a backup.
+
+Inside a directory, `convert` narrows image candidates down by file suffix before asking ImageMagick, so it does not
+start ImageMagick for every file. A file whose suffix looks like an image but that ImageMagick cannot read counts as
+not being an image and is skipped instead of failing the batch. A single file is decided by ImageMagick alone, and
+`--type image` makes a directory exhaustive.
 
 ## File conversion commands
 
@@ -150,7 +163,8 @@ MeidoSerialization.exe convert2mod .\Texture2D\body.tex.json
 ```
 
 `convert2json` does not convert `.tex`; use `convert2image`. It also does not unpack `.aba`; use `unpackAba`. The
-generic `convert` unpacks a single `.arc`, but directory ARC workflows should use `unpackArc`.
+generic `convert` unpacks `.arc` files as well, but `unpackArc` processes them concurrently and is faster for a large
+batch.
 
 ### Images and COM3D2 TEX
 
@@ -182,6 +196,11 @@ MeidoSerialization.exe convert2texture2d .\my_texture.png
 `convert2tex` writes TEX version 1010 unless a valid sibling `.uv.csv` supplies version-1011 atlas rectangles. See
 the [TEX 1011 FAQ](../README.md#about-version-1011-of-the-tex-file). `--forcePng=false` can be used explicitly;
 `--compress` takes precedence.
+
+A `.tex` file holds either a COM3D2 TEX or a native KCES Texture2D, and both are recognized by content. The two
+writers stay separate: `convert2tex` always emits COM3D2 TEX and `convert2texture2d` always rebuilds a native KCES
+Texture2D. The generic `convert` command resolves the ambiguity by writing the image back in the format of the
+same-named sibling it is about to overwrite, and falls back to COM3D2 TEX when there is none.
 
 #### Editing a Sprite
 
@@ -321,16 +340,20 @@ Audio export selects file extensions based on OGG, WAV, or FSB5 data signatures.
 ```powershell
 MeidoSerialization.exe convert2csv .\table.nei
 MeidoSerialization.exe convert2nei .\table.csv
-MeidoSerialization.exe convert2nei .\table.csv --encoding utf-8
+MeidoSerialization.exe convert2nei .\table.csv --format kces
 ```
 
 NEI cell text comes in two encodings and the container carries no marker for either one, so the game that reads the
 table decides: COM3D2 reads cells as Shift-JIS (CP932) while KCES reads them as UTF-8. `convert2csv` detects the
 encoding from the cell bytes, so tables from both games are decoded correctly, but the CSV keeps no trace of which game
-it came from. `convert2nei` therefore takes `--encoding` and defaults to `shift-jis`; pass `--encoding utf-8` for a table
-meant for KCES, otherwise Japanese text shows up as garbage in-game.
+it came from.
 
-`--encoding` accepts `shift-jis`, `sjis`, `cp932`, and `com3d2` for Shift-JIS, and `utf-8` and `kces` for UTF-8.
+`convert2nei` therefore has to be told which game will read the table, and by default it reuses the format of the .nei
+it is about to overwrite, which keeps a round trip intact. When no such file exists yet it falls back to COM3D2. Pass
+`--format kces` when writing a table for KCES, otherwise Japanese text shows up as garbage in-game.
+
+`--format` accepts `auto` for that inference, `com3d2` for a Shift-JIS table, and `kces` for a UTF-8 table. The generic
+`convert` command takes the same values.
 
 An ASCII-only table carries no encoding evidence and is reported as Shift-JIS when read. This is harmless, because the
 two encodings produce identical bytes for ASCII.
@@ -836,8 +859,17 @@ notepad .\body.menu.json
 .\MeidoSerialization.exe determine --strict .\mods
 ~~~
 
-大多数专用目录命令会并发处理文件。遇到一个坏文件时，它会打印错误并继续处理其余文件，所以批量任务结束后要检查完整的控制台输出。泛用
-`convert` 命令按顺序处理目录，适合混合输入，但通常比专用命令慢。
+大多数专用目录命令会并发处理文件。遇到一个坏文件时，它会打印错误并继续处理其余文件，整批处理结束后命令会以非零状态退出，
+因此失败的批次不会伪装成成功。泛用 `convert` 命令按顺序处理目录，适合混合输入，但通常比专用命令慢。
+
+如果目录里同时存在原生文件和由它导出的图片或 CSV，两者都会被覆盖，这正是双向命令的意义：`convert` 会按各自即将替换掉的
+那个文件的格式写回，因此同基名的 `.png` 与 `.tex` 会收敛成一致的一组，而不会互相破坏，同基名的每一个原生 Texture2D 都会
+被写成同一份内容。`.nei` 与 `.csv`、`.menu` 与 `.menu.json` 同理。排序靠前的那个文件决定这一组的内容，所以两者内容若已经
+不一致，另一侧的改动会丢失。请务必备份。
+
+在目录模式下，`convert` 会先用文件后缀缩小图片候选范围再交给 ImageMagick，避免对每个文件都启动一次 ImageMagick。后缀
+看起来像图片、但 ImageMagick 读不出来的文件按「不是图片」处理并跳过，不会让整批失败。单个文件完全由 ImageMagick 裁定，
+`--type image` 也能让目录穷举。
 
 ## 文件转换命令
 
@@ -874,8 +906,7 @@ notepad .\body.menu.json
 ~~~
 
 `convert2json` 不负责 `.tex`，请使用 `convert2image`；也不会解包 `.aba`，请使用
-`unpackAba`。泛用 `convert` 可以解包单个 `.arc`，但处理目录中的 ARC 时应使用
-`unpackArc`。
+`unpackAba`。泛用 `convert` 同样会解包 `.arc`，但 `unpackArc` 会并发处理，批量较大时更快。
 
 ### 图片与 COM3D2 TEX
 
@@ -907,6 +938,10 @@ notepad .\body.menu.json
 `convert2tex` 默认写出 TEX 1010。只有旁边存在有效的 `.uv.csv` 图集矩形信息时，才会写出
 1011。详情见 [TEX 1011 常见问题](../README.md#关于-1011-版本的-tex)。也可以显式使用 `--forcePng=false`；`--compress`
 的优先级更高。
+
+`.tex` 既可能是 COM3D2 的 TEX，也可能是 KCES 的原生 Texture2D，两者都按内容识别。写出方向保持分开：`convert2tex`
+总是写出 COM3D2 TEX，`convert2texture2d` 总是重建 KCES 原生 Texture2D。泛用 `convert` 命令则通过「回写成即将被覆盖的
+同名文件原本的格式」来消除这种二义性，没有同名文件时回落到 COM3D2 TEX。
 
 #### 修改 Sprite
 
@@ -1044,15 +1079,18 @@ glTF 与 Unity 之间的 V 轴翻转在两个方向都会自动处理。想在 B
 ~~~powershell
 .\MeidoSerialization.exe convert2csv .\table.nei
 .\MeidoSerialization.exe convert2nei .\table.csv
-.\MeidoSerialization.exe convert2nei .\table.csv --encoding utf-8
+.\MeidoSerialization.exe convert2nei .\table.csv --format kces
 ~~~
 
 NEI 的单元格文本有两种编码，容器本身不携带任何标记，取决于读取该表的游戏：COM3D2 按 Shift-JIS（CP932）解码，KCES
 按 UTF-8 解码。`convert2csv` 会按单元格字节内容探测编码，两种游戏的表都能正确解码，但 CSV 里不会留下它来自哪个游戏的
-痕迹。因此 `convert2nei` 提供 `--encoding` 参数，默认 `shift-jis`；如果这张表是给 KCES 用的，需要传 `--encoding utf-8`，
-否则游戏里会显示乱码。
+痕迹。
 
-`--encoding` 接受 `shift-jis`、`sjis`、`cp932`、`com3d2` 表示 Shift-JIS，`utf-8`、`kces` 表示 UTF-8。
+因此 `convert2nei` 必须由外部告知这张表是给哪个游戏用的，默认会沿用即将被覆盖的那个 .nei 的格式，使往返转换保持原样；
+目标文件还不存在时回落到 COM3D2。如果这张表是给 KCES 用的，需要传 `--format kces`，否则游戏里会显示乱码。
+
+`--format` 接受 `auto` 表示上述推断，`com3d2` 表示 Shift-JIS 表格，`kces` 表示 UTF-8 表格。泛用 `convert` 命令接受
+同样的取值。
 
 纯 ASCII 的表格不携带任何编码证据，读取时按 Shift-JIS 报告。这没有影响，因为两种编码对 ASCII 产生的字节完全相同。
 
@@ -1555,8 +1593,18 @@ pack した場合は注意が表示されます。
 ~~~
 
 多くの専用ディレクトリコマンドは worker pool を使用します。不正なファイルがある場合、
-そのエラーを表示して残りの処理を続けるため、一括処理後はコンソール出力全体を確認してください。汎用 `convert`
+そのエラーを表示して残りの処理を続けますが、一括処理が終わるとコマンドは非ゼロで終了するため、失敗したバッチが成功として扱われることはありません。汎用 `convert`
 はディレクトリを順番に処理します。混在した入力には便利ですが、専用コマンドより遅くなります。
+
+native ファイルとそこから書き出した image や CSV が同じディレクトリにある場合、両方が上書きされるのは想定どおりの動作であり、双方向コマンドの意義でもあります。`convert`
+は置き換えるファイル本来の形式で書き戻すため、base name が同じ `.png` と `.tex` は互いを壊さず一貫した組に収束し、同じ base name
+を持つ native Texture2D はすべて同じ内容で書き込まれます。`.nei` と `.csv`、`.menu` と `.menu.json`
+も同様です。並び順が先のファイルがその組の内容を決めるため、両者の内容がすでに食い違っている場合、もう一方の変更は失われます。必ずバックアップしてください。
+
+ディレクトリ内では、`convert` はまず suffix で image の候補を絞ってから ImageMagick に問い合わせるため、ファイルごとに
+ImageMagick を起動することはありません。suffix は image に見えても ImageMagick が読めないファイルは「image
+ではない」ものとして扱われ、バッチ全体を失敗させることなくスキップされます。単一ファイルは ImageMagick
+自身が判定し、`--type image` を使えばディレクトリでも網羅できます。
 
 ## ファイル変換コマンド
 
@@ -1593,8 +1641,7 @@ pack した場合は注意が表示されます。
 ~~~
 
 `convert2json` は `.tex` を変換しません。`convert2image` を使用してください。
-`.aba` の展開には `unpackAba` を使用します。汎用 `convert` は単一 `.arc` を展開できますが、ディレクトリ内の ARC には
-`unpackArc` を使用してください。
+`.aba` の展開には `unpackAba` を使用します。汎用 `convert` も `.arc` を展開しますが、`unpackArc` は並列処理するため大量の場合は高速です。
 
 ### 画像と COM3D2 TEX
 
@@ -1626,6 +1673,10 @@ pack した場合は注意が表示されます。
 `convert2tex` は通常 TEX 1010 を書き出します。有効な隣接 `.uv.csv` に 1011 atlas rectangle がある場合のみ 1011 を生成します。詳細は
 [TEX 1011 FAQ](../README.md#tex-ファイルのバージョン-1011-について)を参照してください。
 `--forcePng=false` も明示的に指定できますが、`--compress` が優先されます。
+
+`.tex` は COM3D2 の TEX である場合と KCES の native Texture2D である場合があり、どちらも内容から識別されます。書き出し側は分かれたままで、`convert2tex`
+は常に COM3D2 TEX を、`convert2texture2d` は常に KCES native Texture2D を生成します。汎用 `convert`
+コマンドは「上書きしようとしている同名ファイル本来の形式で書き戻す」ことでこの曖昧さを解消し、同名ファイルがない場合は COM3D2 TEX にフォールバックします。
 
 #### Sprite の編集
 
@@ -1764,16 +1815,20 @@ convert2gltf が書き出す .glb ファイルの extras セクションにあ�
 ~~~powershell
 .\MeidoSerialization.exe convert2csv .\table.nei
 .\MeidoSerialization.exe convert2nei .\table.csv
-.\MeidoSerialization.exe convert2nei .\table.csv --encoding utf-8
+.\MeidoSerialization.exe convert2nei .\table.csv --format kces
 ~~~
 
 NEI のセルテキストには 2 種類のエンコーディングがあり、コンテナ自体はどちらであるかを示す情報を持ちません。したがって
 その表を読むゲームが基準となり、COM3D2 は Shift-JIS（CP932）として、KCES は UTF-8 としてセルをデコードします。
 `convert2csv` はセルのバイト内容からエンコーディングを判定するため、どちらのゲームの表も正しくデコードできますが、CSV
-には元のゲームの痕跡が残りません。そのため `convert2nei` には `--encoding` オプションがあり、既定値は `shift-jis` です。
-KCES 用の表を作る場合は `--encoding utf-8` を指定してください。指定を誤るとゲーム内で文字化けします。
+には元のゲームの痕跡が残りません。
 
-`--encoding` は `shift-jis`、`sjis`、`cp932`、`com3d2` を Shift-JIS として、`utf-8`、`kces` を UTF-8 として受け付けます。
+そのため `convert2nei` では、その表をどのゲームが読むのかを外部から指定する必要があります。既定では上書きしようとしている
+.nei の形式を引き継ぐため、往復変換では元のままになります。対象のファイルがまだ存在しない場合は COM3D2 にフォールバック
+します。KCES 用の表を作る場合は `--format kces` を指定してください。指定を誤るとゲーム内で文字化けします。
+
+`--format` は上記の推論を表す `auto`、Shift-JIS の表を表す `com3d2`、UTF-8 の表を表す `kces` を受け付けます。汎用
+`convert` コマンドも同じ値を受け付けます。
 
 ASCII のみの表はエンコーディングの手がかりを持たないため、読み込み時は Shift-JIS として報告されます。ASCII では両者の
 バイト列が同一なので影響はありません。

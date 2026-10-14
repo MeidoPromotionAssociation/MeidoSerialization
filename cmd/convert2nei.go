@@ -6,9 +6,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// neiTextEncodingFlag 保存 convert2nei 选择的单元格文本编码名称
-// neiTextEncodingFlag holds the cell text encoding name selected for convert2nei
-var neiTextEncodingFlag string
+// neiFormatFlag 保存 convert2nei 选择的输出格式名称
+// 空值与 auto 表示沿用即将被覆盖的同名 .nei 的格式
+// neiFormatFlag holds the output format name selected for convert2nei
+// An empty value and auto reuse the format of the same-named .nei that is about to be overwritten
+var neiFormatFlag string
 
 // convert2neiCmd represents the convert2nei command
 var convert2neiCmd = &cobra.Command{
@@ -19,20 +21,22 @@ This command can process a single file or all files in a directory.
 
 The CSV must be written with UTF-8-BOM encoding, and using ',' as the separator.
 
-Cell text inside a .nei file is not stored in a single fixed encoding:
-COM3D2 reads cells as Shift-JIS (CP932) while KCES reads them as UTF-8.
-Use --encoding to select the game that will read the output, otherwise
-Japanese text will show up as garbage in-game.
+A .nei table is read by exactly one game, and the two games disagree on how cell
+text is stored: COM3D2 reads Shift-JIS (CP932) while KCES reads UTF-8. The container
+carries no marker, so --format selects the game that will read the output.
+By default the format of the .nei being overwritten is reused, and COM3D2 is used
+when that file does not exist yet. Choosing the wrong game shows up as garbage
+Japanese in-game.
 
 Examples:
   MeidoSerialization convert2nei example.csv
-  MeidoSerialization convert2nei example.csv --encoding utf-8
-  MeidoSerialization convert2nei ./csv_directory --encoding shift-jis`,
+  MeidoSerialization convert2nei example.csv --format kces
+  MeidoSerialization convert2nei ./csv_directory --format com3d2`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := args[0]
 
-		encoding, err := parseNeiTextEncoding(neiTextEncodingFlag)
+		encoding, err := parseNeiOutputFormat(neiFormatFlag)
 		if err != nil {
 			return err
 		}
@@ -52,9 +56,9 @@ Examples:
 	},
 }
 
-// init 注册 CSV 转 NEI 命令的单元格文本编码选项
-// init registers the cell text encoding option for the CSV-to-NEI command
+// init 注册 CSV 转 NEI 命令的输出格式选项
+// init registers the output format option for the CSV-to-NEI command
 func init() {
-	convert2neiCmd.Flags().StringVar(&neiTextEncodingFlag, "encoding", "shift-jis",
-		"Cell text encoding of the output .nei: 'shift-jis' (COM3D2) or 'utf-8' (KCES)")
+	convert2neiCmd.Flags().StringVarP(&neiFormatFlag, "format", "f", "auto",
+		"Format of the output .nei: 'auto' reuses the format of the .nei being overwritten, or pass 'com3d2' (Shift-JIS) or 'kces' (UTF-8)")
 }

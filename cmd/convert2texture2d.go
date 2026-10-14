@@ -16,8 +16,9 @@ var convert2texture2dCmd = &cobra.Command{
 	Short: "Convert image files to native KCES Texture2D",
 	Long: `Convert PNG or JPEG images back to native KCES Texture2D primary files.
 The texture is rebuilt from scratch as inline single-mip RGBA32 data.
-When a native Texture2D file with the same base name (.tex or .texture2d) exists
-in the same directory, it is overwritten so packAba picks up the change.
+Every native Texture2D file with the same base name (.tex or .texture2d) is
+overwritten so packAba picks up the change, and a .tex is created when there is
+none yet.
 This command can process a single file or all matching images in a directory.
 
 Typical texture editing workflow:
@@ -44,31 +45,36 @@ Examples:
 }
 
 // convertImageToNativeTexture2D 将 PNG 或 JPEG 图像重建为 KCES 原生 Texture2D 独立对象文件
+// 同基名可能同时存在 .tex 与 .texture2d 两个原生 Texture2D，此时把图像写进每一个，否则只更新其中一个会让另一个留着旧内容
+// 一个都不存在时按同基名 .tex 新建
 // convertImageToNativeTexture2D rebuilds a PNG or JPEG image into a native KCES Texture2D standalone object file
+// One base name may hold both a .tex and a .texture2d native Texture2D, so the image is written into each of them, otherwise updating only one would leave the other with stale content
+// When neither exists, a .tex with the same base name is created
 func convertImageToNativeTexture2D(path string) error {
+	targets := existingNativeTexture2DPaths(path)
+	if len(targets) == 0 {
+		targets = []string{trimLastExtension(path) + ".tex"}
+	}
+	for _, target := range targets {
+		if err := convertImageToNativeTexture2DAt(path, target); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// convertImageToNativeTexture2DAt 将 PNG 或 JPEG 图像重建为指定路径的 KCES 原生 Texture2D
+// convertImageToNativeTexture2DAt rebuilds a PNG or JPEG image into a native KCES Texture2D at an explicit path
+func convertImageToNativeTexture2DAt(path string, outputPath string) error {
 	if !isRGBA32DecodableImageFile(path) {
 		return fmt.Errorf("not a PNG or JPEG image file: %s", path)
 	}
-	outputPath := nativeTexture2DOutputPath(path)
 	service := &KCESService.NativeUnityMediaService{}
 	if err := service.ConvertImageToTexture2D(context.Background(), path, outputPath, application.DefaultMaxOutputBytes); err != nil {
 		return fmt.Errorf("failed to convert %s to native Texture2D: %w", path, err)
 	}
 	fmt.Printf("Converted %s to %s\n", path, outputPath)
 	return nil
-}
-
-// nativeTexture2DOutputPath 优先覆盖同目录同基名的现有原生 Texture2D 文件以便重新打包生效，否则输出同基名 .tex
-// nativeTexture2DOutputPath prefers overwriting an existing native Texture2D file with the same base name so repacking picks up the change, and otherwise emits a .tex file with the same base name
-func nativeTexture2DOutputPath(imagePath string) string {
-	base := strings.TrimSuffix(imagePath, filepath.Ext(imagePath))
-	for _, extension := range []string{".tex", ".texture2d"} {
-		candidate := base + extension
-		if KCESService.IsKCESNativeTexture2DFile(candidate) {
-			return candidate
-		}
-	}
-	return base + ".tex"
 }
 
 // isRGBA32DecodableImageFile 判断路径是否为可直接解码成 RGBA32 的 PNG 或 JPEG 图像

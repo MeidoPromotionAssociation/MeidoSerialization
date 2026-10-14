@@ -26,11 +26,22 @@ Examples:
 
 		if isDirectory(path) {
 			fmt.Printf("Analyzing directory: %s\n", path)
-			return processDirectoryConcurrent(path, determineFileType, fileTypeFilter)
+			// 检测是只读探查，认不出来的文件本身就是一种结果，不应该让整批命令以失败结束
+			// Detection is a read-only probe and a file that cannot be identified is itself a result, so it must not fail the whole batch
+			return processDirectoryConcurrent(path, determineFileTypeTolerant, fileTypeFilter)
 		}
 
 		return processFile(path, determineFileType)
 	},
+}
+
+// determineFileTypeTolerant 在目录模式下报告单个文件的检测失败但不让整批命令失败
+// determineFileTypeTolerant reports a per-file detection failure in directory mode without failing the whole batch
+func determineFileTypeTolerant(path string) error {
+	if err := determineFileType(path); err != nil {
+		fmt.Printf("Cannot determine %s: %v\n", path, err)
+	}
+	return nil
 }
 
 // init 保留文件类型检测命令的初始化扩展点

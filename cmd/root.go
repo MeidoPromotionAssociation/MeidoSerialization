@@ -39,6 +39,20 @@ Github：https://github.com/MeidoPromotionAssociation/MeidoSerialization
 			return
 		}
 	},
+	// 错误由 main 统一打印一次，这里关掉 cobra 的重复输出
+	// Errors are printed once by main, so cobra's own copy is silenced here
+	SilenceErrors: true,
+	// 参数解析与参数个数校验都发生在 PersistentPreRunE 之前，因此参数错误仍然会打印用法，
+	// 而 RunE 返回的运行时错误不再附带整段用法
+	// Flag parsing and argument-count validation both run before PersistentPreRunE, so argument errors still print the usage while a runtime error returned by RunE no longer drags it along
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// 只改子命令自身，避免污染根命令的字段影响后续执行
+		// Only the subcommand is changed so the root command's field stays clean for later executions
+		if cmd.HasParent() {
+			cmd.SilenceUsage = true
+		}
+		return nil
+	},
 }
 
 // Execute 执行已经注册全部子命令和全局参数的 CLI 根命令

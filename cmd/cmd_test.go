@@ -3,6 +3,9 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"image"
+	"image/color"
+	"image/png"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -14,6 +17,7 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/aba"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/ct"
 	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/KCES"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/tools"
 	"github.com/spf13/cobra"
 )
 
@@ -29,6 +33,11 @@ func executeCommand(root *cobra.Command, args ...string) (output string, err err
 	extractExt = ""
 	extractFile = ""
 	extractOutputFlag = ""
+	// pflag keeps the previous value of a flag that is absent from the arguments, so the
+	// NEI format selections have to be restored to their defaults to keep runs independent
+	neiFormatFlag = "auto"
+	convertNeiFormatFlag = "auto"
+	outputFormat = "png"
 
 	// Also capture stdout as many parts of the code use fmt.Printf
 	old := os.Stdout
@@ -1059,5 +1068,460 @@ func TestExtractArcDirectoryCommand(t *testing.T) {
 	}
 	if _, err := os.Stat(bOut); os.IsNotExist(err) {
 		t.Errorf("expected output directory %s to be created", bOut)
+	}
+}
+
+// assertNeiCellEncoding 读取 NEI 并断言其单元格编码与首个单元格内容
+// assertNeiCellEncoding reads a NEI and asserts its cell encoding and first cell content
+func assertNeiCellEncoding(t *testing.T, path string, encoding serializationKCES.NeiTextEncoding, wantCell string) {
+	t.Helper()
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	table, err := serializationKCES.ReadNei(bytes.NewReader(data), nil)
+	if err != nil {
+		t.Fatalf("decode NEI %s: %v", path, err)
+	}
+	if table.TextEncoding != encoding {
+		t.Errorf("%s cell encoding = %q, want %q", path, table.TextEncoding, encoding)
+	}
+	if len(table.Data) == 0 || len(table.Data[0]) == 0 {
+		t.Fatalf("%s decoded to an empty table", path)
+	}
+	if table.Data[0][0] != wantCell {
+		t.Errorf("%s cell = %q, want %q", path, table.Data[0][0], wantCell)
+	}
+}
+
+// TestNeiFormatAutoReuse 固定 --format 的自动沿用与显式覆盖
+// TestNeiFormatAutoReuse pins the automatic reuse and the explicit override of --format
+func TestNeiFormatAutoReuse(t *testing.T) {
+	tempDir := t.TempDir()
+	neiPath := filepath.Join(tempDir, "kces.nei")
+	csvPath := filepath.Join(tempDir, "kces.csv")
+
+	// KCES 的单元格是 UTF-8，用含日文的表把两种编码区分开
+	table := serializationKCES.NewNei(1, 1, [][]string{{"日本語テスト"}})
+	var encoded bytes.Buffer
+	if err := table.Dump(&encoded); err != nil {
+		t.Fatalf("encode KCES NEI: %v", err)
+	}
+	if err := os.WriteFile(neiPath, encoded.Bytes(), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := executeCommand(RootCmd, "convert2csv", neiPath); err != nil {
+		t.Fatalf("convert2csv failed: %v", err)
+	}
+
+	// CSV 不携带来源信息，自动模式必须沿用同名 .nei 的格式
+	if _, err := executeCommand(RootCmd, "convert2nei", csvPath); err != nil {
+		t.Fatalf("convert2nei failed: %v", err)
+	}
+	assertNeiCellEncoding(t, neiPath, serializationKCES.NeiTextEncodingUTF8, "日本語テスト")
+
+	// 显式指定 com3d2 必须覆盖自动推断
+	if _, err := executeCommand(RootCmd, "convert2nei", csvPath, "--format", "com3d2"); err != nil {
+		t.Fatalf("convert2nei --format com3d2 failed: %v", err)
+	}
+	assertNeiCellEncoding(t, neiPath, serializationKCES.NeiTextEncodingShiftJIS, "日本語テスト")
+
+	// 显式指定 kces 同样覆盖，并写回 UTF-8；-f 是 --format 的简写
+	if _, err := executeCommand(RootCmd, "convert2nei", csvPath, "-f", "kces"); err != nil {
+		t.Fatalf("convert2nei -f kces failed: %v", err)
+	}
+	assertNeiCellEncoding(t, neiPath, serializationKCES.NeiTextEncodingUTF8, "日本語テスト")
+
+	// 目标不存在时回落到 COM3D2 的 Shift-JIS
+	if err := os.Remove(neiPath); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := executeCommand(RootCmd, "convert2nei", csvPath); err != nil {
+		t.Fatalf("convert2nei without an existing .nei failed: %v", err)
+	}
+	assertNeiCellEncoding(t, neiPath, serializationKCES.NeiTextEncodingShiftJIS, "日本語テスト")
+
+	// 旧取值不再是合法输入，错误信息必须指出新取值
+	_, err := executeCommand(RootCmd, "convert2nei", csvPath, "--format", "utf-8")
+	if err == nil {
+		t.Fatalf("expected the old encoding vocabulary to be rejected")
+	}
+	if !strings.Contains(err.Error(), "auto, com3d2 or kces") {
+		t.Errorf("unexpected error for an unknown format: %v", err)
+	}
+}
+
+// writeCmdTestPNG 写出一张可直接解码为 RGBA32 的测试 PNG，供原生 Texture2D 相关用例使用
+// writeCmdTestPNG writes a test PNG that decodes directly to RGBA32 for the native Texture2D cases
+func writeCmdTestPNG(t *testing.T, path string, width int32, height int32) {
+	t.Helper()
+
+	img := image.NewNRGBA(image.Rect(0, 0, int(width), int(height)))
+	for y := int32(0); y < height; y++ {
+		for x := int32(0); x < width; x++ {
+			img.SetNRGBA(int(x), int(y), color.NRGBA{R: uint8(10 + x*40), G: uint8(20 + y*40), B: uint8(30 + x + y), A: 255})
+		}
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatalf("encode PNG: %v", err)
+	}
+	if err := os.WriteFile(path, buf.Bytes(), 0644); err != nil {
+		t.Fatalf("write PNG: %v", err)
+	}
+}
+
+func TestConvertDirectoryCoversArcAndStandaloneNativeTexture(t *testing.T) {
+	tempDir := t.TempDir()
+
+	arcPath := filepath.Join(tempDir, "test.arc")
+	if err := os.WriteFile(arcPath, mustReadFile(t, filepath.Join("../testdata", "csv_CanKnowTwoClose.arc")), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 不在 Texture2D 目录下的原生 Texture2D 只能靠内容识别，目录遍历必须把它算进可转换集合
+	sourceDir := t.TempDir()
+	sourcePNG := filepath.Join(sourceDir, "standalone.png")
+	writeCmdTestPNG(t, sourcePNG, 3, 2)
+	if _, err := executeCommand(RootCmd, "convert2texture2d", sourcePNG); err != nil {
+		t.Fatalf("convert2texture2d failed: %v", err)
+	}
+	standalonePath := filepath.Join(tempDir, "standalone.texture2d")
+	if err := os.WriteFile(standalonePath, mustReadFile(t, filepath.Join(sourceDir, "standalone.tex")), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if !KCESService.IsKCESNativeTexture2DFile(standalonePath) {
+		t.Fatalf("expected %s to be a native Texture2D", standalonePath)
+	}
+
+	if _, err := executeCommand(RootCmd, "convert", tempDir); err != nil {
+		t.Fatalf("convert on directory failed: %v", err)
+	}
+
+	if _, err := os.Stat(arcPath + "_unpacked"); err != nil {
+		t.Errorf("expected the directory run to unpack %s: %v", arcPath, err)
+	}
+	if _, err := os.Stat(filepath.Join(tempDir, "standalone.png")); err != nil {
+		t.Errorf("expected the directory run to convert the standalone Texture2D to PNG: %v", err)
+	}
+}
+
+func TestConvertImageReusesSameNamedNativeTexture2D(t *testing.T) {
+	tempDir := t.TempDir()
+	pngPath := filepath.Join(tempDir, "body.png")
+	texPath := filepath.Join(tempDir, "body.tex")
+	writeCmdTestPNG(t, pngPath, 3, 2)
+
+	// 先用 convert2texture2d 造出一个真正的 KCES 原生 Texture2D 作为同名文件
+	if _, err := executeCommand(RootCmd, "convert2texture2d", pngPath); err != nil {
+		t.Fatalf("convert2texture2d failed: %v", err)
+	}
+	if !KCESService.IsKCESNativeTexture2DFile(texPath) {
+		t.Fatalf("expected %s to be a native Texture2D", texPath)
+	}
+
+	if _, err := executeCommand(RootCmd, "convert", pngPath); err != nil {
+		t.Fatalf("convert on the image failed: %v", err)
+	}
+
+	// .tex 同时对应 COM3D2 TEX 与 KCES 原生 Texture2D，回写必须沿用同名文件原本的格式
+	if !KCESService.IsKCESNativeTexture2DFile(texPath) {
+		t.Fatalf("expected the image to be written back as a native Texture2D, matching its sibling")
+	}
+}
+
+func TestConvertDirectoryReportsFailures(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// 后缀是 .nei 但内容不是加密表格，转换必然失败
+	brokenPath := filepath.Join(tempDir, "broken.nei")
+	if err := os.WriteFile(brokenPath, []byte("not an encrypted nei table"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := executeCommand(RootCmd, "convert", tempDir)
+	if err == nil {
+		t.Fatalf("expected convert on a directory holding a broken .nei to fail")
+	}
+	if !strings.Contains(err.Error(), "failed to process 1 file") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// decodeCmdTestImage 解码图像并返回逐像素的 RGBA 字节，用于按内容比较两张图
+// decodeCmdTestImage decodes an image and returns per-pixel RGBA bytes so two images can be compared by content
+func decodeCmdTestImage(t *testing.T, path string) []byte {
+	t.Helper()
+
+	file, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open image %s: %v", path, err)
+	}
+	defer file.Close()
+
+	src, _, err := image.Decode(file)
+	if err != nil {
+		t.Fatalf("decode image %s: %v", path, err)
+	}
+	bounds := src.Bounds()
+	pixels := make([]byte, 0, bounds.Dx()*bounds.Dy()*4)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			r, g, b, a := src.At(x, y).RGBA()
+			pixels = append(pixels, byte(r>>8), byte(g>>8), byte(b>>8), byte(a>>8))
+		}
+	}
+	return pixels
+}
+
+// renderCmdTestTexToPNG 把 TEX 复制到独立目录再导出为 PNG，返回 PNG 路径
+// renderCmdTestTexToPNG copies a TEX into a scratch directory, exports it as PNG, and returns the PNG path
+func renderCmdTestTexToPNG(t *testing.T, texPath string) string {
+	t.Helper()
+
+	scratch := t.TempDir()
+	scratchTex := filepath.Join(scratch, filepath.Base(texPath))
+	if err := os.WriteFile(scratchTex, mustReadFile(t, texPath), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := executeCommand(RootCmd, "convert2image", scratchTex); err != nil {
+		t.Fatalf("convert2image on %s failed: %v", scratchTex, err)
+	}
+	return trimLastExtension(scratchTex) + ".png"
+}
+
+// TestConvertDirectoryConvergesOnImageTexPair 固定同名 PNG 与原生 Texture2D 互相覆盖的预期结果
+// 同名文件互相覆盖是双向自动转换的既定行为，关键要求是必须收敛成一致的一对：格式沿用 .tex，内容以 .png 为准
+// TestConvertDirectoryConvergesOnImageTexPair pins the expected outcome of a same-named PNG and native Texture2D overwriting each other
+// Overwriting between same-named files is established behaviour for a bidirectional automatic command, and the requirement is that the pair converges consistently: the format follows the .tex and the content follows the .png
+func TestConvertDirectoryConvergesOnImageTexPair(t *testing.T) {
+	tempDir := t.TempDir()
+	pngPath := filepath.Join(tempDir, "body.png")
+	texPath := filepath.Join(tempDir, "body.tex")
+	writeCmdTestPNG(t, pngPath, 3, 2)
+
+	// 先造出同名原生 Texture2D，再把 PNG 换成另一个尺寸的版本，最终结果即可反映收敛方向
+	if _, err := executeCommand(RootCmd, "convert2texture2d", pngPath); err != nil {
+		t.Fatalf("convert2texture2d failed: %v", err)
+	}
+	if !KCESService.IsKCESNativeTexture2DFile(texPath) {
+		t.Fatalf("expected %s to be a native Texture2D", texPath)
+	}
+	writeCmdTestPNG(t, pngPath, 4, 2)
+
+	if _, err := executeCommand(RootCmd, "convert", tempDir); err != nil {
+		t.Fatalf("convert on directory failed: %v", err)
+	}
+
+	if !KCESService.IsKCESNativeTexture2DFile(texPath) {
+		t.Fatalf("expected the pair to converge on a native Texture2D")
+	}
+	if got := decodeCmdTestImage(t, pngPath); len(got) != 4*2*4 {
+		t.Fatalf("expected the .png to come from the 4x2 image, got %d pixel bytes", len(got))
+	}
+	if !bytes.Equal(decodeCmdTestImage(t, renderCmdTestTexToPNG(t, texPath)), decodeCmdTestImage(t, pngPath)) {
+		t.Fatalf("expected the .tex to hold the same pixels as the .png")
+	}
+}
+
+// TestConvertDirectoryConvergesOnCOM3D2TexPair 固定同名 PNG 与 COM3D2 TEX 互相覆盖的预期结果
+// TestConvertDirectoryConvergesOnCOM3D2TexPair pins the expected outcome of a same-named PNG and COM3D2 TEX overwriting each other
+func TestConvertDirectoryConvergesOnCOM3D2TexPair(t *testing.T) {
+	if err := tools.CheckMagick(); err != nil {
+		t.Skipf("ImageMagick is required to write a COM3D2 TEX: %v", err)
+	}
+
+	tempDir := t.TempDir()
+	pngPath := filepath.Join(tempDir, "body.png")
+	texPath := filepath.Join(tempDir, "body.tex")
+	writeCmdTestPNG(t, pngPath, 3, 2)
+
+	if _, err := executeCommand(RootCmd, "convert2tex", pngPath); err != nil {
+		t.Fatalf("convert2tex failed: %v", err)
+	}
+	if KCESService.IsKCESNativeTexture2DFile(texPath) {
+		t.Fatalf("expected %s to be a COM3D2 TEX", texPath)
+	}
+	writeCmdTestPNG(t, pngPath, 4, 2)
+
+	if _, err := executeCommand(RootCmd, "convert", tempDir); err != nil {
+		t.Fatalf("convert on directory failed: %v", err)
+	}
+
+	// COM3D2 TEX 不是原生 Texture2D，回写必须仍然产出 COM3D2 TEX
+	if KCESService.IsKCESNativeTexture2DFile(texPath) {
+		t.Fatalf("expected the pair to stay on a COM3D2 TEX")
+	}
+	if !bytes.Equal(decodeCmdTestImage(t, renderCmdTestTexToPNG(t, texPath)), decodeCmdTestImage(t, pngPath)) {
+		t.Fatalf("expected the .tex to hold the same pixels as the .png")
+	}
+}
+
+// TestConvertImageCoversFormatOutsideSuffixTable 固定表外格式的两种处理路径
+// 单文件路径由 ImageMagick 兜底；目录模式按后缀预筛会跳过，需要 --type image 让 ImageMagick 最终裁定
+// TestConvertImageCoversFormatOutsideSuffixTable pins both ways a format outside the table is handled
+// The single-file path falls back to ImageMagick, while directory mode skips it through its suffix pre-filter and needs --type image to let ImageMagick have the final say
+func TestConvertImageCoversFormatOutsideSuffixTable(t *testing.T) {
+	if err := tools.CheckMagick(); err != nil {
+		t.Skipf("ImageMagick is required: %v", err)
+	}
+
+	// 后缀不在预筛表内，但内容是真正的 PNG，只有 ImageMagick 靠内容才能识别
+	singleDir := t.TempDir()
+	singlePath := filepath.Join(singleDir, "odd.weird")
+	writeCmdTestPNG(t, singlePath, 3, 2)
+	if _, err := executeCommand(RootCmd, "convert", singlePath); err != nil {
+		t.Fatalf("convert on a format outside the suffix table failed: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(singleDir, "odd.tex")); err != nil {
+		t.Fatalf("expected the single-file fallback to produce a TEX: %v", err)
+	}
+
+	dir := t.TempDir()
+	dirPath := filepath.Join(dir, "odd.weird")
+	writeCmdTestPNG(t, dirPath, 3, 2)
+	if _, err := executeCommand(RootCmd, "convert", dir); err != nil {
+		t.Fatalf("convert on the directory failed: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "odd.tex")); !os.IsNotExist(err) {
+		t.Fatalf("expected the plain directory run to pre-filter a format outside the suffix table, got %v", err)
+	}
+	if _, err := executeCommand(RootCmd, "convert", "--type", "image", dir); err != nil {
+		t.Fatalf("convert --type image on the directory failed: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "odd.tex")); err != nil {
+		t.Fatalf("expected --type image to cover a format outside the suffix table: %v", err)
+	}
+}
+
+// TestConvertDirectoryCoversVectorImage 固定目录预筛表覆盖矢量图
+// TestConvertDirectoryCoversVectorImage pins that the directory pre-filter table covers vector images
+func TestConvertDirectoryCoversVectorImage(t *testing.T) {
+	if err := tools.CheckMagick(); err != nil {
+		t.Skipf("ImageMagick is required to read SVG: %v", err)
+	}
+
+	tempDir := t.TempDir()
+	svgPath := filepath.Join(tempDir, "a.svg")
+	const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4" fill="red"/></svg>`
+	if err := os.WriteFile(svgPath, []byte(svg), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := executeCommand(RootCmd, "convert", tempDir); err != nil {
+		t.Fatalf("convert on directory failed: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tempDir, "a.tex")); err != nil {
+		t.Fatalf("expected the directory run to convert the vector image: %v", err)
+	}
+}
+
+// TestConvertDirectoryConvergesOnTripleBaseName 固定三个同基名文件也满足收敛契约
+// 两个同基名原生 Texture2D 必须都被写成同一份内容，否则后遍历到的那个会把 PNG 回退成旧内容
+// TestConvertDirectoryConvergesOnTripleBaseName pins that three files sharing a base name also satisfy the convergence contract
+// Both same-named native Texture2D files have to receive the same content, otherwise whichever is walked later rolls the PNG back to stale content
+// writeSameNamedNativeTexture2Ds 用给定尺寸的 PNG 造出原生 Texture2D，并复制成同基名的 .tex 与 .texture2d
+// writeSameNamedNativeTexture2Ds builds a native Texture2D from a PNG of the given size and copies it to a same-named .tex and .texture2d
+func writeSameNamedNativeTexture2Ds(t *testing.T, dir string, width int32, height int32) (string, string) {
+	t.Helper()
+
+	sourceDir := t.TempDir()
+	sourcePNG := filepath.Join(sourceDir, "body.png")
+	writeCmdTestPNG(t, sourcePNG, width, height)
+	if _, err := executeCommand(RootCmd, "convert2texture2d", sourcePNG); err != nil {
+		t.Fatalf("convert2texture2d failed: %v", err)
+	}
+	native := mustReadFile(t, filepath.Join(sourceDir, "body.tex"))
+
+	texPath := filepath.Join(dir, "body.tex")
+	texture2DPath := filepath.Join(dir, "body.texture2d")
+	if err := os.WriteFile(texPath, native, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(texture2DPath, native, 0644); err != nil {
+		t.Fatal(err)
+	}
+	return texPath, texture2DPath
+}
+
+func TestConvertDirectoryConvergesOnTripleBaseName(t *testing.T) {
+	tempDir := t.TempDir()
+	pngPath := filepath.Join(tempDir, "body.png")
+	texPath, texture2DPath := writeSameNamedNativeTexture2Ds(t, tempDir, 3, 2)
+	writeCmdTestPNG(t, pngPath, 4, 2)
+
+	if _, err := executeCommand(RootCmd, "convert", tempDir); err != nil {
+		t.Fatalf("convert on directory failed: %v", err)
+	}
+
+	want := decodeCmdTestImage(t, pngPath)
+	if len(want) != 4*2*4 {
+		t.Fatalf("expected the .png to come from the 4x2 image, got %d pixel bytes", len(want))
+	}
+	for _, path := range []string{texPath, texture2DPath} {
+		if !KCESService.IsKCESNativeTexture2DFile(path) {
+			t.Fatalf("expected %s to stay a native Texture2D", path)
+		}
+		if got := decodeCmdTestImage(t, renderCmdTestTexToPNG(t, path)); !bytes.Equal(got, want) {
+			t.Fatalf("expected %s to hold the same pixels as the .png", path)
+		}
+	}
+}
+
+// TestConvert2Texture2DUpdatesEverySameNamedNativeTexture 固定 convert2texture2d 会更新全部同名原生 Texture2D
+// 只更新其中一个会让另一个留着旧内容，重新打包时就会用到过期的贴图
+// TestConvert2Texture2DUpdatesEverySameNamedNativeTexture pins that convert2texture2d updates every same-named native Texture2D
+// Updating only one of them would leave the other with stale content that repacking could pick up
+func TestConvert2Texture2DUpdatesEverySameNamedNativeTexture(t *testing.T) {
+	tempDir := t.TempDir()
+	pngPath := filepath.Join(tempDir, "body.png")
+	texPath, texture2DPath := writeSameNamedNativeTexture2Ds(t, tempDir, 3, 2)
+	writeCmdTestPNG(t, pngPath, 4, 2)
+
+	if _, err := executeCommand(RootCmd, "convert2texture2d", pngPath); err != nil {
+		t.Fatalf("convert2texture2d failed: %v", err)
+	}
+
+	want := decodeCmdTestImage(t, pngPath)
+	if len(want) != 4*2*4 {
+		t.Fatalf("expected the source image to be 4x2, got %d pixel bytes", len(want))
+	}
+	for _, path := range []string{texPath, texture2DPath} {
+		if !KCESService.IsKCESNativeTexture2DFile(path) {
+			t.Fatalf("expected %s to stay a native Texture2D", path)
+		}
+		if got := decodeCmdTestImage(t, renderCmdTestTexToPNG(t, path)); !bytes.Equal(got, want) {
+			t.Fatalf("expected %s to be updated to the 4x2 image", path)
+		}
+	}
+}
+
+// TestConvertDirectorySkipsFileThatOnlyLooksLikeAnImage 固定「候选后缀但并非图像」的文件只被跳过，不让整批失败
+// TestConvertDirectorySkipsFileThatOnlyLooksLikeAnImage pins that a file which merely looks like an image is skipped rather than failing the whole batch
+func TestConvertDirectorySkipsFileThatOnlyLooksLikeAnImage(t *testing.T) {
+	if err := tools.CheckMagick(); err != nil {
+		t.Skipf("ImageMagick is required: %v", err)
+	}
+
+	tempDir := t.TempDir()
+	// 后缀在预筛表内，内容却不是图像
+	fakePath := filepath.Join(tempDir, "broken.psd")
+	if err := os.WriteFile(fakePath, []byte("this is not an image"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// 同一批里放一个真图像，确认它仍然被处理
+	realPath := filepath.Join(tempDir, "real.png")
+	writeCmdTestPNG(t, realPath, 3, 2)
+
+	if _, err := executeCommand(RootCmd, "convert", tempDir); err != nil {
+		t.Fatalf("convert on a directory holding a non-image with an image suffix failed: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tempDir, "real.tex")); err != nil {
+		t.Fatalf("expected the real image to be converted: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tempDir, "broken.tex")); !os.IsNotExist(err) {
+		t.Fatalf("expected the non-image to be skipped, got %v", err)
 	}
 }

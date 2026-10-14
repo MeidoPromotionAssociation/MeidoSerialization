@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 
-	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/KCES"
 	"github.com/spf13/cobra"
 )
 
@@ -42,7 +41,7 @@ Examples:
 		if isDirectory(path) {
 			fmt.Printf("Processing directory: %s\n", path)
 			return processDirectoryConcurrent(path, processor, func(p string) bool {
-				return fileTypeFilter(p) && (isTexFile(p) || KCESService.IsKCESNativeTexture2DFile(p) || KCESService.IsKCESNativeSpriteFile(p))
+				return fileTypeFilter(p) && (isTexFile(p) || isNativeUnityImageFile(p))
 			})
 		}
 
