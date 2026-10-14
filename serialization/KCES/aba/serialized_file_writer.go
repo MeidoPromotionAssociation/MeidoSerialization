@@ -180,10 +180,16 @@ func (w *SerializedFileWriter) AddTexture2DWithLoadName(name string, loadName st
 	return w.AddTexture2DWithLoadNameAndPathID(name, loadName, width, height, imageData, 0)
 }
 
-// AddTexture2DWithLoadNameAndPathID 添加带独立 m_Name、AssetBundle 加载键和首选 PathID 的 Texture2D，imageData 按自上而下行序传入并翻转为 Unity 自下而上行序
-// AddTexture2DWithLoadNameAndPathID adds a generated Texture2D with separate internal m_Name, AssetBundle load key, and preferred PathID, taking imageData in top-down row order and flipping it into Unity's bottom-up row order
+// AddTexture2DWithLoadNameAndPathID 添加带独立 m_Name、AssetBundle 加载键和首选 PathID 的单 mip Texture2D，imageData 按自上而下行序传入并翻转为 Unity 自下而上行序
+// AddTexture2DWithLoadNameAndPathID adds a generated single-mip Texture2D with separate internal m_Name, AssetBundle load key, and preferred PathID, taking imageData in top-down row order and flipping it into Unity's bottom-up row order
 func (w *SerializedFileWriter) AddTexture2DWithLoadNameAndPathID(name string, loadName string, width, height int64, imageData []byte, pathID int64) int64 {
-	data, err := encodeTexture2DData(w.UnityVersion, name, width, height, FlipRGBA32Rows(width, height, imageData))
+	return w.AddTexture2DMipChainWithLoadNameAndPathID(name, loadName, width, height, [][]byte{imageData}, pathID)
+}
+
+// AddTexture2DMipChainWithLoadNameAndPathID 添加带独立 m_Name、AssetBundle 加载键和首选 PathID 的多 mip Texture2D，mips 按自上而下行序传入、第 0 级为全分辨率，各级翻转后按 Unity 布局拼接
+// AddTexture2DMipChainWithLoadNameAndPathID adds a generated multi-mip Texture2D with separate internal m_Name, AssetBundle load key, and preferred PathID, taking mips in top-down row order with level 0 at full resolution and concatenating every flipped level in the Unity layout
+func (w *SerializedFileWriter) AddTexture2DMipChainWithLoadNameAndPathID(name string, loadName string, width, height int64, mips [][]byte, pathID int64) int64 {
+	data, err := encodeTexture2DData(w.UnityVersion, name, width, height, FlipRGBA32MipChain(width, height, mips))
 	if err != nil {
 		w.setError(fmt.Errorf("encode Texture2D %q: %w", name, err))
 		return 0
@@ -1075,8 +1081,10 @@ func encodeTextAssetData(name string, script []byte) ([]byte, error) {
 }
 
 // encodeTexture2DData 按 Unity 2022.3 内置 TypeTree 编码内联 RGBA32 Texture2D
+// mips 按 Unity 布局给出，第 0 级为全分辨率，各级自上而下行序且依次折半直到链尾
 // encodeTexture2DData encodes an inline RGBA32 Texture2D using the Unity 2022.3 built-in TypeTree
-func encodeTexture2DData(unityVersion string, name string, width, height int64, imageData []byte) ([]byte, error) {
+// mips follow the Unity layout, with level 0 at full resolution and every later level halved in top-down row order down to the last entry
+func encodeTexture2DData(unityVersion string, name string, width, height int64, mips [][]byte) ([]byte, error) {
 	if width <= 0 || height <= 0 {
 		return nil, fmt.Errorf("invalid Texture2D dimensions %dx%d", width, height)
 	}
@@ -1087,13 +1095,28 @@ func encodeTexture2DData(unityVersion string, name string, width, height int64, 
 	if uint64(width) > uint64(math.MaxInt32)/bytesPerPixel/uint64(height) {
 		return nil, fmt.Errorf("Texture2D dimensions %dx%d exceed inline RGBA32 size limit", width, height)
 	}
-	expectedSize := uint64(width) * uint64(height) * bytesPerPixel
-	if uint64(len(imageData)) != expectedSize {
-		return nil, fmt.Errorf("Texture2D RGBA32 data size %d does not match %dx%d (%d bytes)", len(imageData), width, height, expectedSize)
+	if len(mips) == 0 {
+		return nil, fmt.Errorf("Texture2D %q has no mip levels", name)
 	}
-	imageDataLength, err := int32WireLength("Texture2D image data length", uint64(len(imageData)))
+	if maxLevels := MaxMipCount(width, height); int64(len(mips)) > int64(maxLevels) {
+		return nil, fmt.Errorf("Texture2D %q has %d mip levels but %dx%d supports at most %d", name, len(mips), width, height, maxLevels)
+	}
+	totalSize := uint64(0)
+	for level, data := range mips {
+		levelWidth, levelHeight := MipLevelDimensions(width, height, int32(level))
+		expectedSize := uint64(levelWidth) * uint64(levelHeight) * bytesPerPixel
+		if uint64(len(data)) != expectedSize {
+			return nil, fmt.Errorf("Texture2D %q mip level %d has %d bytes but %dx%d RGBA32 needs %d", name, level, len(data), levelWidth, levelHeight, expectedSize)
+		}
+		totalSize += expectedSize
+	}
+	imageDataLength, err := int32WireLength("Texture2D image data length", totalSize)
 	if err != nil {
 		return nil, err
+	}
+	imageData := make([]byte, 0, totalSize)
+	for _, level := range mips {
+		imageData = append(imageData, level...)
 	}
 	if err := validateSerializedFileUnityVersion(unityVersion); err != nil {
 		return nil, err
@@ -1136,8 +1159,8 @@ func encodeTexture2DData(unityVersion string, name string, width, height int64, 
 		return nil, fmt.Errorf("write Texture2D m_Height: %w", err)
 	}
 
-	// m_CompleteImageSize 保存内联 RGBA32 数据长度
-	// m_CompleteImageSize stores inline RGBA32 data length
+	// m_CompleteImageSize 保存整条 mip 链的内联 RGBA32 数据总长度
+	// m_CompleteImageSize stores the total inline RGBA32 data length across the whole mip chain
 	if err := bw.WriteInt32(imageDataLength); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_CompleteImageSize: %w", err)
 	}
@@ -1154,9 +1177,9 @@ func encodeTexture2DData(unityVersion string, name string, width, height int64, 
 		return nil, fmt.Errorf("write Texture2D m_TextureFormat: %w", err)
 	}
 
-	// m_MipCount 写为单层
-	// m_MipCount is one
-	if err := bw.WriteInt32(1); err != nil {
+	// m_MipCount 保存实际层数
+	// m_MipCount stores the actual level count
+	if err := bw.WriteInt32(int32(len(mips))); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_MipCount: %w", err)
 	}
 
@@ -1248,8 +1271,8 @@ func encodeTexture2DData(unityVersion string, name string, width, height int64, 
 		return nil, fmt.Errorf("align Texture2D m_PlatformBlob: %w", err)
 	}
 
-	// image data 保存长度、内联 RGBA32 字节和四字节对齐填充
-	// image data stores length, inline RGBA32 bytes, and four-byte alignment padding
+	// image data 保存长度、按 mip 级顺序拼接的内联 RGBA32 字节和四字节对齐填充
+	// image data stores length, the inline RGBA32 bytes concatenated in mip level order, and four-byte alignment padding
 	if err := bw.WriteInt32(imageDataLength); err != nil {
 		return nil, fmt.Errorf("write Texture2D image data length: %w", err)
 	}

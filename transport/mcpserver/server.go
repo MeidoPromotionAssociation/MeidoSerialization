@@ -782,7 +782,7 @@ func cliOnlyOperations() []map[string]any {
 		{
 			"game": "KCES", "file_type": "texture2d", "native_suffixes": []string{".tex", ".texture2d"},
 			"cli_commands": []string{"convert2image", "convert2texture2d"},
-			"detail":       "A native Unity Texture2D primary file is recognized by its class ID rather than by a suffix and has no MCP format. The command line converts it to PNG or DDS and an image back to a native Texture2D. PNG output is upright while DDS passes the Unity block payload through in bottom-up order. convert2texture2d has to keep the original file name and pixel dimensions, because PathIDs are hashed from the canonical file path and atlas textureRect values are absolute pixels, and it always rebuilds inline single-mip RGBA32, so a block-compressed texture grows and loses its mipmaps.",
+			"detail":       "A native Unity Texture2D primary file is recognized by its class ID rather than by a suffix and has no MCP format. The command line converts it to PNG or DDS and an image back to a native Texture2D. PNG output is upright while DDS passes the Unity block payload through in bottom-up order. convert2texture2d has to keep the original file name and pixel dimensions, because PathIDs are hashed from the canonical file path and atlas textureRect values are absolute pixels, and it always rebuilds inline RGBA32 while keeping the original mip level count by default, so a block-compressed texture grows roughly fourfold but keeps its mip chain.",
 		},
 		{
 			"game": "KCES", "file_type": "sprite", "native_suffixes": []string{".sprite"},

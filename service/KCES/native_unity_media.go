@@ -13,6 +13,18 @@ import (
 // NativeUnityMediaService 提供独立 Unity 媒体对象到通用查看格式的转换 / NativeUnityMediaService converts standalone Unity media objects to common viewing formats
 type NativeUnityMediaService struct{}
 
+// Texture2DMipMode 决定 convert2texture2d 重建原生 Texture2D 时写入多少 mip 层 / Texture2DMipMode decides how many mip levels convert2texture2d writes when rebuilding a native Texture2D
+type Texture2DMipMode int
+
+const (
+	// Texture2DMipModeAuto 探测目标原生 Texture2D 声明的 mip 层数并沿用，探测不到时写单层 / Texture2DMipModeAuto probes the mip level count declared by the target native Texture2D and reuses it, writing a single level when nothing can be probed
+	Texture2DMipModeAuto Texture2DMipMode = iota
+	// Texture2DMipModeNone 强制写单层 / Texture2DMipModeNone forces a single level
+	Texture2DMipModeNone
+	// Texture2DMipModeFull 强制生成直到 1×1 的完整 mip 链 / Texture2DMipModeFull forces the full mip chain down to 1×1
+	Texture2DMipModeFull
+)
+
 // IsKCESNativeTexture2DFile 判断文件是否为带内嵌 TypeTree 的 Texture2D 主文件
 // IsKCESNativeTexture2DFile reports whether a file is a primary Texture2D file with an embedded TypeTree
 func IsKCESNativeTexture2DFile(path string) bool {
@@ -86,9 +98,17 @@ func (s *NativeUnityMediaService) ConvertTexture2DToImage(ctx context.Context, i
 	return writeNativeUnityMediaOutput(ctx, outputPath, output, maxOutputBytes)
 }
 
-// ConvertImageToTexture2D 将 PNG 或 JPEG 图像重建为内联 RGBA32 单 mip 的独立 Texture2D 主文件，资源名按输出文件名推断并与纯目录打包规则一致
-// ConvertImageToTexture2D rebuilds a PNG or JPEG image into a standalone Texture2D primary file with inline single-mip RGBA32 data, and the resource name inferred from the output file name matches the pure-directory packing rules
+// ConvertImageToTexture2D 将 PNG 或 JPEG 图像重建为内联 RGBA32 的独立 Texture2D 主文件，mip 层数默认探测并沿用目标原有设置，资源名按输出文件名推断并与纯目录打包规则一致
+// ConvertImageToTexture2D rebuilds a PNG or JPEG image into a standalone Texture2D primary file with inline RGBA32 data, probing and keeping the mip level count of the existing target by default, and the resource name inferred from the output file name matches the pure-directory packing rules
 func (s *NativeUnityMediaService) ConvertImageToTexture2D(ctx context.Context, inputPath string, outputPath string, maxOutputBytes int64) error {
+	return s.ConvertImageToTexture2DWithMipMode(ctx, inputPath, outputPath, Texture2DMipModeAuto, maxOutputBytes)
+}
+
+// ConvertImageToTexture2DWithMipMode 将 PNG 或 JPEG 图像重建为内联 RGBA32 的独立 Texture2D 主文件，并按指定模式决定 mip 层数
+// 重建始终写成 RGBA32，因此原始块压缩格式与 mip 链都无法保留，只能在解码后的像素上重新生成
+// ConvertImageToTexture2DWithMipMode rebuilds a PNG or JPEG image into a standalone Texture2D primary file with inline RGBA32 data and picks the mip level count from the requested mode
+// The rebuild always writes RGBA32, so neither the original block-compressed format nor its mip chain survives and the mip chain can only be regenerated from the decoded pixels
+func (s *NativeUnityMediaService) ConvertImageToTexture2DWithMipMode(ctx context.Context, inputPath string, outputPath string, mipMode Texture2DMipMode, maxOutputBytes int64) error {
 	if ctx != nil {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -102,8 +122,16 @@ func (s *NativeUnityMediaService) ConvertImageToTexture2D(ctx context.Context, i
 	if err != nil {
 		return fmt.Errorf("decode image %q: %w", inputPath, err)
 	}
+	levelCount, err := resolveTexture2DMipLevelCount(mipMode, outputPath, width, height)
+	if err != nil {
+		return err
+	}
+	mips, err := aba.GenerateMipChain(width, height, rgba, levelCount)
+	if err != nil {
+		return fmt.Errorf("generate mip chain for %q: %w", inputPath, err)
+	}
 	name := inferAssetNameForPack(filepath.Base(outputPath))
-	object, err := aba.NewNativeTexture2DObject(name, width, height, rgba)
+	object, err := aba.NewNativeTexture2DObjectWithMips(name, width, height, mips)
 	if err != nil {
 		return fmt.Errorf("build native Texture2D %q: %w", name, err)
 	}
@@ -112,6 +140,40 @@ func (s *NativeUnityMediaService) ConvertImageToTexture2D(ctx context.Context, i
 		return fmt.Errorf("encode native Texture2D %q: %w", name, err)
 	}
 	return writeNativeUnityMediaOutput(ctx, outputPath, output, maxOutputBytes)
+}
+
+// resolveTexture2DMipLevelCount 按模式算出要写入的 mip 层数，auto 模式探测即将被覆盖的那个原生 Texture2D 声明的层数
+// 探测不到时一律按单层处理，包括目标不存在、目标读不出来和目标解析失败三种情况
+// 探测到的层数可能超过新图像尺寸允许的上限，此时收敛到上限
+// resolveTexture2DMipLevelCount derives the mip level count to write for the requested mode, and the auto mode probes the count declared by the native Texture2D that is about to be overwritten
+// Anything that cannot be probed falls back to a single level, covering a missing target, an unreadable one, and one that fails to parse
+// The probed level count can exceed what the new image size allows and is clamped to that limit
+func resolveTexture2DMipLevelCount(mipMode Texture2DMipMode, targetPath string, width int64, height int64) (int32, error) {
+	maxLevels := aba.MaxMipCount(width, height)
+	if maxLevels < 1 {
+		return 0, fmt.Errorf("invalid Texture2D dimensions %dx%d", width, height)
+	}
+	switch mipMode {
+	case Texture2DMipModeNone:
+		return 1, nil
+	case Texture2DMipModeFull:
+		return maxLevels, nil
+	case Texture2DMipModeAuto:
+		existing, err := os.ReadFile(targetPath)
+		if err != nil {
+			return 1, nil
+		}
+		declared, err := aba.NativeTexture2DMipCount(existing)
+		if err != nil {
+			return 1, nil
+		}
+		if declared > maxLevels {
+			return maxLevels, nil
+		}
+		return declared, nil
+	default:
+		return 0, fmt.Errorf("unsupported Texture2D mip mode %d", int(mipMode))
+	}
 }
 
 // ExtractAudioClip 将独立 AudioClip 中已内联的原始音频载荷写出，不进行有损转码

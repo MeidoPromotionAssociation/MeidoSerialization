@@ -129,6 +129,144 @@ func TestConvertImageToTexture2DRespectsOutputLimit(t *testing.T) {
 	}
 }
 
+func readTestMipCount(t *testing.T, path string) int32 {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	object, err := aba.ReadTexture2D(data)
+	if err != nil {
+		t.Fatalf("ReadTexture2D: %v", err)
+	}
+	af, info, err := object.AssetsFileView()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tex, err := af.GetTexture2DDataRange(info, nil)
+	if err != nil {
+		t.Fatalf("GetTexture2DDataRange: %v", err)
+	}
+	wantSize := aba.MipChainSize(int64(tex.Width), int64(tex.Height), tex.MipCount)
+	if int64(len(tex.ImageData)) != wantSize {
+		t.Fatalf("image data is %d bytes but a %d level chain of %dx%d needs %d", len(tex.ImageData), tex.MipCount, tex.Width, tex.Height, wantSize)
+	}
+	return tex.MipCount
+}
+
+func TestConvertImageToTexture2DMipModes(t *testing.T) {
+	tests := []struct {
+		name     string
+		mode     Texture2DMipMode
+		wantMips int32
+	}{
+		{name: "none", mode: Texture2DMipModeNone, wantMips: 1},
+		{name: "full", mode: Texture2DMipModeFull, wantMips: 4},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			pngPath := filepath.Join(tmpDir, "sample.png")
+			texPath := filepath.Join(tmpDir, "sample.tex")
+			writeTestPNG(t, pngPath, 8, 8)
+
+			service := &NativeUnityMediaService{}
+			if err := service.ConvertImageToTexture2DWithMipMode(context.Background(), pngPath, texPath, tc.mode, 1<<20); err != nil {
+				t.Fatalf("ConvertImageToTexture2DWithMipMode: %v", err)
+			}
+			if got := readTestMipCount(t, texPath); got != tc.wantMips {
+				t.Fatalf("mip count = %d, want %d", got, tc.wantMips)
+			}
+		})
+	}
+}
+
+func TestConvertImageToTexture2DDefaultsToNewFileSingleMip(t *testing.T) {
+	tmpDir := t.TempDir()
+	pngPath := filepath.Join(tmpDir, "fresh.png")
+	texPath := filepath.Join(tmpDir, "fresh.tex")
+	writeTestPNG(t, pngPath, 8, 8)
+
+	service := &NativeUnityMediaService{}
+	if err := service.ConvertImageToTexture2D(context.Background(), pngPath, texPath, 1<<20); err != nil {
+		t.Fatalf("ConvertImageToTexture2D: %v", err)
+	}
+	if got := readTestMipCount(t, texPath); got != 1 {
+		t.Fatalf("mip count = %d, want 1 for a target that did not exist", got)
+	}
+}
+
+func TestConvertImageToTexture2DPreservesExistingMipCount(t *testing.T) {
+	tmpDir := t.TempDir()
+	pngPath := filepath.Join(tmpDir, "sample.png")
+	texPath := filepath.Join(tmpDir, "sample.tex")
+	writeTestPNG(t, pngPath, 8, 8)
+
+	service := &NativeUnityMediaService{}
+	if err := service.ConvertImageToTexture2DWithMipMode(context.Background(), pngPath, texPath, Texture2DMipModeFull, 1<<20); err != nil {
+		t.Fatalf("seed with a full chain: %v", err)
+	}
+	if got := readTestMipCount(t, texPath); got != 4 {
+		t.Fatalf("seeded mip count = %d, want 4", got)
+	}
+
+	if err := service.ConvertImageToTexture2D(context.Background(), pngPath, texPath, 1<<20); err != nil {
+		t.Fatalf("ConvertImageToTexture2D: %v", err)
+	}
+	if got := readTestMipCount(t, texPath); got != 4 {
+		t.Fatalf("preserved mip count = %d, want 4", got)
+	}
+}
+
+func TestConvertImageToTexture2DClampsMipCountToImageSize(t *testing.T) {
+	tmpDir := t.TempDir()
+	largePath := filepath.Join(tmpDir, "sample.png")
+	smallPath := filepath.Join(tmpDir, "small.png")
+	texPath := filepath.Join(tmpDir, "sample.tex")
+	writeTestPNG(t, largePath, 8, 8)
+	writeTestPNG(t, smallPath, 2, 2)
+
+	service := &NativeUnityMediaService{}
+	if err := service.ConvertImageToTexture2DWithMipMode(context.Background(), largePath, texPath, Texture2DMipModeFull, 1<<20); err != nil {
+		t.Fatalf("seed with a full chain: %v", err)
+	}
+	if err := service.ConvertImageToTexture2D(context.Background(), smallPath, texPath, 1<<20); err != nil {
+		t.Fatalf("ConvertImageToTexture2D: %v", err)
+	}
+	if got := readTestMipCount(t, texPath); got != 2 {
+		t.Fatalf("clamped mip count = %d, want 2 for a 2x2 image", got)
+	}
+}
+
+func TestConvertImageToTexture2DFallsBackToSingleMipOnUnreadableTarget(t *testing.T) {
+	tmpDir := t.TempDir()
+	pngPath := filepath.Join(tmpDir, "sample.png")
+	texPath := filepath.Join(tmpDir, "sample.tex")
+	writeTestPNG(t, pngPath, 4, 4)
+	if err := os.WriteFile(texPath, []byte("not a native Unity object"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	service := &NativeUnityMediaService{}
+	if err := service.ConvertImageToTexture2D(context.Background(), pngPath, texPath, 1<<20); err != nil {
+		t.Fatalf("ConvertImageToTexture2D: %v", err)
+	}
+	if got := readTestMipCount(t, texPath); got != 1 {
+		t.Fatalf("mip count = %d, want 1 when the existing target cannot be probed", got)
+	}
+}
+
+func TestConvertImageToTexture2DRejectsUnknownMipMode(t *testing.T) {
+	tmpDir := t.TempDir()
+	pngPath := filepath.Join(tmpDir, "sample.png")
+	writeTestPNG(t, pngPath, 4, 4)
+
+	service := &NativeUnityMediaService{}
+	if err := service.ConvertImageToTexture2DWithMipMode(context.Background(), pngPath, filepath.Join(tmpDir, "sample.tex"), Texture2DMipMode(99), 1<<20); err == nil {
+		t.Fatal("an unknown mip mode was accepted")
+	}
+}
+
 func TestPackDirectoryRecognizesNativeTexture2DOutsideTypeDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 	contentDir := filepath.Join(tmpDir, "mod_root")

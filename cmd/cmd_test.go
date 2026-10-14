@@ -38,6 +38,7 @@ func executeCommand(root *cobra.Command, args ...string) (output string, err err
 	neiFormatFlag = "auto"
 	convertNeiFormatFlag = "auto"
 	outputFormat = "png"
+	texture2dMipModeFlag = "auto"
 
 	// Also capture stdout as many parts of the code use fmt.Printf
 	old := os.Stdout
@@ -1495,6 +1496,74 @@ func TestConvert2Texture2DUpdatesEverySameNamedNativeTexture(t *testing.T) {
 		if got := decodeCmdTestImage(t, renderCmdTestTexToPNG(t, path)); !bytes.Equal(got, want) {
 			t.Fatalf("expected %s to be updated to the 4x2 image", path)
 		}
+	}
+}
+
+// cmdTestMipCount 读出原生 Texture2D 的 mip 层数，并顺带校验载荷长度等于整条链
+// cmdTestMipCount reads back a native Texture2D mip level count and checks that the payload length equals the whole chain
+func cmdTestMipCount(t *testing.T, path string) int32 {
+	t.Helper()
+	object, err := aba.ReadTexture2D(mustReadFile(t, path))
+	if err != nil {
+		t.Fatalf("ReadTexture2D: %v", err)
+	}
+	af, info, err := object.AssetsFileView()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tex, err := af.GetTexture2DDataRange(info, nil)
+	if err != nil {
+		t.Fatalf("GetTexture2DDataRange: %v", err)
+	}
+	want := aba.MipChainSize(int64(tex.Width), int64(tex.Height), tex.MipCount)
+	if int64(len(tex.ImageData)) != want {
+		t.Fatalf("image data is %d bytes but a %d level chain of %dx%d needs %d", len(tex.ImageData), tex.MipCount, tex.Width, tex.Height, want)
+	}
+	return tex.MipCount
+}
+
+// TestConvert2Texture2DMipmapFlag 固定 --mipmap 三种取值的行为
+// auto 是默认值并探测被覆盖文件原有的层数，none 强制单层，full 生成直到 1×1 的完整链
+// TestConvert2Texture2DMipmapFlag pins the behaviour of the three --mipmap values
+// auto is the default and probes the level count of the file being overwritten, none forces a single level, and full generates the chain down to 1x1
+func TestConvert2Texture2DMipmapFlag(t *testing.T) {
+	tempDir := t.TempDir()
+	pngPath := filepath.Join(tempDir, "body.png")
+	texPath := filepath.Join(tempDir, "body.tex")
+	writeCmdTestPNG(t, pngPath, 8, 8)
+
+	if _, err := executeCommand(RootCmd, "convert2texture2d", pngPath, "--mipmap", "full"); err != nil {
+		t.Fatalf("convert2texture2d --mipmap full failed: %v", err)
+	}
+	if got := cmdTestMipCount(t, texPath); got != 4 {
+		t.Fatalf("mip count after --mipmap full = %d, want 4 for an 8x8 image", got)
+	}
+
+	// 默认 auto 必须探测到上一步写下的层数并沿用，而不是退回单层
+	if _, err := executeCommand(RootCmd, "convert2texture2d", pngPath); err != nil {
+		t.Fatalf("convert2texture2d failed: %v", err)
+	}
+	if got := cmdTestMipCount(t, texPath); got != 4 {
+		t.Fatalf("mip count after the default run = %d, want the probed 4", got)
+	}
+
+	// 显式写 auto 与默认值等价
+	if _, err := executeCommand(RootCmd, "convert2texture2d", pngPath, "--mipmap", "auto"); err != nil {
+		t.Fatalf("convert2texture2d --mipmap auto failed: %v", err)
+	}
+	if got := cmdTestMipCount(t, texPath); got != 4 {
+		t.Fatalf("mip count after --mipmap auto = %d, want the probed 4", got)
+	}
+
+	if _, err := executeCommand(RootCmd, "convert2texture2d", pngPath, "--mipmap", "none"); err != nil {
+		t.Fatalf("convert2texture2d --mipmap none failed: %v", err)
+	}
+	if got := cmdTestMipCount(t, texPath); got != 1 {
+		t.Fatalf("mip count after --mipmap none = %d, want 1", got)
+	}
+
+	if _, err := executeCommand(RootCmd, "convert2texture2d", pngPath, "--mipmap", "bogus"); err == nil {
+		t.Fatal("an unknown --mipmap value was accepted")
 	}
 }
 

@@ -191,6 +191,9 @@ MeidoSerialization.exe convert2tex .\texture.png --compress
 
 # PNG or JPEG -> native KCES Texture2D (rebuilt as inline RGBA32)
 MeidoSerialization.exe convert2texture2d .\my_texture.png
+
+# Same, but force the full mip chain down to 1x1
+MeidoSerialization.exe convert2texture2d .\my_texture.png --mipmap full
 ```
 
 `convert2tex` writes TEX version 1010 unless a valid sibling `.uv.csv` supplies version-1011 atlas rectangles. See
@@ -201,6 +204,13 @@ A `.tex` file holds either a COM3D2 TEX or a native KCES Texture2D, and both are
 writers stay separate: `convert2tex` always emits COM3D2 TEX and `convert2texture2d` always rebuilds a native KCES
 Texture2D. The generic `convert` command resolves the ambiguity by writing the image back in the format of the
 same-named sibling it is about to overwrite, and falls back to COM3D2 TEX when there is none.
+
+`--mipmap` controls the mip chain of the rebuilt texture. `auto` is the default and probes the level count declared
+by the file being overwritten, `none` forces a single level, and `full` generates the chain down to 1x1. Anything
+`auto` cannot probe, whether the target is missing, unreadable, or unparseable, is treated as a single level. The
+chain is always regenerated from the edited pixels with a box filter, because the original levels describe the
+pre-edit image and would be wrong once the base level changes. A level count larger than the new pixel dimensions
+allow is clamped to that limit. The generic `convert` command always uses `auto`.
 
 #### Editing a Sprite
 
@@ -233,8 +243,11 @@ Four constraints apply:
   texture misplaces every sprite packed into it.
 - **An atlas texture is shared.** One atlas commonly backs hundreds or thousands of sprites, so edit only the
   region belonging to the sprite you want to change.
-- **The format degrades.** `convert2texture2d` always rebuilds inline single-mip RGBA32, so a BC7 atlas grows
-  roughly fourfold and loses its mipmaps.
+- **The format degrades.** `convert2texture2d` always rebuilds inline RGBA32, so a BC7 atlas grows roughly
+  fourfold. No mipmaps are lost: the default `--mipmap auto` keeps the level count of the file being
+  overwritten, and every official atlas texture ships with `m_MipCount` 1, so an atlas has no mipmaps to begin
+  with. Textures that do carry a chain, such as the DXT1 and DXT5 backgrounds, keep their level count and get it
+  regenerated from the edited pixels.
 
 A Sprite that references a Texture2D directly instead of an atlas follows the same rules, minus the sharing
 concern. The editing PNG can stay in the directory; `packAba` recognizes it as a derived file and skips it.
@@ -441,8 +454,9 @@ MeidoSerialization.exe convert2texture2d .\aba_files\Texture2D\my_texture.png
 MeidoSerialization.exe packAba .\aba_files -o my_mod
 ```
 
-`convert2texture2d` has to keep the original file name and pixel dimensions, and it always rebuilds inline
-single-mip RGBA32. See [Editing a Sprite](#editing-a-sprite) for why, and for how the same route changes a Sprite.
+`convert2texture2d` has to keep the original file name and pixel dimensions, and it always rebuilds inline RGBA32
+while keeping the original mip level count by default. See [Editing a Sprite](#editing-a-sprite) for why, and for
+how the same route changes a Sprite.
 
 KCES 1.34.5 reads a parts container only from a file named exactly `<aba_name>.menuassets` or
 `<aba_name>.materialassets`, and it compares that name case-sensitively against entries it registered in lowercase.
@@ -933,6 +947,9 @@ notepad .\body.menu.json
 
 # PNG 或 JPEG -> 原生 KCES Texture2D（重建为内联 RGBA32）
 .\MeidoSerialization.exe convert2texture2d .\my_texture.png
+
+# 同上，但强制生成直到 1×1 的完整 mip 链
+.\MeidoSerialization.exe convert2texture2d .\my_texture.png --mipmap full
 ~~~
 
 `convert2tex` 默认写出 TEX 1010。只有旁边存在有效的 `.uv.csv` 图集矩形信息时，才会写出
@@ -942,6 +959,11 @@ notepad .\body.menu.json
 `.tex` 既可能是 COM3D2 的 TEX，也可能是 KCES 的原生 Texture2D，两者都按内容识别。写出方向保持分开：`convert2tex`
 总是写出 COM3D2 TEX，`convert2texture2d` 总是重建 KCES 原生 Texture2D。泛用 `convert` 命令则通过「回写成即将被覆盖的
 同名文件原本的格式」来消除这种二义性，没有同名文件时回落到 COM3D2 TEX。
+
+`--mipmap` 控制重建后贴图的 mip 链。默认值 `auto` 探测即将被覆盖的那个文件声明的层数，`none` 强制单层，`full`
+生成直到 1×1 的完整链。`auto` 探测不到的一律按单层处理，包括目标不存在、目标读不出来和目标解析失败三种情况。mip
+链一律用盒式滤波从编辑后的像素重新生成，因为原有各级描述的是编辑前的图像，基准层一变它们就不再成立。层数超过新像素
+尺寸允许的上限时会收敛到上限。泛用 `convert` 命令固定使用 `auto`。
 
 #### 修改 Sprite
 
@@ -969,7 +991,9 @@ Sprite 对象本身不存像素，因此 `convert2image` 对 Sprite 是单向的
   会覆盖同基名的现有 `.tex` 或 `.texture2d` 正是为此，新建一个不同名的文件会让引用断掉。
 - **不要改像素尺寸。** 图集里每个 `textureRect` 都是绝对像素坐标，改尺寸会让共用该贴图的所有 sprite 全部错位。
 - **图集贴图是共用的。** 一张图集通常承载几百到上千个 sprite，因此只应修改目标 sprite 所占的那块区域。
-- **格式会退化。** `convert2texture2d` 固定重建为内联单 mip RGBA32，因此 BC7 图集体积约增至四倍并丢失 mipmap。
+- **格式会退化。** `convert2texture2d` 固定重建为内联 RGBA32，因此 BC7 图集体积约增至四倍。mipmap 不会丢：默认的
+  `--mipmap auto` 沿用被覆盖文件原有的层数，而官方图集贴图全部是 `m_MipCount` 1，本来就没有 mipmap 可丢。真正
+  带链的贴图（例如 DXT1 与 DXT5 背景图）会保留原有层数，并用编辑后的像素重新生成整条链。
 
 直接引用 Texture2D 而不经过图集的 Sprite 同样适用以上规则，只是不涉及共用问题。用于编辑的 PNG 可以留在目录里，`packAba` 会将其识别为派生文件并跳过。
 
@@ -1174,8 +1198,8 @@ PNG 并编辑，然后转换回原生 Texture2D，这样重新打包时才能带
 .\MeidoSerialization.exe packAba .\aba_files -o my_mod
 ~~~
 
-`convert2texture2d` 必须保持原文件名和像素尺寸不变，且固定重建为内联单 mip RGBA32。原因以及如何用同一条路径修改
-Sprite，见[修改 Sprite](#修改-sprite)。
+`convert2texture2d` 必须保持原文件名和像素尺寸不变，且固定重建为内联 RGBA32，默认沿用原有的 mip 层数。原因以及
+如何用同一条路径修改 Sprite，见[修改 Sprite](#修改-sprite)。
 
 KCES 1.34.5 只从名字恰好为 `<aba名>.menuassets` 或 `<aba名>.materialassets` 的文件读取部件容器，而且这个名字会
 与它按小写登记的条目做区分大小写的比较。因此 `-o` 指定的输出名必须全小写，并与包内的容器文件名一致（也可以
@@ -1668,6 +1692,9 @@ ImageMagick を起動することはありません。suffix は image に見え
 
 # PNG または JPEG -> ネイティブ KCES Texture2D（インライン RGBA32 として再構築）
 .\MeidoSerialization.exe convert2texture2d .\my_texture.png
+
+# 同上。ただし 1×1 までの完全な mip chain を強制生成
+.\MeidoSerialization.exe convert2texture2d .\my_texture.png --mipmap full
 ~~~
 
 `convert2tex` は通常 TEX 1010 を書き出します。有効な隣接 `.uv.csv` に 1011 atlas rectangle がある場合のみ 1011 を生成します。詳細は
@@ -1677,6 +1704,13 @@ ImageMagick を起動することはありません。suffix は image に見え
 `.tex` は COM3D2 の TEX である場合と KCES の native Texture2D である場合があり、どちらも内容から識別されます。書き出し側は分かれたままで、`convert2tex`
 は常に COM3D2 TEX を、`convert2texture2d` は常に KCES native Texture2D を生成します。汎用 `convert`
 コマンドは「上書きしようとしている同名ファイル本来の形式で書き戻す」ことでこの曖昧さを解消し、同名ファイルがない場合は COM3D2 TEX にフォールバックします。
+
+`--mipmap` は再構築後のテクスチャの mip chain を制御します。既定の `auto` は上書きしようとしているファイルが
+宣言しているレベル数を引き継ぎ、`none` は単一レベルを強制し、`full` は 1×1 までの完全な chain を生成します。`auto`
+で検出できない場合はすべて単一レベルとして扱われ、対象が存在しない・読み出せない・解析できないの 3 通りを含みます。mip
+chain は常に編集後のピクセルから box filter で再生成されます。元の各レベルは編集前の画像を表しており、基準レベルが
+変われば成立しなくなるためです。レベル数が新しいピクセルサイズの上限を超える場合は上限に丸められます。汎用 `convert`
+コマンドは常に `auto` を使います。
 
 #### Sprite の編集
 
@@ -1709,8 +1743,10 @@ Sprite の見た目を変更するには、参照先の Texture2D を編集し�
   を共有するすべての sprite がずれます。
 - **atlas texture は共有されています。** 1 枚の atlas が数百から数千の sprite を担うことが多いため、変更したい sprite
   が占める領域だけを編集してください。
-- **フォーマットが劣化します。** `convert2texture2d` は常にインライン単一 mip の RGBA32 として再構築するため、BC7 atlas
-  はおよそ 4 倍に膨らみ mipmap を失います。
+- **フォーマットが劣化します。** `convert2texture2d` は常にインライン RGBA32 として再構築するため、BC7 atlas は
+  およそ 4 倍に膨らみます。mipmap は失われません。既定の `--mipmap auto` が上書きするファイルのレベル数を引き継ぎ、
+  公式の atlas texture はすべて `m_MipCount` が 1 でそもそも mipmap を持たないためです。chain を持つ texture（DXT1 や
+  DXT5 の背景など）はレベル数を保ったまま、編集後のピクセルから再生成されます。
 
 atlas を経由せず Texture2D を直接参照する Sprite にも同じ規則が当てはまりますが、共有の問題はありません。編集用の PNG
 はディレクトリに残しておいて構いません。`packAba` は派生ファイルとして認識してスキップします。
@@ -1915,8 +1951,9 @@ CSV は RFC 4180 形式いカンマ区切りで、BOM 付き UTF-8 として読�
 .\MeidoSerialization.exe packAba .\aba_files -o my_mod
 ~~~
 
-`convert2texture2d` は元のファイル名とピクセルサイズを保つ必要があり、常にインライン単一 mip の RGBA32
-として再構築します。その理由と、同じ経路で Sprite を変更する方法は [Sprite の編集](#sprite-の編集)を参照してください。
+`convert2texture2d` は元のファイル名とピクセルサイズを保つ必要があり、常にインライン RGBA32 として再構築し、
+既定では元の mip レベル数を引き継ぎます。その理由と、同じ経路で Sprite を変更する方法は
+[Sprite の編集](#sprite-の編集)を参照してください。
 
 KCES 1.34.5 は `<aba名>.menuassets` または `<aba名>.materialassets` という名前のファイルからのみパーツ container
 を読み込み、その名前を小文字で登録されたエントリと大文字小文字を区別して比較します。そのため `-o` に渡す出力名は

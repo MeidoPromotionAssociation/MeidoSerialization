@@ -17,7 +17,7 @@ func TestEncodeTexture2DDataMatchesRealUnity2022KCESTypeTree(t *testing.T) {
 		0xff, 0xff, 0xff, 0x00,
 	}
 	tt := sampleTypeTree(t, "parts_bcc4_gp003_2.aba", ClassIDTexture2D)
-	data, err := encodeTexture2DData("2022.3.35f", "layout_test.tex", 2, 2, pixels)
+	data, err := encodeTexture2DData("2022.3.35f", "layout_test.tex", 2, 2, [][]byte{pixels})
 	if err != nil {
 		t.Fatalf("encodeTexture2DData: %v", err)
 	}
@@ -221,7 +221,7 @@ func TestSerializedFileWriterRejectsInvalidTextureAndUnsupportedUnityLine(t *tes
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := encodeTexture2DData(tc.version, "invalid.tex", tc.width, tc.height, tc.imageData); err == nil {
+			if _, err := encodeTexture2DData(tc.version, "invalid.tex", tc.width, tc.height, [][]byte{tc.imageData}); err == nil {
 				t.Fatal("encodeTexture2DData unexpectedly succeeded")
 			}
 		})

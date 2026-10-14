@@ -1,6 +1,9 @@
 package aba
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // ReadMMesh 读取 ClassID 43 Mesh 独立对象文件
 // ReadMMesh reads a standalone ClassID 43 Mesh object file
@@ -101,12 +104,45 @@ func WriteMonoBehaviour(object *NativeUnityObject) ([]byte, error) {
 // NewNativeTexture2DObject 从自上而下的 RGBA32 像素构建自带 Unity 2022.3 内置 TypeTree 的独立 Texture2D 对象，图像数据翻转为 Unity 自下而上行序后内联为单 mip RGBA32
 // NewNativeTexture2DObject builds a standalone Texture2D object carrying the Unity 2022.3 built-in TypeTree from top-down RGBA32 pixels, inlining the image data as a single RGBA32 mip after flipping it into Unity's bottom-up row order
 func NewNativeTexture2DObject(name string, width int64, height int64, rgba []byte) (*NativeUnityObject, error) {
-	data, err := encodeTexture2DData("2022.3.35f1", name, width, height, FlipRGBA32Rows(width, height, rgba))
+	return NewNativeTexture2DObjectWithMips(name, width, height, [][]byte{rgba})
+}
+
+// NewNativeTexture2DObjectWithMips 从自上而下的 RGBA32 mip 链构建自带 Unity 2022.3 内置 TypeTree 的独立 Texture2D 对象，mips 第 0 级为全分辨率，逐级翻转后按 Unity 布局内联
+// NewNativeTexture2DObjectWithMips builds a standalone Texture2D object carrying the Unity 2022.3 built-in TypeTree from a top-down RGBA32 mip chain, flipping every level of the chain whose level 0 is the full resolution and inlining them in the Unity layout
+func NewNativeTexture2DObjectWithMips(name string, width int64, height int64, mips [][]byte) (*NativeUnityObject, error) {
+	data, err := encodeTexture2DData("2022.3.35f1", name, width, height, FlipRGBA32MipChain(width, height, mips))
 	if err != nil {
 		return nil, err
 	}
 	tree := unity2022Texture2DTypeTree()
 	return &NativeUnityObject{ClassID: ClassIDTexture2D, BigEndian: false, TypeTree: tree, Data: data}, nil
+}
+
+// NativeTexture2DMipCount 读取独立 Texture2D 主文件声明的 mip 层数，字段缺失或非正值时按单层返回
+// 该函数只解析元数据，不读取像素，因此对 m_StreamData 指向外部 sidecar 的贴图同样适用
+// NativeTexture2DMipCount reads the mip level count declared by a standalone Texture2D primary file, falling back to a single level when the field is missing or not positive
+// It parses metadata only and never reads pixels, so it also works for textures whose m_StreamData points into an external sidecar
+func NativeTexture2DMipCount(data []byte) (int32, error) {
+	object, err := ReadTexture2D(data)
+	if err != nil {
+		return 0, err
+	}
+	af, info, err := object.AssetsFileView()
+	if err != nil {
+		return 0, err
+	}
+	root, err := af.ReadAssetValue(info)
+	if err != nil {
+		return 0, err
+	}
+	mipCount, ok := root.Field("m_MipCount").Int64()
+	if !ok || mipCount < 1 {
+		return 1, nil
+	}
+	if mipCount > int64(math.MaxInt32) {
+		return 0, fmt.Errorf("Texture2D m_MipCount %d exceeds Int32 range", mipCount)
+	}
+	return int32(mipCount), nil
 }
 
 // readNativeUnityObjectClass 读取独立对象并验证精确 ClassID
