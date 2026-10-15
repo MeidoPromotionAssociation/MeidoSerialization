@@ -7,6 +7,20 @@ import (
 
 const unity2022DefaultMeshCookingOptions int32 = 30
 
+// unity2022MeshRootNodeVersion 是官方 Unity 2022.3 Mesh TypeTree 根节点的 Version
+// 旧版 KCES 样本的该字段为 10，迁移必须一并提升到 11，否则迁移树与官方树不一致，推导出的 TypeHash 也对不上官方哈希
+// unity2022MeshRootNodeVersion is the Version carried by the root node of the official Unity 2022.3 Mesh TypeTree
+// Legacy KCES samples carry 10 in that field, so the migration must raise it to 11; otherwise the migrated tree diverges from the official tree and its derived TypeHash cannot match the official hash
+const unity2022MeshRootNodeVersion uint16 = 11
+
+// unity2022AnimationClipRootNodeVersion 是官方 Unity 2022.3 AnimationClip TypeTree 根节点的 Version，旧版 KCES 样本为 6
+// unity2022AnimationClipRootNodeVersion is the Version carried by the root node of the official Unity 2022.3 AnimationClip TypeTree, while legacy KCES samples carry 6
+const unity2022AnimationClipRootNodeVersion uint16 = 7
+
+// unity2022AnimationClipNestedNodeVersion 是官方 Unity 2022.3 AnimationClip 中 FloatCurve、PPtrCurve 与 StreamedClip 节点提升后的 Version，旧版 KCES 样本为 1
+// unity2022AnimationClipNestedNodeVersion is the raised Version carried by the FloatCurve, PPtrCurve, and StreamedClip nodes of the official Unity 2022.3 AnimationClip, while legacy KCES samples carry 1
+const unity2022AnimationClipNestedNodeVersion uint16 = 2
+
 // EncodeAssetValueForUnity2022 将已解码对象迁移到 Unity 2022.3 内置类型布局并按对象字节序重新编码
 // EncodeAssetValueForUnity2022 migrates a decoded object to the Unity 2022.3 built-in type layout and re-encodes it using the object's byte order
 func (af *AssetsFile) EncodeAssetValueForUnity2022(info *AssetInfo, root *TypeTreeValue) ([]byte, bool, error) {
@@ -39,7 +53,11 @@ func (af *AssetsFile) EncodeAssetValueAndTypeTreeForUnity2022(info *AssetInfo, r
 		data, err := af.EncodeAssetValue(info, root)
 		return data, targetTree, false, err
 	}
-	targetTree.TypeHash = [16]byte{}
+	// 迁移树对齐官方 2022.3 布局后，TypeHash 必须由节点表重新推导
+	// 置零会让 Unity 放弃原生布局快路径，而推导值在迁移产出与官方树一致时恰好等于官方哈希
+	// After the migrated tree matches the official 2022.3 layout the TypeHash must be re-derived from the node table
+	// A zeroed hash makes Unity skip the native-layout fast path, while the derived value equals the official hash exactly when the migration reproduces the official tree
+	targetTree.TypeHash = targetTree.ComputeTypeHash()
 
 	targetFile := *af
 	targetFile.Metadata = af.Metadata
@@ -153,6 +171,9 @@ func normalizeMeshForUnity2022(tree *TypeTreeType, root *TypeTreeValue) (bool, e
 		return false, err
 	}
 	insertTypeTreeNodes(tree, skipSubtree(tree, usageNodeIndex), []TypeTreeNode{cookingNode})
+	// 根节点是节点表的首项，官方 2022.3 把它提升到 11，迁移必须同步，否则迁移树无法与官方树全等
+	// The root node is the first entry of the node table, and official 2022.3 raises it to 11; the migration must follow or the migrated tree cannot match the official tree
+	tree.Nodes[0].Version = unity2022MeshRootNodeVersion
 	insertChildValue(root, usageIndex+1, &TypeTreeValue{
 		TypeName: "int",
 		Name:     "m_CookingOptions",
@@ -202,14 +223,26 @@ func normalizeSpriteForUnity2022(tree *TypeTreeType, root *TypeTreeValue) (bool,
 	return true, nil
 }
 
-// normalizeAnimationClipForUnity2022 补入 Unity 2022.3 为曲线和绑定新增的零值标志字段
-// normalizeAnimationClipForUnity2022 inserts the zero-valued curve and binding flags added by Unity 2022.3
+// normalizeAnimationClipForUnity2022 把旧版 AnimationClip 迁移到 Unity 2022.3 布局
+// 迁移内容：FloatCurve 与 PPtrCurve 补 flags；StreamedClip 把 curveCount 由 unsigned int 收窄为 UInt16 并补 discreteCurveCount；
+// GenericBinding 补 isIntCurve 与 isSerializeReferenceCurve；相关节点 Version 提升到官方 2022.3 取值
+// normalizeAnimationClipForUnity2022 migrates a legacy AnimationClip to the Unity 2022.3 layout
+// It adds flags to FloatCurve and PPtrCurve, narrows StreamedClip curveCount from unsigned int to UInt16 while appending discreteCurveCount,
+// adds isIntCurve and isSerializeReferenceCurve to GenericBinding, and raises the affected node Versions to their official 2022.3 values
 func normalizeAnimationClipForUnity2022(tree *TypeTreeType, root *TypeTreeValue) (bool, error) {
+	if tree == nil || len(tree.Nodes) == 0 {
+		return false, fmt.Errorf("AnimationClip TypeTree has no nodes")
+	}
 	changed := false
+
 	for _, typeName := range []string{"FloatCurve", "PPtrCurve"} {
 		parentIndex, ok := findTypeTreeNodeByType(tree, typeName)
 		if !ok {
 			return false, fmt.Errorf("AnimationClip TypeTree has no %s", typeName)
+		}
+		if tree.Nodes[parentIndex].Version < unity2022AnimationClipNestedNodeVersion {
+			tree.Nodes[parentIndex].Version = unity2022AnimationClipNestedNodeVersion
+			changed = true
 		}
 		_, _, hasFlags := findDirectTypeTreeChild(tree, parentIndex, "int", "flags")
 		if hasFlags {
@@ -230,36 +263,134 @@ func normalizeAnimationClipForUnity2022(tree *TypeTreeType, root *TypeTreeValue)
 		changed = true
 	}
 
+	streamedChanged, err := normalizeStreamedClipForUnity2022(tree, root)
+	if err != nil {
+		return false, err
+	}
+	if streamedChanged {
+		changed = true
+	}
+
 	bindingIndex, ok := findTypeTreeNodeByType(tree, "GenericBinding")
 	if !ok {
 		return false, fmt.Errorf("AnimationClip TypeTree has no GenericBinding")
 	}
-	_, _, hasIntCurve := findDirectTypeTreeChild(tree, bindingIndex, "UInt8", "isIntCurve")
-	if !hasIntCurve {
+	if _, _, hasIntCurve := findDirectTypeTreeChild(tree, bindingIndex, "UInt8", "isIntCurve"); !hasIntCurve {
 		pptrIndex, pptrEnd, hasPPtr := findDirectTypeTreeChild(tree, bindingIndex, "UInt8", "isPPtrCurve")
 		if !hasPPtr {
 			return false, fmt.Errorf("AnimationClip GenericBinding has no isPPtrCurve field")
 		}
+		// 官方 2022.3 把 AlignBytes 从 isPPtrCurve 移到新增的末位字节字段 isSerializeReferenceCurve，isIntCurve 自身不带该标志
+		// Official 2022.3 moves AlignBytes from isPPtrCurve onto the added trailing byte field isSerializeReferenceCurve, leaving isIntCurve without that flag
 		intCurveNode := tree.Nodes[pptrIndex]
-		intCurveNode.MetaFlags |= 0x4000
+		intCurveNode.MetaFlags &^= typeHashAlignFlag
 		if err := setTypeTreeNodeName(tree, &intCurveNode, "isIntCurve"); err != nil {
 			return false, err
 		}
-		tree.Nodes[pptrIndex].MetaFlags &^= 0x4000
-		insertTypeTreeNodes(tree, pptrEnd, []TypeTreeNode{intCurveNode})
+		serializeReferenceNode := tree.Nodes[pptrIndex]
+		serializeReferenceNode.MetaFlags |= typeHashAlignFlag
+		if err := setTypeTreeNodeName(tree, &serializeReferenceNode, "isSerializeReferenceCurve"); err != nil {
+			return false, err
+		}
+		tree.Nodes[pptrIndex].MetaFlags &^= typeHashAlignFlag
+		insertTypeTreeNodes(tree, pptrEnd, []TypeTreeNode{intCurveNode, serializeReferenceNode})
 		if tree.Nodes[bindingIndex].ByteSize >= 0 {
-			if tree.Nodes[bindingIndex].ByteSize == math.MaxInt32 {
+			if tree.Nodes[bindingIndex].ByteSize > math.MaxInt32-2 {
 				return false, fmt.Errorf("AnimationClip GenericBinding byte size exceeds Int32 range")
 			}
-			tree.Nodes[bindingIndex].ByteSize++
+			tree.Nodes[bindingIndex].ByteSize += 2
 		}
 		patchValuesByType(root, "GenericBinding", func(value *TypeTreeValue) {
 			pptrValueIndex := childValueIndex(value, "isPPtrCurve")
 			insertChildValue(value, pptrValueIndex+1, &TypeTreeValue{TypeName: "UInt8", Name: "isIntCurve", Value: int64(0)})
+			insertChildValue(value, pptrValueIndex+2, &TypeTreeValue{TypeName: "UInt8", Name: "isSerializeReferenceCurve", Value: int64(0)})
 		})
 		changed = true
 	}
+
+	if tree.Nodes[0].Version < unity2022AnimationClipRootNodeVersion {
+		tree.Nodes[0].Version = unity2022AnimationClipRootNodeVersion
+		changed = true
+	}
 	return changed, nil
+}
+
+// normalizeStreamedClipForUnity2022 把 StreamedClip 迁移到 Unity 2022.3 布局
+// 2022.3 把 curveCount 由 unsigned int 收窄为 UInt16，并在其后新增 UInt16 discreteCurveCount
+// normalizeStreamedClipForUnity2022 migrates StreamedClip to the Unity 2022.3 layout
+// Version 2022.3 narrows curveCount from unsigned int to UInt16 and appends a UInt16 discreteCurveCount after it
+func normalizeStreamedClipForUnity2022(tree *TypeTreeType, root *TypeTreeValue) (bool, error) {
+	streamedIndex, ok := findTypeTreeNodeByType(tree, "StreamedClip")
+	if !ok {
+		return false, fmt.Errorf("AnimationClip TypeTree has no StreamedClip")
+	}
+	changed := false
+
+	curveCountIndex, curveCountEnd, isLegacyCurveCount := findDirectTypeTreeChild(tree, streamedIndex, "unsigned int", "curveCount")
+	if !isLegacyCurveCount {
+		var found bool
+		curveCountIndex, curveCountEnd, found = findDirectTypeTreeChild(tree, streamedIndex, "UInt16", "curveCount")
+		if !found {
+			return false, fmt.Errorf("AnimationClip StreamedClip has no curveCount field")
+		}
+	} else {
+		// 收窄类型与字节宽度时必须同步值的类型名，否则写入阶段会因类型不匹配而拒绝
+		// Narrowing the type and byte width requires updating the value type name too, or the writer rejects the mismatched value
+		if err := setTypeTreeNodeType(tree, &tree.Nodes[curveCountIndex], "UInt16"); err != nil {
+			return false, err
+		}
+		tree.Nodes[curveCountIndex].ByteSize = 2
+		if err := narrowStreamedClipCurveCountValue(root); err != nil {
+			return false, err
+		}
+		changed = true
+	}
+
+	if _, _, hasDiscrete := findDirectTypeTreeChild(tree, streamedIndex, "UInt16", "discreteCurveCount"); !hasDiscrete {
+		discreteNode, err := makePrimitiveTypeTreeNode(tree, tree.Nodes[curveCountIndex].Level, "UInt16", "discreteCurveCount", 2, 0)
+		if err != nil {
+			return false, err
+		}
+		insertTypeTreeNodes(tree, curveCountEnd, []TypeTreeNode{discreteNode})
+		patchValuesByType(root, "StreamedClip", func(value *TypeTreeValue) {
+			curveValueIndex := childValueIndex(value, "curveCount")
+			insertChildValue(value, curveValueIndex+1, &TypeTreeValue{TypeName: "UInt16", Name: "discreteCurveCount", Value: int64(0)})
+		})
+		changed = true
+	}
+
+	if tree.Nodes[streamedIndex].Version < unity2022AnimationClipNestedNodeVersion {
+		tree.Nodes[streamedIndex].Version = unity2022AnimationClipNestedNodeVersion
+		changed = true
+	}
+	return changed, nil
+}
+
+// narrowStreamedClipCurveCountValue 把每个 StreamedClip 值中的 curveCount 收窄为 UInt16 并校验范围
+// 官方 2022.3 的 curveCount 是 UInt16，旧版为 unsigned int；超出 UInt16 范围时拒绝迁移而不是静默截断
+// narrowStreamedClipCurveCountValue narrows the curveCount of every StreamedClip value to UInt16 and validates its range
+// Official 2022.3 stores curveCount as UInt16 while legacy data stores it as unsigned int, and an out-of-range value refuses migration instead of being silently truncated
+func narrowStreamedClipCurveCountValue(root *TypeTreeValue) error {
+	var firstErr error
+	patchValuesByType(root, "StreamedClip", func(value *TypeTreeValue) {
+		if firstErr != nil {
+			return
+		}
+		curveValueIndex := childValueIndex(value, "curveCount")
+		if curveValueIndex < 0 {
+			firstErr = fmt.Errorf("StreamedClip value has no curveCount field")
+			return
+		}
+		curveValue := value.Children[curveValueIndex]
+		count, ok := curveValue.Int64()
+		if !ok || count < 0 || count > math.MaxUint16 {
+			firstErr = fmt.Errorf("StreamedClip curveCount %v is outside UInt16 range", curveValue.Value)
+			return
+		}
+		curveValue.TypeName = "UInt16"
+		curveValue.Value = count
+	})
+	return firstErr
 }
 
 // childValueIndex 返回直接子字段索引，未找到时返回负一
@@ -427,12 +558,15 @@ func makePrimitiveTypeTreeNode(tree *TypeTreeType, level byte, typeName string, 
 }
 
 // makeColorRGBASubtree 创建 Unity 2022.3 新增的 ColorRGBA 字段子树
+// 官方 2022.3 样本中 ColorRGBA 节点的 Version 为 2 而子节点 rgba 为 1，与 makePrimitiveTypeTreeNode 的默认值不同，因此这里显式覆盖
 // makeColorRGBASubtree creates a ColorRGBA field subtree added by Unity 2022.3
+// Official 2022.3 samples carry Version 2 on the ColorRGBA node while its rgba child stays at 1, which differs from the makePrimitiveTypeTreeNode default and is therefore overridden explicitly
 func makeColorRGBASubtree(tree *TypeTreeType, level byte) ([]TypeTreeNode, error) {
 	color, err := makePrimitiveTypeTreeNode(tree, level, "ColorRGBA", "color", 4, 0)
 	if err != nil {
 		return nil, err
 	}
+	color.Version = 2
 	rgba, err := makePrimitiveTypeTreeNode(tree, level+1, "unsigned int", "rgba", 4, 1)
 	if err != nil {
 		return nil, err

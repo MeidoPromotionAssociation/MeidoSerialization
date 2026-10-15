@@ -210,16 +210,33 @@ func assertAnimationClipUnity2022Tree(t *testing.T, tree *TypeTreeType) {
 	if !ok {
 		t.Fatal("GenericBinding missing")
 	}
-	if tree.Nodes[bindingIndex].ByteSize != 27 {
-		t.Fatalf("GenericBinding byte size = %d, want 27", tree.Nodes[bindingIndex].ByteSize)
+	if tree.Nodes[bindingIndex].ByteSize != 28 {
+		t.Fatalf("GenericBinding byte size = %d, want 28", tree.Nodes[bindingIndex].ByteSize)
 	}
 	pptrIndex, _, ok := findDirectTypeTreeChild(tree, bindingIndex, "UInt8", "isPPtrCurve")
 	if !ok || tree.Nodes[pptrIndex].MetaFlags&0x4000 != 0 {
 		t.Fatal("GenericBinding.isPPtrCurve is missing or still aligned")
 	}
+	// 官方 2022.3 把 AlignBytes 移到新增的末位字节字段 isSerializeReferenceCurve，isIntCurve 自身不带该标志
+	// Official 2022.3 moves AlignBytes onto the added trailing byte field isSerializeReferenceCurve and leaves isIntCurve without it
 	intIndex, _, ok := findDirectTypeTreeChild(tree, bindingIndex, "UInt8", "isIntCurve")
-	if !ok || tree.Nodes[intIndex].MetaFlags&0x4000 == 0 {
-		t.Fatal("GenericBinding.isIntCurve is missing or not aligned")
+	if !ok || tree.Nodes[intIndex].MetaFlags&0x4000 != 0 {
+		t.Fatal("GenericBinding.isIntCurve is missing or unexpectedly aligned")
+	}
+	serializeIndex, _, ok := findDirectTypeTreeChild(tree, bindingIndex, "UInt8", "isSerializeReferenceCurve")
+	if !ok || tree.Nodes[serializeIndex].MetaFlags&0x4000 == 0 {
+		t.Fatal("GenericBinding.isSerializeReferenceCurve is missing or not aligned")
+	}
+
+	streamedIndex, ok := findTypeTreeNodeByType(tree, "StreamedClip")
+	if !ok {
+		t.Fatal("StreamedClip missing")
+	}
+	if _, _, ok := findDirectTypeTreeChild(tree, streamedIndex, "UInt16", "curveCount"); !ok {
+		t.Fatal("StreamedClip.curveCount is not UInt16")
+	}
+	if _, _, ok := findDirectTypeTreeChild(tree, streamedIndex, "UInt16", "discreteCurveCount"); !ok {
+		t.Fatal("StreamedClip.discreteCurveCount missing")
 	}
 }
 
@@ -238,6 +255,19 @@ func assertAnimationClipUnity2022Values(t *testing.T, value *TypeTreeValue) {
 		isIntCurve, ok := value.Field("isIntCurve").UInt64()
 		if !ok || isIntCurve != 0 {
 			t.Fatalf("GenericBinding.isIntCurve = %d, %t", isIntCurve, ok)
+		}
+		isSerializeReferenceCurve, ok := value.Field("isSerializeReferenceCurve").UInt64()
+		if !ok || isSerializeReferenceCurve != 0 {
+			t.Fatalf("GenericBinding.isSerializeReferenceCurve = %d, %t", isSerializeReferenceCurve, ok)
+		}
+	case "StreamedClip":
+		curveCount, ok := value.Field("curveCount").UInt64()
+		if !ok || curveCount > 0xFFFF {
+			t.Fatalf("StreamedClip.curveCount = %d, %t", curveCount, ok)
+		}
+		discreteCurveCount, ok := value.Field("discreteCurveCount").UInt64()
+		if !ok || discreteCurveCount != 0 {
+			t.Fatalf("StreamedClip.discreteCurveCount = %d, %t", discreteCurveCount, ok)
 		}
 	}
 	for _, child := range value.Children {
