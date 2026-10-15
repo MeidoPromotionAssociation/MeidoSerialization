@@ -175,7 +175,7 @@ func TestEncodeAssetBundleObject_MatchesRealKCESTypeTree(t *testing.T) {
 	}
 	root := decodeObjectWithTypeTree(t, &tt, data)
 
-	assertTypeTreeString(t, root, "m_Name", "CAB-generated")
+	assertTypeTreeString(t, root, "m_Name", "layout_test.aba")
 	assertTypeTreeString(t, root, "m_AssetBundleName", "layout_test.aba")
 	assertTypeTreeInt(t, root, "m_RuntimeCompatibility", 1)
 	assertTypeTreeInt(t, root, "m_ExplicitDataLayout", 0)

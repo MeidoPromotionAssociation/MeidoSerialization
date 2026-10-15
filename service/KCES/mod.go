@@ -115,9 +115,12 @@ func packModManifestWithOptions(manifest ModManifest, baseDir string, outputDir 
 
 	// 所有对象共享一个 SerializedFile，原始 Unity 对象必须使用同一版本上下文
 	// All objects share one SerializedFile, so raw Unity objects must use the same version context
+	// 包名同时是容器对象的 m_AssetBundleName/m_Name、catalog 的资源文件名和 UnityFS 目录条目名的哈希输入，三者必须取自同一个字符串
+	// The bundle name is at once the container's m_AssetBundleName/m_Name, the catalog resource file name, and the hash input of the UnityFS directory-entry name, so all three must come from one string
+	assetBundleName := manifest.Name + ".aba"
 	sfWriter := aba.NewSerializedFileWriter(versionSettings.UnityVersion)
 	sfWriter.TargetPlatform = versionSettings.TargetPlatform
-	sfWriter.AssetBundleName = manifest.Name + ".aba"
+	sfWriter.AssetBundleName = assetBundleName
 	sfWriter.SetExternalFiles(canonicalKCESExternalFiles())
 
 	// catalogEntry 已提升为包级类型供打包和 genCt 共用 / catalogEntry is now a package-level type shared by packing and genCt
@@ -242,8 +245,10 @@ func packModManifestWithOptions(manifest ModManifest, baseDir string, outputDir 
 	if err != nil {
 		return fmt.Errorf("calculate SerializedFile size: %w", err)
 	}
+	// Unity 把包内唯一的 SerializedFile 命名为 CAB- 加上包名的 MD4 摘要，官方文件的目录条目名全部符合该规则
+	// Unity names the single SerializedFile inside a bundle CAB- plus the MD4 digest of the bundle name, and every official directory entry follows that rule
 	abaEntries := []aba.AbaFileEntry{
-		{Name: "CAB-" + manifest.Name, WriteTo: sfWriter.Write, Size: serializedSize, IsSerialized: true},
+		{Name: aba.SerializedFileName(assetBundleName), WriteTo: sfWriter.Write, Size: serializedSize, IsSerialized: true},
 	}
 	abaOptions := &aba.AbaWriteOptions{
 		EngineVersion:     versionSettings.EngineVersion,

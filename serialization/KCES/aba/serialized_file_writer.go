@@ -16,7 +16,7 @@ import (
 type SerializedFileWriter struct {
 	UnityVersion    string             // Unity 版本字符串，默认固定为 2022.3.35f1 / Unity version string, fixed to 2022.3.35f1 by default
 	TargetPlatform  uint32             // 目标平台 ID，19 表示 Windows Standalone 64 位 / Target platform ID, with 19 meaning 64-bit Windows Standalone
-	AssetBundleName string             // 写入容器对象 m_AssetBundleName 的包名，官方文件形如 name.aba / Bundle name written to the container's m_AssetBundleName, shaped like name.aba in official files
+	AssetBundleName string             // 容器对象的 m_AssetBundleName 与 m_Name，同时也是 SerializedFileName 计算 CAB 目录条目名的输入，官方文件形如 name.aba / Container m_AssetBundleName and m_Name, and the input SerializedFileName hashes into the CAB directory-entry name, shaped like name.aba in official files
 	objects         []sfObject         // 待写入的对象列表 / Object list to write
 	nextPathId      int64              // 下一次自动分配的 PathID / Next automatically allocated PathID
 	usedPathIds     map[int64]struct{} // 已占用的 PathID 集合 / Set of already used PathIDs
@@ -536,7 +536,7 @@ func (w *SerializedFileWriter) Size() (int64, error) {
 	allObjects = append(allObjects, sfObject{
 		pathId:   containerPathID,
 		classId:  ClassIDAssetBundle,
-		name:     "CAB-generated",
+		name:     w.AssetBundleName,
 		data:     containerData,
 		dataSize: containerDataSize,
 		typeTree: &containerTree,
@@ -608,7 +608,7 @@ func (w *SerializedFileWriter) Write(out io.Writer) error {
 	allObjects = append(allObjects, sfObject{
 		pathId:   containerPathID,
 		classId:  ClassIDAssetBundle,
-		name:     "CAB-generated",
+		name:     w.AssetBundleName,
 		data:     containerData,
 		dataSize: containerDataSize,
 		typeTree: &containerTree,
@@ -947,9 +947,9 @@ func (w *SerializedFileWriter) encodeAssetBundleObject() ([]byte, error) {
 	var buf bytes.Buffer
 	bw := binaryio.NewEndianWriter(&buf, binary.LittleEndian)
 
-	// m_Name 是对齐字符串
-	// m_Name is an aligned string
-	if err := bw.WriteAlignedString("CAB-generated"); err != nil {
+	// m_Name 是对齐字符串，与 m_AssetBundleName 一样保存包名
+	// m_Name is an aligned string and carries the same bundle name as m_AssetBundleName
+	if err := bw.WriteAlignedString(w.AssetBundleName); err != nil {
 		return nil, fmt.Errorf("write AssetBundle m_Name: %w", err)
 	}
 
