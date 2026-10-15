@@ -194,6 +194,9 @@ MeidoSerialization.exe convert2texture2d .\my_texture.png
 
 # Same, but force the full mip chain down to 1x1
 MeidoSerialization.exe convert2texture2d .\my_texture.png --mipmap full
+
+# Same, but write DXT1 or DXT5 instead of uncompressed RGBA32
+MeidoSerialization.exe convert2texture2d .\my_texture.png --compress
 ```
 
 `convert2tex` writes TEX version 1010 unless a valid sibling `.uv.csv` supplies version-1011 atlas rectangles. See
@@ -211,6 +214,10 @@ by the file being overwritten, `none` forces a single level, and `full` generate
 chain is always regenerated from the edited pixels with a box filter, because the original levels describe the
 pre-edit image and would be wrong once the base level changes. A level count larger than the new pixel dimensions
 allow is clamped to that limit. The generic `convert` command always uses `auto`.
+
+`--compress` writes DXT1 or DXT5 instead of uncompressed RGBA32, choosing DXT5 when the image has partial
+transparency and DXT1 otherwise. Both paths generate the mip chain with the same rules, so turning compression on
+or off does not change the mip content.
 
 #### Editing a Sprite
 
@@ -243,11 +250,13 @@ Four constraints apply:
   texture misplaces every sprite packed into it.
 - **An atlas texture is shared.** One atlas commonly backs hundreds or thousands of sprites, so edit only the
   region belonging to the sprite you want to change.
-- **The format degrades.** `convert2texture2d` always rebuilds inline RGBA32, so a BC7 atlas grows roughly
-  fourfold. No mipmaps are lost: the default `--mipmap auto` keeps the level count of the file being
-  overwritten, and every official atlas texture ships with `m_MipCount` 1, so an atlas has no mipmaps to begin
-  with. Textures that do carry a chain, such as the DXT1 and DXT5 backgrounds, keep their level count and get it
-  regenerated from the edited pixels.
+- **Compression is lossy and BC7 cannot be written back.** `--compress` produces DXT1 or DXT5, which is a
+  quality drop from BC7. `convert2texture2d` cannot emit BC7 at all, because ImageMagick has no BC7 encoder and
+  the Go ecosystem has no usable BC7 library. A BC7 atlas therefore has two options, uncompressed RGBA32 that
+  grows it roughly fourfold, or DXT5 that stays close to the original size at lower quality. Neither loses
+  mipmaps: the default `--mipmap auto` keeps the level count of the file being overwritten, and every official
+  atlas texture ships with `m_MipCount` 1, so it has no mipmaps to begin with. Textures that do carry a chain,
+  such as the DXT1 and DXT5 backgrounds, keep their level count and get it regenerated from the edited pixels.
 
 A Sprite that references a Texture2D directly instead of an atlas follows the same rules, minus the sharing
 concern. The editing PNG can stay in the directory; `packAba` recognizes it as a derived file and skips it.
@@ -950,6 +959,9 @@ notepad .\body.menu.json
 
 # 同上，但强制生成直到 1×1 的完整 mip 链
 .\MeidoSerialization.exe convert2texture2d .\my_texture.png --mipmap full
+
+# 同上，但写出 DXT1 或 DXT5 而不是无损 RGBA32
+.\MeidoSerialization.exe convert2texture2d .\my_texture.png --compress
 ~~~
 
 `convert2tex` 默认写出 TEX 1010。只有旁边存在有效的 `.uv.csv` 图集矩形信息时，才会写出
@@ -964,6 +976,9 @@ notepad .\body.menu.json
 生成直到 1×1 的完整链。`auto` 探测不到的一律按单层处理，包括目标不存在、目标读不出来和目标解析失败三种情况。mip
 链一律用盒式滤波从编辑后的像素重新生成，因为原有各级描述的是编辑前的图像，基准层一变它们就不再成立。层数超过新像素
 尺寸允许的上限时会收敛到上限。泛用 `convert` 命令固定使用 `auto`。
+
+`--compress` 写出 DXT1 或 DXT5 而不是无损 RGBA32，图像存在半透明像素时选 DXT5，否则选 DXT1。两条路径用
+同一套规则生成 mip 链，因此开关压缩不会改变 mip 内容。
 
 #### 修改 Sprite
 
@@ -991,7 +1006,9 @@ Sprite 对象本身不存像素，因此 `convert2image` 对 Sprite 是单向的
   会覆盖同基名的现有 `.tex` 或 `.texture2d` 正是为此，新建一个不同名的文件会让引用断掉。
 - **不要改像素尺寸。** 图集里每个 `textureRect` 都是绝对像素坐标，改尺寸会让共用该贴图的所有 sprite 全部错位。
 - **图集贴图是共用的。** 一张图集通常承载几百到上千个 sprite，因此只应修改目标 sprite 所占的那块区域。
-- **格式会退化。** `convert2texture2d` 固定重建为内联 RGBA32，因此 BC7 图集体积约增至四倍。mipmap 不会丢：默认的
+- **压缩会降级，且无法写回 BC7。** `--compress` 写出 DXT1 或 DXT5，画质低于原来的 BC7。`convert2texture2d`
+  完全**无法写出 BC7**——ImageMagick 没有 BC7 编码器，Go 生态也没有可用的 BC7 库。因此 BC7 图集只有两条路：
+  保持无损 RGBA32（体积约增至四倍），或压成 DXT5（体积接近原图但画质更低）。两种选择都不会丢 mipmap：默认的
   `--mipmap auto` 沿用被覆盖文件原有的层数，而官方图集贴图全部是 `m_MipCount` 1，本来就没有 mipmap 可丢。真正
   带链的贴图（例如 DXT1 与 DXT5 背景图）会保留原有层数，并用编辑后的像素重新生成整条链。
 
@@ -1695,6 +1712,9 @@ ImageMagick を起動することはありません。suffix は image に見え
 
 # 同上。ただし 1×1 までの完全な mip chain を強制生成
 .\MeidoSerialization.exe convert2texture2d .\my_texture.png --mipmap full
+
+# 同上。ただし可逆な RGBA32 ではなく DXT1 または DXT5 を書き出す
+.\MeidoSerialization.exe convert2texture2d .\my_texture.png --compress
 ~~~
 
 `convert2tex` は通常 TEX 1010 を書き出します。有効な隣接 `.uv.csv` に 1011 atlas rectangle がある場合のみ 1011 を生成します。詳細は
@@ -1711,6 +1731,10 @@ ImageMagick を起動することはありません。suffix は image に見え
 chain は常に編集後のピクセルから box filter で再生成されます。元の各レベルは編集前の画像を表しており、基準レベルが
 変われば成立しなくなるためです。レベル数が新しいピクセルサイズの上限を超える場合は上限に丸められます。汎用 `convert`
 コマンドは常に `auto` を使います。
+
+`--compress` は可逆な RGBA32 ではなく DXT1 または DXT5 を書き出します。半透明のピクセルがある場合は DXT5、
+それ以外は DXT1 を選びます。どちらの経路も同じ規則で mip chain を生成するため、圧縮の有無で mip の内容は
+変わりません。
 
 #### Sprite の編集
 
@@ -1743,10 +1767,13 @@ Sprite の見た目を変更するには、参照先の Texture2D を編集し�
   を共有するすべての sprite がずれます。
 - **atlas texture は共有されています。** 1 枚の atlas が数百から数千の sprite を担うことが多いため、変更したい sprite
   が占める領域だけを編集してください。
-- **フォーマットが劣化します。** `convert2texture2d` は常にインライン RGBA32 として再構築するため、BC7 atlas は
-  およそ 4 倍に膨らみます。mipmap は失われません。既定の `--mipmap auto` が上書きするファイルのレベル数を引き継ぎ、
-  公式の atlas texture はすべて `m_MipCount` が 1 でそもそも mipmap を持たないためです。chain を持つ texture（DXT1 や
-  DXT5 の背景など）はレベル数を保ったまま、編集後のピクセルから再生成されます。
+- **圧縮は非可逆で、BC7 は書き戻せません。** `--compress` は DXT1 または DXT5 を書き出すため、元の BC7 より
+  画質が落ちます。`convert2texture2d` は BC7 を**書き出せません**。ImageMagick に BC7 encoder がなく、Go の
+  エコシステムにも使える BC7 library がないためです。したがって BC7 atlas の選択肢は 2 つだけで、可逆な RGBA32
+  のまま約 4 倍に膨らませるか、DXT5 に圧縮して元に近いサイズと引き換えに画質を落とすかです。どちらも mipmap は
+  失われません。既定の `--mipmap auto` が上書きするファイルのレベル数を引き継ぎ、公式の atlas texture はすべて
+  `m_MipCount` が 1 でそもそも mipmap を持たないためです。chain を持つ texture（DXT1 や DXT5 の背景など）は
+  レベル数を保ったまま、編集後のピクセルから再生成されます。
 
 atlas を経由せず Texture2D を直接参照する Sprite にも同じ規則が当てはまりますが、共有の問題はありません。編集用の PNG
 はディレクトリに残しておいて構いません。`packAba` は派生ファイルとして認識してスキップします。

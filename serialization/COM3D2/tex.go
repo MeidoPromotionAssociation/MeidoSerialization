@@ -1071,84 +1071,14 @@ func ensureDDSHeader(data []byte, width, height int32, format int32) []byte {
 // flipBlockCompressedTextureVertically converts between COM3D2 raw DXT block order and standard DDS block order by flipping vertically
 // The transform is its own inverse, so tex-to-image and image-to-tex conversion share this function, with DXT1 and DXT5 blocks in Tex.Data vertically reversed relative to standard DDS
 func flipBlockCompressedTextureVertically(data []byte, width, height int32, format int32) ([]byte, error) {
-	if format != DXT1 && format != DXT5 {
+	switch format {
+	case DXT1:
+		return tools.FlipDXTBlocksVertically(data, width, height, 8)
+	case DXT5:
+		return tools.FlipDXTBlocksVertically(data, width, height, 16)
+	default:
 		return data, nil
 	}
-	if width <= 0 || height <= 0 {
-		return nil, fmt.Errorf("invalid DXT dimensions: %dx%d", width, height)
-	}
-
-	var blockSize int64 = 8
-	if format == DXT5 {
-		blockSize = 16
-	}
-
-	blocksWide := (int64(width) + 3) / 4
-	blocksHigh := (int64(height) + 3) / 4
-	expectedLen := blocksWide * blocksHigh * blockSize
-	if int64(len(data)) != expectedLen {
-		return nil, fmt.Errorf("unexpected DXT data size: got %d bytes, want %d for %dx%d format %d", len(data), expectedLen, width, height, format)
-	}
-
-	flipped := make([]byte, len(data))
-	rowStride := blocksWide * blockSize
-	for blockY := int64(0); blockY < blocksHigh; blockY++ {
-		srcRowOffset := blockY * rowStride
-		dstRowOffset := (blocksHigh - 1 - blockY) * rowStride
-		for blockX := int64(0); blockX < blocksWide; blockX++ {
-			srcBlockStart := srcRowOffset + blockX*blockSize
-			dstBlockStart := dstRowOffset + blockX*blockSize
-			srcBlock := data[srcBlockStart : srcBlockStart+blockSize]
-			dstBlock := flipped[dstBlockStart : dstBlockStart+blockSize]
-			if format == DXT1 {
-				flipDXT1Block(dstBlock, srcBlock)
-			} else {
-				flipDXT5Block(dstBlock, srcBlock)
-			}
-		}
-	}
-
-	return flipped, nil
-}
-
-// flipDXT1Block 垂直翻转一个 DXT1 块中的四行颜色索引
-// flipDXT1Block vertically flips the four color-index rows in one DXT1 block
-func flipDXT1Block(dst []byte, src []byte) {
-	copy(dst[:4], src[:4])
-	dst[4] = src[7]
-	dst[5] = src[6]
-	dst[6] = src[5]
-	dst[7] = src[4]
-}
-
-// flipDXT5Block 垂直翻转一个 DXT5 块中的 Alpha 索引行和颜色索引行
-// flipDXT5Block vertically flips the alpha-index and color-index rows in one DXT5 block
-func flipDXT5Block(dst []byte, src []byte) {
-	copy(dst[:2], src[:2])
-
-	var alphaBits uint64
-	for i := int64(0); i < 6; i++ {
-		alphaBits |= uint64(src[2+i]) << (8 * i)
-	}
-
-	var rows [4]uint16
-	for row := int64(0); row < 4; row++ {
-		rows[row] = uint16((alphaBits >> (12 * row)) & 0x0FFF)
-	}
-
-	flippedAlphaBits := uint64(rows[3]) |
-		(uint64(rows[2]) << 12) |
-		(uint64(rows[1]) << 24) |
-		(uint64(rows[0]) << 36)
-	for i := int64(0); i < 6; i++ {
-		dst[2+i] = byte(flippedAlphaBits >> (8 * i))
-	}
-
-	copy(dst[8:12], src[8:12])
-	dst[12] = src[15]
-	dst[13] = src[14]
-	dst[14] = src[13]
-	dst[15] = src[12]
 }
 
 // isLossyCompression 检查 ImageMagick 输出的格式名是否属于有损压缩格式，例如 JPEG

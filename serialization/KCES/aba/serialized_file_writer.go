@@ -183,13 +183,20 @@ func (w *SerializedFileWriter) AddTexture2DWithLoadName(name string, loadName st
 // AddTexture2DWithLoadNameAndPathID 添加带独立 m_Name、AssetBundle 加载键和首选 PathID 的单 mip Texture2D，imageData 按自上而下行序传入并翻转为 Unity 自下而上行序
 // AddTexture2DWithLoadNameAndPathID adds a generated single-mip Texture2D with separate internal m_Name, AssetBundle load key, and preferred PathID, taking imageData in top-down row order and flipping it into Unity's bottom-up row order
 func (w *SerializedFileWriter) AddTexture2DWithLoadNameAndPathID(name string, loadName string, width, height int64, imageData []byte, pathID int64) int64 {
-	return w.AddTexture2DMipChainWithLoadNameAndPathID(name, loadName, width, height, [][]byte{imageData}, pathID)
+	return w.AddTexture2DMipChainWithLoadNameAndPathID(name, loadName, width, height, TextureFormatRGBA32, [][]byte{imageData}, pathID)
 }
 
-// AddTexture2DMipChainWithLoadNameAndPathID 添加带独立 m_Name、AssetBundle 加载键和首选 PathID 的多 mip Texture2D，mips 按自上而下行序传入、第 0 级为全分辨率，各级翻转后按 Unity 布局拼接
-// AddTexture2DMipChainWithLoadNameAndPathID adds a generated multi-mip Texture2D with separate internal m_Name, AssetBundle load key, and preferred PathID, taking mips in top-down row order with level 0 at full resolution and concatenating every flipped level in the Unity layout
-func (w *SerializedFileWriter) AddTexture2DMipChainWithLoadNameAndPathID(name string, loadName string, width, height int64, mips [][]byte, pathID int64) int64 {
-	data, err := encodeTexture2DData(w.UnityVersion, name, width, height, FlipRGBA32MipChain(width, height, mips))
+// AddTexture2DMipChainWithLoadNameAndPathID 添加带独立 m_Name、AssetBundle 加载键和首选 PathID 的多 mip Texture2D
+// mips 按自上而下行序传入、第 0 级为全分辨率，各级翻转后按 Unity 布局拼接，format 决定每级的字节数和写出的 m_TextureFormat
+// AddTexture2DMipChainWithLoadNameAndPathID adds a generated multi-mip Texture2D with separate internal m_Name, AssetBundle load key, and preferred PathID
+// mips arrive in top-down row order with level 0 at full resolution and are concatenated in the Unity layout after flipping, while format decides both the byte size of every level and the emitted m_TextureFormat
+func (w *SerializedFileWriter) AddTexture2DMipChainWithLoadNameAndPathID(name string, loadName string, width, height int64, format int32, mips [][]byte, pathID int64) int64 {
+	flippedMips, err := FlipTextureMipChain(format, width, height, mips)
+	if err != nil {
+		w.setError(fmt.Errorf("flip Texture2D %q mip chain: %w", name, err))
+		return 0
+	}
+	data, err := encodeTexture2DData(w.UnityVersion, name, width, height, format, flippedMips)
 	if err != nil {
 		w.setError(fmt.Errorf("encode Texture2D %q: %w", name, err))
 		return 0
@@ -1080,20 +1087,24 @@ func encodeTextAssetData(name string, script []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// encodeTexture2DData 按 Unity 2022.3 内置 TypeTree 编码内联 RGBA32 Texture2D
+// encodeTexture2DData 按 Unity 2022.3 内置 TypeTree 编码内联 Texture2D，format 决定每级的字节数和写出的 m_TextureFormat
 // mips 按 Unity 布局给出，第 0 级为全分辨率，各级自上而下行序且依次折半直到链尾
-// encodeTexture2DData encodes an inline RGBA32 Texture2D using the Unity 2022.3 built-in TypeTree
+// encodeTexture2DData encodes an inline Texture2D using the Unity 2022.3 built-in TypeTree, with format deciding both the byte size of every level and the emitted m_TextureFormat
 // mips follow the Unity layout, with level 0 at full resolution and every later level halved in top-down row order down to the last entry
-func encodeTexture2DData(unityVersion string, name string, width, height int64, mips [][]byte) ([]byte, error) {
+func encodeTexture2DData(unityVersion string, name string, width, height int64, format int32, mips [][]byte) ([]byte, error) {
+	switch format {
+	case TextureFormatRGBA32, TextureFormatDXT1, TextureFormatDXT5:
+	default:
+		return nil, fmt.Errorf("unsupported Texture2D format %d (%s)", format, textureFormatName(format))
+	}
 	if width <= 0 || height <= 0 {
 		return nil, fmt.Errorf("invalid Texture2D dimensions %dx%d", width, height)
 	}
 	if uint64(width) > uint64(math.MaxInt32) || uint64(height) > uint64(math.MaxInt32) {
 		return nil, fmt.Errorf("Texture2D dimensions %dx%d exceed Int32 wire range", width, height)
 	}
-	const bytesPerPixel = uint64(4)
-	if uint64(width) > uint64(math.MaxInt32)/bytesPerPixel/uint64(height) {
-		return nil, fmt.Errorf("Texture2D dimensions %dx%d exceed inline RGBA32 size limit", width, height)
+	if TextureLevelSize(format, width, height, 0) > math.MaxInt32 {
+		return nil, fmt.Errorf("Texture2D dimensions %dx%d exceed the inline %s size limit", width, height, textureFormatName(format))
 	}
 	if len(mips) == 0 {
 		return nil, fmt.Errorf("Texture2D %q has no mip levels", name)
@@ -1104,9 +1115,9 @@ func encodeTexture2DData(unityVersion string, name string, width, height int64, 
 	totalSize := uint64(0)
 	for level, data := range mips {
 		levelWidth, levelHeight := MipLevelDimensions(width, height, int32(level))
-		expectedSize := uint64(levelWidth) * uint64(levelHeight) * bytesPerPixel
+		expectedSize := uint64(TextureLevelSize(format, width, height, int32(level)))
 		if uint64(len(data)) != expectedSize {
-			return nil, fmt.Errorf("Texture2D %q mip level %d has %d bytes but %dx%d RGBA32 needs %d", name, level, len(data), levelWidth, levelHeight, expectedSize)
+			return nil, fmt.Errorf("Texture2D %q mip level %d has %d bytes but %dx%d %s needs %d", name, level, len(data), levelWidth, levelHeight, textureFormatName(format), expectedSize)
 		}
 		totalSize += expectedSize
 	}
@@ -1171,9 +1182,9 @@ func encodeTexture2DData(unityVersion string, name string, width, height int64, 
 		return nil, fmt.Errorf("write Texture2D m_MipsStripped: %w", err)
 	}
 
-	// m_TextureFormat 写为 4，即 RGBA32
-	// m_TextureFormat is 4 for RGBA32
-	if err := bw.WriteInt32(4); err != nil {
+	// m_TextureFormat 保存实际使用的纹理格式
+	// m_TextureFormat stores the texture format actually in use
+	if err := bw.WriteInt32(format); err != nil {
 		return nil, fmt.Errorf("write Texture2D m_TextureFormat: %w", err)
 	}
 

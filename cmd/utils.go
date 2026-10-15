@@ -864,9 +864,9 @@ func convertImageToMatchingTex(path string) error {
 		targets := existingNativeTexture2DPaths(path)
 		if len(targets) > 0 {
 			for _, target := range targets {
-				// 泛用 convert 只做同格式回写，因此探测并沿用被覆盖文件原有的 mip 层数
-				// The generic convert command only writes back into the same format, so it probes and keeps the mip level count of the file it overwrites
-				if err := convertImageToNativeTexture2DAt(path, target, KCESService.Texture2DMipModeAuto); err != nil {
+				// 泛用 convert 只做同格式回写，因此探测并沿用被覆盖文件原有的 mip 层数，且不改变压缩状态
+				// The generic convert command only writes back into the same format, so it probes and keeps the mip level count of the file it overwrites and leaves compression alone
+				if err := convertImageToNativeTexture2DAt(path, target, KCESService.Texture2DRebuildOptions{MipMode: KCESService.Texture2DMipModeAuto}); err != nil {
 					return err
 				}
 			}

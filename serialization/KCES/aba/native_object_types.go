@@ -110,7 +110,17 @@ func NewNativeTexture2DObject(name string, width int64, height int64, rgba []byt
 // NewNativeTexture2DObjectWithMips 从自上而下的 RGBA32 mip 链构建自带 Unity 2022.3 内置 TypeTree 的独立 Texture2D 对象，mips 第 0 级为全分辨率，逐级翻转后按 Unity 布局内联
 // NewNativeTexture2DObjectWithMips builds a standalone Texture2D object carrying the Unity 2022.3 built-in TypeTree from a top-down RGBA32 mip chain, flipping every level of the chain whose level 0 is the full resolution and inlining them in the Unity layout
 func NewNativeTexture2DObjectWithMips(name string, width int64, height int64, mips [][]byte) (*NativeUnityObject, error) {
-	data, err := encodeTexture2DData("2022.3.35f1", name, width, height, FlipRGBA32MipChain(width, height, mips))
+	return NewNativeTexture2DObjectWithFormat(name, width, height, TextureFormatRGBA32, mips)
+}
+
+// NewNativeTexture2DObjectWithFormat 从自上而下的 mip 链构建自带 Unity 2022.3 内置 TypeTree 的独立 Texture2D 对象，format 可以是 RGBA32 或 DXT1、DXT5
+// NewNativeTexture2DObjectWithFormat builds a standalone Texture2D object carrying the Unity 2022.3 built-in TypeTree from a top-down mip chain, where format can be RGBA32, DXT1, or DXT5
+func NewNativeTexture2DObjectWithFormat(name string, width int64, height int64, format int32, mips [][]byte) (*NativeUnityObject, error) {
+	flippedMips, err := FlipTextureMipChain(format, width, height, mips)
+	if err != nil {
+		return nil, err
+	}
+	data, err := encodeTexture2DData("2022.3.35f1", name, width, height, format, flippedMips)
 	if err != nil {
 		return nil, err
 	}

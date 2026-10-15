@@ -11,7 +11,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var texture2dMipModeFlag string
+var (
+	texture2dMipModeFlag  string
+	compressTexture2DFlag bool
+)
 
 var convert2texture2dCmd = &cobra.Command{
 	Use:   "convert2texture2d [file/directory]",
@@ -28,6 +31,10 @@ Use --mipmap to control the mip chain:
   none  write a single level
   full  generate the full chain down to 1x1
 
+Use --compress to write DXT1 or DXT5 instead of uncompressed RGBA32. DXT5 is
+chosen when the image has partial transparency, otherwise DXT1. BC7 cannot be
+written because no usable BC7 encoder exists for this toolchain.
+
 Typical texture editing workflow:
   unpackAba mod.aba -> convert2image Texture2D\foo.tex -> edit foo.png ->
   convert2texture2d foo.png -> packAba
@@ -43,8 +50,9 @@ Examples:
 		if err != nil {
 			return err
 		}
+		options := KCESService.Texture2DRebuildOptions{MipMode: mipMode, Compress: compressTexture2DFlag}
 		processor := func(filePath string) error {
-			return convertImageToNativeTexture2D(filePath, mipMode)
+			return convertImageToNativeTexture2D(filePath, options)
 		}
 		if isDirectory(path) {
 			fmt.Printf("Processing directory: %s\n", path)
@@ -56,10 +64,11 @@ Examples:
 	},
 }
 
-// init 注册 mipmap 生成策略参数
-// init registers the mipmap generation strategy flag
+// init 注册 mipmap 生成策略与压缩参数
+// init registers the mipmap generation strategy and compression flags
 func init() {
 	convert2texture2dCmd.Flags().StringVar(&texture2dMipModeFlag, "mipmap", "auto", "Mipmap handling: auto (probe the file being overwritten and keep its level count), none, or full")
+	convert2texture2dCmd.Flags().BoolVarP(&compressTexture2DFlag, "compress", "c", false, "Write DXT1 or DXT5 instead of uncompressed RGBA32; DXT5 is used when the image has partial transparency")
 }
 
 // parseTexture2DMipMode 把命令行取值解析为 mipmap 生成策略
@@ -85,27 +94,27 @@ func parseTexture2DMipMode(value string) (KCESService.Texture2DMipMode, error) {
 // convertImageToNativeTexture2D rebuilds a PNG or JPEG image into a native KCES Texture2D standalone object file
 // One base name may hold both a .tex and a .texture2d native Texture2D, so the image is written into each of them, otherwise updating only one would leave the other with stale content
 // When neither exists, a .tex with the same base name is created
-func convertImageToNativeTexture2D(path string, mipMode KCESService.Texture2DMipMode) error {
+func convertImageToNativeTexture2D(path string, options KCESService.Texture2DRebuildOptions) error {
 	targets := existingNativeTexture2DPaths(path)
 	if len(targets) == 0 {
 		targets = []string{trimLastExtension(path) + ".tex"}
 	}
 	for _, target := range targets {
-		if err := convertImageToNativeTexture2DAt(path, target, mipMode); err != nil {
+		if err := convertImageToNativeTexture2DAt(path, target, options); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// convertImageToNativeTexture2DAt 将 PNG 或 JPEG 图像按指定 mipmap 策略重建为指定路径的 KCES 原生 Texture2D
-// convertImageToNativeTexture2DAt rebuilds a PNG or JPEG image into a native KCES Texture2D at an explicit path using the requested mipmap strategy
-func convertImageToNativeTexture2DAt(path string, outputPath string, mipMode KCESService.Texture2DMipMode) error {
+// convertImageToNativeTexture2DAt 将 PNG 或 JPEG 图像按指定选项重建为指定路径的 KCES 原生 Texture2D
+// convertImageToNativeTexture2DAt rebuilds a PNG or JPEG image into a native KCES Texture2D at an explicit path using the requested options
+func convertImageToNativeTexture2DAt(path string, outputPath string, options KCESService.Texture2DRebuildOptions) error {
 	if !isRGBA32DecodableImageFile(path) {
 		return fmt.Errorf("not a PNG or JPEG image file: %s", path)
 	}
 	service := &KCESService.NativeUnityMediaService{}
-	if err := service.ConvertImageToTexture2DWithMipMode(context.Background(), path, outputPath, mipMode, application.DefaultMaxOutputBytes); err != nil {
+	if err := service.ConvertImageToTexture2DWithOptions(context.Background(), path, outputPath, options, application.DefaultMaxOutputBytes); err != nil {
 		return fmt.Errorf("failed to convert %s to native Texture2D: %w", path, err)
 	}
 	fmt.Printf("Converted %s to %s\n", path, outputPath)

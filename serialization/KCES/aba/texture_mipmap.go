@@ -1,6 +1,11 @@
 package aba
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/tools"
+)
 
 // 本文件生成 RGBA32 mip 链
 // 生成顺序与 Unity 的 Texture2D image data 布局一致，即全分辨率在前、逐级折半、1×1 收尾
@@ -48,19 +53,37 @@ func MipLevelDimensions(width int64, height int64, level int32) (int64, int64) {
 	return levelWidth, levelHeight
 }
 
-// MipLevelSize 返回自上而下行序 RGBA32 在指定 mip 级的字节数
-// MipLevelSize returns the byte size of the RGBA32 mip level at the given index in top-down row order
-func MipLevelSize(width int64, height int64, level int32) int64 {
+// TextureFormatBlockBytes 返回块压缩纹理格式每块的字节数，非块压缩格式返回 0
+// TextureFormatBlockBytes returns the byte size of one block for a block-compressed texture format, or 0 for a format that is not block compressed
+func TextureFormatBlockBytes(format int32) int64 {
+	switch format {
+	case TextureFormatDXT1:
+		return 8
+	case TextureFormatDXT5:
+		return 16
+	default:
+		return 0
+	}
+}
+
+// TextureLevelSize 返回指定纹理格式在指定 mip 级的字节数
+// 块压缩格式按 4×4 块计算且块数向上取整，因此边长不足 4 的级仍占一整块
+// TextureLevelSize returns the byte size of the given texture format at the given mip level
+// Block-compressed formats count 4×4 blocks with the grid rounded up, so a level shorter than four texels still occupies a full block
+func TextureLevelSize(format int32, width int64, height int64, level int32) int64 {
 	levelWidth, levelHeight := MipLevelDimensions(width, height, level)
+	if blockBytes := TextureFormatBlockBytes(format); blockBytes > 0 {
+		return ((levelWidth + 3) / 4) * ((levelHeight + 3) / 4) * blockBytes
+	}
 	return levelWidth * levelHeight * 4
 }
 
-// MipChainSize 返回完整 mip 链的 RGBA32 字节总数，即各级字节数之和
-// MipChainSize returns the total RGBA32 byte count of a full mip chain, that is the sum of every level
-func MipChainSize(width int64, height int64, levelCount int32) int64 {
+// TextureChainSize 返回指定纹理格式整条 mip 链的字节总数，即各级字节数之和
+// TextureChainSize returns the total byte count of a whole mip chain for the given texture format, that is the sum of every level
+func TextureChainSize(format int32, width int64, height int64, levelCount int32) int64 {
 	total := int64(0)
 	for level := int32(0); level < levelCount; level++ {
-		total += MipLevelSize(width, height, level)
+		total += TextureLevelSize(format, width, height, level)
 	}
 	return total
 }
@@ -96,15 +119,32 @@ func GenerateMipChain(width int64, height int64, rgba []byte, levelCount int32) 
 	return levels, nil
 }
 
-// FlipRGBA32MipChain 对 mip 链的每一级分别垂直翻转，用于在自上而下行序与 Unity 自下而上行序之间转换
-// FlipRGBA32MipChain vertically flips every mip level on its own, converting between top-down row order and Unity's bottom-up row order
-func FlipRGBA32MipChain(width int64, height int64, mips [][]byte) [][]byte {
+// FlipTextureMipChain 对 mip 链的每一级分别垂直翻转，用于在自上而下行序与 Unity 自下而上行序之间转换
+// RGBA32 逐行翻转，DXT1 与 DXT5 逐块翻转，块压缩格式的翻转同样无损
+// FlipTextureMipChain vertically flips every mip level on its own, converting between top-down row order and Unity's bottom-up row order
+// RGBA32 levels are flipped row by row while DXT1 and DXT5 levels are flipped block by block, which stays lossless for block-compressed formats too
+func FlipTextureMipChain(format int32, width int64, height int64, mips [][]byte) ([][]byte, error) {
+	blockBytes := TextureFormatBlockBytes(format)
+	if blockBytes == 0 && format != TextureFormatRGBA32 {
+		return nil, fmt.Errorf("unsupported texture format %d for mip chain flipping", format)
+	}
 	flipped := make([][]byte, len(mips))
 	for level, data := range mips {
 		levelWidth, levelHeight := MipLevelDimensions(width, height, int32(level))
-		flipped[level] = FlipRGBA32Rows(levelWidth, levelHeight, data)
+		if blockBytes == 0 {
+			flipped[level] = FlipRGBA32Rows(levelWidth, levelHeight, data)
+			continue
+		}
+		if levelWidth > math.MaxInt32 || levelHeight > math.MaxInt32 {
+			return nil, fmt.Errorf("mip level %d dimensions %dx%d exceed Int32 range", level, levelWidth, levelHeight)
+		}
+		levelFlipped, err := tools.FlipDXTBlocksVertically(data, int32(levelWidth), int32(levelHeight), blockBytes)
+		if err != nil {
+			return nil, fmt.Errorf("flip mip level %d: %w", level, err)
+		}
+		flipped[level] = levelFlipped
 	}
-	return flipped
+	return flipped, nil
 }
 
 // maxMipDimension 限制单边尺寸，使盒式滤波的中间累加与目标缓冲分配都不会溢出

@@ -39,6 +39,7 @@ func executeCommand(root *cobra.Command, args ...string) (output string, err err
 	convertNeiFormatFlag = "auto"
 	outputFormat = "png"
 	texture2dMipModeFlag = "auto"
+	compressTexture2DFlag = false
 
 	// Also capture stdout as many parts of the code use fmt.Printf
 	old := os.Stdout
@@ -1499,9 +1500,9 @@ func TestConvert2Texture2DUpdatesEverySameNamedNativeTexture(t *testing.T) {
 	}
 }
 
-// cmdTestMipCount 读出原生 Texture2D 的 mip 层数，并顺带校验载荷长度等于整条链
-// cmdTestMipCount reads back a native Texture2D mip level count and checks that the payload length equals the whole chain
-func cmdTestMipCount(t *testing.T, path string) int32 {
+// cmdTestTexture2D 读出原生 Texture2D，并顺带校验载荷长度等于整条 mip 链
+// cmdTestTexture2D reads back a native Texture2D and checks that the payload length equals the whole mip chain
+func cmdTestTexture2D(t *testing.T, path string) *aba.Texture2DData {
 	t.Helper()
 	object, err := aba.ReadTexture2D(mustReadFile(t, path))
 	if err != nil {
@@ -1515,11 +1516,44 @@ func cmdTestMipCount(t *testing.T, path string) int32 {
 	if err != nil {
 		t.Fatalf("GetTexture2DDataRange: %v", err)
 	}
-	want := aba.MipChainSize(int64(tex.Width), int64(tex.Height), tex.MipCount)
+	want := aba.TextureChainSize(tex.TextureFormat, int64(tex.Width), int64(tex.Height), tex.MipCount)
 	if int64(len(tex.ImageData)) != want {
-		t.Fatalf("image data is %d bytes but a %d level chain of %dx%d needs %d", len(tex.ImageData), tex.MipCount, tex.Width, tex.Height, want)
+		t.Fatalf("image data is %d bytes but a %d level chain of %dx%d format %d needs %d", len(tex.ImageData), tex.MipCount, tex.Width, tex.Height, tex.TextureFormat, want)
 	}
-	return tex.MipCount
+	return tex
+}
+
+func cmdTestMipCount(t *testing.T, path string) int32 {
+	t.Helper()
+	return cmdTestTexture2D(t, path).MipCount
+}
+
+// TestConvert2Texture2DCompressFlag 固定 --compress 写出 DXT1 而非 RGBA32
+// 用例图像完全不透明，因此应选中 DXT1；同时确认未加参数时仍是 RGBA32
+// TestConvert2Texture2DCompressFlag pins that --compress writes DXT1 instead of RGBA32
+// The test image is fully opaque so DXT1 is selected, and the same run without the flag must stay RGBA32
+func TestConvert2Texture2DCompressFlag(t *testing.T) {
+	if err := tools.CheckMagick(); err != nil {
+		t.Skipf("ImageMagick is required to compress into DXT: %v", err)
+	}
+	tempDir := t.TempDir()
+	pngPath := filepath.Join(tempDir, "body.png")
+	texPath := filepath.Join(tempDir, "body.tex")
+	writeCmdTestPNG(t, pngPath, 16, 16)
+
+	if _, err := executeCommand(RootCmd, "convert2texture2d", pngPath); err != nil {
+		t.Fatalf("convert2texture2d failed: %v", err)
+	}
+	if got := cmdTestTexture2D(t, texPath).TextureFormat; got != aba.TextureFormatRGBA32 {
+		t.Fatalf("texture format without --compress = %d, want RGBA32", got)
+	}
+
+	if _, err := executeCommand(RootCmd, "convert2texture2d", pngPath, "--compress"); err != nil {
+		t.Fatalf("convert2texture2d --compress failed: %v", err)
+	}
+	if got := cmdTestTexture2D(t, texPath).TextureFormat; got != aba.TextureFormatDXT1 {
+		t.Fatalf("texture format with --compress = %d, want DXT1", got)
+	}
 }
 
 // TestConvert2Texture2DMipmapFlag 固定 --mipmap 三种取值的行为

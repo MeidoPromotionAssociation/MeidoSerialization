@@ -49,20 +49,28 @@ func TestMipLevelDimensions(t *testing.T) {
 	}
 }
 
-func TestMipChainSizeMatchesLevelSum(t *testing.T) {
+func TestTextureChainSizeMatchesLevelSum(t *testing.T) {
 	const width, height = int64(1024), int64(1024)
 	levelCount := MaxMipCount(width, height)
 	sum := int64(0)
 	for level := int32(0); level < levelCount; level++ {
-		sum += MipLevelSize(width, height, level)
+		sum += TextureLevelSize(TextureFormatRGBA32, width, height, level)
 	}
-	if got := MipChainSize(width, height, levelCount); got != sum {
-		t.Fatalf("MipChainSize = %d, want %d", got, sum)
+	if got := TextureChainSize(TextureFormatRGBA32, width, height, levelCount); got != sum {
+		t.Fatalf("TextureChainSize = %d, want %d", got, sum)
 	}
 	// 1024x1024 RGBA32 的完整链，最后两级受 1 像素下限影响不再按 1/4 递减
 	// The full RGBA32 chain of a 1024x1024 texture, whose last two levels stop shrinking by 1/4 once they reach one pixel
-	if got, want := MipChainSize(width, height, levelCount), int64(5592404); got != want {
+	if got, want := TextureChainSize(TextureFormatRGBA32, width, height, levelCount), int64(5592404); got != want {
 		t.Fatalf("full RGBA32 chain = %d, want %d", got, want)
+	}
+	// 同一尺寸的 DXT1 与 DXT5 链长，用于锁定块压缩按 4×4 块向上取整的算法
+	// The DXT1 and DXT5 chain sizes for the same texture pin the block-compressed rule that rounds the 4×4 grid up
+	if got, want := TextureChainSize(TextureFormatDXT1, width, height, levelCount), int64(699064); got != want {
+		t.Fatalf("full DXT1 chain = %d, want %d", got, want)
+	}
+	if got, want := TextureChainSize(TextureFormatDXT5, width, height, levelCount), int64(1398128); got != want {
+		t.Fatalf("full DXT5 chain = %d, want %d", got, want)
 	}
 }
 
@@ -159,21 +167,38 @@ func TestGenerateMipChainRejectsInvalidInput(t *testing.T) {
 	}
 }
 
-func TestFlipRGBA32MipChainFlipsEveryLevel(t *testing.T) {
+func TestFlipTextureMipChainFlipsEveryLevel(t *testing.T) {
 	const width, height = int64(4), int64(2)
 	mips, err := GenerateMipChain(width, height, make([]byte, width*height*4), 2)
 	if err != nil {
 		t.Fatalf("GenerateMipChain: %v", err)
 	}
-	for level, mip := range mips {
-		levelWidth, levelHeight := MipLevelDimensions(width, height, int32(level))
+	for _, mip := range mips {
 		for i := range mip {
 			mip[i] = byte(i)
 		}
-		flipped := FlipRGBA32MipChain(width, height, mips)[level]
-		if got := FlipRGBA32Rows(levelWidth, levelHeight, flipped); !bytes.Equal(got, mip) {
+	}
+	flippedMips, err := FlipTextureMipChain(TextureFormatRGBA32, width, height, mips)
+	if err != nil {
+		t.Fatalf("FlipTextureMipChain: %v", err)
+	}
+	if len(flippedMips) != len(mips) {
+		t.Fatalf("level count = %d, want %d", len(flippedMips), len(mips))
+	}
+	for level, mip := range mips {
+		levelWidth, levelHeight := MipLevelDimensions(width, height, int32(level))
+		if got := FlipRGBA32Rows(levelWidth, levelHeight, flippedMips[level]); !bytes.Equal(got, mip) {
 			t.Fatalf("level %d flip is not its own inverse", level)
 		}
+		if levelHeight > 1 && bytes.Equal(flippedMips[level], mip) {
+			t.Fatalf("level %d flip left a multi-row level unchanged", level)
+		}
+	}
+}
+
+func TestFlipTextureMipChainRejectsUnknownFormat(t *testing.T) {
+	if _, err := FlipTextureMipChain(TextureFormatBC7, 4, 4, [][]byte{make([]byte, 16)}); err == nil {
+		t.Fatal("FlipTextureMipChain accepted a format it cannot flip")
 	}
 }
 
@@ -188,7 +213,7 @@ func TestEncodeTexture2DDataWithMipChain(t *testing.T) {
 		total += int64(len(mip))
 		mips[level] = bytes.Repeat([]byte{byte(level + 1)}, len(mip))
 	}
-	data, err := encodeTexture2DData("2022.3.35f", "mip_test.tex", 4, 4, mips)
+	data, err := encodeTexture2DData("2022.3.35f", "mip_test.tex", 4, 4, TextureFormatRGBA32, mips)
 	if err != nil {
 		t.Fatalf("encodeTexture2DData: %v", err)
 	}
@@ -225,14 +250,18 @@ func TestEncodeTexture2DDataRejectsBadMipChain(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := encodeTexture2DData("2022.3.35f", "bad.tex", 4, 4, tc.mips); err == nil {
+			if _, err := encodeTexture2DData("2022.3.35f", "bad.tex", 4, 4, TextureFormatRGBA32, tc.mips); err == nil {
 				t.Fatal("encodeTexture2DData unexpectedly succeeded")
 			}
 		})
 	}
 
-	if _, err := encodeTexture2DData("2022.3.35f", "single.tex", 4, 4, [][]byte{valid}); err != nil {
+	if _, err := encodeTexture2DData("2022.3.35f", "single.tex", 4, 4, TextureFormatRGBA32, [][]byte{valid}); err != nil {
 		t.Fatalf("single level chain should be accepted, got %v", err)
+	}
+
+	if _, err := encodeTexture2DData("2022.3.35f", "unsupported.tex", 4, 4, TextureFormatBC7, [][]byte{valid}); err == nil {
+		t.Fatal("encodeTexture2DData accepted an unsupported texture format")
 	}
 }
 
