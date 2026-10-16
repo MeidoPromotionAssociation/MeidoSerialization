@@ -1,130 +1,258 @@
 package aba
 
-// unity2022MeshSchemaBase64 是从官方 2022.3.35f1 资源包提取的 ClassID 43 Mesh 完整 TypeTree，按不含正文的独立对象头格式编码
-// 该树带有官方 TypeHash，使写出的 Mesh 在游戏中走 Unity 原生快速加载路径
-// unity2022MeshSchemaBase64 is the complete ClassID 43 Mesh TypeTree extracted from an official 2022.3.35f1 bundle, encoded as a standalone object header without payload data
-// The tree carries the official TypeHash so written Meshes load through Unity's native fast path in the game
-const unity2022MeshSchemaBase64 = "" +
-	"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" +
-	"YXNlVmVydGV4AGZpcnN0VmVydGV4AHZlcnRleENvdW50AGxvY2FsQUFCQgBtX0NlbnRlcgB4AHkAegBtX0V4dGVudABCbGVu" +
-	"ZFNoYXBlRGF0YQBtX1NoYXBlcwB2ZXJ0aWNlcwBCbGVuZFNoYXBlVmVydGV4AHZlcnRleABub3JtYWwAdGFuZ2VudABpbmRl" +
-	"eABzaGFwZXMATWVzaEJsZW5kU2hhcGUAaGFzTm9ybWFscwBoYXNUYW5nZW50cwBjaGFubmVscwBNZXNoQmxlbmRTaGFwZUNo" +
-	"YW5uZWwAbmFtZQBuYW1lSGFzaABmcmFtZUluZGV4AGZyYW1lQ291bnQAZnVsbFdlaWdodHMAbV9CaW5kUG9zZQBlMDAAZTAx" +
-	"AGUwMgBlMDMAZTEwAGUxMQBlMTIAZTEzAGUyMABlMjEAZTIyAGUyMwBlMzAAZTMxAGUzMgBlMzMAbV9Cb25lTmFtZUhhc2hl" +
-	"cwBtX1Jvb3RCb25lTmFtZUhhc2gAbV9Cb25lc0FBQkIATWluTWF4QUFCQgBtX01pbgBtX01heABWYXJpYWJsZUJvbmVDb3Vu" +
-	"dFdlaWdodHMAbV9WYXJpYWJsZUJvbmVDb3VudFdlaWdodHMAbV9EYXRhAG1fTWVzaENvbXByZXNzaW9uAG1fSXNSZWFkYWJs" +
-	"ZQBtX0tlZXBWZXJ0aWNlcwBtX0tlZXBJbmRpY2VzAG1fSW5kZXhGb3JtYXQAbV9JbmRleEJ1ZmZlcgBWZXJ0ZXhEYXRhAG1f" +
-	"VmVydGV4RGF0YQBtX1ZlcnRleENvdW50AG1fQ2hhbm5lbHMAQ2hhbm5lbEluZm8Ac3RyZWFtAG9mZnNldABmb3JtYXQAZGlt" +
-	"ZW5zaW9uAG1fRGF0YVNpemUAQ29tcHJlc3NlZE1lc2gAbV9Db21wcmVzc2VkTWVzaABQYWNrZWRCaXRWZWN0b3IAbV9WZXJ0" +
-	"aWNlcwBtX051bUl0ZW1zAG1fUmFuZ2UAbV9TdGFydABtX0JpdFNpemUAbV9VVgBtX05vcm1hbHMAbV9UYW5nZW50cwBtX1dl" +
-	"aWdodHMAbV9Ob3JtYWxTaWducwBtX1RhbmdlbnRTaWducwBtX0Zsb2F0Q29sb3JzAG1fQm9uZUluZGljZXMAbV9Ucmlhbmds" +
-	"ZXMAbV9VVkluZm8AbV9Mb2NhbEFBQkIAbV9NZXNoVXNhZ2VGbGFncwBtX0Nvb2tpbmdPcHRpb25zAG1fQmFrZWRDb252ZXhD" +
-	"b2xsaXNpb25NZXNoAG1fQmFrZWRUcmlhbmdsZUNvbGxpc2lvbk1lc2gAbV9NZXNoTWV0cmljc1swXQBtX01lc2hNZXRyaWNz" +
-	"WzFdAFN0cmVhbWluZ0luZm8AbV9TdHJlYW1EYXRhAHBhdGgA"
+// unity2022MeshTypeTree 返回从官方 2022.3.35f1 资源包提取的 ClassID 43 Mesh TypeTree
+// 节点表原先以独立对象头格式的 base64 内嵌，现改为等价的 Go 节点表字面量：省去每次调用的 base64 解码与 239 节点重解析，且节点表可读可 diff
+// TypeHash 由 ComputeTypeHash 实时推导，推导值与样本携带的官方哈希 c18fd529f71dbfc0f9b3cdbfb98ea7cd 一致
+// unity2022MeshTypeTree returns the ClassID 43 Mesh TypeTree extracted from an official 2022.3.35f1 bundle
+// The node table used to be embedded as a standalone-object-header base64 blob and is now an equivalent Go literal, which drops the per-call base64 decode and 239-node reparse while keeping the table readable and diffable
+// The TypeHash is derived by ComputeTypeHash, whose value matches the official hash c18fd529f71dbfc0f9b3cdbfb98ea7cd carried by the sample
+func unity2022MeshTypeTree() (TypeTreeType, error) {
+	tree := TypeTreeType{
+		TypeId:          ClassIDMesh,
+		ScriptTypeIndex: -1,
+		StringBuffer:    []byte("Mesh\x00m_SubMeshes\x00SubMesh\x00firstByte\x00indexCount\x00topology\x00baseVertex\x00firstVertex\x00vertexCount\x00localAABB\x00m_Center\x00x\x00y\x00z\x00m_Extent\x00BlendShapeData\x00m_Shapes\x00vertices\x00BlendShapeVertex\x00vertex\x00normal\x00tangent\x00index\x00shapes\x00MeshBlendShape\x00hasNormals\x00hasTangents\x00channels\x00MeshBlendShapeChannel\x00name\x00nameHash\x00frameIndex\x00frameCount\x00fullWeights\x00m_BindPose\x00e00\x00e01\x00e02\x00e03\x00e10\x00e11\x00e12\x00e13\x00e20\x00e21\x00e22\x00e23\x00e30\x00e31\x00e32\x00e33\x00m_BoneNameHashes\x00m_RootBoneNameHash\x00m_BonesAABB\x00MinMaxAABB\x00m_Min\x00m_Max\x00VariableBoneCountWeights\x00m_VariableBoneCountWeights\x00m_Data\x00m_MeshCompression\x00m_IsReadable\x00m_KeepVertices\x00m_KeepIndices\x00m_IndexFormat\x00m_IndexBuffer\x00VertexData\x00m_VertexData\x00m_VertexCount\x00m_Channels\x00ChannelInfo\x00stream\x00offset\x00format\x00dimension\x00m_DataSize\x00CompressedMesh\x00m_CompressedMesh\x00PackedBitVector\x00m_Vertices\x00m_NumItems\x00m_Range\x00m_Start\x00m_BitSize\x00m_UV\x00m_Normals\x00m_Tangents\x00m_Weights\x00m_NormalSigns\x00m_TangentSigns\x00m_FloatColors\x00m_BoneIndices\x00m_Triangles\x00m_UVInfo\x00m_LocalAABB\x00m_MeshUsageFlags\x00m_CookingOptions\x00m_BakedConvexCollisionMesh\x00m_BakedTriangleCollisionMesh\x00m_MeshMetrics[0]\x00m_MeshMetrics[1]\x00StreamingInfo\x00m_StreamData\x00path\x00"),
+	}
+	tree.Nodes = []TypeTreeNode{
+		{Version: 11, TypeStrOff: 0x0, NameStrOff: 0x80000037, ByteSize: -1, Index: 0, MetaFlags: 0x8000},
+		{Version: 1, Level: 1, TypeStrOff: 0x80000348, NameStrOff: 0x800001AB, ByteSize: -1, Index: 1, MetaFlags: 0x88001},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 2, MetaFlags: 0x84001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 3, MetaFlags: 0x80001},
+		{Version: 1, Level: 3, TypeStrOff: 0x80000051, NameStrOff: 0x8000006A, ByteSize: 1, Index: 4, MetaFlags: 0x80001},
+		{Version: 1, Level: 1, TypeStrOff: 0x800003D5, NameStrOff: 0x5, ByteSize: -1, Index: 5, MetaFlags: 0x8001},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 6, MetaFlags: 0x4001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 7, MetaFlags: 0x1},
+		{Version: 2, Level: 3, TypeStrOff: 0x11, NameStrOff: 0x8000006A, ByteSize: 48, Index: 8, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800003A6, NameStrOff: 0x19, ByteSize: 4, Index: 9, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800003A6, NameStrOff: 0x23, ByteSize: 4, Index: 10, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000DE, NameStrOff: 0x2E, ByteSize: 4, Index: 11, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800003A6, NameStrOff: 0x37, ByteSize: 4, Index: 12, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800003A6, NameStrOff: 0x42, ByteSize: 4, Index: 13, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800003A6, NameStrOff: 0x4E, ByteSize: 4, Index: 14, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x80000000, NameStrOff: 0x5A, ByteSize: 24, Index: 15, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003E5, NameStrOff: 0x64, ByteSize: 12, Index: 16, MetaFlags: 0x200001},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000A1, NameStrOff: 0x6D, ByteSize: 4, Index: 17, MetaFlags: 0x200001},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000A1, NameStrOff: 0x6F, ByteSize: 4, Index: 18, MetaFlags: 0x200001},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000A1, NameStrOff: 0x71, ByteSize: 4, Index: 19, MetaFlags: 0x200001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003E5, NameStrOff: 0x73, ByteSize: 12, Index: 20, MetaFlags: 0x200001},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000A1, NameStrOff: 0x6D, ByteSize: 4, Index: 21, MetaFlags: 0x200001},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000A1, NameStrOff: 0x6F, ByteSize: 4, Index: 22, MetaFlags: 0x200001},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000A1, NameStrOff: 0x71, ByteSize: 4, Index: 23, MetaFlags: 0x200001},
+		{Version: 1, Level: 1, TypeStrOff: 0x7C, NameStrOff: 0x8B, ByteSize: -1, Index: 24, MetaFlags: 0x8001},
+		{Version: 1, Level: 2, TypeStrOff: 0x800003D5, NameStrOff: 0x94, ByteSize: -1, Index: 25, MetaFlags: 0x8001},
+		{Version: 1, Level: 3, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 26, MetaFlags: 0x4001},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 27, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x9D, NameStrOff: 0x8000006A, ByteSize: 40, Index: 28, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003E5, NameStrOff: 0xAE, ByteSize: 12, Index: 29, MetaFlags: 0x200001},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000A1, NameStrOff: 0x6D, ByteSize: 4, Index: 30, MetaFlags: 0x200001},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000A1, NameStrOff: 0x6F, ByteSize: 4, Index: 31, MetaFlags: 0x200001},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000A1, NameStrOff: 0x71, ByteSize: 4, Index: 32, MetaFlags: 0x200001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003E5, NameStrOff: 0xB5, ByteSize: 12, Index: 33, MetaFlags: 0x200001},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000A1, NameStrOff: 0x6D, ByteSize: 4, Index: 34, MetaFlags: 0x200001},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000A1, NameStrOff: 0x6F, ByteSize: 4, Index: 35, MetaFlags: 0x200001},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000A1, NameStrOff: 0x71, ByteSize: 4, Index: 36, MetaFlags: 0x200001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003E5, NameStrOff: 0xBC, ByteSize: 12, Index: 37, MetaFlags: 0x200001},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000A1, NameStrOff: 0x6D, ByteSize: 4, Index: 38, MetaFlags: 0x200001},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000A1, NameStrOff: 0x6F, ByteSize: 4, Index: 39, MetaFlags: 0x200001},
+		{Version: 1, Level: 6, TypeStrOff: 0x800000A1, NameStrOff: 0x71, ByteSize: 4, Index: 40, MetaFlags: 0x200001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003A6, NameStrOff: 0xC4, ByteSize: 4, Index: 41, MetaFlags: 0x1},
+		{Version: 1, Level: 2, TypeStrOff: 0x800003D5, NameStrOff: 0xCA, ByteSize: -1, Index: 42, MetaFlags: 0x8001},
+		{Version: 1, Level: 3, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 43, MetaFlags: 0xC001},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 44, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0xD1, NameStrOff: 0x8000006A, ByteSize: 10, Index: 45, MetaFlags: 0x8001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003A6, NameStrOff: 0x42, ByteSize: 4, Index: 46, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003A6, NameStrOff: 0x4E, ByteSize: 4, Index: 47, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x8000004C, NameStrOff: 0xE0, ByteSize: 1, Index: 48, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x8000004C, NameStrOff: 0xEB, ByteSize: 1, Index: 49, MetaFlags: 0x4001},
+		{Version: 1, Level: 2, TypeStrOff: 0x800003D5, NameStrOff: 0xF7, ByteSize: -1, Index: 50, MetaFlags: 0x8001},
+		{Version: 1, Level: 3, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 51, MetaFlags: 0xC001},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 52, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x100, NameStrOff: 0x8000006A, ByteSize: -1, Index: 53, MetaFlags: 0x8001},
+		{Version: 1, Level: 5, TypeStrOff: 0x80000348, NameStrOff: 0x116, ByteSize: -1, Index: 54, MetaFlags: 0x8001},
+		{Version: 1, Level: 6, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 55, MetaFlags: 0x4001},
+		{Version: 1, Level: 7, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 56, MetaFlags: 0x1},
+		{Version: 1, Level: 7, TypeStrOff: 0x80000051, NameStrOff: 0x8000006A, ByteSize: 1, Index: 57, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003A6, NameStrOff: 0x11B, ByteSize: 4, Index: 58, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000DE, NameStrOff: 0x124, ByteSize: 4, Index: 59, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000DE, NameStrOff: 0x12F, ByteSize: 4, Index: 60, MetaFlags: 0x1},
+		{Version: 1, Level: 2, TypeStrOff: 0x800003D5, NameStrOff: 0x13A, ByteSize: -1, Index: 61, MetaFlags: 0x8001},
+		{Version: 1, Level: 3, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 62, MetaFlags: 0x4001},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 63, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000A1, NameStrOff: 0x8000006A, ByteSize: 4, Index: 64, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x800003D5, NameStrOff: 0x146, ByteSize: -1, Index: 65, MetaFlags: 0x8001},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 66, MetaFlags: 0x4001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 67, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000F5, NameStrOff: 0x8000006A, ByteSize: 64, Index: 68, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000A1, NameStrOff: 0x151, ByteSize: 4, Index: 69, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000A1, NameStrOff: 0x155, ByteSize: 4, Index: 70, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000A1, NameStrOff: 0x159, ByteSize: 4, Index: 71, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000A1, NameStrOff: 0x15D, ByteSize: 4, Index: 72, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000A1, NameStrOff: 0x161, ByteSize: 4, Index: 73, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000A1, NameStrOff: 0x165, ByteSize: 4, Index: 74, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000A1, NameStrOff: 0x169, ByteSize: 4, Index: 75, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000A1, NameStrOff: 0x16D, ByteSize: 4, Index: 76, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000A1, NameStrOff: 0x171, ByteSize: 4, Index: 77, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000A1, NameStrOff: 0x175, ByteSize: 4, Index: 78, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000A1, NameStrOff: 0x179, ByteSize: 4, Index: 79, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000A1, NameStrOff: 0x17D, ByteSize: 4, Index: 80, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000A1, NameStrOff: 0x181, ByteSize: 4, Index: 81, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000A1, NameStrOff: 0x185, ByteSize: 4, Index: 82, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000A1, NameStrOff: 0x189, ByteSize: 4, Index: 83, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000A1, NameStrOff: 0x18D, ByteSize: 4, Index: 84, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x800003D5, NameStrOff: 0x191, ByteSize: -1, Index: 85, MetaFlags: 0x8001},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 86, MetaFlags: 0x4001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 87, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A6, NameStrOff: 0x8000006A, ByteSize: 4, Index: 88, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x800003A6, NameStrOff: 0x1A2, ByteSize: 4, Index: 89, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x800003D5, NameStrOff: 0x1B5, ByteSize: -1, Index: 90, MetaFlags: 0x8001},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 91, MetaFlags: 0x4001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 92, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x1C1, NameStrOff: 0x8000006A, ByteSize: 24, Index: 93, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800003E5, NameStrOff: 0x1CC, ByteSize: 12, Index: 94, MetaFlags: 0x200001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000A1, NameStrOff: 0x6D, ByteSize: 4, Index: 95, MetaFlags: 0x200001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000A1, NameStrOff: 0x6F, ByteSize: 4, Index: 96, MetaFlags: 0x200001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000A1, NameStrOff: 0x71, ByteSize: 4, Index: 97, MetaFlags: 0x200001},
+		{Version: 1, Level: 4, TypeStrOff: 0x800003E5, NameStrOff: 0x1D2, ByteSize: 12, Index: 98, MetaFlags: 0x200001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000A1, NameStrOff: 0x6D, ByteSize: 4, Index: 99, MetaFlags: 0x200001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000A1, NameStrOff: 0x6F, ByteSize: 4, Index: 100, MetaFlags: 0x200001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000A1, NameStrOff: 0x71, ByteSize: 4, Index: 101, MetaFlags: 0x200001},
+		{Version: 1, Level: 1, TypeStrOff: 0x1D8, NameStrOff: 0x1F1, ByteSize: -1, Index: 102, MetaFlags: 0x8001},
+		{Version: 1, Level: 2, TypeStrOff: 0x800003D5, NameStrOff: 0x20C, ByteSize: -1, Index: 103, MetaFlags: 0x8001},
+		{Version: 1, Level: 3, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 104, MetaFlags: 0x4001},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 105, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x800003A6, NameStrOff: 0x8000006A, ByteSize: 4, Index: 106, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x800003A0, NameStrOff: 0x213, ByteSize: 1, Index: 107, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x8000004C, NameStrOff: 0x225, ByteSize: 1, Index: 108, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x8000004C, NameStrOff: 0x232, ByteSize: 1, Index: 109, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x8000004C, NameStrOff: 0x241, ByteSize: 1, Index: 110, MetaFlags: 0x4001},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000DE, NameStrOff: 0x24F, ByteSize: 4, Index: 111, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x800003D5, NameStrOff: 0x25D, ByteSize: -1, Index: 112, MetaFlags: 0x8001},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 113, MetaFlags: 0x4001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 114, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A0, NameStrOff: 0x8000006A, ByteSize: 1, Index: 115, MetaFlags: 0x1},
+		{Version: 3, Level: 1, TypeStrOff: 0x26B, NameStrOff: 0x276, ByteSize: -1, Index: 116, MetaFlags: 0xC001},
+		{Version: 1, Level: 2, TypeStrOff: 0x800003A6, NameStrOff: 0x283, ByteSize: 4, Index: 117, MetaFlags: 0x1},
+		{Version: 1, Level: 2, TypeStrOff: 0x800003D5, NameStrOff: 0x291, ByteSize: -1, Index: 118, MetaFlags: 0x8001},
+		{Version: 1, Level: 3, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 119, MetaFlags: 0x4001},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 120, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x29C, NameStrOff: 0x8000006A, ByteSize: 4, Index: 121, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003A0, NameStrOff: 0x2A8, ByteSize: 1, Index: 122, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003A0, NameStrOff: 0x2AF, ByteSize: 1, Index: 123, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003A0, NameStrOff: 0x2B6, ByteSize: 1, Index: 124, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003A0, NameStrOff: 0x2BD, ByteSize: 1, Index: 125, MetaFlags: 0x1},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x8000037E, NameStrOff: 0x2C7, ByteSize: -1, Index: 126, MetaFlags: 0x4001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 127, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A0, NameStrOff: 0x8000006A, ByteSize: 1, Index: 128, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x2D2, NameStrOff: 0x2E1, ByteSize: -1, Index: 129, MetaFlags: 0x8001},
+		{Version: 1, Level: 2, TypeStrOff: 0x2F2, NameStrOff: 0x302, ByteSize: -1, Index: 130, MetaFlags: 0x8001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A6, NameStrOff: 0x30D, ByteSize: 4, Index: 131, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000A1, NameStrOff: 0x318, ByteSize: 4, Index: 132, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000A1, NameStrOff: 0x320, ByteSize: 4, Index: 133, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003D5, NameStrOff: 0x20C, ByteSize: -1, Index: 134, MetaFlags: 0x8001},
+		{Version: 1, Level: 4, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 135, MetaFlags: 0x4001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 136, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003A0, NameStrOff: 0x8000006A, ByteSize: 1, Index: 137, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A0, NameStrOff: 0x328, ByteSize: 1, Index: 138, MetaFlags: 0x4001},
+		{Version: 1, Level: 2, TypeStrOff: 0x2F2, NameStrOff: 0x332, ByteSize: -1, Index: 139, MetaFlags: 0x8001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A6, NameStrOff: 0x30D, ByteSize: 4, Index: 140, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000A1, NameStrOff: 0x318, ByteSize: 4, Index: 141, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000A1, NameStrOff: 0x320, ByteSize: 4, Index: 142, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003D5, NameStrOff: 0x20C, ByteSize: -1, Index: 143, MetaFlags: 0x8001},
+		{Version: 1, Level: 4, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 144, MetaFlags: 0x4001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 145, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003A0, NameStrOff: 0x8000006A, ByteSize: 1, Index: 146, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A0, NameStrOff: 0x328, ByteSize: 1, Index: 147, MetaFlags: 0x4001},
+		{Version: 1, Level: 2, TypeStrOff: 0x2F2, NameStrOff: 0x337, ByteSize: -1, Index: 148, MetaFlags: 0x8001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A6, NameStrOff: 0x30D, ByteSize: 4, Index: 149, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000A1, NameStrOff: 0x318, ByteSize: 4, Index: 150, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000A1, NameStrOff: 0x320, ByteSize: 4, Index: 151, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003D5, NameStrOff: 0x20C, ByteSize: -1, Index: 152, MetaFlags: 0x8001},
+		{Version: 1, Level: 4, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 153, MetaFlags: 0x4001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 154, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003A0, NameStrOff: 0x8000006A, ByteSize: 1, Index: 155, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A0, NameStrOff: 0x328, ByteSize: 1, Index: 156, MetaFlags: 0x4001},
+		{Version: 1, Level: 2, TypeStrOff: 0x2F2, NameStrOff: 0x341, ByteSize: -1, Index: 157, MetaFlags: 0x8001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A6, NameStrOff: 0x30D, ByteSize: 4, Index: 158, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000A1, NameStrOff: 0x318, ByteSize: 4, Index: 159, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000A1, NameStrOff: 0x320, ByteSize: 4, Index: 160, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003D5, NameStrOff: 0x20C, ByteSize: -1, Index: 161, MetaFlags: 0x8001},
+		{Version: 1, Level: 4, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 162, MetaFlags: 0x4001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 163, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003A0, NameStrOff: 0x8000006A, ByteSize: 1, Index: 164, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A0, NameStrOff: 0x328, ByteSize: 1, Index: 165, MetaFlags: 0x4001},
+		{Version: 1, Level: 2, TypeStrOff: 0x2F2, NameStrOff: 0x34C, ByteSize: -1, Index: 166, MetaFlags: 0x8001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A6, NameStrOff: 0x30D, ByteSize: 4, Index: 167, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003D5, NameStrOff: 0x20C, ByteSize: -1, Index: 168, MetaFlags: 0x8001},
+		{Version: 1, Level: 4, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 169, MetaFlags: 0x4001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 170, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003A0, NameStrOff: 0x8000006A, ByteSize: 1, Index: 171, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A0, NameStrOff: 0x328, ByteSize: 1, Index: 172, MetaFlags: 0x4001},
+		{Version: 1, Level: 2, TypeStrOff: 0x2F2, NameStrOff: 0x356, ByteSize: -1, Index: 173, MetaFlags: 0x8001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A6, NameStrOff: 0x30D, ByteSize: 4, Index: 174, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003D5, NameStrOff: 0x20C, ByteSize: -1, Index: 175, MetaFlags: 0x8001},
+		{Version: 1, Level: 4, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 176, MetaFlags: 0x4001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 177, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003A0, NameStrOff: 0x8000006A, ByteSize: 1, Index: 178, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A0, NameStrOff: 0x328, ByteSize: 1, Index: 179, MetaFlags: 0x4001},
+		{Version: 1, Level: 2, TypeStrOff: 0x2F2, NameStrOff: 0x364, ByteSize: -1, Index: 180, MetaFlags: 0x8001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A6, NameStrOff: 0x30D, ByteSize: 4, Index: 181, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003D5, NameStrOff: 0x20C, ByteSize: -1, Index: 182, MetaFlags: 0x8001},
+		{Version: 1, Level: 4, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 183, MetaFlags: 0x4001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 184, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003A0, NameStrOff: 0x8000006A, ByteSize: 1, Index: 185, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A0, NameStrOff: 0x328, ByteSize: 1, Index: 186, MetaFlags: 0x4001},
+		{Version: 1, Level: 2, TypeStrOff: 0x2F2, NameStrOff: 0x373, ByteSize: -1, Index: 187, MetaFlags: 0x8001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A6, NameStrOff: 0x30D, ByteSize: 4, Index: 188, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000A1, NameStrOff: 0x318, ByteSize: 4, Index: 189, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000A1, NameStrOff: 0x320, ByteSize: 4, Index: 190, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003D5, NameStrOff: 0x20C, ByteSize: -1, Index: 191, MetaFlags: 0x8001},
+		{Version: 1, Level: 4, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 192, MetaFlags: 0x4001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 193, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003A0, NameStrOff: 0x8000006A, ByteSize: 1, Index: 194, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A0, NameStrOff: 0x328, ByteSize: 1, Index: 195, MetaFlags: 0x4001},
+		{Version: 1, Level: 2, TypeStrOff: 0x2F2, NameStrOff: 0x381, ByteSize: -1, Index: 196, MetaFlags: 0x8001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A6, NameStrOff: 0x30D, ByteSize: 4, Index: 197, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003D5, NameStrOff: 0x20C, ByteSize: -1, Index: 198, MetaFlags: 0x8001},
+		{Version: 1, Level: 4, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 199, MetaFlags: 0x4001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 200, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003A0, NameStrOff: 0x8000006A, ByteSize: 1, Index: 201, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A0, NameStrOff: 0x328, ByteSize: 1, Index: 202, MetaFlags: 0x4001},
+		{Version: 1, Level: 2, TypeStrOff: 0x2F2, NameStrOff: 0x38F, ByteSize: -1, Index: 203, MetaFlags: 0x8001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A6, NameStrOff: 0x30D, ByteSize: 4, Index: 204, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003D5, NameStrOff: 0x20C, ByteSize: -1, Index: 205, MetaFlags: 0x8001},
+		{Version: 1, Level: 4, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 206, MetaFlags: 0x4001},
+		{Version: 1, Level: 5, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 207, MetaFlags: 0x1},
+		{Version: 1, Level: 5, TypeStrOff: 0x800003A0, NameStrOff: 0x8000006A, ByteSize: 1, Index: 208, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A0, NameStrOff: 0x328, ByteSize: 1, Index: 209, MetaFlags: 0x4001},
+		{Version: 1, Level: 2, TypeStrOff: 0x800003A6, NameStrOff: 0x39B, ByteSize: 4, Index: 210, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x80000000, NameStrOff: 0x3A4, ByteSize: 24, Index: 211, MetaFlags: 0x1},
+		{Version: 1, Level: 2, TypeStrOff: 0x800003E5, NameStrOff: 0x64, ByteSize: 12, Index: 212, MetaFlags: 0x200001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000A1, NameStrOff: 0x6D, ByteSize: 4, Index: 213, MetaFlags: 0x200001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000A1, NameStrOff: 0x6F, ByteSize: 4, Index: 214, MetaFlags: 0x200001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000A1, NameStrOff: 0x71, ByteSize: 4, Index: 215, MetaFlags: 0x200001},
+		{Version: 1, Level: 2, TypeStrOff: 0x800003E5, NameStrOff: 0x73, ByteSize: 12, Index: 216, MetaFlags: 0x200001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000A1, NameStrOff: 0x6D, ByteSize: 4, Index: 217, MetaFlags: 0x200001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000A1, NameStrOff: 0x6F, ByteSize: 4, Index: 218, MetaFlags: 0x200001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000A1, NameStrOff: 0x71, ByteSize: 4, Index: 219, MetaFlags: 0x200001},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000DE, NameStrOff: 0x3B0, ByteSize: 4, Index: 220, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000DE, NameStrOff: 0x3C1, ByteSize: 4, Index: 221},
+		{Version: 1, Level: 1, TypeStrOff: 0x800003D5, NameStrOff: 0x3D2, ByteSize: -1, Index: 222, MetaFlags: 0x8001},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 223, MetaFlags: 0x4001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 224, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A0, NameStrOff: 0x8000006A, ByteSize: 1, Index: 225, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x800003D5, NameStrOff: 0x3ED, ByteSize: -1, Index: 226, MetaFlags: 0x8001},
+		{Version: 1, Level: 2, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 227, MetaFlags: 0x4001},
+		{Version: 1, Level: 3, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 228, MetaFlags: 0x1},
+		{Version: 1, Level: 3, TypeStrOff: 0x800003A0, NameStrOff: 0x8000006A, ByteSize: 1, Index: 229, MetaFlags: 0x1},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000A1, NameStrOff: 0x40A, ByteSize: 4, Index: 230},
+		{Version: 1, Level: 1, TypeStrOff: 0x800000A1, NameStrOff: 0x41B, ByteSize: 4, Index: 231, MetaFlags: 0x4000},
+		{Version: 2, Level: 1, TypeStrOff: 0x42C, NameStrOff: 0x43A, ByteSize: -1, Index: 232, MetaFlags: 0x8000},
+		{Version: 1, Level: 2, TypeStrOff: 0x80000399, NameStrOff: 0x2AF, ByteSize: 8, Index: 233},
+		{Version: 1, Level: 2, TypeStrOff: 0x800003A6, NameStrOff: 0x8000031B, ByteSize: 4, Index: 234},
+		{Version: 1, Level: 2, TypeStrOff: 0x80000348, NameStrOff: 0x447, ByteSize: -1, Index: 235, MetaFlags: 0x8000},
+		{Version: 1, Level: 3, TypeFlags: 0x1, TypeStrOff: 0x80000031, NameStrOff: 0x80000031, ByteSize: -1, Index: 236, MetaFlags: 0x4001},
+		{Version: 1, Level: 4, TypeStrOff: 0x800000DE, NameStrOff: 0x8000031B, ByteSize: 4, Index: 237, MetaFlags: 0x1},
+		{Version: 1, Level: 4, TypeStrOff: 0x80000051, NameStrOff: 0x8000006A, ByteSize: 1, Index: 238, MetaFlags: 0x1},
+	}
+	tree.TypeHash = tree.ComputeTypeHash()
+	return tree, nil
+}

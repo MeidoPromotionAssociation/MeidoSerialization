@@ -7,20 +7,27 @@ import (
 	"testing"
 )
 
-func TestUnity2022MeshTypeTreeParsesEmbeddedSchema(t *testing.T) {
+// TestUnity2022MeshTypeTreeReturnsOfficialSchema 校验内置 Mesh 树的形状
+// 节点表已由内嵌 base64 改为等价的 Go 字面量，TypeHash 的官方值由 TestComputeTypeHashMatchesOfficialSamples 单独锁定
+// TestUnity2022MeshTypeTreeReturnsOfficialSchema verifies the shape of the built-in Mesh tree
+// The node table moved from an embedded base64 blob to an equivalent Go literal, and the official TypeHash value is pinned separately by TestComputeTypeHashMatchesOfficialSamples
+func TestUnity2022MeshTypeTreeReturnsOfficialSchema(t *testing.T) {
 	tree, err := unity2022MeshTypeTree()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if tree.TypeId != ClassIDMesh || len(tree.Nodes) != 239 {
-		t.Fatalf("unexpected embedded Mesh tree: classID=%d nodes=%d", tree.TypeId, len(tree.Nodes))
+		t.Fatalf("unexpected built-in Mesh tree: classID=%d nodes=%d", tree.TypeId, len(tree.Nodes))
 	}
 	if tree.TypeHash == ([16]byte{}) {
-		t.Fatal("embedded Mesh tree has a zero TypeHash")
+		t.Fatal("built-in Mesh tree has a zero TypeHash")
+	}
+	if len(tree.StringBuffer) == 0 {
+		t.Fatal("built-in Mesh tree has an empty StringBuffer")
 	}
 	root := tree.GetTypeTreeString(&tree.Nodes[0], true)
 	if root != "Mesh" {
-		t.Fatalf("embedded tree root type is %q", root)
+		t.Fatalf("built-in tree root type is %q", root)
 	}
 }
 

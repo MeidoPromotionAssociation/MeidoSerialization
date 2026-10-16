@@ -1,28 +1,10 @@
 package aba
 
 import (
-	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"math"
 )
-
-// unity2022MeshTypeTree 解析内嵌 schema 并返回带官方 TypeHash 的 Unity 2022.3 Mesh TypeTree
-// unity2022MeshTypeTree parses the embedded schema and returns the Unity 2022.3 Mesh TypeTree with the official TypeHash
-func unity2022MeshTypeTree() (TypeTreeType, error) {
-	blob, err := base64.StdEncoding.DecodeString(unity2022MeshSchemaBase64)
-	if err != nil {
-		return TypeTreeType{}, fmt.Errorf("decode embedded Mesh TypeTree schema: %w", err)
-	}
-	object, err := ReadNativeUnityObject(blob)
-	if err != nil {
-		return TypeTreeType{}, fmt.Errorf("parse embedded Mesh TypeTree schema: %w", err)
-	}
-	if object.ClassID != ClassIDMesh {
-		return TypeTreeType{}, fmt.Errorf("embedded Mesh TypeTree schema has ClassID %d", object.ClassID)
-	}
-	return object.TypeTree, nil
-}
 
 // NewNativeMeshObject 从通用几何数据构建携带官方 Unity 2022.3 TypeTree 的独立 Mesh 对象
 // 顶点布局与官方网格一致，位置、法线、切线和颜色在流零，纹理坐标在下一个流，蒙皮通道在最后一个流
