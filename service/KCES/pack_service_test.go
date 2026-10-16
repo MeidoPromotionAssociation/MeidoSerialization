@@ -125,6 +125,9 @@ func TestPackServiceInfersCanonicalRawObjectKinds(t *testing.T) {
 		{path: "Material/sample.material", name: "sample", kind: "material"},
 		{path: "AudioClip/sample.audioclip", name: "sample", kind: "audioclip"},
 		{path: "MonoBehaviour/sample.monobehaviour", name: "sample", kind: "monobehaviour"},
+		{path: "AnimatorController/sample.bytes", name: "sample", kind: "animatorcontroller"},
+		{path: "Animator/sample.bytes", name: "sample", kind: "animator"},
+		{path: "AnimatorOverrideController/sample.bytes", name: "sample", kind: "animatoroverridecontroller"},
 		{path: "Type_95/sample.bytes", name: "sample", kind: "type_95"},
 	}
 	for _, test := range tests {

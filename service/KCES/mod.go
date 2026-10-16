@@ -1126,6 +1126,12 @@ func unityRawClassIDForKind(kind string) (int32, bool) {
 		return aba.ClassIDAudioClip, true
 	case "cubemap":
 		return aba.ClassIDCubemap, true
+	case "animatorcontroller":
+		return aba.ClassIDAnimatorController, true
+	case "animator":
+		return aba.ClassIDAnimator, true
+	case "animatoroverridecontroller":
+		return aba.ClassIDAnimatorOverrideController, true
 	case "monobehaviour":
 		return aba.ClassIDMonoBehaviour, true
 	case "monoscript":

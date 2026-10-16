@@ -9,26 +9,33 @@ import (
 )
 
 // 下列常量是提取器识别的常用 Unity class ID
+// 注意 Animator 系列：91 是 AnimatorController，95 是挂在 GameObject 上的 Animator，
+// 221 是 AnimatorOverrideController，三个 ID 与直觉相反，别记反
 // The constants below are common Unity class IDs recognized by the extractors
+// Note the Animator family: 91 is AnimatorController, 95 is the Animator component on a GameObject,
+// and 221 is AnimatorOverrideController; the IDs run opposite to intuition
 const (
-	ClassIDGameObject    int32 = 1
-	ClassIDTransform     int32 = 4
-	ClassIDMaterial      int32 = 21
-	ClassIDMeshRenderer  int32 = 23
-	ClassIDTexture2D     int32 = 28
-	ClassIDMeshFilter    int32 = 33
-	ClassIDMesh          int32 = 43
-	ClassIDShader        int32 = 48
-	ClassIDTextAsset     int32 = 49
-	ClassIDAnimationClip int32 = 74
-	ClassIDAudioClip     int32 = 83
-	ClassIDCubemap       int32 = 89
-	ClassIDMonoBehaviour int32 = 114
-	ClassIDMonoScript    int32 = 115
-	ClassIDFont          int32 = 128
-	ClassIDAssetBundle   int32 = 142
-	ClassIDSprite        int32 = 213
-	ClassIDSpriteAtlas   int32 = 687078895
+	ClassIDGameObject                 int32 = 1
+	ClassIDTransform                  int32 = 4
+	ClassIDMaterial                   int32 = 21
+	ClassIDMeshRenderer               int32 = 23
+	ClassIDTexture2D                  int32 = 28
+	ClassIDMeshFilter                 int32 = 33
+	ClassIDMesh                       int32 = 43
+	ClassIDShader                     int32 = 48
+	ClassIDTextAsset                  int32 = 49
+	ClassIDAnimationClip              int32 = 74
+	ClassIDAudioClip                  int32 = 83
+	ClassIDCubemap                    int32 = 89
+	ClassIDAnimatorController         int32 = 91
+	ClassIDAnimator                   int32 = 95
+	ClassIDMonoBehaviour              int32 = 114
+	ClassIDMonoScript                 int32 = 115
+	ClassIDFont                       int32 = 128
+	ClassIDAssetBundle                int32 = 142
+	ClassIDSprite                     int32 = 213
+	ClassIDAnimatorOverrideController int32 = 221
+	ClassIDSpriteAtlas                int32 = 687078895
 )
 
 const classIDAssetBundle = ClassIDAssetBundle
@@ -172,6 +179,10 @@ func classIdToName(id int32) string {
 		return "AudioClip"
 	case ClassIDCubemap:
 		return "Cubemap"
+	case ClassIDAnimatorController:
+		return "AnimatorController"
+	case ClassIDAnimator:
+		return "Animator"
 	case ClassIDMonoBehaviour:
 		return "MonoBehaviour"
 	case ClassIDMonoScript:
@@ -182,6 +193,8 @@ func classIdToName(id int32) string {
 		return "AssetBundle"
 	case ClassIDSprite:
 		return "Sprite"
+	case ClassIDAnimatorOverrideController:
+		return "AnimatorOverrideController"
 	case ClassIDSpriteAtlas:
 		return "SpriteAtlas"
 	default:

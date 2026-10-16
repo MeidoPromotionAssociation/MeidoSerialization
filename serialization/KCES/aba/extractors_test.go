@@ -67,6 +67,35 @@ func TestGetAssetEntries(t *testing.T) {
 	}
 }
 
+// TestClassIdToNameAnimatorFamily 固定 Animator 系列 ID 与名字的对应，避免再次把 91/95 记反
+// TestClassIdToNameAnimatorFamily pins the Animator family IDs to their names so 91/95 cannot be swapped again
+func TestClassIdToNameAnimatorFamily(t *testing.T) {
+	tests := []struct {
+		classID int32
+		want    string
+	}{
+		{ClassIDAnimatorController, "AnimatorController"},
+		{ClassIDAnimator, "Animator"},
+		{ClassIDAnimatorOverrideController, "AnimatorOverrideController"},
+	}
+	for _, test := range tests {
+		if got := classIdToName(test.classID); got != test.want {
+			t.Errorf("classIdToName(%d) = %q, want %q", test.classID, got, test.want)
+		}
+	}
+
+	// 三个 ID 必须互不相同，且 91/95 不能被写成对方的常量值
+	if ClassIDAnimatorController != 91 || ClassIDAnimator != 95 || ClassIDAnimatorOverrideController != 221 {
+		t.Fatalf("Animator family IDs changed: controller=%d animator=%d override=%d",
+			ClassIDAnimatorController, ClassIDAnimator, ClassIDAnimatorOverrideController)
+	}
+
+	// 未收录的 ID 仍必须退化为 Type_<id>，不能被误映射成已知类型
+	if got := classIdToName(999999); got != "Type_999999" {
+		t.Errorf("classIdToName(999999) = %q, want %q", got, "Type_999999")
+	}
+}
+
 func TestGetTextAssetDataRejectsNegativeAlignedNameLength(t *testing.T) {
 	data := make([]byte, 8)
 	binary.LittleEndian.PutUint32(data[:4], ^uint32(0))

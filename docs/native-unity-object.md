@@ -81,6 +81,11 @@ Consumed by:
 | any other class       | `<TypeName>/<name>.bytes`                         |
 | 49 TextAsset          | `TextAsset/<name>`, plain text, not this format   |
 
+91 `AnimatorController`, 95 `Animator`, and 221 `AnimatorOverrideController` are named classes and use the  
+generic form: `AnimatorController/<name>.bytes`, `Animator/<name>.bytes`, and  
+`AnimatorOverrideController/<name>.bytes`. The IDs run opposite to intuition: 91 is the controller asset,  
+95 is the component attached to a GameObject. A directory still named `Type_91` keeps packing correctly.
+
 ### The `.bytes` extension is ambiguous
 
 `.bytes` appears in two unrelated roles:
@@ -381,6 +386,11 @@ Unity 的元数据样板（Unity 版本字符串、目标平台、脚本表、�
 | 114 MonoBehaviour     | `MonoBehaviour/<名>.monobehaviour`              |
 | 其他类型              | `<类型名>/<名>.bytes`                           |
 | 49 TextAsset          | `TextAsset/<名>`，纯文本，不是本格式            |
+
+91 `AnimatorController`、95 `Animator`、221 `AnimatorOverrideController` 都是有名字的类型，走通用形式：  
+`AnimatorController/<名>.bytes`、`Animator/<名>.bytes`、`AnimatorOverrideController/<名>.bytes`。  
+这三个 ID 与直觉相反：91 是控制器资源，95 才是挂在 GameObject 上的组件。仍叫 `Type_91` 的旧目录  
+依然能正确回包。
 
 ### `.bytes` 后缀是有歧义的
 
@@ -683,6 +693,11 @@ v22 のノードレイアウトを固定し、それ以外をすべて削ぎ落�
 | 114 MonoBehaviour     | `MonoBehaviour/<名前>.monobehaviour`                  |
 | その他の型            | `<型名>/<名前>.bytes`                                 |
 | 49 TextAsset          | `TextAsset/<名前>`、プレーンテキスト、本形式ではない  |
+
+91 `AnimatorController`、95 `Animator`、221 `AnimatorOverrideController` は名前を持つ型で、汎用形式を  
+使います：`AnimatorController/<名前>.bytes`、`Animator/<名前>.bytes`、  
+`AnimatorOverrideController/<名前>.bytes`。この 3 つの ID は直感と逆で、91 がコントローラアセット、  
+95 が GameObject に付くコンポーネントです。`Type_91` のままの旧ディレクトリも正しくパックできます。
 
 ### `.bytes` 拡張子は曖昧である
 

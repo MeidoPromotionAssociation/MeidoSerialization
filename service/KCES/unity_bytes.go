@@ -593,6 +593,10 @@ func unityClassName(classID int32) string {
 		return "AudioClip"
 	case aba.ClassIDCubemap:
 		return "Cubemap"
+	case aba.ClassIDAnimatorController:
+		return "AnimatorController"
+	case aba.ClassIDAnimator:
+		return "Animator"
 	case aba.ClassIDMonoBehaviour:
 		return "MonoBehaviour"
 	case aba.ClassIDMonoScript:
@@ -603,6 +607,8 @@ func unityClassName(classID int32) string {
 		return "AssetBundle"
 	case aba.ClassIDSprite:
 		return "Sprite"
+	case aba.ClassIDAnimatorOverrideController:
+		return "AnimatorOverrideController"
 	case aba.ClassIDSpriteAtlas:
 		return "SpriteAtlas"
 	default:

@@ -236,7 +236,9 @@ func TestRawUnityObjectService_TypeDirectorySampleJSONRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadRawUnityObjectFile: %v", err)
 	}
-	if envelope.ClassID != 95 || envelope.TypeName != "Type_95" || envelope.Kind != "type_95" {
+	// TypeName 由 ClassID 推导
+	// TypeName comes from the ClassID 
+	if envelope.ClassID != 95 || envelope.TypeName != "Animator" || envelope.Kind != "type_95" {
 		t.Fatalf("unexpected Type_95 envelope: %+v", envelope)
 	}
 	if envelope.PathID != -95 || envelope.LoadName != "type95_internal" {
@@ -276,6 +278,9 @@ func TestRawUnityObjectService_TypeDirectoryKnownNativeKinds(t *testing.T) {
 		{"MeshFilter", aba.ClassIDMeshFilter, "MeshFilter", "meshfilter"},
 		{"Shader", aba.ClassIDShader, "Shader", "shader"},
 		{"AudioClip", aba.ClassIDAudioClip, "AudioClip", "audioclip"},
+		{"AnimatorController", aba.ClassIDAnimatorController, "AnimatorController", "animatorcontroller"},
+		{"Animator", aba.ClassIDAnimator, "Animator", "animator"},
+		{"AnimatorOverrideController", aba.ClassIDAnimatorOverrideController, "AnimatorOverrideController", "animatoroverridecontroller"},
 		{"MonoBehaviour", aba.ClassIDMonoBehaviour, "MonoBehaviour", "monobehaviour"},
 		{"MonoScript", aba.ClassIDMonoScript, "MonoScript", "monoscript"},
 		{"Font", aba.ClassIDFont, "Font", "font"},

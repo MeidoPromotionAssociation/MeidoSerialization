@@ -547,7 +547,8 @@ func unityRawKindForPackPath(packPath string) (string, bool) {
 		return "spriteatlas", true
 	case "animationclip":
 		return "animationclip", true
-	case "gameobject", "transform", "material", "meshrenderer", "meshfilter", "shader", "audioclip", "cubemap", "monobehaviour", "monoscript", "font":
+	case "gameobject", "transform", "material", "meshrenderer", "meshfilter", "shader", "audioclip", "cubemap",
+		"animatorcontroller", "animator", "animatoroverridecontroller", "monobehaviour", "monoscript", "font":
 		return directory, true
 	default:
 		if _, ok := unityRawClassIDForKind(directory); ok {
