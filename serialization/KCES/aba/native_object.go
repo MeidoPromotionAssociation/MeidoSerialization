@@ -21,7 +21,9 @@ const (
 	nativeUnityObjectFlagBigEndian uint32 = 1 << 1
 )
 
-var nativeUnityObjectMagic = [8]byte{'M', 'S', 'K', 'C', 'E', 'S', 'O', '1'}
+// NativeUnityObjectMagic 是独立 Unity 对象文件的 8 字节魔数，读作 MS（MeidoSerialization）+ KCES + O1（对象，版本 1）
+// NativeUnityObjectMagic is the 8-byte magic of a standalone Unity object file, reading as MS (MeidoSerialization) + KCES + O1 (object, version 1)
+var NativeUnityObjectMagic = []byte{'M', 'S', 'K', 'C', 'E', 'S', 'O', '1'}
 
 // NativeUnityObjectHeader 描述独立 Unity 对象文件中自带的 ClassID、TypeTree 和正文范围 / NativeUnityObjectHeader describes the embedded ClassID, TypeTree, and payload range of a standalone Unity object file
 type NativeUnityObjectHeader struct {
@@ -90,7 +92,7 @@ func WriteNativeUnityObject(out io.Writer, object *NativeUnityObject) error {
 		return err
 	}
 
-	if err := binaryio.WriteBytes(out, nativeUnityObjectMagic[:]); err != nil {
+	if err := binaryio.WriteBytes(out, NativeUnityObjectMagic); err != nil {
 		return fmt.Errorf("write native Unity object magic: %w", err)
 	}
 	bw := binaryio.NewEndianWriter(out, binary.LittleEndian)
@@ -163,7 +165,7 @@ func ReadNativeUnityObjectHeader(in io.Reader, fileSize int64) (*NativeUnityObje
 	if _, err := io.ReadFull(in, magic[:]); err != nil {
 		return nil, fmt.Errorf("read native Unity object magic: %w", err)
 	}
-	if magic != nativeUnityObjectMagic {
+	if !bytes.Equal(magic[:], NativeUnityObjectMagic) {
 		return nil, fmt.Errorf("invalid native Unity object magic %q", magic)
 	}
 	version, err := binaryio.ReadUInt32(in)

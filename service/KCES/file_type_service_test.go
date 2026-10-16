@@ -8,6 +8,7 @@ import (
 
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/internal/kcesfixtures"
 	serializationKCES "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES"
+	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/KCES/aba"
 	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/COM3D2"
 )
 
@@ -54,6 +55,53 @@ func TestFileTypeServiceRecognizesRealKCESFilesByContent(t *testing.T) {
 			}
 			if info.Version != test.version {
 				t.Fatalf("version = %d, want %d (info=%+v)", info.Version, test.version, info)
+			}
+		})
+	}
+}
+
+func TestFileTypeServiceDistinguishesNativeObjectFromBarePayload(t *testing.T) {
+	service := &FileTypeService{}
+	dir := t.TempDir()
+
+	nativeDir := filepath.Join(dir, "Texture2D")
+	if err := os.MkdirAll(nativeDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	object, err := aba.NewNativeTexture2DObjectWithFormat("probe", 2, 2, aba.TextureFormatRGBA32, [][]byte{make([]byte, 2*2*4)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	nativeData, err := aba.WriteTexture2D(object)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nativePath := filepath.Join(nativeDir, "probe.texture2d")
+	if err := os.WriteFile(nativePath, nativeData, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	barePath, _ := kcesfixtures.RawObjectPath(t, "cm3d2_megane002.aba", "cm3d2_megane002.tex", aba.ClassIDTexture2D, "raw.texture.bytes")
+
+	for _, test := range []struct {
+		name      string
+		path      string
+		signature string
+		version   int32
+	}{
+		{name: "native_object", path: nativePath, signature: string(aba.NativeUnityObjectMagic), version: int32(aba.NativeUnityObjectFormatVersion)},
+		{name: "bare_payload", path: barePath, signature: "Texture2D", version: 0},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			info, matched, err := service.TryFileTypeDetermine(test.path)
+			if err != nil || !matched {
+				t.Fatalf("TryFileTypeDetermine(%q): matched=%v info=%+v err=%v", test.path, matched, info, err)
+			}
+			if info.FileType != "bytes" || info.StorageFormat != COM3D2Service.FormatBinary || info.Game != COM3D2Service.GameKCES {
+				t.Fatalf("info = %+v", info)
+			}
+			if info.Signature != test.signature || info.Version != test.version {
+				t.Fatalf("signature=%q version=%d, want signature=%q version=%d", info.Signature, info.Version, test.signature, test.version)
 			}
 		})
 	}

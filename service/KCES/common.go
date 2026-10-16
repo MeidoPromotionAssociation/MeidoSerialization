@@ -311,9 +311,18 @@ func (s *FileTypeService) TryFileTypeDetermine(path string) (info COM3D2Service.
 		info.FileType = "bytes"
 		info.StorageFormat = COM3D2Service.FormatBinary
 		info.Game = COM3D2Service.GameKCES
-		info.Signature = envelope.TypeName
-		if info.Signature == "" {
-			info.Signature = RawUnityObjectFormat
+		// 独立对象文件以 MSKCESO1 魔数开头，因此 Signature 按全库约定报告该 wire 签名、Version 报告容器格式版本
+		// 裸对象正文没有任何 wire 签名，只报告按 ClassID 得到的类型名，Version 保持 0，两者由此可以区分
+		// A standalone object file starts with the MSKCESO1 magic, so Signature reports that wire signature like every other format and Version reports the container format revision
+		// A bare object payload carries no wire signature, so it only reports the type name derived from its ClassID and keeps Version at 0, which is what tells the two apart
+		if envelope.Format == NativeUnityObjectJSONFormat {
+			info.Signature = string(aba.NativeUnityObjectMagic)
+			info.Version = int32(aba.NativeUnityObjectFormatVersion)
+		} else {
+			info.Signature = envelope.TypeName
+			if info.Signature == "" {
+				info.Signature = RawUnityObjectFormat
+			}
 		}
 		return info, true, nil
 	}
