@@ -124,6 +124,7 @@ For the authoritative application-level capability list, call gRPC `GetCapabilit
   overview: [DeepWiki](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
   (may contain AI hallucinations)
 - AI agent installation and basics: [docs/ai-agent.md](docs/ai-agent.md)
+- Standalone Unity object file format (`MSKCESO1`): [docs/native-unity-object.md](docs/native-unity-object.md)
 
 ## Requirements
 
@@ -619,6 +620,7 @@ KCES、gRPC、MCP 支持在 MeidoSerialization v2.0.0 版本后可用。
 - API 参考：[pkg.go.dev](https://pkg.go.dev/github.com/MeidoPromotionAssociation/MeidoSerialization)
 - 自动生成的项目概览：[DeepWiki](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)（可能包含 AI 幻觉）
 - AI agent 安装与基础使用：[docs/ai-agent.md](docs/ai-agent.md)
+- 独立 Unity 对象文件格式（`MSKCESO1`）：[docs/native-unity-object.md](docs/native-unity-object.md)
 
 ## 环境要求
 
@@ -1121,6 +1123,7 @@ application-level capability の正式な一覧は gRPC `GetCapabilities` また
 - 自動生成された project overview：[DeepWiki](https://deepwiki.com/MeidoPromotionAssociation/MeidoSerialization)
   （AI hallucination を含む可能性があります）
 - AI agent のインストールと基本操作：[docs/ai-agent.md](docs/ai-agent.md)
+- 単独 Unity オブジェクトファイル形式（`MSKCESO1`）：[docs/native-unity-object.md](docs/native-unity-object.md)
 
 ## 必要環境
 
