@@ -329,11 +329,12 @@ kces.dbconf
 kces.ct
 kces.aba
 kces.system
+crc3d3.neimp
 ```
 
 The registry currently covers the existing JSON conversion services for COM3D2
 menu/mate/pmat/col/phy/psk/anm/model/preset and KCES parts, payload, misc, preset, bridge, saved-attach, paths, system
-data, raw Unity objects, and CT editing envelopes. Archive adapters cover ARC, CT/VirtualDirectory, ABA,
+data, raw Unity objects, CT editing envelopes, and the CRC3D3 MessagePack table. Archive adapters cover ARC, CT/VirtualDirectory, ABA,
 `.asset_bg`, and `.asset_scene`. Dance files are split into `com3d2.timeline` (`timeline_data.bytes`) and
 `com3d2.object_data` (`maid_data.bytes`, `item_data.bytes`, or
 `event_data.bytes`). KCES presets accept both `.preset` and the native
@@ -654,10 +655,11 @@ kces.dbconf
 kces.ct
 kces.aba
 kces.system
+crc3d3.neimp
 ```
 
 registry 当前覆盖 COM3D2 menu/mate/pmat/col/phy/psk/anm/model/preset，以及 KCES parts、payload、
-misc、preset、bridge、saved-attach、paths、system data、raw Unity object 和 CT editing envelope 的现有 JSON 转换 service。归档
+misc、preset、bridge、saved-attach、paths、system data、raw Unity object、CT editing envelope 以及 CRC3D3 MessagePack 表格的现有 JSON 转换 service。归档
 adapter 覆盖 ARC、CT/VirtualDirectory、ABA、`.asset_bg` 与
 `.asset_scene`。
 
@@ -1009,10 +1011,11 @@ kces.dbconf
 kces.ct
 kces.aba
 kces.system
+crc3d3.neimp
 ```
 
 registry は現在、COM3D2 menu/mate/pmat/col/phy/psk/anm/model/preset、および KCES parts、payload、
-misc、preset、bridge、saved-attach、paths、system data、raw Unity object、CT editing envelope の既存 JSON conversion service
+misc、preset、bridge、saved-attach、paths、system data、raw Unity object、CT editing envelope、CRC3D3 MessagePack table の既存 JSON conversion service
 を含みます。archive adapter は ARC、CT/VirtualDirectory、ABA、`.asset_bg`、
 `.asset_scene` を扱います。
 

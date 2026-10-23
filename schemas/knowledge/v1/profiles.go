@@ -17,6 +17,7 @@ func buildReviewedProfiles() map[string]Guide {
 	registerProfiles(profiles, kcesUndressProfiles())
 	registerProfiles(profiles, kcesContainerProfiles())
 	registerProfiles(profiles, kcesPayloadProfiles())
+	registerProfiles(profiles, crc3d3Profiles())
 	return profiles
 }
 

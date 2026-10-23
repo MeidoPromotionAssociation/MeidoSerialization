@@ -215,6 +215,7 @@ func formatSpecs() []spec {
 		{id: "kces.ikcol", root: typeOf[*serializationKCES.IKColliderPackage]()},
 		{id: "kces.ikcol.bytes", root: typeOf[*serializationKCES.IKColliderPackage]()},
 		{id: "kces.limbcol", root: typeOf[*serializationKCES.LimbColliderPackage]()},
+		{id: "crc3d3.neimp", root: typeOf[json.RawMessage]()},
 	}
 }
 
@@ -243,6 +244,7 @@ func nativeSuffixes(id string) []string {
 		"kces.dbconf": {".dbconf"}, "kces.dbcol": {".dbcol"}, "kces.db2conf": {".db2conf"}, "kces.dsbconf": {".dsbconf"},
 		"kces.dsb2conf": {".dsb2conf"}, "kces.dslconf": {".dslconf"}, "kces.dsl2conf": {".dsl2conf"}, "kces.dslcol": {".dslcol"},
 		"kces.ikcol": {".ikcol"}, "kces.ikcol.bytes": {".ikcol.bytes"}, "kces.limbcol": {".limbcol"},
+		"crc3d3.neimp": {".neimp"},
 	}
 	return append([]string(nil), values[id]...)
 }

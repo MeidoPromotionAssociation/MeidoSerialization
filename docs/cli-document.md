@@ -393,9 +393,10 @@ MeidoSerialization.exe convert .\csv\cast_data.neimp.json
 `.neimp` is the MessagePack successor of `.nei`: the payload is a MessagePack-CSharp object graph, optionally
 compressed as Lz4BlockArray, and it holds only `null`, booleans, unsigned integers, `float32`, strings, arrays, and
 maps. `convert` writes `<name>.neimp.json` next to the file and reads it back, and `determine` reports it as the
-`neimp` type of the CRC3D3 game. `convert2json` and `convert2mod` accept the same pair.
+`neimp` type of the CRC3D3 game. `convert2json` and `convert2mod` accept the same pair. The gRPC and MCP surfaces
+expose it as `crc3d3.neimp`.
 
-The JSON is a direct dump of the value tree with no Schema and no envelope. Two rules keep it reversible: a map key
+The JSON is a direct dump of the value tree with no envelope, and the published schema only records that container contract. Two rules keep it reversible: a map key
 spelled as a canonical decimal integer is written back as an integer key, and a number whose spelling is the shortest
 `float32` form stays single precision while everything else is written as `double`.
 
@@ -1163,9 +1164,10 @@ CSV 按 RFC 4180 的逗号分隔格式读写，编码为带 BOM 的 UTF-8。如�
 
 `.neimp` 是 `.nei` 的 MessagePack 后继格式：载荷是 MessagePack-CSharp 序列化出的对象图，可选用 Lz4BlockArray 压缩，
 里面只有 `null`、布尔、无符号整数、`float32`、字符串、数组与映射。`convert` 会在文件旁边写出 `<名称>.neimp.json` 并能读回，
-`determine` 会把它报告为 CRC3D3 游戏的 `neimp` 类型。`convert2json` 与 `convert2mod` 接受同一对文件。
+`determine` 会把它报告为 CRC3D3 游戏的 `neimp` 类型。`convert2json` 与 `convert2mod` 接受同一对文件，
+gRPC 与 MCP 上它的格式标识符是 `crc3d3.neimp`。
 
-JSON 是值树的直接转储，没有 Schema 也没有封套。两条规则保证可逆：写成规范十进制整数的映射键会还原成整数键；写法等于
+JSON 是值树的直接转储，没有封套；发布出来的 Schema 也只记录这条容器约定。两条规则保证可逆：写成规范十进制整数的映射键会还原成整数键；写法等于
 `float32` 最短表示的数字保持单精度，其余一律写成 `double`。
 
 ## 归档命令
@@ -1939,8 +1941,9 @@ CSV は RFC 4180 形式いカンマ区切りで、BOM 付き UTF-8 として読�
 `.neimp` は `.nei` の MessagePack 後継形式です。payload は MessagePack-CSharp の object graph で、Lz4BlockArray 圧縮も
 可能です。中身は `null`、bool、符号なし整数、`float32`、文字列、配列、マップだけです。`convert` はファイルの隣に
 `<名前>.neimp.json` を書き出して読み戻し、`determine` は CRC3D3 の `neimp` 形式として報告します。`convert2json` と `convert2mod` も同じ組み合わせを受け付けます。
+gRPC と MCP では `crc3d3.neimp` という format ID で公開されます。
 
-JSON は値ツリーをそのまま出力したもので、Schema も外側の wrapper もありません。可逆性を保つ規則は 2 つです。正規の十進整数
+JSON は値ツリーをそのまま出力したもので、外側の wrapper はありません。公開 schema もこのコンテナ契約だけを記録します。可逆性を保つ規則は 2 つです。正規の十進整数
 として書かれたマップキーは整数キーとして書き戻され、`float32` の最短表記と一致する数値は単精度のまま、それ以外は `double`
 として書き出されます。
 

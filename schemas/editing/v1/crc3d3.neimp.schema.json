@@ -1,0 +1,60 @@
+{
+  "$id": "urn:meido-serialization:editing-json:v1:crc3d3.neimp",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Lossless editing JSON contract for crc3d3.neimp.",
+  "title": "crc3d3.neimp editing JSON",
+  "x-meido-edit-guidance": "Keep every value at its original type: integers stay integers, floats keep their single precision, and only members documented by the specific CsvData type should change.",
+  "x-meido-edit-role": "opaque_domain_data",
+  "x-meido-format-id": "crc3d3.neimp",
+  "x-meido-format-verification": {
+    "authority": "ai",
+    "level": "serialization_verified",
+    "notes": "The CRC3D3 CSV loader, the serialization options it passes, and the shared value-tree codec were reviewed. This profile claims the container and value-tree contract only: the field layout of each CsvData type is not published as a schema, so the value tree is edited as data rather than through named members."
+  },
+  "x-meido-game-usage": "CsvManager supplies the deserialized object graph to the CsvData type that requested the file; the container and the value tree carry no field names of their own.",
+  "x-meido-native-suffixes": [
+    ".neimp"
+  ],
+  "x-meido-representation": "editing_json",
+  "x-meido-risk": "critical",
+  "x-meido-schema-version": "1.0.0",
+  "x-meido-source-evidence": [
+    {
+      "game_version": "CRC3D3 demo",
+      "kind": "game_source",
+      "line_end": 178,
+      "line_start": 85,
+      "observation": "CsvManager loads .neimp resources as TextAsset bytes and hands them to MessagePackSerializer.Deserialize with CsvInstances.DefaultOptions, while .nei remains the legacy csvLegacyExtensio path parsed as a CSV table.",
+      "path": "CRC3D3 demo/Assembly-CSharp/CsvManager.cs",
+      "symbol": "CsvManager.GetCsvBinary/CreateCsvIdManager"
+    },
+    {
+      "game_version": "CRC3D3 demo",
+      "kind": "game_source",
+      "line_end": 22,
+      "line_start": 6,
+      "observation": "The CSV tables use DynamicEnumAsStringResolver plus StandardResolverAllowPrivate plus MessagePackCompression.Lz4BlockArray, so enums travel as strings and payloads may be Lz4BlockArray framed.",
+      "path": "CRC3D3 demo/WfSystem.Serialization/WfSystem/Serialization/MessagePackOption.cs",
+      "symbol": "MessagePackOption.PrivateEnumStringLz4BlockArray"
+    },
+    {
+      "game_version": "CRC3D3 demo",
+      "kind": "implementation_source",
+      "line_end": 700,
+      "line_start": 500,
+      "observation": "The shared value-tree codec writes the editing JSON as a plain dump of the MessagePack tree with no envelope, restores canonical decimal object keys as integer keys, and keeps float32 values at single precision.",
+      "path": "serialization/KCES/msgpack/value.go",
+      "symbol": "DecodeValueJSON/EncodeValueJSON"
+    }
+  ],
+  "x-meido-verification": {
+    "serialization": {
+      "authority": "ai",
+      "status": "verified"
+    },
+    "source_semantics": {
+      "authority": "ai",
+      "status": "verified"
+    }
+  }
+}

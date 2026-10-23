@@ -10,6 +10,7 @@ import (
 	editingv1 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/schemas/editing/v1"
 	knowledgev1 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/schemas/knowledge/v1"
 	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/COM3D2"
+	CRC3D3Service "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/CRC3D3"
 	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/KCES"
 )
 
@@ -285,6 +286,7 @@ func DefaultRegistry() *Registry {
 		format("KCES", "ikcol", "input.ikcol", []string{".ikcol"}, pathConverter{(&KCESService.IKColService{}).ConvertIKColToJson, (&KCESService.IKColService{}).ConvertJsonToIKCol}),
 		format("KCES", "ikcol.bytes", "input.ikcol.bytes", []string{".ikcol.bytes"}, pathConverter{(&KCESService.IKColBytesService{}).ConvertIKColBytesToJson, (&KCESService.IKColBytesService{}).ConvertJsonToIKColBytes}),
 		format("KCES", "limbcol", "input.limbcol", []string{".limbcol"}, pathConverter{(&KCESService.LimbColService{}).ConvertLimbColToJson, (&KCESService.LimbColService{}).ConvertJsonToLimbCol}),
+		format("CRC3D3", "neimp", "input.neimp", []string{".neimp"}, pathConverter{(&CRC3D3Service.NeimpService{}).ConvertNeimpToJSON, (&CRC3D3Service.NeimpService{}).ConvertJSONToNeimp}),
 	}
 
 	r, err := NewRegistry(formats)

@@ -17,6 +17,7 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/internal/conversionio"
 	serializationCOM3D2 "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/COM3D2"
 	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/COM3D2"
+	CRC3D3Service "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/CRC3D3"
 	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/KCES"
 )
 
@@ -226,6 +227,13 @@ func (e *Engine) detectPath(ctx context.Context, path string) (Detection, error)
 	}
 	if dance, matched := detectDanceFile(path); matched {
 		return dance, nil
+	}
+	crc3d3, matched, err := (&CRC3D3Service.FileTypeService{}).TryFileTypeDetermine(path)
+	if err != nil {
+		return Detection{}, opError("detect CRC3D3", CodeInvalidArgument, err)
+	}
+	if matched {
+		return detectionFromFileInfo(crc3d3), nil
 	}
 	if strings.EqualFold(filepath.Ext(path), ".arc") {
 		arcFile, closer, arcErr := (&COM3D2Service.ArcService{}).ReadArcLazy(path)
