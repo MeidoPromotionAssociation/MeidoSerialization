@@ -44,7 +44,8 @@ KCES, gRPC, and MCP support is available in MeidoSerialization v2.0.0 and later.
 
 ## Supported Formats
 
-Compatibility is currently checked against COM3D2 v2.49.2, COM3D2.5 v3.49.2, and KCES 1.34.5 and KCES2 1.35.1.
+Compatibility is currently checked against COM3D2 v2.49.2, COM3D2.5 v3.49.2, KCES 1.34.5, KCES2 1.35.1, and the
+CRC3D3 demo build.
 
 Unless stated otherwise, “JSON” below means the strict editing JSON representation shared by the CLI, services, gRPC,
 and MCP.
@@ -109,8 +110,18 @@ and MCP.
 | Native Mesh `.mmesh` and AnimationClip object files | 3D and animation data                            | → glTF 2.0/GLB                         | Standalone geometry or animation preview export; use the `.model` path for full skinned round trips. Please see the precautions [here](https://github.com/MeidoPromotionAssociation/MeidoSerialization/blob/main/docs/cli-document.md#kces-model-mesh-animationclip-and-audioclip) when using it in Blender                                                                                                                                            |
 | Native AudioClip object files                       | Encoded audio                                    | Lossless inline-payload extraction     | One-way conversion; recognizes OGG, WAV, and FSB5 signatures without transcoding                                                                                                                                                                                                                                                                                                                                                                       |
 
-The serializer implementations are under [`serialization/COM3D2`](serialization/COM3D2) and
-[`serialization/KCES`](serialization/KCES).
+### CRC3D3
+
+| File or extension                                   | Description                                      | Supported operations                   | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+|-----------------------------------------------------|--------------------------------------------------|----------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `.neimp`                                            | MessagePack table                                | Native ↔ JSON                          | Successor of `.nei`; the payload is a MessagePack-CSharp object graph, optionally compressed as Lz4BlockArray. Its JSON is a direct dump of the MessagePack value tree with no Schema and no envelope                                                                                                                                                                                                                                                  |
+
+`.neimp` is the MessagePack successor of `.nei`: a payload holds `null`, booleans, unsigned integers, `float32`,
+strings, arrays, and maps, and the JSON preserves those types instead of imposing a Schema. A map key spelled as
+a canonical decimal integer is written back as an integer key, and `float32` values stay single precision.
+
+The serializer implementations are under [`serialization/COM3D2`](serialization/COM3D2),
+[`serialization/KCES`](serialization/KCES), and [`serialization/CRC3D3`](serialization/CRC3D3).
 
 For the authoritative application-level capability list, call gRPC `GetCapabilities` or read the MCP
 `meido://capabilities` resource.
@@ -546,7 +557,7 @@ KCES、gRPC、MCP 支持在 MeidoSerialization v2.0.0 版本后可用。
 
 ## 支持的格式
 
-当前兼容性以 COM3D2 v2.49.2 和 COM3D2.5 v3.49.2 以及 KCES 1.34.5 以及 KCES2 1.35.1 为基准进行检查。
+当前兼容性以 COM3D2 v2.49.2、COM3D2.5 v3.49.2、KCES 1.34.5、KCES2 1.35.1 以及 CRC3D3 的 demo 构建为基准进行检查。
 
 除非另有说明，下表中的“JSON”均指 CLI、service、gRPC 和 MCP 共用的严格 editing JSON 表示。
 
@@ -610,7 +621,16 @@ KCES、gRPC、MCP 支持在 MeidoSerialization v2.0.0 版本后可用。
 | 原生 Mesh `.mmesh`、AnimationClip 对象文件 | 3D 与动画数据                    | → glTF 2.0/GLB                    | 独立几何或动画的预览导出；完整蒙皮往返请使用 `.model` 路径；在 Blender 中使用时请参见[这里](docs/cli-document.md#kces-modelmeshanimationclip-%E4%B8%8E-audioclip)的注意事项                                                                                                          |
 | 原生 AudioClip 对象文件                    | 编码音频                         | 无损提取内联载荷                  | 单向转换，识别 OGG、WAV 和 FSB5 签名，不执行转码                                                                                                                                                                                                                                     |
 
-序列化实现位于 [`serialization/COM3D2`](serialization/COM3D2) 和 [`serialization/KCES`](serialization/KCES)。
+### CRC3D3
+
+| 文件或扩展名                               | 内容/描述                        | 支持的操作                        | 备注                                                                                                                                                                                                                                                                                 |
+|--------------------------------------------|----------------------------------|-----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `.neimp`                                   | MessagePack 表格                 | 原生格式 ↔ JSON                   | `.nei` 的后继格式；载荷是 MessagePack-CSharp 序列化出的对象图，可选用 Lz4BlockArray 压缩。其 JSON 直接转储 MessagePack 值树，没有 Schema 也没有封套                                                                                                                                  |
+
+`.neimp` 是 `.nei` 的 MessagePack 后继格式：载荷里只有 `null`、布尔、无符号整数、`float32`、字符串、数组与映射，
+JSON 原样保留这些类型而不施加 Schema。写成规范十进制整数的映射键会还原成整数键，`float32` 也不会被加宽成双精度。
+
+序列化实现位于 [`serialization/COM3D2`](serialization/COM3D2)、[`serialization/KCES`](serialization/KCES) 和 [`serialization/CRC3D3`](serialization/CRC3D3)。
 
 如需应用层能力的权威列表，请调用 gRPC `GetCapabilities`，或读取 MCP 的 `meido://capabilities` 资源。
 
@@ -1045,7 +1065,7 @@ KCES、gRPC、MCP のサポートは MeidoSerialization v2.0.0 以降で利用�
 
 ## 対応形式
 
-互換性は現在 COM3D2 v2.49.2、COM3D2.5 v3.49.2、KCES 1.34.5、KCES2 1.35.1 を基準に確認しています。
+互換性は現在 COM3D2 v2.49.2、COM3D2.5 v3.49.2、KCES 1.34.5、KCES2 1.35.1、CRC3D3 の demo build を基準に確認しています。
 
 特記がない限り、以下の「JSON」は CLI、service、gRPC、MCP で共通の厳密な editing JSON を意味します。
 
@@ -1109,8 +1129,18 @@ KCES、gRPC、MCP のサポートは MeidoSerialization v2.0.0 以降で利用�
 | native Mesh `.mmesh`、AnimationClip object file | 3D・アニメーションデータ                     | → glTF 2.0/GLB                    | 単体 geometry・animation の preview 出力。完全な skinned round trip には `.model` 経由を使用。Blender で使用する際の注意点は[こちら](docs/cli-document.md#kces-modelmeshanimationclipaudioclip)を参照してください                                                                                                                            |
 | native AudioClip object file                    | encode 済み音声                              | inline payload を無劣化抽出       | 一方向変換。OGG、WAV、FSB5 signature を認識し、transcode は行わない                                                                                                                                                                                                                                                                          |
 
-serializer 実装は [`serialization/COM3D2`](serialization/COM3D2) と
-[`serialization/KCES`](serialization/KCES) にあります。
+### CRC3D3
+
+| ファイルまたは拡張子                            | 内容・説明                                   | 対応操作                          | 備考                                                                                                                                                                                                                                                                                                                                         |
+|-------------------------------------------------|----------------------------------------------|-----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `.neimp`                                        | MessagePack テーブル                         | native ↔ JSON                     | `.nei` の後継形式。payload は MessagePack-CSharp の object graph で、Lz4BlockArray 圧縮も可。JSON は MessagePack 値ツリーをそのまま出力し、Schema も外側の wrapper も持たない                                                                                                                                                                |
+
+`.neimp` は `.nei` の MessagePack 後継形式です。payload には `null`、bool、符号なし整数、`float32`、文字列、
+配列、マップだけが入り、JSON はこれらの型をそのまま保って Schema を課しません。正規の十進整数として書かれた
+マップキーは整数キーとして書き戻され、`float32` が倍精度へ広がることもありません。
+
+serializer 実装は [`serialization/COM3D2`](serialization/COM3D2)、
+[`serialization/KCES`](serialization/KCES)、[`serialization/CRC3D3`](serialization/CRC3D3) にあります。
 
 application-level capability の正式な一覧は gRPC `GetCapabilities` または MCP の
 `meido://capabilities` resource から取得してください。

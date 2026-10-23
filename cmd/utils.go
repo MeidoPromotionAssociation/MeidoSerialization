@@ -14,6 +14,7 @@ import (
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/COM3D2"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/serialization/COM3D2/arc"
 	COM3D2Service "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/COM3D2"
+	CRC3D3Service "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/CRC3D3"
 	KCESService "github.com/MeidoPromotionAssociation/MeidoSerialization/v2/service/KCES"
 	"github.com/MeidoPromotionAssociation/MeidoSerialization/v2/tools"
 )
@@ -188,7 +189,8 @@ func isModFile(path string) bool {
 func isConvertibleNativeFile(path string) bool {
 	return isModFile(path) || KCESService.IsKCESPartsFile(path) || KCESService.IsKCESPayloadFile(path) ||
 		KCESService.IsKCESMiscFile(path) || KCESService.IsKCESDataFile(path) ||
-		KCESService.IsKCESRawUnityBytesFile(path) || KCESService.IsKCESCtFile(path)
+		KCESService.IsKCESRawUnityBytesFile(path) || KCESService.IsKCESCtFile(path) ||
+		CRC3D3Service.IsCRC3D3NeimpFile(path)
 }
 
 // isConvertibleEditingJSONFile 判断路径是否为 convert2mod 在目录模式下会转回原生格式的编辑 JSON
@@ -196,7 +198,8 @@ func isConvertibleNativeFile(path string) bool {
 func isConvertibleEditingJSONFile(path string) bool {
 	return isModJsonFile(path) || KCESService.IsKCESPartsJSONFile(path) || KCESService.IsKCESPayloadJSONFile(path) ||
 		KCESService.IsKCESMiscJSONFile(path) || KCESService.IsKCESDataJSONFile(path) ||
-		KCESService.IsKCESRawUnityBytesJSONFile(path) || KCESService.IsKCESCtJSONFile(path)
+		KCESService.IsKCESRawUnityBytesJSONFile(path) || KCESService.IsKCESCtJSONFile(path) ||
+		CRC3D3Service.IsCRC3D3NeimpJSONFile(path)
 }
 
 // isAutoConvertibleFile 判断路径是否为 convert 自动命令能处理的原生文件或通用格式
@@ -210,12 +213,13 @@ func isAutoConvertibleFile(path string) bool {
 		return isModJsonFile(path) || isBytesJsonFile(path) || KCESService.IsKCESPartsJSONFile(path) ||
 			KCESService.IsKCESPayloadJSONFile(path) || KCESService.IsKCESMiscJSONFile(path) ||
 			KCESService.IsKCESDataJSONFile(path) || KCESService.IsKCESCtJSONFile(path) ||
-			KCESService.IsKCESSystemDataJSONFile(path)
+			KCESService.IsKCESSystemDataJSONFile(path) || CRC3D3Service.IsCRC3D3NeimpJSONFile(path)
 	}
 	return isModFile(path) || KCESService.IsKCESPartsFile(path) || KCESService.IsKCESPayloadFile(path) ||
 		KCESService.IsKCESMiscFile(path) || KCESService.IsKCESDataFile(path) ||
 		isBytesFile(path) || isTexFile(path) || isNativeUnityImageFile(path) ||
-		isImageCandidateFile(path) || isNeiFile(path) || isCsvFile(path) || isArcFile(path)
+		isImageCandidateFile(path) || isNeiFile(path) || isCsvFile(path) || isArcFile(path) ||
+		CRC3D3Service.IsCRC3D3NeimpFile(path)
 }
 
 // isJsonFile 不区分大小写地判断路径是否以 JSON 后缀结尾
@@ -440,6 +444,15 @@ func convertToJson(path string) error {
 	outputPath := path + ".json"
 
 	var err error
+	if CRC3D3Service.IsCRC3D3NeimpFile(path) {
+		service := &CRC3D3Service.NeimpService{}
+		err = service.ConvertNeimpToJSON(ctx, path, outputPath, application.DefaultMaxOutputBytes)
+		if err != nil {
+			return fmt.Errorf("failed to convert %s to .neimp JSON: %w", path, err)
+		}
+		fmt.Printf("Converted %s to %s\n", path, outputPath)
+		return nil
+	}
 	legacyInfo, legacyMatched, legacyProbeErr := (&COM3D2Service.CommonService{}).TryFileTypeDetermine(path)
 	if legacyProbeErr != nil {
 		return fmt.Errorf("failed to probe %s as COM3D2: %w", path, legacyProbeErr)
@@ -610,6 +623,15 @@ func convertToMod(path string) error {
 	outputPath := trimLastExtension(path)
 
 	var err error
+	if CRC3D3Service.IsCRC3D3NeimpJSONFile(path) {
+		service := &CRC3D3Service.NeimpService{}
+		err = service.ConvertJSONToNeimp(ctx, path, outputPath, application.DefaultMaxOutputBytes)
+		if err != nil {
+			return fmt.Errorf("failed to convert %s to .neimp: %w", path, err)
+		}
+		fmt.Printf("Converted %s to %s\n", path, outputPath)
+		return nil
+	}
 	legacyInfo, legacyMatched, legacyProbeErr := (&COM3D2Service.CommonService{}).TryFileTypeDetermine(path)
 	if legacyProbeErr != nil {
 		return fmt.Errorf("failed to probe %s as COM3D2 JSON: %w", path, legacyProbeErr)
@@ -893,6 +915,18 @@ func determineGameFileType(path string, strict bool) (COM3D2Service.FileInfo, er
 
 	kcesService := &KCESService.FileTypeService{}
 	fileInfo, matched, err = kcesService.TryFileTypeDetermine(path)
+	if matched {
+		if err != nil {
+			return fileInfo, err
+		}
+		return fileInfo, nil
+	}
+	if err != nil {
+		return fileInfo, err
+	}
+
+	crc3d3Service := &CRC3D3Service.FileTypeService{}
+	fileInfo, matched, err = crc3d3Service.TryFileTypeDetermine(path)
 	if matched {
 		if err != nil {
 			return fileInfo, err
@@ -1240,7 +1274,7 @@ func convertFile(path string, encoding COM3D2.NeiTextEncoding) error {
 	}
 
 	// If it's a MOD file, convert to JSON
-	if isModFile(path) || KCESService.IsKCESPartsFile(path) || KCESService.IsKCESPayloadFile(path) || KCESService.IsKCESMiscFile(path) || KCESService.IsKCESDataFile(path) || KCESService.IsKCESCtFile(path) || KCESService.IsKCESSystemDataFile(path) {
+	if isModFile(path) || KCESService.IsKCESPartsFile(path) || KCESService.IsKCESPayloadFile(path) || KCESService.IsKCESMiscFile(path) || KCESService.IsKCESDataFile(path) || KCESService.IsKCESCtFile(path) || KCESService.IsKCESSystemDataFile(path) || CRC3D3Service.IsCRC3D3NeimpFile(path) {
 		return convertToJson(path)
 	}
 

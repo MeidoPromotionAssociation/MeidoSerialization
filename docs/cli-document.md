@@ -383,6 +383,22 @@ two encodings produce identical bytes for ASCII.
 CSV files are read and written as RFC 4180 comma-separated UTF-8 with BOM. A character that cannot be encoded in
 the selected encoding causes `convert2nei` to fail instead of silently replacing it.
 
+### CRC3D3 MessagePack tables
+
+```powershell
+MeidoSerialization.exe convert .\csv\cast_data.neimp
+MeidoSerialization.exe convert .\csv\cast_data.neimp.json
+```
+
+`.neimp` is the MessagePack successor of `.nei`: the payload is a MessagePack-CSharp object graph, optionally
+compressed as Lz4BlockArray, and it holds only `null`, booleans, unsigned integers, `float32`, strings, arrays, and
+maps. `convert` writes `<name>.neimp.json` next to the file and reads it back, and `determine` reports it as the
+`neimp` type of the CRC3D3 game. `convert2json` and `convert2mod` accept the same pair.
+
+The JSON is a direct dump of the value tree with no Schema and no envelope. Two rules keep it reversible: a map key
+spelled as a canonical decimal integer is written back as an integer key, and a number whose spelling is the shortest
+`float32` form stays single precision while everything else is written as `double`.
+
 ## Archive commands
 
 ### COM3D2 ARC
@@ -518,7 +534,7 @@ Common filters include COM3D2 types (`menu`, `mate`, `pmat`, `col`, `phy`, `psk`
 `tex`, `nei`, `arc`, `bytes`), generic types (`image`, `csv`), and KCES types such as `menuassets`,
 `materialassets`, `pmatassets`, `dbconf`, `dbcol`, `db2conf`, `dsbconf`, `dsb2conf`, `dslconf`, `dsl2conf`,
 `dslcol`, `ikcol`, `ikcol.bytes`, `limbcol`, `hitcheck`, `undressdat`, `undresspdat`, `nson`, `ct`, `aba`,
-`bridge_session`, `brd`, `enm`, `sad`, `system`, `paths`, and `maid_collider`.
+`bridge_session`, `brd`, `enm`, `sad`, `system`, `paths`, `maid_collider`, and the CRC3D3 type `neimp`.
 
 Use `MeidoSerialization.exe <command> --help` for the flags registered by the current build.
 
@@ -1138,6 +1154,20 @@ NEI 的单元格文本有两种编码，容器本身不携带任何标记，取�
 CSV 按 RFC 4180 的逗号分隔格式读写，编码为带 BOM 的 UTF-8。如果字符无法按所选编码编码，`convert2nei`
 会直接报错，不会静默替换成错误字符。
 
+### CRC3D3 的 MessagePack 表格
+
+~~~powershell
+.\MeidoSerialization.exe convert .\csv\cast_data.neimp
+.\MeidoSerialization.exe convert .\csv\cast_data.neimp.json
+~~~
+
+`.neimp` 是 `.nei` 的 MessagePack 后继格式：载荷是 MessagePack-CSharp 序列化出的对象图，可选用 Lz4BlockArray 压缩，
+里面只有 `null`、布尔、无符号整数、`float32`、字符串、数组与映射。`convert` 会在文件旁边写出 `<名称>.neimp.json` 并能读回，
+`determine` 会把它报告为 CRC3D3 游戏的 `neimp` 类型。`convert2json` 与 `convert2mod` 接受同一对文件。
+
+JSON 是值树的直接转储，没有 Schema 也没有封套。两条规则保证可逆：写成规范十进制整数的映射键会还原成整数键；写法等于
+`float32` 最短表示的数字保持单精度，其余一律写成 `double`。
+
 ## 归档命令
 
 ### COM3D2 ARC
@@ -1268,8 +1298,8 @@ JSON。
 `pmatassets`、`dbconf`、`dbcol`、`db2conf`、`dsbconf`、`dsb2conf`、
 `dslconf`、`dsl2conf`、`dslcol`、`ikcol`、`ikcol.bytes`、`limbcol`、
 `hitcheck`、`undressdat`、`undresspdat`、`nson`、`ct`、`aba`、
-`bridge_session`、`brd`、`enm`、`sad`、`system`、`paths` 和
-`maid_collider`。
+`bridge_session`、`brd`、`enm`、`sad`、`system`、`paths`、`maid_collider`，
+以及 CRC3D3 的 `neimp`。
 
 当前版本到底注册了哪些参数，请以 `.\MeidoSerialization.exe <命令> --help` 为准。
 
@@ -1899,6 +1929,21 @@ ASCII のみの表はエンコーディングの手がかりを持たないた�
 CSV は RFC 4180 形式いカンマ区切りで、BOM 付き UTF-8 として読み書きされます。選択したエンコーディングで表現できない
 文字がある場合、`convert2nei` は黙って置換せずエラーにします。
 
+### CRC3D3 の MessagePack テーブル
+
+~~~powershell
+.\MeidoSerialization.exe convert .\csv\cast_data.neimp
+.\MeidoSerialization.exe convert .\csv\cast_data.neimp.json
+~~~
+
+`.neimp` は `.nei` の MessagePack 後継形式です。payload は MessagePack-CSharp の object graph で、Lz4BlockArray 圧縮も
+可能です。中身は `null`、bool、符号なし整数、`float32`、文字列、配列、マップだけです。`convert` はファイルの隣に
+`<名前>.neimp.json` を書き出して読み戻し、`determine` は CRC3D3 の `neimp` 形式として報告します。`convert2json` と `convert2mod` も同じ組み合わせを受け付けます。
+
+JSON は値ツリーをそのまま出力したもので、Schema も外側の wrapper もありません。可逆性を保つ規則は 2 つです。正規の十進整数
+として書かれたマップキーは整数キーとして書き戻され、`float32` の最短表記と一致する数値は単精度のまま、それ以外は `double`
+として書き出されます。
+
 ## アーカイブコマンド
 
 ### COM3D2 ARC
@@ -2034,7 +2079,7 @@ metadata をカスタマイズするには、生成された `.ct` を JSON enve
 `dbconf`、`dbcol`、`db2conf`、`dsbconf`、`dsb2conf`、`dslconf`、
 `dsl2conf`、`dslcol`、`ikcol`、`ikcol.bytes`、`limbcol`、`hitcheck`、
 `undressdat`、`undresspdat`、`nson`、`ct`、`aba`、`bridge_session`、
-`brd`、`enm`、`sad`、`system`、`paths`、`maid_collider`）があります。
+`brd`、`enm`、`sad`、`system`、`paths`、`maid_collider`）、CRC3D3 形式（`neimp`）があります。
 
 現在のビルドに登録されている正確な flags は
 `.\MeidoSerialization.exe <コマンド> --help` で確認してください。
