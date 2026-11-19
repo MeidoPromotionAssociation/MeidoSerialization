@@ -19,6 +19,8 @@ var gltf2modelCmd = &cobra.Command{
 The scene needs exactly one triangle mesh node; its skeleton, skin, morph targets, and material
 names become the Model data, and the geometry becomes an official Unity 2022.3 native Mesh.
 An unskinned scene is bound rigidly to the mesh node with a synthesized single-bone skin.
+For a nested mesh, a separate root renderer is added for KCES's Export to COM3D2.5 feature.
+The original node hierarchy and transforms are kept, including armature scaling and joints.
 Material appearance is not converted: glTF PBR parameters and textures are ignored, and each
 material's name must match the KCES material the game should load for that sub-mesh.
 Material names from the kcesModel extras take precedence when present; a file re-exported by

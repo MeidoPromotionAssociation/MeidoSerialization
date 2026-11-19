@@ -292,6 +292,9 @@ func TestConvertGLTFToModelSynthesizesSingleBoneSkin(t *testing.T) {
 	if len(model.BoneNames) != 1 || *model.BoneNames[0] != "static_root" || *model.ModelName != "static_root" {
 		t.Fatalf("synthesized skeleton is wrong: %+v", model.BoneNames)
 	}
+	if len(model.TransData) != 1 || model.TransData[0].ParentNo != -1 {
+		t.Fatalf("a root mesh should not need an additional renderer: %+v", model.TransData)
+	}
 	if len(geometry.SkinCounts) != 3 {
 		t.Fatalf("skin counts %d", len(geometry.SkinCounts))
 	}
@@ -302,6 +305,94 @@ func TestConvertGLTFToModelSynthesizesSingleBoneSkin(t *testing.T) {
 	}
 	if len(model.MaterialFileName) != 1 || *model.MaterialFileName[0] != "static_mat" {
 		t.Fatalf("materials %+v", model.MaterialFileName)
+	}
+}
+
+func TestConvertGLTFToModelPreservesNestedMeshTransforms(t *testing.T) {
+	for _, skinned := range []bool{true, false} {
+		t.Run(map[bool]string{true: "skinned", false: "rigid"}[skinned], func(t *testing.T) {
+			document := gltf.NewDocument()
+			attributes := gltf.PrimitiveAttributes{
+				gltf.POSITION: modeler.WritePosition(document, [][3]float32{{0, 0, 0}, {1, 0, 0}, {0, 1, 0}}),
+			}
+			document.Materials = []*gltf.Material{{Name: "nested.mate"}}
+			document.Meshes = []*gltf.Mesh{{Primitives: []*gltf.Primitive{{
+				Attributes: attributes,
+				Indices:    gltf.Index(modeler.WriteIndices(document, []uint32{0, 1, 2})),
+				Material:   gltf.Index(0),
+			}}}}
+			document.Nodes = []*gltf.Node{
+				{Name: "Armature", Children: []int{1}, Translation: [3]float64{1, 2, 3}, Rotation: [4]float64{0, 0, 1, 0}, Scale: [3]float64{0.2, 0.3, 0.4}},
+				{Name: "nested_mesh", Mesh: gltf.Index(0), Children: []int{2}, Translation: [3]float64{4, 5, 6}, Scale: [3]float64{1, 2, 1}},
+				{Name: "child_bone", Translation: [3]float64{0, 1, 0}},
+				{Name: "nested_mesh_Renderer"},
+			}
+			document.Scenes[0].Nodes = []int{0, 3}
+			// Blender may drop document extras; both paths must normalize the renderer hierarchy.
+			if skinned {
+				attributes[gltf.JOINTS_0] = modeler.WriteJoints(document, [][4]uint16{{0, 1}, {0, 1}, {0, 1}})
+				attributes[gltf.WEIGHTS_0] = modeler.WriteWeights(document, [][4]float32{{0.25, 0.75}, {0.25, 0.75}, {0.25, 0.75}})
+				// The original mesh node also acts as a joint, so reparenting it would move the skeleton.
+				identity := gltfMatrixFromUnity([16]float32{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1})
+				document.Skins = []*gltf.Skin{{
+					Joints:              []int{1, 2},
+					InverseBindMatrices: gltf.Index(modeler.WriteAccessor(document, gltf.TargetNone, [][4][4]float32{identity, identity})),
+				}}
+				document.Nodes[1].Skin = gltf.Index(0)
+				document.Extras = map[string]interface{}{KCESModelExtrasKey: &kcesModelExtras{Version: 1001, ModelName: "nested_mesh"}}
+			}
+			inputPath := filepath.Join(t.TempDir(), "Nested.gltf")
+			if err := gltf.Save(document, inputPath); err != nil {
+				t.Fatal(err)
+			}
+			service := &ModelService{}
+			outputDir := t.TempDir()
+			if err := service.ConvertGLTFToModel(context.Background(), inputPath, outputDir, TestConversionMaxOutput); err != nil {
+				t.Fatal(err)
+			}
+			modelPath := filepath.Join(outputDir, "nested.model")
+			model, geometry := decodeModelAndMesh(t, modelPath)
+			if len(model.TransData) != 5 || *model.ModelName != "nested_mesh_Renderer_1" {
+				t.Fatalf("expected a unique root renderer, got modelName=%q transforms=%d", *model.ModelName, len(model.TransData))
+			}
+			renderer := model.TransData[4]
+			if *renderer.Name != *model.ModelName || renderer.ParentNo != -1 || renderer.Pos != (serializationKCES.Vector3{}) || renderer.Rot != (serializationKCES.Vector4{W: 1}) || renderer.Scale != (serializationKCES.Vector3{X: 1, Y: 1, Z: 1}) {
+				t.Fatalf("ExportCM requires an independent root renderer: %+v", renderer)
+			}
+			armature, originalMesh, childBone := model.TransData[0], model.TransData[1], model.TransData[2]
+			if *armature.Name != "Armature" || armature.ParentNo != -1 || armature.Pos != (serializationKCES.Vector3{X: -1, Y: 2, Z: 3}) || armature.Rot != (serializationKCES.Vector4{Z: -1}) || armature.Scale != (serializationKCES.Vector3{X: 0.2, Y: 0.3, Z: 0.4}) {
+				t.Fatalf("armature transform changed: %+v", armature)
+			}
+			if *originalMesh.Name != "nested_mesh" || originalMesh.ParentNo != 0 || originalMesh.Pos != (serializationKCES.Vector3{X: -4, Y: 5, Z: 6}) || originalMesh.Scale != (serializationKCES.Vector3{X: 1, Y: 2, Z: 1}) || *childBone.Name != "child_bone" || childBone.ParentNo != 1 {
+				t.Fatalf("the original mesh hierarchy changed: mesh=%+v child=%+v", originalMesh, childBone)
+			}
+			if *model.BoneNames[0] != "nested_mesh" || (skinned && (len(model.BoneNames) != 2 || *model.BoneNames[1] != "child_bone")) || (!skinned && len(model.BoneNames) != 1) {
+				t.Fatalf("joint names changed: %+v", model.BoneNames)
+			}
+			if skinned {
+				weights := make(map[uint32]float32)
+				for entryIndex := int64(0); entryIndex < int64(geometry.SkinCounts[0]); entryIndex++ {
+					weights[geometry.SkinIndices[entryIndex]] += geometry.SkinWeights[entryIndex]
+				}
+				if geometry.SkinCounts[0] != 2 || weights[0] != 0.25 || weights[1] != 0.75 {
+					t.Fatalf("joint weights changed: %+v", geometry)
+				}
+			} else if geometry.SkinCounts[0] != 1 || geometry.SkinWeights[0] != 1 || geometry.SkinIndices[0] != 0 {
+				t.Fatalf("rigid binding no longer follows the original mesh node: %+v", geometry)
+			}
+			// A second conversion must keep the generated renderer and all original transforms.
+			glbPath := filepath.Join(t.TempDir(), "roundtrip.glb")
+			if err := service.ConvertModelToGLTF(context.Background(), modelPath, glbPath, "glb", TestConversionMaxOutput); err != nil {
+				t.Fatal(err)
+			}
+			rebuiltDir := t.TempDir()
+			if err := service.ConvertGLTFToModel(context.Background(), glbPath, rebuiltDir, TestConversionMaxOutput); err != nil {
+				t.Fatal(err)
+			}
+			rebuilt, rebuiltGeometry := decodeModelAndMesh(t, filepath.Join(rebuiltDir, "nested.model"))
+			assertModelsEquivalent(t, model, rebuilt)
+			assertGeometryEquivalent(t, geometry, rebuiltGeometry)
+		})
 	}
 }
 

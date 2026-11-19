@@ -324,6 +324,10 @@ Blender's glTF exporter does not export shape key (morph target) tangents by def
 
 A glb that lost its morph normals or tangents still converts and still loads: gltf2model zero-fills the missing deltas so the arrays stay as long as v_index, which is what the game's TMorphSkin.FixBlendValues requires. Those zero deltas mean the morph no longer adjusts normals or tangents, so enable the options above when you care about shading.
 
+KCES's built-in **Export to COM3D2.5** requires the `SkinnedMeshRenderer` to be a direct child of the model root. Blender may place the mesh below an Armature node; older `gltf2model` output kept that nesting, allowing the model to load but causing `ExportCM.ExportModel` to pass null bytes to `WriteExportData`. **This issue is fixed in v2.5.2.** From that version onward, `gltf2model` adds a separate root renderer for nested meshes and updates `modelName` to its unique name. It keeps the original nodes, parent relationships, armature scaling, and skin joints. No additional Blender setting or CLI flag is required for this hierarchy correction. To repair an existing affected model, run `convert2gltf` on its `.model`, then `gltf2model` on the resulting glb with v2.5.2 or later, and repack the output.
+
+The added root renderer is also written into the COM3D2.5 `.model` produced by KCES's exporter. `CreateModel` attaches the `SkinnedMeshRenderer` to the node selected by `modelName`, and `ExportCM3D2ModelBinary` includes that renderer node and the preserved ordinary Transform nodes in its transform list. A model requiring this correction therefore gains one transform record. The added node uses an identity transform and preserves the original skeleton and skin bindings, so this extra record does not affect normal use.
+
 <br>
 Regarding Materials:
 
@@ -1094,6 +1098,10 @@ Blender 导出提示：
 Blender 的 glTF 导出器默认不导出形态键（morph target）切线，并且除非手动开启，否则会整个丢弃网格的 TANGENT 属性。想让 morph 的法线和切线在往返中保留，请在 `Data` 面板中勾选 `Tangents`（切线）与 `Shape Key Tangents`（形态键切线），并保持 `Shape Key Normals`（形态键法线）勾选。
 
 丢失了 morph 法线或切线的 glb 依然可以转换、也能被游戏正常加载：`gltf2model` 会把缺失的差分补零，使数组长度与 `v_index` 保持一致，这正是游戏的 `TMorphSkin.FixBlendValues` 所要求的。这些零差分意味着该 morph 不再影响法线与切线，因此在意光照表现时请开启上面的选项。
+
+KCES 内置的 **Export to COM3D2.5** 要求 `SkinnedMeshRenderer` 是模型根对象的直接子节点。Blender 可能把网格放在 Armature 节点下；旧版 `gltf2model` 保留这一层级，模型虽然可以加载，但 `ExportCM.ExportModel` 会把 null 字节数组传给 `WriteExportData`。**此问题已在 v2.5.2 修复。** 从该版本起，`gltf2model` 会为嵌套网格添加独立的根层渲染节点，并将 `modelName` 更新为该节点的唯一名称，同时保留原节点、父子关系、Armature 缩放和蒙皮骨骼。此层级修正无需额外的 Blender 设置或 CLI 参数。修复已有模型时，用 v2.5.2 或更高版本对 `.model` 执行 `convert2gltf`，再对生成的 glb 执行 `gltf2model`，最后重新打包。
+
+新增的根层渲染节点也会写入 KCES 导出的 COM3D2.5 `.model`。`CreateModel` 会把 `SkinnedMeshRenderer` 挂到 `modelName` 选中的节点上，而 `ExportCM3D2ModelBinary` 会将该渲染节点和保留下来的普通 Transform 节点收集到变换列表中。因此，经过此修正的模型会多一条变换记录。新增节点采用单位变换，原骨骼层级和蒙皮绑定关系得到保留，这条额外记录不影响正常使用。
 
 <br>
 
@@ -1871,6 +1879,10 @@ Blender エクスポート時の注意事項：
 Blender の glTF エクスポーターは既定でシェイプキー（モーフターゲット）のタンジェントを出力せず、手動で有効にしない限りメッシュの TANGENT 属性自体も破棄します。モーフの法線とタンジェントを往復で保持したい場合は、Data パネルで Tangents（タンジェント）と Shape Key Tangents（シェイプキーのタンジェント）を有効にし、Shape Key Normals（シェイプキーの法線）のチェックを入れたままにしてください。
 
 モーフの法線やタンジェントが失われた glb でも変換と読み込みは可能です。gltf2model は欠落した差分を 0 で補い、配列長を v_index と揃えます。これはゲームの TMorphSkin.FixBlendValues が要求する形です。ただし 0 の差分になるためそのモーフは法線とタンジェントを動かさなくなります。シェーディングを重視する場合は上記のオプションを有効にしてください。
+
+KCES 内蔵の **Export to COM3D2.5** は、`SkinnedMeshRenderer` がモデルのルートオブジェクトの直接の子であることを要求します。Blender がメッシュを Armature ノードの下に配置すると、従来の `gltf2model` はその階層を維持するため、モデルは読み込めても `ExportCM.ExportModel` が null のバイト配列を `WriteExportData` に渡していました。**この問題は v2.5.2 で修正されました。** このバージョン以降は入れ子のメッシュに独立したルート階層のレンダラーノードを追加し、`modelName` をその一意な名前に更新します。元のノード、親子関係、Armature のスケール、スキンのジョイントは保持されます。この階層の修正に追加の Blender 設定や CLI オプションは必要ありません。既存のモデルを修復するには、v2.5.2 以降のツールで `.model` に `convert2gltf` を実行し、生成した glb に `gltf2model` を実行してから再パックしてください。
+
+追加したルート階層のレンダラーノードは、KCES がエクスポートする COM3D2.5 の `.model` にも書き込まれます。`CreateModel` は `modelName` が指すノードに `SkinnedMeshRenderer` を追加し、`ExportCM3D2ModelBinary` はそのレンダラーノードと保持された通常の Transform ノードを変換リストに収集します。そのため、この修正を適用したモデルには変換レコードが 1 件追加されます。追加ノードの変換は恒等変換で、元のボーン階層とスキンのバインド関係は保持されるため、この追加レコードは通常の使用に影響しません。
 
 <br>
 マテリアルについて：

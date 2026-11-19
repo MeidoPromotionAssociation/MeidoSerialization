@@ -228,7 +228,35 @@ func decodeGLTFModelDocument(document *gltf.Document) (*serializationKCES.Model,
 			model.MaterialFileName[materialIndex] = &name
 		}
 	}
+	ensureModelRootRenderer(model)
 	return model, geometry, extras, nil
+}
+
+// ensureModelRootRenderer 为嵌套网格添加独立的根层渲染节点，使 KCES ExportCM 能找到直属的 SkinnedMeshRenderer
+// 保留原节点的名称、父子关系和局部变换，避免改变骨骼、刚性绑定或带非均匀缩放的 Armature
+// ensureModelRootRenderer adds a separate root renderer for a nested mesh so KCES ExportCM can find a direct-child SkinnedMeshRenderer
+// It preserves the original node names, hierarchy, and local transforms without changing joints, rigid bindings, or armatures with nonuniform scale
+func ensureModelRootRenderer(model *serializationKCES.Model) {
+	names := make(map[string]bool, len(model.TransData))
+	for _, transData := range model.TransData {
+		name := *transData.Name
+		if name == *model.ModelName && transData.ParentNo < 0 {
+			return
+		}
+		names[name] = true
+	}
+	baseName := *model.ModelName + "_Renderer"
+	name := baseName
+	for suffix := int64(1); names[name]; suffix++ {
+		name = fmt.Sprintf("%s_%d", baseName, suffix)
+	}
+	model.TransData = append(model.TransData, &serializationKCES.TransData{
+		Name:     &name,
+		ParentNo: -1,
+		Rot:      serializationKCES.Vector4{W: 1},
+		Scale:    serializationKCES.Vector3{X: 1, Y: 1, Z: 1},
+	})
+	model.ModelName = &name
 }
 
 // parseKCESModelExtras 解析文档 extras 中的 kcesModel 字段
